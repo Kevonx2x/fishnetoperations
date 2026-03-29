@@ -151,8 +151,19 @@ function LeadForm() {
       .insert([{ ...form, status: "new" }]);
 
     if (supabaseError) {
-      setError(supabaseError.message || "An error occurred while submitting your request.");
+      setError(
+        supabaseError.message ||
+          "An error occurred while submitting your request.",
+      );
     } else {
+      await fetch("/api/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          notifyEmail: "ron.business101@gmail.com",
+        }),
+      });
       setSuccess(true);
       setForm({
         name: "",
