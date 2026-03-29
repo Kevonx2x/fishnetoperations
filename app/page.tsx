@@ -151,7 +151,7 @@ function LeadForm() {
       .insert([{ ...form, status: "new" }]);
 
     if (supabaseError) {
-      setError(error.message || "An error occurred while submitting your request.");
+      setError(supabaseError.message || "An error occurred while submitting your request.");
     } else {
       setSuccess(true);
       setForm({
