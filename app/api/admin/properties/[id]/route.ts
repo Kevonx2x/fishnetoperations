@@ -1,26 +1,31 @@
 import { NextResponse } from "next/server";
+import { requireAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { verifyAdminPassword } from "@/lib/admin-auth";
 
 type RouteCtx = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, ctx: RouteCtx) {
   try {
-    const { id } = await ctx.params;
-    const body = await req.json();
-    const { password, ...rest } = body as Record<string, unknown>;
-
-    if (!verifyAdminPassword(password)) {
+    const denied = await requireAdminSession();
+    if (denied === "unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const update: Record<string, string | number> = {};
+    const { id } = await ctx.params;
+    const body = await req.json();
+    const rest = body as Record<string, unknown>;
+
+    const update: Record<string, string | number | null> = {};
     if (typeof rest.location === "string") update.location = rest.location;
     if (typeof rest.price === "string") update.price = rest.price;
     if (typeof rest.sqft === "string") update.sqft = rest.sqft;
     if (typeof rest.image_url === "string") update.image_url = rest.image_url;
     if (typeof rest.beds === "number") update.beds = Math.round(rest.beds);
     if (typeof rest.baths === "number") update.baths = Math.round(rest.baths);
+    if (rest.listed_by === null) update.listed_by = null;
+    if (typeof rest.listed_by === "string") {
+      update.listed_by = rest.listed_by.length ? rest.listed_by : null;
+    }
 
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
@@ -56,14 +61,12 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
 
 export async function DELETE(req: Request, ctx: RouteCtx) {
   try {
-    const { id } = await ctx.params;
-    const body = await req.json().catch(() => ({}));
-    const password = (body as { password?: string }).password;
-
-    if (!verifyAdminPassword(password)) {
+    const denied = await requireAdminSession();
+    if (denied === "unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await ctx.params;
     const supabase = createSupabaseAdmin();
     const { error } = await supabase.from("properties").delete().eq("id", id);
 

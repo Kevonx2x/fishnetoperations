@@ -1,23 +1,24 @@
 import { NextResponse } from "next/server";
+import { requireAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { verifyAdminPassword } from "@/lib/admin-auth";
 
 export async function POST(req: Request) {
   try {
+    const denied = await requireAdminSession();
+    if (denied === "unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const {
-      password,
       location,
       price,
       sqft,
       beds,
       baths,
       image_url,
+      listed_by,
     } = body as Record<string, unknown>;
-
-    if (!verifyAdminPassword(password)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     if (
       typeof location !== "string" ||
@@ -30,6 +31,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
+    const listedBy =
+      typeof listed_by === "string" && listed_by.length > 0 ? listed_by : null;
+
     const supabase = createSupabaseAdmin();
     const { data, error } = await supabase
       .from("properties")
@@ -40,6 +44,7 @@ export async function POST(req: Request) {
         beds: Math.round(beds),
         baths: Math.round(baths),
         image_url,
+        listed_by: listedBy,
       })
       .select()
       .single();

@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { createLeadSchema } from "@/lib/api/schemas/phase1";
 import { fail, fromZodError, ok } from "@/lib/api/response";
-import { verifyAdminApiRequest } from "@/lib/admin-api-auth";
+import { getSessionProfile } from "@/lib/admin-api-auth";
 import { logActivity } from "@/lib/activity-log";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { createSupabaseUserClient } from "@/lib/supabase-route";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 
 /** Public lead capture + admin/staff listing */
@@ -52,13 +52,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const admin = verifyAdminApiRequest(request);
-    const userClient = createSupabaseUserClient(request);
-    const { data: userData } = await userClient.auth.getUser();
+    const session = await getSessionProfile();
+    if (!session) {
+      return fail("UNAUTHORIZED", "Sign in to list leads", 401);
+    }
 
-    if (admin) {
+    if (session.role === "admin") {
       const adminSb = createSupabaseAdmin();
       const { data, error } = await adminSb
         .from("leads")
@@ -68,19 +69,16 @@ export async function GET(request: NextRequest) {
       return ok(data ?? []);
     }
 
-    if (!userData.user) {
-      return fail("UNAUTHORIZED", "Sign in or provide x-admin-password", 401);
-    }
-
-    const { data, error } = await userClient
+    const sb = await createSupabaseServerClient();
+    const { data, error } = await sb
       .from("leads")
       .select("*")
       .order("created_at", { ascending: false });
 
     if (error) return fail("DATABASE_ERROR", error.message, 500);
 
-    await logActivity(userClient, {
-      actor_id: userData.user.id,
+    await logActivity(sb, {
+      actor_id: session.userId,
       action: "leads.list",
       entity_type: "lead",
       metadata: { count: data?.length ?? 0 },

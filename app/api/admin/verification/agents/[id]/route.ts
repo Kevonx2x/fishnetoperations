@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
 import { verificationDecisionSchema } from "@/lib/api/schemas/phase1-batch2";
 import { fail, fromZodError, ok } from "@/lib/api/response";
-import { verifyAdminApiRequest } from "@/lib/admin-api-auth";
+import { requireAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: NextRequest, ctx: Ctx) {
-  if (!verifyAdminApiRequest(request)) {
-    return fail("UNAUTHORIZED", "Invalid admin password", 401);
+  const denied = await requireAdminSession();
+  if (denied === "unauthorized") {
+    return fail("UNAUTHORIZED", "Admin sign-in required", 401);
   }
   try {
     const { id } = await ctx.params;

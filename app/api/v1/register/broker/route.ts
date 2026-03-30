@@ -1,11 +1,18 @@
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { registerBrokerSchema } from "@/lib/api/schemas/phase1-batch2";
 import { fail, fromZodError, ok } from "@/lib/api/response";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseUserClient } from "@/lib/supabase-route";
 
+/** Prefer cookie session; fall back to Authorization bearer. */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseUserClient(request);
+    const fromCookies = await createSupabaseServerClient();
+    const { data: cookieAuth } = await fromCookies.auth.getUser();
+    const supabase = cookieAuth.user
+      ? fromCookies
+      : createSupabaseUserClient(request);
+
     const { data: userData, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userData.user) {
       return fail("UNAUTHORIZED", "Sign in to register as a broker", 401);

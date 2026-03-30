@@ -1,0 +1,115 @@
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+import { pathForRole, type ProfileRole } from "@/lib/auth-roles";
+
+const AUTH_PREFIX = "/auth";
+
+const protectedExact: { path: string; roles: ProfileRole[] }[] = [
+  { path: "/admin", roles: ["admin"] },
+  { path: "/dashboard/broker", roles: ["broker"] },
+  { path: "/dashboard/agent", roles: ["agent"] },
+  { path: "/profile", roles: ["admin", "broker", "agent", "client"] },
+];
+
+function matchesProtected(pathname: string) {
+  return protectedExact.some(
+    (p) => pathname === p.path || pathname.startsWith(`${p.path}/`),
+  );
+}
+
+function protectionFor(pathname: string): { path: string; roles: ProfileRole[] } | null {
+  const hit = protectedExact.find(
+    (p) => pathname === p.path || pathname.startsWith(`${p.path}/`),
+  );
+  return hit ?? null;
+}
+
+export async function middleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options),
+          );
+        },
+      },
+    },
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let role: ProfileRole = "client";
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    const r = profile?.role;
+    if (r === "admin" || r === "broker" || r === "agent" || r === "client") {
+      role = r;
+    }
+  }
+
+  const { pathname } = request.nextUrl;
+
+  // Logged-in users: skip auth marketing pages
+  if (
+    user &&
+    (pathname === `${AUTH_PREFIX}/login` ||
+      pathname === `${AUTH_PREFIX}/signup` ||
+      pathname === `${AUTH_PREFIX}/forgot-password`)
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathForRole(role);
+    return NextResponse.redirect(url);
+  }
+
+  const needsAuth = matchesProtected(pathname);
+  const rule = protectionFor(pathname);
+
+  if (needsAuth && rule) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = `${AUTH_PREFIX}/login`;
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+    if (!rule.roles.includes(role)) {
+      const url = request.nextUrl.clone();
+      url.pathname = pathForRole(role);
+      url.searchParams.delete("next");
+      return NextResponse.redirect(url);
+    }
+  }
+
+  return supabaseResponse;
+}
+
+export const config = {
+  matcher: [
+    "/admin",
+    "/admin/:path*",
+    "/dashboard/broker",
+    "/dashboard/broker/:path*",
+    "/dashboard/agent",
+    "/dashboard/agent/:path*",
+    "/profile",
+    "/profile/:path*",
+    "/auth/login",
+    "/auth/signup",
+    "/auth/forgot-password",
+  ],
+};

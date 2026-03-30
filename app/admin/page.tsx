@@ -1,14 +1,9 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
-
-const ADMIN_PASSWORD = "fishnet2026";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useAuth } from "@/contexts/auth-context";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 interface Lead {
   /** bigint from PostgREST is often JSON-serialized as number */
@@ -33,6 +28,7 @@ interface Property {
   beds: number;
   baths: number;
   image_url: string;
+  listed_by?: string | null;
 }
 
 interface PendingBroker {
@@ -72,9 +68,8 @@ const emptyPropertyForm = {
 };
 
 export default function AdminPage() {
-  const [authed, setAuthed] = useState(false);
-  const [password, setPassword] = useState("");
-  const [wrongPassword, setWrongPassword] = useState(false);
+  const { user, profile, loading: authLoading } = useAuth();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
@@ -100,21 +95,10 @@ export default function AdminPage() {
   >(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  const handleLogin = () => {
-    if (password === ADMIN_PASSWORD) {
-      setAuthed(true);
-      setWrongPassword(false);
-    } else {
-      setWrongPassword(true);
-    }
-  };
-
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/leads", {
-        headers: { "x-admin-password": ADMIN_PASSWORD },
-      });
+      const res = await fetch("/api/v1/leads", { credentials: "include" });
       const json = (await res.json()) as {
         success?: boolean;
         data?: Lead[];
@@ -148,7 +132,7 @@ export default function AdminPage() {
     setVerificationError("");
     try {
       const res = await fetch("/api/admin/verification", {
-        headers: { "x-admin-password": ADMIN_PASSWORD },
+        credentials: "include",
       });
       const json = (await res.json()) as {
         success?: boolean;
@@ -175,10 +159,8 @@ export default function AdminPage() {
     setRejectOpen(null);
     await fetch(`/api/admin/verification/brokers/${id}`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-password": ADMIN_PASSWORD,
-      },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ decision: "approve" }),
     });
     void fetchVerification();
@@ -188,10 +170,8 @@ export default function AdminPage() {
     setRejectOpen(null);
     await fetch(`/api/admin/verification/agents/${id}`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-password": ADMIN_PASSWORD,
-      },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ decision: "approve" }),
     });
     void fetchVerification();
@@ -203,10 +183,8 @@ export default function AdminPage() {
     if (!reason) return;
     await fetch(`/api/admin/verification/brokers/${rejectOpen.id}`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-password": ADMIN_PASSWORD,
-      },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ decision: "reject", reason }),
     });
     setRejectOpen(null);
@@ -220,10 +198,8 @@ export default function AdminPage() {
     if (!reason) return;
     await fetch(`/api/admin/verification/agents/${rejectOpen.id}`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-password": ADMIN_PASSWORD,
-      },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ decision: "reject", reason }),
     });
     setRejectOpen(null);
@@ -233,25 +209,28 @@ export default function AdminPage() {
 
   const leadStage = (l: Lead) => l.stage ?? l.status ?? "new";
 
+  const signOutAdmin = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/auth/login";
+  };
+
   const updateLeadStage = async (id: string | number, stage: string) => {
     await fetch(`/api/v1/leads/${id}`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-password": ADMIN_PASSWORD,
-      },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ stage }),
     });
     fetchLeads();
   };
 
   useEffect(() => {
-    if (authed) {
+    if (user?.id && profile?.role === "admin") {
       fetchLeads();
       fetchProperties();
       void fetchVerification();
     }
-  }, [authed]);
+  }, [user?.id, profile?.role]);
 
   const filteredLeads =
     filter === "all"
@@ -307,7 +286,6 @@ export default function AdminPage() {
     }
 
     const payload = {
-      password: ADMIN_PASSWORD,
       location: propertyForm.location.trim(),
       price: propertyForm.price.trim(),
       sqft: propertyForm.sqft.trim(),
@@ -321,6 +299,7 @@ export default function AdminPage() {
         const res = await fetch(`/api/admin/properties/${editingId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(payload),
         });
         const json = await res.json();
@@ -333,6 +312,7 @@ export default function AdminPage() {
         const res = await fetch("/api/admin/properties", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(payload),
         });
         const json = await res.json();
@@ -357,8 +337,7 @@ export default function AdminPage() {
     try {
       const res = await fetch(`/api/admin/properties/${id}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: ADMIN_PASSWORD }),
+        credentials: "include",
       });
       const json = await res.json();
       if (!res.ok) {
@@ -375,31 +354,28 @@ export default function AdminPage() {
     }
   };
 
-  if (!authed) {
+  if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
-          <h1 className="text-xl font-bold text-gray-900 mb-1">Admin Login</h1>
-          <p className="text-sm text-gray-500 mb-6">Fishnet Operations</p>
-          <input
-            type="password"
-            placeholder="Enter password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-gray-400 mb-3"
-          />
-          {wrongPassword && (
-            <p className="text-red-500 text-xs mb-3">
-              ❌ Wrong password. Try again.
-            </p>
-          )}
-          <button
-            onClick={handleLogin}
-            className="w-full rounded-xl bg-gray-900 py-3 text-sm font-medium text-white hover:bg-gray-700 transition-all"
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center text-sm text-gray-500">
+        Loading…
+      </div>
+    );
+  }
+
+  if (!user || profile?.role !== "admin") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="max-w-sm rounded-2xl border border-gray-200 bg-white p-8 text-center">
+          <h1 className="text-lg font-semibold text-gray-900 mb-2">Admin access</h1>
+          <p className="text-sm text-gray-500 mb-6">
+            Sign in with an account that has the admin role.
+          </p>
+          <Link
+            href="/auth/login?next=/admin"
+            className="inline-flex rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800"
           >
-            Login
-          </button>
+            Sign in
+          </Link>
         </div>
       </div>
     );
@@ -416,8 +392,17 @@ export default function AdminPage() {
             <p className="text-sm text-gray-500">
               Fishnet Operations — Lead &amp; property management
             </p>
+            <p className="text-xs text-gray-400 mt-1">{user?.email}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <button
+              type="button"
+              onClick={() => void signOutAdmin()}
+              className="text-sm text-gray-600 underline self-end"
+            >
+              Sign out
+            </button>
+          <div className="flex flex-wrap gap-2 justify-end">
             <button
               type="button"
               onClick={() => setAdminSection("leads")}
@@ -457,6 +442,7 @@ export default function AdminPage() {
                 {pendingBrokers.length + pendingAgents.length}
               </span>
             </button>
+          </div>
           </div>
         </div>
 

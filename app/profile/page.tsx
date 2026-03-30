@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
+import { useAuth } from "@/contexts/auth-context";
 import {
   formatLicenseDate,
   isLicenseExpiringWithinDays,
 } from "@/lib/license-expiry";
-import { createSupabaseBrowser } from "@/lib/supabase-browser";
-
-const supabase = createSupabaseBrowser();
+import { pathForRole } from "@/lib/auth-roles";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type BrokerRow = {
   id: string;
@@ -34,6 +34,8 @@ type AgentRow = {
 };
 
 export default function ProfilePage() {
+  const { user, role, loading: authLoading } = useAuth();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [loaded, setLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [broker, setBroker] = useState<BrokerRow | null>(null);
@@ -41,22 +43,20 @@ export default function ProfilePage() {
   const [brokerageName, setBrokerageName] = useState<string | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
     void (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.user) {
+      if (!user?.id) {
         setLoaded(true);
         return;
       }
-      setUserId(session.user.id);
+      setUserId(user.id);
 
       const { data: b } = await supabase
         .from("brokers")
         .select(
           "id, company_name, name, status, verified, license_expiry, license_number, email",
         )
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .maybeSingle();
 
       const { data: a } = await supabase
@@ -64,7 +64,7 @@ export default function ProfilePage() {
         .select(
           "id, name, status, verified, license_expiry, license_number, email, broker_id",
         )
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .maybeSingle();
 
       setBroker((b as BrokerRow | null) ?? null);
@@ -83,9 +83,9 @@ export default function ProfilePage() {
 
       setLoaded(true);
     })();
-  }, []);
+  }, [user?.id, authLoading, supabase]);
 
-  if (!loaded) {
+  if (authLoading || !loaded) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center text-sm text-gray-500">
         Loading…
@@ -142,12 +142,28 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-lg mx-auto space-y-6">
-        <p className="text-sm text-gray-500">
-          <Link href="/" className="underline hover:text-gray-800">
-            Home
-          </Link>
-        </p>
-        <h1 className="text-2xl font-bold text-gray-900">Your verification profile</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-gray-500">
+            <Link href="/" className="underline hover:text-gray-800">
+              Home
+            </Link>
+          </p>
+          <div className="flex flex-wrap gap-3 text-sm text-gray-600">
+            {role && (
+              <Link href={pathForRole(role)} className="underline hover:text-gray-900">
+                Dashboard
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => void supabase.auth.signOut().then(() => { window.location.href = "/"; })}
+              className="underline hover:text-gray-900"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mt-4">Your verification profile</h1>
 
         {broker && (
           <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-3">

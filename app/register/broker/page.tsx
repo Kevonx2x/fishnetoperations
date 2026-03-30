@@ -108,7 +108,7 @@ export default function RegisterBrokerPage() {
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    if (!session?.access_token) {
+    if (!session?.user) {
       setSubmitError("Sign in or create an account first.");
       return;
     }
@@ -120,10 +120,8 @@ export default function RegisterBrokerPage() {
       }
       const res = await fetch("/api/v1/register/broker", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
           company_name: companyName.trim(),

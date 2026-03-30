@@ -1,16 +1,16 @@
-import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api/response";
-import { verifyAdminApiRequest } from "@/lib/admin-api-auth";
+import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { createSupabaseUserClient } from "@/lib/supabase-route";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const admin = verifyAdminApiRequest(request);
-    const supabase = createSupabaseUserClient(request);
-    const { data: userData } = await supabase.auth.getUser();
+    const session = await getSessionProfile();
+    if (!session) {
+      return fail("UNAUTHORIZED", "Sign in to view activity", 401);
+    }
 
-    if (admin) {
+    if (session.role === "admin") {
       const sb = createSupabaseAdmin();
       const { data, error } = await sb
         .from("activity_log")
@@ -21,14 +21,11 @@ export async function GET(request: NextRequest) {
       return ok(data ?? []);
     }
 
-    if (!userData.user) {
-      return fail("UNAUTHORIZED", "Sign in or provide x-admin-password", 401);
-    }
-
+    const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("activity_log")
       .select("*")
-      .eq("actor_id", userData.user.id)
+      .eq("actor_id", session.userId)
       .order("created_at", { ascending: false })
       .limit(100);
 

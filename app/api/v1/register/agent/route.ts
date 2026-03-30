@@ -1,11 +1,17 @@
 import { NextRequest } from "next/server";
 import { registerAgentSchema } from "@/lib/api/schemas/phase1-batch2";
 import { fail, fromZodError, ok } from "@/lib/api/response";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseUserClient } from "@/lib/supabase-route";
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseUserClient(request);
+    const fromCookies = await createSupabaseServerClient();
+    const { data: cookieAuth } = await fromCookies.auth.getUser();
+    const supabase = cookieAuth.user
+      ? fromCookies
+      : createSupabaseUserClient(request);
+
     const { data: userData, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userData.user) {
       return fail("UNAUTHORIZED", "Sign in to register as an agent", 401);

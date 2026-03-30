@@ -1,6 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createSupabaseBrowserClient } from "./supabase/client";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+/** Shared browser client for public pages (e.g. homepage listings). */
+export const supabase = createSupabaseBrowserClient();

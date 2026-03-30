@@ -1,11 +1,11 @@
-import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api/response";
-import { verifyAdminApiRequest } from "@/lib/admin-api-auth";
+import { requireAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
-export async function GET(request: NextRequest) {
-  if (!verifyAdminApiRequest(request)) {
-    return fail("UNAUTHORIZED", "Invalid admin password", 401);
+export async function GET() {
+  const denied = await requireAdminSession();
+  if (denied === "unauthorized") {
+    return fail("UNAUTHORIZED", "Admin sign-in required", 401);
   }
   try {
     const sb = createSupabaseAdmin();
