@@ -10,12 +10,6 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import Image from "next/image";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
 
 // Types
 interface Agent {
@@ -146,11 +140,14 @@ function LeadForm() {
     setLoading(true);
     setError("");
 
-    const { error: supabaseError } = await supabase
-      .from("leads")
-      .insert([{ ...form, status: "new" }]);
+    const res = await fetch("/api/v1/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...form, source: "website", stage: "new" }),
+    });
+    const json = (await res.json()) as { success?: boolean };
 
-    if (supabaseError) {
+    if (!res.ok || !json.success) {
       setError("Something went wrong. Please try again.");
     } else {
       setSuccess(true);

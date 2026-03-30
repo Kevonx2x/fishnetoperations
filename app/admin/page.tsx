@@ -11,14 +11,17 @@ const supabase = createClient(
 const ADMIN_PASSWORD = "fishnet2026";
 
 interface Lead {
-  id: number;
+  /** bigint from PostgREST is often JSON-serialized as number */
+  id: string | number;
   created_at: string;
   name: string;
   email: string;
-  phone: string;
-  property_interest: string;
-  message: string;
-  status: string;
+  phone: string | null;
+  property_interest: string | null;
+  message: string | null;
+  stage?: string;
+  /** @deprecated legacy column */
+  status?: string;
 }
 
 interface Property {
@@ -70,11 +73,19 @@ export default function AdminPage() {
 
   const fetchLeads = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("leads")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (data) setLeads(data);
+    try {
+      const res = await fetch("/api/v1/leads", {
+        headers: { "x-admin-password": ADMIN_PASSWORD },
+      });
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: Lead[];
+      };
+      if (json.success && Array.isArray(json.data)) setLeads(json.data);
+      else setLeads([]);
+    } catch {
+      setLeads([]);
+    }
     setLoading(false);
   };
 
@@ -94,8 +105,17 @@ export default function AdminPage() {
     setPropertiesLoading(false);
   };
 
-  const updateStatus = async (id: number, status: string) => {
-    await supabase.from("leads").update({ status }).eq("id", id);
+  const leadStage = (l: Lead) => l.stage ?? l.status ?? "new";
+
+  const updateLeadStage = async (id: string | number, stage: string) => {
+    await fetch(`/api/v1/leads/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-password": ADMIN_PASSWORD,
+      },
+      body: JSON.stringify({ stage }),
+    });
     fetchLeads();
   };
 
@@ -107,7 +127,18 @@ export default function AdminPage() {
   }, [authed]);
 
   const filteredLeads =
-    filter === "all" ? leads : leads.filter((l) => l.status === filter);
+    filter === "all"
+      ? leads
+      : filter === "closed"
+        ? leads.filter((l) => {
+            const s = leadStage(l);
+            return (
+              s === "closed_won" ||
+              s === "closed_lost" ||
+              s === "closed"
+            );
+          })
+        : leads.filter((l) => leadStage(l) === filter);
 
   const openNewProperty = () => {
     setEditingId(null);
@@ -307,17 +338,25 @@ export default function AdminPage() {
                 { label: "Total Leads", value: leads.length, color: "bg-white" },
                 {
                   label: "New",
-                  value: leads.filter((l) => l.status === "new").length,
+                  value: leads.filter((l) => leadStage(l) === "new").length,
                   color: "bg-blue-50",
                 },
                 {
                   label: "Contacted",
-                  value: leads.filter((l) => l.status === "contacted").length,
+                  value: leads.filter((l) => leadStage(l) === "contacted")
+                    .length,
                   color: "bg-yellow-50",
                 },
                 {
                   label: "Closed",
-                  value: leads.filter((l) => l.status === "closed").length,
+                  value: leads.filter((l) => {
+                    const s = leadStage(l);
+                    return (
+                      s === "closed_won" ||
+                      s === "closed_lost" ||
+                      s === "closed"
+                    );
+                  }).length,
                   color: "bg-green-50",
                 },
               ].map((stat) => (
@@ -332,7 +371,7 @@ export default function AdminPage() {
             </div>
 
             <div className="flex gap-2 mb-4">
-              {["all", "new", "contacted", "closed"].map((f) => (
+              {(["all", "new", "contacted", "closed"] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
@@ -393,15 +432,19 @@ export default function AdminPage() {
                         </td>
                         <td className="px-6 py-4">
                           <select
-                            value={lead.status}
+                            value={leadStage(lead)}
                             onChange={(e) =>
-                              updateStatus(lead.id, e.target.value)
+                              updateLeadStage(lead.id, e.target.value)
                             }
-                            className="rounded-lg border border-gray-200 px-2 py-1 text-xs outline-none"
+                            className="rounded-lg border border-gray-200 px-2 py-1 text-xs outline-none max-w-[140px]"
                           >
                             <option value="new">New</option>
                             <option value="contacted">Contacted</option>
-                            <option value="closed">Closed</option>
+                            <option value="qualified">Qualified</option>
+                            <option value="viewing">Viewing</option>
+                            <option value="negotiation">Negotiation</option>
+                            <option value="closed_won">Closed (won)</option>
+                            <option value="closed_lost">Closed (lost)</option>
                           </select>
                         </td>
                       </tr>

@@ -150,13 +150,23 @@ function LeadForm() {
     setLoading(true);
     setError("");
 
-    const { error: supabaseError } = await supabase
-      .from("leads")
-      .insert([{ ...form, status: "new" }]);
+    const res = await fetch("/api/v1/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...form,
+        source: "website",
+        stage: "new",
+      }),
+    });
+    const json = (await res.json()) as {
+      success?: boolean;
+      error?: { message?: string };
+    };
 
-    if (supabaseError) {
+    if (!res.ok || !json.success) {
       setError(
-        supabaseError.message ||
+        json.error?.message ||
           "An error occurred while submitting your request.",
       );
     } else {
