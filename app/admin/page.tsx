@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -35,6 +35,33 @@ interface Property {
   image_url: string;
 }
 
+interface PendingBroker {
+  id: string;
+  created_at: string;
+  name: string;
+  company_name: string;
+  license_number: string;
+  license_expiry: string | null;
+  phone: string | null;
+  email: string;
+  website: string | null;
+  bio: string | null;
+  status: string;
+}
+
+interface PendingAgent {
+  id: string;
+  created_at: string;
+  name: string;
+  license_number: string;
+  license_expiry: string | null;
+  phone: string | null;
+  email: string;
+  bio: string | null;
+  broker_id: string | null;
+  status: string;
+}
+
 const emptyPropertyForm = {
   location: "",
   price: "",
@@ -51,9 +78,9 @@ export default function AdminPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
-  const [adminSection, setAdminSection] = useState<"leads" | "properties">(
-    "leads",
-  );
+  const [adminSection, setAdminSection] = useState<
+    "leads" | "properties" | "verification"
+  >("leads");
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(false);
@@ -61,6 +88,17 @@ export default function AdminPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [propertyError, setPropertyError] = useState("");
   const [propertySaving, setPropertySaving] = useState(false);
+
+  const [pendingBrokers, setPendingBrokers] = useState<PendingBroker[]>([]);
+  const [pendingAgents, setPendingAgents] = useState<PendingAgent[]>([]);
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [verificationError, setVerificationError] = useState("");
+  const [rejectOpen, setRejectOpen] = useState<
+    | { kind: "broker"; id: string }
+    | { kind: "agent"; id: string }
+    | null
+  >(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const handleLogin = () => {
     if (password === ADMIN_PASSWORD) {
@@ -105,6 +143,94 @@ export default function AdminPage() {
     setPropertiesLoading(false);
   };
 
+  const fetchVerification = async () => {
+    setVerificationLoading(true);
+    setVerificationError("");
+    try {
+      const res = await fetch("/api/admin/verification", {
+        headers: { "x-admin-password": ADMIN_PASSWORD },
+      });
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { brokers: PendingBroker[]; agents: PendingAgent[] };
+        error?: { message?: string };
+      };
+      if (!res.ok || !json.success || !json.data) {
+        setVerificationError(json.error?.message || "Failed to load verification queue");
+        setPendingBrokers([]);
+        setPendingAgents([]);
+      } else {
+        setPendingBrokers(json.data.brokers ?? []);
+        setPendingAgents(json.data.agents ?? []);
+      }
+    } catch {
+      setVerificationError("Failed to load verification queue");
+      setPendingBrokers([]);
+      setPendingAgents([]);
+    }
+    setVerificationLoading(false);
+  };
+
+  const approveBroker = async (id: string) => {
+    setRejectOpen(null);
+    await fetch(`/api/admin/verification/brokers/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-password": ADMIN_PASSWORD,
+      },
+      body: JSON.stringify({ decision: "approve" }),
+    });
+    void fetchVerification();
+  };
+
+  const approveAgent = async (id: string) => {
+    setRejectOpen(null);
+    await fetch(`/api/admin/verification/agents/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-password": ADMIN_PASSWORD,
+      },
+      body: JSON.stringify({ decision: "approve" }),
+    });
+    void fetchVerification();
+  };
+
+  const submitRejectBroker = async () => {
+    if (!rejectOpen || rejectOpen.kind !== "broker") return;
+    const reason = rejectReason.trim();
+    if (!reason) return;
+    await fetch(`/api/admin/verification/brokers/${rejectOpen.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-password": ADMIN_PASSWORD,
+      },
+      body: JSON.stringify({ decision: "reject", reason }),
+    });
+    setRejectOpen(null);
+    setRejectReason("");
+    void fetchVerification();
+  };
+
+  const submitRejectAgent = async () => {
+    if (!rejectOpen || rejectOpen.kind !== "agent") return;
+    const reason = rejectReason.trim();
+    if (!reason) return;
+    await fetch(`/api/admin/verification/agents/${rejectOpen.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-password": ADMIN_PASSWORD,
+      },
+      body: JSON.stringify({ decision: "reject", reason }),
+    });
+    setRejectOpen(null);
+    setRejectReason("");
+    void fetchVerification();
+  };
+
   const leadStage = (l: Lead) => l.stage ?? l.status ?? "new";
 
   const updateLeadStage = async (id: string | number, stage: string) => {
@@ -123,6 +249,7 @@ export default function AdminPage() {
     if (authed) {
       fetchLeads();
       fetchProperties();
+      void fetchVerification();
     }
   }, [authed]);
 
@@ -314,6 +441,20 @@ export default function AdminPage() {
               Properties
               <span className="ml-1.5 rounded-full bg-white/20 px-2 py-0.5 text-xs">
                 {properties.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdminSection("verification")}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                adminSection === "verification"
+                  ? "bg-gray-900 text-white"
+                  : "bg-white text-gray-600 border border-gray-200 hover:border-gray-400"
+              }`}
+            >
+              Verification
+              <span className="ml-1.5 rounded-full bg-white/20 px-2 py-0.5 text-xs">
+                {pendingBrokers.length + pendingAgents.length}
               </span>
             </button>
           </div>
@@ -660,6 +801,245 @@ export default function AdminPage() {
                 </table>
               )}
             </div>
+          </div>
+        )}
+
+        {adminSection === "verification" && (
+          <div className="space-y-10">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-gray-500">
+                Approve or reject broker and agent applications. Decisions notify the applicant.
+              </p>
+              <button
+                type="button"
+                onClick={() => void fetchVerification()}
+                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Refresh
+              </button>
+            </div>
+            {verificationError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {verificationError}
+              </div>
+            )}
+            <p className="text-xs text-gray-400">
+              Requires{" "}
+              <code className="rounded bg-gray-100 px-1">SUPABASE_SERVICE_ROLE_KEY</code> in{" "}
+              <code className="rounded bg-gray-100 px-1">.env.local</code>.
+            </p>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                Pending brokers
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  ({pendingBrokers.length})
+                </span>
+              </h2>
+              <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+                {verificationLoading ? (
+                  <div className="p-8 text-center text-sm text-gray-400">Loading…</div>
+                ) : pendingBrokers.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-gray-400">No pending brokers.</div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="border-b border-gray-100 bg-gray-50/80">
+                      <tr className="text-left text-xs text-gray-500 uppercase tracking-wide">
+                        <th className="px-4 py-3">Company</th>
+                        <th className="px-4 py-3">Contact</th>
+                        <th className="px-4 py-3">License</th>
+                        <th className="px-4 py-3">Submitted</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {pendingBrokers.map((b) => (
+                        <Fragment key={b.id}>
+                          <tr className="hover:bg-gray-50/80 align-top">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                              {b.company_name}
+                              <p className="text-xs font-normal text-gray-500">{b.name}</p>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              {b.email}
+                              {b.phone && (
+                                <p className="text-xs text-gray-500">{b.phone}</p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-600">
+                              {b.license_number}
+                              {b.license_expiry && (
+                                <p className="text-gray-500">exp {b.license_expiry}</p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-500">
+                              {new Date(b.created_at).toLocaleDateString("en-PH")}
+                            </td>
+                            <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => void approveBroker(b.id)}
+                                className="text-sm font-medium text-emerald-700 hover:text-emerald-900"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRejectOpen({ kind: "broker", id: b.id });
+                                  setRejectReason("");
+                                }}
+                                className="text-sm font-medium text-red-600 hover:text-red-800"
+                              >
+                                Reject
+                              </button>
+                            </td>
+                          </tr>
+                          {rejectOpen?.kind === "broker" && rejectOpen.id === b.id && (
+                            <tr className="bg-amber-50/50">
+                              <td colSpan={5} className="px-4 py-3">
+                                <p className="text-xs font-medium text-gray-700 mb-2">
+                                  Rejection reason (sent to applicant)
+                                </p>
+                                <textarea
+                                  value={rejectReason}
+                                  onChange={(e) => setRejectReason(e.target.value)}
+                                  rows={3}
+                                  className="w-full max-w-xl rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none mb-2"
+                                  placeholder="Explain why this application was not approved."
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => void submitRejectBroker()}
+                                    disabled={!rejectReason.trim()}
+                                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                                  >
+                                    Send rejection
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setRejectOpen(null)}
+                                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                Pending agents
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  ({pendingAgents.length})
+                </span>
+              </h2>
+              <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+                {verificationLoading ? (
+                  <div className="p-8 text-center text-sm text-gray-400">Loading…</div>
+                ) : pendingAgents.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-gray-400">No pending agents.</div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="border-b border-gray-100 bg-gray-50/80">
+                      <tr className="text-left text-xs text-gray-500 uppercase tracking-wide">
+                        <th className="px-4 py-3">Name</th>
+                        <th className="px-4 py-3">Contact</th>
+                        <th className="px-4 py-3">License</th>
+                        <th className="px-4 py-3">Broker id</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {pendingAgents.map((a) => (
+                        <Fragment key={a.id}>
+                          <tr className="hover:bg-gray-50/80 align-top">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                              {a.name}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              {a.email}
+                              {a.phone && (
+                                <p className="text-xs text-gray-500">{a.phone}</p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-600">
+                              {a.license_number}
+                              {a.license_expiry && (
+                                <p className="text-gray-500">exp {a.license_expiry}</p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-500 font-mono">
+                              {a.broker_id ?? "—"}
+                            </td>
+                            <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => void approveAgent(a.id)}
+                                className="text-sm font-medium text-emerald-700 hover:text-emerald-900"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRejectOpen({ kind: "agent", id: a.id });
+                                  setRejectReason("");
+                                }}
+                                className="text-sm font-medium text-red-600 hover:text-red-800"
+                              >
+                                Reject
+                              </button>
+                            </td>
+                          </tr>
+                          {rejectOpen?.kind === "agent" && rejectOpen.id === a.id && (
+                            <tr className="bg-amber-50/50">
+                              <td colSpan={5} className="px-4 py-3">
+                                <p className="text-xs font-medium text-gray-700 mb-2">
+                                  Rejection reason (sent to applicant)
+                                </p>
+                                <textarea
+                                  value={rejectReason}
+                                  onChange={(e) => setRejectReason(e.target.value)}
+                                  rows={3}
+                                  className="w-full max-w-xl rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none mb-2"
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => void submitRejectAgent()}
+                                    disabled={!rejectReason.trim()}
+                                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                                  >
+                                    Send rejection
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setRejectOpen(null)}
+                                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </section>
           </div>
         )}
       </div>
