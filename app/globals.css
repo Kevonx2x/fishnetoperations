@@ -4,25 +4,25 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #f5f3ef;
-  --foreground: #2d3a2d;
+  --background: #faf8f4;
+  --foreground: #2c2c2c;
   --card: #ffffff;
-  --card-foreground: #2d3a2d;
+  --card-foreground: #2c2c2c;
   --popover: #ffffff;
-  --popover-foreground: #2d3a2d;
-  --primary: #8b9b7a;
+  --popover-foreground: #2c2c2c;
+  --primary: #7c9a7e;
   --primary-foreground: #ffffff;
-  --secondary: #e8e4dc;
-  --secondary-foreground: #2d3a2d;
-  --muted: #f0ece4;
-  --muted-foreground: #6b7b6b;
-  --accent: #c4d4b4;
-  --accent-foreground: #2d3a2d;
+  --secondary: #ebe6dc;
+  --secondary-foreground: #2c2c2c;
+  --muted: #f0ece6;
+  --muted-foreground: #5c5c5c;
+  --accent: #d4e0d5;
+  --accent-foreground: #2c2c2c;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: #d4d0c8;
-  --input: #e8e4dc;
-  --ring: #8b9b7a;
+  --border: #e0dcd4;
+  --input: #ebe6dc;
+  --ring: #7c9a7e;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -38,12 +38,12 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   
-  --sage: #8b9b7a;
-  --sage-light: #a8b89a;
-  --sage-dark: #6b7b5a;
-  --cream: #f5f3ef;
-  --cream-dark: #e8e4dc;
-  --gold: #c9a962;
+  --sage: #7c9a7e;
+  --sage-light: #9ab39c;
+  --sage-dark: #5f7a62;
+  --cream: #faf8f4;
+  --cream-dark: #ebe6dc;
+  --gold: #c9a84c;
 }
 
 .dark {
@@ -136,6 +136,52 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+@keyframes fishnet-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-12px);
+  }
+  55% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes fishnet-wave {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-12deg);
+  }
+  75% {
+    transform: rotate(12deg);
+  }
+}
+
+.fishnet-welcome-mascot {
+  animation: fishnet-bounce 1.2s ease-in-out infinite;
+}
+
+.fishnet-welcome-mascot-delayed {
+  animation: fishnet-bounce 1.2s ease-in-out infinite;
+  animation-delay: 0.15s;
+}
+
+.fishnet-welcome-icon-house {
+  animation: fishnet-wave 1.8s ease-in-out infinite;
+  transform-origin: 60% 80%;
+}
+
+.fishnet-welcome-icon-key {
+  animation: fishnet-wave 1.6s ease-in-out infinite;
+  animation-delay: 0.2s;
+  transform-origin: 30% 70%;
 }
 
 @layer utilities {
