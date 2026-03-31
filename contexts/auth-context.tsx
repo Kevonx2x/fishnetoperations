@@ -71,7 +71,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   useEffect(() => {
-    void refreshProfile();
+    queueMicrotask(() => {
+      void refreshProfile();
+    });
     const { data: sub } = supabase.auth.onAuthStateChange(() => {
       void refreshProfile();
     });

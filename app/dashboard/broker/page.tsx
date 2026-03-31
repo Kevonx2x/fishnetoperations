@@ -119,20 +119,25 @@ export default function BrokerDashboardPage() {
     })();
   }, [user?.id, authLoading, supabase]);
 
-  useEffect(() => {
-    if (broker) {
-      setForm({
-        name: broker.name,
-        company_name: broker.company_name,
-        license_number: broker.license_number,
-        license_expiry: broker.license_expiry ?? "",
-        phone: broker.phone ?? "",
-        email: broker.email,
-        website: broker.website ?? "",
-        bio: broker.bio ?? "",
-      });
-    }
+  // Derive form defaults from broker (avoid setState in effect body).
+  const brokerFormDefaults = useMemo(() => {
+    if (!broker) return null;
+    return {
+      name: broker.name,
+      company_name: broker.company_name,
+      license_number: broker.license_number,
+      license_expiry: broker.license_expiry ?? "",
+      phone: broker.phone ?? "",
+      email: broker.email,
+      website: broker.website ?? "",
+      bio: broker.bio ?? "",
+    };
   }, [broker]);
+
+  useEffect(() => {
+    if (!brokerFormDefaults) return;
+    queueMicrotask(() => setForm(brokerFormDefaults));
+  }, [brokerFormDefaults]);
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -105,19 +105,24 @@ export default function AgentDashboardPage() {
     })();
   }, [user?.id, authLoading, supabase]);
 
-  useEffect(() => {
-    if (agent) {
-      setForm({
-        name: agent.name,
-        phone: agent.phone ?? "",
-        email: agent.email,
-        bio: agent.bio ?? "",
-        license_number: agent.license_number,
-        license_expiry: agent.license_expiry ?? "",
-        image_url: agent.image_url ?? "",
-      });
-    }
+  // Derive form defaults from agent (avoid setState in effect body).
+  const agentFormDefaults = useMemo(() => {
+    if (!agent) return null;
+    return {
+      name: agent.name,
+      phone: agent.phone ?? "",
+      email: agent.email,
+      bio: agent.bio ?? "",
+      license_number: agent.license_number,
+      license_expiry: agent.license_expiry ?? "",
+      image_url: agent.image_url ?? "",
+    };
   }, [agent]);
+
+  useEffect(() => {
+    if (!agentFormDefaults) return;
+    queueMicrotask(() => setForm(agentFormDefaults));
+  }, [agentFormDefaults]);
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();

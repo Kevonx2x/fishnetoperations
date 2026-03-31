@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 const STORAGE_KEY = "fishnet_welcome_seen_v2";
@@ -72,16 +72,15 @@ function FinnMascotSvg({ className }: { className?: string }) {
 }
 
 export function WelcomeOverlay() {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
+  const [open, setOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
     try {
       const seen = window.localStorage.getItem(STORAGE_KEY);
-      setOpen(seen !== "1");
+      return seen !== "1";
     } catch {
-      setOpen(true);
+      return true;
     }
-  }, []);
+  });
 
   const dismiss = useMemo(
     () => () => {

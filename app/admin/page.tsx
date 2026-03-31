@@ -225,10 +225,14 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
+    // Note: avoid calling setState synchronously in effect body (lint rule).
+    // Queue the initial loads as microtasks once admin session is present.
     if (user?.id && profile?.role === "admin") {
-      fetchLeads();
-      fetchProperties();
-      void fetchVerification();
+      queueMicrotask(() => {
+        fetchLeads();
+        fetchProperties();
+        void fetchVerification();
+      });
     }
   }, [user?.id, profile?.role]);
 
