@@ -895,11 +895,6 @@ export default function AdminPage() {
                   No pending applications.
                 </div>
               )}
-            <p className="text-xs text-gray-400">
-              Requires{" "}
-              <code className="rounded bg-gray-100 px-1">SUPABASE_SERVICE_ROLE_KEY</code> in{" "}
-              <code className="rounded bg-gray-100 px-1">.env.local</code>.
-            </p>
 
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">

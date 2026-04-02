@@ -91,6 +91,13 @@ export function AgentDashboard() {
 
   const [tab, setTab] = useState<Tab>("overview");
   const [agent, setAgent] = useState<AgentRow | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = new URLSearchParams(window.location.search).get("tab");
+    const allowed: Tab[] = ["overview", "leads", "viewings", "listings", "profile"];
+    if (raw && allowed.includes(raw as Tab)) setTab(raw as Tab);
+  }, []);
   const [loaded, setLoaded] = useState(false);
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [viewings, setViewings] = useState<ViewingRow[]>([]);

@@ -9,6 +9,7 @@ const protectedExact: { path: string; roles: ProfileRole[] }[] = [
   { path: "/dashboard/broker", roles: ["broker"] },
   { path: "/dashboard/agent", roles: ["agent"] },
   { path: "/profile", roles: ["admin", "broker", "agent", "client"] },
+  { path: "/settings", roles: ["admin", "broker", "agent", "client"] },
 ];
 
 function matchesProtected(pathname: string) {
@@ -51,19 +52,45 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   let role: ProfileRole = "client";
+  let onboardingCompleted = true;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, onboarding_completed")
       .eq("id", user.id)
       .maybeSingle();
     const r = profile?.role;
     if (r === "admin" || r === "broker" || r === "agent" || r === "client") {
       role = r;
     }
+    onboardingCompleted = Boolean(
+      (profile as { onboarding_completed?: unknown } | null | undefined)
+        ?.onboarding_completed,
+    );
   }
 
   const { pathname } = request.nextUrl;
+
+  // Logged-in users: enforce onboarding once.
+  if (
+    user &&
+    !onboardingCompleted &&
+    pathname !== "/onboarding" &&
+    !pathname.startsWith(`${AUTH_PREFIX}/`)
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/onboarding";
+    url.searchParams.delete("next");
+    return NextResponse.redirect(url);
+  }
+
+  // Users who already completed onboarding shouldn't see onboarding again.
+  if (user && onboardingCompleted && pathname === "/onboarding") {
+    const url = request.nextUrl.clone();
+    url.pathname = pathForRole(role);
+    url.searchParams.delete("next");
+    return NextResponse.redirect(url);
+  }
 
   // Logged-in users: skip auth marketing pages
   if (
@@ -100,6 +127,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
+    // everything except next internals and api routes
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
     "/admin",
     "/admin/:path*",
     "/dashboard/broker",
@@ -108,6 +138,8 @@ export const config = {
     "/dashboard/agent/:path*",
     "/profile",
     "/profile/:path*",
+    "/settings",
+    "/settings/:path*",
     "/auth/login",
     "/auth/signup",
     "/auth/forgot-password",

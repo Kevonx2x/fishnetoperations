@@ -16,7 +16,9 @@ export type Profile = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  phone: string | null;
   role: ProfileRole;
+  onboarding_completed: boolean;
 };
 
 type AuthContextValue = {
@@ -54,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const { data: p } = await supabase
       .from("profiles")
-      .select("id, full_name, avatar_url, role")
+      .select("id, full_name, avatar_url, phone, role, onboarding_completed")
       .eq("id", u.id)
       .maybeSingle();
     if (p) {
@@ -62,7 +64,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: p.id,
         full_name: p.full_name,
         avatar_url: p.avatar_url,
+        phone: (p as { phone?: string | null }).phone ?? null,
         role: normalizeRole(p.role),
+        onboarding_completed: Boolean((p as { onboarding_completed?: unknown }).onboarding_completed),
       });
     } else {
       setProfile(null);

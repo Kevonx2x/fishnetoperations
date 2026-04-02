@@ -10,13 +10,17 @@ import {
   Building2,
   GraduationCap,
   HeartHandshake,
+  Home,
   Hospital,
   Landmark,
+  Bookmark,
   LayoutDashboard,
   LogOut,
   MapPin,
   Palmtree,
   Search,
+  Settings,
+  Shield,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
@@ -94,7 +98,7 @@ function NavDropdown({
 export function MaddenTopNav() {
   const pathname = usePathname();
   const isBuyPage = pathname === "/buy";
-  const { user, profile, loading } = useAuth();
+  const { user, profile, role, loading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [busy, setBusy] = useState(false);
   const [agentNav, setAgentNav] = useState<{ id: string; image_url: string | null } | null>(null);
@@ -261,36 +265,97 @@ export function MaddenTopNav() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -6 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-full z-[70] mt-2 w-52 rounded-xl border border-black/10 bg-white py-1 shadow-lg ring-1 ring-black/5"
+                      className="absolute right-0 top-full z-[70] mt-2 w-64 rounded-xl border border-black/10 bg-white py-2 shadow-lg ring-1 ring-black/5"
                       role="menu"
                     >
-                      {agentNav ? (
-                        <Link
-                          href="/dashboard/agent"
-                          className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                          onClick={() => setAccountOpen(false)}
-                        >
-                          <LayoutDashboard className="h-4 w-4 text-[#7C9A7E]" />
-                          My Dashboard
-                        </Link>
+                      <div className="px-3 pb-2 pt-1">
+                        <p className="truncate text-sm font-semibold text-[#2C2C2C]/45">
+                          {profile?.full_name?.trim() || "Member"}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-[#2C2C2C]/40">
+                          {user.email ?? ""}
+                        </p>
+                      </div>
+                      <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
+                      <Link
+                        href="/profile"
+                        className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                        onClick={() => setAccountOpen(false)}
+                      >
+                        <User className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                        My Profile
+                      </Link>
+                      <Link
+                        href="/saved"
+                        className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                        onClick={() => setAccountOpen(false)}
+                      >
+                        <Bookmark className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                        Saved Properties
+                      </Link>
+                      <Link
+                        href="/settings"
+                        className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                        onClick={() => setAccountOpen(false)}
+                      >
+                        <Settings className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                        Settings
+                      </Link>
+                      {role === "agent" ? (
+                        <>
+                          <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
+                          <Link
+                            href="/dashboard/agent"
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <LayoutDashboard className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                            Agent Dashboard
+                          </Link>
+                          <Link
+                            href="/dashboard/agent?tab=listings"
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <Home className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                            My Listings
+                          </Link>
+                        </>
                       ) : null}
-                      {agentNav ? (
-                        <Link
-                          href={`/agents/${encodeURIComponent(agentNav.id)}`}
-                          className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                          onClick={() => setAccountOpen(false)}
-                        >
-                          <User className="h-4 w-4 text-[#7C9A7E]" />
-                          My Profile
-                        </Link>
+                      {role === "broker" ? (
+                        <>
+                          <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
+                          <Link
+                            href="/dashboard/broker"
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <Building2 className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                            Broker Dashboard
+                          </Link>
+                        </>
                       ) : null}
+                      {role === "admin" ? (
+                        <>
+                          <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
+                          <Link
+                            href="/admin"
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <Shield className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                            Admin Panel
+                          </Link>
+                        </>
+                      ) : null}
+                      <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
                       <button
                         type="button"
                         onClick={() => void logout()}
                         disabled={busy}
-                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4] disabled:opacity-60"
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
                       >
-                        <LogOut className="h-4 w-4 text-[#7C9A7E]" />
+                        <LogOut className="h-4 w-4 shrink-0 text-red-600" />
                         {busy ? "…" : "Logout"}
                       </button>
                     </motion.div>

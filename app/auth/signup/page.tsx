@@ -23,6 +23,14 @@ export default function SignupPage() {
     setNotice("");
     setBusy(true);
     try {
+      // Helpful, explicit client-side config validation (avoids vague "Failed to fetch").
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!url || !anon) {
+        throw new Error(
+          "Client Supabase env is missing. Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set and restart the dev server.",
+        );
+      }
       const { data, error: err } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -41,10 +49,23 @@ export default function SignupPage() {
         setBusy(false);
         return;
       }
-      router.replace("/");
+      router.replace("/onboarding");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not sign up");
+      console.error("[signup] signUp failed:", err);
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+            ? err
+            : "Could not sign up";
+      if (/failed to fetch/i.test(message)) {
+        setError(
+          `${message}\n\nThis usually means NEXT_PUBLIC_SUPABASE_URL is unreachable from the browser (wrong URL, blocked network/CORS, or missing env). Verify NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY and restart the dev server.`,
+        );
+      } else {
+        setError(message);
+      }
     }
     setBusy(false);
   };
