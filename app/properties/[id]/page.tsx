@@ -12,6 +12,7 @@ import { ConnectedAgentsBox } from "@/components/marketplace/connected-agents-bo
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { useSavedPropertyIds } from "@/lib/saved-properties";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
+import { recordRecentlyViewedPropertyId } from "@/lib/recently-viewed";
 
 type ListingAgentProfile = {
   id: string;
@@ -89,7 +90,9 @@ export default function PropertyPage() {
         setError(error.message);
         setProperty(null);
       } else {
-        setProperty((data ?? null) as unknown as PropertyRow | null);
+        const next = (data ?? null) as unknown as PropertyRow | null;
+        setProperty(next);
+        if (next?.id) recordRecentlyViewedPropertyId(next.id);
       }
       setIdx(0);
       setLoading(false);

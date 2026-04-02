@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 
 export type FinnMood = "happy" | "sad" | "still" | "celebrate";
 
+const EASE: [number, number, number, number] = [0.42, 0, 0.58, 1];
+
 export function FinnMascot({
   mood,
   size,
@@ -24,12 +26,12 @@ export function FinnMascot({
 
   const transition =
     mood === "happy"
-      ? { duration: 1.25, repeat: Infinity, ease: "easeInOut" }
+      ? { duration: 1.25, repeat: Infinity, ease: EASE }
       : mood === "sad"
-        ? { duration: 2.2, repeat: Infinity, ease: "easeInOut" }
+        ? { duration: 2.2, repeat: Infinity, ease: EASE }
         : mood === "celebrate"
-          ? { duration: 0.9, repeat: 1, ease: "easeInOut" }
-          : { duration: 2.6, repeat: Infinity, ease: "easeInOut" };
+          ? { duration: 0.9, repeat: 1, ease: EASE }
+          : { duration: 2.6, repeat: Infinity, ease: EASE };
 
   return (
     <motion.div

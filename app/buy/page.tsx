@@ -1,5 +1,5 @@
 import { FishnetHomeMarketplace } from "@/components/marketplace/fishnet-home-marketplace";
 
-export default function HomePage() {
-  return <FishnetHomeMarketplace listingMode="rent" />;
+export default function BuyPage() {
+  return <FishnetHomeMarketplace listingMode="buy" />;
 }

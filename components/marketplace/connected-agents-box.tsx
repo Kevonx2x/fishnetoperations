@@ -50,7 +50,7 @@ export function ConnectedAgentsBox({
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ type: "spring", stiffness: 320, damping: 26 }}
-              className="rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-3"
+              className="group rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-3 shadow-sm transition-all hover:-translate-y-[1px] hover:shadow-md"
             >
               <div className="flex items-center gap-3">
                 <div className="relative h-10 w-10 overflow-hidden rounded-full bg-white ring-1 ring-black/10">
@@ -61,13 +61,32 @@ export function ConnectedAgentsBox({
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate font-semibold text-[#2C2C2C]">{a.name}</p>
-                    <div className="shrink-0 rounded-full bg-white px-2 py-1 text-xs font-bold text-[#2C2C2C] ring-1 ring-black/10">
+                    <Link
+                      href={`/agents/${encodeURIComponent(a.id)}`}
+                      className="truncate font-semibold text-[#2C2C2C] hover:underline hover:decoration-[#C9A84C]/60 hover:underline-offset-4"
+                    >
+                      {a.name}
+                    </Link>
+                    <Link
+                      href={`/agents/${encodeURIComponent(a.id)}`}
+                      title="Trust Score"
+                      className="shrink-0 rounded-full bg-white px-2 py-1 text-xs font-bold text-[#2C2C2C] ring-1 ring-black/10 hover:bg-[#FAF8F4]"
+                      aria-label={`Trust Score ${Math.round(a.score)}`}
+                    >
                       {Math.round(a.score)}
-                    </div>
+                    </Link>
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-[#2C2C2C]/60">
-                    <span className="truncate">{a.company || a.brokerName || "Independent"}</span>
+                    {a.brokerId ? (
+                      <Link
+                        href={`/brokers/${encodeURIComponent(a.brokerId)}`}
+                        className="truncate hover:text-[#2C2C2C] hover:underline hover:decoration-[#C9A84C]/60 hover:underline-offset-4"
+                      >
+                        {a.company || a.brokerName}
+                      </Link>
+                    ) : (
+                      <span className="truncate">{a.company || a.brokerName || "Independent"}</span>
+                    )}
                     <VerifiedAgentBadge show />
                   </div>
                   <div className="mt-1 text-[11px] font-semibold text-[#2C2C2C]/60">
@@ -77,7 +96,13 @@ export function ConnectedAgentsBox({
               </div>
 
               <div className="mt-2 flex items-center justify-between text-[11px] font-semibold text-[#2C2C2C]/60">
-                <span>Score {Math.round(a.score)}</span>
+                <Link
+                  href={`/agents/${encodeURIComponent(a.id)}`}
+                  title="Trust Score"
+                  className="inline-flex items-center gap-1 hover:text-[#2C2C2C]"
+                >
+                  Score {Math.round(a.score)}
+                </Link>
                 <Link href={`/agents/${encodeURIComponent(a.id)}`} className="hover:text-[#2C2C2C]">
                   View →
                 </Link>
