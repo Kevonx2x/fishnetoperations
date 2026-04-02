@@ -22,6 +22,7 @@ import {
 } from "@/components/marketplace/fishnet-home-marketplace";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { useSavedPropertyIds } from "@/lib/saved-properties";
+import { useAuth } from "@/contexts/auth-context";
 
 const HERO_IMG =
   "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=2400&h=1200&fit=crop";
@@ -63,6 +64,7 @@ function matchesLandmark(p: DbProperty, t: LandmarkType): boolean {
 }
 
 function LandmarksContent() {
+  const { user } = useAuth();
   const searchParams = useSearchParams();
   const typeParam = searchParams.get("type") as LandmarkType | null;
   const activeType =
@@ -84,7 +86,7 @@ function LandmarksContent() {
         .from("properties")
         .select(
           `
-          id, created_at, name, location, price, sqft, beds, baths, image_url, status,
+          id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by,
           property_photos (url, sort_order),
           property_agents (agent:agents (id, user_id, name, image_url, score, closings, response_time, availability, brokers (id, company_name, logo_url)))
         `,
@@ -236,6 +238,7 @@ function LandmarksContent() {
                       setCardAgentsExpanded((s) => ({ ...s, [p.id]: !(s[p.id] ?? false) }))
                     }
                     grid
+                    viewerUserId={user?.id ?? null}
                   />
                 ))}
               </div>

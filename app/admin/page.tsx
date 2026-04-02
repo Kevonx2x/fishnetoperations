@@ -67,6 +67,24 @@ const emptyPropertyForm = {
   image_url: "",
 };
 
+function formatVerificationErrorDetails(
+  status: number,
+  statusText: string,
+  body: unknown,
+): string {
+  const payload =
+    typeof body === "string"
+      ? body
+      : body === undefined || body === null
+        ? "(empty body)"
+        : JSON.stringify(body, null, 2);
+  return [
+    `HTTP ${status}${statusText ? ` ${statusText}` : ""}`,
+    "",
+    payload,
+  ].join("\n");
+}
+
 export default function AdminPage() {
   const { user, profile, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -130,29 +148,80 @@ export default function AdminPage() {
   const fetchVerification = async () => {
     setVerificationLoading(true);
     setVerificationError("");
+    const path = "/api/admin/verification";
+    const absoluteUrl =
+      typeof window !== "undefined"
+        ? new URL(path, window.location.origin).href
+        : path;
+    const requestInit: RequestInit = {
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+      },
+    };
+    console.log("[admin verification] fetch URL:", absoluteUrl);
+    console.log("[admin verification] request headers:", {
+      ...Object.fromEntries(new Headers(requestInit.headers).entries()),
+      credentials: requestInit.credentials ?? "same-origin",
+    });
     try {
-      const res = await fetch("/api/admin/verification", {
-        credentials: "include",
-      });
-      const json = (await res.json()) as {
+      const res = await fetch(path, requestInit);
+      const rawText = await res.text();
+      let body: unknown = rawText;
+      try {
+        body = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        /* non-JSON body */
+      }
+      type VerificationJson = {
         success?: boolean;
         data?: { brokers: PendingBroker[]; agents: PendingAgent[] };
-        error?: { message?: string };
+        error?: { code?: string; message?: string; details?: unknown };
       };
-      if (!res.ok || !json.success || !json.data) {
-        setVerificationError(json.error?.message || "Failed to load verification queue");
+      const json = body as VerificationJson;
+
+      if (!res.ok) {
+        console.error("[admin verification] error response:", {
+          status: res.status,
+          statusText: res.statusText,
+          body,
+        });
+        setVerificationError(
+          formatVerificationErrorDetails(res.status, res.statusText, body),
+        );
         setPendingBrokers([]);
         setPendingAgents([]);
-      } else {
-        setPendingBrokers(json.data.brokers ?? []);
-        setPendingAgents(json.data.agents ?? []);
+        return;
       }
-    } catch {
-      setVerificationError("Failed to load verification queue");
+      if (!json.success || !json.data) {
+        console.error("[admin verification] error response:", {
+          status: res.status,
+          statusText: res.statusText,
+          body,
+        });
+        setVerificationError(
+          formatVerificationErrorDetails(res.status, res.statusText, body),
+        );
+        setPendingBrokers([]);
+        setPendingAgents([]);
+        return;
+      }
+      // Ensure any prior error is cleared on success.
+      setVerificationError("");
+      setPendingBrokers(json.data.brokers ?? []);
+      setPendingAgents(json.data.agents ?? []);
+    } catch (e) {
+      console.error("[admin verification] fetch threw:", e);
+      const msg =
+        e instanceof Error
+          ? `${e.name}: ${e.message}${e.stack ? `\n\n${e.stack}` : ""}`
+          : String(e);
+      setVerificationError(msg);
       setPendingBrokers([]);
       setPendingAgents([]);
+    } finally {
+      setVerificationLoading(false);
     }
-    setVerificationLoading(false);
   };
 
   const approveBroker = async (id: string) => {
@@ -809,10 +878,23 @@ export default function AdminPage() {
               </button>
             </div>
             {verificationError && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {verificationError}
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                <p className="font-medium text-red-900 mb-2">
+                  Verification queue could not be loaded
+                </p>
+                <pre className="whitespace-pre-wrap break-words font-mono text-xs text-red-900/90 max-h-80 overflow-auto">
+                  {verificationError}
+                </pre>
               </div>
             )}
+            {!verificationLoading &&
+              !verificationError &&
+              pendingBrokers.length === 0 &&
+              pendingAgents.length === 0 && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                  No pending applications.
+                </div>
+              )}
             <p className="text-xs text-gray-400">
               Requires{" "}
               <code className="rounded bg-gray-100 px-1">SUPABASE_SERVICE_ROLE_KEY</code> in{" "}

@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Award,
   BadgeCheck,
+  Bell,
   Building2,
   GraduationCap,
   HeartHandshake,
   Hospital,
   Landmark,
+  LayoutDashboard,
   LogOut,
   MapPin,
   Palmtree,
@@ -22,6 +24,7 @@ import {
   Store,
   Train,
   TrendingUp,
+  User,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -91,9 +94,53 @@ function NavDropdown({
 export function MaddenTopNav() {
   const pathname = usePathname();
   const isBuyPage = pathname === "/buy";
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [busy, setBusy] = useState(false);
+  const [agentNav, setAgentNav] = useState<{ id: string; image_url: string | null } | null>(null);
+  const [unreadLeads, setUnreadLeads] = useState(0);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setAgentNav(null);
+      setUnreadLeads(0);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data: a } = await supabase
+        .from("agents")
+        .select("id, image_url")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (a) {
+        setAgentNav({ id: a.id as string, image_url: (a as { image_url?: string | null }).image_url ?? null });
+        const { count } = await supabase
+          .from("leads")
+          .select("id", { count: "exact", head: true })
+          .eq("agent_id", user.id)
+          .eq("stage", "new");
+        setUnreadLeads(count ?? 0);
+      } else {
+        setAgentNav(null);
+        setUnreadLeads(0);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, supabase]);
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (accountRef.current && !accountRef.current.contains(e.target as Node)) setAccountOpen(false);
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, []);
 
   const logout = async () => {
     if (busy) return;
@@ -106,11 +153,11 @@ export function MaddenTopNav() {
   };
 
   const agentsItems: NavItem[] = [
+    { label: "Become an Agent →", href: "/register/agent", icon: <UserPlus /> },
     { label: "Find an Agent", href: "/agents", icon: <Search /> },
     { label: "Top Agents This Week", href: "/agents?sort=top", icon: <TrendingUp /> },
     { label: "Agents by Specialty", href: "/agents?filter=specialty", icon: <Award /> },
     { label: "Agents by Location", href: "/agents?filter=location", icon: <MapPin /> },
-    { label: "Become an Agent →", href: "/contact", icon: <UserPlus /> },
   ];
 
   const brokersItems: NavItem[] = [
@@ -168,19 +215,89 @@ export function MaddenTopNav() {
           )}
         </nav>
 
-        <div className="justify-self-end">
+        <div className="justify-self-end flex items-center justify-end gap-2">
           {loading ? (
             <div className="h-9 w-20 animate-pulse rounded-full bg-black/5" />
           ) : user ? (
-            <button
-              type="button"
-              onClick={() => void logout()}
-              disabled={busy}
-              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35 disabled:opacity-60"
-            >
-              <LogOut className="h-4 w-4" />
-              {busy ? "…" : "Logout"}
-            </button>
+            <>
+              {agentNav ? (
+                <Link
+                  href="/dashboard/agent"
+                  className="relative inline-flex rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm hover:bg-[#FAF8F4]"
+                  aria-label="Notifications"
+                >
+                  <Bell className="h-4 w-4" />
+                  {unreadLeads > 0 ? (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#C9A84C] px-1 text-[10px] font-bold text-[#2C2C2C]">
+                      {unreadLeads > 9 ? "9+" : unreadLeads}
+                    </span>
+                  ) : null}
+                </Link>
+              ) : null}
+              <div className="relative" ref={accountRef}>
+                <button
+                  type="button"
+                  onClick={() => setAccountOpen((o) => !o)}
+                  className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white shadow-sm ring-2 ring-[#C9A84C]/25 hover:bg-[#FAF8F4]"
+                  aria-expanded={accountOpen}
+                  aria-haspopup="menu"
+                >
+                  {agentNav?.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={agentNav.image_url} alt="" className="h-full w-full object-cover" />
+                  ) : profile?.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-xs font-bold text-[#2C2C2C]">
+                      {(profile?.full_name ?? user.email ?? "?").slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                </button>
+                <AnimatePresence>
+                  {accountOpen ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-full z-[70] mt-2 w-52 rounded-xl border border-black/10 bg-white py-1 shadow-lg ring-1 ring-black/5"
+                      role="menu"
+                    >
+                      {agentNav ? (
+                        <Link
+                          href="/dashboard/agent"
+                          className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                          onClick={() => setAccountOpen(false)}
+                        >
+                          <LayoutDashboard className="h-4 w-4 text-[#7C9A7E]" />
+                          My Dashboard
+                        </Link>
+                      ) : null}
+                      {agentNav ? (
+                        <Link
+                          href={`/agents/${encodeURIComponent(agentNav.id)}`}
+                          className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                          onClick={() => setAccountOpen(false)}
+                        >
+                          <User className="h-4 w-4 text-[#7C9A7E]" />
+                          My Profile
+                        </Link>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => void logout()}
+                        disabled={busy}
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4] disabled:opacity-60"
+                      >
+                        <LogOut className="h-4 w-4 text-[#7C9A7E]" />
+                        {busy ? "…" : "Logout"}
+                      </button>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
+            </>
           ) : (
             <Link
               href="/auth/login"

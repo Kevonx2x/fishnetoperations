@@ -25,6 +25,7 @@ import { ConnectedAgentsBox } from "@/components/marketplace/connected-agents-bo
 import { FinnMascot } from "@/components/marketplace/mascots/finn-mascot";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { useSavedPropertyIds } from "@/lib/saved-properties";
+import { useAuth } from "@/contexts/auth-context";
 
 export type DbProperty = {
   id: string;
@@ -37,6 +38,7 @@ export type DbProperty = {
   baths: number;
   image_url: string;
   status: "for_sale" | "for_rent";
+  listed_by?: string | null;
   property_photos?: { url: string; sort_order: number }[];
   property_agents?: { agent: unknown }[];
 };
@@ -123,6 +125,7 @@ function inferredType(p: DbProperty): FiltersState["propertyType"] {
 }
 
 export function FishnetHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" }) {
+  const { user } = useAuth();
   const saved = useSavedPropertyIds();
 
   const mode = listingMode;
@@ -161,7 +164,7 @@ export function FishnetHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         .from("properties")
         .select(
           `
-          id, created_at, name, location, price, sqft, beds, baths, image_url, status,
+          id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by,
           property_photos (url, sort_order),
           property_agents (agent:agents (id, user_id, name, image_url, score, closings, response_time, availability, brokers (id, company_name, logo_url)))
         `,
@@ -760,6 +763,7 @@ export function FishnetHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                               setCardAgentsExpanded((s) => ({ ...s, [p.id]: !(s[p.id] ?? false) }))
                             }
                             grid
+                            viewerUserId={user?.id ?? null}
                           />
                         ))}
                       </div>
@@ -795,6 +799,7 @@ export function FishnetHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
                         cardAgentsExpanded={cardAgentsExpanded}
                         setCardAgentsExpanded={setCardAgentsExpanded}
+                        viewerUserId={user?.id ?? null}
                       />
                     ) : (
                       <PropertyRows
@@ -817,6 +822,7 @@ export function FishnetHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
                         cardAgentsExpanded={cardAgentsExpanded}
                         setCardAgentsExpanded={setCardAgentsExpanded}
+                        viewerUserId={user?.id ?? null}
                       />
                     )}
                   </motion.div>
@@ -1188,6 +1194,7 @@ export function NewlyListedCard({
   onToggleAgentsExpanded,
   grid,
   cardWidthClass,
+  viewerUserId,
 }: {
   property: DbProperty;
   roomUrls: string[];
@@ -1201,6 +1208,7 @@ export function NewlyListedCard({
   onToggleAgentsExpanded: () => void;
   grid?: boolean;
   cardWidthClass?: string;
+  viewerUserId?: string | null;
 }) {
   const hrs = hoursAgo(property.created_at);
   const newLabel = hrs <= 24 ? "New Today" : `Listed ${hrs} hrs ago`;
@@ -1209,6 +1217,9 @@ export function NewlyListedCard({
 
   const visibleAgents = agentsExpanded ? connectedAgents : connectedAgents.slice(0, 3);
   const hiddenCount = Math.max(0, connectedAgents.length - 3);
+  const showYourListingBadge =
+    !!viewerUserId &&
+    connectedAgents.some((a) => a.userId === viewerUserId);
 
   return (
     <div
@@ -1248,10 +1259,19 @@ export function NewlyListedCard({
           </>
         ) : null}
 
-        <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
+        <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-sm">
             {newLabel}
           </span>
+          {showYourListingBadge ? (
+            <Link
+              href="/dashboard/agent"
+              className="rounded-full bg-[#C9A84C]/95 px-2.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm ring-1 ring-[#8a6d32]/30 backdrop-blur-sm hover:bg-[#C9A84C]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              This is your listing
+            </Link>
+          ) : null}
         </div>
         <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
           <span className="rounded-full bg-[#7C9A7E] px-3 py-1 text-[11px] font-bold text-white shadow-sm">
@@ -1413,6 +1433,7 @@ function PropertyRows({
   connectedAgentsByPropertyId,
   cardAgentsExpanded,
   setCardAgentsExpanded,
+  viewerUserId,
 }: {
   rows: { key: string; title: string; subtitle: string; items: DbProperty[]; featured?: boolean }[];
   showMore: boolean;
@@ -1424,6 +1445,7 @@ function PropertyRows({
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
   cardAgentsExpanded: Record<string, boolean>;
   setCardAgentsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  viewerUserId?: string | null;
 }) {
   const first = rows.slice(0, 4);
   const rest = rows.slice(4);
@@ -1445,6 +1467,7 @@ function PropertyRows({
             connectedAgentsByPropertyId={connectedAgentsByPropertyId}
             cardAgentsExpanded={cardAgentsExpanded}
             setCardAgentsExpanded={setCardAgentsExpanded}
+            viewerUserId={viewerUserId}
           />
           <hr className="mx-auto my-4 w-3/4 border-t border-[#2C2C2C]/10" />
         </div>
@@ -1485,6 +1508,7 @@ function PropertyRows({
                   connectedAgentsByPropertyId={connectedAgentsByPropertyId}
                   cardAgentsExpanded={cardAgentsExpanded}
                   setCardAgentsExpanded={setCardAgentsExpanded}
+                  viewerUserId={viewerUserId}
                 />
                 <hr className="mx-auto my-4 w-3/4 border-t border-[#2C2C2C]/10" />
               </div>
@@ -1509,6 +1533,7 @@ function RowCarousel({
   connectedAgentsByPropertyId,
   cardAgentsExpanded,
   setCardAgentsExpanded,
+  viewerUserId,
 }: {
   rowKey: string;
   title: string;
@@ -1522,6 +1547,7 @@ function RowCarousel({
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
   cardAgentsExpanded: Record<string, boolean>;
   setCardAgentsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  viewerUserId?: string | null;
 }) {
   const scroll = (dir: "prev" | "next") => {
     const el = rowRefs.current[rowKey];
@@ -1614,6 +1640,7 @@ function RowCarousel({
                 setCardAgentsExpanded((s) => ({ ...s, [p.id]: !(s[p.id] ?? false) }))
               }
               cardWidthClass={cardWidthClass}
+              viewerUserId={viewerUserId}
             />
           ))}
         </div>
