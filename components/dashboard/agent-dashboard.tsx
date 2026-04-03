@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  BarChart3,
   Calendar,
   Check,
   Home,
@@ -15,13 +16,17 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
+import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
+import { AgentLeadTemplatesSection } from "@/components/dashboard/agent-lead-templates";
+import { AgentViewingsTab } from "@/components/dashboard/agent-viewings-tab";
 import { useAuth } from "@/contexts/auth-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { formatLicenseDate } from "@/lib/license-expiry";
 
-type Tab = "overview" | "leads" | "viewings" | "listings" | "profile";
+type Tab = "overview" | "leads" | "viewings" | "listings" | "profile" | "analytics";
 
 type AgentRow = {
   id: string;
@@ -38,6 +43,8 @@ type AgentRow = {
   specialties: string | null;
   service_areas: string | null;
   social_links: Record<string, string> | null;
+  response_time?: string | null;
+  closings?: number | null;
 };
 
 type LeadRow = {
@@ -49,6 +56,7 @@ type LeadRow = {
   message: string | null;
   stage: string;
   created_at: string;
+  updated_at?: string;
 };
 
 type ViewingRow = {
@@ -60,6 +68,8 @@ type ViewingRow = {
   status: string;
   property_id: string;
   notes: string | null;
+  reminder_minutes?: number | null;
+  reminder_sent?: boolean | null;
 };
 
 type PropertyRow = {
@@ -95,7 +105,7 @@ export function AgentDashboard() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const raw = new URLSearchParams(window.location.search).get("tab");
-    const allowed: Tab[] = ["overview", "leads", "viewings", "listings", "profile"];
+    const allowed: Tab[] = ["overview", "leads", "viewings", "listings", "profile", "analytics"];
     if (raw && allowed.includes(raw as Tab)) setTab(raw as Tab);
   }, []);
   const [loaded, setLoaded] = useState(false);
@@ -143,7 +153,7 @@ export function AgentDashboard() {
       const [{ data: ld }, { data: pr }, vwRes] = await Promise.all([
         supabase
           .from("leads")
-          .select("id, name, email, phone, property_interest, message, stage, created_at")
+          .select("id, name, email, phone, property_interest, message, stage, created_at, updated_at")
           .eq("agent_id", user.id)
           .order("created_at", { ascending: false }),
         supabase
@@ -280,42 +290,6 @@ export function AgentDashboard() {
     setSelectedLead((s) => (s && s.id === leadId ? { ...s, stage } : s));
   };
 
-  const updateViewing = async (id: string, patch: Partial<ViewingRow>) => {
-    const { error } = await supabase.from("viewing_requests").update(patch).eq("id", id);
-    if (error) {
-      setMsg(error.message);
-      return;
-    }
-    setViewings((prev) => prev.map((v) => (v.id === id ? { ...v, ...patch } : v)));
-  };
-
-  const confirmViewing = async (id: string) => {
-    setSaving(true);
-    setMsg("");
-    try {
-      const res = await fetch("/api/dashboard/viewing-confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ viewingId: id }),
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        success?: boolean;
-        error?: { message?: string };
-      };
-      if (!res.ok) {
-        setMsg(json?.error?.message ?? "Could not send confirmation email.");
-        setSaving(false);
-        return;
-      }
-      await loadData();
-      setMsg("Viewing confirmed and client notified.");
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Request failed");
-    }
-    setSaving(false);
-  };
-
   const createListing = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id) return;
@@ -395,6 +369,7 @@ export function AgentDashboard() {
     { id: "overview", label: "Overview", icon: <LayoutDashboard className="h-5 w-5" /> },
     { id: "leads", label: "Leads", icon: <Users className="h-5 w-5" /> },
     { id: "viewings", label: "Viewings", icon: <Calendar className="h-5 w-5" /> },
+    { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" /> },
     { id: "listings", label: "Listings", icon: <Home className="h-5 w-5" /> },
     { id: "profile", label: "Profile", icon: <Settings className="h-5 w-5" /> },
   ];
@@ -476,20 +451,33 @@ export function AgentDashboard() {
                 />
               )}
               {tab === "leads" && approved && (
-                <LeadsTab
-                  leads={leads}
-                  onSelect={setSelectedLead}
-                  onStageChange={updateLeadStage}
-                />
+                <>
+                  <LeadsTab leads={leads} onSelect={setSelectedLead} onStageChange={updateLeadStage} />
+                  <AgentLeadTemplatesSection
+                    leadEmail={selectedLead?.email}
+                    leadName={selectedLead?.name}
+                  />
+                </>
               )}
               {tab === "leads" && !approved && (
                 <p className="text-sm font-semibold text-[#2C2C2C]/55">Leads unlock when your profile is verified.</p>
               )}
               {tab === "viewings" && approved && (
-                <ViewingsTab viewings={viewings} saving={saving} onConfirm={confirmViewing} onUpdate={updateViewing} />
+                <AgentViewingsTab
+                  viewings={viewings}
+                  properties={properties}
+                  saving={saving}
+                  onAfterAction={loadData}
+                />
               )}
               {tab === "viewings" && !approved && (
                 <p className="text-sm font-semibold text-[#2C2C2C]/55">Viewings unlock when verified.</p>
+              )}
+              {tab === "analytics" && approved && (
+                <AgentAnalyticsTab leads={leads} viewings={viewings} agent={agent} />
+              )}
+              {tab === "analytics" && !approved && (
+                <p className="text-sm font-semibold text-[#2C2C2C]/55">Analytics unlock when verified.</p>
               )}
               {tab === "listings" && approved && (
                 <ListingsTab
@@ -541,8 +529,15 @@ export function AgentDashboard() {
       </nav>
 
       <AnimatePresence>
-        {selectedLead ? (
-          <LeadSlideOver lead={selectedLead} onClose={() => setSelectedLead(null)} onStageChange={updateLeadStage} />
+        {selectedLead && user ? (
+          <AgentLeadSlideOver
+            lead={selectedLead}
+            agentUserId={user.id}
+            agentAvatarUrl={agent.image_url}
+            agentName={agent.name}
+            onClose={() => setSelectedLead(null)}
+            onStageChange={updateLeadStage}
+          />
         ) : null}
       </AnimatePresence>
     </div>
@@ -714,142 +709,6 @@ function LeadsTab({
           <p className="p-8 text-center text-sm font-semibold text-[#2C2C2C]/45">No leads assigned.</p>
         ) : null}
       </div>
-    </div>
-  );
-}
-
-function LeadSlideOver({
-  lead,
-  onClose,
-  onStageChange,
-}: {
-  lead: LeadRow;
-  onClose: () => void;
-  onStageChange: (id: number, stage: string) => void;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex justify-end bg-black/30"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ x: 320 }}
-        animate={{ x: 0 }}
-        exit={{ x: 320 }}
-        transition={{ type: "spring", damping: 28, stiffness: 320 }}
-        className="h-full w-full max-w-md overflow-y-auto bg-[#FAF8F4] p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="font-serif text-2xl font-bold text-[#2C2C2C]">{lead.name}</h2>
-            <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{lead.email}</p>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-full p-2 hover:bg-white" aria-label="Close">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <dl className="mt-6 space-y-3 text-sm">
-          <div>
-            <dt className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Phone</dt>
-            <dd className="font-semibold text-[#2C2C2C]">{lead.phone ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Property interest</dt>
-            <dd className="font-semibold text-[#2C2C2C]">{lead.property_interest ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Message</dt>
-            <dd className="font-semibold text-[#2C2C2C]/80">{lead.message ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Received</dt>
-            <dd className="font-semibold text-[#2C2C2C]">{new Date(lead.created_at).toLocaleString()}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Status</dt>
-            <dd className="mt-1">
-              <select
-                value={lead.stage}
-                onChange={(e) => onStageChange(lead.id, e.target.value)}
-                className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 font-semibold"
-              >
-                {LEAD_STAGE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </dd>
-          </div>
-        </dl>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function ViewingsTab({
-  viewings,
-  saving,
-  onConfirm,
-  onUpdate,
-}: {
-  viewings: ViewingRow[];
-  saving: boolean;
-  onConfirm: (id: string) => void;
-  onUpdate: (id: string, patch: Partial<ViewingRow>) => void;
-}) {
-  return (
-    <div>
-      <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Viewings</h1>
-      <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Confirm, reschedule, or decline requests.</p>
-      <ul className="mt-6 space-y-4">
-        {viewings.map((v) => (
-          <li key={v.id} className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
-            <p className="font-semibold text-[#2C2C2C]">{v.client_name}</p>
-            <p className="text-xs font-semibold text-[#2C2C2C]/45">{v.client_email}</p>
-            <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/70">
-              {new Date(v.scheduled_at).toLocaleString()} ·{" "}
-              <span className="rounded-full bg-[#7C9A7E]/12 px-2 py-0.5 text-xs">{v.status}</span>
-            </p>
-            <p className="mt-1 text-xs text-[#2C2C2C]/45">Property ID: {v.property_id.slice(0, 8)}…</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={saving || v.status === "confirmed"}
-                onClick={() => void onConfirm(v.id)}
-                className="rounded-full bg-[#7C9A7E] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
-              >
-                Confirm
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const iso = window.prompt("New date/time (ISO, e.g. 2026-04-15T14:00:00)", v.scheduled_at);
-                  if (!iso) return;
-                  void onUpdate(v.id, { scheduled_at: iso, status: "rescheduled" });
-                }}
-                className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold"
-              >
-                Reschedule
-              </button>
-              <button
-                type="button"
-                onClick={() => void onUpdate(v.id, { status: "declined" })}
-                className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-800"
-              >
-                Decline
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
-      {viewings.length === 0 ? (
-        <p className="mt-6 text-sm font-semibold text-[#2C2C2C]/45">No viewing requests yet.</p>
-      ) : null}
     </div>
   );
 }

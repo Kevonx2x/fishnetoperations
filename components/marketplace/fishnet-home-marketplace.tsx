@@ -438,7 +438,7 @@ export function FishnetHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       }
                       const el = rowRefs.current[mode === "buy" ? "buy-featured" : "rent-featured"];
                       if (!el) return;
-                      const step = Math.max(320, Math.round(el.clientWidth * 0.85));
+                      const step = Math.max(260, Math.round(el.clientWidth * 0.85));
                       el.scrollBy({ left: -step, behavior: "smooth" });
                     }}
                     className="rounded-full bg-[#7C9A7E] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#6C8C70] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
@@ -511,7 +511,7 @@ export function FishnetHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
       <hr className="mx-auto w-3/4 border-t border-[#2C2C2C]/10" />
 
-      <main className="mx-auto max-w-6xl px-4 pb-16 pt-10">
+      <main className="mx-auto max-w-6xl px-3 pb-16 pt-10">
         {/* Loading / error */}
         {loading ? <div className="h-40 rounded-2xl animate-pulse bg-black/5" /> : null}
         {!loading && error ? (
@@ -1215,8 +1215,8 @@ export function NewlyListedCard({
   const statusLabel = property.status === "for_rent" ? "For Rent" : "For Sale";
   const img = roomUrls[roomIdx] ?? roomUrls[0] ?? property.image_url;
 
-  const visibleAgents = agentsExpanded ? connectedAgents : connectedAgents.slice(0, 3);
-  const hiddenCount = Math.max(0, connectedAgents.length - 3);
+  const visibleAgents = agentsExpanded ? connectedAgents : connectedAgents.slice(0, 2);
+  const hiddenCount = Math.max(0, connectedAgents.length - 2);
   const showYourListingBadge =
     !!viewerUserId &&
     connectedAgents.some((a) => a.userId === viewerUserId);
@@ -1224,17 +1224,17 @@ export function NewlyListedCard({
   return (
     <div
       className={`overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm ${
-        grid ? "" : `${cardWidthClass ?? "w-[340px]"} shrink-0`
+        grid ? "" : `${cardWidthClass ?? "w-[260px]"} shrink-0`
       }`}
     >
-      <div className="relative h-[200px] w-full bg-black/5">
+      <div className="relative h-40 w-full bg-black/5">
         <Image
           src={img}
           alt={property.name ?? property.location}
           fill
           quality={92}
           className="object-cover"
-          sizes={grid ? "(min-width: 1024px) 360px, 100vw" : "340px"}
+          sizes={grid ? "(min-width: 1024px) 360px, 100vw" : "260px"}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-transparent" />
 
@@ -1297,67 +1297,40 @@ export function NewlyListedCard({
       </div>
 
       {/* Connected agents strip */}
-      <div className="relative border-t border-[#2C2C2C]/10 bg-white px-4 pb-4 pt-3">
-        <div className="mb-2 grid grid-cols-12 gap-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">
-          <div className="col-span-5">Agent</div>
-          <div className="col-span-5">Agency</div>
-          <div className="col-span-2 text-right">Verified</div>
-        </div>
+      <div className="relative border-t border-[#2C2C2C]/10 bg-white px-4 pb-4 pt-4">
         <div className="space-y-2">
           {visibleAgents.map((a) => (
-            <div key={a.id} className="grid grid-cols-12 items-center gap-3">
-              <div className="col-span-5 flex min-w-0 items-center gap-2">
-                <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
-                  {a.image ? <Image src={a.image} alt={a.name} fill sizes="28px" className="object-cover" /> : null}
-                </div>
-                <Link
-                  href={`/agents/${encodeURIComponent(a.id)}`}
-                  className="truncate text-xs font-semibold text-[#2C2C2C] hover:underline hover:decoration-[#C9A84C]/60 hover:underline-offset-4"
-                >
-                  {a.name}
-                </Link>
+            <div key={a.id} className="flex items-center gap-2.5">
+              <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
+                {a.image ? <Image src={a.image} alt={a.name} fill sizes="28px" className="object-cover" /> : null}
               </div>
-              <div className="col-span-5 min-w-0">
-                {a.brokerId ? (
-                  <Link
-                    href={`/brokers/${encodeURIComponent(a.brokerId)}`}
-                    className="block truncate text-[11px] font-semibold text-[#2C2C2C]/55 hover:text-[#2C2C2C] hover:underline hover:decoration-[#C9A84C]/60 hover:underline-offset-4"
-                  >
-                    {a.company || a.brokerName}
-                  </Link>
-                ) : (
-                  <span className="block truncate text-[11px] font-semibold text-[#2C2C2C]/55">{a.company || a.brokerName}</span>
-                )}
-              </div>
-              <div className="col-span-2 flex items-center justify-end gap-2">
-                <Link
-                  href={`/agents/${encodeURIComponent(a.id)}`}
-                  title="Trust Score"
-                  className="rounded-full bg-white px-2 py-1 text-[11px] font-bold text-[#2C2C2C] ring-1 ring-black/10 hover:bg-[#FAF8F4]"
-                  aria-label={`Trust Score ${Math.round(a.score)}`}
-                >
-                  {Math.round(a.score)}
-                </Link>
-                <VerifiedAgentBadge show />
-              </div>
+              <Link
+                href={`/agents/${encodeURIComponent(a.id)}`}
+                className="min-w-0 flex-1 truncate text-xs font-semibold text-[#2C2C2C] hover:underline hover:decoration-[#C9A84C]/60 hover:underline-offset-4"
+                title={a.name}
+              >
+                {a.name.length > 12 ? `${a.name.slice(0, 12)}…` : a.name}
+              </Link>
+              <BadgeCheck className="h-4 w-4 shrink-0 text-[#C9A84C]" aria-label="Verified" />
+              <span className="ml-auto text-xs font-bold text-[#2C2C2C]">
+                {Math.round(a.score)}
+              </span>
             </div>
           ))}
         </div>
 
-        {!agentsExpanded && hiddenCount > 0 ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-14 h-14 bg-gradient-to-t from-white via-white/70 to-transparent" />
-        ) : null}
-
-        <div className="mt-3 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onToggleAgentsExpanded}
-            className="text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
-            disabled={connectedAgents.length <= 3}
-            title={connectedAgents.length <= 3 ? "No more agents" : undefined}
-          >
-            Show More
-          </button>
+        <div className="mt-4 flex items-center justify-between">
+          {hiddenCount > 0 ? (
+            <button
+              type="button"
+              onClick={onToggleAgentsExpanded}
+              className="text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
+            >
+              Show More
+            </button>
+          ) : (
+            <span className="text-xs font-semibold text-[#2C2C2C]/35"> </span>
+          )}
           <Link
             href={`/properties/${encodeURIComponent(property.id)}`}
             className="inline-flex rounded-full bg-[#2C2C2C] px-4 py-2 text-xs font-semibold text-white hover:bg-[#7C9A7E]"
@@ -1451,9 +1424,9 @@ function PropertyRows({
   const rest = rows.slice(4);
 
   return (
-    <div>
-      {first.map((r, idx) => (
-        <div key={r.key} className={idx === 0 ? "" : "mt-6"}>
+    <div className="space-y-6">
+      {first.map((r) => (
+        <div key={r.key}>
           <RowCarousel
             rowKey={r.key}
             title={r.title}
@@ -1469,11 +1442,11 @@ function PropertyRows({
             setCardAgentsExpanded={setCardAgentsExpanded}
             viewerUserId={viewerUserId}
           />
-          <hr className="mx-auto my-4 w-3/4 border-t border-[#2C2C2C]/10" />
+          <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
         </div>
       ))}
 
-      <div className="mt-6 flex justify-center">
+      <div className="flex justify-center">
         <button
           type="button"
           onClick={onToggleShowMore}
@@ -1491,10 +1464,10 @@ function PropertyRows({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="overflow-hidden"
+            className="overflow-hidden space-y-6"
           >
             {rest.map((r) => (
-              <div key={r.key} className="mt-6">
+              <div key={r.key}>
                 <RowCarousel
                   rowKey={r.key}
                   title={r.title}
@@ -1510,7 +1483,7 @@ function PropertyRows({
                   setCardAgentsExpanded={setCardAgentsExpanded}
                   viewerUserId={viewerUserId}
                 />
-                <hr className="mx-auto my-4 w-3/4 border-t border-[#2C2C2C]/10" />
+                <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
               </div>
             ))}
           </motion.div>
@@ -1552,15 +1525,15 @@ function RowCarousel({
   const scroll = (dir: "prev" | "next") => {
     const el = rowRefs.current[rowKey];
     if (!el) return;
-    const step = Math.max(320, Math.round(el.clientWidth * 0.85));
+    const step = Math.max(260, Math.round(el.clientWidth * 0.85));
     el.scrollBy({ left: dir === "next" ? step : -step, behavior: "smooth" });
   };
 
   const [hasScrolled, setHasScrolled] = useState(false);
 
   const list = items.slice(0, 12);
-  const featuredClasses = featured ? "rounded-2xl border border-[#C9A84C]/30 bg-[#C9A84C]/5 px-4 pt-4" : "";
-  const cardWidthClass = featured ? "w-[360px]" : "w-[340px]";
+  const featuredClasses = featured ? "rounded-2xl border border-[#C9A84C]/30 bg-[#C9A84C]/5 px-3 pt-3" : "";
+  const cardWidthClass = "w-[260px]";
 
   return (
     <div className={featuredClasses}>
