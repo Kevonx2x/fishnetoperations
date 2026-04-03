@@ -20,10 +20,15 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     const sb = createSupabaseAdmin();
     const updates =
       parsed.data.decision === "approve"
-        ? { status: "approved" as const, rejection_reason: null }
+        ? {
+            status: "approved" as const,
+            rejection_reason: null,
+            verified: true,
+          }
         : {
             status: "rejected" as const,
             rejection_reason: parsed.data.reason,
+            verified: false,
           };
 
     const { data, error } = await sb

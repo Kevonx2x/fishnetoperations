@@ -49,7 +49,7 @@ export default function SignupPage() {
         setBusy(false);
         return;
       }
-      router.replace("/onboarding");
+      router.replace("/");
       router.refresh();
     } catch (err) {
       console.error("[signup] signUp failed:", err);

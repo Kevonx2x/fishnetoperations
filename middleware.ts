@@ -68,44 +68,25 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   let role: ProfileRole = "client";
-  let onboardingCompleted = true;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, onboarding_completed")
+      .select("role")
       .eq("id", user.id)
       .maybeSingle();
     const r = profile?.role;
     if (r === "admin" || r === "broker" || r === "agent" || r === "client") {
       role = r;
     }
-    onboardingCompleted = Boolean(
-      (profile as { onboarding_completed?: unknown } | null | undefined)
-        ?.onboarding_completed,
-    );
   }
 
   const { pathname } = request.nextUrl;
 
-  // Logged-in users: enforce onboarding once.
-  if (
-    user &&
-    !onboardingCompleted &&
-    pathname !== "/onboarding" &&
-    !pathname.startsWith(`${AUTH_PREFIX}/`)
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/onboarding";
-    url.searchParams.delete("next");
-    return NextResponse.redirect(url);
-  }
-
-  // Users who already completed onboarding shouldn't see onboarding again.
-  if (user && onboardingCompleted && pathname === "/onboarding") {
-    const url = request.nextUrl.clone();
-    url.pathname = pathForRole(role);
-    url.searchParams.delete("next");
-    return NextResponse.redirect(url);
+  if (pathname === "/onboarding") {
+    const home = request.nextUrl.clone();
+    home.pathname = "/";
+    home.searchParams.delete("next");
+    return NextResponse.redirect(home);
   }
 
   // Logged-in users: skip auth marketing pages

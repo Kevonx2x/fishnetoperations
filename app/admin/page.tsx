@@ -58,6 +58,32 @@ interface PendingAgent {
   status: string;
 }
 
+interface AdminUserRow {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  role: string;
+  created_at: string;
+  agent_verified: boolean | null;
+  broker_verified: boolean | null;
+  agent_id: string | null;
+  broker_id: string | null;
+  agent_status: string | null;
+  broker_status: string | null;
+}
+
+interface AllAgentRow {
+  id: string;
+  name: string;
+  email: string;
+  license_number: string;
+  status: string;
+  verified: boolean;
+  user_id: string;
+  created_at: string;
+  rejection_reason: string | null;
+}
+
 const emptyPropertyForm = {
   location: "",
   price: "",
@@ -92,7 +118,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
   const [adminSection, setAdminSection] = useState<
-    "leads" | "properties" | "verification"
+    "leads" | "properties" | "verification" | "users"
   >("leads");
 
   const [properties, setProperties] = useState<Property[]>([]);
@@ -112,6 +138,12 @@ export default function AdminPage() {
     | null
   >(null);
   const [rejectReason, setRejectReason] = useState("");
+
+  const [adminUsers, setAdminUsers] = useState<AdminUserRow[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState("");
+  const [allAgentsList, setAllAgentsList] = useState<AllAgentRow[]>([]);
+  const [allAgentsLoading, setAllAgentsLoading] = useState(false);
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -224,6 +256,87 @@ export default function AdminPage() {
     }
   };
 
+  const fetchUsers = async () => {
+    setUsersLoading(true);
+    setUsersError("");
+    try {
+      const res = await fetch("/api/admin/users", { credentials: "include" });
+      const rawText = await res.text();
+      let body: unknown = rawText;
+      try {
+        body = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        /* non-JSON */
+      }
+      const json = body as { success?: boolean; data?: AdminUserRow[]; error?: { message?: string } };
+      if (!res.ok) {
+        setUsersError(json?.error?.message ?? `HTTP ${res.status}`);
+        setAdminUsers([]);
+        return;
+      }
+      if (json.success && Array.isArray(json.data)) setAdminUsers(json.data);
+      else setAdminUsers([]);
+    } catch (e) {
+      setUsersError(e instanceof Error ? e.message : "Failed to load users");
+      setAdminUsers([]);
+    }
+    setUsersLoading(false);
+  };
+
+  const fetchAllAgents = async () => {
+    setAllAgentsLoading(true);
+    try {
+      const res = await fetch("/api/admin/agents", { credentials: "include" });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: AllAgentRow[];
+      };
+      if (json.success && Array.isArray(json.data)) setAllAgentsList(json.data);
+      else setAllAgentsList([]);
+    } catch {
+      setAllAgentsList([]);
+    }
+    setAllAgentsLoading(false);
+  };
+
+  const updateUserRole = async (id: string, role: string) => {
+    await fetch(`/api/admin/users/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ role }),
+    });
+    void fetchUsers();
+  };
+
+  const deleteUser = async (id: string) => {
+    if (!confirm("Delete this user and all related data? This cannot be undone.")) return;
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const j = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+      alert(j?.error?.message ?? "Delete failed");
+      return;
+    }
+    void fetchUsers();
+  };
+
+  const deleteAgentRow = async (id: string) => {
+    if (!confirm("Remove this agent registration from the database?")) return;
+    const res = await fetch(`/api/admin/agents/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (!res.ok) {
+      alert("Could not delete agent");
+      return;
+    }
+    void fetchAllAgents();
+    void fetchVerification();
+  };
+
   const approveBroker = async (id: string) => {
     setRejectOpen(null);
     await fetch(`/api/admin/verification/brokers/${id}`, {
@@ -301,9 +414,16 @@ export default function AdminPage() {
         fetchLeads();
         fetchProperties();
         void fetchVerification();
+        void fetchAllAgents();
       });
     }
   }, [user?.id, profile?.role]);
+
+  useEffect(() => {
+    if (user?.id && profile?.role === "admin" && adminSection === "users") {
+      void fetchUsers();
+    }
+  }, [user?.id, profile?.role, adminSection]);
 
   const filteredLeads =
     filter === "all"
@@ -429,7 +549,7 @@ export default function AdminPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center text-sm text-gray-500">
+      <div className="flex min-h-screen items-center justify-center bg-[#FAF8F4] text-sm text-[#2C2C2C]/50">
         Loading…
       </div>
     );
@@ -437,15 +557,15 @@ export default function AdminPage() {
 
   if (!user || profile?.role !== "admin") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="max-w-sm rounded-2xl border border-gray-200 bg-white p-8 text-center">
-          <h1 className="text-lg font-semibold text-gray-900 mb-2">Admin access</h1>
-          <p className="text-sm text-gray-500 mb-6">
+      <div className="flex min-h-screen items-center justify-center bg-[#FAF8F4] p-6">
+        <div className="max-w-sm rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center shadow-sm">
+          <h1 className="mb-2 text-lg font-semibold text-[#2C2C2C]">Admin access</h1>
+          <p className="mb-6 text-sm text-[#2C2C2C]/55">
             Sign in with an account that has the admin role.
           </p>
           <Link
             href="/auth/login?next=/admin"
-            className="inline-flex rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800"
+            className="inline-flex rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#7C9A7E]"
           >
             Sign in
           </Link>
@@ -455,69 +575,194 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+    <div className="min-h-screen bg-[#FAF8F4] p-6">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Admin Dashboard
-            </h1>
-            <p className="text-sm text-gray-500">
-              BahayGo — Lead &amp; property management
-            </p>
-            <p className="text-xs text-gray-400 mt-1">{user?.email}</p>
+            <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">Admin Dashboard</h1>
+            <p className="text-sm text-[#2C2C2C]/55">BahayGo — Lead &amp; property management</p>
+            <p className="mt-1 text-xs text-[#2C2C2C]/40">{user?.email}</p>
           </div>
           <div className="flex flex-col items-stretch gap-2 sm:items-end">
             <button
               type="button"
               onClick={() => void signOutAdmin()}
-              className="text-sm text-gray-600 underline self-end"
+              className="self-end text-sm font-semibold text-[#2C2C2C]/55 underline hover:text-[#2C2C2C]"
             >
               Sign out
             </button>
-          <div className="flex flex-wrap gap-2 justify-end">
-            <button
-              type="button"
-              onClick={() => setAdminSection("leads")}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                adminSection === "leads"
-                  ? "bg-gray-900 text-white"
-                  : "bg-white text-gray-600 border border-gray-200 hover:border-gray-400"
-              }`}
-            >
-              Leads
-            </button>
-            <button
-              type="button"
-              onClick={() => setAdminSection("properties")}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                adminSection === "properties"
-                  ? "bg-gray-900 text-white"
-                  : "bg-white text-gray-600 border border-gray-200 hover:border-gray-400"
-              }`}
-            >
-              Properties
-              <span className="ml-1.5 rounded-full bg-white/20 px-2 py-0.5 text-xs">
-                {properties.length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setAdminSection("verification")}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                adminSection === "verification"
-                  ? "bg-gray-900 text-white"
-                  : "bg-white text-gray-600 border border-gray-200 hover:border-gray-400"
-              }`}
-            >
-              Verification
-              <span className="ml-1.5 rounded-full bg-white/20 px-2 py-0.5 text-xs">
-                {pendingBrokers.length + pendingAgents.length}
-              </span>
-            </button>
-          </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setAdminSection("leads")}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                  adminSection === "leads"
+                    ? "bg-[#7C9A7E] text-white shadow-sm ring-1 ring-[#C9A84C]/35"
+                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#7C9A7E]/40"
+                }`}
+              >
+                Leads
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminSection("properties")}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                  adminSection === "properties"
+                    ? "bg-[#7C9A7E] text-white shadow-sm ring-1 ring-[#C9A84C]/35"
+                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#7C9A7E]/40"
+                }`}
+              >
+                Properties
+                <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
+                  {properties.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminSection("verification")}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                  adminSection === "verification"
+                    ? "bg-[#7C9A7E] text-white shadow-sm ring-1 ring-[#C9A84C]/35"
+                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#7C9A7E]/40"
+                }`}
+              >
+                Verification
+                <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
+                  {pendingBrokers.length + pendingAgents.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminSection("users")}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                  adminSection === "users"
+                    ? "bg-[#7C9A7E] text-white shadow-sm ring-1 ring-[#C9A84C]/35"
+                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#7C9A7E]/40"
+                }`}
+              >
+                Users
+                <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
+                  {adminUsers.length}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
+
+        {adminSection === "users" && (
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-[#2C2C2C]/70">
+                All registered profiles (merged with auth email).
+              </p>
+              <button
+                type="button"
+                onClick={() => void fetchUsers()}
+                className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] shadow-sm hover:bg-[#FAF8F4]"
+              >
+                Refresh
+              </button>
+            </div>
+            {usersError && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {usersError}
+              </div>
+            )}
+            <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+              {usersLoading ? (
+                <div className="p-10 text-center text-sm text-[#2C2C2C]/45">Loading users…</div>
+              ) : adminUsers.length === 0 ? (
+                <div className="p-10 text-center text-sm text-[#2C2C2C]/45">No users found.</div>
+              ) : (
+                <table className="w-full">
+                  <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                    <tr className="text-left text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                      <th className="px-4 py-3">Name</th>
+                      <th className="px-4 py-3">Email</th>
+                      <th className="px-4 py-3">Role</th>
+                      <th className="px-4 py-3">Created</th>
+                      <th className="px-4 py-3">Verified</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2C2C2C]/5">
+                    {adminUsers.map((u) => {
+                      const verifiedLabel =
+                        u.role === "agent"
+                          ? u.agent_verified === null
+                            ? "—"
+                            : u.agent_verified
+                              ? "Yes"
+                              : "No"
+                          : u.role === "broker"
+                            ? u.broker_verified === null
+                              ? "—"
+                              : u.broker_verified
+                                ? "Yes"
+                                : "No"
+                            : "—";
+                      return (
+                        <tr key={u.id} className="hover:bg-[#FAF8F4]/80">
+                          <td className="px-4 py-3 text-sm font-semibold text-[#2C2C2C]">
+                            {u.full_name?.trim() || "—"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-[#2C2C2C]/75">{u.email ?? "—"}</td>
+                          <td className="px-4 py-3">
+                            <select
+                              value={u.role}
+                              onChange={(e) => void updateUserRole(u.id, e.target.value)}
+                              className="max-w-[140px] rounded-lg border border-[#2C2C2C]/10 bg-white px-2 py-1.5 text-xs font-semibold text-[#2C2C2C]"
+                            >
+                              <option value="client">client</option>
+                              <option value="agent">agent</option>
+                              <option value="broker">broker</option>
+                              <option value="admin">admin</option>
+                            </select>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[#2C2C2C]/50">
+                            {new Date(u.created_at).toLocaleDateString("en-PH")}
+                          </td>
+                          <td className="px-4 py-3 text-xs font-semibold text-[#7C9A7E]">
+                            {verifiedLabel}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              {u.agent_id && u.agent_status === "pending" && (
+                                <button
+                                  type="button"
+                                  onClick={() => void approveAgent(u.agent_id!)}
+                                  className="rounded-full bg-[#7C9A7E] px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#6b8a6d]"
+                                >
+                                  Approve agent
+                                </button>
+                              )}
+                              {u.broker_id && u.broker_status === "pending" && (
+                                <button
+                                  type="button"
+                                  onClick={() => void approveBroker(u.broker_id!)}
+                                  className="rounded-full bg-[#7C9A7E] px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#6b8a6d]"
+                                >
+                                  Approve broker
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => void deleteUser(u.id)}
+                                className="rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-800 hover:bg-red-100"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
 
         {adminSection === "leads" && (
           <>
@@ -942,24 +1187,26 @@ export default function AdminPage() {
                             <td className="px-4 py-3 text-xs text-gray-500">
                               {new Date(b.created_at).toLocaleDateString("en-PH")}
                             </td>
-                            <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
-                              <button
-                                type="button"
-                                onClick={() => void approveBroker(b.id)}
-                                className="text-sm font-medium text-emerald-700 hover:text-emerald-900"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setRejectOpen({ kind: "broker", id: b.id });
-                                  setRejectReason("");
-                                }}
-                                className="text-sm font-medium text-red-600 hover:text-red-800"
-                              >
-                                Reject
-                              </button>
+                            <td className="px-4 py-3 text-right whitespace-nowrap">
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => void approveBroker(b.id)}
+                                  className="rounded-full bg-[#7C9A7E] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#6b8a6d]"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRejectOpen({ kind: "broker", id: b.id });
+                                    setRejectReason("");
+                                  }}
+                                  className="rounded-full border-2 border-red-300 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-800 hover:bg-red-100"
+                                >
+                                  Reject
+                                </button>
+                              </div>
                             </td>
                           </tr>
                           {rejectOpen?.kind === "broker" && rejectOpen.id === b.id && (
@@ -1048,24 +1295,26 @@ export default function AdminPage() {
                             <td className="px-4 py-3 text-xs text-gray-500 font-mono">
                               {a.broker_id ?? "—"}
                             </td>
-                            <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
-                              <button
-                                type="button"
-                                onClick={() => void approveAgent(a.id)}
-                                className="text-sm font-medium text-emerald-700 hover:text-emerald-900"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setRejectOpen({ kind: "agent", id: a.id });
-                                  setRejectReason("");
-                                }}
-                                className="text-sm font-medium text-red-600 hover:text-red-800"
-                              >
-                                Reject
-                              </button>
+                            <td className="px-4 py-3 text-right whitespace-nowrap">
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => void approveAgent(a.id)}
+                                  className="rounded-full bg-[#7C9A7E] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#6b8a6d]"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRejectOpen({ kind: "agent", id: a.id });
+                                    setRejectReason("");
+                                  }}
+                                  className="rounded-full border-2 border-red-300 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-800 hover:bg-red-100"
+                                >
+                                  Reject
+                                </button>
+                              </div>
                             </td>
                           </tr>
                           {rejectOpen?.kind === "agent" && rejectOpen.id === a.id && (
@@ -1093,6 +1342,121 @@ export default function AdminPage() {
                                     type="button"
                                     onClick={() => setRejectOpen(null)}
                                     className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[#C9A84C]/25 bg-[#FAF8F4] p-6 shadow-sm">
+              <h2 className="mb-4 font-serif text-xl font-bold text-[#2C2C2C]">
+                View all agents
+                <span className="ml-2 text-sm font-normal text-[#2C2C2C]/50">
+                  ({allAgentsList.length} total)
+                </span>
+              </h2>
+              <p className="mb-4 text-sm text-[#2C2C2C]/60">
+                Every agent record in the database, including pending and rejected.
+              </p>
+              <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white">
+                {allAgentsLoading ? (
+                  <div className="p-8 text-center text-sm text-[#2C2C2C]/45">Loading…</div>
+                ) : allAgentsList.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-[#2C2C2C]/45">No agent records.</div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                      <tr className="text-left text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                        <th className="px-4 py-3">Name</th>
+                        <th className="px-4 py-3">Email</th>
+                        <th className="px-4 py-3">License</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Verified</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#2C2C2C]/5">
+                      {allAgentsList.map((a) => (
+                        <Fragment key={a.id}>
+                          <tr className="hover:bg-[#FAF8F4]/50">
+                            <td className="px-4 py-3 text-sm font-semibold text-[#2C2C2C]">{a.name}</td>
+                            <td className="px-4 py-3 text-sm text-[#2C2C2C]/75">{a.email}</td>
+                            <td className="px-4 py-3 text-xs text-[#2C2C2C]/60">{a.license_number}</td>
+                            <td className="px-4 py-3">
+                              <span className="rounded-full bg-[#EBE6DC] px-2 py-0.5 text-xs font-bold capitalize text-[#2C2C2C]/80">
+                                {a.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm font-semibold text-[#7C9A7E]">
+                              {a.verified ? "Yes" : "No"}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                {a.status === "pending" && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => void approveAgent(a.id)}
+                                      className="rounded-full bg-[#7C9A7E] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#6b8a6d]"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setRejectOpen({ kind: "agent", id: a.id });
+                                        setRejectReason("");
+                                      }}
+                                      className="rounded-full border-2 border-red-300 bg-red-50 px-4 py-2 text-xs font-bold text-red-800"
+                                    >
+                                      Reject
+                                    </button>
+                                  </>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => void deleteAgentRow(a.id)}
+                                  className="rounded-full border border-[#2C2C2C]/15 bg-white px-4 py-2 text-xs font-bold text-[#2C2C2C]/70 hover:bg-red-50 hover:text-red-800"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {rejectOpen?.kind === "agent" && rejectOpen.id === a.id && (
+                            <tr className="bg-amber-50/60">
+                              <td colSpan={6} className="px-4 py-3">
+                                <p className="mb-2 text-xs font-semibold text-[#2C2C2C]">
+                                  Rejection reason (sent to applicant)
+                                </p>
+                                <textarea
+                                  value={rejectReason}
+                                  onChange={(e) => setRejectReason(e.target.value)}
+                                  rows={3}
+                                  className="mb-2 w-full max-w-xl rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm outline-none"
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => void submitRejectAgent()}
+                                    disabled={!rejectReason.trim()}
+                                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                                  >
+                                    Send rejection
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setRejectOpen(null)}
+                                    className="rounded-lg border border-[#2C2C2C]/10 px-3 py-1.5 text-xs font-semibold text-[#2C2C2C]"
                                   >
                                     Cancel
                                   </button>
