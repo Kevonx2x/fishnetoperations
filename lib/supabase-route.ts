@@ -1,12 +1,12 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
+import { getPublicSupabaseEnv } from "@/lib/supabase/public-env";
 
 /**
  * Supabase client that forwards the caller's Bearer JWT (for RLS).
  */
 export function createSupabaseUserClient(request: NextRequest): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const { url, anonKey: anon } = getPublicSupabaseEnv();
   const auth = request.headers.get("authorization");
   return createClient(url, anon, {
     global: {

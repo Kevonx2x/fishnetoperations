@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { pathForRole, type ProfileRole } from "@/lib/auth-roles";
+import { getPublicSupabaseEnv } from "@/lib/supabase/public-env";
 
 const AUTH_PREFIX = "/auth";
 
@@ -26,11 +27,26 @@ function protectionFor(pathname: string): { path: string; roles: ProfileRole[] }
 }
 
 export async function middleware(request: NextRequest) {
+  let supabaseUrl: string;
+  let anonKey: string;
+  try {
+    const env = getPublicSupabaseEnv();
+    supabaseUrl = env.url;
+    anonKey = env.anonKey;
+  } catch (e) {
+    console.error("[middleware] Supabase public env:", e);
+    return new NextResponse(
+      "Configuration error: missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. " +
+        "Set them for Production and redeploy.",
+      { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } },
+    );
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    anonKey,
     {
       cookies: {
         getAll() {

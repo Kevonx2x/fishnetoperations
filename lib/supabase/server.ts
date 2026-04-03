@@ -1,13 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { getPublicSupabaseEnv } from "@/lib/supabase/public-env";
 
 /** Server-side Supabase client (reads session from cookies). Use in Server Components & Route Handlers. */
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
+  const { url, anonKey } = getPublicSupabaseEnv();
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     {
       cookies: {
         getAll() {

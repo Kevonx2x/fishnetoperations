@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity-log";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { getPublicSupabaseEnv } from "@/lib/supabase/public-env";
 
 /** Public lead capture + admin/staff listing */
 export async function POST(request: NextRequest) {
@@ -14,8 +15,7 @@ export async function POST(request: NextRequest) {
     const parsed = createLeadSchema.safeParse(body);
     if (!parsed.success) return fromZodError(parsed.error);
 
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const { url, anonKey: anon } = getPublicSupabaseEnv();
     const supabase = createClient(url, anon, {
       auth: { persistSession: false, autoRefreshToken: false },
     });

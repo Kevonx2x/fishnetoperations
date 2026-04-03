@@ -1,11 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 import { fail, ok } from "@/lib/api/response";
+import { getPublicSupabaseEnv } from "@/lib/supabase/public-env";
 
 /** Public approved brokers (for agent registration broker picker). RLS restricts rows. */
 export async function GET() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anon) {
+  let url: string;
+  let anon: string;
+  try {
+    const env = getPublicSupabaseEnv();
+    url = env.url;
+    anon = env.anonKey;
+  } catch {
     return fail("CONFIG_ERROR", "Missing Supabase env", 500);
   }
   try {
