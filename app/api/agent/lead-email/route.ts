@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { Resend } from "resend";
 import { fail, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
+import { RESEND_FROM } from "@/lib/resend-from";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { error } = await resend.emails.send({
-      from: process.env.RESEND_FROM ?? "Fishnet Residences <onboarding@resend.dev>",
+      from: RESEND_FROM,
       to: body.to.trim(),
       subject: body.subject.trim(),
       html: body.html,

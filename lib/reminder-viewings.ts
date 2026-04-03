@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizePhoneE164, sendSmsTo } from "@/lib/twilio-sms";
+import { RESEND_FROM } from "@/lib/resend-from";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -65,7 +66,7 @@ export async function processDueViewingReminders(): Promise<{ sent: number; erro
     if (resend && process.env.RESEND_API_KEY) {
       try {
         await resend.emails.send({
-          from: process.env.RESEND_FROM ?? "Fishnet Residences <onboarding@resend.dev>",
+          from: RESEND_FROM,
           to: v.client_email,
           subject: `Reminder: viewing at ${propLabel}`,
           html: `<p>Hi ${escapeHtml(v.client_name)},</p><p>This is a friendly reminder about your viewing on <strong>${escapeHtml(when)}</strong> at <strong>${escapeHtml(propLabel)}</strong>.</p>`,

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const KEY = "fishnet_saved_properties_v1";
+const KEY = "bahaygo_saved_properties_v1";
 
 function readIds(): string[] {
   if (typeof window === "undefined") return [];
@@ -21,7 +21,7 @@ function writeIds(ids: string[]) {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(KEY, JSON.stringify(ids));
-    window.dispatchEvent(new Event("fishnet:saved-properties"));
+    window.dispatchEvent(new Event("bahaygo:saved-properties"));
   } catch {
     // ignore
   }
@@ -43,10 +43,10 @@ export function useSavedPropertyIds() {
   useEffect(() => {
     const onChange = () => setIds(readIds());
     window.addEventListener("storage", onChange);
-    window.addEventListener("fishnet:saved-properties", onChange);
+    window.addEventListener("bahaygo:saved-properties", onChange);
     return () => {
       window.removeEventListener("storage", onChange);
-      window.removeEventListener("fishnet:saved-properties", onChange);
+      window.removeEventListener("bahaygo:saved-properties", onChange);
     };
   }, []);
 

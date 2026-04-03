@@ -108,7 +108,7 @@ export default function BrokersIndexPage() {
           Find a Trusted Brokerage
         </motion.h1>
         <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold text-[#2C2C2C]/55 sm:text-base">
-          Every brokerage on Fishnet is verified. Filter by region and specialty, then open a profile.
+          Every brokerage on BahayGo is verified. Filter by region and specialty, then open a profile.
         </p>
       </section>
 

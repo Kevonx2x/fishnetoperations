@@ -9,7 +9,7 @@ export default function BlogPage() {
       <MaddenTopNav />
       <main className="mx-auto max-w-3xl px-4 pt-10 pb-12">
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#2C2C2C]/55">Blog</p>
-        <h1 className="mt-2 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Fishnet Blog</h1>
+        <h1 className="mt-2 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">BahayGo Blog</h1>
         <p className="mt-3 text-sm font-semibold text-[#2C2C2C]/60">
           Coming soon. For now, browse verified listings and agents.
         </p>

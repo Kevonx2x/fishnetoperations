@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fishnet Residences",
+  title: "BahayGo",
   description: "Luxury properties with verified agents and licensed brokers.",
 };
 
@@ -42,10 +42,10 @@ export default function RootLayout({
               <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="font-serif text-xl font-bold tracking-tight text-[#2C2C2C]">
-                    Fishnet
+                    BahayGo
                   </div>
                   <div className="mt-0.5 text-[11px] font-semibold tracking-[0.18em] text-[#2C2C2C]/50">
-                    RESIDENCES
+                    FIND YOUR HOME
                   </div>
                   <p className="mt-3 max-w-sm text-sm font-semibold text-[#2C2C2C]/55">
                     Verified agents. Licensed brokers. Anti-scam protection.
@@ -82,7 +82,7 @@ export default function RootLayout({
               </div>
 
               <div className="mt-10 flex flex-col gap-2 border-t border-[#2C2C2C]/10 pt-6 text-xs font-semibold text-[#2C2C2C]/50 sm:flex-row sm:items-center sm:justify-between">
-                <span>© 2026 Fishnet Residences. All rights reserved.</span>
+                <span>© 2026 BahayGo. All rights reserved.</span>
                 <span>Safe discovery for luxury homes.</span>
               </div>
             </div>

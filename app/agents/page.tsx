@@ -104,7 +104,7 @@ export default function AgentsIndexPage() {
           A great agent makes all the difference
         </motion.h1>
         <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold text-[#2C2C2C]/55 sm:text-base">
-          Search verified Fishnet agents by location or name. Compare closings, response scores, and specialties.
+          Search verified BahayGo agents by location or name. Compare closings, response scores, and specialties.
         </p>
       </section>
 

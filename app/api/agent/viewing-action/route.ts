@@ -4,6 +4,7 @@ import { fail, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizePhoneE164, sendSmsTo } from "@/lib/twilio-sms";
+import { RESEND_FROM } from "@/lib/resend-from";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
 
     if (resend && process.env.RESEND_API_KEY) {
       const { error: emailErr } = await resend.emails.send({
-        from: process.env.RESEND_FROM ?? "Fishnet Residences <onboarding@resend.dev>",
+        from: RESEND_FROM,
         to: clientEmail,
         subject: `Viewing confirmed: ${propLabel}`,
         html: `
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
           <p><strong>When:</strong> ${escapeHtml(when)}</p>
           <p><strong>Agent:</strong> ${escapeHtml(agentName)}</p>
           <p>We look forward to seeing you.</p>
-          <p>— Fishnet Residences</p>
+          <p>— BahayGo</p>
         `,
       });
       if (emailErr) {

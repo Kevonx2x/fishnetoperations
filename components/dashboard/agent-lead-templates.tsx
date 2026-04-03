@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const PREBUILT: { id: string; title: string; body: string }[] = [
-  { id: "p1", title: "Thank you for your inquiry", body: "Hi {{name}},\n\nThank you for reaching out about Fishnet Residences. We received your inquiry and will get back to you shortly with next steps.\n\nBest regards" },
+  { id: "p1", title: "Thank you for your inquiry", body: "Hi {{name}},\n\nThank you for reaching out about BahayGo. We received your inquiry and will get back to you shortly with next steps.\n\nBest regards" },
   { id: "p2", title: "Viewing confirmed", body: "Hi {{name}},\n\nThank you — your viewing is confirmed. I’ll meet you at the property at the scheduled time. If anything changes, reply to this email.\n\nBest regards" },
   { id: "p3", title: "Viewing reminder", body: "Hi {{name}},\n\nFriendly reminder: your viewing is coming up in 24 hours. Please arrive 5 minutes early.\n\nSee you soon!" },
   { id: "p4", title: "Property no longer available", body: "Hi {{name}},\n\nThank you for your interest. Unfortunately this listing is no longer available. I can share similar options that match what you’re looking for — would you like me to send a shortlist?\n\nBest regards" },
@@ -108,7 +108,7 @@ export function AgentLeadTemplatesSection({
         credentials: "include",
         body: JSON.stringify({
           to: emailTo.trim(),
-          subject: draftTitle.trim() || "Message from your Fishnet agent",
+          subject: draftTitle.trim() || "Message from your BahayGo agent",
           html: `<div style="font-family:system-ui,sans-serif;line-height:1.5">${emailBody.replace(/\n/g, "<br/>")}</div>`,
         }),
       });

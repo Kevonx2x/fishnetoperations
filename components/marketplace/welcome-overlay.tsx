@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
-const STORAGE_KEY = "fishnet_welcome_seen_v2";
+const STORAGE_KEY = "bahaygo_welcome_seen_v2";
 
 function FinnMascotSvg({ className }: { className?: string }) {
   return (
@@ -121,7 +121,7 @@ export function WelcomeOverlay() {
             </div>
 
             <h2 className="mt-5 text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">
-              Welcome to Fishnet — Find Your Home with Confidence
+              Welcome to BahayGo — Find Your Home with Confidence
             </h2>
             <p className="mt-3 text-center text-sm leading-relaxed text-[#2C2C2C]/60">
               Explore curated listings, meet verified agents, and refine your search with

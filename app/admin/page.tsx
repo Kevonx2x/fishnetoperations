@@ -463,7 +463,7 @@ export default function AdminPage() {
               Admin Dashboard
             </h1>
             <p className="text-sm text-gray-500">
-              Fishnet Operations — Lead &amp; property management
+              BahayGo — Lead &amp; property management
             </p>
             <p className="text-xs text-gray-400 mt-1">{user?.email}</p>
           </div>

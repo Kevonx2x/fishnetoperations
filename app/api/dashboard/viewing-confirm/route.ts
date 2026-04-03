@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { fail, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { RESEND_FROM } from "@/lib/resend-from";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -68,9 +69,7 @@ export async function POST(request: NextRequest) {
 
     if (process.env.RESEND_API_KEY) {
       const { error: emailErr } = await resend.emails.send({
-        from:
-          process.env.RESEND_FROM ??
-          "Fishnet Residences <onboarding@resend.dev>",
+        from: RESEND_FROM,
         to: clientEmail,
         subject: `Viewing confirmed: ${propLabel}`,
         html: `
@@ -79,7 +78,7 @@ export async function POST(request: NextRequest) {
           <p><strong>Property:</strong> ${escapeHtml(propLabel)}</p>
           <p><strong>When:</strong> ${escapeHtml(when)}</p>
           <p>We look forward to seeing you.</p>
-          <p>— Fishnet Residences</p>
+          <p>— BahayGo</p>
         `,
       });
       if (emailErr) {

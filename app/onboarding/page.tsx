@@ -116,7 +116,7 @@ export default function OnboardingPage() {
             href="/"
             className="text-sm font-medium tracking-wide text-gray-900 hover:opacity-80"
           >
-            Fishnet
+            BahayGo
           </Link>
           <div className="flex items-center gap-3">
             <FinnMascot mood="happy" size={64} className="drop-shadow-sm" />
@@ -130,7 +130,7 @@ export default function OnboardingPage() {
                 <FinnMascot mood="still" size={110} className="drop-shadow-sm" />
               </div>
               <h1 className="font-serif text-3xl font-medium text-gray-900 sm:text-4xl">
-                Welcome to Fishnet Residences
+                Welcome to BahayGo
               </h1>
               <p className="mt-2 text-sm text-gray-600 sm:text-base">
                 How will you be using the platform?

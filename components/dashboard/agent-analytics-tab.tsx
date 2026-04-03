@@ -53,7 +53,7 @@ export function AgentAnalyticsTab({
 
   useEffect(() => {
     if (typeof window === "undefined" || !agent.id) return;
-    const key = `fishnet_agent_profile_views_${agent.id}`;
+    const key = `bahaygo_agent_profile_views_${agent.id}`;
     const raw = window.localStorage.getItem(key);
     if (raw) {
       setProfileViews(Number(raw));

@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const KEY = "fishnet_recently_viewed_properties_v1";
-const EVENT = "fishnet:recently-viewed-properties";
+const KEY = "bahaygo_recently_viewed_properties_v1";
+const EVENT = "bahaygo:recently-viewed-properties";
 const MAX = 12;
 
 function readIds(): string[] {

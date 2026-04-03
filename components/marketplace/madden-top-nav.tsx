@@ -201,10 +201,10 @@ export function MaddenTopNav() {
       <div className="mx-auto grid max-w-6xl grid-cols-3 items-center px-4 py-4">
         <Link href="/" className="justify-self-start leading-none">
           <div className="font-serif text-xl font-bold tracking-tight text-[#2C2C2C]">
-            Fishnet
+            BahayGo
           </div>
           <div className="mt-0.5 text-[11px] font-semibold tracking-[0.18em] text-[#2C2C2C]/50">
-            RESIDENCES
+            FIND YOUR HOME
           </div>
         </Link>
 

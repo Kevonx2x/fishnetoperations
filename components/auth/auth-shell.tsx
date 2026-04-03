@@ -15,7 +15,7 @@ export function AuthShell({ title, subtitle, children }: Props) {
             href="/"
             className="text-sm font-medium tracking-wide text-gray-900 hover:opacity-70"
           >
-            Fishnet
+            BahayGo
           </Link>
         </div>
       </header>

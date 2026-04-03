@@ -124,7 +124,7 @@ function inferredType(p: DbProperty): FiltersState["propertyType"] {
   return "House";
 }
 
-export function FishnetHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" }) {
+export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" }) {
   const { user } = useAuth();
   const saved = useSavedPropertyIds();
 
@@ -917,7 +917,7 @@ export function FishnetHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   <Trust
                     icon={<Shield className="h-5 w-5 text-[#7C9A7E]" />}
                     title="All Agents Verified"
-                    body="Every agent on Fishnet has a verified PRC license"
+                    body="Every agent on BahayGo has a verified PRC license"
                   />
                   <Trust
                     icon={<BadgeCheck className="h-5 w-5 text-[#7C9A7E]" />}
