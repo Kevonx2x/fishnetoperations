@@ -8,8 +8,9 @@ import { Calendar, Clock, Mail, Phone, Star, Trophy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
-import { ConnectedAgentsBox } from "@/components/marketplace/connected-agents-box";
-import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
+import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
+import type { MarketplaceAgent } from "@/lib/marketplace-types";
+import { fetchSimilarAgents } from "@/lib/similar-agents";
 
 type AgentRow = {
   id: string;
@@ -48,7 +49,8 @@ export default function AgentProfilePage() {
   const [error, setError] = useState<string | null>(null);
 
   const [listings, setListings] = useState<ListingRow[]>([]);
-  const [connected, setConnected] = useState<MarketplaceAgent[]>([]);
+  const [similarAgents, setSimilarAgents] = useState<MarketplaceAgent[]>([]);
+  const [similarLoading, setSimilarLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,29 +100,27 @@ export default function AgentProfilePage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from("agents")
-        .select(
-          "id, user_id, name, image_url, score, closings, response_time, availability, brokers (id, company_name, logo_url)",
-        )
-        .eq("status", "approved")
-        .eq("verified", true);
-      if (cancelled) return;
-      if (!error) {
-        const all = (data ?? []).map((row) =>
-          mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]),
-        );
-        if (agent?.broker_id) {
-          setConnected(all.filter((a) => a.brokerId === agent.broker_id));
-        } else {
-          setConnected(all);
-        }
+      if (!agent?.id) {
+        setSimilarAgents([]);
+        setSimilarLoading(false);
+        return;
+      }
+      setSimilarLoading(true);
+      try {
+        const list = await fetchSimilarAgents(supabase, {
+          id: agent.id,
+          broker_id: agent.broker_id,
+          score: Number(agent.score),
+        });
+        if (!cancelled) setSimilarAgents(list);
+      } finally {
+        if (!cancelled) setSimilarLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [agent?.broker_id]);
+  }, [agent?.id, agent?.broker_id, agent?.score]);
 
   const memberSince = (() => {
     if (!agent?.created_at) return "";
@@ -253,7 +253,26 @@ export default function AgentProfilePage() {
             </section>
 
             <aside className="lg:col-span-1">
-              <ConnectedAgentsBox title="Connected Agents" agents={connected} defaultVisible={3} />
+              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-4 shadow-sm">
+                <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">Similar Agents</h2>
+                <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+                  Same brokerage first, then similar ratings (±0.5).
+                </p>
+                {similarLoading ? (
+                  <div className="mt-4 space-y-3">
+                    <div className="h-40 animate-pulse rounded-2xl bg-black/5" />
+                    <div className="h-40 animate-pulse rounded-2xl bg-black/5" />
+                  </div>
+                ) : similarAgents.length === 0 ? (
+                  <p className="mt-4 text-sm font-semibold text-[#2C2C2C]/45">No similar agents to show yet.</p>
+                ) : (
+                  <div className="mt-4 flex flex-col gap-4">
+                    {similarAgents.map((a) => (
+                      <AgentDirectoryCard key={a.id} agent={a} className="w-full shrink-0" />
+                    ))}
+                  </div>
+                )}
+              </div>
             </aside>
           </div>
         )}
