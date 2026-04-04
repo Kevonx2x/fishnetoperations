@@ -8,8 +8,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Heart, Mail, Phone } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
-import { ConnectedAgentsBox } from "@/components/marketplace/connected-agents-box";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
+import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { useSavedPropertyIds } from "@/lib/saved-properties";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { recordRecentlyViewedPropertyId } from "@/lib/recently-viewed";
@@ -34,7 +34,14 @@ type PropertyRow = {
   lat: number | null;
   lng: number | null;
   listing_agent: ListingAgentProfile;
+  property_agents?: { agent: unknown }[];
 };
+
+function showsAvailableNow(a: MarketplaceAgent): boolean {
+  const v = a.availability.trim().toLowerCase();
+  if (!v) return false;
+  return /available|now|open|yes|immediate|today/.test(v);
+}
 
 const ROOM_IMAGES = [
   "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1000&h=700&fit=crop",
@@ -60,8 +67,6 @@ export default function PropertyPage() {
   const [error, setError] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
 
-  const [agents, setAgents] = useState<MarketplaceAgent[]>([]);
-
   // lead form
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -80,7 +85,17 @@ export default function PropertyPage() {
       const { data, error } = await supabase
         .from("properties")
         .select(
-          "id, created_at, location, price, sqft, beds, baths, image_url, listed_by, property_type, lat, lng, listing_agent:profiles!listed_by (id, full_name, avatar_url)",
+          `
+          id, created_at, location, price, sqft, beds, baths, image_url, listed_by, property_type, lat, lng,
+          listing_agent:profiles!listed_by (id, full_name, avatar_url),
+          property_agents (
+            agent:agents (
+              id, user_id, name, email, phone, image_url, score, closings, response_time, availability,
+              verified, status,
+              brokers (id, company_name, logo_url)
+            )
+          )
+        `,
         )
         .eq("id", id)
         .maybeSingle();
@@ -102,45 +117,29 @@ export default function PropertyPage() {
     };
   }, [id]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("agents")
-        .select(
-          "id, user_id, name, image_url, score, closings, response_time, availability, brokers (id, company_name, logo_url)",
-        )
-        .eq("status", "approved")
-        .eq("verified", true);
-      if (cancelled) return;
-      if (!error) {
-        setAgents((data ?? []).map((row) =>
-          mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]),
-        ));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const gallery = useMemo(() => (property ? buildGallery(property) : []), [property]);
   const img = gallery[idx] ?? gallery[0];
   const isSaved = property ? saved.has(property.id) : false;
 
-  const listingAgent = useMemo(() => {
-    if (!property?.listed_by) return null;
-    return agents.find((a) => a.userId === property.listed_by) ?? null;
-  }, [agents, property?.listed_by]);
-
   const connectedAgents = useMemo(() => {
-    const byScore = [...agents].sort((a, b) => b.score - a.score);
-    if (listingAgent?.brokerId) {
-      const sameBroker = byScore.filter((a) => a.brokerId === listingAgent.brokerId);
-      if (sameBroker.length) return sameBroker;
-    }
-    return byScore;
-  }, [agents, listingAgent?.brokerId]);
+    if (!property) return [];
+    const raw = property.property_agents ?? [];
+    const mapped = raw
+      .map((row) => row.agent)
+      .filter(Boolean)
+      .map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]));
+    const seen = new Set<string>();
+    return mapped.filter((a) => {
+      if (!a.id || seen.has(a.id)) return false;
+      seen.add(a.id);
+      return true;
+    });
+  }, [property]);
+
+  const listingAgent = useMemo(() => {
+    if (!property?.listed_by) return connectedAgents[0] ?? null;
+    return connectedAgents.find((a) => a.userId === property.listed_by) ?? connectedAgents[0] ?? null;
+  }, [property?.listed_by, connectedAgents]);
 
   const similar = useMemo(() => {
     // lightweight similar list: same inferred type or just top few newest
@@ -299,7 +298,80 @@ export default function PropertyPage() {
               </div>
 
               <div className="mt-6">
-                <ConnectedAgentsBox title="Connected Agents" agents={connectedAgents} defaultVisible={3} />
+                <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Connected Agents</h2>
+                {connectedAgents.length === 0 ? (
+                  <p className="mt-4 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 text-center text-sm font-semibold text-[#2C2C2C]/55 shadow-sm">
+                    No agents currently listed for this property
+                  </p>
+                ) : (
+                  <ul className="mt-4 grid list-none gap-4 p-0 sm:grid-cols-2">
+                    {connectedAgents.map((a) => (
+                      <li
+                        key={a.id}
+                        className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm"
+                      >
+                        <div className="flex gap-3">
+                          <Link
+                            href={`/agents/${encodeURIComponent(a.id)}`}
+                            className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10"
+                          >
+                            <AgentAvatarFill name={a.name} imageUrl={a.image} sizes="56px" textClassName="text-sm" />
+                          </Link>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Link
+                                href={`/agents/${encodeURIComponent(a.id)}`}
+                                className="font-semibold text-[#2C2C2C] hover:underline"
+                              >
+                                {a.name}
+                              </Link>
+                              {a.verified && a.status === "approved" ? <VerifiedAgentBadge show /> : null}
+                              <span className="rounded-md bg-[#2C2C2C]/8 px-2 py-0.5 text-xs font-bold text-[#2C2C2C]/80">
+                                {Math.round(a.score)}
+                              </span>
+                            </div>
+                            {a.brokerName ? (
+                              <p className="mt-1 text-xs font-medium text-[#2C2C2C]/55">{a.brokerName}</p>
+                            ) : null}
+                            {a.responseTime ? (
+                              <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/45">
+                                Response: {a.responseTime}
+                              </p>
+                            ) : null}
+                            {showsAvailableNow(a) ? (
+                              <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-[#6B9E6E]">
+                                <span className="h-2 w-2 rounded-full bg-[#6B9E6E]" aria-hidden />
+                                Available Now
+                              </p>
+                            ) : null}
+                            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-[#2C2C2C]/50">
+                              {a.email ? (
+                                <a href={`mailto:${a.email}`} className="inline-flex items-center gap-1 hover:text-[#6B9E6E]">
+                                  <Mail className="h-3.5 w-3.5" />
+                                  {a.email}
+                                </a>
+                              ) : null}
+                              {a.phone ? (
+                                <a href={`tel:${a.phone.replace(/\s/g, "")}`} className="inline-flex items-center gap-1 hover:text-[#6B9E6E]">
+                                  <Phone className="h-3.5 w-3.5" />
+                                  {a.phone}
+                                </a>
+                              ) : null}
+                            </div>
+                            <div className="mt-3">
+                              <Link
+                                href={`/agents/${encodeURIComponent(a.id)}`}
+                                className="inline-flex rounded-lg bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                              >
+                                Contact
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </section>
 

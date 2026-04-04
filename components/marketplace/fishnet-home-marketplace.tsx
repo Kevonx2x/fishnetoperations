@@ -1219,7 +1219,7 @@ export function NewlyListedCard({
         grid ? "" : `${cardWidthClass ?? "w-[260px]"} shrink-0`
       }`}
     >
-      <div className="relative h-48 w-full bg-black/5">
+      <div className="relative h-48 w-full overflow-hidden bg-neutral-900">
         <Image
           src={img}
           alt={property.name ?? property.location}
@@ -1304,10 +1304,10 @@ export function NewlyListedCard({
       </div>
 
       <div
-        className="flex flex-col border-t border-[#2C2C2C]/10 bg-white"
+        className="relative z-10 flex flex-col gap-0 border-t border-gray-100 bg-white pt-2"
         style={{ minHeight: "130px" }}
       >
-        <div className="flex flex-1 flex-col justify-between px-4 pt-4">
+        <div className="flex flex-1 flex-col justify-between px-4 pb-0 pt-2">
           <div>
             <div className="space-y-2">
               {agentRows.map((row, idx) =>
