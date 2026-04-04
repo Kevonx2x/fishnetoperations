@@ -18,6 +18,7 @@ import {
   Flame,
   Users,
   Star,
+  HelpCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
@@ -1214,8 +1215,23 @@ export function NewlyListedCard({
   const statusLabel = property.status === "for_rent" ? "For Rent" : "For Sale";
   const img = roomUrls[roomIdx] ?? roomUrls[0] ?? property.image_url;
 
-  const visibleAgents = agentsExpanded ? connectedAgents : connectedAgents.slice(0, 2);
   const hiddenCount = Math.max(0, connectedAgents.length - 2);
+  type AgentRow =
+    | { kind: "agent"; agent: MarketplaceAgent }
+    | { kind: "placeholder" };
+  const agentRows: AgentRow[] = (() => {
+    const n = connectedAgents.length;
+    if (n === 0) {
+      return [{ kind: "placeholder" }, { kind: "placeholder" }];
+    }
+    if (n === 1) {
+      return [{ kind: "agent", agent: connectedAgents[0]! }, { kind: "placeholder" }];
+    }
+    if (agentsExpanded) {
+      return connectedAgents.map((a) => ({ kind: "agent" as const, agent: a }));
+    }
+    return connectedAgents.slice(0, 2).map((a) => ({ kind: "agent" as const, agent: a }));
+  })();
   const showYourListingBadge =
     !!viewerUserId &&
     connectedAgents.some((a) => a.userId === viewerUserId);
@@ -1251,10 +1267,10 @@ export function NewlyListedCard({
                 e.stopPropagation();
                 onRoomPrev();
               }}
-              className="absolute left-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md hover:bg-white"
+              className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 p-1 opacity-75 shadow-md hover:bg-white hover:opacity-100"
               aria-label="Previous room photo"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-6 w-6" />
             </button>
             <button
               type="button"
@@ -1262,10 +1278,10 @@ export function NewlyListedCard({
                 e.stopPropagation();
                 onRoomNext();
               }}
-              className="absolute right-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md hover:bg-white"
+              className="absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 p-1 opacity-75 shadow-md hover:bg-white hover:opacity-100"
               aria-label="Next room photo"
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-6 w-6" />
             </button>
           </>
         ) : null}
@@ -1311,40 +1327,60 @@ export function NewlyListedCard({
       </div>
 
       {/* Connected agents strip */}
-      <div className="relative border-t border-[#2C2C2C]/10 bg-white px-4 pb-4 pt-4">
-        <div className="space-y-2">
-          {visibleAgents.map((a) => (
-            <div key={a.id} className="flex items-center gap-2.5">
-              <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
-                <AgentAvatarFill name={a.name} imageUrl={a.image} sizes="28px" />
-              </div>
-              <Link
-                href={`/agents/${encodeURIComponent(a.id)}`}
-                className="min-w-0 flex-1 truncate text-xs font-semibold text-[#2C2C2C] hover:underline hover:decoration-[#D4A843]/60 hover:underline-offset-4"
-                title={a.name}
-              >
-                {a.name.length > 12 ? `${a.name.slice(0, 12)}…` : a.name}
-              </Link>
-              <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
-              <span className="ml-auto text-xs font-bold text-[#2C2C2C]">
-                {Math.round(a.score)}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {hiddenCount > 0 ? (
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={onToggleAgentsExpanded}
-              className="text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
-            >
-              Show More
-            </button>
+      <div className="relative flex min-h-[120px] flex-col border-t border-[#2C2C2C]/10 bg-white px-4 pb-4 pt-4">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="space-y-2">
+            {agentRows.map((row, idx) =>
+              row.kind === "agent" ? (
+                <div key={row.agent.id} className="flex items-center gap-2.5">
+                  <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+                    <AgentAvatarFill name={row.agent.name} imageUrl={row.agent.image} sizes="28px" />
+                  </div>
+                  <Link
+                    href={`/agents/${encodeURIComponent(row.agent.id)}`}
+                    className="min-w-0 flex-1 truncate text-xs font-semibold text-[#2C2C2C] hover:underline hover:decoration-[#D4A843]/60 hover:underline-offset-4"
+                    title={row.agent.name}
+                  >
+                    {row.agent.name.length > 12 ? `${row.agent.name.slice(0, 12)}…` : row.agent.name}
+                  </Link>
+                  <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
+                  <span className="ml-auto text-xs font-bold text-[#2C2C2C]">
+                    {Math.round(row.agent.score)}
+                  </span>
+                </div>
+              ) : (
+                <div key={`placeholder-${idx}`} className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] ring-1 ring-black/10">
+                    <HelpCircle className="h-3.5 w-3.5 text-white" aria-hidden />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-semibold text-[#2C2C2C]">Agent Slot Available</p>
+                    <Link
+                      href="/register/agent"
+                      className="text-[10px] font-medium text-[#6B9E6E] hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Become a listing agent →
+                    </Link>
+                  </div>
+                </div>
+              ),
+            )}
           </div>
-        ) : null}
-        <div className="mt-2 flex justify-center">
+
+          {hiddenCount > 0 ? (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={onToggleAgentsExpanded}
+                className="text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
+              >
+                Show More
+              </button>
+            </div>
+          ) : null}
+        </div>
+        <div className="mt-auto flex justify-center pt-2">
           <button
             type="button"
             onClick={onOpenPropertyZoom}
