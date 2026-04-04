@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Check } from "lucide-react";
+import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 
 export const metadata = {
   title: "Pricing — BahayGo",
@@ -16,7 +17,9 @@ const rows: { feature: string; free: string; pro: string }[] = [
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-[#FAF8F4] px-4 py-12 md:py-16">
+    <div className="min-h-screen bg-[#FAF8F4]">
+      <MaddenTopNav />
+      <div className="px-4 py-12 md:py-16">
       <div className="mx-auto max-w-4xl">
         <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-[#2C2C2C]/45">
           For agents
@@ -107,6 +110,7 @@ export default function PricingPage() {
             Back to home
           </Link>
         </div>
+      </div>
       </div>
     </div>
   );

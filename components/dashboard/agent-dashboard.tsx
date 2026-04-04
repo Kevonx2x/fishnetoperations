@@ -7,12 +7,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BarChart3,
+  Bell,
   Calendar,
   Check,
   Home,
   LayoutDashboard,
   Loader2,
   Settings,
+  Sparkles,
   Users,
   X,
 } from "lucide-react";
@@ -27,7 +29,7 @@ import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { formatLicenseDate } from "@/lib/license-expiry";
 import { listingLimitForTier } from "@/lib/agent-listing-limits";
 
-type Tab = "overview" | "leads" | "viewings" | "listings" | "profile" | "analytics";
+type Tab = "overview" | "leads" | "viewings" | "listings" | "profile" | "analytics" | "notifications";
 
 type AgentRow = {
   id: string;
@@ -107,7 +109,7 @@ export function AgentDashboard() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const raw = new URLSearchParams(window.location.search).get("tab");
-    const allowed: Tab[] = ["overview", "leads", "viewings", "listings", "profile", "analytics"];
+    const allowed: Tab[] = ["overview", "leads", "viewings", "listings", "profile", "analytics", "notifications"];
     if (raw && allowed.includes(raw as Tab)) setTab(raw as Tab);
   }, []);
   const [loaded, setLoaded] = useState(false);
@@ -395,6 +397,7 @@ export function AgentDashboard() {
     { id: "viewings", label: "Viewings", icon: <Calendar className="h-5 w-5" /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" /> },
     { id: "listings", label: "Listings", icon: <Home className="h-5 w-5" /> },
+    { id: "notifications", label: "Notifications", icon: <Bell className="h-5 w-5" /> },
     { id: "profile", label: "Profile", icon: <Settings className="h-5 w-5" /> },
   ];
 
@@ -520,6 +523,9 @@ export function AgentDashboard() {
               )}
               {tab === "listings" && !approved && (
                 <p className="text-sm font-semibold text-[#2C2C2C]/55">Listings unlock when verified.</p>
+              )}
+              {tab === "notifications" && user && (
+                <AgentNotificationsTab userId={user.id} supabase={supabase} />
               )}
               {tab === "profile" && (
                 <ProfileTab
@@ -1151,6 +1157,105 @@ function ProfileTab({
           {saving ? "Saving…" : "Save profile"}
         </button>
       </form>
+    </div>
+  );
+}
+
+type AgentNotifRow = {
+  id: string;
+  created_at: string;
+  type: string;
+  title: string;
+  body: string | null;
+  read_at: string | null;
+};
+
+function notificationListIcon(type: string) {
+  if (type === "property_match") return <Home className="h-4 w-4 text-[#7C9A7E]" />;
+  if (type === "lead_created") return <Sparkles className="h-4 w-4 text-[#C9A84C]" />;
+  return <Bell className="h-4 w-4 text-[#2C2C2C]/50" />;
+}
+
+function notificationTimeAgo(iso: string): string {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
+function AgentNotificationsTab({
+  userId,
+  supabase,
+}: {
+  userId: string;
+  supabase: ReturnType<typeof createSupabaseBrowserClient>;
+}) {
+  const [rows, setRows] = useState<AgentNotifRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("notifications")
+        .select("id, created_at, type, title, body, read_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (cancelled) return;
+      setRows((data ?? []) as AgentNotifRow[]);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, supabase]);
+
+  const markRead = async (n: AgentNotifRow) => {
+    if (n.read_at) return;
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("id", n.id);
+    if (error) return;
+    setRows((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)));
+  };
+
+  return (
+    <div>
+      <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Notifications</h1>
+      <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Updates from BahayGo and your activity.</p>
+      {loading ? (
+        <p className="mt-8 text-sm font-semibold text-[#2C2C2C]/45">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="mt-8 rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center text-sm font-semibold text-[#2C2C2C]/45">
+          No new notifications
+        </p>
+      ) : (
+        <ul className="mt-6 divide-y divide-[#2C2C2C]/10 rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+          {rows.map((n) => (
+            <li key={n.id}>
+              <button
+                type="button"
+                onClick={() => void markRead(n)}
+                className={`flex w-full gap-3 px-4 py-4 text-left transition hover:bg-[#FAF8F4] ${n.read_at ? "opacity-75" : ""}`}
+              >
+                <span className="mt-0.5 shrink-0">{notificationListIcon(n.type)}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-[#2C2C2C]">{n.title}</span>
+                  {n.body ? (
+                    <span className="mt-1 line-clamp-3 block text-xs font-semibold text-[#2C2C2C]/55">{n.body}</span>
+                  ) : null}
+                  <span className="mt-1 block text-[10px] font-semibold text-[#2C2C2C]/40">
+                    {notificationTimeAgo(n.created_at)}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

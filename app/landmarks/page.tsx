@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Building2,
   GraduationCap,
@@ -15,11 +15,10 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
-import {
-  NewlyListedCard,
-  roomUrlsFor,
-  type DbProperty,
-} from "@/components/marketplace/fishnet-home-marketplace";
+import { NewlyListedCard } from "@/components/marketplace/fishnet-home-marketplace";
+import { PropertyZoomModal } from "@/components/marketplace/property-zoom-modal";
+import type { DbProperty } from "@/lib/marketplace-property";
+import { roomUrlsFor } from "@/lib/marketplace-property";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { useSavedPropertyIds } from "@/lib/saved-properties";
 import { useAuth } from "@/contexts/auth-context";
@@ -76,6 +75,7 @@ function LandmarksContent() {
   const [error, setError] = useState<string | null>(null);
   const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
   const [cardAgentsExpanded, setCardAgentsExpanded] = useState<Record<string, boolean>>({});
+  const [zoomProperty, setZoomProperty] = useState<DbProperty | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -237,6 +237,7 @@ function LandmarksContent() {
                     onToggleAgentsExpanded={() =>
                       setCardAgentsExpanded((s) => ({ ...s, [p.id]: !(s[p.id] ?? false) }))
                     }
+                    onOpenPropertyZoom={() => setZoomProperty(p)}
                     grid
                     viewerUserId={user?.id ?? null}
                   />
@@ -246,6 +247,16 @@ function LandmarksContent() {
           </section>
         ) : null}
       </main>
+
+      <AnimatePresence>
+        {zoomProperty ? (
+          <PropertyZoomModal
+            property={zoomProperty}
+            agents={connectedAgentsByPropertyId.get(zoomProperty.id) ?? []}
+            onClose={() => setZoomProperty(null)}
+          />
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

@@ -5,21 +5,23 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Award,
-  BadgeCheck,
+  BarChart3,
   Bell,
+  Bot,
   Building2,
+  GitCompare,
   GraduationCap,
   HeartHandshake,
   Home,
   Hospital,
   Landmark,
-  Bookmark,
   LayoutDashboard,
   LogOut,
   MapPin,
   Palmtree,
   Search,
   Settings,
+  Share2,
   Shield,
   ShieldCheck,
   ShoppingBag,
@@ -31,20 +33,20 @@ import {
   User,
   UserPlus,
   Users,
+  BadgeCheck,
+  Bookmark,
+  LayoutTemplate,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-type NavItem = { label: string; href: string; icon: ReactNode };
+type NavLinkItem = { kind: "link"; label: string; href: string; icon: ReactNode };
+type NavDividerItem = { kind: "divider"; label: string };
+type NavPendingItem = { kind: "pending"; label: string; icon: ReactNode };
+type NavDropdownEntry = NavLinkItem | NavDividerItem | NavPendingItem;
 
-function NavDropdown({
-  label,
-  items,
-}: {
-  label: string;
-  items: NavItem[];
-}) {
+function NavDropdownMenu({ label, entries }: { label: string; entries: NavDropdownEntry[] }) {
   const [open, setOpen] = useState(false);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -73,26 +75,74 @@ function NavDropdown({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
             transition={{ duration: 0.18 }}
-            className="absolute left-1/2 top-full z-[60] mt-2 w-64 -translate-x-1/2 rounded-xl bg-white p-2 shadow-lg ring-1 ring-black/5"
+            className="absolute left-1/2 top-full z-[60] mt-2 w-72 -translate-x-1/2 rounded-xl bg-white p-2 shadow-lg ring-1 ring-black/5"
           >
             <ul className="space-y-0.5">
-              {items.map((it) => (
-                <li key={it.href + it.label}>
-                  <Link
-                    href={it.href}
-                    className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 transition hover:bg-[#FAF8F4]"
-                  >
-                    <span className="text-[#7C9A7E] [&>svg]:h-4 [&>svg]:w-4">{it.icon}</span>
-                    {it.label}
-                  </Link>
-                </li>
-              ))}
+              {entries.map((it, i) => {
+                if (it.kind === "divider") {
+                  return (
+                    <li key={`d-${i}-${it.label}`} className="px-2 py-2">
+                      <p className="text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#2C2C2C]/40">
+                        ── {it.label} ──
+                      </p>
+                    </li>
+                  );
+                }
+                if (it.kind === "pending") {
+                  return (
+                    <li
+                      key={`p-${i}-${it.label}`}
+                      className="flex cursor-default select-none items-center gap-2 rounded-lg px-3 py-2.5"
+                    >
+                      <span className="text-[#7C9A7E]/40 [&>svg]:h-4 [&>svg]:w-4">{it.icon}</span>
+                      <span className="flex-1 text-sm font-semibold italic text-gray-300">{it.label}</span>
+                      <span className="shrink-0 rounded-full bg-[#C9A84C]/18 px-1.5 py-0.5 text-[10px] font-bold text-[#8a6d32]">
+                        (Soon)
+                      </span>
+                    </li>
+                  );
+                }
+                return (
+                  <li key={it.href + it.label}>
+                    <Link
+                      href={it.href}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 transition hover:bg-[#FAF8F4]"
+                    >
+                      <span className="text-[#7C9A7E] [&>svg]:h-4 [&>svg]:w-4">{it.icon}</span>
+                      {it.label}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </motion.div>
         ) : null}
       </AnimatePresence>
     </div>
   );
+}
+
+type NotificationRow = {
+  id: string;
+  created_at: string;
+  type: string;
+  title: string;
+  body: string | null;
+  read_at: string | null;
+};
+
+function notificationIcon(type: string) {
+  if (type === "property_match") return <Home className="h-4 w-4 text-[#7C9A7E]" />;
+  if (type === "lead_created") return <Sparkles className="h-4 w-4 text-[#C9A84C]" />;
+  return <Bell className="h-4 w-4 text-[#2C2C2C]/50" />;
+}
+
+function formatTimeAgo(iso: string): string {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
 }
 
 export function MaddenTopNav() {
@@ -102,36 +152,35 @@ export function MaddenTopNav() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [busy, setBusy] = useState(false);
   const [agentNav, setAgentNav] = useState<{ id: string; image_url: string | null } | null>(null);
-  const [unreadLeads, setUnreadLeads] = useState(0);
+  const [brokerNav, setBrokerNav] = useState<{ id: string } | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement | null>(null);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement | null>(null);
+  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
+  const [notifUnread, setNotifUnread] = useState(0);
 
   useEffect(() => {
     if (!user?.id) {
       setAgentNav(null);
-      setUnreadLeads(0);
+      setBrokerNav(null);
+      setNotifications([]);
+      setNotifUnread(0);
       return;
     }
     let cancelled = false;
     void (async () => {
-      const { data: a } = await supabase
-        .from("agents")
-        .select("id, image_url")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const [{ data: a }, { data: b }] = await Promise.all([
+        supabase.from("agents").select("id, image_url").eq("user_id", user.id).maybeSingle(),
+        supabase.from("brokers").select("id").eq("user_id", user.id).maybeSingle(),
+      ]);
       if (cancelled) return;
       if (a) {
         setAgentNav({ id: a.id as string, image_url: (a as { image_url?: string | null }).image_url ?? null });
-        const { count } = await supabase
-          .from("leads")
-          .select("id", { count: "exact", head: true })
-          .eq("agent_id", user.id)
-          .eq("stage", "new");
-        setUnreadLeads(count ?? 0);
       } else {
         setAgentNav(null);
-        setUnreadLeads(0);
       }
+      setBrokerNav(b ? { id: b.id as string } : null);
     })();
     return () => {
       cancelled = true;
@@ -139,8 +188,45 @@ export function MaddenTopNav() {
   }, [user?.id, supabase]);
 
   useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    void (async () => {
+      const { count } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .is("read_at", null);
+      if (cancelled) return;
+      setNotifUnread(count ?? 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, supabase]);
+
+  useEffect(() => {
+    if (!notifOpen || !user?.id) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("notifications")
+        .select("id, created_at, type, title, body, read_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(25);
+      if (cancelled) return;
+      setNotifications((data ?? []) as NotificationRow[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [notifOpen, user?.id, supabase]);
+
+  useEffect(() => {
     const close = (e: MouseEvent) => {
-      if (accountRef.current && !accountRef.current.contains(e.target as Node)) setAccountOpen(false);
+      const t = e.target as Node;
+      if (accountRef.current && !accountRef.current.contains(t)) setAccountOpen(false);
+      if (notifRef.current && !notifRef.current.contains(t)) setNotifOpen(false);
     };
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
@@ -156,88 +242,207 @@ export function MaddenTopNav() {
     }
   };
 
-  const agentsItems: NavItem[] = [
-    { label: "Become an Agent →", href: "/register/agent", icon: <UserPlus /> },
-    { label: "Find an Agent", href: "/agents", icon: <Search /> },
-    { label: "Top Agents This Week", href: "/agents?sort=top", icon: <TrendingUp /> },
-    { label: "Agents by Specialty", href: "/agents?filter=specialty", icon: <Award /> },
-    { label: "Agents by Location", href: "/agents?filter=location", icon: <MapPin /> },
-  ];
+  const markNotificationRead = async (n: NotificationRow) => {
+    if (n.read_at) return;
+    const { error } = await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", n.id);
+    if (error) return;
+    setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)));
+    setNotifUnread((c) => Math.max(0, c - 1));
+  };
 
-  const brokersItems: NavItem[] = [
-    { label: "Find a Broker", href: "/brokers", icon: <Building2 /> },
-    { label: "Top Brokerages", href: "/brokers?sort=top", icon: <Star /> },
-    { label: "Register as Broker →", href: "/contact", icon: <HeartHandshake /> },
-    { label: "Verify My License →", href: "/contact", icon: <ShieldCheck /> },
-  ];
+  const publicAgentsEntries: NavDropdownEntry[] = useMemo(
+    () => [
+      { kind: "link", label: "Become an Agent →", href: "/register/agent", icon: <UserPlus /> },
+      { kind: "link", label: "Find an Agent", href: "/agents", icon: <Search /> },
+      { kind: "link", label: "Top Agents This Week", href: "/agents?sort=top", icon: <TrendingUp /> },
+      { kind: "link", label: "Agents by Specialty", href: "/agents?filter=specialty", icon: <Award /> },
+      { kind: "link", label: "Agents by Location", href: "/agents?filter=location", icon: <MapPin /> },
+    ],
+    [],
+  );
 
-  const landmarksItems: NavItem[] = [
-    { label: "Near Schools", href: "/landmarks?type=schools", icon: <GraduationCap /> },
-    { label: "Near Hospitals", href: "/landmarks?type=hospitals", icon: <Hospital /> },
-    { label: "Near Malls", href: "/landmarks?type=malls", icon: <Store /> },
-    { label: "Near Parks & Recreation", href: "/landmarks?type=parks", icon: <Palmtree /> },
-    { label: "Near Business Districts (BGC, Makati, Ortigas)", href: "/landmarks?type=business", icon: <Building2 /> },
-    { label: "Near Transportation Hubs", href: "/landmarks?type=transport", icon: <Train /> },
-  ];
+  const agentLoggedAgentsEntries: NavDropdownEntry[] = useMemo(() => {
+    if (!agentNav) return publicAgentsEntries;
+    return [
+      { kind: "link", label: "My Dashboard", href: "/dashboard/agent", icon: <LayoutDashboard /> },
+      { kind: "link", label: "My Listings", href: "/dashboard/agent?tab=listings", icon: <Home /> },
+      { kind: "link", label: "My Profile", href: `/agents/${agentNav.id}`, icon: <User /> },
+      { kind: "divider", label: "COMING SOON" },
+      { kind: "pending", label: "Agent Analytics", icon: <BarChart3 /> },
+      { kind: "pending", label: "Team Collaboration", icon: <Users /> },
+      { kind: "pending", label: "AI Listing Assistant", icon: <Bot /> },
+    ];
+  }, [agentNav, publicAgentsEntries]);
 
-  const buyWhenOnRentItems: NavItem[] = [
-    { label: "New Listings for Sale", href: "/buy#listings", icon: <Sparkles /> },
-    { label: "Luxury Homes ₱50M+", href: "/buy?focus=luxury#listings", icon: <Star /> },
-    { label: "Foreclosures & Deals", href: "/buy?focus=deals#listings", icon: <TrendingUp /> },
-    { label: "Open House This Weekend", href: "/buy?focus=open#listings", icon: <Landmark /> },
-    { label: "Browse by Neighborhood", href: "/buy#neighborhoods", icon: <MapPin /> },
-  ];
+  const clientAgentsEntries: NavDropdownEntry[] = useMemo(
+    () => [
+      { kind: "link", label: "Become an Agent →", href: "/register/agent", icon: <UserPlus /> },
+      { kind: "link", label: "Find an Agent", href: "/agents", icon: <Search /> },
+      { kind: "link", label: "Top Agents This Week", href: "/agents", icon: <TrendingUp /> },
+      { kind: "divider", label: "COMING SOON" },
+      { kind: "pending", label: "Agent Comparison Tool", icon: <GitCompare /> },
+    ],
+    [],
+  );
 
-  const rentWhenOnBuyItems: NavItem[] = [
-    { label: "New Rentals", href: "/#listings", icon: <Sparkles /> },
-    { label: "Pet Friendly", href: "/?focus=pet", icon: <Users /> },
-    { label: "Furnished & Move-in Ready", href: "/?focus=furnished", icon: <BadgeCheck /> },
-    { label: "Short Term Rentals", href: "/?focus=short", icon: <ShoppingBag /> },
-    { label: "Near Business Districts", href: "/?focus=bd", icon: <Building2 /> },
-  ];
+  const agentsEntries: NavDropdownEntry[] = useMemo(() => {
+    if (!user) return publicAgentsEntries;
+    if (role === "agent" && agentNav) return agentLoggedAgentsEntries;
+    if (role === "client") return clientAgentsEntries;
+    return publicAgentsEntries;
+  }, [user, role, agentNav, publicAgentsEntries, agentLoggedAgentsEntries, clientAgentsEntries]);
+
+  const publicBrokersEntries: NavDropdownEntry[] = useMemo(
+    () => [
+      { kind: "link", label: "Find a Broker", href: "/brokers", icon: <Building2 /> },
+      { kind: "link", label: "Top Brokerages", href: "/brokers?sort=top", icon: <Star /> },
+      { kind: "link", label: "Register as Broker →", href: "/contact", icon: <HeartHandshake /> },
+      { kind: "link", label: "Verify My License →", href: "/contact", icon: <ShieldCheck /> },
+    ],
+    [],
+  );
+
+  const brokerLoggedBrokersEntries: NavDropdownEntry[] = useMemo(() => {
+    if (!brokerNav) return publicBrokersEntries;
+    return [
+      { kind: "link", label: "My Dashboard", href: "/dashboard/broker", icon: <LayoutDashboard /> },
+      { kind: "link", label: "My Agents", href: "/dashboard/broker?tab=agents", icon: <Users /> },
+      { kind: "link", label: "My Profile", href: `/brokers/${brokerNav.id}`, icon: <Building2 /> },
+      { kind: "divider", label: "COMING SOON" },
+      { kind: "pending", label: "Broker Analytics", icon: <BarChart3 /> },
+      { kind: "pending", label: "Lead Distribution", icon: <Share2 /> },
+      { kind: "pending", label: "White Label Portal", icon: <LayoutTemplate /> },
+    ];
+  }, [brokerNav, publicBrokersEntries]);
+
+  const brokersEntries: NavDropdownEntry[] = useMemo(() => {
+    if (!user) return publicBrokersEntries;
+    if (role === "broker" && brokerNav) return brokerLoggedBrokersEntries;
+    return publicBrokersEntries;
+  }, [user, role, brokerNav, publicBrokersEntries, brokerLoggedBrokersEntries]);
+
+  const landmarksItems: NavDropdownEntry[] = useMemo(
+    () => [
+      { kind: "link", label: "Near Schools", href: "/landmarks?type=schools", icon: <GraduationCap /> },
+      { kind: "link", label: "Near Hospitals", href: "/landmarks?type=hospitals", icon: <Hospital /> },
+      { kind: "link", label: "Near Malls", href: "/landmarks?type=malls", icon: <Store /> },
+      { kind: "link", label: "Near Parks & Recreation", href: "/landmarks?type=parks", icon: <Palmtree /> },
+      { kind: "link", label: "Near Business Districts (BGC, Makati, Ortigas)", href: "/landmarks?type=business", icon: <Building2 /> },
+      { kind: "link", label: "Near Transportation Hubs", href: "/landmarks?type=transport", icon: <Train /> },
+    ],
+    [],
+  );
+
+  const buyWhenOnRentItems: NavDropdownEntry[] = useMemo(
+    () => [
+      { kind: "link", label: "New Listings for Sale", href: "/buy#listings", icon: <Sparkles /> },
+      { kind: "link", label: "Luxury Homes ₱50M+", href: "/buy?focus=luxury#listings", icon: <Star /> },
+      { kind: "link", label: "Foreclosures & Deals", href: "/buy?focus=deals#listings", icon: <TrendingUp /> },
+      { kind: "link", label: "Open House This Weekend", href: "/buy?focus=open#listings", icon: <Landmark /> },
+      { kind: "link", label: "Browse by Neighborhood", href: "/buy#neighborhoods", icon: <MapPin /> },
+    ],
+    [],
+  );
+
+  const rentWhenOnBuyItems: NavDropdownEntry[] = useMemo(
+    () => [
+      { kind: "link", label: "New Rentals", href: "/#listings", icon: <Sparkles /> },
+      { kind: "link", label: "Pet Friendly", href: "/?focus=pet", icon: <Users /> },
+      { kind: "link", label: "Furnished & Move-in Ready", href: "/?focus=furnished", icon: <BadgeCheck /> },
+      { kind: "link", label: "Short Term Rentals", href: "/?focus=short", icon: <ShoppingBag /> },
+      { kind: "link", label: "Near Business Districts", href: "/?focus=bd", icon: <Building2 /> },
+    ],
+    [],
+  );
 
   return (
     <header className="sticky top-0 z-50 border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
-      <div className="mx-auto grid max-w-6xl grid-cols-3 items-center px-4 py-4">
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-4">
         <Link href="/" className="justify-self-start leading-none">
-          <div className="font-serif text-xl font-bold tracking-tight text-[#2C2C2C]">
-            BahayGo
-          </div>
-          <div className="mt-0.5 text-[11px] font-semibold tracking-[0.18em] text-[#2C2C2C]/50">
-            FIND YOUR HOME
-          </div>
+          <div className="font-serif text-xl font-bold tracking-tight text-[#2C2C2C]">BahayGo</div>
+          <div className="mt-0.5 text-[11px] font-semibold tracking-[0.18em] text-[#2C2C2C]/50">FIND YOUR HOME</div>
         </Link>
 
-        <nav className="hidden justify-self-center sm:flex items-center gap-6 text-sm font-semibold text-[#2C2C2C]/70">
-          <NavDropdown label="Agents" items={agentsItems} />
-          <NavDropdown label="Brokers" items={brokersItems} />
-          <NavDropdown label="Landmarks" items={landmarksItems} />
+        <nav className="hidden min-w-0 justify-self-center sm:flex items-center gap-5 text-sm font-semibold text-[#2C2C2C]/70 md:gap-6">
+          <NavDropdownMenu label="Agents" entries={agentsEntries} />
+          <NavDropdownMenu label="Brokers" entries={brokersEntries} />
+          <NavDropdownMenu label="Landmarks" entries={landmarksItems} />
           {isBuyPage ? (
-            <NavDropdown label="Rent" items={rentWhenOnBuyItems} />
+            <NavDropdownMenu label="Rent" entries={rentWhenOnBuyItems} />
           ) : (
-            <NavDropdown label="Buy" items={buyWhenOnRentItems} />
+            <NavDropdownMenu label="Buy" entries={buyWhenOnRentItems} />
           )}
         </nav>
 
-        <div className="justify-self-end flex items-center justify-end gap-2">
+        <div className="justify-self-end flex items-center gap-2">
           {loading ? (
             <div className="h-9 w-20 animate-pulse rounded-full bg-black/5" />
           ) : user ? (
             <>
-              {agentNav ? (
-                <Link
-                  href="/dashboard/agent"
+              <div className="relative" ref={notifRef}>
+                <button
+                  type="button"
+                  onClick={() => setNotifOpen((o) => !o)}
                   className="relative inline-flex rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm hover:bg-[#FAF8F4]"
                   aria-label="Notifications"
+                  aria-expanded={notifOpen}
                 >
                   <Bell className="h-4 w-4" />
-                  {unreadLeads > 0 ? (
+                  {notifUnread > 0 ? (
                     <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#C9A84C] px-1 text-[10px] font-bold text-[#2C2C2C]">
-                      {unreadLeads > 9 ? "9+" : unreadLeads}
+                      {notifUnread > 9 ? "9+" : notifUnread}
                     </span>
                   ) : null}
-                </Link>
-              ) : null}
+                </button>
+                <AnimatePresence>
+                  {notifOpen ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-full z-[80] mt-2 w-[min(100vw-2rem,22rem)] max-h-[min(70vh,420px)] overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg ring-1 ring-black/5"
+                      role="menu"
+                    >
+                      <div className="border-b border-[#2C2C2C]/10 px-3 py-2">
+                        <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Notifications</p>
+                      </div>
+                      <div className="max-h-[min(60vh,360px)] overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <p className="px-4 py-8 text-center text-sm font-semibold text-[#2C2C2C]/45">No new notifications</p>
+                        ) : (
+                          <ul className="divide-y divide-[#2C2C2C]/8">
+                            {notifications.map((n) => (
+                              <li key={n.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => void markNotificationRead(n)}
+                                  className={`flex w-full gap-3 px-3 py-3 text-left transition hover:bg-[#FAF8F4] ${
+                                    n.read_at ? "opacity-75" : ""
+                                  }`}
+                                >
+                                  <span className="mt-0.5 shrink-0">{notificationIcon(n.type)}</span>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block text-sm font-semibold text-[#2C2C2C]">{n.title}</span>
+                                    {n.body ? (
+                                      <span className="mt-0.5 line-clamp-2 block text-xs font-semibold text-[#2C2C2C]/55">
+                                        {n.body}
+                                      </span>
+                                    ) : null}
+                                    <span className="mt-1 block text-[10px] font-semibold text-[#2C2C2C]/40">
+                                      {formatTimeAgo(n.created_at)}
+                                    </span>
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
               <div className="relative" ref={accountRef}>
                 <button
                   type="button"
@@ -272,9 +477,7 @@ export function MaddenTopNav() {
                         <p className="truncate text-sm font-semibold text-[#2C2C2C]/45">
                           {profile?.full_name?.trim() || "Member"}
                         </p>
-                        <p className="mt-0.5 truncate text-xs text-[#2C2C2C]/40">
-                          {user.email ?? ""}
-                        </p>
+                        <p className="mt-0.5 truncate text-xs text-[#2C2C2C]/40">{user.email ?? ""}</p>
                       </div>
                       <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
                       <Link

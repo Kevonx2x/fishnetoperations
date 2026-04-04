@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDown,
   Filter,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Heart,
@@ -24,24 +25,14 @@ import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badg
 import { ConnectedAgentsBox } from "@/components/marketplace/connected-agents-box";
 import { FinnMascot } from "@/components/marketplace/mascots/finn-mascot";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
+import type { DbProperty, SortMode } from "@/lib/marketplace-property";
+import { roomUrlsFor } from "@/lib/marketplace-property";
 import { useSavedPropertyIds } from "@/lib/saved-properties";
 import { useAuth } from "@/contexts/auth-context";
+import { PropertyZoomModal } from "@/components/marketplace/property-zoom-modal";
 
-export type DbProperty = {
-  id: string;
-  created_at: string;
-  name: string | null;
-  location: string;
-  price: string;
-  sqft: string;
-  beds: number;
-  baths: number;
-  image_url: string;
-  status: "for_sale" | "for_rent";
-  listed_by?: string | null;
-  property_photos?: { url: string; sort_order: number }[];
-  property_agents?: { agent: unknown }[];
-};
+export type { DbProperty, SortMode } from "@/lib/marketplace-property";
+export { roomUrlsFor } from "@/lib/marketplace-property";
 
 const HERO_SLIDES = [
   "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=2400&h=1300&fit=crop",
@@ -113,8 +104,6 @@ type FiltersState = {
   propertyType: "any" | "House" | "Condo" | "Villa" | "Land" | "Studio";
 };
 
-type SortMode = "newest" | "price_low" | "price_high" | "most_beds";
-
 function inferredType(p: DbProperty): FiltersState["propertyType"] {
   const loc = `${p.name ?? ""} ${p.location}`.toLowerCase();
   if (p.beds === 0) return "Studio";
@@ -151,6 +140,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   });
   const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
   const [cardAgentsExpanded, setCardAgentsExpanded] = useState<Record<string, boolean>>({});
+  const [zoomProperty, setZoomProperty] = useState<DbProperty | null>(null);
 
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const topAgentsRef = useRef<HTMLDivElement | null>(null);
@@ -762,6 +752,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             onToggleAgentsExpanded={() =>
                               setCardAgentsExpanded((s) => ({ ...s, [p.id]: !(s[p.id] ?? false) }))
                             }
+                            onOpenPropertyZoom={() => setZoomProperty(p)}
                             grid
                             viewerUserId={user?.id ?? null}
                           />
@@ -800,6 +791,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         cardAgentsExpanded={cardAgentsExpanded}
                         setCardAgentsExpanded={setCardAgentsExpanded}
                         viewerUserId={user?.id ?? null}
+                        onOpenPropertyZoom={setZoomProperty}
                       />
                     ) : (
                       <PropertyRows
@@ -823,6 +815,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         cardAgentsExpanded={cardAgentsExpanded}
                         setCardAgentsExpanded={setCardAgentsExpanded}
                         viewerUserId={user?.id ?? null}
+                        onOpenPropertyZoom={setZoomProperty}
                       />
                     )}
                   </motion.div>
@@ -877,34 +870,34 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
             {/* 6. TOP VERIFIED AGENTS THIS WEEK */}
             <section className="mt-12">
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Top Verified Agents This Week</h2>
-                  <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">High scores, fast responses, proven closings</p>
-                </div>
-                <div className="hidden items-center gap-2 sm:flex">
-                  <button
-                    type="button"
-                    onClick={() => scrollRow(topAgentsRef, "prev")}
-                    className="rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4]"
-                    aria-label="Scroll left"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => scrollRow(topAgentsRef, "next")}
-                    className="rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4]"
-                    aria-label="Scroll right"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
+              <div>
+                <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Top Verified Agents This Week</h2>
+                <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">High scores, fast responses, proven closings</p>
               </div>
-              <div ref={topAgentsRef} className="mt-4 flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                {topAgents.map((a) => (
-                  <AgentCard key={a.id} agent={a} />
-                ))}
+              <div className="mt-4 flex items-stretch gap-1 sm:gap-2">
+                <button
+                  type="button"
+                  onClick={() => scrollRow(topAgentsRef, "prev")}
+                  className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] sm:flex"
+                  aria-label="Scroll left"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div ref={topAgentsRef} className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide">
+                  <div className="flex gap-4">
+                    {topAgents.map((a) => (
+                      <AgentCard key={a.id} agent={a} />
+                    ))}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => scrollRow(topAgentsRef, "next")}
+                  className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] sm:flex"
+                  aria-label="Scroll right"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
             </section>
 
@@ -1008,6 +1001,16 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           </>
         ) : null}
       </main>
+
+      <AnimatePresence>
+        {zoomProperty ? (
+          <PropertyZoomModal
+            property={zoomProperty}
+            agents={allConnectedAgentsByPropertyId.get(zoomProperty.id) ?? []}
+            onClose={() => setZoomProperty(null)}
+          />
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1026,6 +1029,7 @@ function CategorySection({
   cardAgentsExpanded,
   setCardAgentsExpanded,
   scrollRow,
+  onOpenPropertyZoom,
 }: {
   title: string;
   subtitle: string;
@@ -1040,38 +1044,27 @@ function CategorySection({
   cardAgentsExpanded: Record<string, boolean>;
   setCardAgentsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   scrollRow: (ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") => void;
+  onOpenPropertyZoom: (p: DbProperty) => void;
 }) {
   const visible = expanded ? items : items.slice(0, 12);
 
   return (
     <>
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">{title}</h2>
-          <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
-        </div>
-        <div className="hidden items-center gap-2 sm:flex">
-          <button
-            type="button"
-            onClick={() => scrollRow(sectionRef, "prev")}
-            className="rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4]"
-            aria-label="Scroll left"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => scrollRow(sectionRef, "next")}
-            className="rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4]"
-            aria-label="Scroll right"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
+      <div>
+        <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">{title}</h2>
+        <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
       </div>
 
-      <div className="mt-4">
-        <div ref={sectionRef} className="overflow-x-auto pb-2 scrollbar-hide">
+      <div className="mt-4 flex items-stretch gap-1 sm:gap-2">
+        <button
+          type="button"
+          onClick={() => scrollRow(sectionRef, "prev")}
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] sm:flex"
+          aria-label="Scroll left"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <div ref={sectionRef} className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide">
           <div className="grid min-w-[980px] grid-cols-4 gap-4">
             {visible.map((p) => (
               <NewlyListedCard
@@ -1101,25 +1094,34 @@ function CategorySection({
                 onToggleAgentsExpanded={() =>
                   setCardAgentsExpanded((s) => ({ ...s, [p.id]: !(s[p.id] ?? false) }))
                 }
+                onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
                 grid
               />
             ))}
           </div>
         </div>
-
-        {items.length > 12 ? (
-          <div className="mt-3 flex justify-center">
-            <button
-              type="button"
-              onClick={onToggleExpanded}
-              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-[#FAF8F4]"
-            >
-              {expanded ? "Show less" : "Show more"}
-              <ArrowDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
-            </button>
-          </div>
-        ) : null}
+        <button
+          type="button"
+          onClick={() => scrollRow(sectionRef, "next")}
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] sm:flex"
+          aria-label="Scroll right"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
+
+      {items.length > 12 ? (
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={onToggleExpanded}
+            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-[#FAF8F4]"
+          >
+            {expanded ? "Show less" : "Show more"}
+            <ArrowDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -1175,12 +1177,6 @@ function Trust({ icon, title, body }: { icon: React.ReactNode; title: string; bo
   );
 }
 
-export function roomUrlsFor(p: DbProperty): string[] {
-  const fromDb = (p.property_photos ?? []).slice().sort((a, b) => a.sort_order - b.sort_order).map((x) => x.url);
-  if (fromDb.length) return fromDb.slice(0, 4);
-  return [p.image_url];
-}
-
 export function NewlyListedCard({
   property,
   roomUrls,
@@ -1192,6 +1188,7 @@ export function NewlyListedCard({
   connectedAgents,
   agentsExpanded,
   onToggleAgentsExpanded,
+  onOpenPropertyZoom,
   grid,
   cardWidthClass,
   viewerUserId,
@@ -1206,6 +1203,7 @@ export function NewlyListedCard({
   connectedAgents: MarketplaceAgent[];
   agentsExpanded: boolean;
   onToggleAgentsExpanded: () => void;
+  onOpenPropertyZoom: () => void;
   grid?: boolean;
   cardWidthClass?: string;
   viewerUserId?: string | null;
@@ -1236,22 +1234,34 @@ export function NewlyListedCard({
           className="object-cover"
           sizes={grid ? "(min-width: 1024px) 360px, 100vw" : "260px"}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-transparent" />
+        <button
+          type="button"
+          onClick={onOpenPropertyZoom}
+          className="absolute inset-0 z-[6] cursor-pointer bg-transparent"
+          aria-label="Open property details"
+        />
 
         {roomUrls.length > 1 ? (
           <>
             <button
               type="button"
-              onClick={onRoomPrev}
-              className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md hover:bg-white"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRoomPrev();
+              }}
+              className="absolute left-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md hover:bg-white"
               aria-label="Previous room photo"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               type="button"
-              onClick={onRoomNext}
-              className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md hover:bg-white"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRoomNext();
+              }}
+              className="absolute right-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md hover:bg-white"
               aria-label="Next room photo"
             >
               <ChevronRight className="h-4 w-4" />
@@ -1259,7 +1269,7 @@ export function NewlyListedCard({
           </>
         ) : null}
 
-        <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
+        <div className="absolute left-3 top-3 z-20 flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-sm">
             {newLabel}
           </span>
@@ -1273,13 +1283,16 @@ export function NewlyListedCard({
             </Link>
           ) : null}
         </div>
-        <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+        <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
           <span className="rounded-full bg-[#7C9A7E] px-3 py-1 text-[11px] font-bold text-white shadow-sm">
             {statusLabel}
           </span>
           <button
             type="button"
-            onClick={onToggleSaved}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSaved();
+            }}
             className="rounded-full bg-white/90 p-2 shadow-sm"
             aria-label={isSaved ? "Unsave" : "Save"}
           >
@@ -1287,7 +1300,7 @@ export function NewlyListedCard({
           </button>
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 z-10 p-4">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-4">
           <p className="font-serif text-2xl font-bold text-white">{property.price}</p>
           <p className="mt-1 line-clamp-1 text-sm font-semibold text-white/90">{property.name ?? property.location}</p>
           <p className="mt-1 text-xs font-semibold text-white/80">
@@ -1319,8 +1332,8 @@ export function NewlyListedCard({
           ))}
         </div>
 
-        <div className="mt-4 flex items-center justify-between">
-          {hiddenCount > 0 ? (
+        {hiddenCount > 0 ? (
+          <div className="mt-3">
             <button
               type="button"
               onClick={onToggleAgentsExpanded}
@@ -1328,15 +1341,17 @@ export function NewlyListedCard({
             >
               Show More
             </button>
-          ) : (
-            <span className="text-xs font-semibold text-[#2C2C2C]/35"> </span>
-          )}
-          <Link
-            href={`/properties/${encodeURIComponent(property.id)}`}
-            className="inline-flex rounded-full bg-[#2C2C2C] px-4 py-2 text-xs font-semibold text-white hover:bg-[#7C9A7E]"
+          </div>
+        ) : null}
+        <div className="mt-2 flex justify-center">
+          <button
+            type="button"
+            onClick={onOpenPropertyZoom}
+            className="rounded-full p-1 text-[#2C2C2C]/40 transition hover:bg-[#FAF8F4] hover:text-[#2C2C2C]/60"
+            aria-label="Open property details"
           >
-            View Details
-          </Link>
+            <ChevronDown className="h-4 w-4" strokeWidth={2} />
+          </button>
         </div>
       </div>
     </div>
@@ -1407,6 +1422,7 @@ function PropertyRows({
   cardAgentsExpanded,
   setCardAgentsExpanded,
   viewerUserId,
+  onOpenPropertyZoom,
 }: {
   rows: { key: string; title: string; subtitle: string; items: DbProperty[]; featured?: boolean }[];
   showMore: boolean;
@@ -1419,6 +1435,7 @@ function PropertyRows({
   cardAgentsExpanded: Record<string, boolean>;
   setCardAgentsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   viewerUserId?: string | null;
+  onOpenPropertyZoom: (p: DbProperty) => void;
 }) {
   const first = rows.slice(0, 4);
   const rest = rows.slice(4);
@@ -1441,6 +1458,7 @@ function PropertyRows({
             cardAgentsExpanded={cardAgentsExpanded}
             setCardAgentsExpanded={setCardAgentsExpanded}
             viewerUserId={viewerUserId}
+            onOpenPropertyZoom={onOpenPropertyZoom}
           />
           <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
         </div>
@@ -1482,6 +1500,7 @@ function PropertyRows({
                   cardAgentsExpanded={cardAgentsExpanded}
                   setCardAgentsExpanded={setCardAgentsExpanded}
                   viewerUserId={viewerUserId}
+                  onOpenPropertyZoom={onOpenPropertyZoom}
                 />
                 <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
               </div>
@@ -1507,6 +1526,7 @@ function RowCarousel({
   cardAgentsExpanded,
   setCardAgentsExpanded,
   viewerUserId,
+  onOpenPropertyZoom,
 }: {
   rowKey: string;
   title: string;
@@ -1521,6 +1541,7 @@ function RowCarousel({
   cardAgentsExpanded: Record<string, boolean>;
   setCardAgentsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   viewerUserId?: string | null;
+  onOpenPropertyZoom: (p: DbProperty) => void;
 }) {
   const scroll = (dir: "prev" | "next") => {
     const el = rowRefs.current[rowKey];
@@ -1535,74 +1556,72 @@ function RowCarousel({
 
   return (
     <div className={featuredClasses}>
-      <div className="mb-3 flex items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            {featured ? <Star className="h-4 w-4 text-[#C9A84C]" /> : null}
-            <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">{title}</h2>
-          </div>
-          <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
+      <div className="mb-3">
+        <div className="flex items-center gap-2">
+          {featured ? <Star className="h-4 w-4 text-[#C9A84C]" /> : null}
+          <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">{title}</h2>
         </div>
+        <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
       </div>
 
-      <div className="relative">
-        <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-30 hidden items-center justify-between sm:flex">
-          <button
-            type="button"
-            onClick={() => scroll("prev")}
-            className="pointer-events-auto ml-2 rounded-full border border-black/10 bg-white/90 p-2 shadow-sm backdrop-blur hover:bg-white"
-            aria-label="Scroll left"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => scroll("next")}
-            className="pointer-events-auto mr-2 rounded-full border border-black/10 bg-white/90 p-2 shadow-sm backdrop-blur hover:bg-white"
-            aria-label="Scroll right"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-
+      <div className="flex items-stretch gap-1 sm:gap-2">
+        <button
+          type="button"
+          onClick={() => scroll("prev")}
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] sm:flex"
+          aria-label="Scroll left"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
         <div
           ref={(el) => {
             rowRefs.current[rowKey] = el;
           }}
-          className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide"
+          className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide"
         >
-          {list.map((p) => (
-            <NewlyListedCard
-              key={`${rowKey}-${p.id}`}
-              property={p}
-              roomUrls={roomUrlsFor(p)}
-              roomIdx={cardRoomIdx[p.id] ?? 0}
-              onRoomPrev={() =>
-                setCardRoomIdx((s) => ({
-                  ...s,
-                  [p.id]:
-                    (roomUrlsFor(p).length + (s[p.id] ?? 0) - 1) %
-                    Math.max(1, roomUrlsFor(p).length),
-                }))
-              }
-              onRoomNext={() =>
-                setCardRoomIdx((s) => ({
-                  ...s,
-                  [p.id]: ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
-                }))
-              }
-              isSaved={saved.has(p.id)}
-              onToggleSaved={() => saved.toggle(p.id)}
-              connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
-              agentsExpanded={cardAgentsExpanded[p.id] ?? false}
-              onToggleAgentsExpanded={() =>
-                setCardAgentsExpanded((s) => ({ ...s, [p.id]: !(s[p.id] ?? false) }))
-              }
-              cardWidthClass={cardWidthClass}
-              viewerUserId={viewerUserId}
-            />
-          ))}
+          <div className="flex gap-4">
+            {list.map((p) => (
+              <NewlyListedCard
+                key={`${rowKey}-${p.id}`}
+                property={p}
+                roomUrls={roomUrlsFor(p)}
+                roomIdx={cardRoomIdx[p.id] ?? 0}
+                onRoomPrev={() =>
+                  setCardRoomIdx((s) => ({
+                    ...s,
+                    [p.id]:
+                      (roomUrlsFor(p).length + (s[p.id] ?? 0) - 1) %
+                      Math.max(1, roomUrlsFor(p).length),
+                  }))
+                }
+                onRoomNext={() =>
+                  setCardRoomIdx((s) => ({
+                    ...s,
+                    [p.id]: ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
+                  }))
+                }
+                isSaved={saved.has(p.id)}
+                onToggleSaved={() => saved.toggle(p.id)}
+                connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
+                agentsExpanded={cardAgentsExpanded[p.id] ?? false}
+                onToggleAgentsExpanded={() =>
+                  setCardAgentsExpanded((s) => ({ ...s, [p.id]: !(s[p.id] ?? false) }))
+                }
+                onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
+                cardWidthClass={cardWidthClass}
+                viewerUserId={viewerUserId}
+              />
+            ))}
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={() => scroll("next")}
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] sm:flex"
+          aria-label="Scroll right"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );
