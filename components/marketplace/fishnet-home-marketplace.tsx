@@ -18,7 +18,6 @@ import {
   Flame,
   Users,
   Star,
-  HelpCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
@@ -142,7 +141,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     propertyType: "any",
   });
   const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
-  const [cardAgentsExpanded, setCardAgentsExpanded] = useState<Record<string, boolean>>({});
   const [zoomProperty, setZoomProperty] = useState<DbProperty | null>(null);
 
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -157,7 +155,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         .from("properties")
         .select(
           `
-          id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by,
+          id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by, description,
           property_photos (url, sort_order),
           property_agents (agent:agents (id, user_id, name, image_url, score, closings, response_time, availability, brokers (id, company_name, logo_url)))
         `,
@@ -751,10 +749,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             isSaved={saved.has(p.id)}
                             onToggleSaved={() => saved.toggle(p.id)}
                             connectedAgents={allConnectedAgentsByPropertyId.get(p.id) ?? []}
-                            agentsExpanded={cardAgentsExpanded[p.id] ?? false}
-                            onToggleAgentsExpanded={() =>
-                              setCardAgentsExpanded((s) => ({ ...s, [p.id]: !(s[p.id] ?? false) }))
-                            }
                             onOpenPropertyZoom={() => setZoomProperty(p)}
                             grid
                             viewerUserId={user?.id ?? null}
@@ -791,8 +785,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         setCardRoomIdx={setCardRoomIdx}
                         saved={saved}
                         connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
-                        cardAgentsExpanded={cardAgentsExpanded}
-                        setCardAgentsExpanded={setCardAgentsExpanded}
                         viewerUserId={user?.id ?? null}
                         onOpenPropertyZoom={setZoomProperty}
                       />
@@ -815,8 +807,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         setCardRoomIdx={setCardRoomIdx}
                         saved={saved}
                         connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
-                        cardAgentsExpanded={cardAgentsExpanded}
-                        setCardAgentsExpanded={setCardAgentsExpanded}
                         viewerUserId={user?.id ?? null}
                         onOpenPropertyZoom={setZoomProperty}
                       />
@@ -1011,6 +1001,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
             property={zoomProperty}
             agents={allConnectedAgentsByPropertyId.get(zoomProperty.id) ?? []}
             onClose={() => setZoomProperty(null)}
+            isSaved={saved.has(zoomProperty.id)}
+            onToggleSaved={() => saved.toggle(zoomProperty.id)}
           />
         ) : null}
       </AnimatePresence>
@@ -1029,8 +1021,6 @@ function CategorySection({
   setCardRoomIdx,
   saved,
   connectedAgentsByPropertyId,
-  cardAgentsExpanded,
-  setCardAgentsExpanded,
   scrollRow,
   onOpenPropertyZoom,
 }: {
@@ -1044,8 +1034,6 @@ function CategorySection({
   setCardRoomIdx: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   saved: ReturnType<typeof useSavedPropertyIds>;
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
-  cardAgentsExpanded: Record<string, boolean>;
-  setCardAgentsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   scrollRow: (ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") => void;
   onOpenPropertyZoom: (p: DbProperty) => void;
 }) {
@@ -1093,10 +1081,6 @@ function CategorySection({
                 isSaved={saved.has(p.id)}
                 onToggleSaved={() => saved.toggle(p.id)}
                 connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
-                agentsExpanded={cardAgentsExpanded[p.id] ?? false}
-                onToggleAgentsExpanded={() =>
-                  setCardAgentsExpanded((s) => ({ ...s, [p.id]: !(s[p.id] ?? false) }))
-                }
                 onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
                 grid
               />
@@ -1189,8 +1173,6 @@ export function NewlyListedCard({
   isSaved,
   onToggleSaved,
   connectedAgents,
-  agentsExpanded,
-  onToggleAgentsExpanded,
   onOpenPropertyZoom,
   grid,
   cardWidthClass,
@@ -1204,8 +1186,6 @@ export function NewlyListedCard({
   isSaved: boolean;
   onToggleSaved: () => void;
   connectedAgents: MarketplaceAgent[];
-  agentsExpanded: boolean;
-  onToggleAgentsExpanded: () => void;
   onOpenPropertyZoom: () => void;
   grid?: boolean;
   cardWidthClass?: string;
@@ -1227,9 +1207,6 @@ export function NewlyListedCard({
     if (n === 1) {
       return [{ kind: "agent", agent: connectedAgents[0]! }, { kind: "placeholder" }];
     }
-    if (agentsExpanded) {
-      return connectedAgents.map((a) => ({ kind: "agent" as const, agent: a }));
-    }
     return connectedAgents.slice(0, 2).map((a) => ({ kind: "agent" as const, agent: a }));
   })();
   const showYourListingBadge =
@@ -1242,7 +1219,7 @@ export function NewlyListedCard({
         grid ? "" : `${cardWidthClass ?? "w-[260px]"} shrink-0`
       }`}
     >
-      <div className="relative h-40 w-full bg-black/5">
+      <div className="relative h-48 w-full bg-black/5">
         <Image
           src={img}
           alt={property.name ?? property.location}
@@ -1251,7 +1228,7 @@ export function NewlyListedCard({
           className="object-cover"
           sizes={grid ? "(min-width: 1024px) 360px, 100vw" : "260px"}
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
         <button
           type="button"
           onClick={onOpenPropertyZoom}
@@ -1267,10 +1244,10 @@ export function NewlyListedCard({
                 e.stopPropagation();
                 onRoomPrev();
               }}
-              className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 p-1 opacity-75 shadow-md hover:bg-white hover:opacity-100"
+              className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100"
               aria-label="Previous room photo"
             >
-              <ChevronLeft className="h-6 w-6" />
+              <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               type="button"
@@ -1278,16 +1255,16 @@ export function NewlyListedCard({
                 e.stopPropagation();
                 onRoomNext();
               }}
-              className="absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 p-1 opacity-75 shadow-md hover:bg-white hover:opacity-100"
+              className="absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100"
               aria-label="Next room photo"
             >
-              <ChevronRight className="h-6 w-6" />
+              <ChevronRight className="h-5 w-5" />
             </button>
           </>
         ) : null}
 
-        <div className="absolute left-3 top-3 z-20 flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-sm">
+        <div className="absolute left-3 top-3 z-20 flex max-w-[70%] flex-wrap items-center gap-2">
+          <span className="rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-sm">
             {listedLabel}
           </span>
           {showYourListingBadge ? (
@@ -1310,77 +1287,97 @@ export function NewlyListedCard({
               e.stopPropagation();
               onToggleSaved();
             }}
-            className="rounded-full bg-white/90 p-2 shadow-sm"
+            className="rounded-full bg-white/95 p-2 shadow-sm ring-1 ring-black/5"
             aria-label={isSaved ? "Unsave" : "Save"}
           >
             <Heart className={`h-4 w-4 ${isSaved ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`} />
           </button>
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-4">
-          <p className="font-serif text-2xl font-bold text-white">{property.price}</p>
-          <p className="mt-1 line-clamp-1 text-sm font-semibold text-white/90">{property.name ?? property.location}</p>
-          <p className="mt-1 text-xs font-semibold text-white/80">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent p-4 pt-12">
+          <p className="font-serif text-2xl font-bold text-white drop-shadow-sm">{property.price}</p>
+          <p className="mt-1 line-clamp-1 text-sm font-semibold text-white/95">{property.name ?? property.location}</p>
+          <p className="mt-1 text-xs font-semibold text-white/85">
             {property.beds ? `${property.beds} beds` : "Studio"} · {property.baths} baths · {property.sqft} sqft
           </p>
         </div>
       </div>
 
-      {/* Connected agents strip */}
-      <div className="relative flex min-h-[120px] flex-col border-t border-[#2C2C2C]/10 bg-white px-4 pb-4 pt-4">
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="space-y-2">
-            {agentRows.map((row, idx) =>
-              row.kind === "agent" ? (
-                <div key={row.agent.id} className="flex items-center gap-2.5">
-                  <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
-                    <AgentAvatarFill name={row.agent.name} imageUrl={row.agent.image} sizes="28px" />
-                  </div>
-                  <Link
-                    href={`/agents/${encodeURIComponent(row.agent.id)}`}
-                    className="min-w-0 flex-1 truncate text-xs font-semibold text-[#2C2C2C] hover:underline hover:decoration-[#D4A843]/60 hover:underline-offset-4"
-                    title={row.agent.name}
-                  >
-                    {row.agent.name.length > 12 ? `${row.agent.name.slice(0, 12)}…` : row.agent.name}
-                  </Link>
-                  <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
-                  <span className="ml-auto text-xs font-bold text-[#2C2C2C]">
-                    {Math.round(row.agent.score)}
-                  </span>
-                </div>
-              ) : (
-                <div key={`placeholder-${idx}`} className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] ring-1 ring-black/10">
-                    <HelpCircle className="h-3.5 w-3.5 text-white" aria-hidden />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold text-[#2C2C2C]">Agent Slot Available</p>
+      <div
+        className="flex flex-col border-t border-[#2C2C2C]/10 bg-white"
+        style={{ minHeight: "130px" }}
+      >
+        <div className="flex flex-1 flex-col justify-between px-4 pt-4">
+          <div>
+            <div className="space-y-2">
+              {agentRows.map((row, idx) =>
+                row.kind === "agent" ? (
+                  <div key={row.agent.id} className="flex items-center gap-2.5">
                     <Link
-                      href="/register/agent"
-                      className="text-[10px] font-medium text-[#6B9E6E] hover:underline"
+                      href={`/agents/${encodeURIComponent(row.agent.id)}`}
+                      className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      Become a listing agent →
+                      <AgentAvatarFill name={row.agent.name} imageUrl={row.agent.image} sizes="28px" />
                     </Link>
+                    <Link
+                      href={`/agents/${encodeURIComponent(row.agent.id)}`}
+                      className="min-w-0 flex-1 truncate text-xs font-semibold text-[#2C2C2C] hover:underline hover:decoration-[#D4A843]/60 hover:underline-offset-4"
+                      title={row.agent.name}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {row.agent.name.length > 12 ? `${row.agent.name.slice(0, 12)}…` : row.agent.name}
+                    </Link>
+                    <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
+                    <span className="ml-auto text-xs font-bold text-[#2C2C2C]">
+                      {Math.round(row.agent.score)}
+                    </span>
                   </div>
-                </div>
-              ),
-            )}
-          </div>
+                ) : (
+                  <div key={`placeholder-${idx}`} className="flex items-center gap-2.5">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] ring-1 ring-black/10">
+                      <span className="text-sm font-bold text-white">?</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href="/register/agent"
+                        className="block truncate text-xs font-semibold text-[#2C2C2C] hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Agent Slot Available
+                      </Link>
+                      <Link
+                        href="/register/agent"
+                        className="text-[10px] font-medium text-[#6B9E6E] hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Become a listing agent →
+                      </Link>
+                    </div>
+                  </div>
+                ),
+              )}
+            </div>
 
-          {hiddenCount > 0 ? (
-            <div className="mt-3">
-              <button
-                type="button"
-                onClick={onToggleAgentsExpanded}
-                className="text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
+            {hiddenCount > 0 ? (
+              <p
+                className="mt-2 cursor-pointer text-center text-xs font-semibold text-[#2C2C2C]/55 hover:text-[#2C2C2C]"
+                onClick={onOpenPropertyZoom}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onOpenPropertyZoom();
+                  }
+                }}
               >
                 Show More
-              </button>
-            </div>
-          ) : null}
+              </p>
+            ) : null}
+          </div>
         </div>
-        <div className="mt-auto flex justify-center pt-2">
+        <div className="flex justify-center py-2">
           <button
             type="button"
             onClick={onOpenPropertyZoom}
@@ -1456,8 +1453,6 @@ function PropertyRows({
   setCardRoomIdx,
   saved,
   connectedAgentsByPropertyId,
-  cardAgentsExpanded,
-  setCardAgentsExpanded,
   viewerUserId,
   onOpenPropertyZoom,
 }: {
@@ -1469,8 +1464,6 @@ function PropertyRows({
   setCardRoomIdx: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   saved: ReturnType<typeof useSavedPropertyIds>;
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
-  cardAgentsExpanded: Record<string, boolean>;
-  setCardAgentsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   viewerUserId?: string | null;
   onOpenPropertyZoom: (p: DbProperty) => void;
 }) {
@@ -1492,8 +1485,6 @@ function PropertyRows({
             setCardRoomIdx={setCardRoomIdx}
             saved={saved}
             connectedAgentsByPropertyId={connectedAgentsByPropertyId}
-            cardAgentsExpanded={cardAgentsExpanded}
-            setCardAgentsExpanded={setCardAgentsExpanded}
             viewerUserId={viewerUserId}
             onOpenPropertyZoom={onOpenPropertyZoom}
           />
@@ -1536,8 +1527,6 @@ function PropertyRows({
                   setCardRoomIdx={setCardRoomIdx}
                   saved={saved}
                   connectedAgentsByPropertyId={connectedAgentsByPropertyId}
-                  cardAgentsExpanded={cardAgentsExpanded}
-                  setCardAgentsExpanded={setCardAgentsExpanded}
                   viewerUserId={viewerUserId}
                   onOpenPropertyZoom={onOpenPropertyZoom}
                 />
@@ -1573,8 +1562,6 @@ function RowCarousel({
   setCardRoomIdx,
   saved,
   connectedAgentsByPropertyId,
-  cardAgentsExpanded,
-  setCardAgentsExpanded,
   viewerUserId,
   onOpenPropertyZoom,
 }: {
@@ -1588,8 +1575,6 @@ function RowCarousel({
   setCardRoomIdx: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   saved: ReturnType<typeof useSavedPropertyIds>;
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
-  cardAgentsExpanded: Record<string, boolean>;
-  setCardAgentsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   viewerUserId?: string | null;
   onOpenPropertyZoom: (p: DbProperty) => void;
 }) {
@@ -1654,10 +1639,6 @@ function RowCarousel({
                 isSaved={saved.has(p.id)}
                 onToggleSaved={() => saved.toggle(p.id)}
                 connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
-                agentsExpanded={cardAgentsExpanded[p.id] ?? false}
-                onToggleAgentsExpanded={() =>
-                  setCardAgentsExpanded((s) => ({ ...s, [p.id]: !(s[p.id] ?? false) }))
-                }
                 onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
                 cardWidthClass={cardWidthClass}
                 viewerUserId={viewerUserId}

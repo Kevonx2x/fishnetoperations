@@ -14,6 +14,7 @@ export type DbProperty = {
   image_url: string;
   status: "for_sale" | "for_rent";
   listed_by?: string | null;
+  description?: string | null;
   property_photos?: { url: string; sort_order: number }[];
   property_agents?: { agent: unknown }[];
 };

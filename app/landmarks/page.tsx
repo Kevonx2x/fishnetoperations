@@ -74,7 +74,6 @@ function LandmarksContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
-  const [cardAgentsExpanded, setCardAgentsExpanded] = useState<Record<string, boolean>>({});
   const [zoomProperty, setZoomProperty] = useState<DbProperty | null>(null);
 
   useEffect(() => {
@@ -86,7 +85,7 @@ function LandmarksContent() {
         .from("properties")
         .select(
           `
-          id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by,
+          id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by, description,
           property_photos (url, sort_order),
           property_agents (agent:agents (id, user_id, name, image_url, score, closings, response_time, availability, brokers (id, company_name, logo_url)))
         `,
@@ -233,10 +232,6 @@ function LandmarksContent() {
                     isSaved={saved.has(p.id)}
                     onToggleSaved={() => saved.toggle(p.id)}
                     connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
-                    agentsExpanded={cardAgentsExpanded[p.id] ?? false}
-                    onToggleAgentsExpanded={() =>
-                      setCardAgentsExpanded((s) => ({ ...s, [p.id]: !(s[p.id] ?? false) }))
-                    }
                     onOpenPropertyZoom={() => setZoomProperty(p)}
                     grid
                     viewerUserId={user?.id ?? null}
@@ -254,6 +249,8 @@ function LandmarksContent() {
             property={zoomProperty}
             agents={connectedAgentsByPropertyId.get(zoomProperty.id) ?? []}
             onClose={() => setZoomProperty(null)}
+            isSaved={saved.has(zoomProperty.id)}
+            onToggleSaved={() => saved.toggle(zoomProperty.id)}
           />
         ) : null}
       </AnimatePresence>
