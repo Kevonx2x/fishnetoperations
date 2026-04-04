@@ -32,6 +32,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { PropertyZoomModal } from "@/components/marketplace/property-zoom-modal";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { listingListedLabel } from "@/lib/listing-listed-time";
+import { AgentSlotPlaceholder } from "@/components/marketplace/agent-slot-placeholder";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { roomUrlsFor } from "@/lib/marketplace-property";
@@ -1338,22 +1339,7 @@ export function NewlyListedCard({
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] ring-1 ring-black/10">
                       <span className="text-sm font-bold text-white">?</span>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        href="/register/agent"
-                        className="block truncate text-xs font-semibold text-[#2C2C2C] hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Agent Slot Available
-                      </Link>
-                      <Link
-                        href="/register/agent"
-                        className="text-[10px] font-medium text-[#6B9E6E] hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Become a listing agent →
-                      </Link>
-                    </div>
+                    <AgentSlotPlaceholder onLinkClick={(e) => e.stopPropagation()} />
                   </div>
                 ),
               )}

@@ -13,6 +13,7 @@ import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { useSavedPropertyIds } from "@/lib/saved-properties";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { recordRecentlyViewedPropertyId } from "@/lib/recently-viewed";
+import { PropertyPageEmptyAgents } from "@/components/marketplace/agent-slot-placeholder";
 
 type ListingAgentProfile = {
   id: string;
@@ -300,9 +301,7 @@ export default function PropertyPage() {
               <div className="mt-6">
                 <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Connected Agents</h2>
                 {connectedAgents.length === 0 ? (
-                  <p className="mt-4 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 text-center text-sm font-semibold text-[#2C2C2C]/55 shadow-sm">
-                    No agents currently listed for this property
-                  </p>
+                  <PropertyPageEmptyAgents />
                 ) : (
                   <ul className="mt-4 grid list-none gap-4 p-0 sm:grid-cols-2">
                     {connectedAgents.map((a) => (

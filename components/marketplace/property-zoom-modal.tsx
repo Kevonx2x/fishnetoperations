@@ -9,6 +9,7 @@ import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
+import { AgentSlotPlaceholderModal } from "@/components/marketplace/agent-slot-placeholder";
 
 type Props = {
   property: DbProperty;
@@ -186,16 +187,7 @@ function AgentsList({
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] text-sm font-bold text-white">
               ?
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold text-[#2C2C2C]/70">Agent Slot Available</p>
-              <Link
-                href="/register/agent"
-                onClick={onClose}
-                className="mt-1 inline-block text-xs font-semibold text-[#6B9E6E] hover:underline"
-              >
-                Become a listing agent →
-              </Link>
-            </div>
+            <AgentSlotPlaceholderModal onLinkClick={onClose} />
           </div>
         </li>
       ))}
