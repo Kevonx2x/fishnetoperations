@@ -95,7 +95,7 @@ export default function BrokerProfilePage() {
                   href={row.website}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex text-[#2C2C2C]/70 underline decoration-[#C9A84C]/60 underline-offset-4 hover:text-[#2C2C2C]"
+                  className="inline-flex text-[#2C2C2C]/70 underline decoration-[#D4A843]/60 underline-offset-4 hover:text-[#2C2C2C]"
                 >
                   Website →
                 </a>

@@ -32,21 +32,21 @@ export function BottomNav({
               key={item.id}
               type="button"
               onClick={() => onTab(item.id)}
-              className="relative flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-semibold text-[#2C2C2C]/55 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/30"
+              className="relative flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-semibold text-[#2C2C2C]/55 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/30"
               aria-current={isActive ? "page" : undefined}
             >
               {isActive && (
                 <motion.div
                   layoutId="bottom-nav-active-pill"
-                  className="absolute inset-1 rounded-xl bg-[#7C9A7E]/12"
+                  className="absolute inset-1 rounded-xl bg-[#6B9E6E]/12"
                   transition={{ type: "spring", stiffness: 420, damping: 32 }}
                 />
               )}
 
               <span className="relative">
-                <item.Icon className={`h-5 w-5 ${isActive ? "text-[#7C9A7E]" : "text-[#2C2C2C]/55"}`} />
+                <item.Icon className={`h-5 w-5 ${isActive ? "text-[#6B9E6E]" : "text-[#2C2C2C]/55"}`} />
               </span>
-              <span className={`relative ${isActive ? "text-[#7C9A7E]" : ""}`}>{item.label}</span>
+              <span className={`relative ${isActive ? "text-[#6B9E6E]" : ""}`}>{item.label}</span>
 
               {isActive && (
                 <motion.div
@@ -84,7 +84,7 @@ function FinnPeekSvg({ className }: { className?: string }) {
     <svg viewBox="0 0 64 64" className={className} role="img" aria-label="Finn peeking">
       <defs>
         <linearGradient id="peekRoof" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#C9A84C" />
+          <stop offset="0%" stopColor="#D4A843" />
           <stop offset="100%" stopColor="#B99333" />
         </linearGradient>
       </defs>

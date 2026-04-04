@@ -172,10 +172,10 @@ export default function BrokersIndexPage() {
                     <p className="truncate font-serif text-lg font-bold text-[#2C2C2C]">{b.company_name}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-2">
                       <span
-                        className="inline-flex items-center gap-1 rounded-full bg-[#C9A84C]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]"
+                        className="inline-flex items-center gap-1 rounded-full bg-[#D4A843]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]"
                         title="Verified brokerage"
                       >
-                        <BadgeCheck className="h-3.5 w-3.5 text-[#C9A84C]" />
+                        <BadgeCheck className="h-3.5 w-3.5 text-[#D4A843]" />
                         Verified
                       </span>
                       <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#2C2C2C]/45">
@@ -191,7 +191,7 @@ export default function BrokersIndexPage() {
                 </div>
                 <Link
                   href={`/brokers/${encodeURIComponent(b.id)}`}
-                  className="mt-4 inline-flex w-full justify-center rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7C9A7E]"
+                  className="mt-4 inline-flex w-full justify-center rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6B9E6E]"
                 >
                   View Brokerage
                 </Link>

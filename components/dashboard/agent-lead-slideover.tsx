@@ -163,16 +163,16 @@ export function AgentLeadSlideOver({
           {loading ? (
             <p className="mt-2 text-sm text-[#2C2C2C]/45">Loading…</p>
           ) : (
-            <ul className="mt-3 space-y-3 border-l border-[#C9A84C]/35 pl-4">
+            <ul className="mt-3 space-y-3 border-l border-[#D4A843]/35 pl-4">
               {notes.map((n) => (
                 <li key={n.id} className="relative">
-                  <div className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-[#C9A84C]" />
+                  <div className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-[#D4A843]" />
                   <div className="flex gap-2">
                     <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-white ring-1 ring-black/10">
                       {agentAvatarUrl ? (
                         <Image src={agentAvatarUrl} alt="" fill className="object-cover" sizes="32px" />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-[#7C9A7E]/20 text-xs font-bold">
+                        <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/20 text-xs font-bold">
                           {agentName.slice(0, 1)}
                         </div>
                       )}
@@ -216,7 +216,7 @@ export function AgentLeadSlideOver({
               type="button"
               disabled={saving || !draft.trim()}
               onClick={() => void saveNote()}
-              className="rounded-full bg-[#7C9A7E] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+              className="rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save note"}
             </button>

@@ -135,7 +135,7 @@ export default function SettingsPage() {
             <p className="mt-2 text-sm text-[#2C2C2C]/60">Sign in to manage settings.</p>
             <Link
               href="/auth/login?next=/settings"
-              className="mt-6 inline-flex rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#7C9A7E]"
+              className="mt-6 inline-flex rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
             >
               Sign in
             </Link>
@@ -156,14 +156,14 @@ export default function SettingsPage() {
         <p className="mt-1 text-sm text-[#2C2C2C]/55">Account preferences and notifications.</p>
 
         <div className="mt-8 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-md">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#C9A84C]">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#D4A843]">
             Account type
           </h2>
           {isAdmin ? (
             <p className="mt-4 text-sm font-semibold text-[#2C2C2C]">
-              You are signed in as <span className="text-[#7C9A7E]">Admin</span>. Role changes for
+              You are signed in as <span className="text-[#6B9E6E]">Admin</span>. Role changes for
               admin accounts are managed in the{" "}
-              <Link href="/admin" className="font-bold text-[#C9A84C] underline underline-offset-2">
+              <Link href="/admin" className="font-bold text-[#D4A843] underline underline-offset-2">
                 Admin dashboard
               </Link>
               .
@@ -180,8 +180,8 @@ export default function SettingsPage() {
                     key={opt.value}
                     className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition ${
                       pendingRole === opt.value
-                        ? "border-[#C9A84C] bg-[#FAF8F4] ring-1 ring-[#C9A84C]/30"
-                        : "border-[#2C2C2C]/10 hover:border-[#7C9A7E]/40"
+                        ? "border-[#D4A843] bg-[#FAF8F4] ring-1 ring-[#D4A843]/30"
+                        : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
                     }`}
                   >
                     <input
@@ -189,7 +189,7 @@ export default function SettingsPage() {
                       name="account-type"
                       checked={pendingRole === opt.value}
                       onChange={() => setPendingRole(opt.value)}
-                      className="mt-1 h-4 w-4 border-[#2C2C2C]/20 text-[#7C9A7E] focus:ring-[#C9A84C]"
+                      className="mt-1 h-4 w-4 border-[#2C2C2C]/20 text-[#6B9E6E] focus:ring-[#D4A843]"
                     />
                     <span>
                       <span className="block text-sm font-bold text-[#2C2C2C]">{opt.label}</span>
@@ -199,33 +199,33 @@ export default function SettingsPage() {
                 ))}
               </div>
               {pendingRole === "agent" && (
-                <div className="mt-4 rounded-xl border border-[#7C9A7E]/25 bg-[#7C9A7E]/8 px-4 py-3">
+                <div className="mt-4 rounded-xl border border-[#6B9E6E]/25 bg-[#6B9E6E]/8 px-4 py-3">
                   <p className="text-xs text-[#2C2C2C]/70">
                     Complete PRC verification to appear on the marketplace.
                   </p>
                   <Link
                     href="/register/agent"
-                    className="mt-2 inline-flex rounded-full bg-[#7C9A7E] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#6b8a6d]"
+                    className="mt-2 inline-flex rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#6b8a6d]"
                   >
                     Complete Agent Registration
                   </Link>
                 </div>
               )}
               {pendingRole === "broker" && (
-                <div className="mt-4 rounded-xl border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-4 py-3">
+                <div className="mt-4 rounded-xl border border-[#D4A843]/30 bg-[#D4A843]/10 px-4 py-3">
                   <p className="text-xs text-[#2C2C2C]/70">
                     Register your brokerage to manage agents and listings.
                   </p>
                   <Link
                     href="/register/broker"
-                    className="mt-2 inline-flex rounded-full bg-[#C9A84C] px-4 py-2 text-xs font-bold text-[#2C2C2C] shadow-sm hover:brightness-95"
+                    className="mt-2 inline-flex rounded-full bg-[#D4A843] px-4 py-2 text-xs font-bold text-[#2C2C2C] shadow-sm hover:brightness-95"
                   >
                     Complete Broker Registration
                   </Link>
                 </div>
               )}
               {roleMsg && (
-                <p className="mt-4 text-sm text-[#7C9A7E]" role="status">
+                <p className="mt-4 text-sm text-[#6B9E6E]" role="status">
                   {roleMsg}
                 </p>
               )}
@@ -233,7 +233,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={() => void saveRole()}
                 disabled={roleSaving || pendingRole === currentRole}
-                className="mt-4 rounded-full bg-[#2C2C2C] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#7C9A7E] disabled:opacity-50"
+                className="mt-4 rounded-full bg-[#2C2C2C] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
               >
                 {roleSaving ? "Saving…" : "Save account type"}
               </button>
@@ -242,7 +242,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="mt-8 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-md">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#C9A84C]">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#D4A843]">
             Notifications
           </h2>
           <label className="mt-4 flex cursor-pointer items-start gap-3">
@@ -250,7 +250,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={notifyEmail}
               onChange={(e) => setNotifyEmail(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-[#2C2C2C]/20 text-[#7C9A7E] focus:ring-[#C9A84C]"
+              className="mt-1 h-4 w-4 rounded border-[#2C2C2C]/20 text-[#6B9E6E] focus:ring-[#D4A843]"
             />
             <span>
               <span className="text-sm font-semibold text-[#2C2C2C]">
@@ -261,19 +261,19 @@ export default function SettingsPage() {
               </span>
             </span>
           </label>
-          {msg && <p className="mt-4 text-sm text-[#7C9A7E]">{msg}</p>}
+          {msg && <p className="mt-4 text-sm text-[#6B9E6E]">{msg}</p>}
           <button
             type="button"
             onClick={() => void saveNotifications()}
             disabled={saving}
-            className="mt-6 rounded-full bg-[#7C9A7E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#6f8d71] disabled:opacity-50"
+            className="mt-6 rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#6f8d71] disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save settings"}
           </button>
         </div>
 
         <p className="mt-8 text-center text-sm text-[#2C2C2C]/45">
-          <Link href="/profile" className="font-semibold text-[#7C9A7E] underline underline-offset-2">
+          <Link href="/profile" className="font-semibold text-[#6B9E6E] underline underline-offset-2">
             Back to profile
           </Link>
         </p>

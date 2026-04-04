@@ -43,7 +43,7 @@ export function FinnMascot({
       <svg viewBox="0 0 128 128" role="img" aria-label="Finn mascot">
         <defs>
           <linearGradient id="finnRoof2" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#C9A84C" />
+            <stop offset="0%" stopColor="#D4A843" />
             <stop offset="100%" stopColor="#B99333" />
           </linearGradient>
         </defs>
@@ -98,8 +98,8 @@ export function FinnMascot({
           />
         )}
 
-        <circle cx="38" cy="86" r="6" fill="#7C9A7E" opacity="0.18" />
-        <circle cx="90" cy="86" r="6" fill="#7C9A7E" opacity="0.18" />
+        <circle cx="38" cy="86" r="6" fill="#6B9E6E" opacity="0.18" />
+        <circle cx="90" cy="86" r="6" fill="#6B9E6E" opacity="0.18" />
       </svg>
     </motion.div>
   );

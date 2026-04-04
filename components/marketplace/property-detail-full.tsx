@@ -142,7 +142,7 @@ export function PropertyDetailFull({
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
-                className="grid h-9 w-9 place-items-center rounded-full border border-black/10 bg-white shadow-sm hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+                className="grid h-9 w-9 place-items-center rounded-full border border-black/10 bg-white shadow-sm hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
                 aria-label="Close"
               >
                 <X className="h-4 w-4 text-[#2C2C2C]/70" />
@@ -208,7 +208,7 @@ export function PropertyDetailFull({
                       type="button"
                       onClick={() => setIdx(i)}
                       className={`relative h-14 w-20 shrink-0 overflow-hidden rounded-xl border-2 ${
-                        i === idx ? "border-[#C9A84C]" : "border-transparent"
+                        i === idx ? "border-[#D4A843]" : "border-transparent"
                       }`}
                     >
                       <Image src={u} alt="" fill sizes="80px" className="object-cover" />
@@ -229,18 +229,18 @@ export function PropertyDetailFull({
                     {property.location.split(",")[0]?.trim() || property.location}
                   </h2>
                   <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold text-[#2C2C2C]/70">
-                    <span className="rounded-full bg-[#7C9A7E]/12 px-3 py-1">{property.beds} Beds</span>
-                    <span className="rounded-full bg-[#7C9A7E]/12 px-3 py-1">{property.baths} Baths</span>
-                    <span className="rounded-full bg-[#7C9A7E]/12 px-3 py-1">{property.sqft} sqft</span>
+                    <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{property.beds} Beds</span>
+                    <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{property.baths} Baths</span>
+                    <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{property.sqft} sqft</span>
                     {property.property_type ? (
-                      <span className="rounded-full bg-[#C9A84C]/18 px-3 py-1 text-[#8a6d32]">
+                      <span className="rounded-full bg-[#D4A843]/18 px-3 py-1 text-[#8a6d32]">
                         {property.property_type}
                       </span>
                     ) : null}
                   </div>
 
                   <div className="mt-4 flex items-center gap-2 text-sm text-[#2C2C2C]/55">
-                    <MapPin className="h-4 w-4 text-[#7C9A7E]" />
+                    <MapPin className="h-4 w-4 text-[#6B9E6E]" />
                     <span className="truncate">{property.location}</span>
                   </div>
                 </div>
@@ -343,7 +343,7 @@ export function PropertyDetailFull({
                       onClick={() => {
                         if (property.listing_agent?.id) onListingAgentAvailable(property.listing_agent.id);
                       }}
-                      className="flex-1 rounded-full bg-[#7C9A7E] px-4 py-2.5 text-xs font-semibold text-white shadow-md transition-colors hover:bg-[#6C8C70] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+                      className="flex-1 rounded-full bg-[#6B9E6E] px-4 py-2.5 text-xs font-semibold text-white shadow-md transition-colors hover:bg-[#6C8C70] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
                     >
                       <span className="inline-flex items-center justify-center gap-2">
                         <Calendar className="h-4 w-4" />
@@ -353,7 +353,7 @@ export function PropertyDetailFull({
                     {agentRecordId ? (
                       <Link
                         href={`/agents/${encodeURIComponent(agentRecordId)}`}
-                        className="grid w-11 place-items-center rounded-full border border-black/10 bg-white text-[#2C2C2C]/70 shadow-sm hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+                        className="grid w-11 place-items-center rounded-full border border-black/10 bg-white text-[#2C2C2C]/70 shadow-sm hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
                         aria-label="Open agent profile"
                       >
                         <ChevronRight className="h-4 w-4" />
@@ -369,21 +369,21 @@ export function PropertyDetailFull({
 
                   <div className="mt-3 space-y-2">
                     <Field
-                      icon={<UserIcon className="h-4 w-4 text-[#7C9A7E]" />}
+                      icon={<UserIcon className="h-4 w-4 text-[#6B9E6E]" />}
                       value={leadName}
                       onChange={setLeadName}
                       placeholder="Your name"
                       type="text"
                     />
                     <Field
-                      icon={<Mail className="h-4 w-4 text-[#7C9A7E]" />}
+                      icon={<Mail className="h-4 w-4 text-[#6B9E6E]" />}
                       value={leadEmail}
                       onChange={setLeadEmail}
                       placeholder="Email"
                       type="email"
                     />
                     <Field
-                      icon={<Phone className="h-4 w-4 text-[#7C9A7E]" />}
+                      icon={<Phone className="h-4 w-4 text-[#6B9E6E]" />}
                       value={leadPhone}
                       onChange={setLeadPhone}
                       placeholder="Phone (optional)"
@@ -393,7 +393,7 @@ export function PropertyDetailFull({
                       value={leadMessage}
                       onChange={(e) => setLeadMessage(e.target.value)}
                       placeholder="Message (optional)"
-                      className="w-full resize-none rounded-2xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+                      className="w-full resize-none rounded-2xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
                       rows={4}
                     />
                   </div>
@@ -404,7 +404,7 @@ export function PropertyDetailFull({
                     </div>
                   ) : null}
                   {leadOk ? (
-                    <div className="mt-3 rounded-2xl bg-[#7C9A7E]/12 px-3 py-2 text-xs font-semibold text-[#2C2C2C]/70">
+                    <div className="mt-3 rounded-2xl bg-[#6B9E6E]/12 px-3 py-2 text-xs font-semibold text-[#2C2C2C]/70">
                       {leadOk}
                     </div>
                   ) : null}
@@ -413,10 +413,10 @@ export function PropertyDetailFull({
                     type="button"
                     onClick={() => void submitLead()}
                     disabled={leadBusy}
-                    className={`mt-3 w-full rounded-full px-4 py-3 text-sm font-semibold shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35 ${
+                    className={`mt-3 w-full rounded-full px-4 py-3 text-sm font-semibold shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 ${
                       leadBusy
                         ? "cursor-not-allowed bg-[#2C2C2C]/10 text-[#2C2C2C]/40"
-                        : "bg-[#2C2C2C] text-white hover:bg-[#7C9A7E] transition-colors"
+                        : "bg-[#2C2C2C] text-white hover:bg-[#6B9E6E] transition-colors"
                     }`}
                   >
                     <span className="inline-flex items-center justify-center gap-2">

@@ -40,6 +40,7 @@ import {
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 
 type NavLinkItem = { kind: "link"; label: string; href: string; icon: ReactNode };
 type NavDividerItem = { kind: "divider"; label: string };
@@ -94,9 +95,9 @@ function NavDropdownMenu({ label, entries }: { label: string; entries: NavDropdo
                       key={`p-${i}-${it.label}`}
                       className="flex cursor-default select-none items-center gap-2 rounded-lg px-3 py-2.5"
                     >
-                      <span className="text-[#7C9A7E]/40 [&>svg]:h-4 [&>svg]:w-4">{it.icon}</span>
+                      <span className="text-[#6B9E6E]/40 [&>svg]:h-4 [&>svg]:w-4">{it.icon}</span>
                       <span className="flex-1 text-sm font-semibold italic text-gray-300">{it.label}</span>
-                      <span className="shrink-0 rounded-full bg-[#C9A84C]/18 px-1.5 py-0.5 text-[10px] font-bold text-[#8a6d32]">
+                      <span className="shrink-0 rounded-full bg-[#D4A843]/18 px-1.5 py-0.5 text-[10px] font-bold text-[#8a6d32]">
                         (Soon)
                       </span>
                     </li>
@@ -108,7 +109,7 @@ function NavDropdownMenu({ label, entries }: { label: string; entries: NavDropdo
                       href={it.href}
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 transition hover:bg-[#FAF8F4]"
                     >
-                      <span className="text-[#7C9A7E] [&>svg]:h-4 [&>svg]:w-4">{it.icon}</span>
+                      <span className="text-[#6B9E6E] [&>svg]:h-4 [&>svg]:w-4">{it.icon}</span>
                       {it.label}
                     </Link>
                   </li>
@@ -132,8 +133,8 @@ type NotificationRow = {
 };
 
 function notificationIcon(type: string) {
-  if (type === "property_match") return <Home className="h-4 w-4 text-[#7C9A7E]" />;
-  if (type === "lead_created") return <Sparkles className="h-4 w-4 text-[#C9A84C]" />;
+  if (type === "property_match") return <Home className="h-4 w-4 text-[#6B9E6E]" />;
+  if (type === "lead_created") return <Sparkles className="h-4 w-4 text-[#D4A843]" />;
   return <Bell className="h-4 w-4 text-[#2C2C2C]/50" />;
 }
 
@@ -389,7 +390,7 @@ export function MaddenTopNav() {
                 >
                   <Bell className="h-4 w-4" />
                   {notifUnread > 0 ? (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#C9A84C] px-1 text-[10px] font-bold text-[#2C2C2C]">
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#D4A843] px-1 text-[10px] font-bold text-[#2C2C2C]">
                       {notifUnread > 9 ? "9+" : notifUnread}
                     </span>
                   ) : null}
@@ -447,7 +448,7 @@ export function MaddenTopNav() {
                 <button
                   type="button"
                   onClick={() => setAccountOpen((o) => !o)}
-                  className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white shadow-sm ring-2 ring-[#C9A84C]/25 hover:bg-[#FAF8F4]"
+                  className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white shadow-sm ring-2 ring-[#D4A843]/25 hover:bg-[#FAF8F4]"
                   aria-expanded={accountOpen}
                   aria-haspopup="menu"
                 >
@@ -458,8 +459,10 @@ export function MaddenTopNav() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <span className="text-xs font-bold text-[#2C2C2C]">
-                      {(profile?.full_name ?? user.email ?? "?").slice(0, 1).toUpperCase()}
+                    <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-xs font-bold text-white">
+                      {profile?.full_name?.trim()
+                        ? agentAvatarInitials(profile.full_name)
+                        : (user.email?.[0] ?? "?").toUpperCase()}
                     </span>
                   )}
                 </button>
@@ -485,7 +488,7 @@ export function MaddenTopNav() {
                         className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                         onClick={() => setAccountOpen(false)}
                       >
-                        <User className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                        <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
                         My Profile
                       </Link>
                       <Link
@@ -493,7 +496,7 @@ export function MaddenTopNav() {
                         className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                         onClick={() => setAccountOpen(false)}
                       >
-                        <Bookmark className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                        <Bookmark className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
                         Saved Properties
                       </Link>
                       <Link
@@ -501,7 +504,7 @@ export function MaddenTopNav() {
                         className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                         onClick={() => setAccountOpen(false)}
                       >
-                        <Settings className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                        <Settings className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
                         Settings
                       </Link>
                       {role === "agent" ? (
@@ -512,7 +515,7 @@ export function MaddenTopNav() {
                             className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                             onClick={() => setAccountOpen(false)}
                           >
-                            <LayoutDashboard className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                            <LayoutDashboard className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
                             Agent Dashboard
                           </Link>
                           <Link
@@ -520,7 +523,7 @@ export function MaddenTopNav() {
                             className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                             onClick={() => setAccountOpen(false)}
                           >
-                            <Home className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                            <Home className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
                             My Listings
                           </Link>
                         </>
@@ -533,7 +536,7 @@ export function MaddenTopNav() {
                             className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                             onClick={() => setAccountOpen(false)}
                           >
-                            <Building2 className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                            <Building2 className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
                             Broker Dashboard
                           </Link>
                         </>
@@ -546,7 +549,7 @@ export function MaddenTopNav() {
                             className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                             onClick={() => setAccountOpen(false)}
                           >
-                            <Shield className="h-4 w-4 shrink-0 text-[#7C9A7E]" />
+                            <Shield className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
                             Admin Panel
                           </Link>
                         </>
@@ -569,7 +572,7 @@ export function MaddenTopNav() {
           ) : (
             <Link
               href="/auth/login"
-              className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-5 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+              className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-5 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
             >
               Login
             </Link>

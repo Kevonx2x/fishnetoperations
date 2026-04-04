@@ -14,11 +14,11 @@ export function VerifiedAgentBadge({
     <span
       className={
         className ??
-        "inline-flex items-center gap-1 rounded-full bg-[#C9A84C]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]"
+        "inline-flex items-center gap-1 rounded-full bg-[#D4A843]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]"
       }
       title="Verified agent"
     >
-      <BadgeCheck className="h-3.5 w-3.5 text-[#C9A84C]" />
+      <BadgeCheck className="h-3.5 w-3.5 text-[#D4A843]" />
       Verified
     </span>
   );

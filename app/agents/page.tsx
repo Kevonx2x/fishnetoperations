@@ -116,7 +116,7 @@ export default function AgentsIndexPage() {
               onClick={() => setSearchTab("location")}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                 searchTab === "location"
-                  ? "bg-[#7C9A7E] text-white ring-1 ring-[#C9A84C]/35"
+                  ? "bg-[#6B9E6E] text-white ring-1 ring-[#D4A843]/35"
                   : "bg-[#FAF8F4] text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-[#ebe6dc]"
               }`}
             >
@@ -130,7 +130,7 @@ export default function AgentsIndexPage() {
               onClick={() => setSearchTab("name")}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                 searchTab === "name"
-                  ? "bg-[#7C9A7E] text-white ring-1 ring-[#C9A84C]/35"
+                  ? "bg-[#6B9E6E] text-white ring-1 ring-[#D4A843]/35"
                   : "bg-[#FAF8F4] text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-[#ebe6dc]"
               }`}
             >
@@ -152,7 +152,7 @@ export default function AgentsIndexPage() {
                     ? "City, neighborhood, or agency"
                     : "Agent first or last name"
                 }
-                className="w-full rounded-2xl border border-black/10 bg-[#FAF8F4] py-3 pl-10 pr-4 text-sm font-semibold text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+                className="w-full rounded-2xl border border-black/10 bg-[#FAF8F4] py-3 pl-10 pr-4 text-sm font-semibold text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
               />
             </div>
           </div>
@@ -245,14 +245,14 @@ export default function AgentsIndexPage() {
                         <p className="mt-1 truncate text-xs font-semibold text-[#2C2C2C]/55">
                           {a.company || a.brokerName || "Independent"}
                         </p>
-                        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#C9A84C]">
+                        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#D4A843]">
                           {a.specialty}
                         </p>
                       </div>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-[#2C2C2C]/70">
-                      <span className="rounded-full bg-[#7C9A7E]/12 px-3 py-1">{a.closings} closings</span>
-                      <span className="rounded-full bg-[#C9A84C]/18 px-3 py-1 text-[#8a6d32]">
+                      <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{a.closings} closings</span>
+                      <span className="rounded-full bg-[#D4A843]/18 px-3 py-1 text-[#8a6d32]">
                         Response {a.responseTime || "—"}
                       </span>
                       <span className="rounded-full bg-[#FAF8F4] px-3 py-1 ring-1 ring-black/10">
@@ -261,7 +261,7 @@ export default function AgentsIndexPage() {
                     </div>
                     <Link
                       href={`/agents/${encodeURIComponent(a.id)}`}
-                      className="mt-4 inline-flex w-full justify-center rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7C9A7E]"
+                      className="mt-4 inline-flex w-full justify-center rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6B9E6E]"
                     >
                       View Profile
                     </Link>

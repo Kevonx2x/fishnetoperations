@@ -160,14 +160,14 @@ export function AgentAnalyticsTab({
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Performance and pipeline insights.</p>
       </div>
 
-      <div className="rounded-2xl border border-[#C9A84C]/25 bg-gradient-to-br from-[#C9A84C]/10 to-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-[#D4A843]/25 bg-gradient-to-br from-[#D4A843]/10 to-white p-5 shadow-sm">
         <div className="flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-[#C9A84C]" />
+          <TrendingUp className="h-5 w-5 text-[#D4A843]" />
           <p className="font-bold text-[#2C2C2C]">Quick wins</p>
         </div>
         <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/75">
           You have{" "}
-          <span className="text-[#7C9A7E]">{stats.newThisWeek}</span> new lead
+          <span className="text-[#6B9E6E]">{stats.newThisWeek}</span> new lead
           {stats.newThisWeek === 1 ? "" : "s"} this week.
         </p>
       </div>
@@ -195,7 +195,7 @@ export function AgentAnalyticsTab({
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
             <p className="text-[11px] font-bold uppercase text-[#2C2C2C]/45">Total closings</p>
-            <p className="mt-2 font-serif text-2xl font-bold text-[#7C9A7E]">{agent.closings ?? 0}</p>
+            <p className="mt-2 font-serif text-2xl font-bold text-[#6B9E6E]">{agent.closings ?? 0}</p>
           </div>
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
             <p className="text-[11px] font-bold uppercase text-[#2C2C2C]/45">Avg. response time</p>
@@ -205,7 +205,7 @@ export function AgentAnalyticsTab({
           </div>
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
             <p className="text-[11px] font-bold uppercase text-[#2C2C2C]/45">Most inquired topic</p>
-            <p className="mt-2 line-clamp-2 font-serif text-lg font-bold text-[#C9A84C]">{stats.topInterest}</p>
+            <p className="mt-2 line-clamp-2 font-serif text-lg font-bold text-[#D4A843]">{stats.topInterest}</p>
           </div>
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
             <p className="text-[11px] font-bold uppercase text-[#2C2C2C]/45">Profile views</p>
@@ -232,7 +232,7 @@ export function AgentAnalyticsTab({
                   background: "#FAF8F4",
                 }}
               />
-              <Bar dataKey="count" fill="#7C9A7E" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="count" fill="#6B9E6E" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -247,7 +247,7 @@ export function AgentAnalyticsTab({
               className="flex items-center justify-between rounded-xl bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
             >
               <span className="truncate pr-2">{row.name}</span>
-              <span className="shrink-0 rounded-full bg-[#C9A84C]/20 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+              <span className="shrink-0 rounded-full bg-[#D4A843]/20 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
                 {row.count}
               </span>
             </li>
@@ -281,7 +281,7 @@ function StatCompare({
         {current}
         {suffix}
       </p>
-      <p className={`mt-1 text-xs font-bold ${good ? "text-[#7C9A7E]" : "text-[#b45353]"}`}>
+      <p className={`mt-1 text-xs font-bold ${good ? "text-[#6B9E6E]" : "text-[#b45353]"}`}>
         vs last: {prev}
         {suffix} ({good ? "+" : ""}
         {delta}%)

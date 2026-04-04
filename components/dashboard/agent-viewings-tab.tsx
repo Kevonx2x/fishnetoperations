@@ -153,13 +153,13 @@ function ViewingCard({
   return (
     <li className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start gap-2">
-        <Calendar className="h-5 w-5 shrink-0 text-[#7C9A7E]" />
+        <Calendar className="h-5 w-5 shrink-0 text-[#6B9E6E]" />
         <div>
           <p className="font-semibold text-[#2C2C2C]">{v.client_name}</p>
           <p className="text-xs font-semibold text-[#2C2C2C]/45">{v.client_email}</p>
-          <p className="mt-1 text-sm font-bold text-[#C9A84C]">{propertyLabel}</p>
+          <p className="mt-1 text-sm font-bold text-[#D4A843]">{propertyLabel}</p>
         </div>
-        <span className="ml-auto rounded-full bg-[#7C9A7E]/12 px-2 py-1 text-xs font-bold text-[#2C2C2C]/70">
+        <span className="ml-auto rounded-full bg-[#6B9E6E]/12 px-2 py-1 text-xs font-bold text-[#2C2C2C]/70">
           {v.status}
         </span>
       </div>
@@ -227,7 +227,7 @@ function ViewingCard({
           type="button"
           disabled={saving || v.status === "confirmed"}
           onClick={() => void runAction("confirm")}
-          className="rounded-full bg-[#7C9A7E] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+          className="rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
         >
           Confirm
         </button>

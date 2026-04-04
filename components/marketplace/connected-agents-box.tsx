@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
@@ -27,7 +27,7 @@ export function ConnectedAgentsBox({
   const hiddenCount = Math.max(0, (agents?.length ?? 0) - defaultVisible);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+    <div className="relative overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md">
       <div className="flex items-center justify-between px-4 pt-4">
         <p className="text-sm font-semibold text-[#2C2C2C]">{title}</p>
         {hiddenCount > 0 && (
@@ -50,20 +50,18 @@ export function ConnectedAgentsBox({
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ type: "spring", stiffness: 320, damping: 26 }}
-              className="group rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-3 shadow-sm transition-all hover:-translate-y-[1px] hover:shadow-md"
+              className="group rounded-2xl border border-[#2C2C2C]/10 bg-white p-3 shadow-md transition-all hover:-translate-y-[1px] hover:shadow-lg"
             >
               <div className="flex items-center gap-3">
-                <div className="relative h-10 w-10 overflow-hidden rounded-full bg-white ring-1 ring-black/10">
-                  {a.image ? (
-                    <Image src={a.image} alt={a.name} fill sizes="40px" className="object-cover" />
-                  ) : null}
+                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+                  <AgentAvatarFill name={a.name} imageUrl={a.image} sizes="40px" textClassName="text-xs" />
                 </div>
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <Link
                       href={`/agents/${encodeURIComponent(a.id)}`}
-                      className="truncate font-semibold text-[#2C2C2C] hover:underline hover:decoration-[#C9A84C]/60 hover:underline-offset-4"
+                      className="truncate font-semibold text-[#2C2C2C] hover:underline hover:decoration-[#D4A843]/60 hover:underline-offset-4"
                     >
                       {a.name}
                     </Link>
@@ -80,7 +78,7 @@ export function ConnectedAgentsBox({
                     {a.brokerId ? (
                       <Link
                         href={`/brokers/${encodeURIComponent(a.brokerId)}`}
-                        className="truncate hover:text-[#2C2C2C] hover:underline hover:decoration-[#C9A84C]/60 hover:underline-offset-4"
+                        className="truncate hover:text-[#2C2C2C] hover:underline hover:decoration-[#D4A843]/60 hover:underline-offset-4"
                       >
                         {a.company || a.brokerName}
                       </Link>

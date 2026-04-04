@@ -67,7 +67,7 @@ export default function SavedPage() {
           </p>
           <Link
             href="/"
-            className="mt-5 inline-flex rounded-full bg-[#2C2C2C] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#7C9A7E]"
+            className="mt-5 inline-flex rounded-full bg-[#2C2C2C] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
           >
             Browse listings
           </Link>
@@ -103,7 +103,7 @@ export default function SavedPage() {
               </p>
               <Link
                 href={`/properties/${encodeURIComponent(p.id)}`}
-                className="mt-3 inline-flex text-sm font-semibold text-[#2C2C2C]/70 underline decoration-[#C9A84C]/60 underline-offset-4 hover:text-[#2C2C2C]"
+                className="mt-3 inline-flex text-sm font-semibold text-[#2C2C2C]/70 underline decoration-[#D4A843]/60 underline-offset-4 hover:text-[#2C2C2C]"
               >
                 View details →
               </Link>
@@ -127,7 +127,7 @@ export default function SavedPage() {
               Saved Properties
             </h1>
           </div>
-          <div className="rounded-full bg-[#7C9A7E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/70">
+          <div className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/70">
             {saved.ids.length} saved
           </div>
         </div>

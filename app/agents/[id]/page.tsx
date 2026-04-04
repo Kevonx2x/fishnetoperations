@@ -176,16 +176,16 @@ export default function AgentProfilePage() {
                     </p>
 
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="inline-flex items-center gap-2 rounded-full bg-[#7C9A7E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/75">
-                        <Trophy className="h-4 w-4 text-[#7C9A7E]" />
+                      <span className="inline-flex items-center gap-2 rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/75">
+                        <Trophy className="h-4 w-4 text-[#6B9E6E]" />
                         {agent.closings} closings
                       </span>
-                      <span className="inline-flex items-center gap-2 rounded-full bg-[#7C9A7E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/75">
-                        <Clock className="h-4 w-4 text-[#7C9A7E]" />
+                      <span className="inline-flex items-center gap-2 rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/75">
+                        <Clock className="h-4 w-4 text-[#6B9E6E]" />
                         {agent.response_time ?? "Fast"} response
                       </span>
-                      <span className="inline-flex items-center gap-2 rounded-full bg-[#C9A84C]/18 px-3 py-1 text-xs font-semibold text-[#8a6d32]">
-                        <Star className="h-4 w-4 text-[#C9A84C]" />
+                      <span className="inline-flex items-center gap-2 rounded-full bg-[#D4A843]/18 px-3 py-1 text-xs font-semibold text-[#8a6d32]">
+                        <Star className="h-4 w-4 text-[#D4A843]" />
                         Score {Math.round(agent.score)}
                       </span>
                     </div>
@@ -195,7 +195,7 @@ export default function AgentProfilePage() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   <a
                     href={`mailto:${encodeURIComponent(agent.email)}`}
-                    className="inline-flex items-center gap-2 rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#7C9A7E]"
+                    className="inline-flex items-center gap-2 rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
                   >
                     <Mail className="h-4 w-4" />
                     Contact
@@ -204,7 +204,7 @@ export default function AgentProfilePage() {
                     type="button"
                     className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-5 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
                   >
-                    <Calendar className="h-4 w-4 text-[#7C9A7E]" />
+                    <Calendar className="h-4 w-4 text-[#6B9E6E]" />
                     Schedule
                   </button>
                   {agent.phone ? (
@@ -212,7 +212,7 @@ export default function AgentProfilePage() {
                       href={`tel:${agent.phone}`}
                       className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-5 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
                     >
-                      <Phone className="h-4 w-4 text-[#7C9A7E]" />
+                      <Phone className="h-4 w-4 text-[#6B9E6E]" />
                       Call
                     </a>
                   ) : null}

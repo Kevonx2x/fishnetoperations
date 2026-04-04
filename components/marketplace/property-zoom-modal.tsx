@@ -9,6 +9,7 @@ import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
+import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 
 type Props = {
   property: DbProperty;
@@ -62,7 +63,7 @@ export function PropertyZoomModal({ property, agents, onClose }: Props) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[100] flex w-full items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
       onClick={onClose}
     >
       <motion.div
@@ -71,7 +72,7 @@ export function PropertyZoomModal({ property, agents, onClose }: Props) {
         exit={{ scale: 0.96, opacity: 0 }}
         transition={{ type: "spring", damping: 26, stiffness: 320 }}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[min(100dvh,920px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-[#FAF8F4] shadow-2xl sm:max-h-[90vh] sm:rounded-2xl"
+        className="flex max-h-[min(100dvh,920px)] w-full max-w-4xl flex-col overflow-hidden rounded-none bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl"
       >
         <div className="relative shrink-0 border-b border-[#2C2C2C]/10 bg-black/5">
           <div
@@ -93,7 +94,7 @@ export function PropertyZoomModal({ property, agents, onClose }: Props) {
                   alt=""
                   fill
                   className="object-cover"
-                  sizes="(min-width: 640px) 512px, 100vw"
+                  sizes="(min-width: 896px) 896px, 100vw"
                   priority
                 />
               </motion.div>
@@ -142,7 +143,7 @@ export function PropertyZoomModal({ property, agents, onClose }: Props) {
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-[#7C9A7E]/15 px-2.5 py-0.5 text-[11px] font-bold text-[#2C2C2C]/80">
+            <span className="rounded-full bg-[#6B9E6E]/15 px-2.5 py-0.5 text-[11px] font-bold text-[#2C2C2C]/80">
               {statusLabel}
             </span>
           </div>
@@ -161,10 +162,10 @@ export function PropertyZoomModal({ property, agents, onClose }: Props) {
               {agents.map((a) => (
                 <li
                   key={a.id}
-                  className="flex flex-wrap items-center gap-3 rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm"
+                  className="flex flex-wrap items-center gap-3 rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-md"
                 >
-                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
-                    {a.image ? <Image src={a.image} alt="" fill sizes="48px" className="object-cover" /> : null}
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+                    <AgentAvatarFill name={a.name} imageUrl={a.image} sizes="48px" textClassName="text-sm" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -175,7 +176,7 @@ export function PropertyZoomModal({ property, agents, onClose }: Props) {
                   </div>
                   <Link
                     href={`/agents/${encodeURIComponent(a.id)}`}
-                    className="shrink-0 rounded-full bg-[#C9A84C] px-3 py-1.5 text-xs font-bold text-[#2C2C2C] hover:brightness-95"
+                    className="shrink-0 rounded-full bg-[#D4A843] px-3 py-1.5 text-xs font-bold text-[#2C2C2C] hover:brightness-95"
                   >
                     Available Now
                   </Link>
@@ -188,11 +189,11 @@ export function PropertyZoomModal({ property, agents, onClose }: Props) {
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="shrink-0 border-t border-[#2C2C2C]/10 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <Link
             href={`/properties/${encodeURIComponent(property.id)}`}
             onClick={onClose}
-            className="flex w-full items-center justify-center rounded-full bg-[#2C2C2C] py-3.5 text-sm font-bold text-white hover:bg-[#7C9A7E]"
+            className="flex w-full items-center justify-center rounded-full bg-[#2C2C2C] py-3.5 text-sm font-bold text-white hover:bg-[#6B9E6E]"
           >
             Request Viewing
           </Link>

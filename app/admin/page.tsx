@@ -565,7 +565,7 @@ export default function AdminPage() {
           </p>
           <Link
             href="/auth/login?next=/admin"
-            className="inline-flex rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#7C9A7E]"
+            className="inline-flex rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
           >
             Sign in
           </Link>
@@ -597,8 +597,8 @@ export default function AdminPage() {
                 onClick={() => setAdminSection("leads")}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
                   adminSection === "leads"
-                    ? "bg-[#7C9A7E] text-white shadow-sm ring-1 ring-[#C9A84C]/35"
-                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#7C9A7E]/40"
+                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
                 }`}
               >
                 Leads
@@ -608,8 +608,8 @@ export default function AdminPage() {
                 onClick={() => setAdminSection("properties")}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
                   adminSection === "properties"
-                    ? "bg-[#7C9A7E] text-white shadow-sm ring-1 ring-[#C9A84C]/35"
-                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#7C9A7E]/40"
+                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
                 }`}
               >
                 Properties
@@ -622,8 +622,8 @@ export default function AdminPage() {
                 onClick={() => setAdminSection("verification")}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
                   adminSection === "verification"
-                    ? "bg-[#7C9A7E] text-white shadow-sm ring-1 ring-[#C9A84C]/35"
-                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#7C9A7E]/40"
+                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
                 }`}
               >
                 Verification
@@ -636,8 +636,8 @@ export default function AdminPage() {
                 onClick={() => setAdminSection("users")}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
                   adminSection === "users"
-                    ? "bg-[#7C9A7E] text-white shadow-sm ring-1 ring-[#C9A84C]/35"
-                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#7C9A7E]/40"
+                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
                 }`}
               >
                 Users
@@ -722,7 +722,7 @@ export default function AdminPage() {
                           <td className="px-4 py-3 text-xs text-[#2C2C2C]/50">
                             {new Date(u.created_at).toLocaleDateString("en-PH")}
                           </td>
-                          <td className="px-4 py-3 text-xs font-semibold text-[#7C9A7E]">
+                          <td className="px-4 py-3 text-xs font-semibold text-[#6B9E6E]">
                             {verifiedLabel}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -731,7 +731,7 @@ export default function AdminPage() {
                                 <button
                                   type="button"
                                   onClick={() => void approveAgent(u.agent_id!)}
-                                  className="rounded-full bg-[#7C9A7E] px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#6b8a6d]"
+                                  className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#6b8a6d]"
                                 >
                                   Approve agent
                                 </button>
@@ -740,7 +740,7 @@ export default function AdminPage() {
                                 <button
                                   type="button"
                                   onClick={() => void approveBroker(u.broker_id!)}
-                                  className="rounded-full bg-[#7C9A7E] px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#6b8a6d]"
+                                  className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#6b8a6d]"
                                 >
                                   Approve broker
                                 </button>
@@ -1192,7 +1192,7 @@ export default function AdminPage() {
                                 <button
                                   type="button"
                                   onClick={() => void approveBroker(b.id)}
-                                  className="rounded-full bg-[#7C9A7E] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#6b8a6d]"
+                                  className="rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#6b8a6d]"
                                 >
                                   Approve
                                 </button>
@@ -1300,7 +1300,7 @@ export default function AdminPage() {
                                 <button
                                   type="button"
                                   onClick={() => void approveAgent(a.id)}
-                                  className="rounded-full bg-[#7C9A7E] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#6b8a6d]"
+                                  className="rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#6b8a6d]"
                                 >
                                   Approve
                                 </button>
@@ -1357,7 +1357,7 @@ export default function AdminPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[#C9A84C]/25 bg-[#FAF8F4] p-6 shadow-sm">
+            <section className="rounded-2xl border border-[#D4A843]/25 bg-[#FAF8F4] p-6 shadow-sm">
               <h2 className="mb-4 font-serif text-xl font-bold text-[#2C2C2C]">
                 View all agents
                 <span className="ml-2 text-sm font-normal text-[#2C2C2C]/50">
@@ -1396,7 +1396,7 @@ export default function AdminPage() {
                                 {a.status}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-sm font-semibold text-[#7C9A7E]">
+                            <td className="px-4 py-3 text-sm font-semibold text-[#6B9E6E]">
                               {a.verified ? "Yes" : "No"}
                             </td>
                             <td className="px-4 py-3 text-right">
@@ -1406,7 +1406,7 @@ export default function AdminPage() {
                                     <button
                                       type="button"
                                       onClick={() => void approveAgent(a.id)}
-                                      className="rounded-full bg-[#7C9A7E] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#6b8a6d]"
+                                      className="rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#6b8a6d]"
                                     >
                                       Approve
                                     </button>

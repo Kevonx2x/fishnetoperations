@@ -136,14 +136,14 @@ export function AgentLeadTemplatesSection({
         <button
           type="button"
           onClick={openNewCustom}
-          className="inline-flex items-center gap-2 rounded-full border border-[#C9A84C]/40 bg-[#FAF8F4] px-4 py-2 text-xs font-bold text-[#8a6d32] hover:bg-[#C9A84C]/15"
+          className="inline-flex items-center gap-2 rounded-full border border-[#D4A843]/40 bg-[#FAF8F4] px-4 py-2 text-xs font-bold text-[#8a6d32] hover:bg-[#D4A843]/15"
         >
           <Plus className="h-4 w-4" />
           New custom template
         </button>
       </div>
       {msg && !modalOpen ? (
-        <p className="mt-3 text-sm font-semibold text-[#7C9A7E]">{msg}</p>
+        <p className="mt-3 text-sm font-semibold text-[#6B9E6E]">{msg}</p>
       ) : null}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -157,7 +157,7 @@ export function AgentLeadTemplatesSection({
             <button
               type="button"
               onClick={() => openUse(t.title, t.body)}
-              className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-[#7C9A7E] px-4 py-2 text-xs font-bold text-white hover:bg-[#6f8d71]"
+              className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white hover:bg-[#6f8d71]"
             >
               <Mail className="h-3.5 w-3.5" />
               Use
@@ -167,14 +167,14 @@ export function AgentLeadTemplatesSection({
         {custom.map((t) => (
           <div
             key={t.id}
-            className="flex flex-col rounded-2xl border border-[#C9A84C]/30 bg-white p-4 shadow-sm ring-1 ring-[#C9A84C]/15"
+            className="flex flex-col rounded-2xl border border-[#D4A843]/30 bg-white p-4 shadow-sm ring-1 ring-[#D4A843]/15"
           >
             <p className="text-sm font-bold text-[#2C2C2C]">{t.title}</p>
             <p className="mt-2 line-clamp-3 text-xs font-semibold text-[#2C2C2C]/55">{t.body}</p>
             <button
               type="button"
               onClick={() => openUse(t.title, t.body)}
-              className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-[#7C9A7E] px-4 py-2 text-xs font-bold text-white hover:bg-[#6f8d71]"
+              className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white hover:bg-[#6f8d71]"
             >
               <Mail className="h-3.5 w-3.5" />
               Use
@@ -217,13 +217,13 @@ export function AgentLeadTemplatesSection({
                   className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                 />
               </label>
-              {msg && <p className="mt-2 text-sm font-semibold text-[#C9A84C]">{msg}</p>}
+              {msg && <p className="mt-2 text-sm font-semibold text-[#D4A843]">{msg}</p>}
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => void sendEmail()}
                   disabled={sending}
-                  className="rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#7C9A7E] disabled:opacity-50"
+                  className="rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
                 >
                   {sending ? "Sending…" : "Send"}
                 </button>
@@ -231,7 +231,7 @@ export function AgentLeadTemplatesSection({
                   type="button"
                   onClick={() => void saveCustomTemplate()}
                   disabled={savingCustom || !emailBody.trim()}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#C9A84C]/40 bg-white px-4 py-2 text-sm font-bold text-[#8a6d32] disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-full border border-[#D4A843]/40 bg-white px-4 py-2 text-sm font-bold text-[#8a6d32] disabled:opacity-50"
                 >
                   <Save className="h-4 w-4" />
                   {savingCustom ? "Saving…" : "Save as template"}

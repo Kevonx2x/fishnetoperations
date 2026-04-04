@@ -264,7 +264,7 @@ export default function PropertyPage() {
                             type="button"
                             onClick={() => setIdx(i)}
                             className={`relative h-12 w-16 shrink-0 overflow-hidden rounded-lg border-2 ${
-                              i === idx ? "border-[#C9A84C]" : "border-white/30"
+                              i === idx ? "border-[#D4A843]" : "border-white/30"
                             }`}
                           >
                             <Image src={u} alt="" fill sizes="64px" className="object-cover" />
@@ -286,11 +286,11 @@ export default function PropertyPage() {
                     {property.price}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold text-[#2C2C2C]/70">
-                    <span className="rounded-full bg-[#7C9A7E]/12 px-3 py-1">{property.beds} beds</span>
-                    <span className="rounded-full bg-[#7C9A7E]/12 px-3 py-1">{property.baths} baths</span>
-                    <span className="rounded-full bg-[#7C9A7E]/12 px-3 py-1">{property.sqft} sqft</span>
+                    <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{property.beds} beds</span>
+                    <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{property.baths} baths</span>
+                    <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{property.sqft} sqft</span>
                     {property.property_type ? (
-                      <span className="rounded-full bg-[#C9A84C]/18 px-3 py-1 text-[#8a6d32]">
+                      <span className="rounded-full bg-[#D4A843]/18 px-3 py-1 text-[#8a6d32]">
                         {property.property_type}
                       </span>
                     ) : null}
@@ -326,20 +326,20 @@ export default function PropertyPage() {
                 ) : null}
 
                 <div className="mt-3 space-y-2">
-                  <Field icon={<Mail className="h-4 w-4 text-[#7C9A7E]" />} value={email} onChange={setEmail} placeholder="Email" type="email" />
-                  <Field icon={<Phone className="h-4 w-4 text-[#7C9A7E]" />} value={phone} onChange={setPhone} placeholder="Phone (optional)" type="tel" />
+                  <Field icon={<Mail className="h-4 w-4 text-[#6B9E6E]" />} value={email} onChange={setEmail} placeholder="Email" type="email" />
+                  <Field icon={<Phone className="h-4 w-4 text-[#6B9E6E]" />} value={phone} onChange={setPhone} placeholder="Phone (optional)" type="tel" />
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Name"
-                    className="w-full rounded-2xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+                    className="w-full rounded-2xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
                   />
                   <textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     placeholder="Message (optional)"
                     rows={4}
-                    className="w-full resize-none rounded-2xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+                    className="w-full resize-none rounded-2xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
                   />
                 </div>
 
@@ -349,7 +349,7 @@ export default function PropertyPage() {
                   </div>
                 ) : null}
                 {ok ? (
-                  <div className="mt-3 rounded-2xl bg-[#7C9A7E]/12 px-3 py-2 text-xs font-semibold text-[#2C2C2C]/70">
+                  <div className="mt-3 rounded-2xl bg-[#6B9E6E]/12 px-3 py-2 text-xs font-semibold text-[#2C2C2C]/70">
                     {ok}
                   </div>
                 ) : null}
@@ -358,10 +358,10 @@ export default function PropertyPage() {
                   type="button"
                   onClick={() => void submit()}
                   disabled={busy}
-                  className={`mt-3 w-full rounded-full px-5 py-3 text-sm font-semibold shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35 ${
+                  className={`mt-3 w-full rounded-full px-5 py-3 text-sm font-semibold shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 ${
                     busy
                       ? "cursor-not-allowed bg-[#2C2C2C]/10 text-[#2C2C2C]/40"
-                      : "bg-[#2C2C2C] text-white hover:bg-[#7C9A7E] transition-colors"
+                      : "bg-[#2C2C2C] text-white hover:bg-[#6B9E6E] transition-colors"
                   }`}
                 >
                   {busy ? "Sending…" : "Send request"}

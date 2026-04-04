@@ -52,16 +52,16 @@ export function SearchTabPanel({
             Search
           </p>
           <h2 className="mt-1 flex items-center gap-2 font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">
-            <SlidersHorizontal className="h-5 w-5 text-[#7C9A7E]" />
+            <SlidersHorizontal className="h-5 w-5 text-[#6B9E6E]" />
             Filters & Sort
           </h2>
         </div>
         <button
           type="button"
           onClick={resetFilters}
-          className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#2C2C2C]/70 shadow-sm hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+          className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[#2C2C2C]/70 shadow-sm hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
         >
-          <RotateCcw className="h-4 w-4 text-[#7C9A7E]" />
+          <RotateCcw className="h-4 w-4 text-[#6B9E6E]" />
           Reset
         </button>
       </div>
@@ -77,7 +77,7 @@ export function SearchTabPanel({
             setFilterDraft((f) => ({ ...f, searchQuery: e.target.value }))
           }
           placeholder="Try: Forbes Park, Rockwell, Alabang…"
-          className="mt-3 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+          className="mt-3 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
         />
       </section>
 
@@ -87,7 +87,7 @@ export function SearchTabPanel({
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/45">
             Price range
           </p>
-          <div className="rounded-full bg-[#7C9A7E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/70">
+          <div className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/70">
             {formatPeso(filterDraft.priceRange[0])} – {formatPeso(filterDraft.priceRange[1])}
           </div>
         </div>
@@ -99,7 +99,7 @@ export function SearchTabPanel({
             step={1_000_000}
             value={filterDraft.priceRange}
             onValueChange={(v) => setPriceRange([v[0] ?? 0, v[1] ?? 350_000_000] as [number, number])}
-            className="[&_[data-slot=slider-range]]:bg-[#7C9A7E] [&_[data-slot=slider-track]]:bg-[#2C2C2C]/10 [&_[data-slot=slider-thumb]]:border-[#C9A84C] [&_[data-slot=slider-thumb]]:ring-[#C9A84C]/35"
+            className="[&_[data-slot=slider-range]]:bg-[#6B9E6E] [&_[data-slot=slider-track]]:bg-[#2C2C2C]/10 [&_[data-slot=slider-thumb]]:border-[#D4A843] [&_[data-slot=slider-thumb]]:ring-[#D4A843]/35"
           />
           <div className="mt-2 flex justify-between text-[11px] font-medium text-[#2C2C2C]/45">
             <span>₱0</span>
@@ -193,7 +193,7 @@ export function SearchTabPanel({
           <select
             value={sortMode}
             onChange={(e) => setSortMode(e.target.value as SortMode)}
-            className="w-full appearance-none rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 pr-10 text-sm font-semibold text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+            className="w-full appearance-none rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 pr-10 text-sm font-semibold text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
           >
             {sortOptions.map((o) => (
               <option key={o.value} value={o.value}>
@@ -212,7 +212,7 @@ export function SearchTabPanel({
             type="button"
             whileTap={{ scale: 0.985 }}
             onClick={onApplyAndGoHome}
-            className="w-full rounded-full bg-[#2C2C2C] px-5 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-[#7C9A7E] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+            className="w-full rounded-full bg-[#2C2C2C] px-5 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-[#6B9E6E] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
           >
             Show {draftMatchCount} Results
           </motion.button>
@@ -238,9 +238,9 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-4 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35 ${
+      className={`rounded-full px-4 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 ${
         active
-          ? "bg-[#7C9A7E] text-white"
+          ? "bg-[#6B9E6E] text-white"
           : "bg-white text-[#2C2C2C]/60 border border-[#2C2C2C]/10 hover:bg-[#FAF8F4]"
       }`}
     >

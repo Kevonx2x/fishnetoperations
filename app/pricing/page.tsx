@@ -39,7 +39,7 @@ export default function PricingPage() {
                 <th className="px-4 py-4 font-bold text-[#2C2C2C] md:px-6">Feature</th>
                 <th className="px-4 py-4 font-bold text-[#2C2C2C] md:px-6">Free</th>
                 <th className="relative px-4 py-4 font-bold text-[#2C2C2C] md:px-6">
-                  <span className="rounded-full bg-[#C9A84C]/20 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                  <span className="rounded-full bg-[#D4A843]/20 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
                     Pro
                   </span>
                   <span className="mt-1 block text-xs font-semibold text-[#2C2C2C]/55">₱999 / month</span>
@@ -66,27 +66,27 @@ export default function PricingPage() {
             </p>
             <ul className="mt-4 space-y-2">
               <li className="flex items-start gap-2 text-sm font-semibold text-[#2C2C2C]/80">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#7C9A7E]" aria-hidden />
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
                 Up to 3 active listings
               </li>
               <li className="flex items-start gap-2 text-sm font-semibold text-[#2C2C2C]/80">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#7C9A7E]" aria-hidden />
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
                 Full dashboard (when verified)
               </li>
             </ul>
           </div>
-          <div className="rounded-2xl border-2 border-[#C9A84C]/40 bg-gradient-to-b from-[#C9A84C]/8 to-white p-6 shadow-sm">
+          <div className="rounded-2xl border-2 border-[#D4A843]/40 bg-gradient-to-b from-[#D4A843]/8 to-white p-6 shadow-sm">
             <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Pro</h2>
             <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/55">
               For agents with a larger portfolio.
             </p>
             <ul className="mt-4 space-y-2">
               <li className="flex items-start gap-2 text-sm font-semibold text-[#2C2C2C]/80">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#C9A84C]" aria-hidden />
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A843]" aria-hidden />
                 Up to 20 active listings
               </li>
               <li className="flex items-start gap-2 text-sm font-semibold text-[#2C2C2C]/80">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#C9A84C]" aria-hidden />
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A843]" aria-hidden />
                 Same tools as Free, higher cap
               </li>
             </ul>
@@ -99,7 +99,7 @@ export default function PricingPage() {
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
           <Link
             href="/dashboard/agent?tab=listings"
-            className="inline-flex rounded-full bg-[#2C2C2C] px-6 py-3 text-sm font-bold text-white hover:bg-[#7C9A7E]"
+            className="inline-flex rounded-full bg-[#2C2C2C] px-6 py-3 text-sm font-bold text-white hover:bg-[#6B9E6E]"
           >
             Go to agent dashboard
           </Link>

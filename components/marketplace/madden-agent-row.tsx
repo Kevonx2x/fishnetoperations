@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Calendar, Zap } from "lucide-react";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
+import { AgentAvatarFill, agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 
 export function MaddenAgentRow({
   agent,
@@ -30,8 +31,8 @@ export function MaddenAgentRow({
       transition={{ type: "spring", stiffness: 320, damping: 26 }}
     >
       <div className="flex items-start gap-3">
-        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-[#FAF8F4] ring-1 ring-black/10">
-          {agent.image ? (
+        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl ring-1 ring-black/10">
+          {agent.image?.trim() ? (
             <Image
               src={agent.image}
               alt={agent.name}
@@ -40,9 +41,9 @@ export function MaddenAgentRow({
               className="object-cover"
             />
           ) : (
-            <div className="grid h-full w-full place-items-center text-sm font-bold text-[#2C2C2C]/50">
-              {initials(agent.name)}
-            </div>
+            <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-sm font-bold text-white">
+              {agentAvatarInitials(agent.name)}
+            </span>
           )}
         </div>
 
@@ -56,14 +57,14 @@ export function MaddenAgentRow({
                 {agent.company || agent.brokerName || "Independent"}
               </p>
               {locationLine ? (
-                <p className="mt-1 truncate text-xs font-medium text-[#7C9A7E]">
+                <p className="mt-1 truncate text-xs font-medium text-[#6B9E6E]">
                   {locationLine}
                 </p>
               ) : null}
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A84C]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#D4A843]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]">
                 <Zap className="h-3.5 w-3.5" />
                 {Math.round(agent.score)}
               </span>
@@ -82,8 +83,8 @@ export function MaddenAgentRow({
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#7C9A7E]/12 px-2.5 py-1 text-xs font-semibold text-[#2C2C2C]/70">
-              <Calendar className="h-3.5 w-3.5 text-[#7C9A7E]" />
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E]/12 px-2.5 py-1 text-xs font-semibold text-[#2C2C2C]/70">
+              <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" />
               {availability || "Schedule available"}
             </span>
 
@@ -91,7 +92,7 @@ export function MaddenAgentRow({
               type="button"
               whileTap={{ scale: 0.98 }}
               onClick={onAvailable}
-              className="ml-auto inline-flex items-center gap-2 rounded-full bg-[#2C2C2C] px-4 py-2 text-xs font-semibold text-white shadow-md transition-colors hover:bg-[#7C9A7E] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+              className="ml-auto inline-flex items-center gap-2 rounded-full bg-[#2C2C2C] px-4 py-2 text-xs font-semibold text-white shadow-md transition-colors hover:bg-[#6B9E6E] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
             >
               {isNow ? "Available Now" : "Schedule"}
               <ArrowRight className="h-4 w-4" />
@@ -105,22 +106,10 @@ export function MaddenAgentRow({
                   {c.map((a) => (
                     <div
                       key={a.id}
-                      className="relative h-7 w-7 overflow-hidden rounded-full bg-[#FAF8F4] ring-2 ring-white shadow-sm"
+                      className="relative h-7 w-7 overflow-hidden rounded-full ring-2 ring-white shadow-sm"
                       title={a.name}
                     >
-                      {a.image ? (
-                        <Image
-                          src={a.image}
-                          alt={a.name}
-                          fill
-                          sizes="28px"
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="grid h-full w-full place-items-center text-[10px] font-bold text-[#2C2C2C]/55">
-                          {initials(a.name)}
-                        </div>
-                      )}
+                      <AgentAvatarFill name={a.name} imageUrl={a.image} sizes="28px" />
                     </div>
                   ))}
                 </div>
@@ -133,7 +122,7 @@ export function MaddenAgentRow({
 
             <Link
               href={`/agents/${encodeURIComponent(agent.id)}`}
-              className="shrink-0 text-xs font-semibold text-[#7C9A7E] hover:text-[#2C2C2C] transition-colors"
+              className="shrink-0 text-xs font-semibold text-[#6B9E6E] hover:text-[#2C2C2C] transition-colors"
             >
               Read More →
             </Link>
@@ -142,15 +131,5 @@ export function MaddenAgentRow({
       </div>
     </motion.div>
   );
-}
-
-function initials(name: string): string {
-  const parts = (name || "")
-    .trim()
-    .split(/\s+/g)
-    .filter(Boolean)
-    .slice(0, 2);
-  const raw = parts.map((p) => p[0]).join("");
-  return raw.toUpperCase() || "A";
 }
 

@@ -16,7 +16,7 @@ export default function ContactPage() {
         <div className="mt-6 flex flex-wrap gap-2">
           <Link
             href="/register/agent"
-            className="inline-flex rounded-full bg-[#2C2C2C] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#7C9A7E]"
+            className="inline-flex rounded-full bg-[#2C2C2C] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
           >
             Register as agent →
           </Link>

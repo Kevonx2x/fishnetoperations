@@ -362,7 +362,7 @@ export function AgentDashboard() {
   if (authLoading || !loaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#FAF8F4] text-sm font-semibold text-[#2C2C2C]/60">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#7C9A7E]" />
+        <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#6B9E6E]" />
         Loading…
       </div>
     );
@@ -382,7 +382,7 @@ export function AgentDashboard() {
           </p>
           <Link
             href="/register/agent"
-            className="mt-6 inline-flex rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#7C9A7E]"
+            className="mt-6 inline-flex rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
           >
             Become an Agent
           </Link>
@@ -407,11 +407,11 @@ export function AgentDashboard() {
         {/* Desktop sidebar */}
         <aside className="hidden w-64 shrink-0 border-r border-[#2C2C2C]/10 bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-screen md:flex-col md:px-4 md:py-8">
           <div className="mb-8 flex items-center gap-3 px-2">
-            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-[#C9A84C]/35">
+            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-[#D4A843]/35">
               {agent.image_url ? (
                 <Image src={agent.image_url} alt="" fill className="object-cover" sizes="56px" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[#7C9A7E]/20 text-lg font-bold text-[#2C2C2C]">
+                <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/20 text-lg font-bold text-[#2C2C2C]">
                   {agent.name.slice(0, 1)}
                 </div>
               )}
@@ -429,14 +429,14 @@ export function AgentDashboard() {
                 onClick={() => setTab(t.id)}
                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
                   tab === t.id
-                    ? "bg-[#7C9A7E]/15 text-[#2C2C2C] ring-1 ring-[#C9A84C]/25"
+                    ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
                     : "text-[#2C2C2C]/65 hover:bg-white/80"
                 }`}
               >
-                <span className="text-[#7C9A7E]">{t.icon}</span>
+                <span className="text-[#6B9E6E]">{t.icon}</span>
                 {t.label}
                 {t.id === "leads" && newLeadsCount > 0 ? (
-                  <span className="ml-auto rounded-full bg-[#C9A84C]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                  <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
                     {newLeadsCount}
                   </span>
                 ) : null}
@@ -453,7 +453,7 @@ export function AgentDashboard() {
 
         <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-10">
           {msg ? (
-            <p className="mb-4 rounded-xl border border-[#C9A84C]/30 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]">
+            <p className="mb-4 rounded-xl border border-[#D4A843]/30 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]">
               {msg}
             </p>
           ) : null}
@@ -550,13 +550,13 @@ export function AgentDashboard() {
             type="button"
             onClick={() => setTab(t.id)}
             className={`relative flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1 text-[10px] font-bold ${
-              tab === t.id ? "text-[#7C9A7E]" : "text-[#2C2C2C]/45"
+              tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
             }`}
           >
-            <span className={tab === t.id ? "text-[#7C9A7E]" : "text-[#2C2C2C]/45"}>{t.icon}</span>
+            <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>{t.icon}</span>
             {t.label}
             {t.id === "leads" && newLeadsCount > 0 ? (
-              <span className="absolute right-2 top-0 h-2 w-2 rounded-full bg-[#C9A84C]" />
+              <span className="absolute right-2 top-0 h-2 w-2 rounded-full bg-[#D4A843]" />
             ) : null}
           </button>
         ))}
@@ -636,7 +636,7 @@ function OverviewTab({
       {approved ? (
         <div
           className={`rounded-2xl border bg-white p-5 shadow-sm ${
-            atListingLimit ? "border-[#C9A84C]/50 ring-1 ring-[#C9A84C]/25" : "border-[#2C2C2C]/10"
+            atListingLimit ? "border-[#D4A843]/50 ring-1 ring-[#D4A843]/25" : "border-[#2C2C2C]/10"
           }`}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -653,14 +653,14 @@ function OverviewTab({
           </div>
           <div
             className={`mt-3 h-2.5 w-full overflow-hidden rounded-full ${
-              atListingLimit ? "bg-[#C9A84C]/25" : "bg-[#EBE6DC]"
+              atListingLimit ? "bg-[#D4A843]/25" : "bg-[#EBE6DC]"
             }`}
           >
             <div
               className={`h-full rounded-full transition-all ${
                 atListingLimit
-                  ? "bg-gradient-to-r from-[#D4AF37] to-[#C9A84C]"
-                  : "bg-gradient-to-r from-[#7C9A7E] to-[#C9A84C]/90"
+                  ? "bg-gradient-to-r from-[#D4AF37] to-[#D4A843]"
+                  : "bg-gradient-to-r from-[#6B9E6E] to-[#D4A843]/90"
               }`}
               style={{
                 width: `${listingLimit > 0 ? Math.min(100, (properties.length / listingLimit) * 100) : 0}%`,
@@ -683,14 +683,14 @@ function OverviewTab({
         <p className="text-sm font-bold text-[#2C2C2C]">Profile completeness</p>
         <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-[#EBE6DC]">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[#7C9A7E] to-[#C9A84C] transition-all"
+            className="h-full rounded-full bg-gradient-to-r from-[#6B9E6E] to-[#D4A843] transition-all"
             style={{ width: `${profileComplete.pct}%` }}
           />
         </div>
         <ul className="mt-4 space-y-2">
           {profileComplete.checks.map((c) => (
             <li key={c.label} className="flex items-center gap-2 text-sm font-semibold text-[#2C2C2C]/75">
-              <span className={c.ok ? "text-[#7C9A7E]" : "text-[#2C2C2C]/25"}>
+              <span className={c.ok ? "text-[#6B9E6E]" : "text-[#2C2C2C]/25"}>
                 {c.ok ? <Check className="h-4 w-4" /> : "○"}
               </span>
               {c.label}
@@ -698,7 +698,7 @@ function OverviewTab({
           ))}
         </ul>
         {incomplete && approved ? (
-          <p className="mt-4 rounded-xl bg-[#C9A84C]/12 px-4 py-3 text-sm font-semibold text-[#8a6d32]">
+          <p className="mt-4 rounded-xl bg-[#D4A843]/12 px-4 py-3 text-sm font-semibold text-[#8a6d32]">
             Complete your profile to get more leads — add a photo, bio, specialties, and your first listing.
           </p>
         ) : null}
@@ -720,7 +720,7 @@ function OverviewTab({
                     <p className="font-semibold text-[#2C2C2C]">{l.name}</p>
                     <p className="text-xs font-semibold text-[#2C2C2C]/45">{l.email}</p>
                   </div>
-                  <span className="rounded-full bg-[#7C9A7E]/12 px-2 py-1 text-xs font-bold text-[#2C2C2C]/70">
+                  <span className="rounded-full bg-[#6B9E6E]/12 px-2 py-1 text-xs font-bold text-[#2C2C2C]/70">
                     {labelForStage(l.stage)}
                   </span>
                 </li>
@@ -738,7 +738,7 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint?:
     <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
       <p className="text-[11px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">{label}</p>
       <p className="mt-2 font-serif text-2xl font-bold text-[#2C2C2C]">{value}</p>
-      {hint ? <p className="mt-1 text-[10px] font-semibold text-[#C9A84C]">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-[10px] font-semibold text-[#D4A843]">{hint}</p> : null}
     </div>
   );
 }
@@ -851,7 +851,7 @@ function ListingsTab({
         <button
           type="button"
           onClick={onOpenNewListing}
-          className="rounded-full bg-[#C9A84C] px-5 py-2.5 text-sm font-bold text-[#2C2C2C] shadow-sm hover:brightness-95"
+          className="rounded-full bg-[#D4A843] px-5 py-2.5 text-sm font-bold text-[#2C2C2C] shadow-sm hover:brightness-95"
         >
           Add New Listing
         </button>
@@ -865,7 +865,7 @@ function ListingsTab({
           >
             <div className="relative h-40 w-full bg-black/5">
               <Image src={p.image_url} alt="" fill className="object-cover" sizes="400px" />
-              <span className="absolute left-2 top-2 rounded-full bg-[#7C9A7E] px-2 py-1 text-[10px] font-bold text-white">
+              <span className="absolute left-2 top-2 rounded-full bg-[#6B9E6E] px-2 py-1 text-[10px] font-bold text-white">
                 {p.status === "for_rent" ? "For Rent" : "For Sale"}
               </span>
             </div>
@@ -1010,7 +1010,7 @@ function ListingsTab({
               <button
                 type="submit"
                 disabled={saving}
-                className="mt-6 w-full rounded-full bg-[#2C2C2C] py-3 text-sm font-bold text-white hover:bg-[#7C9A7E] disabled:opacity-50"
+                className="mt-6 w-full rounded-full bg-[#2C2C2C] py-3 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
               >
                 {saving ? "Saving…" : "Save listing"}
               </button>
@@ -1054,10 +1054,10 @@ function ProfileTab({
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Photo</p>
           <div className="mt-2 flex items-center gap-4">
-            <div className="relative h-20 w-20 overflow-hidden rounded-full bg-[#EBE6DC] ring-2 ring-[#C9A84C]/30">
+            <div className="relative h-20 w-20 overflow-hidden rounded-full bg-[#EBE6DC] ring-2 ring-[#D4A843]/30">
               {agent.image_url ? <Image src={agent.image_url} alt="" fill className="object-cover" sizes="80px" /> : null}
             </div>
-            <label className="cursor-pointer rounded-full border border-[#7C9A7E] bg-[#7C9A7E]/10 px-4 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#7C9A7E]/20">
+            <label className="cursor-pointer rounded-full border border-[#6B9E6E] bg-[#6B9E6E]/10 px-4 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/20">
               Upload
               <input
                 type="file"
@@ -1152,7 +1152,7 @@ function ProfileTab({
         <button
           type="submit"
           disabled={saving}
-          className="w-full rounded-full bg-[#2C2C2C] py-3 text-sm font-bold text-white hover:bg-[#7C9A7E] disabled:opacity-50"
+          className="w-full rounded-full bg-[#2C2C2C] py-3 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
         >
           {saving ? "Saving…" : "Save profile"}
         </button>
@@ -1171,8 +1171,8 @@ type AgentNotifRow = {
 };
 
 function notificationListIcon(type: string) {
-  if (type === "property_match") return <Home className="h-4 w-4 text-[#7C9A7E]" />;
-  if (type === "lead_created") return <Sparkles className="h-4 w-4 text-[#C9A84C]" />;
+  if (type === "property_match") return <Home className="h-4 w-4 text-[#6B9E6E]" />;
+  if (type === "lead_created") return <Sparkles className="h-4 w-4 text-[#D4A843]" />;
   return <Bell className="h-4 w-4 text-[#2C2C2C]/50" />;
 }
 
@@ -1282,7 +1282,7 @@ function ListingLimitUpgradeModal({
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 24, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-2xl border border-[#C9A84C]/35 bg-[#FAF8F4] p-6 shadow-2xl"
+        className="w-full max-w-md rounded-2xl border border-[#D4A843]/35 bg-[#FAF8F4] p-6 shadow-2xl"
       >
         <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">
           {isProTier
@@ -1310,7 +1310,7 @@ function ListingLimitUpgradeModal({
             <Link
               href="/pricing"
               onClick={onClose}
-              className="order-1 inline-flex items-center justify-center rounded-full bg-[#C9A84C] px-5 py-2.5 text-sm font-bold text-[#2C2C2C] shadow-sm hover:brightness-95 sm:order-2"
+              className="order-1 inline-flex items-center justify-center rounded-full bg-[#D4A843] px-5 py-2.5 text-sm font-bold text-[#2C2C2C] shadow-sm hover:brightness-95 sm:order-2"
             >
               Upgrade Now
             </Link>

@@ -95,7 +95,7 @@ export function PropertiesMap({
                   <button
                     type="button"
                     onClick={() => onSelectProperty(p.id)}
-                    className="mt-2 rounded-full bg-[#7C9A7E] px-3 py-1.5 text-xs font-semibold text-white"
+                    className="mt-2 rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-semibold text-white"
                   >
                     View
                   </button>

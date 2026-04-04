@@ -59,7 +59,7 @@ function KeySvg({ className }: { className?: string }) {
       <defs>
         <linearGradient id="keyGold" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#F6E08A" />
-          <stop offset="45%" stopColor="#C9A84C" />
+          <stop offset="45%" stopColor="#D4A843" />
           <stop offset="100%" stopColor="#9C7A22" />
         </linearGradient>
       </defs>

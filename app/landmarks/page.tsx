@@ -163,15 +163,15 @@ function LandmarksContent() {
               <Link
                 href={`/landmarks?type=${c.type}`}
                 className={`flex h-full flex-col rounded-2xl border bg-white p-5 shadow-sm transition hover:bg-[#FAF8F4]/80 ${
-                  activeType === c.type ? "border-[#C9A84C]/50 ring-2 ring-[#C9A84C]/25" : "border-[#2C2C2C]/10"
+                  activeType === c.type ? "border-[#D4A843]/50 ring-2 ring-[#D4A843]/25" : "border-[#2C2C2C]/10"
                 }`}
               >
-                <div className="flex items-center gap-3 text-[#7C9A7E]">
+                <div className="flex items-center gap-3 text-[#6B9E6E]">
                   {c.icon}
                   <span className="font-serif text-lg font-bold text-[#2C2C2C]">{c.name}</span>
                 </div>
                 <p className="mt-2 flex-1 text-sm font-semibold text-[#2C2C2C]/55">{c.blurb}</p>
-                <span className="mt-4 text-sm font-bold text-[#C9A84C]">View Properties Nearby →</span>
+                <span className="mt-4 text-sm font-bold text-[#D4A843]">View Properties Nearby →</span>
               </Link>
             </motion.div>
           ))}
@@ -188,7 +188,7 @@ function LandmarksContent() {
               </div>
               <Link
                 href="/landmarks"
-                className="text-sm font-semibold text-[#7C9A7E] hover:text-[#5f7a62]"
+                className="text-sm font-semibold text-[#6B9E6E] hover:text-[#5f7a62]"
               >
                 ← All categories
               </Link>

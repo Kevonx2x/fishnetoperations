@@ -31,7 +31,7 @@ function FinnEmpty({ title, subtitle }: { title: string; subtitle: string }) {
           <path
             d="M12 58 L64 18 L116 58"
             fill="none"
-            stroke="#C9A84C"
+            stroke="#D4A843"
             strokeWidth="10"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -113,7 +113,7 @@ export function BrokersDirectory() {
             Verified Broker Directory
           </h2>
         </div>
-        <div className="rounded-full bg-[#7C9A7E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/70">
+        <div className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/70">
           {loading ? "Loading…" : `${cards.length} verified`}
         </div>
       </div>
@@ -176,8 +176,8 @@ export function BrokersDirectory() {
                         {b.company_name}
                       </p>
                       {b.verified && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A84C]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]">
-                          <BadgeCheck className="h-3.5 w-3.5 text-[#C9A84C]" />
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#D4A843]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]">
+                          <BadgeCheck className="h-3.5 w-3.5 text-[#D4A843]" />
                           Verified
                         </span>
                       )}
@@ -185,12 +185,12 @@ export function BrokersDirectory() {
 
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs font-semibold text-[#2C2C2C]/55">
                       <span className="inline-flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5 text-[#7C9A7E]" />
+                        <Users className="h-3.5 w-3.5 text-[#6B9E6E]" />
                         {agentCountFromRow(b)} agents
                       </span>
                       {b.phone ? (
                         <span className="inline-flex items-center gap-1 truncate">
-                          <Phone className="h-3.5 w-3.5 text-[#7C9A7E]" />
+                          <Phone className="h-3.5 w-3.5 text-[#6B9E6E]" />
                           {b.phone}
                         </span>
                       ) : null}

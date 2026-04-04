@@ -15,7 +15,7 @@ function FinnMascotSvg({ className }: { className?: string }) {
     >
       <defs>
         <linearGradient id="finnRoof" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#C9A84C" />
+          <stop offset="0%" stopColor="#D4A843" />
           <stop offset="100%" stopColor="#B99333" />
         </linearGradient>
       </defs>
@@ -65,8 +65,8 @@ function FinnMascotSvg({ className }: { className?: string }) {
       />
 
       {/* Cheeks */}
-      <circle cx="38" cy="86" r="6" fill="#7C9A7E" opacity="0.18" />
-      <circle cx="90" cy="86" r="6" fill="#7C9A7E" opacity="0.18" />
+      <circle cx="38" cy="86" r="6" fill="#6B9E6E" opacity="0.18" />
+      <circle cx="90" cy="86" r="6" fill="#6B9E6E" opacity="0.18" />
     </svg>
   );
 }
@@ -133,7 +133,7 @@ export function WelcomeOverlay() {
                 type="button"
                 whileTap={{ scale: 0.98 }}
                 onClick={dismiss}
-                className="w-full rounded-full bg-[#7C9A7E] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#7C9A7E]/25 transition-colors hover:bg-[#6C8C70] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+                className="w-full rounded-full bg-[#6B9E6E] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#6B9E6E]/25 transition-colors hover:bg-[#6C8C70] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
               >
                 Get Started
               </motion.button>

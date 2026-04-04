@@ -181,7 +181,7 @@ export default function ProfilePage() {
             <p className="mt-2 text-sm text-[#2C2C2C]/60">Sign in to manage your account.</p>
             <Link
               href="/auth/login?next=/profile"
-              className="mt-6 inline-flex rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#7C9A7E]"
+              className="mt-6 inline-flex rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
             >
               Sign in
             </Link>
@@ -205,7 +205,7 @@ export default function ProfilePage() {
           {role && (
             <Link
               href={pathForRole(role)}
-              className="text-sm font-semibold text-[#7C9A7E] underline underline-offset-2 hover:text-[#5f7a62]"
+              className="text-sm font-semibold text-[#6B9E6E] underline underline-offset-2 hover:text-[#5f7a62]"
             >
               Go to dashboard
             </Link>
@@ -216,7 +216,7 @@ export default function ProfilePage() {
           onSubmit={saveProfile}
           className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-md"
         >
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#C9A84C]">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#D4A843]">
             Account
           </h2>
           <div className="mt-4 space-y-4">
@@ -225,7 +225,7 @@ export default function ProfilePage() {
               <input
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#C9A84C]/60"
+                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#D4A843]/60"
               />
             </label>
             <label className="block text-xs font-semibold text-[#2C2C2C]/55">
@@ -233,7 +233,7 @@ export default function ProfilePage() {
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#C9A84C]/60"
+                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#D4A843]/60"
               />
             </label>
             <label className="block text-xs font-semibold text-[#2C2C2C]/55">
@@ -242,17 +242,17 @@ export default function ProfilePage() {
                 value={avatarUrl}
                 onChange={(e) => setAvatarUrl(e.target.value)}
                 placeholder="https://…"
-                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#C9A84C]/60"
+                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#D4A843]/60"
               />
             </label>
           </div>
           {profileMsg && (
-            <p className="mt-4 text-sm text-[#7C9A7E]">{profileMsg}</p>
+            <p className="mt-4 text-sm text-[#6B9E6E]">{profileMsg}</p>
           )}
           <button
             type="submit"
             disabled={savingProfile}
-            className="mt-6 rounded-full bg-[#7C9A7E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#6f8d71] disabled:opacity-50"
+            className="mt-6 rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#6f8d71] disabled:opacity-50"
           >
             {savingProfile ? "Saving…" : "Save changes"}
           </button>
@@ -262,7 +262,7 @@ export default function ProfilePage() {
           onSubmit={savePassword}
           className="mt-6 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-md"
         >
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#C9A84C]">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#D4A843]">
             Change password
           </h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -273,7 +273,7 @@ export default function ProfilePage() {
                 autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#C9A84C]/60"
+                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#D4A843]/60"
               />
             </label>
             <label className="block text-xs font-semibold text-[#2C2C2C]/55 sm:col-span-2">
@@ -283,12 +283,12 @@ export default function ProfilePage() {
                 autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#C9A84C]/60"
+                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#D4A843]/60"
               />
             </label>
           </div>
           {pwMsg && (
-            <p className="mt-4 text-sm text-[#7C9A7E]">{pwMsg}</p>
+            <p className="mt-4 text-sm text-[#6B9E6E]">{pwMsg}</p>
           )}
           <button
             type="submit"
@@ -300,7 +300,7 @@ export default function ProfilePage() {
         </form>
 
         <section className="mt-6 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-md">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#C9A84C]">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#D4A843]">
             Saved searches
           </h2>
           <p className="mt-4 text-sm text-[#2C2C2C]/50">

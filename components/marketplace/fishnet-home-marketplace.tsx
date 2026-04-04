@@ -30,6 +30,8 @@ import { roomUrlsFor } from "@/lib/marketplace-property";
 import { useSavedPropertyIds } from "@/lib/saved-properties";
 import { useAuth } from "@/contexts/auth-context";
 import { PropertyZoomModal } from "@/components/marketplace/property-zoom-modal";
+import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
+import { listingListedLabel } from "@/lib/listing-listed-time";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { roomUrlsFor } from "@/lib/marketplace-property";
@@ -417,7 +419,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search by location, neighborhood, or zip code"
-                    className="w-full flex-1 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+                    className="w-full flex-1 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
                   />
                   <button
                     type="button"
@@ -431,13 +433,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       const step = Math.max(260, Math.round(el.clientWidth * 0.85));
                       el.scrollBy({ left: -step, behavior: "smooth" });
                     }}
-                    className="rounded-full bg-[#7C9A7E] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#6C8C70] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C9A84C]/35"
+                    className="rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#6C8C70] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
                   >
                     Search
                   </button>
                 </div>
                 <div className="mt-3 flex justify-center">
-                  <div className="inline-flex gap-2 rounded-full bg-[#EBE6DC]/90 p-1 ring-1 ring-[#C9A84C]/35 backdrop-blur-sm">
+                  <div className="inline-flex gap-2 rounded-full bg-[#EBE6DC]/90 p-1 ring-1 ring-[#D4A843]/35 backdrop-blur-sm">
                     {mode === "rent" ? (
                       <>
                         <Link
@@ -446,13 +448,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         >
                           Buy
                         </Link>
-                        <span className="rounded-full bg-gradient-to-b from-[#8faf91] to-[#7C9A7E] px-5 py-2 text-xs font-semibold text-white shadow-sm ring-1 ring-[#C9A84C]/50">
+                        <span className="rounded-full bg-gradient-to-b from-[#8faf91] to-[#6B9E6E] px-5 py-2 text-xs font-semibold text-white shadow-sm ring-1 ring-[#D4A843]/50">
                           Rent
                         </span>
                       </>
                     ) : (
                       <>
-                        <span className="rounded-full bg-gradient-to-b from-[#8faf91] to-[#7C9A7E] px-5 py-2 text-xs font-semibold text-white shadow-sm ring-1 ring-[#C9A84C]/50">
+                        <span className="rounded-full bg-gradient-to-b from-[#8faf91] to-[#6B9E6E] px-5 py-2 text-xs font-semibold text-white shadow-sm ring-1 ring-[#D4A843]/50">
                           Buy
                         </span>
                         <Link
@@ -492,9 +494,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       <section className="mx-auto max-w-6xl px-4 py-8">
         <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
           <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
-            <Stat icon={<Home className="h-4 w-4 text-[#7C9A7E]" />} value="1,200+" label="Active Listings" />
-            <Stat icon={<Users className="h-4 w-4 text-[#7C9A7E]" />} value="847" label="Verified Agents" />
-            <Stat icon={<Shield className="h-4 w-4 text-[#7C9A7E]" />} value="0" label="Reported Scams" />
+            <Stat icon={<Home className="h-4 w-4 text-[#6B9E6E]" />} value="1,200+" label="Active Listings" />
+            <Stat icon={<Users className="h-4 w-4 text-[#6B9E6E]" />} value="847" label="Verified Agents" />
+            <Stat icon={<Shield className="h-4 w-4 text-[#6B9E6E]" />} value="0" label="Reported Scams" />
           </div>
         </div>
       </section>
@@ -554,7 +556,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     <Filter className="h-4 w-4" />
                     Filters
                     {countActiveFilters(filters, sortMode) > 0 ? (
-                      <span className="ml-1 rounded-full bg-[#C9A84C]/18 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                      <span className="ml-1 rounded-full bg-[#D4A843]/18 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
                         {countActiveFilters(filters, sortMode)}
                       </span>
                     ) : null}
@@ -672,7 +674,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           }
                         }}
                         disabled={!hasActiveSearchOrFilters}
-                        className="rounded-full bg-[#7C9A7E] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#6C8C70] disabled:cursor-not-allowed disabled:opacity-45"
+                        className="rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#6C8C70] disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         Apply
                       </button>
@@ -718,7 +720,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         <button
                           type="button"
                           onClick={() => clearFiltersAndBrowse()}
-                          className="mt-6 rounded-full bg-[#7C9A7E] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#6C8C70]"
+                          className="mt-6 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#6C8C70]"
                         >
                           Clear Filters
                         </button>
@@ -908,17 +910,17 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
                   <Trust
-                    icon={<Shield className="h-5 w-5 text-[#7C9A7E]" />}
+                    icon={<Shield className="h-5 w-5 text-[#6B9E6E]" />}
                     title="All Agents Verified"
                     body="Every agent on BahayGo has a verified PRC license"
                   />
                   <Trust
-                    icon={<BadgeCheck className="h-5 w-5 text-[#7C9A7E]" />}
+                    icon={<BadgeCheck className="h-5 w-5 text-[#6B9E6E]" />}
                     title="Licensed Brokers Only"
                     body="All brokerages are registered and monitored"
                   />
                   <Trust
-                    icon={<Lock className="h-5 w-5 text-[#7C9A7E]" />}
+                    icon={<Lock className="h-5 w-5 text-[#6B9E6E]" />}
                     title="Anti-Scam Protection"
                     body="Zero tolerance policy. Report and remove instantly"
                   />
@@ -956,15 +958,15 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
                   <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-[#C9A84C]/18 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#8a6d32]">
+                      <span className="rounded-full bg-[#D4A843]/18 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#8a6d32]">
                         Featured
                       </span>
                       {featured.status === "for_rent" ? (
-                        <span className="rounded-full bg-[#7C9A7E]/12 px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/70">
+                        <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/70">
                           For Rent
                         </span>
                       ) : (
-                        <span className="rounded-full bg-[#7C9A7E]/12 px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/70">
+                        <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/70">
                           For Sale
                         </span>
                       )}
@@ -981,7 +983,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     </p>
                     <Link
                       href={`/properties/${encodeURIComponent(featured.id)}`}
-                      className="mt-4 inline-flex rounded-full bg-[#2C2C2C] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#7C9A7E]"
+                      className="mt-4 inline-flex rounded-full bg-[#2C2C2C] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#6B9E6E]"
                     >
                       Learn More →
                     </Link>
@@ -1129,7 +1131,7 @@ function CategorySection({
 function Stat({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
   return (
     <div className="flex items-center justify-center gap-3">
-      <div className="grid h-9 w-9 place-items-center rounded-full bg-[#7C9A7E]/12">{icon}</div>
+      <div className="grid h-9 w-9 place-items-center rounded-full bg-[#6B9E6E]/12">{icon}</div>
       <div className="text-left">
         <div className="text-lg font-bold text-[#2C2C2C]">{value}</div>
         <div className="text-xs font-semibold text-[#2C2C2C]/55">{label}</div>
@@ -1158,7 +1160,7 @@ function Chip({
       }`}
     >
       {label}
-      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${active ? "bg-white/20" : "bg-[#7C9A7E]/12 text-[#2C2C2C]/70"}`}>
+      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${active ? "bg-white/20" : "bg-[#6B9E6E]/12 text-[#2C2C2C]/70"}`}>
         {count}
       </span>
     </button>
@@ -1208,8 +1210,7 @@ export function NewlyListedCard({
   cardWidthClass?: string;
   viewerUserId?: string | null;
 }) {
-  const hrs = hoursAgo(property.created_at);
-  const newLabel = hrs <= 24 ? "New Today" : `Listed ${hrs} hrs ago`;
+  const listedLabel = listingListedLabel(property.created_at);
   const statusLabel = property.status === "for_rent" ? "For Rent" : "For Sale";
   const img = roomUrls[roomIdx] ?? roomUrls[0] ?? property.image_url;
 
@@ -1221,7 +1222,7 @@ export function NewlyListedCard({
 
   return (
     <div
-      className={`overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm ${
+      className={`overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md ${
         grid ? "" : `${cardWidthClass ?? "w-[260px]"} shrink-0`
       }`}
     >
@@ -1271,12 +1272,12 @@ export function NewlyListedCard({
 
         <div className="absolute left-3 top-3 z-20 flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-sm">
-            {newLabel}
+            {listedLabel}
           </span>
           {showYourListingBadge ? (
             <Link
               href="/dashboard/agent"
-              className="rounded-full bg-[#C9A84C]/95 px-2.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm ring-1 ring-[#8a6d32]/30 backdrop-blur-sm hover:bg-[#C9A84C]"
+              className="rounded-full bg-[#D4A843]/95 px-2.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm ring-1 ring-[#8a6d32]/30 backdrop-blur-sm hover:bg-[#D4A843]"
               onClick={(e) => e.stopPropagation()}
             >
               This is your listing
@@ -1284,7 +1285,7 @@ export function NewlyListedCard({
           ) : null}
         </div>
         <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
-          <span className="rounded-full bg-[#7C9A7E] px-3 py-1 text-[11px] font-bold text-white shadow-sm">
+          <span className="rounded-full bg-[#6B9E6E] px-3 py-1 text-[11px] font-bold text-white shadow-sm">
             {statusLabel}
           </span>
           <button
@@ -1314,17 +1315,17 @@ export function NewlyListedCard({
         <div className="space-y-2">
           {visibleAgents.map((a) => (
             <div key={a.id} className="flex items-center gap-2.5">
-              <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
-                {a.image ? <Image src={a.image} alt={a.name} fill sizes="28px" className="object-cover" /> : null}
+              <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+                <AgentAvatarFill name={a.name} imageUrl={a.image} sizes="28px" />
               </div>
               <Link
                 href={`/agents/${encodeURIComponent(a.id)}`}
-                className="min-w-0 flex-1 truncate text-xs font-semibold text-[#2C2C2C] hover:underline hover:decoration-[#C9A84C]/60 hover:underline-offset-4"
+                className="min-w-0 flex-1 truncate text-xs font-semibold text-[#2C2C2C] hover:underline hover:decoration-[#D4A843]/60 hover:underline-offset-4"
                 title={a.name}
               >
                 {a.name.length > 12 ? `${a.name.slice(0, 12)}…` : a.name}
               </Link>
-              <BadgeCheck className="h-4 w-4 shrink-0 text-[#C9A84C]" aria-label="Verified" />
+              <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
               <span className="ml-auto text-xs font-bold text-[#2C2C2C]">
                 {Math.round(a.score)}
               </span>
@@ -1442,7 +1443,7 @@ function PropertyRows({
 
   return (
     <div className="space-y-6">
-      {first.map((r) => (
+      {first.map((r, i) => (
         <div key={r.key}>
           <RowCarousel
             rowKey={r.key}
@@ -1460,7 +1461,9 @@ function PropertyRows({
             viewerUserId={viewerUserId}
             onOpenPropertyZoom={onOpenPropertyZoom}
           />
-          <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
+          {i < first.length - 1 ? (
+            <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
+          ) : null}
         </div>
       ))}
 
@@ -1512,6 +1515,17 @@ function PropertyRows({
   );
 }
 
+function ListingRowPlaceholderCard({ cardWidthClass }: { cardWidthClass: string }) {
+  return (
+    <div
+      className={`flex min-h-[300px] shrink-0 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#2C2C2C]/15 bg-white px-3 py-8 shadow-md ${cardWidthClass}`}
+    >
+      <Home className="mb-2 h-6 w-6 text-[#6B9E6E]/55" />
+      <p className="text-center text-xs font-semibold text-[#2C2C2C]/45">More listings coming soon</p>
+    </div>
+  );
+}
+
 function RowCarousel({
   rowKey,
   title,
@@ -1551,14 +1565,15 @@ function RowCarousel({
   };
 
   const list = items.slice(0, 12);
-  const featuredClasses = featured ? "rounded-2xl border border-[#C9A84C]/30 bg-[#C9A84C]/5 px-3 pt-3" : "";
+  const placeholderCount = list.length > 0 && list.length < 4 ? 4 - list.length : 0;
+  const featuredClasses = featured ? "rounded-2xl border border-[#D4A843]/30 bg-[#D4A843]/5 px-3 pt-3" : "";
   const cardWidthClass = "w-[260px]";
 
   return (
     <div className={featuredClasses}>
       <div className="mb-3">
         <div className="flex items-center gap-2">
-          {featured ? <Star className="h-4 w-4 text-[#C9A84C]" /> : null}
+          {featured ? <Star className="h-4 w-4 text-[#D4A843]" /> : null}
           <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">{title}</h2>
         </div>
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
@@ -1612,6 +1627,9 @@ function RowCarousel({
                 viewerUserId={viewerUserId}
               />
             ))}
+            {Array.from({ length: placeholderCount }).map((_, i) => (
+              <ListingRowPlaceholderCard key={`ph-${rowKey}-${i}`} cardWidthClass={cardWidthClass} />
+            ))}
           </div>
         </div>
         <button
@@ -1629,29 +1647,29 @@ function RowCarousel({
 
 function AgentCard({ agent }: { agent: MarketplaceAgent }) {
   return (
-    <div className="w-[320px] shrink-0 rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
+    <div className="w-[320px] shrink-0 rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-md">
       <div className="flex items-center gap-4">
-        <div className="relative h-16 w-16 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
-          {agent.image ? <Image src={agent.image} alt={agent.name} fill sizes="64px" className="object-cover" /> : null}
+        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+          <AgentAvatarFill name={agent.name} imageUrl={agent.image} sizes="64px" textClassName="text-lg" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate font-semibold text-[#2C2C2C]">{agent.name}</p>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A84C]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]">
-              <Flame className="h-3.5 w-3.5 text-[#C9A84C]" />
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#D4A843]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]">
+              <Flame className="h-3.5 w-3.5 text-[#D4A843]" />
               Verified
             </span>
           </div>
           <p className="mt-1 truncate text-xs font-semibold text-[#2C2C2C]/55">{agent.company || agent.brokerName}</p>
           <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-[#2C2C2C]/60">
-            <span className="rounded-full bg-[#7C9A7E]/12 px-3 py-1">{agent.closings} closings</span>
-            <span className="rounded-full bg-[#7C9A7E]/12 px-3 py-1">Score {Math.round(agent.score)}</span>
+            <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{agent.closings} closings</span>
+            <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">Score {Math.round(agent.score)}</span>
           </div>
         </div>
       </div>
       <Link
         href={`/agents/${encodeURIComponent(agent.id)}`}
-        className="mt-4 inline-flex w-full justify-center rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#7C9A7E]"
+        className="mt-4 inline-flex w-full justify-center rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
       >
         View Profile
       </Link>
