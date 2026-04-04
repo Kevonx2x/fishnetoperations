@@ -1529,8 +1529,6 @@ function RowCarousel({
     el.scrollBy({ left: dir === "next" ? step : -step, behavior: "smooth" });
   };
 
-  const [hasScrolled, setHasScrolled] = useState(false);
-
   const list = items.slice(0, 12);
   const featuredClasses = featured ? "rounded-2xl border border-[#C9A84C]/30 bg-[#C9A84C]/5 px-3 pt-3" : "";
   const cardWidthClass = "w-[260px]";
@@ -1548,14 +1546,6 @@ function RowCarousel({
       </div>
 
       <div className="relative">
-        {/* Right fade (always) */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-20 w-24 bg-gradient-to-l from-[#FAF8F4] to-transparent" />
-        {/* Left fade (only after scroll) */}
-        {hasScrolled ? (
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-20 w-24 bg-gradient-to-r from-[#FAF8F4] to-transparent" />
-        ) : null}
-
-        {/* Arrows sit on top of fades */}
         <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-30 hidden items-center justify-between sm:flex">
           <button
             type="button"
@@ -1578,10 +1568,6 @@ function RowCarousel({
         <div
           ref={(el) => {
             rowRefs.current[rowKey] = el;
-          }}
-          onScroll={(e) => {
-            const el = e.currentTarget;
-            setHasScrolled(el.scrollLeft > 8);
           }}
           className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide"
         >
