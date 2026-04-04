@@ -25,6 +25,7 @@ import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badg
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { formatLicenseDate } from "@/lib/license-expiry";
+import { listingLimitForTier } from "@/lib/agent-listing-limits";
 
 type Tab = "overview" | "leads" | "viewings" | "listings" | "profile" | "analytics";
 
@@ -45,6 +46,7 @@ type AgentRow = {
   social_links: Record<string, string> | null;
   response_time?: string | null;
   closings?: number | null;
+  listing_tier?: string | null;
 };
 
 type LeadRow = {
@@ -129,6 +131,7 @@ export function AgentDashboard() {
   });
 
   const [listingOpen, setListingOpen] = useState(false);
+  const [listingLimitModalOpen, setListingLimitModalOpen] = useState(false);
   const [listingForm, setListingForm] = useState({
     location: "",
     name: "",
@@ -203,6 +206,17 @@ export function AgentDashboard() {
   }, [agent]);
 
   const approved = agent?.status === "approved" && agent?.verified;
+
+  const listingLimit = useMemo(() => listingLimitForTier(agent?.listing_tier), [agent?.listing_tier]);
+  const atListingLimit = approved && properties.length >= listingLimit;
+
+  const openNewListingFlow = () => {
+    if (atListingLimit) {
+      setListingLimitModalOpen(true);
+      return;
+    }
+    setListingOpen(true);
+  };
 
   const profileComplete = useMemo(() => {
     if (!agent) return { pct: 0, checks: [] as { ok: boolean; label: string }[] };
@@ -293,6 +307,11 @@ export function AgentDashboard() {
   const createListing = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id) return;
+    if (properties.length >= listingLimit) {
+      setListingOpen(false);
+      setListingLimitModalOpen(true);
+      return;
+    }
     setSaving(true);
     setMsg("");
     const beds = Number(listingForm.beds) || 0;
@@ -312,7 +331,12 @@ export function AgentDashboard() {
     });
     setSaving(false);
     if (error) {
-      setMsg(error.message);
+      if (/row-level security|violates row-level security policy/i.test(error.message)) {
+        setListingLimitModalOpen(true);
+        setMsg("");
+      } else {
+        setMsg(error.message);
+      }
       return;
     }
     setListingOpen(false);
@@ -448,6 +472,8 @@ export function AgentDashboard() {
                   profileComplete={profileComplete}
                   mockProfileViews={mockProfileViews}
                   mockResponseRate={mockResponseRate}
+                  listingLimit={listingLimit}
+                  atListingLimit={atListingLimit}
                 />
               )}
               {tab === "leads" && approved && (
@@ -488,6 +514,8 @@ export function AgentDashboard() {
                   setListingForm={setListingForm}
                   onSubmit={createListing}
                   saving={saving}
+                  listingLimit={listingLimit}
+                  onOpenNewListing={openNewListingFlow}
                 />
               )}
               {tab === "listings" && !approved && (
@@ -529,6 +557,16 @@ export function AgentDashboard() {
       </nav>
 
       <AnimatePresence>
+        {listingLimitModalOpen ? (
+          <ListingLimitUpgradeModal
+            onClose={() => setListingLimitModalOpen(false)}
+            isProTier={agent.listing_tier === "pro"}
+            listingLimit={listingLimit}
+          />
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {selectedLead && user ? (
           <AgentLeadSlideOver
             lead={selectedLead}
@@ -552,6 +590,8 @@ function OverviewTab({
   profileComplete,
   mockProfileViews,
   mockResponseRate,
+  listingLimit,
+  atListingLimit,
 }: {
   agent: AgentRow;
   approved: boolean;
@@ -560,6 +600,8 @@ function OverviewTab({
   profileComplete: { pct: number; checks: { ok: boolean; label: string }[] };
   mockProfileViews: number;
   mockResponseRate: number;
+  listingLimit: number;
+  atListingLimit: boolean;
 }) {
   const recent = leads.slice(0, 5);
   const incomplete = profileComplete.pct < 100;
@@ -584,6 +626,52 @@ function OverviewTab({
         <StatCard label="Profile Views" value={String(mockProfileViews)} hint="mock" />
         <StatCard label="Response Rate" value={`${mockResponseRate}%`} hint="mock" />
       </div>
+
+      {approved ? (
+        <div
+          className={`rounded-2xl border bg-white p-5 shadow-sm ${
+            atListingLimit ? "border-[#C9A84C]/50 ring-1 ring-[#C9A84C]/25" : "border-[#2C2C2C]/10"
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p
+              className={`text-sm font-bold ${atListingLimit ? "text-[#8a6d32]" : "text-[#2C2C2C]"}`}
+            >
+              Listing usage
+            </p>
+            <p
+              className={`text-sm font-bold tabular-nums ${atListingLimit ? "text-[#B8860B]" : "text-[#2C2C2C]/80"}`}
+            >
+              {properties.length}/{listingLimit} listings used
+            </p>
+          </div>
+          <div
+            className={`mt-3 h-2.5 w-full overflow-hidden rounded-full ${
+              atListingLimit ? "bg-[#C9A84C]/25" : "bg-[#EBE6DC]"
+            }`}
+          >
+            <div
+              className={`h-full rounded-full transition-all ${
+                atListingLimit
+                  ? "bg-gradient-to-r from-[#D4AF37] to-[#C9A84C]"
+                  : "bg-gradient-to-r from-[#7C9A7E] to-[#C9A84C]/90"
+              }`}
+              style={{
+                width: `${listingLimit > 0 ? Math.min(100, (properties.length / listingLimit) * 100) : 0}%`,
+              }}
+            />
+          </div>
+          {atListingLimit ? (
+            <p className="mt-3 text-xs font-semibold text-[#8a6d32]">
+              You are at your plan limit. Upgrade to Pro on the{" "}
+              <Link href="/pricing" className="underline underline-offset-2 hover:text-[#2C2C2C]">
+                pricing page
+              </Link>{" "}
+              to list more properties.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
         <p className="text-sm font-bold text-[#2C2C2C]">Profile completeness</p>
@@ -721,6 +809,8 @@ function ListingsTab({
   setListingForm,
   onSubmit,
   saving,
+  listingLimit,
+  onOpenNewListing,
 }: {
   properties: PropertyRow[];
   listingOpen: boolean;
@@ -740,17 +830,21 @@ function ListingsTab({
   setListingForm: React.Dispatch<React.SetStateAction<typeof listingForm>>;
   onSubmit: (e: React.FormEvent) => void;
   saving: boolean;
+  listingLimit: number;
+  onOpenNewListing: () => void;
 }) {
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Listings</h1>
-          <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Properties you list ({properties.length}).</p>
+          <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+            Properties you list ({properties.length}/{listingLimit}).
+          </p>
         </div>
         <button
           type="button"
-          onClick={() => setListingOpen(true)}
+          onClick={onOpenNewListing}
           className="rounded-full bg-[#C9A84C] px-5 py-2.5 text-sm font-bold text-[#2C2C2C] shadow-sm hover:brightness-95"
         >
           Add New Listing
@@ -1058,5 +1152,66 @@ function ProfileTab({
         </button>
       </form>
     </div>
+  );
+}
+
+function ListingLimitUpgradeModal({
+  onClose,
+  isProTier,
+  listingLimit,
+}: {
+  onClose: () => void;
+  isProTier: boolean;
+  listingLimit: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-4 sm:items-center"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: 32, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 24, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl border border-[#C9A84C]/35 bg-[#FAF8F4] p-6 shadow-2xl"
+      >
+        <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">
+          {isProTier
+            ? `You've reached your plan limit of ${listingLimit} listings`
+            : "You've reached your free limit of 3 listings"}
+        </h2>
+        {isProTier ? (
+          <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/70">
+            Remove or archive a listing before adding another, or contact support if you need a higher limit.
+          </p>
+        ) : (
+          <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/70">
+            Upgrade to Pro for ₱999/month to list up to 20 properties.
+          </p>
+        )}
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="order-2 rounded-full border border-[#2C2C2C]/15 bg-white px-5 py-2.5 text-sm font-bold text-[#2C2C2C] hover:bg-[#FAF8F4] sm:order-1"
+          >
+            Cancel
+          </button>
+          {!isProTier ? (
+            <Link
+              href="/pricing"
+              onClick={onClose}
+              className="order-1 inline-flex items-center justify-center rounded-full bg-[#C9A84C] px-5 py-2.5 text-sm font-bold text-[#2C2C2C] shadow-sm hover:brightness-95 sm:order-2"
+            >
+              Upgrade Now
+            </Link>
+          ) : null}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
