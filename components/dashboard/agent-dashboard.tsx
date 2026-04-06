@@ -35,6 +35,7 @@ import {
   AGENT_AVAILABILITY_OFFLINE,
 } from "@/components/marketplace/agent-availability-badge";
 import { AgentAvailabilitySchedule } from "@/components/dashboard/agent-availability-schedule";
+import { toast } from "sonner";
 
 type Tab = "overview" | "leads" | "viewings" | "listings" | "profile" | "analytics" | "notifications";
 
@@ -94,8 +95,29 @@ type PropertyRow = {
   price: string | number;
   image_url: string;
   status: "for_sale" | "for_rent";
+  beds: number;
+  baths: number;
+  sqft: string;
+  description: string | null;
+  property_type: string | null;
+  listing_status: "active" | "under_offer" | "sold" | "off_market";
   /** True when connected via property_agents but not the listing owner. */
   isCoHost?: boolean;
+};
+
+const EDIT_PROPERTY_TYPES = ["House", "Condo", "Apartment", "Studio", "Commercial"] as const;
+
+type EditListingForm = {
+  name: string;
+  location: string;
+  price: string;
+  beds: string;
+  baths: string;
+  sqft: string;
+  property_type: string;
+  listing_type: "sale" | "rent";
+  listing_status: "active" | "under_offer" | "sold" | "off_market";
+  description: string;
 };
 
 /** UI labels → DB lead stages (existing check constraint). */
@@ -149,6 +171,23 @@ export function AgentDashboard() {
 
   const [listingOpen, setListingOpen] = useState(false);
   const [listingLimitModalOpen, setListingLimitModalOpen] = useState(false);
+  const [editWarningOpen, setEditWarningOpen] = useState(false);
+  const [editFormOpen, setEditFormOpen] = useState(false);
+  const [pendingEditProperty, setPendingEditProperty] = useState<PropertyRow | null>(null);
+  const [editPropertyId, setEditPropertyId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<EditListingForm>({
+    name: "",
+    location: "",
+    price: "",
+    beds: "2",
+    baths: "2",
+    sqft: "1,000",
+    property_type: "Condo",
+    listing_type: "sale",
+    listing_status: "active",
+    description: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
   const [listingForm, setListingForm] = useState({
     location: "",
     name: "",
@@ -178,7 +217,9 @@ export function AgentDashboard() {
           .order("created_at", { ascending: false }),
         supabase
           .from("properties")
-          .select("id, name, location, price, image_url, status")
+          .select(
+            "id, name, location, price, image_url, status, beds, baths, sqft, description, property_type, listing_status",
+          )
           .eq("listed_by", user.id)
           .order("created_at", { ascending: false }),
         supabase.from("property_agents").select("property_id").eq("agent_id", a.id),
@@ -190,7 +231,24 @@ export function AgentDashboard() {
       ]);
       setLeads((ld as LeadRow[]) ?? []);
 
-      const ownedList = (owned ?? []) as PropertyRow[];
+      const ownedList = ((owned ?? []) as Record<string, unknown>[]).map((raw) => {
+        const p = raw as Record<string, unknown>;
+        return {
+          id: String(p.id),
+          name: (p.name as string | null) ?? null,
+          location: String(p.location ?? ""),
+          price: p.price as string | number,
+          image_url: String(p.image_url ?? ""),
+          status: p.status as "for_sale" | "for_rent",
+          beds: typeof p.beds === "number" ? p.beds : Number(p.beds) || 0,
+          baths: typeof p.baths === "number" ? p.baths : Number(p.baths) || 0,
+          sqft: p.sqft != null ? String(p.sqft) : "",
+          description: (p.description as string | null) ?? null,
+          property_type: (p.property_type as string | null) ?? null,
+          listing_status: (p.listing_status as PropertyRow["listing_status"]) ?? "active",
+          isCoHost: false as const,
+        };
+      });
       const ownedIds = new Set(ownedList.map((p) => p.id));
       const coIds = [
         ...new Set((paRows ?? []).map((r) => (r as { property_id: string }).property_id)),
@@ -200,10 +258,29 @@ export function AgentDashboard() {
       if (coIds.length > 0) {
         const { data: co } = await supabase
           .from("properties")
-          .select("id, name, location, price, image_url, status")
+          .select(
+            "id, name, location, price, image_url, status, beds, baths, sqft, description, property_type, listing_status",
+          )
           .in("id", coIds)
           .order("created_at", { ascending: false });
-        cohosted = ((co ?? []) as PropertyRow[]).map((p) => ({ ...p, isCoHost: true }));
+        cohosted = ((co ?? []) as Record<string, unknown>[]).map((raw) => {
+          const p = raw as Record<string, unknown>;
+          return {
+            id: String(p.id),
+            name: (p.name as string | null) ?? null,
+            location: String(p.location ?? ""),
+            price: p.price as string | number,
+            image_url: String(p.image_url ?? ""),
+            status: p.status as "for_sale" | "for_rent",
+            beds: typeof p.beds === "number" ? p.beds : Number(p.beds) || 0,
+            baths: typeof p.baths === "number" ? p.baths : Number(p.baths) || 0,
+            sqft: p.sqft != null ? String(p.sqft) : "",
+            description: (p.description as string | null) ?? null,
+            property_type: (p.property_type as string | null) ?? null,
+            listing_status: (p.listing_status as PropertyRow["listing_status"]) ?? "active",
+            isCoHost: true as const,
+          };
+        });
       }
 
       const merged: PropertyRow[] = [
@@ -380,6 +457,92 @@ export function AgentDashboard() {
     setSelectedLead((s) => (s?.id === leadId ? null : s));
     setMsg("Lead removed.");
   };
+
+  const openEditFormFromProperty = useCallback((p: PropertyRow) => {
+    setEditPropertyId(p.id);
+    const pt = (p.property_type ?? "House").trim();
+    const safeType = EDIT_PROPERTY_TYPES.includes(pt as (typeof EDIT_PROPERTY_TYPES)[number])
+      ? pt
+      : "House";
+    setEditForm({
+      name: p.name ?? "",
+      location: p.location,
+      price: typeof p.price === "number" ? String(p.price) : String(p.price ?? ""),
+      beds: String(p.beds ?? 0),
+      baths: String(p.baths ?? 0),
+      sqft: String(p.sqft ?? ""),
+      property_type: safeType,
+      listing_type: p.status === "for_rent" ? "rent" : "sale",
+      listing_status: p.listing_status ?? "active",
+      description: p.description ?? "",
+    });
+    setEditFormOpen(true);
+    setEditWarningOpen(false);
+    setPendingEditProperty(null);
+  }, []);
+
+  const beginEditListing = useCallback(
+    async (p: PropertyRow) => {
+      if (!agent) return;
+      const { data: pa } = await supabase
+        .from("property_agents")
+        .select("agent_id")
+        .eq("property_id", p.id);
+      const others = (pa ?? []).filter((row) => (row as { agent_id: string }).agent_id !== agent.id);
+      if (others.length > 0) {
+        setPendingEditProperty(p);
+        setEditWarningOpen(true);
+      } else {
+        openEditFormFromProperty(p);
+      }
+    },
+    [agent, supabase, openEditFormFromProperty],
+  );
+
+  const saveEditListing = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editPropertyId) return;
+      setSavingEdit(true);
+      try {
+        const beds = Number(editForm.beds) || 0;
+        const baths = Number(editForm.baths) || 0;
+        const res = await fetch("/api/agent/update-listing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            propertyId: editPropertyId,
+            name: editForm.name.trim() || null,
+            location: editForm.location.trim(),
+            price: editForm.price.trim(),
+            beds,
+            baths,
+            sqft: editForm.sqft.trim(),
+            property_type: editForm.property_type,
+            status: editForm.listing_type === "sale" ? "for_sale" : "for_rent",
+            listing_status: editForm.listing_status,
+            description: editForm.description.trim() || null,
+          }),
+        });
+        const json = (await res.json().catch(() => null)) as {
+          success?: boolean;
+          error?: { message?: string };
+        };
+        if (!res.ok) {
+          toast.error(json?.error?.message ?? "Could not save listing.");
+          return;
+        }
+        toast.success("Listing updated successfully");
+        setEditFormOpen(false);
+        setEditPropertyId(null);
+        await loadData();
+      } finally {
+        setSavingEdit(false);
+      }
+    },
+    [editPropertyId, editForm, loadData],
+  );
 
   const createListing = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -617,6 +780,7 @@ export function AgentDashboard() {
                   onOpenNewListing={openNewListingFlow}
                   onDeleteProperty={deleteListing}
                   deletingPropertyId={deletingPropertyId}
+                  onEditListing={beginEditListing}
                 />
               )}
               {tab === "listings" && !approved && (
@@ -674,6 +838,229 @@ export function AgentDashboard() {
             isProTier={agent.listing_tier === "pro"}
             listingLimit={listingLimit}
           />
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editWarningOpen && pendingEditProperty ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-4 sm:items-center"
+            onClick={() => {
+              setEditWarningOpen(false);
+              setPendingEditProperty(null);
+            }}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-6 shadow-2xl"
+            >
+              <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Edit Shared Listing</h2>
+              <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/75">
+                You are about to edit a listing that other agents may be connected to. All co-agents will be notified
+                of your changes. Providing false or misleading information may result in account suspension. By continuing
+                you confirm these changes are accurate.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditWarningOpen(false);
+                    setPendingEditProperty(null);
+                  }}
+                  className="flex-1 rounded-full border border-[#2C2C2C]/15 bg-white px-4 py-2.5 text-sm font-bold text-[#2C2C2C] hover:bg-[#FAF8F4]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    openEditFormFromProperty(pendingEditProperty);
+                  }}
+                  className="flex-1 rounded-full bg-[#D4A843] px-4 py-2.5 text-sm font-bold text-[#2C2C2C] shadow-sm hover:brightness-95"
+                >
+                  I Understand, Continue
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editFormOpen && editPropertyId ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-4 sm:items-center"
+            onClick={() => {
+              setEditFormOpen(false);
+              setEditPropertyId(null);
+            }}
+          >
+            <motion.form
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              onSubmit={saveEditListing}
+              onClick={(e) => e.stopPropagation()}
+              className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-6 shadow-2xl"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Edit listing</h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditFormOpen(false);
+                    setEditPropertyId(null);
+                  }}
+                  className="rounded-full p-2 text-[#2C2C2C]/55 hover:bg-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="mt-4 grid gap-3">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Property name
+                  <input
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                  />
+                </label>
+                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Price (₱)
+                  <input
+                    required
+                    value={editForm.price}
+                    onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    placeholder="₱12,000,000"
+                  />
+                </label>
+                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Location
+                  <input
+                    required
+                    value={editForm.location}
+                    onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    Beds
+                    <input
+                      type="number"
+                      min={0}
+                      value={editForm.beds}
+                      onChange={(e) => setEditForm((f) => ({ ...f, beds: e.target.value }))}
+                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    />
+                  </label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    Baths
+                    <input
+                      type="number"
+                      min={0}
+                      value={editForm.baths}
+                      onChange={(e) => setEditForm((f) => ({ ...f, baths: e.target.value }))}
+                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    />
+                  </label>
+                </div>
+                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Sqft
+                  <input
+                    value={editForm.sqft}
+                    onChange={(e) => setEditForm((f) => ({ ...f, sqft: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                  />
+                </label>
+                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Property type
+                  <select
+                    value={editForm.property_type}
+                    onChange={(e) => setEditForm((f) => ({ ...f, property_type: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                  >
+                    {EDIT_PROPERTY_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">For Sale / For Rent</p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditForm((f) => ({ ...f, listing_type: "sale" }))}
+                      className={`flex-1 rounded-full py-2 text-xs font-bold ${
+                        editForm.listing_type === "sale"
+                          ? "bg-[#6B9E6E] text-white"
+                          : "bg-[#FAF8F4] text-[#2C2C2C]/45"
+                      }`}
+                    >
+                      For Sale
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditForm((f) => ({ ...f, listing_type: "rent" }))}
+                      className={`flex-1 rounded-full py-2 text-xs font-bold ${
+                        editForm.listing_type === "rent"
+                          ? "bg-[#6B9E6E] text-white"
+                          : "bg-[#FAF8F4] text-[#2C2C2C]/45"
+                      }`}
+                    >
+                      For Rent
+                    </button>
+                  </div>
+                </div>
+                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Description
+                  <textarea
+                    value={editForm.description}
+                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                    rows={4}
+                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                  />
+                </label>
+                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Status
+                  <select
+                    value={editForm.listing_status}
+                    onChange={(e) =>
+                      setEditForm((f) => ({
+                        ...f,
+                        listing_status: e.target.value as EditListingForm["listing_status"],
+                      }))
+                    }
+                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                  >
+                    <option value="active">Active</option>
+                    <option value="under_offer">Under Offer</option>
+                    <option value="sold">Sold</option>
+                    <option value="off_market">Off Market</option>
+                  </select>
+                </label>
+              </div>
+              <button
+                type="submit"
+                disabled={savingEdit}
+                className="mt-6 w-full rounded-full bg-[#2C2C2C] py-3 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
+              >
+                {savingEdit ? "Saving…" : "Save changes"}
+              </button>
+            </motion.form>
+          </motion.div>
         ) : null}
       </AnimatePresence>
 
@@ -942,6 +1329,7 @@ function ListingsTab({
   onOpenNewListing,
   onDeleteProperty,
   deletingPropertyId,
+  onEditListing,
 }: {
   properties: PropertyRow[];
   ownedListingCount: number;
@@ -966,6 +1354,7 @@ function ListingsTab({
   onOpenNewListing: () => void;
   onDeleteProperty: (id: string) => void | Promise<void>;
   deletingPropertyId: string | null;
+  onEditListing: (p: PropertyRow) => void | Promise<void>;
 }) {
   const cohostCount = properties.filter((p) => p.isCoHost).length;
   return (
@@ -1012,17 +1401,31 @@ function ListingsTab({
               </div>
             </Link>
             {!p.isCoHost ? (
-              <button
-                type="button"
-                disabled={deletingPropertyId === p.id}
-                onClick={(e) => {
-                  e.preventDefault();
-                  void onDeleteProperty(p.id);
-                }}
-                className="absolute right-2 top-2 z-10 rounded-full border border-red-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-red-800 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {deletingPropertyId === p.id ? "Deleting…" : "Delete"}
-              </button>
+              <div className="absolute right-2 top-2 z-10 flex flex-col gap-1.5 sm:flex-row sm:items-center">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void onEditListing(p);
+                  }}
+                  className="rounded-full border border-[#6B9E6E]/25 bg-white/95 px-3 py-1.5 text-xs font-bold text-[#2C2C2C] shadow-sm hover:bg-[#6B9E6E]/12"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  disabled={deletingPropertyId === p.id}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void onDeleteProperty(p.id);
+                  }}
+                  className="rounded-full border border-red-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-red-800 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {deletingPropertyId === p.id ? "Deleting…" : "Delete"}
+                </button>
+              </div>
             ) : null}
           </div>
         ))}

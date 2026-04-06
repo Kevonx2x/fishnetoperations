@@ -21,6 +21,9 @@ const viewingSchema = z.object({
 
 const bodySchema = z.discriminatedUnion("source", [contactSchema, viewingSchema]);
 
+/** New leads always enter the pipeline as `new` (not `viewing`). */
+const NEW_LEAD_STAGE = "new" as const;
+
 function esc(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -144,7 +147,7 @@ export async function POST(req: Request) {
         agent_id: agentUserId,
         client_id: session.userId,
         source: "viewing_request",
-        stage: "new",
+        stage: NEW_LEAD_STAGE,
         property_id: propertyId,
       })
       .select("id")
@@ -196,7 +199,7 @@ export async function POST(req: Request) {
         agent_id: agentUserId,
         client_id: session.userId,
         source: "contact_button",
-        stage: "new",
+        stage: NEW_LEAD_STAGE,
         property_id: propertyId ?? null,
       })
       .select("id")
@@ -212,6 +215,14 @@ export async function POST(req: Request) {
     const contactLeadId = inserted?.id;
     if (contactLeadId === undefined || contactLeadId === null) {
       return ok({ created: false, duplicate: true });
+    }
+
+    const { error: stageErr } = await admin
+      .from("leads")
+      .update({ stage: NEW_LEAD_STAGE })
+      .eq("id", contactLeadId);
+    if (stageErr) {
+      console.error("[create-lead] contact_button stage ensure", stageErr);
     }
 
     await notifyAgentNewLead(admin, {
