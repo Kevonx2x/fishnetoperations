@@ -519,6 +519,8 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
         if (!o) setContactModalAgent(null);
       }}
       agent={contactModalAgent}
+      propertyId={property.id}
+      propertyTitle={propertyTitle}
     />
     </>
   );

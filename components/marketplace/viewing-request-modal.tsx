@@ -85,7 +85,7 @@ export function ViewingRequestModal({
     return () => {
       cancelled = true;
     };
-  }, [open, agentUserId]);
+  }, [open, agentUserId, supabase]);
 
   useEffect(() => {
     if (!open || agentSchedule === undefined || !date) return;
@@ -145,6 +145,7 @@ export function ViewingRequestModal({
         .insert({
           agent_user_id: agentUserId,
           property_id: propertyId ?? null,
+          client_user_id: user.id,
           client_name: name.trim(),
           client_email: email.trim(),
           client_phone: phone.trim(),
@@ -158,10 +159,11 @@ export function ViewingRequestModal({
       if (insErr) throw insErr;
       if (!row?.id) throw new Error("Could not create request.");
 
-      const res = await fetch("/api/notify-viewing-request", {
+      const res = await fetch("/api/create-lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ viewingRequestId: row.id }),
+        credentials: "include",
+        body: JSON.stringify({ source: "viewing_request", viewingRequestId: row.id }),
       });
 
       if (!res.ok) {

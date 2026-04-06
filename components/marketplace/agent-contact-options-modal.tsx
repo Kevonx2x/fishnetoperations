@@ -31,10 +31,16 @@ export function AgentContactOptionsModal({
   open,
   onOpenChange,
   agent,
+  propertyId = null,
+  propertyTitle,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   agent: MarketplaceAgent | null;
+  /** Listing id when contacting from a property context; omit for general inquiries. */
+  propertyId?: string | null;
+  /** Display name for property interest (e.g. listing title or location). */
+  propertyTitle?: string;
 }) {
   const [copied, setCopied] = useState(false);
   const { user, loading: authLoading } = useAuth();
@@ -54,9 +60,29 @@ export function AgentContactOptionsModal({
   const wa = whatsAppHref(phone ?? null);
   const viber = viberHref(phone ?? null);
 
+  const recordLead = async (channel: "email" | "sms" | "whatsapp" | "viber" | "copy_phone") => {
+    try {
+      await fetch("/api/create-lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          source: "contact_button",
+          agentUserId: agent.userId,
+          propertyId: propertyId ?? null,
+          propertyTitle: propertyTitle?.trim() || undefined,
+          channel,
+        }),
+      });
+    } catch {
+      /* ignore — contact action still proceeds */
+    }
+  };
+
   const copyPhone = async () => {
     if (!phone) return;
     try {
+      await recordLead("copy_phone");
       await navigator.clipboard.writeText(phone);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
@@ -101,7 +127,8 @@ export function AgentContactOptionsModal({
           <OptionRow
             disabled={!mailto}
             onClick={() => {
-              if (mailto) window.location.assign(mailto);
+              if (!mailto) return;
+              void recordLead("email").then(() => window.location.assign(mailto));
             }}
           >
             <span className="text-lg" aria-hidden>
@@ -112,7 +139,8 @@ export function AgentContactOptionsModal({
           <OptionRow
             disabled={!sms}
             onClick={() => {
-              if (sms) window.location.assign(sms);
+              if (!sms) return;
+              void recordLead("sms").then(() => window.location.assign(sms));
             }}
           >
             <span className="text-lg" aria-hidden>
@@ -123,7 +151,8 @@ export function AgentContactOptionsModal({
           <OptionRow
             disabled={!wa}
             onClick={() => {
-              if (wa) window.open(wa, "_blank", "noopener,noreferrer");
+              if (!wa) return;
+              void recordLead("whatsapp").then(() => window.open(wa, "_blank", "noopener,noreferrer"));
             }}
           >
             <span className="text-lg" aria-hidden>
@@ -134,7 +163,8 @@ export function AgentContactOptionsModal({
           <OptionRow
             disabled={!viber}
             onClick={() => {
-              if (viber) window.location.assign(viber);
+              if (!viber) return;
+              void recordLead("viber").then(() => window.location.assign(viber));
             }}
           >
             <span className="text-lg" aria-hidden>

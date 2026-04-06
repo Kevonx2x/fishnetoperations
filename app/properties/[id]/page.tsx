@@ -583,6 +583,8 @@ export default function PropertyPage() {
                 if (!o) setContactModalAgent(null);
               }}
               agent={contactModalAgent}
+              propertyId={property.id}
+              propertyTitle={property.name?.trim() || property.location}
             />
             {listingLimitModalOpen ? (
               <ListingLimitUpgradeModal

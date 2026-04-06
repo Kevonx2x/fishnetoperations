@@ -11,7 +11,7 @@ type ViewingRow = {
   client_phone: string | null;
   scheduled_at: string;
   status: string;
-  property_id: string;
+  property_id: string | null;
   notes: string | null;
   reminder_minutes?: number | null;
   reminder_sent?: boolean | null;
@@ -88,7 +88,9 @@ export function AgentViewingsTab({
           <ViewingCard
             key={v.id}
             v={v}
-            propertyLabel={propLabel.get(v.property_id) ?? "Property"}
+            propertyLabel={
+              v.property_id ? (propLabel.get(v.property_id) ?? "Property") : "General viewing"
+            }
             saving={saving || busyId === v.id}
             onBusy={(b) => setBusyId(b ? v.id : null)}
             onAfterAction={onAfterAction}

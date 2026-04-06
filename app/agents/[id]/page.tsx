@@ -367,6 +367,8 @@ export default function AgentProfilePage() {
               open={showContactModal}
               onOpenChange={setShowContactModal}
               agent={contactModalAgent}
+              propertyId={null}
+              propertyTitle="General Inquiry"
             />
           </>
         )}

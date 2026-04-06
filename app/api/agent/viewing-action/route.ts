@@ -3,10 +3,25 @@ import { Resend } from "resend";
 import { fail, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizePhoneE164, sendSmsTo } from "@/lib/twilio-sms";
 import { RESEND_FROM } from "@/lib/resend-from";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+async function resolveClientUserId(
+  row: { client_user_id?: string | null; client_email: string },
+): Promise<string | null> {
+  if (row.client_user_id) return row.client_user_id;
+  try {
+    const admin = createSupabaseAdmin();
+    const email = row.client_email.trim().toLowerCase();
+    const { data: prof } = await admin.from("profiles").select("id").ilike("email", email).maybeSingle();
+    return (prof as { id?: string } | null)?.id ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,24 +65,22 @@ export async function POST(request: NextRequest) {
       return fail("FORBIDDEN", "Not your viewing", 403);
     }
 
-    const propertyId = (row as { property_id: string }).property_id;
-    const { data: prop } = await sb
-      .from("properties")
-      .select("location, name")
-      .eq("id", propertyId)
-      .maybeSingle();
+    const propertyId = (row as { property_id: string | null }).property_id;
+    const { data: prop } = propertyId
+      ? await sb.from("properties").select("location, name").eq("id", propertyId).maybeSingle()
+      : { data: null };
     const propLabel =
       (prop as { name?: string | null; location?: string } | null)?.name?.trim() ||
-      (prop as { location?: string } | null)?.location ||
-      "your selected property";
+      (prop as { location?: string } | null)?.location?.trim() ||
+      (propertyId ? "Property" : "General viewing");
 
-    const { data: agentRow } = await sb
+    const { data: listingAgent } = await sb
       .from("agents")
       .select("name, phone")
-      .eq("user_id", session.userId)
+      .eq("user_id", agentUserId)
       .maybeSingle();
-    const agentName = (agentRow as { name?: string } | null)?.name ?? "Your agent";
-    const agentPhone = (agentRow as { phone?: string | null } | null)?.phone ?? "";
+    const agentName = (listingAgent as { name?: string } | null)?.name ?? "Your agent";
+    const agentPhone = (listingAgent as { phone?: string | null } | null)?.phone ?? "";
 
     const clientName = (row as { client_name: string }).client_name;
     const clientEmail = (row as { client_email: string }).client_email;
@@ -86,6 +99,17 @@ export async function POST(request: NextRequest) {
         ? body.clientPhone
         : (row as { client_phone?: string | null }).client_phone;
 
+    const clientUserId = await resolveClientUserId(
+      row as { client_user_id?: string | null; client_email: string },
+    );
+
+    let admin: ReturnType<typeof createSupabaseAdmin> | null = null;
+    try {
+      admin = createSupabaseAdmin();
+    } catch {
+      admin = null;
+    }
+
     if (action === "decline") {
       const { error: updErr } = await sb
         .from("viewing_requests")
@@ -96,11 +120,37 @@ export async function POST(request: NextRequest) {
         .eq("id", viewingId);
       if (updErr) return fail("DATABASE_ERROR", updErr.message, 500);
 
+      if (admin && clientUserId) {
+        await admin.from("notifications").insert({
+          user_id: clientUserId,
+          type: "viewing_declined",
+          title: "Viewing request update",
+          body: `${agentName} is unavailable on your requested date. Please request a new time.`,
+          metadata: { viewing_request_id: viewingId, property_label: propLabel },
+        });
+      }
+
+      if (resend) {
+        const { error: emailErr } = await resend.emails.send({
+          from: RESEND_FROM,
+          to: clientEmail,
+          subject: `Viewing request — ${propLabel}`,
+          html: `
+            <p>Hi ${escapeHtml(clientName)},</p>
+            <p>${escapeHtml(agentName)} is unavailable for your requested viewing time.</p>
+            <p><strong>Property:</strong> ${escapeHtml(propLabel)}</p>
+            <p>Please choose another date or time in the app.</p>
+            <p>— BahayGo</p>
+          `,
+        });
+        if (emailErr) console.error("[viewing-action] decline email", emailErr);
+      }
+
       const clientSms = normalizePhoneE164(clientPhone);
       if (clientSms) {
         await sendSmsTo(
           clientSms,
-          `Your viewing request for ${propLabel} has been declined. Please contact us to reschedule.`,
+          `Viewing update: ${agentName} can't make your requested time for ${propLabel}. Request a new time in BahayGo.`,
         );
       }
       return ok({ success: true });
@@ -120,16 +170,30 @@ export async function POST(request: NextRequest) {
 
     if (updErr) return fail("DATABASE_ERROR", updErr.message, 500);
 
-    const when = new Date(scheduledAt).toLocaleString(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
+    const d = new Date(scheduledAt);
+    const dateStr = d.toLocaleDateString(undefined, {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
+    const timeStr = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+    if (admin && clientUserId) {
+      await admin.from("notifications").insert({
+        user_id: clientUserId,
+        type: "viewing_confirmed",
+        title: "Viewing confirmed",
+        body: `Your viewing has been confirmed! ${agentName} confirmed your visit to ${propLabel} on ${dateStr} at ${timeStr}`,
+        metadata: { viewing_request_id: viewingId, property_label: propLabel, scheduled_at: scheduledAt },
+      });
+    }
 
     const agentSmsTo = normalizePhoneE164(agentPhone);
     if (agentSmsTo) {
       await sendSmsTo(
         agentSmsTo,
-        `Viewing confirmed: ${clientName} at ${propLabel} on ${when.split(",")[0] ?? when} at ${when}.`,
+        `Viewing confirmed: ${clientName} at ${propLabel} on ${dateStr} at ${timeStr}.`,
       );
     }
 
@@ -137,11 +201,11 @@ export async function POST(request: NextRequest) {
     if (clientSmsTo) {
       await sendSmsTo(
         clientSmsTo,
-        `Your viewing at ${propLabel} is confirmed for ${when}. Agent: ${agentName}${agentPhone ? ` ${agentPhone}` : ""}`,
+        `Your viewing at ${propLabel} is confirmed for ${dateStr} at ${timeStr}. Agent: ${agentName}${agentPhone ? ` — ${agentPhone}` : ""}`,
       );
     }
 
-    if (resend && process.env.RESEND_API_KEY) {
+    if (resend) {
       const { error: emailErr } = await resend.emails.send({
         from: RESEND_FROM,
         to: clientEmail,
@@ -150,16 +214,14 @@ export async function POST(request: NextRequest) {
           <p>Hi ${escapeHtml(clientName)},</p>
           <p>Your property viewing has been <strong>confirmed</strong>.</p>
           <p><strong>Property:</strong> ${escapeHtml(propLabel)}</p>
-          <p><strong>When:</strong> ${escapeHtml(when)}</p>
-          <p><strong>Agent:</strong> ${escapeHtml(agentName)}</p>
+          <p><strong>Date:</strong> ${escapeHtml(dateStr)}</p>
+          <p><strong>Time:</strong> ${escapeHtml(timeStr)}</p>
+          <p><strong>Agent:</strong> ${escapeHtml(agentName)}${agentPhone ? ` — ${escapeHtml(agentPhone)}` : ""}</p>
           <p>We look forward to seeing you.</p>
           <p>— BahayGo</p>
         `,
       });
-      if (emailErr) {
-        console.error("Resend:", emailErr);
-        return fail("EMAIL_ERROR", emailErr.message, 502);
-      }
+      if (emailErr) console.error("[viewing-action] confirm email", emailErr);
     }
 
     return ok({ success: true });
