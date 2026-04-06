@@ -36,7 +36,7 @@ export default function AgentsIndexPage() {
       setError(null);
       const { data, error } = await supabase
         .from("agents")
-        .select("id, user_id, name, image_url, score, closings, response_time, availability, brokers (id, company_name, logo_url)")
+        .select("*, brokers(*), profiles(email, phone)")
         .eq("status", "approved")
         .eq("verified", true);
       if (cancelled) return;

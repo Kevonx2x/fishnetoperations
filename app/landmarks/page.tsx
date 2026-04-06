@@ -87,7 +87,7 @@ function LandmarksContent() {
           `
           id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by, description,
           property_photos (url, sort_order),
-          property_agents (agent:agents (id, user_id, name, image_url, score, closings, response_time, availability, brokers (id, company_name, logo_url)))
+          property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, brokers (id, company_name, logo_url), profiles(email, phone)))
         `,
         )
         .order("created_at", { ascending: false });

@@ -158,7 +158,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           `
           id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by, description,
           property_photos (url, sort_order),
-          property_agents (agent:agents (id, user_id, name, image_url, score, closings, response_time, availability, brokers (id, company_name, logo_url)))
+          property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, brokers (id, company_name, logo_url), profiles(email, phone)))
         `,
         )
         .order("created_at", { ascending: false });
@@ -182,7 +182,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     (async () => {
       const { data, error } = await supabase
         .from("agents")
-        .select("id, user_id, name, image_url, score, closings, response_time, availability, brokers (id, company_name, logo_url)")
+        .select("*, brokers(*), profiles(email, phone)")
         .eq("status", "approved")
         .eq("verified", true);
       if (cancelled) return;

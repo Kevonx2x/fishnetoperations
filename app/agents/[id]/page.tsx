@@ -28,7 +28,10 @@ type AgentRow = {
   availability: string | null;
   broker_id: string | null;
   user_id: string;
+  verified?: boolean;
+  status?: string;
   brokers?: { id: string; company_name: string; logo_url: string | null } | null;
+  profiles?: { email?: string | null; phone?: string | null } | null;
 };
 
 type ListingRow = {
@@ -57,21 +60,7 @@ export default function AgentProfilePage() {
 
   const contactModalAgent = useMemo<MarketplaceAgent | null>(() => {
     if (!agent) return null;
-    return mapRowToMarketplaceAgent({
-      id: agent.id,
-      user_id: agent.user_id,
-      name: agent.name,
-      email: agent.email,
-      phone: agent.phone ?? "",
-      image_url: agent.image_url,
-      score: agent.score,
-      closings: agent.closings,
-      response_time: agent.response_time,
-      availability: agent.availability,
-      verified: true,
-      status: "approved",
-      brokers: agent.brokers,
-    });
+    return mapRowToMarketplaceAgent(agent as Parameters<typeof mapRowToMarketplaceAgent>[0]);
   }, [agent]);
 
   useEffect(() => {
@@ -82,9 +71,7 @@ export default function AgentProfilePage() {
       setError(null);
       const { data, error } = await supabase
         .from("agents")
-        .select(
-          "id, created_at, name, email, phone, image_url, license_number, score, closings, response_time, availability, broker_id, user_id, brokers (id, company_name, logo_url)",
-        )
+        .select("*, brokers(*), profiles(email, phone)")
         .eq("id", id)
         .maybeSingle();
 

@@ -1,8 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 
-const AGENT_SELECT =
-  "id, user_id, name, image_url, score, closings, response_time, availability, brokers (id, company_name, logo_url)";
+const AGENT_SELECT = "*, brokers(*), profiles(email, phone)";
 
 type AgentRow = Parameters<typeof mapRowToMarketplaceAgent>[0];
 

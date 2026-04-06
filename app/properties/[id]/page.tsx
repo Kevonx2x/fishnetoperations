@@ -102,7 +102,8 @@ export default function PropertyPage() {
             agent:agents (
               id, user_id, name, email, phone, image_url, score, closings, response_time, availability,
               verified, status,
-              brokers (id, company_name, logo_url)
+              brokers (id, company_name, logo_url),
+              profiles(email, phone)
             )
           )
         `,

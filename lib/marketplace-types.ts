@@ -27,6 +27,17 @@ type SupabaseBrokersJoin =
   | null
   | undefined;
 
+type ProfileJoinShape = {
+  email?: string | null;
+  phone?: string | null;
+};
+
+function profileJoinFields(p: ProfileJoinShape | ProfileJoinShape[] | null | undefined): ProfileJoinShape | null {
+  if (p == null) return null;
+  if (Array.isArray(p)) return p[0] ?? null;
+  return p;
+}
+
 type SupabaseAgentsRow = {
   id?: string | null;
   user_id?: string | null;
@@ -41,6 +52,8 @@ type SupabaseAgentsRow = {
   verified?: boolean | null;
   status?: string | null;
   brokers?: SupabaseBrokersJoin;
+  /** From `.select(..., profiles(email, phone))` join on agents.user_id → profiles.id */
+  profiles?: ProfileJoinShape | ProfileJoinShape[];
 };
 
 function safeString(v: unknown): string {
@@ -54,6 +67,7 @@ function safeNumber(v: unknown): number {
 
 export function mapRowToMarketplaceAgent(row: SupabaseAgentsRow): MarketplaceAgent {
   const brokers = (row.brokers ?? null) as SupabaseBrokersJoin;
+  const prof = profileJoinFields(row.profiles);
   return {
     id: safeString(row.id),
     userId: safeString(row.user_id),
@@ -67,8 +81,8 @@ export function mapRowToMarketplaceAgent(row: SupabaseAgentsRow): MarketplaceAge
     brokerId: typeof brokers?.id === "string" ? brokers.id : null,
     brokerName: safeString(brokers?.company_name),
     brokerLogo: safeString(brokers?.logo_url),
-    email: safeString(row.email),
-    phone: safeString(row.phone),
+    email: safeString(row.email) || safeString(prof?.email),
+    phone: safeString(row.phone) || safeString(prof?.phone),
     verified: row.verified === true,
     status: safeString(row.status),
   };
