@@ -89,6 +89,17 @@ interface AllAgentRow {
   rejection_reason: string | null;
 }
 
+interface CoAgentRequestRow {
+  id: string;
+  created_at: string;
+  status: string;
+  property_id: string;
+  agent_id: string;
+  propertyName: string;
+  propertyLocation: string;
+  agentName: string;
+}
+
 const emptyPropertyForm = {
   location: "",
   price: "",
@@ -123,7 +134,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
   const [adminSection, setAdminSection] = useState<
-    "leads" | "properties" | "verification" | "users"
+    "leads" | "properties" | "verification" | "users" | "coagent"
   >("leads");
 
   const [properties, setProperties] = useState<Property[]>([]);
@@ -162,6 +173,10 @@ export default function AdminPage() {
     status: "pending",
     broker_id: "",
   });
+
+  const [coAgentRequests, setCoAgentRequests] = useState<CoAgentRequestRow[]>([]);
+  const [coAgentLoading, setCoAgentLoading] = useState(false);
+  const [coAgentError, setCoAgentError] = useState("");
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -315,6 +330,45 @@ export default function AdminPage() {
       setAllAgentsList([]);
     }
     setAllAgentsLoading(false);
+  };
+
+  const fetchCoAgentRequests = async () => {
+    setCoAgentLoading(true);
+    setCoAgentError("");
+    try {
+      const res = await fetch("/api/admin/co-agent-requests", { credentials: "include" });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: CoAgentRequestRow[];
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        setCoAgentError(json?.error?.message ?? `HTTP ${res.status}`);
+        setCoAgentRequests([]);
+        return;
+      }
+      if (json.success && Array.isArray(json.data)) setCoAgentRequests(json.data);
+      else setCoAgentRequests([]);
+    } catch (e) {
+      setCoAgentError(e instanceof Error ? e.message : "Failed to load");
+      setCoAgentRequests([]);
+    }
+    setCoAgentLoading(false);
+  };
+
+  const decideCoAgentRequest = async (id: string, decision: "approve" | "reject") => {
+    const res = await fetch(`/api/admin/co-agent-requests/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ decision }),
+    });
+    if (!res.ok) {
+      const j = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+      alert(j?.error?.message ?? "Action failed");
+      return;
+    }
+    void fetchCoAgentRequests();
   };
 
   const updateUserRole = async (id: string, role: string) => {
@@ -503,6 +557,7 @@ export default function AdminPage() {
         fetchProperties();
         void fetchVerification();
         void fetchAllAgents();
+        void fetchCoAgentRequests();
       });
     }
   }, [user?.id, profile?.role]);
@@ -510,6 +565,12 @@ export default function AdminPage() {
   useEffect(() => {
     if (user?.id && profile?.role === "admin" && adminSection === "users") {
       void fetchUsers();
+    }
+  }, [user?.id, profile?.role, adminSection]);
+
+  useEffect(() => {
+    if (user?.id && profile?.role === "admin" && adminSection === "coagent") {
+      void fetchCoAgentRequests();
     }
   }, [user?.id, profile?.role, adminSection]);
 
@@ -731,6 +792,20 @@ export default function AdminPage() {
                 Users
                 <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
                   {adminUsers.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminSection("coagent")}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                  adminSection === "coagent"
+                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+                }`}
+              >
+                Co-Agent Requests
+                <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
+                  {coAgentRequests.length}
                 </span>
               </button>
             </div>
@@ -1566,6 +1641,83 @@ export default function AdminPage() {
                 )}
               </div>
             </section>
+          </div>
+        )}
+
+        {adminSection === "coagent" && (
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-[#2C2C2C]/70">
+                Agents who asked to be linked to an existing listing. Approve adds them to{" "}
+                <code className="rounded bg-[#EBE6DC] px-1 text-xs">property_agents</code> and notifies by SMS.
+              </p>
+              <button
+                type="button"
+                onClick={() => void fetchCoAgentRequests()}
+                className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] shadow-sm hover:bg-[#FAF8F4]"
+              >
+                Refresh
+              </button>
+            </div>
+            {coAgentError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {coAgentError}
+              </div>
+            ) : null}
+            <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+              {coAgentLoading ? (
+                <div className="p-8 text-center text-sm text-[#2C2C2C]/45">Loading…</div>
+              ) : coAgentRequests.length === 0 ? (
+                <div className="p-8 text-center text-sm text-[#2C2C2C]/45">No pending co-agent requests.</div>
+              ) : (
+                <table className="w-full">
+                  <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                    <tr className="text-left text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                      <th className="px-4 py-3">Property</th>
+                      <th className="px-4 py-3">Agent</th>
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2C2C2C]/5">
+                    {coAgentRequests.map((r) => (
+                      <tr key={r.id} className="hover:bg-[#FAF8F4]/40">
+                        <td className="px-4 py-3 text-sm font-semibold text-[#2C2C2C]">
+                          <span className="block">{r.propertyName}</span>
+                          {r.propertyLocation ? (
+                            <span className="mt-0.5 block text-xs font-medium text-[#2C2C2C]/55">
+                              {r.propertyLocation}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-[#2C2C2C]/80">{r.agentName}</td>
+                        <td className="px-4 py-3 text-xs text-[#2C2C2C]/55">
+                          {new Date(r.created_at).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void decideCoAgentRequest(r.id, "approve")}
+                              className="rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#5d8a60]"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void decideCoAgentRequest(r.id, "reject")}
+                              className="rounded-full border-2 border-red-300 bg-red-50 px-4 py-2 text-xs font-bold text-red-800 hover:bg-red-100"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         )}
       </div>

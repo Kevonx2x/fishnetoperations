@@ -13,6 +13,7 @@ import { AgentSlotPlaceholderModal } from "@/components/marketplace/agent-slot-p
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
 import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
 import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
+import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
 import { useAuth } from "@/contexts/auth-context";
 
 type Props = {
@@ -29,12 +30,6 @@ function listingAgentUserId(property: DbProperty, agents: MarketplaceAgent[]): s
     if (match) return property.listed_by;
   }
   return agents[0]?.userId ?? null;
-}
-
-function agentShowsAvailableNow(a: MarketplaceAgent): boolean {
-  const v = a.availability.trim().toLowerCase();
-  if (!v) return false;
-  return /available|now|open|yes|immediate|today/.test(v);
 }
 
 type GalleryProps = {
@@ -135,11 +130,15 @@ function AgentsList({
   placeholderSlots,
   onClose,
   onContactAgent,
+  isLoggedIn,
+  onSignInPrompt,
 }: {
   modalAgents: MarketplaceAgent[];
   placeholderSlots: number;
   onClose: () => void;
   onContactAgent: (agent: MarketplaceAgent) => void;
+  isLoggedIn: boolean;
+  onSignInPrompt: () => void;
 }) {
   return (
     <ul className="space-y-3">
@@ -173,20 +172,27 @@ function AgentsList({
               {a.brokerName ? (
                 <p className="mt-0.5 truncate text-[11px] font-medium text-[#2C2C2C]/50">{a.brokerName}</p>
               ) : null}
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                {agentShowsAvailableNow(a) ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#6B9E6E]">
-                    <span className="h-2 w-2 rounded-full bg-[#6B9E6E]" aria-hidden />
-                    Available Now
-                  </span>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => onContactAgent(a)}
-                  className="rounded-lg bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
-                >
-                  Contact
-                </button>
+              <div className="mt-2 space-y-2">
+                <div>
+                  <AgentAvailabilityBadge availability={a.availability} />
+                </div>
+                {isLoggedIn ? (
+                  <button
+                    type="button"
+                    onClick={() => onContactAgent(a)}
+                    className="rounded-lg bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                  >
+                    Contact
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onSignInPrompt()}
+                    className="text-left text-[11px] font-semibold text-[#2C2C2C]/55 underline decoration-[#2C2C2C]/25 underline-offset-2 hover:text-[#2C2C2C]"
+                  >
+                    Sign in to contact
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -358,6 +364,7 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
   const modalAgents = agents;
   const placeholderSlots = Math.max(0, 2 - modalAgents.length);
   const detailsId = "property-zoom-details";
+  const isLoggedIn = !authLoading && !!user;
 
   const galleryProps: Omit<GalleryProps, "heightClassName"> = {
     photos,
@@ -414,6 +421,8 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
                 modalAgents={modalAgents}
                 placeholderSlots={placeholderSlots}
                 onClose={onClose}
+                isLoggedIn={isLoggedIn}
+                onSignInPrompt={() => setSignInPromptOpen(true)}
                 onContactAgent={(a) => {
                   setContactModalAgent(a);
                   setShowContactModal(true);
@@ -446,10 +455,12 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
                   modalAgents={modalAgents}
                   placeholderSlots={placeholderSlots}
                   onClose={onClose}
+                  isLoggedIn={isLoggedIn}
+                  onSignInPrompt={() => setSignInPromptOpen(true)}
                   onContactAgent={(a) => {
-                  setContactModalAgent(a);
-                  setShowContactModal(true);
-                }}
+                    setContactModalAgent(a);
+                    setShowContactModal(true);
+                  }}
                 />
               </div>
             </div>

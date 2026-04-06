@@ -18,7 +18,10 @@ import { PropertyPageEmptyAgents } from "@/components/marketplace/agent-slot-pla
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
 import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
 import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
+import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
+import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
 import { useAuth } from "@/contexts/auth-context";
+import { listingLimitForTier, normalizeListingTier } from "@/lib/agent-listing-limits";
 
 type ListingAgentProfile = {
   id: string;
@@ -52,12 +55,6 @@ function listingAgentUserId(property: PropertyRow, agents: MarketplaceAgent[]): 
   return agents[0]?.userId ?? null;
 }
 
-function showsAvailableNow(a: MarketplaceAgent): boolean {
-  const v = a.availability.trim().toLowerCase();
-  if (!v) return false;
-  return /available|now|open|yes|immediate|today/.test(v);
-}
-
 const ROOM_IMAGES = [
   "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1000&h=700&fit=crop",
   "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1000&h=700&fit=crop",
@@ -75,7 +72,7 @@ function buildGallery(property: PropertyRow): string[] {
 export default function PropertyPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
 
   const saved = useSavedPropertyIds();
   const [property, setProperty] = useState<PropertyRow | null>(null);
@@ -88,6 +85,21 @@ export default function PropertyPage() {
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactModalAgent, setContactModalAgent] = useState<MarketplaceAgent | null>(null);
+  const [listingLimitModalOpen, setListingLimitModalOpen] = useState(false);
+  const [coAgentMsg, setCoAgentMsg] = useState<string | null>(null);
+  const [coAgentSubmitting, setCoAgentSubmitting] = useState(false);
+  const [myAgent, setMyAgent] = useState<{
+    id: string;
+    listing_tier: string | null;
+    status: string;
+    verified: boolean | null;
+  } | null>(null);
+  const [myListingCount, setMyListingCount] = useState(0);
+  const [hasPendingCoRequest, setHasPendingCoRequest] = useState(false);
+
+  const isLoggedIn = !authLoading && !!user;
+  const listingLimit = listingLimitForTier(myAgent?.listing_tier);
+  const atListingLimit = myListingCount >= listingLimit;
 
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +143,75 @@ export default function PropertyPage() {
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!user?.id || authLoading) {
+      setMyAgent(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("agents")
+        .select("id, listing_tier, status, verified")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!cancelled) {
+        setMyAgent(
+          data
+            ? (data as {
+                id: string;
+                listing_tier: string | null;
+                status: string;
+                verified: boolean | null;
+              })
+            : null,
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, authLoading]);
+
+  useEffect(() => {
+    if (!user?.id || !myAgent?.id) {
+      setMyListingCount(0);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { count } = await supabase
+        .from("properties")
+        .select("id", { count: "exact", head: true })
+        .eq("listed_by", user.id);
+      if (!cancelled) setMyListingCount(count ?? 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, myAgent?.id]);
+
+  useEffect(() => {
+    if (!property?.id || !myAgent?.id) {
+      setHasPendingCoRequest(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("co_agent_requests")
+        .select("id")
+        .eq("property_id", property.id)
+        .eq("agent_id", myAgent.id)
+        .eq("status", "pending")
+        .maybeSingle();
+      if (!cancelled) setHasPendingCoRequest(!!data);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [property?.id, myAgent?.id]);
+
   const gallery = useMemo(() => (property ? buildGallery(property) : []), [property]);
   const img = gallery[idx] ?? gallery[0];
   const isSaved = property ? saved.has(property.id) : false;
@@ -154,6 +235,35 @@ export default function PropertyPage() {
     if (!property?.listed_by) return connectedAgents[0] ?? null;
     return connectedAgents.find((a) => a.userId === property.listed_by) ?? connectedAgents[0] ?? null;
   }, [property?.listed_by, connectedAgents]);
+
+  const showCoAgentCta = useMemo(() => {
+    if (!isLoggedIn || profile?.role !== "agent" || !myAgent) return false;
+    if (myAgent.status !== "approved" || !myAgent.verified) return false;
+    if (connectedAgents.some((a) => a.id === myAgent.id)) return false;
+    if (hasPendingCoRequest) return false;
+    return true;
+  }, [isLoggedIn, profile?.role, myAgent, connectedAgents, hasPendingCoRequest]);
+
+  const requestCoAgentJoin = async () => {
+    if (!property?.id || !myAgent?.id) return;
+    setCoAgentMsg(null);
+    if (atListingLimit) {
+      setListingLimitModalOpen(true);
+      return;
+    }
+    setCoAgentSubmitting(true);
+    const { error } = await supabase.from("co_agent_requests").insert({
+      property_id: property.id,
+      agent_id: myAgent.id,
+    });
+    setCoAgentSubmitting(false);
+    if (error) {
+      setCoAgentMsg(error.message);
+      return;
+    }
+    setHasPendingCoRequest(true);
+    setCoAgentMsg("Request sent! An admin will review your request.");
+  };
 
   const similar = useMemo(() => {
     // lightweight similar list: same inferred type or just top few newest
@@ -333,12 +443,9 @@ export default function PropertyPage() {
                                 Response: {a.responseTime}
                               </p>
                             ) : null}
-                            {showsAvailableNow(a) ? (
-                              <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-[#6B9E6E]">
-                                <span className="h-2 w-2 rounded-full bg-[#6B9E6E]" aria-hidden />
-                                Available Now
-                              </p>
-                            ) : null}
+                            <div className="mt-1">
+                              <AgentAvailabilityBadge availability={a.availability} />
+                            </div>
                             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-[#2C2C2C]/50">
                               {a.email ? (
                                 <span className="inline-flex items-center gap-1">
@@ -354,16 +461,26 @@ export default function PropertyPage() {
                               ) : null}
                             </div>
                             <div className="mt-3">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setContactModalAgent(a);
-                                  setShowContactModal(true);
-                                }}
-                                className="inline-flex rounded-lg bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
-                              >
-                                Contact
-                              </button>
+                              {isLoggedIn ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setContactModalAgent(a);
+                                    setShowContactModal(true);
+                                  }}
+                                  className="inline-flex rounded-lg bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                                >
+                                  Contact
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setSignInPromptOpen(true)}
+                                  className="text-left text-xs font-semibold text-[#2C2C2C]/55 underline decoration-[#2C2C2C]/25 underline-offset-2 hover:text-[#2C2C2C]"
+                                >
+                                  Sign in to contact
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -371,6 +488,30 @@ export default function PropertyPage() {
                     ))}
                   </ul>
                 )}
+                {showCoAgentCta ? (
+                  <div className="mt-6 rounded-2xl border border-[#D4A843]/25 bg-[#FAF8F4] p-4">
+                    <p className="text-sm font-semibold text-[#2C2C2C]/70">
+                      Represent this listing too? Ask to be added as a connected agent.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void requestCoAgentJoin()}
+                      disabled={coAgentSubmitting}
+                      className="mt-3 inline-flex rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {coAgentSubmitting ? "Sending…" : "I also represent this property"}
+                    </button>
+                    {coAgentMsg ? (
+                      <p
+                        className={`mt-2 text-sm font-semibold ${
+                          coAgentMsg.startsWith("Request sent") ? "text-[#6B9E6E]" : "text-red-700"
+                        }`}
+                      >
+                        {coAgentMsg}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </section>
 
@@ -440,6 +581,13 @@ export default function PropertyPage() {
               }}
               agent={contactModalAgent}
             />
+            {listingLimitModalOpen ? (
+              <ListingLimitUpgradeModal
+                onClose={() => setListingLimitModalOpen(false)}
+                isProTier={normalizeListingTier(myAgent?.listing_tier) === "pro"}
+                listingLimit={listingLimit}
+              />
+            ) : null}
           </>
         )}
 
