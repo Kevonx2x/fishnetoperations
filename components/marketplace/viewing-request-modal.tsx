@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { isBefore, setHours, setMinutes, startOfDay } from "date-fns";
+import { createPortal } from "react-dom";
+import { addDays, isBefore, setHours, setMinutes, startOfDay } from "date-fns";
 import { X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { parseSchedule, viewingDateDisabled, type AvailabilitySchedule } from "@/lib/availability-schedule";
 
 const TIME_SLOTS = [
   { label: "9:00 AM", hour: 9 },
@@ -34,7 +36,8 @@ export function ViewingRequestModal({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  propertyId: string;
+  /** When null (e.g. agent profile), request is not tied to a listing. */
+  propertyId: string | null;
   propertyTitle: string;
   agentUserId: string | null;
 }) {
@@ -50,6 +53,7 @@ export function ViewingRequestModal({
   const [error, setError] = useState<string | null>(null);
   const [notifyWarning, setNotifyWarning] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [agentSchedule, setAgentSchedule] = useState<AvailabilitySchedule | undefined>(undefined);
 
   useEffect(() => {
     if (!open) return;
@@ -67,12 +71,45 @@ export function ViewingRequestModal({
   }, [open, user, profile]);
 
   useEffect(() => {
+    if (!open || !agentUserId) {
+      setAgentSchedule(undefined);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase.from("agents").select("availability_schedule").eq("user_id", agentUserId).maybeSingle();
+      if (cancelled) return;
+      setAgentSchedule(parseSchedule(data?.availability_schedule));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, agentUserId]);
+
+  useEffect(() => {
+    if (!open || agentSchedule === undefined || !date) return;
+    const today = new Date();
+    if (viewingDateDisabled(date, agentSchedule, today)) {
+      for (let i = 0; i < 400; i++) {
+        const candidate = addDays(startOfDay(today), i);
+        if (!viewingDateDisabled(candidate, agentSchedule, today)) {
+          setDate(candidate);
+          return;
+        }
+      }
+    }
+  }, [open, agentSchedule, date]);
+
+  useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onOpenChange(false);
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onOpenChange(false);
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [open, onOpenChange]);
 
   const submit = async () => {
@@ -83,7 +120,7 @@ export function ViewingRequestModal({
       return;
     }
     if (!agentUserId) {
-      setError("No listing agent is assigned to this property yet.");
+      setError("No agent is available for this request yet.");
       return;
     }
     if (!name.trim() || !email.trim()) {
@@ -105,7 +142,7 @@ export function ViewingRequestModal({
         .from("viewing_requests")
         .insert({
           agent_user_id: agentUserId,
-          property_id: propertyId,
+          property_id: propertyId ?? null,
           client_name: name.trim(),
           client_email: email.trim(),
           client_phone: phone.trim(),
@@ -143,8 +180,8 @@ export function ViewingRequestModal({
 
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center sm:items-center" role="presentation">
+  const shell = (
+    <div className="fixed inset-0 z-[200] flex items-end justify-center sm:items-center" role="presentation">
       <button
         type="button"
         className="absolute inset-0 bg-black/50"
@@ -236,7 +273,13 @@ export function ViewingRequestModal({
                     mode="single"
                     selected={date}
                     onSelect={(d) => setDate(d ?? undefined)}
-                    disabled={(d) => isBefore(startOfDay(d), startOfDay(new Date()))}
+                    disabled={(d) => {
+                      if (isBefore(startOfDay(d), startOfDay(new Date()))) return true;
+                      if (agentSchedule !== undefined) {
+                        return viewingDateDisabled(d, agentSchedule, new Date());
+                      }
+                      return false;
+                    }}
                     className="mx-auto"
                   />
                 </div>
@@ -293,4 +336,7 @@ export function ViewingRequestModal({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(shell, document.body);
 }

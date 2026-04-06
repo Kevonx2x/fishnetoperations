@@ -81,7 +81,7 @@ export default function PropertyPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
-  const [viewingOpen, setViewingOpen] = useState(false);
+  const [showViewingModal, setShowViewingModal] = useState(false);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactModalAgent, setContactModalAgent] = useState<MarketplaceAgent | null>(null);
@@ -403,8 +403,8 @@ export default function PropertyPage() {
         {!loading && !error && property && (
           <>
             <ViewingRequestModal
-              open={viewingOpen}
-              onOpenChange={setViewingOpen}
+              open={showViewingModal}
+              onOpenChange={setShowViewingModal}
               propertyId={property.id}
               propertyTitle={property.name?.trim() || property.location}
               agentUserId={listingAgentUserId(property, connectedAgents)}

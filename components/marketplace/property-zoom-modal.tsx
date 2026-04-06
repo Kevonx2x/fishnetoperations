@@ -298,7 +298,7 @@ function BottomActions({
 
 export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggleSaved }: Props) {
   const { user, loading: authLoading } = useAuth();
-  const [viewingOpen, setViewingOpen] = useState(false);
+  const [showViewingModal, setShowViewingModal] = useState(false);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactModalAgent, setContactModalAgent] = useState<MarketplaceAgent | null>(null);
@@ -315,16 +315,19 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
       setSignInPromptOpen(true);
       return;
     }
-    setViewingOpen(true);
+    setShowViewingModal(true);
   };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (showViewingModal) return;
+        onClose();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, showViewingModal]);
 
   const go = useCallback(
     (dir: -1 | 1) => {
@@ -461,8 +464,8 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
       </motion.div>
     </motion.div>
     <ViewingRequestModal
-      open={viewingOpen}
-      onOpenChange={setViewingOpen}
+      open={showViewingModal}
+      onOpenChange={setShowViewingModal}
       propertyId={property.id}
       propertyTitle={propertyTitle}
       agentUserId={agentUserId}

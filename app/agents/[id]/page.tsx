@@ -10,7 +10,10 @@ import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
 import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
+import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
+import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
+import { useAuth } from "@/contexts/auth-context";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { fetchSimilarAgents } from "@/lib/similar-agents";
 
@@ -48,6 +51,7 @@ type ListingRow = {
 export default function AgentProfilePage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
+  const { user, loading: authLoading } = useAuth();
 
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,6 +61,8 @@ export default function AgentProfilePage() {
   const [similarAgents, setSimilarAgents] = useState<MarketplaceAgent[]>([]);
   const [similarLoading, setSimilarLoading] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
+  const [showViewingModal, setShowViewingModal] = useState(false);
+  const [signInPromptOpen, setSignInPromptOpen] = useState(false);
 
   const contactModalAgent = useMemo<MarketplaceAgent | null>(() => {
     if (!agent) return null;
@@ -130,6 +136,15 @@ export default function AgentProfilePage() {
       cancelled = true;
     };
   }, [agent?.id, agent?.broker_id, agent?.score]);
+
+  const onScheduleViewing = () => {
+    if (authLoading) return;
+    if (!user) {
+      setSignInPromptOpen(true);
+      return;
+    }
+    setShowViewingModal(true);
+  };
 
   const memberSince = (() => {
     if (!agent?.created_at) return "";
@@ -212,7 +227,9 @@ export default function AgentProfilePage() {
                   </button>
                   <button
                     type="button"
-                    className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-5 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
+                    onClick={onScheduleViewing}
+                    disabled={authLoading}
+                    className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-5 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-[#FAF8F4] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Calendar className="h-4 w-4 text-[#6B9E6E]" />
                     Schedule
@@ -288,11 +305,21 @@ export default function AgentProfilePage() {
         )}
 
         {!loading && !error && agent && (
-          <AgentContactOptionsModal
-            open={showContactModal}
-            onOpenChange={setShowContactModal}
-            agent={contactModalAgent}
-          />
+          <>
+            <ViewingRequestModal
+              open={showViewingModal}
+              onOpenChange={setShowViewingModal}
+              propertyId={null}
+              propertyTitle={`Viewing with ${agent.name}`}
+              agentUserId={agent.user_id}
+            />
+            <SignInViewingPromptModal open={signInPromptOpen} onOpenChange={setSignInPromptOpen} />
+            <AgentContactOptionsModal
+              open={showContactModal}
+              onOpenChange={setShowContactModal}
+              agent={contactModalAgent}
+            />
+          </>
         )}
       </main>
     </div>

@@ -28,6 +28,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { formatLicenseDate } from "@/lib/license-expiry";
 import { listingLimitForTier } from "@/lib/agent-listing-limits";
+import { AgentAvailabilitySchedule } from "@/components/dashboard/agent-availability-schedule";
 
 type Tab = "overview" | "leads" | "viewings" | "listings" | "profile" | "analytics" | "notifications";
 
@@ -49,6 +50,7 @@ type AgentRow = {
   response_time?: string | null;
   closings?: number | null;
   listing_tier?: string | null;
+  availability_schedule?: unknown;
 };
 
 type LeadRow = {
@@ -527,7 +529,7 @@ export function AgentDashboard() {
               {tab === "notifications" && user && (
                 <AgentNotificationsTab userId={user.id} supabase={supabase} />
               )}
-              {tab === "profile" && (
+              {tab === "profile" && user && (
                 <ProfileTab
                   agent={agent}
                   profileForm={profileForm}
@@ -535,6 +537,9 @@ export function AgentDashboard() {
                   onSave={saveProfile}
                   saving={saving}
                   onUpload={uploadAvatar}
+                  supabase={supabase}
+                  userId={user.id}
+                  onAvailabilitySaved={loadData}
                 />
               )}
             </motion.div>
@@ -1029,6 +1034,9 @@ function ProfileTab({
   onSave,
   saving,
   onUpload,
+  supabase,
+  userId,
+  onAvailabilitySaved,
 }: {
   agent: AgentRow;
   profileForm: {
@@ -1046,6 +1054,9 @@ function ProfileTab({
   onSave: (e: React.FormEvent) => void;
   saving: boolean;
   onUpload: (file: File) => void;
+  supabase: ReturnType<typeof createSupabaseBrowserClient>;
+  userId: string;
+  onAvailabilitySaved: () => void | Promise<void>;
 }) {
   return (
     <div>
@@ -1157,6 +1168,14 @@ function ProfileTab({
           {saving ? "Saving…" : "Save profile"}
         </button>
       </form>
+
+      <AgentAvailabilitySchedule
+        key={JSON.stringify(agent.availability_schedule ?? {})}
+        agent={agent}
+        supabase={supabase}
+        userId={userId}
+        onSaved={onAvailabilitySaved}
+      />
     </div>
   );
 }

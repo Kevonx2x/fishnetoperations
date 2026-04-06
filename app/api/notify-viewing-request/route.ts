@@ -56,11 +56,9 @@ export async function POST(req: Request) {
       return fail("FORBIDDEN", "Not allowed", 403);
     }
 
-    const { data: property } = await supabase
-      .from("properties")
-      .select("name, location")
-      .eq("id", vr.property_id)
-      .maybeSingle();
+    const { data: property } = vr.property_id
+      ? await supabase.from("properties").select("name, location").eq("id", vr.property_id).maybeSingle()
+      : { data: null };
 
     const { data: agent } = await supabase
       .from("agents")
@@ -75,7 +73,7 @@ export async function POST(req: Request) {
     const propertyLabel =
       (property?.name && String(property.name).trim()) ||
       (property?.location && String(property.location).trim()) ||
-      "Property";
+      (vr.property_id ? "Property" : "General viewing request");
 
     const { date: dateStr, time: timeStr } = formatSlotForDisplay(vr.scheduled_at);
     const phoneDisplay = (vr.client_phone && String(vr.client_phone).trim()) || "—";
