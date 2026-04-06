@@ -90,7 +90,8 @@ type PropertyRow = {
   id: string;
   name: string | null;
   location: string;
-  price: string;
+  /** Supabase may return `numeric` as string or number. */
+  price: string | number;
   image_url: string;
   status: "for_sale" | "for_rent";
   /** True when connected via property_agents but not the listing owner. */
@@ -974,7 +975,7 @@ function ListingsTab({
           <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Listings</h1>
           <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
             Owned slots {ownedListingCount}/{listingLimit}
-            {cohostCount > 0 ? ` · Co-hosting ${cohostCount}` : ""}.
+            {cohostCount > 0 ? ` · Co-Agent: ${cohostCount}` : ""}.
           </p>
         </div>
         <button
@@ -999,7 +1000,7 @@ function ListingsTab({
                 </span>
                 {p.isCoHost ? (
                   <span className="absolute bottom-2 left-2 rounded-full bg-[#D4A843] px-2 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
-                    Co-Host
+                    Co-Agent
                   </span>
                 ) : null}
               </div>
