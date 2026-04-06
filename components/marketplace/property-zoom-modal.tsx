@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BadgeCheck, ChevronLeft, ChevronRight, Heart, MapPin, X } from "lucide-react";
@@ -12,6 +11,8 @@ import { roomUrlsFor } from "@/lib/marketplace-property";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { AgentSlotPlaceholderModal } from "@/components/marketplace/agent-slot-placeholder";
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
+import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
+import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
 import { useAuth } from "@/contexts/auth-context";
 
 type Props = {
@@ -133,10 +134,12 @@ function AgentsList({
   modalAgents,
   placeholderSlots,
   onClose,
+  onContactAgent,
 }: {
   modalAgents: MarketplaceAgent[];
   placeholderSlots: number;
   onClose: () => void;
+  onContactAgent: (agent: MarketplaceAgent) => void;
 }) {
   return (
     <ul className="space-y-3">
@@ -177,13 +180,13 @@ function AgentsList({
                     Available Now
                   </span>
                 ) : null}
-                <Link
-                  href={`/agents/${encodeURIComponent(a.id)}`}
-                  onClick={onClose}
+                <button
+                  type="button"
+                  onClick={() => onContactAgent(a)}
                   className="rounded-lg bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
                 >
                   Contact
-                </Link>
+                </button>
               </div>
             </div>
           </div>
@@ -294,9 +297,10 @@ function BottomActions({
 }
 
 export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggleSaved }: Props) {
-  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [viewingOpen, setViewingOpen] = useState(false);
+  const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+  const [contactAgent, setContactAgent] = useState<MarketplaceAgent | null>(null);
   const photos = roomUrlsFor(property);
   const [idx, setIdx] = useState(0);
   const touchStartX = useRef<number | null>(null);
@@ -307,7 +311,7 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
   const onRequestViewing = () => {
     if (authLoading) return;
     if (!user) {
-      router.push("/auth/login?next=back");
+      setSignInPromptOpen(true);
       return;
     }
     setViewingOpen(true);
@@ -406,6 +410,7 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
                 modalAgents={modalAgents}
                 placeholderSlots={placeholderSlots}
                 onClose={onClose}
+                onContactAgent={(a) => setContactAgent(a)}
               />
             </div>
           </div>
@@ -434,6 +439,7 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
                   modalAgents={modalAgents}
                   placeholderSlots={placeholderSlots}
                   onClose={onClose}
+                  onContactAgent={(a) => setContactAgent(a)}
                 />
               </div>
             </div>
@@ -453,6 +459,14 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
       propertyId={property.id}
       propertyTitle={propertyTitle}
       agentUserId={agentUserId}
+    />
+    <SignInViewingPromptModal open={signInPromptOpen} onOpenChange={setSignInPromptOpen} />
+    <AgentContactOptionsModal
+      open={contactAgent !== null}
+      onOpenChange={(o) => {
+        if (!o) setContactAgent(null);
+      }}
+      agent={contactAgent}
     />
     </>
   );

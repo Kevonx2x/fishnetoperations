@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Heart, Mail, Phone } from "lucide-react";
@@ -15,6 +15,8 @@ import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketpla
 import { recordRecentlyViewedPropertyId } from "@/lib/recently-viewed";
 import { PropertyPageEmptyAgents } from "@/components/marketplace/agent-slot-placeholder";
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
+import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
+import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
 import { useAuth } from "@/contexts/auth-context";
 
 type ListingAgentProfile = {
@@ -72,7 +74,6 @@ function buildGallery(property: PropertyRow): string[] {
 export default function PropertyPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
-  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
   const saved = useSavedPropertyIds();
@@ -81,6 +82,8 @@ export default function PropertyPage() {
   const [error, setError] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
   const [viewingOpen, setViewingOpen] = useState(false);
+  const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+  const [contactAgent, setContactAgent] = useState<MarketplaceAgent | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,7 +158,7 @@ export default function PropertyPage() {
   const onRequestViewing = () => {
     if (authLoading) return;
     if (!user) {
-      router.push("/auth/login?next=back");
+      setSignInPromptOpen(true);
       return;
     }
     setViewingOpen(true);
@@ -327,25 +330,26 @@ export default function PropertyPage() {
                             ) : null}
                             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-[#2C2C2C]/50">
                               {a.email ? (
-                                <a href={`mailto:${a.email}`} className="inline-flex items-center gap-1 hover:text-[#6B9E6E]">
-                                  <Mail className="h-3.5 w-3.5" />
+                                <span className="inline-flex items-center gap-1">
+                                  <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden />
                                   {a.email}
-                                </a>
+                                </span>
                               ) : null}
                               {a.phone ? (
-                                <a href={`tel:${a.phone.replace(/\s/g, "")}`} className="inline-flex items-center gap-1 hover:text-[#6B9E6E]">
-                                  <Phone className="h-3.5 w-3.5" />
+                                <span className="inline-flex items-center gap-1">
+                                  <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden />
                                   {a.phone}
-                                </a>
+                                </span>
                               ) : null}
                             </div>
                             <div className="mt-3">
-                              <Link
-                                href={`/agents/${encodeURIComponent(a.id)}`}
+                              <button
+                                type="button"
+                                onClick={() => setContactAgent(a)}
                                 className="inline-flex rounded-lg bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
                               >
                                 Contact
-                              </Link>
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -392,13 +396,23 @@ export default function PropertyPage() {
         )}
 
         {!loading && !error && property && (
-          <ViewingRequestModal
-            open={viewingOpen}
-            onOpenChange={setViewingOpen}
-            propertyId={property.id}
-            propertyTitle={property.name?.trim() || property.location}
-            agentUserId={listingAgentUserId(property, connectedAgents)}
-          />
+          <>
+            <ViewingRequestModal
+              open={viewingOpen}
+              onOpenChange={setViewingOpen}
+              propertyId={property.id}
+              propertyTitle={property.name?.trim() || property.location}
+              agentUserId={listingAgentUserId(property, connectedAgents)}
+            />
+            <SignInViewingPromptModal open={signInPromptOpen} onOpenChange={setSignInPromptOpen} />
+            <AgentContactOptionsModal
+              open={contactAgent !== null}
+              onOpenChange={(o) => {
+                if (!o) setContactAgent(null);
+              }}
+              agent={contactAgent}
+            />
+          </>
         )}
 
         {!loading && !error && property && similar.length > 0 && (
