@@ -263,6 +263,12 @@ export default function PropertyPage() {
     }
     setHasPendingCoRequest(true);
     setCoAgentMsg("Request sent! An admin will review your request.");
+    void fetch("/api/notify-co-agent-request", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propertyId: property.id }),
+    }).catch(() => {});
   };
 
   const similar = useMemo(() => {

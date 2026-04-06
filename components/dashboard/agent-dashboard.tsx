@@ -29,6 +29,7 @@ import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { formatLicenseDate } from "@/lib/license-expiry";
 import { listingLimitForTier } from "@/lib/agent-listing-limits";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
+import { formatListingPricePhp } from "@/lib/format-listing-price";
 import {
   AGENT_AVAILABILITY_NOW,
   AGENT_AVAILABILITY_OFFLINE,
@@ -92,6 +93,8 @@ type PropertyRow = {
   price: string;
   image_url: string;
   status: "for_sale" | "for_rent";
+  /** True when connected via property_agents but not the listing owner. */
+  isCoHost?: boolean;
 };
 
 /** UI labels → DB lead stages (existing check constraint). */
@@ -166,7 +169,7 @@ export function AgentDashboard() {
     if (!a) return;
 
     if (a.status === "approved" && a.verified) {
-      const [{ data: ld }, { data: pr }, vwRes] = await Promise.all([
+      const [{ data: ld }, { data: owned }, { data: paRows }, vwRes] = await Promise.all([
         supabase
           .from("leads")
           .select("id, name, email, phone, property_interest, message, stage, created_at, updated_at")
@@ -177,6 +180,7 @@ export function AgentDashboard() {
           .select("id, name, location, price, image_url, status")
           .eq("listed_by", user.id)
           .order("created_at", { ascending: false }),
+        supabase.from("property_agents").select("property_id").eq("agent_id", a.id),
         supabase
           .from("viewing_requests")
           .select("*")
@@ -184,7 +188,28 @@ export function AgentDashboard() {
           .order("scheduled_at", { ascending: true }),
       ]);
       setLeads((ld as LeadRow[]) ?? []);
-      setProperties((pr as PropertyRow[]) ?? []);
+
+      const ownedList = (owned ?? []) as PropertyRow[];
+      const ownedIds = new Set(ownedList.map((p) => p.id));
+      const coIds = [
+        ...new Set((paRows ?? []).map((r) => (r as { property_id: string }).property_id)),
+      ].filter((id) => !ownedIds.has(id));
+
+      let cohosted: PropertyRow[] = [];
+      if (coIds.length > 0) {
+        const { data: co } = await supabase
+          .from("properties")
+          .select("id, name, location, price, image_url, status")
+          .in("id", coIds)
+          .order("created_at", { ascending: false });
+        cohosted = ((co ?? []) as PropertyRow[]).map((p) => ({ ...p, isCoHost: true }));
+      }
+
+      const merged: PropertyRow[] = [
+        ...ownedList.map((p) => ({ ...p, isCoHost: false })),
+        ...cohosted,
+      ];
+      setProperties(merged);
       setViewings(vwRes.error ? [] : ((vwRes.data as ViewingRow[]) ?? []));
     } else {
       setLeads([]);
@@ -220,8 +245,13 @@ export function AgentDashboard() {
 
   const approved = agent?.status === "approved" && agent?.verified;
 
+  const ownedListingCount = useMemo(
+    () => properties.filter((p) => !p.isCoHost).length,
+    [properties],
+  );
+
   const listingLimit = useMemo(() => listingLimitForTier(agent?.listing_tier), [agent?.listing_tier]);
-  const atListingLimit = approved && properties.length >= listingLimit;
+  const atListingLimit = approved && ownedListingCount >= listingLimit;
 
   const openNewListingFlow = () => {
     if (atListingLimit) {
@@ -353,7 +383,7 @@ export function AgentDashboard() {
   const createListing = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id) return;
-    if (properties.length >= listingLimit) {
+    if (ownedListingCount >= listingLimit) {
       setListingOpen(false);
       setListingLimitModalOpen(true);
       return;
@@ -529,6 +559,7 @@ export function AgentDashboard() {
                   approved={!!approved}
                   leads={leads}
                   properties={properties}
+                  ownedListingCount={ownedListingCount}
                   profileComplete={profileComplete}
                   mockProfileViews={mockProfileViews}
                   mockResponseRate={mockResponseRate}
@@ -574,6 +605,7 @@ export function AgentDashboard() {
               {tab === "listings" && approved && (
                 <ListingsTab
                   properties={properties}
+                  ownedListingCount={ownedListingCount}
                   listingOpen={listingOpen}
                   setListingOpen={setListingOpen}
                   listingForm={listingForm}
@@ -665,6 +697,7 @@ function OverviewTab({
   approved,
   leads,
   properties,
+  ownedListingCount,
   profileComplete,
   mockProfileViews,
   mockResponseRate,
@@ -675,6 +708,7 @@ function OverviewTab({
   approved: boolean;
   leads: LeadRow[];
   properties: PropertyRow[];
+  ownedListingCount: number;
   profileComplete: { pct: number; checks: { ok: boolean; label: string }[] };
   mockProfileViews: number;
   mockResponseRate: number;
@@ -720,7 +754,7 @@ function OverviewTab({
             <p
               className={`text-sm font-bold tabular-nums ${atListingLimit ? "text-[#B8860B]" : "text-[#2C2C2C]/80"}`}
             >
-              {properties.length}/{listingLimit} listings used
+              {ownedListingCount}/{listingLimit} listings used
             </p>
           </div>
           <div
@@ -735,7 +769,7 @@ function OverviewTab({
                   : "bg-gradient-to-r from-[#6B9E6E] to-[#D4A843]/90"
               }`}
               style={{
-                width: `${listingLimit > 0 ? Math.min(100, (properties.length / listingLimit) * 100) : 0}%`,
+                width: `${listingLimit > 0 ? Math.min(100, (ownedListingCount / listingLimit) * 100) : 0}%`,
               }}
             />
           </div>
@@ -896,6 +930,7 @@ function LeadsTab({
 
 function ListingsTab({
   properties,
+  ownedListingCount,
   listingOpen,
   setListingOpen,
   listingForm,
@@ -908,6 +943,7 @@ function ListingsTab({
   deletingPropertyId,
 }: {
   properties: PropertyRow[];
+  ownedListingCount: number;
   listingOpen: boolean;
   setListingOpen: (v: boolean) => void;
   listingForm: {
@@ -930,13 +966,15 @@ function ListingsTab({
   onDeleteProperty: (id: string) => void | Promise<void>;
   deletingPropertyId: string | null;
 }) {
+  const cohostCount = properties.filter((p) => p.isCoHost).length;
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Listings</h1>
           <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
-            Properties you list ({properties.length}/{listingLimit}).
+            Owned slots {ownedListingCount}/{listingLimit}
+            {cohostCount > 0 ? ` · Co-hosting ${cohostCount}` : ""}.
           </p>
         </div>
         <button
@@ -959,23 +997,32 @@ function ListingsTab({
                 <span className="absolute left-2 top-2 rounded-full bg-[#6B9E6E] px-2 py-1 text-[10px] font-bold text-white">
                   {p.status === "for_rent" ? "For Rent" : "For Sale"}
                 </span>
+                {p.isCoHost ? (
+                  <span className="absolute bottom-2 left-2 rounded-full bg-[#D4A843] px-2 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
+                    Co-Host
+                  </span>
+                ) : null}
               </div>
               <div className="p-4">
                 <p className="font-semibold text-[#2C2C2C]">{p.location}</p>
-                <p className="mt-1 font-serif text-lg font-bold text-[#2C2C2C]">{p.price}</p>
+                <p className="mt-1 font-serif text-lg font-bold text-[#2C2C2C]">
+                  {formatListingPricePhp(p.price, p.status)}
+                </p>
               </div>
             </Link>
-            <button
-              type="button"
-              disabled={deletingPropertyId === p.id}
-              onClick={(e) => {
-                e.preventDefault();
-                void onDeleteProperty(p.id);
-              }}
-              className="absolute right-2 top-2 z-10 rounded-full border border-red-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-red-800 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {deletingPropertyId === p.id ? "Deleting…" : "Delete"}
-            </button>
+            {!p.isCoHost ? (
+              <button
+                type="button"
+                disabled={deletingPropertyId === p.id}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void onDeleteProperty(p.id);
+                }}
+                className="absolute right-2 top-2 z-10 rounded-full border border-red-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-red-800 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deletingPropertyId === p.id ? "Deleting…" : "Delete"}
+              </button>
+            ) : null}
           </div>
         ))}
       </div>

@@ -134,7 +134,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
   const [adminSection, setAdminSection] = useState<
-    "leads" | "properties" | "verification" | "users" | "coagent"
+    "leads" | "properties" | "verification" | "agents" | "users" | "coagent"
   >("leads");
 
   const [properties, setProperties] = useState<Property[]>([]);
@@ -574,6 +574,12 @@ export default function AdminPage() {
     }
   }, [user?.id, profile?.role, adminSection]);
 
+  useEffect(() => {
+    if (user?.id && profile?.role === "admin" && adminSection === "agents") {
+      void fetchAllAgents();
+    }
+  }, [user?.id, profile?.role, adminSection]);
+
   const filteredLeads =
     filter === "all"
       ? leads
@@ -778,6 +784,20 @@ export default function AdminPage() {
                 Verification
                 <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
                   {pendingBrokers.length + pendingAgents.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminSection("agents")}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                  adminSection === "agents"
+                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+                }`}
+              >
+                Agents
+                <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
+                  {allAgentsList.length}
                 </span>
               </button>
               <button
@@ -1519,16 +1539,32 @@ export default function AdminPage() {
                 )}
               </div>
             </section>
+          </div>
+        )}
 
+        {adminSection === "agents" && (
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-[#2C2C2C]/70">
+                Every agent record — edit, approve, reject, or delete.
+              </p>
+              <button
+                type="button"
+                onClick={() => void fetchAllAgents()}
+                className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] shadow-sm hover:bg-[#FAF8F4]"
+              >
+                Refresh
+              </button>
+            </div>
             <section className="rounded-2xl border border-[#D4A843]/25 bg-[#FAF8F4] p-6 shadow-sm">
               <h2 className="mb-4 font-serif text-xl font-bold text-[#2C2C2C]">
-                View all agents
+                All agents
                 <span className="ml-2 text-sm font-normal text-[#2C2C2C]/50">
                   ({allAgentsList.length} total)
                 </span>
               </h2>
               <p className="mb-4 text-sm text-[#2C2C2C]/60">
-                Every agent record in the database, including pending and rejected.
+                Includes pending and rejected applications.
               </p>
               <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white">
                 {allAgentsLoading ? (
