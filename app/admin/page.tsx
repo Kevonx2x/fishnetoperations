@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -76,9 +77,13 @@ interface AllAgentRow {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
   license_number: string;
+  score: number;
+  closings: number;
   status: string;
   verified: boolean;
+  broker_id: string | null;
   user_id: string;
   created_at: string;
   rejection_reason: string | null;
@@ -144,6 +149,19 @@ export default function AdminPage() {
   const [usersError, setUsersError] = useState("");
   const [allAgentsList, setAllAgentsList] = useState<AllAgentRow[]>([]);
   const [allAgentsLoading, setAllAgentsLoading] = useState(false);
+  const [editAgent, setEditAgent] = useState<AllAgentRow | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [editForm, setEditForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    license_number: "",
+    score: "",
+    closings: "",
+    status: "pending",
+    broker_id: "",
+  });
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -335,6 +353,76 @@ export default function AdminPage() {
     }
     void fetchAllAgents();
     void fetchVerification();
+  };
+
+  const openEditAgent = (a: AllAgentRow) => {
+    setEditError("");
+    setEditAgent(a);
+    setEditForm({
+      name: a.name,
+      email: a.email,
+      phone: a.phone ?? "",
+      license_number: a.license_number,
+      score: String(a.score ?? 0),
+      closings: String(a.closings ?? 0),
+      status: a.status,
+      broker_id: a.broker_id ?? "",
+    });
+  };
+
+  const saveEditAgent = async () => {
+    if (!editAgent) return;
+    const score = Number(editForm.score);
+    if (!Number.isFinite(score)) {
+      setEditError("Score must be a valid number");
+      return;
+    }
+    const closings = Number.parseInt(String(editForm.closings), 10);
+    if (!Number.isFinite(closings) || closings < 0) {
+      setEditError("Closings must be a non-negative integer");
+      return;
+    }
+    const brokerTrim = editForm.broker_id.trim();
+    if (
+      brokerTrim &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(brokerTrim)
+    ) {
+      setEditError("Broker ID must be a valid UUID or empty");
+      return;
+    }
+    setEditSaving(true);
+    setEditError("");
+    try {
+      const res = await fetch(`/api/admin/agents/${editAgent.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          email: editForm.email.trim(),
+          phone: editForm.phone.trim() ? editForm.phone.trim() : null,
+          license_number: editForm.license_number.trim(),
+          score,
+          closings,
+          status: editForm.status,
+          broker_id: brokerTrim || null,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        setEditError(json.error?.message ?? `Save failed (${res.status})`);
+        return;
+      }
+      setEditAgent(null);
+      void fetchAllAgents();
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const approveBroker = async (id: string) => {
@@ -1424,6 +1512,13 @@ export default function AdminPage() {
                                 )}
                                 <button
                                   type="button"
+                                  onClick={() => openEditAgent(a)}
+                                  className="rounded-full border border-[#D4A843]/40 bg-[#FAF8F4] px-4 py-2 text-xs font-bold text-[#2C2C2C] hover:bg-[#D4A843]/20"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => void deleteAgentRow(a.id)}
                                   className="rounded-full border border-[#2C2C2C]/15 bg-white px-4 py-2 text-xs font-bold text-[#2C2C2C]/70 hover:bg-red-50 hover:text-red-800"
                                 >
@@ -1474,6 +1569,152 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      {editAgent ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close"
+            onClick={() => setEditAgent(null)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-edit-agent-title"
+            className="relative z-[101] max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2 id="admin-edit-agent-title" className="font-serif text-xl font-bold text-[#2C2C2C]">
+                Edit agent
+              </h2>
+              <button
+                type="button"
+                onClick={() => setEditAgent(null)}
+                className="rounded-full p-2 text-[#2C2C2C]/55 hover:bg-[#2C2C2C]/10"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-[#2C2C2C]/50">
+              Updates <code className="rounded bg-[#FAF8F4] px-1">agents</code> and matching{" "}
+              <code className="rounded bg-[#FAF8F4] px-1">profiles</code> (name, email, phone).
+            </p>
+
+            <div className="mt-4 space-y-3">
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Name
+                <input
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                />
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Email
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                />
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Phone
+                <input
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                />
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                License number
+                <input
+                  value={editForm.license_number}
+                  onChange={(e) => setEditForm((f) => ({ ...f, license_number: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Score
+                  <input
+                    type="number"
+                    step="any"
+                    value={editForm.score}
+                    onChange={(e) => setEditForm((f) => ({ ...f, score: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                  />
+                </label>
+                <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Closings
+                  <input
+                    type="number"
+                    min={0}
+                    value={editForm.closings}
+                    onChange={(e) => setEditForm((f) => ({ ...f, closings: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                  />
+                </label>
+              </div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Status
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                >
+                  <option value="pending">pending</option>
+                  <option value="approved">approved</option>
+                  <option value="rejected">rejected</option>
+                </select>
+              </label>
+              <p className="text-xs font-semibold text-[#2C2C2C]/55">
+                Verified:{" "}
+                <span className="text-[#6B9E6E]">
+                  {editForm.status === "approved" ? "Yes" : "No"}
+                </span>{" "}
+                (synced from status in the database)
+              </p>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Broker ID (UUID or empty)
+                <input
+                  value={editForm.broker_id}
+                  onChange={(e) => setEditForm((f) => ({ ...f, broker_id: e.target.value }))}
+                  placeholder="00000000-0000-0000-0000-000000000000"
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 font-mono text-xs text-[#2C2C2C]"
+                />
+              </label>
+            </div>
+
+            {editError ? (
+              <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-800">
+                {editError}
+              </p>
+            ) : null}
+
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditAgent(null)}
+                className="rounded-full border border-[#2C2C2C]/15 px-4 py-2 text-sm font-semibold text-[#2C2C2C]/70"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={editSaving}
+                onClick={() => void saveEditAgent()}
+                className="rounded-full bg-[#2C2C2C] px-5 py-2 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
+              >
+                {editSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

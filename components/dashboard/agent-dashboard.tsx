@@ -320,19 +320,23 @@ export function AgentDashboard() {
     setMsg("");
     const beds = Number(listingForm.beds) || 0;
     const baths = Number(listingForm.baths) || 0;
-    const { error } = await supabase.from("properties").insert({
-      name: listingForm.name.trim() || null,
-      location: listingForm.location.trim(),
-      price: listingForm.price.trim(),
-      sqft: listingForm.sqft.trim(),
-      beds,
-      baths,
-      image_url: listingForm.image_url.trim() || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&h=800&fit=crop",
-      status: listingForm.listing_type === "sale" ? "for_sale" : "for_rent",
-      listed_by: user.id,
-      property_type: listingForm.property_type,
-      description: listingForm.description.trim() || null,
-    });
+    const { data: newProperty, error } = await supabase
+      .from("properties")
+      .insert({
+        name: listingForm.name.trim() || null,
+        location: listingForm.location.trim(),
+        price: listingForm.price.trim(),
+        sqft: listingForm.sqft.trim(),
+        beds,
+        baths,
+        image_url: listingForm.image_url.trim() || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&h=800&fit=crop",
+        status: listingForm.listing_type === "sale" ? "for_sale" : "for_rent",
+        listed_by: user.id,
+        property_type: listingForm.property_type,
+        description: listingForm.description.trim() || null,
+      })
+      .select("id")
+      .single();
     setSaving(false);
     if (error) {
       if (/row-level security|violates row-level security policy/i.test(error.message)) {
@@ -342,6 +346,15 @@ export function AgentDashboard() {
         setMsg(error.message);
       }
       return;
+    }
+    if (newProperty?.id && agent?.id) {
+      const { error: linkErr } = await supabase.from("property_agents").insert({
+        property_id: newProperty.id,
+        agent_id: agent.id,
+      });
+      if (linkErr && linkErr.code !== "23505") {
+        setMsg(`Listing saved, but connected-agent link failed: ${linkErr.message}`);
+      }
     }
     setListingOpen(false);
     setListingForm({

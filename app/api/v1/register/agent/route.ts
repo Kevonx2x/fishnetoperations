@@ -61,13 +61,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const emailTrim = parsed.data.email.trim();
+    const nameTrim = parsed.data.name.trim();
+
+    const { error: profileErr } = await supabase.rpc("ensure_agent_profile", {
+      p_id: userData.user.id,
+      p_email: emailTrim,
+      p_full_name: nameTrim,
+    });
+    if (profileErr) {
+      return fail("DATABASE_ERROR", profileErr.message, 500);
+    }
+
     const row = {
       user_id: userData.user.id,
-      name: parsed.data.name.trim(),
+      name: nameTrim,
       license_number: parsed.data.license_number,
       license_expiry: parsed.data.license_expiry?.trim() || null,
       phone: parsed.data.phone?.trim() || null,
-      email: parsed.data.email.trim(),
+      email: emailTrim,
       bio: parsed.data.bio?.trim() || null,
       broker_id: brokerId,
     };

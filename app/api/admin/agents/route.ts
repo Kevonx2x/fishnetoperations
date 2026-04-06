@@ -13,7 +13,7 @@ export async function GET() {
   const { data, error } = await sb
     .from("agents")
     .select(
-      "id, name, email, license_number, status, verified, user_id, created_at, rejection_reason",
+      "id, name, email, phone, license_number, score, closings, status, verified, broker_id, user_id, created_at, rejection_reason",
     )
     .order("created_at", { ascending: false });
 
