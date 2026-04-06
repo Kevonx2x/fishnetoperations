@@ -1,17 +1,44 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, Search, User } from "lucide-react";
+import { Filter, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
-import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
+import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
+import { FinnMascot } from "@/components/marketplace/mascots/finn-mascot";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
-const SPECIALTIES = ["Luxury", "Rentals", "New Development", "Investment", "Commercial"] as const;
-const LOCATIONS = ["Makati", "BGC", "Cebu", "Quezon City", "Ortigas", "Alabang"] as const;
+const SPECIALTY_CHIPS = [
+  { key: "all", label: "All" },
+  { key: "luxury", label: "Luxury" },
+  { key: "condo", label: "Condo" },
+  { key: "house-lot", label: "House & Lot" },
+  { key: "commercial", label: "Commercial" },
+  { key: "rental", label: "Rental" },
+] as const;
+
+const SORT_OPTIONS = [
+  { value: "score", label: "Score" },
+  { value: "closings", label: "Most Closings" },
+  { value: "newest", label: "Newest" },
+] as const;
+
+type SpecialtyKey = (typeof SPECIALTY_CHIPS)[number]["key"];
+type SortKey = (typeof SORT_OPTIONS)[number]["value"];
+
+type AgentWithMeta = MarketplaceAgent & {
+  specialtiesText: string;
+  createdAt: string;
+};
 
 function hashPick<T>(id: string, arr: readonly T[]): T {
   let h = 0;
@@ -19,32 +46,93 @@ function hashPick<T>(id: string, arr: readonly T[]): T {
   return arr[h % arr.length]!;
 }
 
-export default function AgentsIndexPage() {
-  const [agents, setAgents] = useState<MarketplaceAgent[]>([]);
+const SYNTHETIC_CHIPS: SpecialtyKey[] = ["luxury", "condo", "house-lot", "commercial", "rental"];
+
+function syntheticSpecialty(agentId: string): Exclude<SpecialtyKey, "all"> {
+  return hashPick(agentId, SYNTHETIC_CHIPS);
+}
+
+function matchesSpecialty(chip: SpecialtyKey, specialtiesText: string, agentId: string): boolean {
+  if (chip === "all") return true;
+  const t = specialtiesText.trim().toLowerCase();
+  if (t.length > 0) {
+    switch (chip) {
+      case "luxury":
+        return /\b(luxury|luxuries|high-end|high end|premium|exclusive)\b/i.test(t) || t.includes("luxury");
+      case "condo":
+        return /\b(condo|condominium|condos)\b/i.test(t);
+      case "house-lot":
+        return /\b(house|lot|townhouse|single[\s-]?family|residential|landed)\b/i.test(t);
+      case "commercial":
+        return /\b(commercial|office|retail|industrial|warehouse)\b/i.test(t);
+      case "rental":
+        return /\b(rent|rental|rentals|lease|leasing|landlord)\b/i.test(t);
+      default:
+        return true;
+    }
+  }
+  return syntheticSpecialty(agentId) === chip;
+}
+
+function AgentsDirectoryContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const q = searchParams.get("q") ?? "";
+  const verifiedOnly = searchParams.get("verified") === "1";
+  const sortParam = searchParams.get("sort") ?? "score";
+  const specialtyParam = (searchParams.get("specialty") ?? "all") as SpecialtyKey;
+
+  const sort: SortKey = SORT_OPTIONS.some((o) => o.value === sortParam) ? (sortParam as SortKey) : "score";
+  const specialty: SpecialtyKey = SPECIALTY_CHIPS.some((c) => c.key === specialtyParam)
+    ? specialtyParam
+    : "all";
+
+  const setParams = useCallback(
+    (updates: Record<string, string | null | undefined>) => {
+      const p = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === undefined) continue;
+        if (value === null || value === "") p.delete(key);
+        else p.set(key, value);
+      }
+      const qs = p.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  const [agents, setAgents] = useState<AgentWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTab, setSearchTab] = useState<"location" | "name">("location");
-  const [query, setQuery] = useState("");
-  const [availabilityFilter, setAvailabilityFilter] = useState<string>("any");
-  const [specialtyFilter, setSpecialtyFilter] = useState<string>("any");
-  const [locationFilter, setLocationFilter] = useState<string>("any");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError(null);
-      const { data, error } = await supabase
+      const { data, error: fetchErr } = await supabase
         .from("agents")
         .select("*, brokers(*), profiles(email, phone)")
         .eq("status", "approved")
-        .eq("verified", true);
+        .order("created_at", { ascending: false });
       if (cancelled) return;
-      if (error) {
-        setError(error.message);
+      if (fetchErr) {
+        setError(fetchErr.message);
         setAgents([]);
       } else {
-        setAgents((data ?? []).map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0])));
+        setAgents(
+          (data ?? []).map((row) => {
+            const r = row as Record<string, unknown>;
+            return {
+              ...mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]),
+              specialtiesText: typeof r.specialties === "string" ? r.specialties : "",
+              createdAt: typeof r.created_at === "string" ? r.created_at : "",
+            };
+          }),
+        );
       }
       setLoading(false);
     })();
@@ -53,42 +141,112 @@ export default function AgentsIndexPage() {
     };
   }, []);
 
-  const withMeta = useMemo(
-    () =>
-      agents.map((a) => ({
-        ...a,
-        specialty: hashPick(a.id, SPECIALTIES),
-        serviceArea: hashPick(a.id, LOCATIONS),
-      })),
-    [agents],
+  const filteredSorted = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    let list = agents.filter((a) => {
+      if (verifiedOnly && !a.verified) return false;
+      if (needle && !a.name.toLowerCase().includes(needle)) return false;
+      if (!matchesSpecialty(specialty, a.specialtiesText, a.id)) return false;
+      return true;
+    });
+    list = [...list].sort((a, b) => {
+      if (sort === "score") return b.score - a.score;
+      if (sort === "closings") return b.closings - a.closings;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+    return list;
+  }, [agents, q, verifiedOnly, sort, specialty]);
+
+  const searchInput = (
+    <label className="block">
+      <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
+        Search by name
+      </span>
+      <div className="relative mt-1.5">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2C2C2C]/35" />
+        <input
+          value={q}
+          onChange={(e) => setParams({ q: e.target.value || null })}
+          placeholder="Type to filter agents…"
+          className="w-full rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] py-3 pl-10 pr-4 text-sm font-semibold text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A843]/40"
+        />
+      </div>
+    </label>
   );
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return withMeta.filter((a) => {
-      if (availabilityFilter !== "any" && a.availability !== availabilityFilter) {
-        return false;
-      }
-      if (specialtyFilter !== "any" && a.specialty !== specialtyFilter) return false;
-      if (locationFilter !== "any" && a.serviceArea !== locationFilter) return false;
-      if (!q) return true;
-      if (searchTab === "name") {
-        return a.name.toLowerCase().includes(q);
-      }
-      return (
-        a.serviceArea.toLowerCase().includes(q) ||
-        (a.company || a.brokerName || "").toLowerCase().includes(q)
-      );
-    });
-  }, [withMeta, query, searchTab, availabilityFilter, specialtyFilter, locationFilter]);
+  const filterControlsSecondary = (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
+          Verified only
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={verifiedOnly}
+          onClick={() => setParams({ verified: verifiedOnly ? null : "1" })}
+          className={cn(
+            "relative h-8 w-14 shrink-0 rounded-full border border-transparent transition-colors",
+            verifiedOnly ? "bg-[#6B9E6E]" : "bg-[#2C2C2C]/20",
+          )}
+        >
+          <span
+            className={cn(
+              "absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow transition-transform",
+              verifiedOnly ? "translate-x-6" : "translate-x-0",
+            )}
+          />
+        </button>
+      </div>
 
-  const availabilityOptions = useMemo(() => {
-    const s = new Set<string>();
-    for (const a of agents) {
-      if (a.availability) s.add(a.availability);
-    }
-    return ["any", ...[...s].sort()];
-  }, [agents]);
+      <label className="block">
+        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
+          Sort by
+        </span>
+        <select
+          value={sort}
+          onChange={(e) => setParams({ sort: e.target.value === "score" ? null : e.target.value })}
+          className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
+        >
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div>
+        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
+          Specialty
+        </span>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {SPECIALTY_CHIPS.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => setParams({ specialty: c.key === "all" ? null : c.key })}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-xs font-bold transition",
+                specialty === c.key
+                  ? "bg-[#6B9E6E] text-white ring-1 ring-[#D4A843]/35"
+                  : "bg-white text-[#2C2C2C]/70 ring-1 ring-[#2C2C2C]/10 hover:bg-[#FAF8F4]",
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const filterControls = (
+    <div className="flex flex-col gap-4">
+      {searchInput}
+      {filterControlsSecondary}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] pb-12">
@@ -104,105 +262,67 @@ export default function AgentsIndexPage() {
           A great agent makes all the difference
         </motion.h1>
         <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold text-[#2C2C2C]/55 sm:text-base">
-          Search verified BahayGo agents by location or name. Compare closings, response scores, and specialties.
+          Search BahayGo agents by name, specialty, and more. Compare scores, closings, and verified status.
         </p>
       </section>
 
       <main className="mx-auto max-w-6xl px-4 pt-8 pb-12">
-        <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm sm:p-6">
-          <div className="flex flex-wrap gap-2 border-b border-[#2C2C2C]/10 pb-4">
+        {/* Mobile: search always visible; other filters in drawer */}
+        <div className="mb-4 space-y-3 md:hidden">
+          {searchInput}
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-[#2C2C2C]/70">
+              Showing <span className="font-bold text-[#2C2C2C]">{loading ? "…" : filteredSorted.length}</span>{" "}
+              agents
+            </p>
             <button
               type="button"
-              onClick={() => setSearchTab("location")}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                searchTab === "location"
-                  ? "bg-[#6B9E6E] text-white ring-1 ring-[#D4A843]/35"
-                  : "bg-[#FAF8F4] text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-[#ebe6dc]"
-              }`}
+              onClick={() => setFiltersOpen(true)}
+              className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#2C2C2C]/15 bg-white px-4 py-2 text-sm font-bold text-[#2C2C2C] shadow-sm ring-1 ring-[#D4A843]/20"
             >
-              <span className="inline-flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Search by Location
-              </span>
+              <Filter className="h-4 w-4 text-[#6B9E6E]" />
+              Filters
             </button>
+          </div>
+        </div>
+
+        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-2xl border-[#2C2C2C]/10 bg-[#FAF8F4] p-6">
+            <SheetHeader className="text-left">
+              <SheetTitle className="font-serif text-xl text-[#2C2C2C]">Filters</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4">{filterControlsSecondary}</div>
             <button
               type="button"
-              onClick={() => setSearchTab("name")}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                searchTab === "name"
-                  ? "bg-[#6B9E6E] text-white ring-1 ring-[#D4A843]/35"
-                  : "bg-[#FAF8F4] text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-[#ebe6dc]"
-              }`}
+              onClick={() => setFiltersOpen(false)}
+              className="mt-6 w-full rounded-full bg-[#2C2C2C] py-3 text-sm font-bold text-white hover:bg-[#6B9E6E]"
             >
-              <span className="inline-flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Search by Name
-              </span>
+              Show results
             </button>
-          </div>
+          </SheetContent>
+        </Sheet>
 
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2C2C2C]/35" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={
-                  searchTab === "location"
-                    ? "City, neighborhood, or agency"
-                    : "Agent first or last name"
-                }
-                className="w-full rounded-2xl border border-black/10 bg-[#FAF8F4] py-3 pl-10 pr-4 text-sm font-semibold text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
-              />
-            </div>
-          </div>
+        {/* Desktop: full filter bar */}
+        <div className="hidden rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm md:block md:p-6">
+          {filterControls}
+        </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <label className="block text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">
-              Availability
-              <select
-                value={availabilityFilter}
-                onChange={(e) => setAvailabilityFilter(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
-              >
-                {availabilityOptions.map((o) => (
-                  <option key={o} value={o}>
-                    {o === "any" ? "Any" : o}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">
-              Specialty
-              <select
-                value={specialtyFilter}
-                onChange={(e) => setSpecialtyFilter(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
-              >
-                <option value="any">Any</option>
-                {SPECIALTIES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">
-              Location
-              <select
-                value={locationFilter}
-                onChange={(e) => setLocationFilter(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
-              >
-                <option value="any">Any</option>
-                {LOCATIONS.map((loc) => (
-                  <option key={loc} value={loc}>
-                    {loc}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+        <div className="mt-6 hidden items-center justify-between md:flex">
+          <p className="text-sm font-semibold text-[#2C2C2C]/70">
+            Showing <span className="font-bold text-[#2C2C2C]">{loading ? "…" : filteredSorted.length}</span>{" "}
+            agents
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                void navigator.clipboard.writeText(window.location.href);
+              }
+            }}
+            className="text-xs font-semibold text-[#6B9E6E] underline-offset-2 hover:underline"
+          >
+            Copy link to this search
+          </button>
         </div>
 
         {loading ? <div className="mt-8 h-40 rounded-2xl animate-pulse bg-black/5" /> : null}
@@ -215,63 +335,62 @@ export default function AgentsIndexPage() {
 
         {!loading && !error ? (
           <>
-            <p className="mt-8 text-sm font-semibold text-[#2C2C2C]/55">
-              {filtered.length} of {agents.length} agents {query.trim() ? "match your search" : ""}
-            </p>
-            <AnimatePresence mode="popLayout">
-              <motion.div
-                layout
-                className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-              >
-                {filtered.map((a, i) => (
-                  <motion.div
-                    key={a.id}
-                    layout
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.22, delay: Math.min(i * 0.02, 0.2) }}
-                    className="flex flex-col rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm"
-                  >
-                    <div className="flex gap-4">
-                      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
-                        {a.image ? <Image src={a.image} alt={a.name} fill sizes="80px" className="object-cover" /> : null}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate font-semibold text-[#2C2C2C]">{a.name}</p>
-                          <VerifiedAgentBadge show />
-                        </div>
-                        <p className="mt-1 truncate text-xs font-semibold text-[#2C2C2C]/55">
-                          {a.company || a.brokerName || "Independent"}
-                        </p>
-                        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#D4A843]">
-                          {a.specialty}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-[#2C2C2C]/70">
-                      <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{a.closings} closings</span>
-                      <span className="rounded-full bg-[#D4A843]/18 px-3 py-1 text-[#8a6d32]">
-                        Response {a.responseTime || "—"}
-                      </span>
-                      <span className="rounded-full bg-[#FAF8F4] px-3 py-1 ring-1 ring-black/10">
-                        Score {Math.round(a.score)}
-                      </span>
-                    </div>
-                    <Link
-                      href={`/agents/${encodeURIComponent(a.id)}`}
-                      className="mt-4 inline-flex w-full justify-center rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6B9E6E]"
+            {filteredSorted.length === 0 ? (
+              <div className="mt-10 flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white px-6 py-14 text-center">
+                <FinnMascot mood="sad" size={112} className="mx-auto" />
+                <p className="mt-6 font-serif text-xl font-bold text-[#2C2C2C]">No agents match</p>
+                <p className="mt-2 max-w-md text-sm font-semibold text-[#2C2C2C]/55">
+                  Try adjusting your search or filters — or clear filters to see everyone again.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.replace(pathname, { scroll: false })}
+                  className="mt-6 rounded-full bg-[#D4A843] px-6 py-2.5 text-sm font-bold text-[#2C2C2C] hover:brightness-95"
+                >
+                  Clear all filters
+                </button>
+              </div>
+            ) : (
+              <AnimatePresence mode="popLayout">
+                <motion.div
+                  layout
+                  className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                >
+                  {filteredSorted.map((a, i) => (
+                    <motion.div
+                      key={a.id}
+                      layout
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.22, delay: Math.min(i * 0.02, 0.2) }}
                     >
-                      View Profile
-                    </Link>
-                  </motion.div>
-                ))}
-              </motion.div>
-            </AnimatePresence>
+                      <AgentDirectoryCard agent={a} className="w-full" />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </AnimatePresence>
+            )}
           </>
         ) : null}
       </main>
     </div>
+  );
+}
+
+export default function AgentsIndexPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FAF8F4]">
+          <MaddenTopNav />
+          <div className="mx-auto max-w-6xl px-4 pt-8">
+            <div className="h-40 rounded-2xl animate-pulse bg-black/5" />
+          </div>
+        </div>
+      }
+    >
+      <AgentsDirectoryContent />
+    </Suspense>
   );
 }

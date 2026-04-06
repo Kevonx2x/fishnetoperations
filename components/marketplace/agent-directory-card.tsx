@@ -33,10 +33,12 @@ export function AgentDirectoryCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate font-semibold text-[#2C2C2C]">{agent.name}</p>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#D4A843]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]">
-              <Flame className="h-3.5 w-3.5 text-[#D4A843]" />
-              Verified
-            </span>
+            {agent.verified ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#D4A843]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]">
+                <Flame className="h-3.5 w-3.5 text-[#D4A843]" />
+                Verified
+              </span>
+            ) : null}
           </div>
           <p className="mt-1 truncate text-xs font-semibold text-[#2C2C2C]/55">{agent.company || agent.brokerName}</p>
           <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-[#2C2C2C]/60">
