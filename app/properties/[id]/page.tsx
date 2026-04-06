@@ -83,7 +83,8 @@ export default function PropertyPage() {
   const [idx, setIdx] = useState(0);
   const [viewingOpen, setViewingOpen] = useState(false);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
-  const [contactAgent, setContactAgent] = useState<MarketplaceAgent | null>(null);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [contactModalAgent, setContactModalAgent] = useState<MarketplaceAgent | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -345,7 +346,10 @@ export default function PropertyPage() {
                             <div className="mt-3">
                               <button
                                 type="button"
-                                onClick={() => setContactAgent(a)}
+                                onClick={() => {
+                                  setContactModalAgent(a);
+                                  setShowContactModal(true);
+                                }}
                                 className="inline-flex rounded-lg bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
                               >
                                 Contact
@@ -406,11 +410,12 @@ export default function PropertyPage() {
             />
             <SignInViewingPromptModal open={signInPromptOpen} onOpenChange={setSignInPromptOpen} />
             <AgentContactOptionsModal
-              open={contactAgent !== null}
+              open={showContactModal}
               onOpenChange={(o) => {
-                if (!o) setContactAgent(null);
+                setShowContactModal(o);
+                if (!o) setContactModalAgent(null);
               }}
-              agent={contactAgent}
+              agent={contactModalAgent}
             />
           </>
         )}

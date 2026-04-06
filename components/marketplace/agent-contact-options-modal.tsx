@@ -8,12 +8,10 @@ import { cn } from "@/lib/utils";
 
 function OptionRow({
   children,
-  href,
   onClick,
   disabled,
 }: {
   children: React.ReactNode;
-  href?: string;
   onClick?: () => void;
   disabled?: boolean;
 }) {
@@ -21,14 +19,6 @@ function OptionRow({
     "flex w-full items-center gap-3 rounded-xl border border-[#2C2C2C]/10 bg-white px-4 py-3 text-left text-sm font-semibold text-[#2C2C2C] transition",
     disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer hover:border-[#6B9E6E]/35 hover:bg-[#6B9E6E15]",
   );
-
-  if (href && !disabled) {
-    return (
-      <a href={href} className={className} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noopener noreferrer" : undefined}>
-        {children}
-      </a>
-    );
-  }
   return (
     <button type="button" className={className} onClick={onClick} disabled={disabled}>
       {children}
@@ -100,25 +90,45 @@ export function AgentContactOptionsModal({
         </div>
 
         <div className="space-y-2 px-4 pb-5 pt-3">
-          <OptionRow href={mailto ?? undefined} disabled={!mailto}>
+          <OptionRow
+            disabled={!mailto}
+            onClick={() => {
+              if (mailto) window.location.assign(mailto);
+            }}
+          >
             <span className="text-lg" aria-hidden>
               📧
             </span>
             <span>Email</span>
           </OptionRow>
-          <OptionRow href={sms ?? undefined} disabled={!sms}>
+          <OptionRow
+            disabled={!sms}
+            onClick={() => {
+              if (sms) window.location.assign(sms);
+            }}
+          >
             <span className="text-lg" aria-hidden>
               📱
             </span>
             <span>SMS / Text</span>
           </OptionRow>
-          <OptionRow href={wa ?? undefined} disabled={!wa}>
+          <OptionRow
+            disabled={!wa}
+            onClick={() => {
+              if (wa) window.open(wa, "_blank", "noopener,noreferrer");
+            }}
+          >
             <span className="text-lg" aria-hidden>
               💬
             </span>
             <span>WhatsApp</span>
           </OptionRow>
-          <OptionRow href={viber ?? undefined} disabled={!viber}>
+          <OptionRow
+            disabled={!viber}
+            onClick={() => {
+              if (viber) window.location.assign(viber);
+            }}
+          >
             <span className="text-lg" aria-hidden>
               📞
             </span>

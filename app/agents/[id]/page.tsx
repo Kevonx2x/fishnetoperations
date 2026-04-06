@@ -3,13 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Calendar, Clock, Mail, Phone, Star, Trophy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
-import type { MarketplaceAgent } from "@/lib/marketplace-types";
+import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
+import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { fetchSimilarAgents } from "@/lib/similar-agents";
 
@@ -52,6 +53,26 @@ export default function AgentProfilePage() {
   const [listings, setListings] = useState<ListingRow[]>([]);
   const [similarAgents, setSimilarAgents] = useState<MarketplaceAgent[]>([]);
   const [similarLoading, setSimilarLoading] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
+
+  const contactModalAgent = useMemo<MarketplaceAgent | null>(() => {
+    if (!agent) return null;
+    return mapRowToMarketplaceAgent({
+      id: agent.id,
+      user_id: agent.user_id,
+      name: agent.name,
+      email: agent.email,
+      phone: agent.phone ?? "",
+      image_url: agent.image_url,
+      score: agent.score,
+      closings: agent.closings,
+      response_time: agent.response_time,
+      availability: agent.availability,
+      verified: true,
+      status: "approved",
+      brokers: agent.brokers,
+    });
+  }, [agent]);
 
   useEffect(() => {
     let cancelled = false;
@@ -194,13 +215,14 @@ export default function AgentProfilePage() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <a
-                    href={`mailto:${encodeURIComponent(agent.email)}`}
+                  <button
+                    type="button"
+                    onClick={() => setShowContactModal(true)}
                     className="inline-flex items-center gap-2 rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
                   >
                     <Mail className="h-4 w-4" />
                     Contact
-                  </a>
+                  </button>
                   <button
                     type="button"
                     className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-5 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
@@ -276,6 +298,14 @@ export default function AgentProfilePage() {
               </div>
             </aside>
           </div>
+        )}
+
+        {!loading && !error && agent && (
+          <AgentContactOptionsModal
+            open={showContactModal}
+            onOpenChange={setShowContactModal}
+            agent={contactModalAgent}
+          />
         )}
       </main>
     </div>

@@ -300,7 +300,8 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
   const { user, loading: authLoading } = useAuth();
   const [viewingOpen, setViewingOpen] = useState(false);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
-  const [contactAgent, setContactAgent] = useState<MarketplaceAgent | null>(null);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [contactModalAgent, setContactModalAgent] = useState<MarketplaceAgent | null>(null);
   const photos = roomUrlsFor(property);
   const [idx, setIdx] = useState(0);
   const touchStartX = useRef<number | null>(null);
@@ -410,7 +411,10 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
                 modalAgents={modalAgents}
                 placeholderSlots={placeholderSlots}
                 onClose={onClose}
-                onContactAgent={(a) => setContactAgent(a)}
+                onContactAgent={(a) => {
+                  setContactModalAgent(a);
+                  setShowContactModal(true);
+                }}
               />
             </div>
           </div>
@@ -439,7 +443,10 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
                   modalAgents={modalAgents}
                   placeholderSlots={placeholderSlots}
                   onClose={onClose}
-                  onContactAgent={(a) => setContactAgent(a)}
+                  onContactAgent={(a) => {
+                  setContactModalAgent(a);
+                  setShowContactModal(true);
+                }}
                 />
               </div>
             </div>
@@ -462,11 +469,12 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
     />
     <SignInViewingPromptModal open={signInPromptOpen} onOpenChange={setSignInPromptOpen} />
     <AgentContactOptionsModal
-      open={contactAgent !== null}
+      open={showContactModal}
       onOpenChange={(o) => {
-        if (!o) setContactAgent(null);
+        setShowContactModal(o);
+        if (!o) setContactModalAgent(null);
       }}
-      agent={contactAgent}
+      agent={contactModalAgent}
     />
     </>
   );
