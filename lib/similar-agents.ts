@@ -15,8 +15,10 @@ export async function fetchSimilarAgents(
   current: { id: string; broker_id: string | null; score: number },
 ): Promise<MarketplaceAgent[]> {
   const currentScore = Number(current.score);
-  const minS = currentScore - 0.5;
-  const maxS = currentScore + 0.5;
+  /** 0–5 star-style scores use ±0.5; legacy 0–100 trust scores use ±5 so bands actually match peers. */
+  const radius = currentScore > 20 ? 5 : 0.5;
+  const minS = currentScore - radius;
+  const maxS = currentScore + radius;
   const chosen: MarketplaceAgent[] = [];
   const seen = new Set<string>([current.id]);
 

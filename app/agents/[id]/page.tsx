@@ -10,6 +10,7 @@ import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
+import { formatAgentScore } from "@/lib/format-agent-score";
 import { fetchSimilarAgents } from "@/lib/similar-agents";
 
 type AgentRow = {
@@ -186,7 +187,7 @@ export default function AgentProfilePage() {
                       </span>
                       <span className="inline-flex items-center gap-2 rounded-full bg-[#D4A843]/18 px-3 py-1 text-xs font-semibold text-[#8a6d32]">
                         <Star className="h-4 w-4 text-[#D4A843]" />
-                        Score {Math.round(agent.score)}
+                        Score {formatAgentScore(agent.score)}
                       </span>
                     </div>
                   </div>

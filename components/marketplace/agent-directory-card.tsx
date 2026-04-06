@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Flame } from "lucide-react";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
+import { formatAgentScore } from "@/lib/format-agent-score";
 import { cn } from "@/lib/utils";
 
 export function AgentDirectoryCard({
@@ -14,9 +15,14 @@ export function AgentDirectoryCard({
   className?: string;
 }) {
   return (
-    <div
+    <Link
+      href={`/agents/${encodeURIComponent(agent.id)}`}
+      aria-label={`View profile for ${agent.name}`}
       className={cn(
-        "rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-md",
+        "group block cursor-pointer rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-md",
+        "transition-all duration-200 ease-in-out will-change-transform",
+        "hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl hover:border-[#2C2C2C]/15",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A843] focus-visible:ring-offset-2",
         className ?? "w-[320px] shrink-0",
       )}
     >
@@ -35,16 +41,13 @@ export function AgentDirectoryCard({
           <p className="mt-1 truncate text-xs font-semibold text-[#2C2C2C]/55">{agent.company || agent.brokerName}</p>
           <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-[#2C2C2C]/60">
             <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{agent.closings} closings</span>
-            <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">Score {Math.round(agent.score)}</span>
+            <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">Score {formatAgentScore(agent.score)}</span>
           </div>
         </div>
       </div>
-      <Link
-        href={`/agents/${encodeURIComponent(agent.id)}`}
-        className="mt-4 inline-flex w-full justify-center rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
-      >
+      <span className="mt-4 inline-flex w-full justify-center rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-semibold text-white transition-colors group-hover:bg-[#6B9E6E]">
         View Profile
-      </Link>
-    </div>
+      </span>
+    </Link>
   );
 }
