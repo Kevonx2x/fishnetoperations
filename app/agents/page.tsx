@@ -46,7 +46,13 @@ function hashPick<T>(id: string, arr: readonly T[]): T {
   return arr[h % arr.length]!;
 }
 
-const SYNTHETIC_CHIPS: SpecialtyKey[] = ["luxury", "condo", "house-lot", "commercial", "rental"];
+const SYNTHETIC_CHIPS: Exclude<SpecialtyKey, "all">[] = [
+  "luxury",
+  "condo",
+  "house-lot",
+  "commercial",
+  "rental",
+];
 
 function syntheticSpecialty(agentId: string): Exclude<SpecialtyKey, "all"> {
   return hashPick(agentId, SYNTHETIC_CHIPS);
