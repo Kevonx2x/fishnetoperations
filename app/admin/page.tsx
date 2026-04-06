@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -100,6 +101,20 @@ interface CoAgentRequestRow {
   agentName: string;
 }
 
+interface PropertyConnectedAgent {
+  id: string;
+  name: string;
+  email: string;
+  status: string;
+  verified: boolean | null;
+}
+
+interface PropertyAgentOption {
+  id: string;
+  name: string;
+  email: string;
+}
+
 const emptyPropertyForm = {
   location: "",
   price: "",
@@ -177,6 +192,18 @@ export default function AdminPage() {
   const [coAgentRequests, setCoAgentRequests] = useState<CoAgentRequestRow[]>([]);
   const [coAgentLoading, setCoAgentLoading] = useState(false);
   const [coAgentError, setCoAgentError] = useState("");
+
+  const [manageAgentsProperty, setManageAgentsProperty] = useState<Property | null>(null);
+  const [manageAgentsConnected, setManageAgentsConnected] = useState<PropertyConnectedAgent[]>([]);
+  const [manageAgentsAvailable, setManageAgentsAvailable] = useState<PropertyAgentOption[]>([]);
+  const [manageAgentsLoading, setManageAgentsLoading] = useState(false);
+  const [manageAgentsError, setManageAgentsError] = useState("");
+  const [selectedAgentToAdd, setSelectedAgentToAdd] = useState("");
+  const [manageAgentsMutating, setManageAgentsMutating] = useState(false);
+
+  const [resetPasswordAgent, setResetPasswordAgent] = useState<AllAgentRow | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
+  const [resetPasswordSaving, setResetPasswordSaving] = useState(false);
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -598,6 +625,115 @@ export default function AdminPage() {
     setEditingId(null);
     setPropertyForm(emptyPropertyForm);
     setPropertyError("");
+  };
+
+  const loadManageAgentsData = async (propertyId: string) => {
+    setManageAgentsLoading(true);
+    setManageAgentsError("");
+    try {
+      const res = await fetch(`/api/admin/properties/${propertyId}/agents`, { credentials: "include" });
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { connected: PropertyConnectedAgent[]; availableToAdd: PropertyAgentOption[] };
+        error?: { message?: string };
+      };
+      if (!res.ok || !json.success || !json.data) {
+        setManageAgentsError(json.error?.message ?? "Failed to load property agents");
+        setManageAgentsConnected([]);
+        setManageAgentsAvailable([]);
+        return;
+      }
+      setManageAgentsConnected(json.data.connected);
+      setManageAgentsAvailable(json.data.availableToAdd);
+    } catch {
+      setManageAgentsError("Failed to load property agents");
+      setManageAgentsConnected([]);
+      setManageAgentsAvailable([]);
+    } finally {
+      setManageAgentsLoading(false);
+    }
+  };
+
+  const openManageAgents = (p: Property) => {
+    setManageAgentsProperty(p);
+    setSelectedAgentToAdd("");
+    void loadManageAgentsData(p.id);
+  };
+
+  const closeManageAgents = () => {
+    setManageAgentsProperty(null);
+    setManageAgentsError("");
+    setSelectedAgentToAdd("");
+  };
+
+  const addPropertyAgent = async () => {
+    if (!manageAgentsProperty || !selectedAgentToAdd) return;
+    setManageAgentsMutating(true);
+    try {
+      const res = await fetch(`/api/admin/properties/${manageAgentsProperty.id}/agents`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent_id: selectedAgentToAdd }),
+      });
+      const json = (await res.json()) as { success?: boolean; error?: { message?: string } };
+      if (!res.ok || !json.success) {
+        toast.error(json.error?.message ?? "Could not add agent");
+        return;
+      }
+      toast.success("Agent added to property");
+      setSelectedAgentToAdd("");
+      await loadManageAgentsData(manageAgentsProperty.id);
+    } finally {
+      setManageAgentsMutating(false);
+    }
+  };
+
+  const removePropertyAgent = async (agentId: string) => {
+    if (!manageAgentsProperty) return;
+    setManageAgentsMutating(true);
+    try {
+      const res = await fetch(
+        `/api/admin/properties/${manageAgentsProperty.id}/agents?agent_id=${encodeURIComponent(agentId)}`,
+        { method: "DELETE", credentials: "include" },
+      );
+      const json = (await res.json()) as { success?: boolean; error?: { message?: string } };
+      if (!res.ok || !json.success) {
+        toast.error(json.error?.message ?? "Could not remove agent");
+        return;
+      }
+      toast.success("Agent removed from property");
+      await loadManageAgentsData(manageAgentsProperty.id);
+    } finally {
+      setManageAgentsMutating(false);
+    }
+  };
+
+  const submitResetPassword = async () => {
+    if (!resetPasswordAgent) return;
+    if (resetPasswordValue.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+    setResetPasswordSaving(true);
+    try {
+      const res = await fetch(`/api/admin/agents/${resetPasswordAgent.id}/reset-password`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: resetPasswordValue }),
+      });
+      const json = (await res.json()) as { success?: boolean; error?: { message?: string } };
+      if (!res.ok || !json.success) {
+        toast.error(json.error?.message ?? "Could not reset password");
+        return;
+      }
+      toast.success("Password updated");
+      setResetPasswordAgent(null);
+      setResetPasswordValue("");
+    } finally {
+      setResetPasswordSaving(false);
+    }
   };
 
   const openEditProperty = (p: Property) => {
@@ -1266,21 +1402,30 @@ export default function AdminPage() {
                         <td className="px-4 py-3 text-sm text-gray-600">
                           {p.baths}
                         </td>
-                        <td className="px-4 py-3 text-right space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => openEditProperty(p)}
-                            className="text-sm font-medium text-gray-900 underline underline-offset-2 hover:text-gray-600"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteProperty(p.id)}
-                            className="text-sm font-medium text-red-600 hover:text-red-800"
-                          >
-                            Delete
-                          </button>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openManageAgents(p)}
+                              className="text-sm font-medium text-emerald-700 underline underline-offset-2 hover:text-emerald-900"
+                            >
+                              Manage Agents
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openEditProperty(p)}
+                              className="text-sm font-medium text-gray-900 underline underline-offset-2 hover:text-gray-600"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteProperty(p.id)}
+                              className="text-sm font-medium text-red-600 hover:text-red-800"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1623,6 +1768,16 @@ export default function AdminPage() {
                                 )}
                                 <button
                                   type="button"
+                                  onClick={() => {
+                                    setResetPasswordAgent(a);
+                                    setResetPasswordValue("");
+                                  }}
+                                  className="rounded-full border border-[#6B9E6E]/35 bg-[#6B9E6E]/10 px-4 py-2 text-xs font-bold text-[#2C2C2C] hover:bg-[#6B9E6E]/20"
+                                >
+                                  Reset Password
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => openEditAgent(a)}
                                   className="rounded-full border border-[#D4A843]/40 bg-[#FAF8F4] px-4 py-2 text-xs font-bold text-[#2C2C2C] hover:bg-[#D4A843]/20"
                                 >
@@ -1757,6 +1912,164 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      {manageAgentsProperty ? (
+        <div className="fixed inset-0 z-[105] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close"
+            onClick={closeManageAgents}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-manage-agents-title"
+            className="relative z-[106] max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2 id="admin-manage-agents-title" className="font-serif text-xl font-bold text-[#2C2C2C]">
+                Manage agents
+              </h2>
+              <button
+                type="button"
+                onClick={closeManageAgents}
+                className="rounded-full p-2 text-[#2C2C2C]/55 hover:bg-[#2C2C2C]/10"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mt-1 text-sm text-[#2C2C2C]/60">{manageAgentsProperty.location}</p>
+
+            {manageAgentsError ? (
+              <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-800">
+                {manageAgentsError}
+              </p>
+            ) : null}
+
+            <div className="mt-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Connected agents</p>
+              {manageAgentsLoading ? (
+                <p className="mt-2 text-sm text-[#2C2C2C]/55">Loading…</p>
+              ) : manageAgentsConnected.length === 0 ? (
+                <p className="mt-2 text-sm text-[#2C2C2C]/55">None linked yet.</p>
+              ) : (
+                <ul className="mt-2 divide-y divide-[#2C2C2C]/10 rounded-xl border border-[#2C2C2C]/10">
+                  {manageAgentsConnected.map((a) => (
+                    <li
+                      key={a.id}
+                      className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
+                    >
+                      <div>
+                        <span className="font-semibold text-[#2C2C2C]">{a.name}</span>
+                        <span className="ml-2 text-xs text-[#2C2C2C]/55">{a.email}</span>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={manageAgentsMutating}
+                        onClick={() => void removePropertyAgent(a.id)}
+                        className="shrink-0 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-bold text-red-800 hover:bg-red-100 disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="mt-6 border-t border-[#2C2C2C]/10 pt-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Add approved agent</p>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <select
+                  value={selectedAgentToAdd}
+                  onChange={(e) => setSelectedAgentToAdd(e.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                >
+                  <option value="">Select an agent…</option>
+                  {manageAgentsAvailable.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.name} ({opt.email})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={manageAgentsMutating || !selectedAgentToAdd || manageAgentsLoading}
+                  onClick={() => void addPropertyAgent()}
+                  className="rounded-full bg-[#6B9E6E] px-4 py-2 text-sm font-bold text-white hover:bg-[#5d8a60] disabled:opacity-50"
+                >
+                  Add Agent
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-[#2C2C2C]/50">
+                Only agents with status <strong>approved</strong> and <strong>verified</strong> appear here.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {resetPasswordAgent ? (
+        <div className="fixed inset-0 z-[107] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close"
+            onClick={() => {
+              setResetPasswordAgent(null);
+              setResetPasswordValue("");
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-reset-password-title"
+            className="relative z-[108] w-full max-w-sm rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="admin-reset-password-title" className="font-serif text-lg font-bold text-[#2C2C2C]">
+              Reset password
+            </h2>
+            <p className="mt-1 text-sm text-[#2C2C2C]/60">
+              New password for <strong>{resetPasswordAgent.name}</strong> ({resetPasswordAgent.email})
+            </p>
+            <label className="mt-4 block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+              New password
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={resetPasswordValue}
+                onChange={(e) => setResetPasswordValue(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                placeholder="Min. 8 characters"
+              />
+            </label>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setResetPasswordAgent(null);
+                  setResetPasswordValue("");
+                }}
+                className="rounded-full border border-[#2C2C2C]/15 px-4 py-2 text-sm font-semibold text-[#2C2C2C]/70"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={resetPasswordSaving || resetPasswordValue.length < 8}
+                onClick={() => void submitResetPassword()}
+                className="rounded-full bg-[#2C2C2C] px-5 py-2 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
+              >
+                {resetPasswordSaving ? "Saving…" : "Update password"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {editAgent ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
