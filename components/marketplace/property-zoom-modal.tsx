@@ -211,6 +211,38 @@ function AgentsList({
   );
 }
 
+/** Subtle bounce on the agents block (mobile only, once on mount) to hint scrolling. */
+function MobileAgentsContactHint({ children }: { children: React.ReactNode }) {
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const narrow = window.matchMedia("(max-width: 767px)");
+    if (!narrow.matches) return;
+    const id = requestAnimationFrame(() => setActive(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  if (!active) return <>{children}</>;
+
+  return (
+    <motion.div
+      initial={{ y: 0 }}
+      animate={{
+        y: [0, -12, 0, -10, 0, -7, 0, -4, 0],
+      }}
+      transition={{
+        duration: 2,
+        times: [0, 0.12, 0.24, 0.36, 0.48, 0.6, 0.72, 0.84, 1],
+        ease: [0.22, 1, 0.36, 1],
+      }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 function PropertyDetailsSection({
   property,
   statusLabel,
@@ -411,20 +443,22 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
             style={{ WebkitOverflowScrolling: "touch" }}
           >
             <PropertyDetailsSection {...detailsProps} withA11yIds={true} />
-            <h3 className="mt-8 font-serif text-lg font-bold text-[#2C2C2C]">Contact an Agent</h3>
-            <div className="mt-4">
-              <AgentsList
-                modalAgents={modalAgents}
-                placeholderSlots={placeholderSlots}
-                onClose={onClose}
-                isLoggedIn={isLoggedIn}
-                onSignInPrompt={() => setSignInPromptOpen(true)}
-                onContactAgent={(a) => {
-                  setContactModalAgent(a);
-                  setShowContactModal(true);
-                }}
-              />
-            </div>
+            <MobileAgentsContactHint>
+              <h3 className="mt-8 font-serif text-lg font-bold text-[#2C2C2C]">Contact an Agent</h3>
+              <div className="mt-4">
+                <AgentsList
+                  modalAgents={modalAgents}
+                  placeholderSlots={placeholderSlots}
+                  onClose={onClose}
+                  isLoggedIn={isLoggedIn}
+                  onSignInPrompt={() => setSignInPromptOpen(true)}
+                  onContactAgent={(a) => {
+                    setContactModalAgent(a);
+                    setShowContactModal(true);
+                  }}
+                />
+              </div>
+            </MobileAgentsContactHint>
           </div>
           <BottomActions
             isSaved={isSaved}

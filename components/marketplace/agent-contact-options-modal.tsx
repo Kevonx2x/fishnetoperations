@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import { smsHref, viberHref, whatsAppHref } from "@/lib/agent-contact-links";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
 
 function OptionRow({
   children,
@@ -36,8 +37,15 @@ export function AgentContactOptionsModal({
   agent: MarketplaceAgent | null;
 }) {
   const [copied, setCopied] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (open && !authLoading && !user) onOpenChange(false);
+  }, [open, authLoading, user, onOpenChange]);
 
   if (!open || !agent) return null;
+  if (authLoading) return null;
+  if (!user) return null;
 
   const email = agent.email?.trim();
   const phone = agent.phone?.trim();

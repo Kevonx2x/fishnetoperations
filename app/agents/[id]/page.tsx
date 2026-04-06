@@ -172,6 +172,26 @@ export default function AgentProfilePage() {
     setShowViewingModal(true);
   };
 
+  const onContactOpen = () => {
+    if (authLoading) return;
+    if (!user) {
+      setSignInPromptOpen(true);
+      return;
+    }
+    setShowContactModal(true);
+  };
+
+  const onCallClick = () => {
+    if (authLoading) return;
+    if (!user) {
+      setSignInPromptOpen(true);
+      return;
+    }
+    if (agent?.phone) {
+      window.location.href = `tel:${agent.phone}`;
+    }
+  };
+
   const memberSince = (() => {
     if (!agent?.created_at) return "";
     const d = new Date(agent.created_at);
@@ -245,8 +265,9 @@ export default function AgentProfilePage() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => setShowContactModal(true)}
-                    className="inline-flex items-center gap-2 rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
+                    onClick={onContactOpen}
+                    disabled={authLoading}
+                    className="inline-flex items-center gap-2 rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Mail className="h-4 w-4" />
                     Contact
@@ -261,13 +282,15 @@ export default function AgentProfilePage() {
                     Schedule
                   </button>
                   {agent.phone ? (
-                    <a
-                      href={`tel:${agent.phone}`}
-                      className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-5 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
+                    <button
+                      type="button"
+                      onClick={onCallClick}
+                      disabled={authLoading}
+                      className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-5 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-[#FAF8F4] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Phone className="h-4 w-4 text-[#6B9E6E]" />
                       Call
-                    </a>
+                    </button>
                   ) : null}
                 </div>
               </div>
