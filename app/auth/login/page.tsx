@@ -36,16 +36,25 @@ function LoginForm() {
         .maybeSingle();
 
       const role = profile?.role;
-      const dest =
-        next && next.startsWith("/") && !next.startsWith("//")
-          ? next
-          : pathForRole(
-              role === "admin" || role === "broker" || role === "agent" || role === "client"
-                ? role
-                : "client",
-            );
-      router.replace(dest);
-      router.refresh();
+      if (next === "back") {
+        if (typeof window !== "undefined" && window.history.length > 1) {
+          router.back();
+        } else {
+          router.replace("/");
+        }
+        router.refresh();
+      } else {
+        const dest =
+          next && next.startsWith("/") && !next.startsWith("//")
+            ? next
+            : pathForRole(
+                role === "admin" || role === "broker" || role === "agent" || role === "client"
+                  ? role
+                  : "client",
+              );
+        router.replace(dest);
+        router.refresh();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not sign in");
     }

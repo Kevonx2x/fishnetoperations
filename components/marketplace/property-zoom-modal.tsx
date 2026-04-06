@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BadgeCheck, ChevronLeft, ChevronRight, Heart, MapPin, X } from "lucide-react";
@@ -10,6 +11,8 @@ import type { DbProperty } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { AgentSlotPlaceholderModal } from "@/components/marketplace/agent-slot-placeholder";
+import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
+import { useAuth } from "@/contexts/auth-context";
 
 type Props = {
   property: DbProperty;
@@ -18,6 +21,14 @@ type Props = {
   isSaved: boolean;
   onToggleSaved: () => void;
 };
+
+function listingAgentUserId(property: DbProperty, agents: MarketplaceAgent[]): string | null {
+  if (property.listed_by) {
+    const match = agents.find((a) => a.userId === property.listed_by);
+    if (match) return property.listed_by;
+  }
+  return agents[0]?.userId ?? null;
+}
 
 function agentShowsAvailableNow(a: MarketplaceAgent): boolean {
   const v = a.availability.trim().toLowerCase();
@@ -250,25 +261,26 @@ function PropertyDetailsSection({
 }
 
 function BottomActions({
-  propertyId,
   isSaved,
   onToggleSaved,
-  onClose,
+  onRequestViewing,
+  authLoading,
 }: {
-  propertyId: string;
   isSaved: boolean;
   onToggleSaved: () => void;
-  onClose: () => void;
+  onRequestViewing: () => void;
+  authLoading: boolean;
 }) {
   return (
     <div className="shrink-0 space-y-2 border-t border-gray-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-      <Link
-        href={`/properties/${encodeURIComponent(propertyId)}`}
-        onClick={onClose}
-        className="flex w-full items-center justify-center rounded-xl bg-[#2C2C2C] py-3 text-sm font-bold text-white transition hover:bg-[#1a1a1a]"
+      <button
+        type="button"
+        onClick={onRequestViewing}
+        disabled={authLoading}
+        className="flex w-full cursor-pointer items-center justify-center rounded-xl bg-[#2C2C2C] py-3 text-sm font-bold text-white transition hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-60"
       >
-        Request Viewing
-      </Link>
+        {authLoading ? "Loading…" : "Request Viewing"}
+      </button>
       <button
         type="button"
         onClick={() => onToggleSaved()}
@@ -282,9 +294,24 @@ function BottomActions({
 }
 
 export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggleSaved }: Props) {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const [viewingOpen, setViewingOpen] = useState(false);
   const photos = roomUrlsFor(property);
   const [idx, setIdx] = useState(0);
   const touchStartX = useRef<number | null>(null);
+
+  const agentUserId = listingAgentUserId(property, agents);
+  const propertyTitle = property.name ?? property.location;
+
+  const onRequestViewing = () => {
+    if (authLoading) return;
+    if (!user) {
+      router.push("/auth/login?next=back");
+      return;
+    }
+    setViewingOpen(true);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -344,6 +371,7 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
   };
 
   return (
+    <>
     <motion.div
       role="dialog"
       aria-modal="true"
@@ -382,10 +410,10 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
             </div>
           </div>
           <BottomActions
-            propertyId={property.id}
             isSaved={isSaved}
             onToggleSaved={onToggleSaved}
-            onClose={onClose}
+            onRequestViewing={onRequestViewing}
+            authLoading={authLoading}
           />
         </div>
 
@@ -410,14 +438,22 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
               </div>
             </div>
             <BottomActions
-              propertyId={property.id}
               isSaved={isSaved}
               onToggleSaved={onToggleSaved}
-              onClose={onClose}
+              onRequestViewing={onRequestViewing}
+              authLoading={authLoading}
             />
           </div>
         </div>
       </motion.div>
     </motion.div>
+    <ViewingRequestModal
+      open={viewingOpen}
+      onOpenChange={setViewingOpen}
+      propertyId={property.id}
+      propertyTitle={propertyTitle}
+      agentUserId={agentUserId}
+    />
+    </>
   );
 }

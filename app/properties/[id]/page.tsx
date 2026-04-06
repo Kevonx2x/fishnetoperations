@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Heart, Mail, Phone } from "lucide-react";
@@ -14,6 +14,8 @@ import { useSavedPropertyIds } from "@/lib/saved-properties";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { recordRecentlyViewedPropertyId } from "@/lib/recently-viewed";
 import { PropertyPageEmptyAgents } from "@/components/marketplace/agent-slot-placeholder";
+import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
+import { useAuth } from "@/contexts/auth-context";
 
 type ListingAgentProfile = {
   id: string;
@@ -24,6 +26,7 @@ type ListingAgentProfile = {
 type PropertyRow = {
   id: string;
   created_at: string;
+  name: string | null;
   location: string;
   price: string;
   sqft: string;
@@ -37,6 +40,14 @@ type PropertyRow = {
   listing_agent: ListingAgentProfile;
   property_agents?: { agent: unknown }[];
 };
+
+function listingAgentUserId(property: PropertyRow, agents: MarketplaceAgent[]): string | null {
+  if (property.listed_by) {
+    const match = agents.find((a) => a.userId === property.listed_by);
+    if (match) return property.listed_by;
+  }
+  return agents[0]?.userId ?? null;
+}
 
 function showsAvailableNow(a: MarketplaceAgent): boolean {
   const v = a.availability.trim().toLowerCase();
@@ -61,21 +72,15 @@ function buildGallery(property: PropertyRow): string[] {
 export default function PropertyPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
 
   const saved = useSavedPropertyIds();
   const [property, setProperty] = useState<PropertyRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
-
-  // lead form
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [ok, setOk] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [viewingOpen, setViewingOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +92,7 @@ export default function PropertyPage() {
         .from("properties")
         .select(
           `
-          id, created_at, location, price, sqft, beds, baths, image_url, listed_by, property_type, lat, lng,
+          id, created_at, name, location, price, sqft, beds, baths, image_url, listed_by, property_type, lat, lng,
           listing_agent:profiles!listed_by (id, full_name, avatar_url),
           property_agents (
             agent:agents (
@@ -147,36 +152,13 @@ export default function PropertyPage() {
     return [] as PropertyRow[];
   }, []);
 
-  const submit = async () => {
-    if (!property) return;
-    setOk(null);
-    setErr(null);
-    if (!name.trim() || !email.trim()) {
-      setErr("Please enter your name and email.");
+  const onRequestViewing = () => {
+    if (authLoading) return;
+    if (!user) {
+      router.push("/auth/login?next=back");
       return;
     }
-    setBusy(true);
-    try {
-      const { error } = await supabase.from("leads").insert({
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim() ? phone.trim() : null,
-        property_interest: `${property.location} (${property.id})`,
-        message: message.trim() ? message.trim() : null,
-        source: "property_page",
-        stage: "new",
-        agent_id: property.listed_by ?? null,
-        broker_id: null,
-        client_id: null,
-      });
-      if (error) throw error;
-      setOk("Request sent! We’ll reach out shortly.");
-      setMessage("");
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not submit.");
-    } finally {
-      setBusy(false);
-    }
+    setViewingOpen(true);
   };
 
   return (
@@ -376,9 +358,9 @@ export default function PropertyPage() {
 
             <aside className="lg:col-span-1">
               <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
-                <p className="text-sm font-semibold text-[#2C2C2C]">Viewing request</p>
-                <p className="mt-1 text-xs text-[#2C2C2C]/55">
-                  Request a viewing and we’ll connect you with an agent.
+                <p className="font-serif text-lg font-bold text-[#2C2C2C]">Request a viewing</p>
+                <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
+                  Pick a date and time. We’ll notify the listing agent by SMS and email.
                 </p>
 
                 {listingAgent ? (
@@ -396,50 +378,27 @@ export default function PropertyPage() {
                   </div>
                 ) : null}
 
-                <div className="mt-3 space-y-2">
-                  <Field icon={<Mail className="h-4 w-4 text-[#6B9E6E]" />} value={email} onChange={setEmail} placeholder="Email" type="email" />
-                  <Field icon={<Phone className="h-4 w-4 text-[#6B9E6E]" />} value={phone} onChange={setPhone} placeholder="Phone (optional)" type="tel" />
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Name"
-                    className="w-full rounded-2xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
-                  />
-                  <textarea
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Message (optional)"
-                    rows={4}
-                    className="w-full resize-none rounded-2xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
-                  />
-                </div>
-
-                {err ? (
-                  <div className="mt-3 rounded-2xl bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-700">
-                    {err}
-                  </div>
-                ) : null}
-                {ok ? (
-                  <div className="mt-3 rounded-2xl bg-[#6B9E6E]/12 px-3 py-2 text-xs font-semibold text-[#2C2C2C]/70">
-                    {ok}
-                  </div>
-                ) : null}
-
                 <button
                   type="button"
-                  onClick={() => void submit()}
-                  disabled={busy}
-                  className={`mt-3 w-full rounded-full px-5 py-3 text-sm font-semibold shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 ${
-                    busy
-                      ? "cursor-not-allowed bg-[#2C2C2C]/10 text-[#2C2C2C]/40"
-                      : "bg-[#2C2C2C] text-white hover:bg-[#6B9E6E] transition-colors"
-                  }`}
+                  onClick={onRequestViewing}
+                  disabled={authLoading}
+                  className="mt-4 w-full rounded-full bg-[#2C2C2C] px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#6B9E6E] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {busy ? "Sending…" : "Send request"}
+                  {authLoading ? "Loading…" : "Request viewing"}
                 </button>
               </div>
             </aside>
           </div>
+        )}
+
+        {!loading && !error && property && (
+          <ViewingRequestModal
+            open={viewingOpen}
+            onOpenChange={setViewingOpen}
+            propertyId={property.id}
+            propertyTitle={property.name?.trim() || property.location}
+            agentUserId={listingAgentUserId(property, connectedAgents)}
+          />
         )}
 
         {!loading && !error && property && similar.length > 0 && (
@@ -451,31 +410,3 @@ export default function PropertyPage() {
     </div>
   );
 }
-
-function Field({
-  icon,
-  value,
-  onChange,
-  placeholder,
-  type,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  type: string;
-}) {
-  return (
-    <div className="flex items-center gap-2 rounded-2xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5">
-      <span className="shrink-0">{icon}</span>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        type={type}
-        className="w-full bg-transparent text-sm font-medium text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none"
-      />
-    </div>
-  );
-}
-
