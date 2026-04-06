@@ -98,19 +98,45 @@ export default function AgentProfilePage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!agent?.user_id) return;
-      const { data } = await supabase
-        .from("properties")
-        .select("id, created_at, location, price, beds, baths, sqft, image_url")
-        .eq("listed_by", agent.user_id)
-        .order("created_at", { ascending: false });
+      if (!agent?.user_id || !agent?.id) return;
+
+      const [ownedRes, linksRes] = await Promise.all([
+        supabase
+          .from("properties")
+          .select("id, created_at, location, price, beds, baths, sqft, image_url")
+          .eq("listed_by", agent.user_id),
+        supabase.from("property_agents").select("property_id").eq("agent_id", agent.id),
+      ]);
+
       if (cancelled) return;
-      setListings((data ?? []) as unknown as ListingRow[]);
+
+      const owned = (ownedRes.data ?? []) as unknown as ListingRow[];
+      const linkIds = [...new Set((linksRes.data ?? []).map((r) => r.property_id).filter(Boolean))] as string[];
+
+      let linked: ListingRow[] = [];
+      if (linkIds.length > 0) {
+        const { data: linkedRows } = await supabase
+          .from("properties")
+          .select("id, created_at, location, price, beds, baths, sqft, image_url")
+          .in("id", linkIds);
+        if (!cancelled) linked = (linkedRows ?? []) as unknown as ListingRow[];
+      }
+
+      if (cancelled) return;
+
+      const byId = new Map<string, ListingRow>();
+      for (const row of [...owned, ...linked]) {
+        byId.set(row.id, row);
+      }
+      const merged = Array.from(byId.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+      setListings(merged);
     })();
     return () => {
       cancelled = true;
     };
-  }, [agent?.user_id]);
+  }, [agent?.user_id, agent?.id]);
 
   useEffect(() => {
     let cancelled = false;
