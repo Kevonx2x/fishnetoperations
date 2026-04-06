@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { addDays, isBefore, setHours, setMinutes, startOfDay } from "date-fns";
 import { X } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,7 @@ export function ViewingRequestModal({
   agentUserId: string | null;
 }) {
   const { user, profile, loading: authLoading } = useAuth();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const titleId = useId();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -115,7 +116,7 @@ export function ViewingRequestModal({
   const submit = async () => {
     setError(null);
     setNotifyWarning(null);
-    if (!user) {
+    if (!user?.id) {
       setError("Please sign in to submit a viewing request.");
       return;
     }
@@ -138,6 +139,7 @@ export function ViewingRequestModal({
     setBusy(true);
     try {
       const scheduledAt = toScheduledIso(date, hour);
+      console.log("[ViewingRequestModal] insert session user id:", user?.id);
       const { data: row, error: insErr } = await supabase
         .from("viewing_requests")
         .insert({
