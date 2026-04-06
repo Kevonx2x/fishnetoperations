@@ -174,25 +174,21 @@ function AgentsList({
               ) : null}
               <div className="mt-2 space-y-2">
                 <div>
-                  <AgentAvailabilityBadge availability={a.availability} />
+                  <AgentAvailabilityBadge availability={a.availability} updatedAt={a.updatedAt} />
                 </div>
-                {isLoggedIn ? (
-                  <button
-                    type="button"
-                    onClick={() => onContactAgent(a)}
-                    className="rounded-lg bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
-                  >
-                    Contact
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => onSignInPrompt()}
-                    className="text-left text-[11px] font-semibold text-[#2C2C2C]/55 underline decoration-[#2C2C2C]/25 underline-offset-2 hover:text-[#2C2C2C]"
-                  >
-                    Sign in to contact
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isLoggedIn) {
+                      onSignInPrompt();
+                      return;
+                    }
+                    onContactAgent(a);
+                  }}
+                  className="rounded-lg bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                >
+                  Contact
+                </button>
               </div>
             </div>
           </div>

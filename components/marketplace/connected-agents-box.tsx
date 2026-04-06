@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
+import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
 
 export function ConnectedAgentsBox({
   title = "Connected Agents",
@@ -87,8 +88,8 @@ export function ConnectedAgentsBox({
                     )}
                     <VerifiedAgentBadge show />
                   </div>
-                  <div className="mt-1 text-[11px] font-semibold text-[#2C2C2C]/60">
-                    {a.availability || "Available"}
+                  <div className="mt-1">
+                    <AgentAvailabilityBadge availability={a.availability} updatedAt={a.updatedAt} />
                   </div>
                 </div>
               </div>

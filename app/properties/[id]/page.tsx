@@ -115,7 +115,7 @@ export default function PropertyPage() {
           listing_agent:profiles!listed_by (id, full_name, avatar_url),
           property_agents (
             agent:agents (
-              id, user_id, name, email, phone, image_url, score, closings, response_time, availability,
+              id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at,
               verified, status,
               brokers (id, company_name, logo_url),
               profiles(email, phone)
@@ -461,26 +461,20 @@ export default function PropertyPage() {
                               ) : null}
                             </div>
                             <div className="mt-3">
-                              {isLoggedIn ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setContactModalAgent(a);
-                                    setShowContactModal(true);
-                                  }}
-                                  className="inline-flex rounded-lg bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
-                                >
-                                  Contact
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setSignInPromptOpen(true)}
-                                  className="text-left text-xs font-semibold text-[#2C2C2C]/55 underline decoration-[#2C2C2C]/25 underline-offset-2 hover:text-[#2C2C2C]"
-                                >
-                                  Sign in to contact
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!isLoggedIn) {
+                                    setSignInPromptOpen(true);
+                                    return;
+                                  }
+                                  setContactModalAgent(a);
+                                  setShowContactModal(true);
+                                }}
+                                className="inline-flex rounded-lg bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                              >
+                                Contact
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -531,9 +525,12 @@ export default function PropertyPage() {
                     <p className="mt-0.5 text-xs font-semibold text-[#2C2C2C]/60">
                       {listingAgent.company || listingAgent.brokerName}
                     </p>
-                    <p className="mt-2 text-xs font-semibold text-[#2C2C2C]/60">
-                      {listingAgent.availability || "Available"}
-                    </p>
+                    <div className="mt-2">
+                      <AgentAvailabilityBadge
+                        availability={listingAgent.availability}
+                        updatedAt={listingAgent.updatedAt}
+                      />
+                    </div>
                   </div>
                 ) : null}
 

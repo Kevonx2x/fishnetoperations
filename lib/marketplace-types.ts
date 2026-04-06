@@ -8,6 +8,8 @@ export interface MarketplaceAgent {
   closings: number;
   responseTime: string;
   availability: string;
+  /** From `agents.updated_at` when loaded from DB. */
+  updatedAt: string;
   brokerId: string | null;
   brokerName: string;
   brokerLogo: string;
@@ -49,6 +51,7 @@ type SupabaseAgentsRow = {
   closings?: number | string | null;
   response_time?: string | null;
   availability?: string | null;
+  updated_at?: string | null;
   verified?: boolean | null;
   status?: string | null;
   brokers?: SupabaseBrokersJoin;
@@ -78,6 +81,7 @@ export function mapRowToMarketplaceAgent(row: SupabaseAgentsRow): MarketplaceAge
     closings: Math.round(safeNumber(row.closings)),
     responseTime: safeString(row.response_time),
     availability: safeString(row.availability),
+    updatedAt: safeString(row.updated_at),
     brokerId: typeof brokers?.id === "string" ? brokers.id : null,
     brokerName: safeString(brokers?.company_name),
     brokerLogo: safeString(brokers?.logo_url),

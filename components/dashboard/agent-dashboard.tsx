@@ -29,6 +29,10 @@ import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { formatLicenseDate } from "@/lib/license-expiry";
 import { listingLimitForTier } from "@/lib/agent-listing-limits";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
+import {
+  AGENT_AVAILABILITY_NOW,
+  AGENT_AVAILABILITY_OFFLINE,
+} from "@/components/marketplace/agent-availability-badge";
 import { AgentAvailabilitySchedule } from "@/components/dashboard/agent-availability-schedule";
 
 type Tab = "overview" | "leads" | "viewings" | "listings" | "profile" | "analytics" | "notifications";
@@ -52,6 +56,8 @@ type AgentRow = {
   closings?: number | null;
   listing_tier?: string | null;
   availability_schedule?: unknown;
+  availability?: string | null;
+  updated_at?: string | null;
 };
 
 type LeadRow = {
@@ -122,6 +128,8 @@ export function AgentDashboard() {
   const [selectedLead, setSelectedLead] = useState<LeadRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null);
+  const [deletingLeadId, setDeletingLeadId] = useState<number | null>(null);
 
   const [profileForm, setProfileForm] = useState({
     name: "",
@@ -307,6 +315,39 @@ export function AgentDashboard() {
     }
     setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, stage } : l)));
     setSelectedLead((s) => (s && s.id === leadId ? { ...s, stage } : s));
+  };
+
+  const deleteListing = async (propertyId: string) => {
+    if (!user?.id) return;
+    if (!confirm("Are you sure? This cannot be undone.")) return;
+    setDeletingPropertyId(propertyId);
+    const { error } = await supabase
+      .from("properties")
+      .delete()
+      .eq("id", propertyId)
+      .eq("listed_by", user.id);
+    setDeletingPropertyId(null);
+    if (error) {
+      setMsg(error.message);
+      return;
+    }
+    setMsg("Listing deleted.");
+    await loadData();
+  };
+
+  const deleteLead = async (leadId: number) => {
+    if (!user?.id) return;
+    if (!confirm("Are you sure? This cannot be undone.")) return;
+    setDeletingLeadId(leadId);
+    const { error } = await supabase.from("leads").delete().eq("id", leadId).eq("agent_id", user.id);
+    setDeletingLeadId(null);
+    if (error) {
+      setMsg(error.message);
+      return;
+    }
+    setLeads((prev) => prev.filter((l) => l.id !== leadId));
+    setSelectedLead((s) => (s?.id === leadId ? null : s));
+    setMsg("Lead removed.");
   };
 
   const createListing = async (e: React.FormEvent) => {
@@ -497,7 +538,13 @@ export function AgentDashboard() {
               )}
               {tab === "leads" && approved && (
                 <>
-                  <LeadsTab leads={leads} onSelect={setSelectedLead} onStageChange={updateLeadStage} />
+                  <LeadsTab
+                    leads={leads}
+                    onSelect={setSelectedLead}
+                    onStageChange={updateLeadStage}
+                    onDeleteLead={deleteLead}
+                    deletingLeadId={deletingLeadId}
+                  />
                   <AgentLeadTemplatesSection
                     leadEmail={selectedLead?.email}
                     leadName={selectedLead?.name}
@@ -535,6 +582,8 @@ export function AgentDashboard() {
                   saving={saving}
                   listingLimit={listingLimit}
                   onOpenNewListing={openNewListingFlow}
+                  onDeleteProperty={deleteListing}
+                  deletingPropertyId={deletingPropertyId}
                 />
               )}
               {tab === "listings" && !approved && (
@@ -543,7 +592,7 @@ export function AgentDashboard() {
               {tab === "notifications" && user && (
                 <AgentNotificationsTab userId={user.id} supabase={supabase} />
               )}
-              {tab === "profile" && user && (
+              {tab === "profile" && user && agent && (
                 <ProfileTab
                   agent={agent}
                   profileForm={profileForm}
@@ -554,7 +603,11 @@ export function AgentDashboard() {
                   supabase={supabase}
                   userId={user.id}
                   onAvailabilitySaved={loadData}
+                  onAvailabilityMessage={setMsg}
                 />
+              )}
+              {tab === "profile" && user && !agent && loaded && (
+                <p className="text-sm font-semibold text-[#2C2C2C]/55">No agent profile found.</p>
               )}
             </motion.div>
           </AnimatePresence>
@@ -766,17 +819,21 @@ function LeadsTab({
   leads,
   onSelect,
   onStageChange,
+  onDeleteLead,
+  deletingLeadId,
 }: {
   leads: LeadRow[];
   onSelect: (l: LeadRow) => void;
   onStageChange: (id: number, stage: string) => void;
+  onDeleteLead: (id: number) => void | Promise<void>;
+  deletingLeadId: number | null;
 }) {
   return (
     <div>
       <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Leads</h1>
       <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Manage pipeline and follow-ups.</p>
       <div className="mt-6 overflow-x-auto rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="w-full min-w-[800px] text-left text-sm">
           <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
             <tr>
               <th className="px-4 py-3 font-bold text-[#2C2C2C]">Client</th>
@@ -785,6 +842,7 @@ function LeadsTab({
               <th className="px-4 py-3 font-bold text-[#2C2C2C]">Interest</th>
               <th className="px-4 py-3 font-bold text-[#2C2C2C]">Date</th>
               <th className="px-4 py-3 font-bold text-[#2C2C2C]">Status</th>
+              <th className="px-4 py-3 text-right font-bold text-[#2C2C2C]">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -814,6 +872,16 @@ function LeadsTab({
                     ))}
                   </select>
                 </td>
+                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    disabled={deletingLeadId === l.id}
+                    onClick={() => void onDeleteLead(l.id)}
+                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-800 hover:bg-red-100 disabled:opacity-50"
+                  >
+                    {deletingLeadId === l.id ? "Deleting…" : "Delete"}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -836,6 +904,8 @@ function ListingsTab({
   saving,
   listingLimit,
   onOpenNewListing,
+  onDeleteProperty,
+  deletingPropertyId,
 }: {
   properties: PropertyRow[];
   listingOpen: boolean;
@@ -857,6 +927,8 @@ function ListingsTab({
   saving: boolean;
   listingLimit: number;
   onOpenNewListing: () => void;
+  onDeleteProperty: (id: string) => void | Promise<void>;
+  deletingPropertyId: string | null;
 }) {
   return (
     <div>
@@ -877,22 +949,34 @@ function ListingsTab({
       </div>
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {properties.map((p) => (
-          <Link
+          <div
             key={p.id}
-            href={`/properties/${encodeURIComponent(p.id)}`}
-            className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm transition hover:shadow-md"
+            className="relative overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm transition hover:shadow-md"
           >
-            <div className="relative h-40 w-full bg-black/5">
-              <Image src={p.image_url} alt="" fill className="object-cover" sizes="400px" />
-              <span className="absolute left-2 top-2 rounded-full bg-[#6B9E6E] px-2 py-1 text-[10px] font-bold text-white">
-                {p.status === "for_rent" ? "For Rent" : "For Sale"}
-              </span>
-            </div>
-            <div className="p-4">
-              <p className="font-semibold text-[#2C2C2C]">{p.location}</p>
-              <p className="mt-1 font-serif text-lg font-bold text-[#2C2C2C]">{p.price}</p>
-            </div>
-          </Link>
+            <Link href={`/properties/${encodeURIComponent(p.id)}`} className="block">
+              <div className="relative h-40 w-full bg-black/5">
+                <Image src={p.image_url} alt="" fill className="object-cover" sizes="400px" />
+                <span className="absolute left-2 top-2 rounded-full bg-[#6B9E6E] px-2 py-1 text-[10px] font-bold text-white">
+                  {p.status === "for_rent" ? "For Rent" : "For Sale"}
+                </span>
+              </div>
+              <div className="p-4">
+                <p className="font-semibold text-[#2C2C2C]">{p.location}</p>
+                <p className="mt-1 font-serif text-lg font-bold text-[#2C2C2C]">{p.price}</p>
+              </div>
+            </Link>
+            <button
+              type="button"
+              disabled={deletingPropertyId === p.id}
+              onClick={(e) => {
+                e.preventDefault();
+                void onDeleteProperty(p.id);
+              }}
+              className="absolute right-2 top-2 z-10 rounded-full border border-red-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-red-800 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {deletingPropertyId === p.id ? "Deleting…" : "Delete"}
+            </button>
+          </div>
         ))}
       </div>
 
@@ -1051,6 +1135,7 @@ function ProfileTab({
   supabase,
   userId,
   onAvailabilitySaved,
+  onAvailabilityMessage,
 }: {
   agent: AgentRow;
   profileForm: {
@@ -1071,7 +1156,27 @@ function ProfileTab({
   supabase: ReturnType<typeof createSupabaseBrowserClient>;
   userId: string;
   onAvailabilitySaved: () => void | Promise<void>;
+  onAvailabilityMessage: (msg: string) => void;
 }) {
+  const [availSaving, setAvailSaving] = useState(false);
+  const showAvailableNow = agent.availability?.trim() === AGENT_AVAILABILITY_NOW;
+
+  const setAvailableNow = async (on: boolean) => {
+    setAvailSaving(true);
+    onAvailabilityMessage("");
+    const { error } = await supabase
+      .from("agents")
+      .update({ availability: on ? AGENT_AVAILABILITY_NOW : AGENT_AVAILABILITY_OFFLINE })
+      .eq("user_id", userId);
+    setAvailSaving(false);
+    if (error) {
+      onAvailabilityMessage(error.message);
+      return;
+    }
+    onAvailabilityMessage(on ? "You’re shown as Available Now on listings." : "You’re shown as Offline. Last seen was updated.");
+    await onAvailabilitySaved();
+  };
+
   return (
     <div>
       <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Profile settings</h1>
@@ -1095,6 +1200,30 @@ function ProfileTab({
               />
             </label>
           </div>
+        </div>
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-4 py-3">
+          <div>
+            <p className="text-sm font-bold text-[#2C2C2C]">Show as Available Now</p>
+            <p className="mt-0.5 text-xs font-semibold text-[#2C2C2C]/55">
+              When off, buyers see you as Offline with last seen time.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={showAvailableNow}
+            disabled={availSaving}
+            onClick={() => void setAvailableNow(!showAvailableNow)}
+            className={`relative h-9 w-14 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:opacity-50 ${
+              showAvailableNow ? "bg-[#6B9E6E]" : "bg-[#2C2C2C]/20"
+            }`}
+          >
+            <span
+              className={`absolute top-1 left-1 h-7 w-7 rounded-full bg-white shadow transition-transform ${
+                showAvailableNow ? "translate-x-5" : "translate-x-0"
+              }`}
+            />
+          </button>
         </div>
         <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
           Name

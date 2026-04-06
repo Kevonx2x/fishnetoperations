@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Calendar, Zap } from "lucide-react";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import { AgentAvatarFill, agentAvatarInitials } from "@/components/marketplace/agent-avatar";
+import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
 
 export function MaddenAgentRow({
   agent,
@@ -18,8 +19,7 @@ export function MaddenAgentRow({
   locationLine?: string;
   onAvailable: () => void;
 }) {
-  const availability = agent.availability?.trim() ?? "";
-  const isNow = /available\s*now|now\b/i.test(availability);
+  const isNow = agent.availability?.trim() === "Available Now";
   const c = (connected ?? []).slice(0, 8);
 
   return (
@@ -83,9 +83,9 @@ export function MaddenAgentRow({
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E]/12 px-2.5 py-1 text-xs font-semibold text-[#2C2C2C]/70">
-              <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" />
-              {availability || "Schedule available"}
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E]/12 px-2.5 py-1">
+              <Calendar className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E]" />
+              <AgentAvailabilityBadge availability={agent.availability} updatedAt={agent.updatedAt} />
             </span>
 
             <motion.button
