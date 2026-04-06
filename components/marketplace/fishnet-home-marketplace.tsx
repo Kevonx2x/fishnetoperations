@@ -1313,27 +1313,28 @@ export function NewlyListedCard({
             <div className="space-y-2">
               {agentRows.map((row, idx) =>
                 row.kind === "agent" ? (
-                  <div key={row.agent.id} className="flex items-center gap-2.5">
-                    <Link
-                      href={`/agents/${encodeURIComponent(row.agent.id)}`}
-                      className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10"
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                  <Link
+                    key={row.agent.id}
+                    href={`/agents/${encodeURIComponent(row.agent.id)}`}
+                    title={row.agent.name}
+                    onClick={(e) => e.stopPropagation()}
+                    className="group flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-0.5 -mx-1 transition-colors duration-150 ease-out hover:bg-[#6B9E6E15]"
+                  >
+                    <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
                       <AgentAvatarFill name={row.agent.name} imageUrl={row.agent.image} sizes="28px" />
-                    </Link>
-                    <Link
-                      href={`/agents/${encodeURIComponent(row.agent.id)}`}
-                      className="min-w-0 flex-1 truncate text-xs font-semibold text-[#2C2C2C] hover:underline hover:decoration-[#D4A843]/60 hover:underline-offset-4"
-                      title={row.agent.name}
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                    </div>
+                    <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#2C2C2C]/75 transition-colors duration-150 ease-out group-hover:text-[#2C2C2C]">
                       {row.agent.name.length > 12 ? `${row.agent.name.slice(0, 12)}…` : row.agent.name}
-                    </Link>
+                    </span>
                     <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
-                    <span className="ml-auto text-xs font-bold text-[#2C2C2C]">
+                    <span className="shrink-0 text-xs font-bold text-[#2C2C2C]/80 transition-colors duration-150 ease-out group-hover:text-[#2C2C2C]">
                       {Math.round(row.agent.score)}
                     </span>
-                  </div>
+                    <ChevronRight
+                      className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E] opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100"
+                      aria-hidden
+                    />
+                  </Link>
                 ) : (
                   <div key={`placeholder-${idx}`} className="flex items-center gap-2.5">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] ring-1 ring-black/10">
