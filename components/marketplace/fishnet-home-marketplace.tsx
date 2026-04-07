@@ -35,6 +35,7 @@ import { listingListedLabel } from "@/lib/listing-listed-time";
 import { AgentSlotPlaceholder } from "@/components/marketplace/agent-slot-placeholder";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
+import { cn } from "@/lib/utils";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { roomUrlsFor } from "@/lib/marketplace-property";
@@ -1099,20 +1100,20 @@ function CategorySection({
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
       </div>
 
-      <div className="mt-4 flex items-stretch gap-1 sm:gap-2">
+      <div className="mt-4 flex items-stretch gap-1 md:gap-2">
         <button
           type="button"
           onClick={() => scrollRow(sectionRef, "prev")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 sm:flex"
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
           aria-label="Scroll left"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div
           ref={sectionRef}
-          className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide max-md:overflow-visible"
+          className="min-w-0 flex-1 touch-pan-x overflow-x-auto pb-2 [-webkit-overflow-scrolling:touch] scrollbar-hide"
         >
-          <div className="grid grid-cols-1 gap-4 md:min-w-[1080px] md:grid-cols-5 md:gap-3">
+          <div className="flex w-max flex-nowrap gap-3">
             {visible.map((p) => (
               <NewlyListedCard
                 key={`${title}-${p.id}`}
@@ -1148,7 +1149,7 @@ function CategorySection({
         <button
           type="button"
           onClick={() => scrollRow(sectionRef, "next")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 sm:flex"
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
           aria-label="Scroll right"
         >
           <ChevronRight className="h-4 w-4" />
@@ -1233,6 +1234,7 @@ export function NewlyListedCard({
   connectedAgents,
   onOpenPropertyZoom,
   grid,
+  gridCardClassName,
   cardWidthClass,
   viewerUserId,
   compact,
@@ -1248,6 +1250,8 @@ export function NewlyListedCard({
   connectedAgents: MarketplaceAgent[];
   onOpenPropertyZoom: () => void;
   grid?: boolean;
+  /** When `grid` is true: widths for horizontal category rows (mobile peek + desktop columns). */
+  gridCardClassName?: string;
   cardWidthClass?: string;
   viewerUserId?: string | null;
   /** Smaller image + type for 5-across carousels */
@@ -1281,9 +1285,12 @@ export function NewlyListedCard({
   const titleLine = property.name?.trim() || property.location;
   return (
     <div
-      className={`overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md ${
-        grid ? "" : `${cardWidthClass ?? "w-[300px]"} shrink-0`
-      }`}
+      className={cn(
+        "overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md",
+        grid
+          ? gridCardClassName ?? "w-[260px] shrink-0 md:w-[280px] lg:w-[300px]"
+          : cn(cardWidthClass ?? "w-[300px]", "shrink-0"),
+      )}
     >
       <div className={`relative w-full overflow-hidden bg-neutral-900 ${imgH}`}>
         <Image
@@ -1292,7 +1299,7 @@ export function NewlyListedCard({
           fill
           quality={92}
           className="object-cover"
-          sizes={grid ? "(min-width: 1024px) 320px, 100vw" : compact ? "300px" : "360px"}
+          sizes={grid ? "(min-width: 1024px) 300px, (min-width: 768px) 280px, 260px" : compact ? "300px" : "360px"}
         />
         <button
           type="button"
@@ -1667,7 +1674,7 @@ function RowCarousel({
   const list = items.slice(0, 12);
   const placeholderCount = list.length > 0 && list.length < 5 ? 5 - list.length : 0;
   const featuredClasses = featured ? "rounded-2xl border border-[#D4A843]/30 bg-[#D4A843]/5 px-3 pt-3" : "";
-  const cardWidthClass = "w-full max-w-full md:w-[280px] md:max-w-[300px] md:shrink-0";
+  const cardWidthClass = "w-[260px] shrink-0 md:w-[280px] lg:w-[300px]";
 
   return (
     <div className={featuredClasses}>
@@ -1679,11 +1686,11 @@ function RowCarousel({
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
       </div>
 
-      <div className="flex items-stretch gap-1 sm:gap-2">
+      <div className="flex items-stretch gap-1 md:gap-2">
         <button
           type="button"
           onClick={() => scroll("prev")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 sm:flex"
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
           aria-label="Scroll left"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -1692,9 +1699,9 @@ function RowCarousel({
           ref={(el) => {
             rowRefs.current[rowKey] = el;
           }}
-          className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide max-md:overflow-visible"
+          className="min-w-0 flex-1 touch-pan-x overflow-x-auto pb-2 [-webkit-overflow-scrolling:touch] scrollbar-hide"
         >
-          <div className="flex flex-col gap-4 md:flex-row md:gap-3">
+          <div className="flex w-max flex-nowrap gap-3">
             {list.map((p) => (
               <NewlyListedCard
                 key={`${rowKey}-${p.id}`}
@@ -1733,7 +1740,7 @@ function RowCarousel({
         <button
           type="button"
           onClick={() => scroll("next")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 sm:flex"
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
           aria-label="Scroll right"
         >
           <ChevronRight className="h-4 w-4" />
