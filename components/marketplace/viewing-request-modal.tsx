@@ -165,15 +165,31 @@ export function ViewingRequestModal({
       if (insErr) throw insErr;
       if (!row?.id) throw new Error("Could not create request.");
 
+      const viewingRequestId = row.id;
+      console.log("[ViewingRequestModal] viewing request inserted successfully, viewingRequestId:", viewingRequestId);
+
       const res = await fetch("/api/create-lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ source: "viewing_request", viewingRequestId: row.id }),
+        body: JSON.stringify({ source: "viewing_request", viewingRequestId }),
+      });
+
+      const responseText = await res.text();
+      let responseBody: unknown = responseText;
+      try {
+        responseBody = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        /* keep raw text */
+      }
+      console.log("[ViewingRequestModal] /api/create-lead response:", {
+        status: res.status,
+        ok: res.ok,
+        body: responseBody,
       });
 
       if (!res.ok) {
-        const j = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        const j = responseBody as { error?: { message?: string } } | null;
         setNotifyWarning(
           j?.error?.message ??
             "Your request was saved, but we could not notify the agent automatically.",

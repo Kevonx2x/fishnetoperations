@@ -125,6 +125,9 @@ function ViewingCard({
 
   const combined = useMemo(() => applySlot(date, slot), [date, slot]);
 
+  const statusLower = v.status.toLowerCase();
+  const isPending = statusLower === "pending";
+
   const runAction = async (action: "confirm" | "decline") => {
     onBusy(true);
     try {
@@ -161,87 +164,106 @@ function ViewingCard({
           <p className="text-xs font-semibold text-[#2C2C2C]/45">{v.client_email}</p>
           <p className="mt-1 text-sm font-bold text-[#D4A843]">{propertyLabel}</p>
         </div>
-        <span className="ml-auto rounded-full bg-[#6B9E6E]/12 px-2 py-1 text-xs font-bold text-[#2C2C2C]/70">
-          {v.status}
-        </span>
+        {statusLower === "confirmed" ? (
+          <span className="ml-auto shrink-0 rounded-full bg-[#6B9E6E]/20 px-2.5 py-1 text-xs font-bold text-[#2d5a30]">
+            Confirmed
+          </span>
+        ) : statusLower === "declined" ? (
+          <span className="ml-auto shrink-0 rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-900">
+            Declined
+          </span>
+        ) : (
+          <span className="ml-auto shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-950">
+            {v.status}
+          </span>
+        )}
       </div>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Date</p>
-          <DatePicker
-            selected={date}
-            onChange={(d) => d && setDate(d)}
-            minDate={new Date()}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-            calendarClassName="rounded-xl border border-black/10 shadow-lg"
-            dateFormat="MMM d, yyyy"
-          />
-        </div>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Time</p>
-          <select
-            value={`${slot.h}:${slot.m}`}
-            onChange={(e) => {
-              const [h, m] = e.target.value.split(":").map(Number);
-              const found = TIME_SLOTS.find((s) => s.h === h && s.m === m);
-              if (found) setSlot(found);
-            }}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-          >
-            {TIME_SLOTS.map((s) => (
-              <option key={`${s.h}:${s.m}`} value={`${s.h}:${s.m}`}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Reminder (SMS)</p>
-          <select
-            value={reminder}
-            onChange={(e) => setReminder(Number(e.target.value))}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-          >
-            {REMINDER_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Client phone (SMS)</p>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+63…"
-            className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-          />
-        </div>
-      </div>
-      <p className="mt-3 text-xs font-semibold text-[#2C2C2C]/45">
-        Preview: {combined.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
-      </p>
+      {isPending ? (
+        <>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Date</p>
+              <DatePicker
+                selected={date}
+                onChange={(d) => d && setDate(d)}
+                minDate={new Date()}
+                className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                calendarClassName="rounded-xl border border-black/10 shadow-lg"
+                dateFormat="MMM d, yyyy"
+              />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Time</p>
+              <select
+                value={`${slot.h}:${slot.m}`}
+                onChange={(e) => {
+                  const [h, m] = e.target.value.split(":").map(Number);
+                  const found = TIME_SLOTS.find((s) => s.h === h && s.m === m);
+                  if (found) setSlot(found);
+                }}
+                className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+              >
+                {TIME_SLOTS.map((s) => (
+                  <option key={`${s.h}:${s.m}`} value={`${s.h}:${s.m}`}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Reminder (SMS)</p>
+              <select
+                value={reminder}
+                onChange={(e) => setReminder(Number(e.target.value))}
+                className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+              >
+                {REMINDER_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Client phone (SMS)</p>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+63…"
+                className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+              />
+            </div>
+          </div>
+          <p className="mt-3 text-xs font-semibold text-[#2C2C2C]/45">
+            Preview: {combined.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+          </p>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={saving || v.status === "confirmed"}
-          onClick={() => void runAction("confirm")}
-          className="rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
-        >
-          Confirm
-        </button>
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void runAction("decline")}
-          className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-800 disabled:opacity-50"
-        >
-          Decline
-        </button>
-      </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void runAction("confirm")}
+              className="rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+            >
+              Confirm
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void runAction("decline")}
+              className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-800 disabled:opacity-50"
+            >
+              Decline
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="mt-4 text-sm font-semibold text-[#2C2C2C]/70">
+          Scheduled:{" "}
+          {new Date(v.scheduled_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+        </p>
+      )}
     </li>
   );
 }

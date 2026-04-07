@@ -32,6 +32,27 @@ function esc(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+async function findExistingLeadIdForViewingDedupe(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  clientId: string,
+  agentUserId: string,
+  propertyId: string | null,
+): Promise<number | null> {
+  let q = admin.from("leads").select("id").eq("client_id", clientId).eq("agent_id", agentUserId);
+  if (propertyId) {
+    q = q.eq("property_id", propertyId);
+  } else {
+    q = q.is("property_id", null);
+  }
+  const { data, error } = await q.maybeSingle();
+  if (error) {
+    console.warn("[create-lead] viewing_request: could not resolve existing lead id for duplicate", error);
+    return null;
+  }
+  const id = (data as { id?: number } | null)?.id;
+  return id != null ? Number(id) : null;
+}
+
 function formatSlot(iso: string): { date: string; time: string; combined: string } {
   const d = new Date(iso);
   return {
@@ -83,17 +104,31 @@ export async function POST(req: Request) {
     }
 
     if (parsed.data.source === "viewing_request") {
+      const viewingRequestId = parsed.data.viewingRequestId;
+      console.log("[create-lead] viewing_request: loading row", { viewingRequestId });
+
       const { data: vr, error: vrErr } = await admin
         .from("viewing_requests")
         .select(
           "id, client_name, client_email, client_phone, scheduled_at, notes, agent_user_id, property_id, client_user_id",
         )
-        .eq("id", parsed.data.viewingRequestId)
+        .eq("id", viewingRequestId)
         .maybeSingle();
 
-      if (vrErr || !vr) {
+      if (vrErr) {
+        console.error("[create-lead] viewing_request: failed to load viewing_requests row", vrErr);
         return fail("NOT_FOUND", "Viewing request not found", 404);
       }
+      if (!vr) {
+        console.warn("[create-lead] viewing_request: no row returned for id", viewingRequestId);
+        return fail("NOT_FOUND", "Viewing request not found", 404);
+      }
+
+      console.log("[create-lead] viewing_request: row loaded", {
+        id: (vr as { id: string }).id,
+        agent_user_id: (vr as { agent_user_id: string }).agent_user_id,
+        property_id: (vr as { property_id: string | null }).property_id,
+      });
 
       const vrRow = vr as {
         client_email: string;
@@ -110,6 +145,12 @@ export async function POST(req: Request) {
         vrRow.client_email.trim().toLowerCase() === clientEmail.toLowerCase() ||
         (vrRow.client_user_id && vrRow.client_user_id === session.userId);
       if (!emailMatch) {
+        console.warn("[create-lead] viewing_request: session email does not match viewing row", {
+          sessionEmail: clientEmail,
+          vrClientEmail: vrRow.client_email,
+          vrClientUserId: vrRow.client_user_id,
+          sessionUserId: session.userId,
+        });
         return fail("FORBIDDEN", "Not allowed", 403);
       }
 
@@ -136,49 +177,91 @@ export async function POST(req: Request) {
         vrRow.notes ? `Notes: ${vrRow.notes}` : null,
       ].filter(Boolean);
 
-    const { data: inserted, error: insErr } = await admin
-      .from("leads")
-      .insert({
-        name: vrRow.client_name.trim() || clientName,
-        email: vrRow.client_email.trim(),
-        phone: vrRow.client_phone?.trim() || clientPhone,
-        property_interest: propertyLabel,
-        message: messageParts.join("\n"),
-        agent_id: agentUserId,
-        client_id: session.userId,
-        source: "viewing_request",
-        stage: NEW_LEAD_STAGE,
-        property_id: propertyId,
-      })
-      .select("id")
-      .maybeSingle();
-
-    if (insErr) {
-      if (insErr.code === "23505") {
-        return ok({ created: false, duplicate: true });
-      }
-      return fail("DATABASE_ERROR", insErr.message, 500);
-    }
-
-    const leadId = inserted?.id;
-    if (leadId === undefined || leadId === null) {
-      return ok({ created: false, duplicate: true });
-    }
-
-    await notifyAgentNewLead(admin, {
-      agentUserId,
-      leadId: Number(leadId),
+      const notifyArgs = {
+        agentUserId,
         clientName: vrRow.client_name.trim() || clientName,
         propertyLabel,
         clientEmail: vrRow.client_email.trim(),
         clientPhone: vrRow.client_phone,
-        sourceLabel: "viewing_request",
+        sourceLabel: "viewing_request" as const,
         extraEmailHtml: `
           <p><strong>Preferred date:</strong> ${esc(slot.date)}</p>
           <p><strong>Preferred time:</strong> ${esc(slot.time)}</p>
           ${vrRow.notes ? `<p style="white-space:pre-wrap"><strong>Message:</strong> ${esc(vrRow.notes)}</p>` : ""}
         `,
         smsSuffix: ` Viewing: ${slot.combined}.`,
+      };
+
+      const { data: inserted, error: insErr } = await admin
+        .from("leads")
+        .insert({
+          name: vrRow.client_name.trim() || clientName,
+          email: vrRow.client_email.trim(),
+          phone: vrRow.client_phone?.trim() || clientPhone,
+          property_interest: propertyLabel,
+          message: messageParts.join("\n"),
+          agent_id: agentUserId,
+          client_id: session.userId,
+          source: "viewing_request",
+          stage: NEW_LEAD_STAGE,
+          property_id: propertyId,
+        })
+        .select("id")
+        .maybeSingle();
+
+      if (insErr) {
+        console.error("[create-lead] viewing_request: leads insert failed", {
+          message: insErr.message,
+          code: insErr.code,
+          details: insErr.details,
+        });
+        if (insErr.code === "23505") {
+          const existingLeadId = await findExistingLeadIdForViewingDedupe(
+            admin,
+            session.userId,
+            agentUserId,
+            propertyId,
+          );
+          const leadIdForNotify = existingLeadId ?? 0;
+          console.log("[create-lead] viewing_request: duplicate lead — still notifying agent", {
+            agent_user_id_to_notify: agentUserId,
+            leadIdForNotify,
+            viewingRequestId,
+          });
+          await notifyAgentNewLead(admin, {
+            ...notifyArgs,
+            leadId: leadIdForNotify,
+          });
+          return ok({ created: false, duplicate: true });
+        }
+        return fail("DATABASE_ERROR", insErr.message, 500);
+      }
+
+      const leadId = inserted?.id;
+      if (leadId === undefined || leadId === null) {
+        console.warn("[create-lead] viewing_request: lead insert returned no id (treating as duplicate)");
+        const existingLeadId = await findExistingLeadIdForViewingDedupe(
+          admin,
+          session.userId,
+          agentUserId,
+          propertyId,
+        );
+        const leadIdForNotify = existingLeadId ?? 0;
+        await notifyAgentNewLead(admin, {
+          ...notifyArgs,
+          leadId: leadIdForNotify,
+        });
+        return ok({ created: false, duplicate: true });
+      }
+
+      console.log("[create-lead] viewing_request: lead created, notifying agent", {
+        agent_user_id_to_notify: agentUserId,
+        leadId,
+      });
+
+      await notifyAgentNewLead(admin, {
+        ...notifyArgs,
+        leadId: Number(leadId),
       });
 
       return ok({ created: true, leadId });
@@ -249,6 +332,7 @@ export async function POST(req: Request) {
 }
 
 async function notifyAgentNewLead(
+  /** Service-role client only — bypasses RLS on `notifications` (requires SUPABASE_SERVICE_ROLE_KEY). */
   admin: ReturnType<typeof createSupabaseAdmin>,
   args: {
     agentUserId: string;
@@ -276,19 +360,42 @@ async function notifyAgentNewLead(
     smsSuffix,
   } = args;
 
-  const { error: nErr } = await admin.from("notifications").insert({
-    user_id: agentUserId,
-    type: "new_lead",
-    title: "New Lead",
-    body: `${clientName} is interested in ${propertyLabel}`,
-    metadata: {
-      lead_id: leadId,
-      source: sourceLabel,
-      channel: channel ?? null,
-    },
+  const serviceRoleConfigured = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  console.log("[create-lead] notifyAgentNewLead: using service-role admin client for notifications insert", {
+    serviceRoleKeyConfigured: serviceRoleConfigured,
+    notifyUserId: agentUserId,
+    leadId,
+    sourceLabel,
   });
+
+  const { data: notifRows, error: nErr } = await admin
+    .from("notifications")
+    .insert({
+      user_id: agentUserId,
+      type: "new_lead",
+      title: "New Lead",
+      body: `${clientName} is interested in ${propertyLabel}`,
+      metadata: {
+        lead_id: leadId,
+        source: sourceLabel,
+        channel: channel ?? null,
+      },
+    })
+    .select("id")
+    .single();
+
   if (nErr) {
-    console.error("[create-lead] notification insert", nErr);
+    console.error("[create-lead] notification insert failed", {
+      message: nErr.message,
+      code: nErr.code,
+      details: nErr.details,
+      hint: nErr.hint,
+    });
+  } else {
+    console.log("[create-lead] notification insert ok", {
+      notificationId: (notifRows as { id?: string } | null)?.id ?? null,
+      user_id: agentUserId,
+    });
   }
 
   const { data: agent } = await admin

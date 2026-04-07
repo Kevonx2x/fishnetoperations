@@ -11,6 +11,7 @@ import { roomUrlsFor } from "@/lib/marketplace-property";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { AgentSlotPlaceholderModal } from "@/components/marketplace/agent-slot-placeholder";
+import { ViewingAgentPickerModal } from "@/components/marketplace/viewing-agent-picker-modal";
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
 import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
 import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
@@ -320,18 +321,20 @@ function BottomActions({
   onToggleSaved,
   onRequestViewing,
   authLoading,
+  requestDisabled,
 }: {
   isSaved: boolean;
   onToggleSaved: () => void;
   onRequestViewing: () => void;
   authLoading: boolean;
+  requestDisabled: boolean;
 }) {
   return (
     <div className="shrink-0 space-y-2 border-t border-gray-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <button
         type="button"
         onClick={onRequestViewing}
-        disabled={authLoading}
+        disabled={requestDisabled}
         className="flex w-full cursor-pointer items-center justify-center rounded-xl bg-[#2C2C2C] py-3 text-sm font-bold text-white transition hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {authLoading ? "Loading…" : "Request Viewing"}
@@ -357,6 +360,8 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
     status: string;
   } | null>(null);
   const [showViewingModal, setShowViewingModal] = useState(false);
+  const [showAgentPicker, setShowAgentPicker] = useState(false);
+  const [selectedViewingAgentUserId, setSelectedViewingAgentUserId] = useState<string | null>(null);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactModalAgent, setContactModalAgent] = useState<MarketplaceAgent | null>(null);
@@ -401,7 +406,13 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
       setSignInPromptOpen(true);
       return;
     }
-    setShowViewingModal(true);
+    if (agents.length === 0) return;
+    if (agents.length === 1) {
+      setSelectedViewingAgentUserId(agents[0].userId);
+      setShowViewingModal(true);
+      return;
+    }
+    setShowAgentPicker(true);
   };
 
   useEffect(() => {
@@ -528,6 +539,7 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
             onToggleSaved={onToggleSaved}
             onRequestViewing={onRequestViewing}
             authLoading={authLoading}
+            requestDisabled={authLoading || agents.length === 0}
           />
         </div>
 
@@ -567,17 +579,31 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
               onToggleSaved={onToggleSaved}
               onRequestViewing={onRequestViewing}
               authLoading={authLoading}
+              requestDisabled={authLoading || agents.length === 0}
             />
           </div>
         </div>
       </motion.div>
     </motion.div>
+    <ViewingAgentPickerModal
+      open={showAgentPicker}
+      onOpenChange={setShowAgentPicker}
+      agents={agents}
+      onSelect={(a) => {
+        setSelectedViewingAgentUserId(a.userId);
+        setShowAgentPicker(false);
+        setShowViewingModal(true);
+      }}
+    />
     <ViewingRequestModal
       open={showViewingModal}
-      onOpenChange={setShowViewingModal}
+      onOpenChange={(open) => {
+        setShowViewingModal(open);
+        if (!open) setSelectedViewingAgentUserId(null);
+      }}
       propertyId={property.id}
       propertyTitle={propertyTitle}
-      agentUserId={agentUserId}
+      agentUserId={selectedViewingAgentUserId ?? agentUserId}
     />
     <SignInViewingPromptModal open={signInPromptOpen} onOpenChange={setSignInPromptOpen} />
     <AgentContactOptionsModal
