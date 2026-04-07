@@ -193,6 +193,33 @@ export function PropertyListingImagesInput({
     onChange(value.filter((_, i) => i !== index));
   };
 
+  const uploadZoneInner =
+    uploading ? (
+      <>
+        <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" />
+        <span className="text-xs font-semibold text-[#2C2C2C]/70">
+          Uploading {activeFile}/{totalFiles}…
+        </span>
+        <div className="h-1.5 w-full max-w-[200px] overflow-hidden rounded-full bg-[#EBE6DC]">
+          <div
+            className="h-full rounded-full bg-[#6B9E6E] transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </>
+    ) : (
+      <>
+        <div className="flex items-center gap-2 text-[#2C2C2C]/70">
+          <Upload className="h-5 w-5" />
+          <ImagePlus className="h-5 w-5" />
+        </div>
+        <span className="text-sm font-semibold text-[#2C2C2C]">Drop images here or click to browse</span>
+        <span className="text-xs font-semibold text-[#2C2C2C]/45">
+          {value.length}/{maxImages} used
+        </span>
+      </>
+    );
+
   return (
     <div className="space-y-2">
       <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
@@ -264,31 +291,7 @@ export function PropertyListingImagesInput({
             disabled={disabled || uploading}
             onChange={onPick}
           />
-          {uploading ? (
-            <>
-              <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" />
-              <span className="text-xs font-semibold text-[#2C2C2C]/70">
-                Uploading {activeFile}/{totalFiles}…
-              </span>
-              <div className="h-1.5 w-full max-w-[200px] overflow-hidden rounded-full bg-[#EBE6DC]">
-                <div
-                  className="h-full rounded-full bg-[#6B9E6E] transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 text-[#2C2C2C]/70">
-                <Upload className="h-5 w-5" />
-                <ImagePlus className="h-5 w-5" />
-              </div>
-              <span className="text-sm font-semibold text-[#2C2C2C]">Drop images here or click to browse</span>
-              <span className="text-xs font-semibold text-[#2C2C2C]/45">
-                {value.length}/{maxImages} used
-              </span>
-            </>
-          )}
+          {uploadZoneInner}
         </label>
       ) : (
         <p className="text-xs font-semibold text-[#2C2C2C]/45">Maximum {maxImages} images reached. Remove one to add more.</p>
