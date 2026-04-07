@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowDownRight,
   BadgeCheck,
   Calendar,
   CheckCircle2,
@@ -71,55 +70,28 @@ function SlideWelcome() {
   );
 }
 
-function AnimatedArrow({
-  variant = "down-right",
-  className,
-}: {
-  variant?: "down-right" | "up-left" | "down-left" | "up-right";
-  className?: string;
-}) {
-  const rotate =
-    variant === "down-right"
-      ? ""
-      : variant === "up-left"
-        ? "rotate-180"
-        : variant === "down-left"
-          ? "-scale-x-100"
-          : "-rotate-90";
-
+/** Mascot-style tip: white bubble, sage border, tail at bottom-left (guide “speaking”). */
+function GuideSpeechBubble({ text, className }: { text: string; className?: string }) {
   return (
     <motion.div
-      className={`flex items-center justify-center text-[#6B9E6E] ${className ?? ""}`}
-      animate={{ x: [0, 5, 0], y: [0, 4, 0] }}
-      transition={{ duration: 1.35, repeat: Infinity, ease: "easeInOut" }}
-      aria-hidden
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className={`relative max-w-[220px] sm:max-w-[240px] ${className ?? ""}`}
     >
-      <div className={`relative ${rotate}`}>
-        <ArrowDownRight className="h-9 w-9 drop-shadow-sm" strokeWidth={2.25} />
-        <span className="pointer-events-none absolute inset-0 rounded-full border-2 border-[#D4A843]/50" />
+      <div className="relative rounded-2xl border-2 border-[#6B9E6E] bg-white px-3.5 py-2.5 shadow-md shadow-black/8">
+        <p className="text-left text-[11px] font-bold leading-snug text-[#2C2C2C] sm:text-xs">{text}</p>
       </div>
+      {/* Bottom-left pointer */}
+      <div
+        className="pointer-events-none absolute -bottom-[7px] left-4 h-0 w-0 border-l-[8px] border-r-[8px] border-t-[9px] border-l-transparent border-r-transparent border-t-[#6B9E6E]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -bottom-[3px] left-[calc(1rem+2px)] h-0 w-0 border-l-[6px] border-r-[6px] border-t-[7px] border-l-transparent border-r-transparent border-t-white"
+        aria-hidden
+      />
     </motion.div>
-  );
-}
-
-function SageAnnotation({
-  text,
-  className,
-  arrow,
-  arrowClassName,
-}: {
-  text: string;
-  className?: string;
-  arrow?: React.ReactNode;
-  arrowClassName?: string;
-}) {
-  return (
-    <div className={`flex flex-col items-center gap-1 ${className ?? ""}`}>
-      <div className="max-w-[200px] rounded-2xl bg-[#6B9E6E] px-3.5 py-2.5 text-center text-[11px] font-bold leading-snug text-white shadow-lg shadow-[#6B9E6E]/30 sm:max-w-[220px] sm:text-xs">
-        {text}
-      </div>
-      {arrow ?? <AnimatedArrow className={arrowClassName} variant="down-right" />}
-    </div>
   );
 }
 
@@ -204,18 +176,10 @@ function SlideFindVerifiedAgents() {
         </div>
 
         <div className="pointer-events-none absolute -right-1 top-2 z-20 sm:right-0 sm:top-4">
-          <SageAnnotation
-            text="PRC Licensed & Verified"
-            className="items-end"
-            arrow={<AnimatedArrow variant="down-left" className="-mr-2 -mt-1 scale-90" />}
-          />
+          <GuideSpeechBubble text="PRC Licensed & Verified" />
         </div>
         <div className="pointer-events-none absolute bottom-6 left-0 z-20 sm:bottom-10">
-          <SageAnnotation
-            text="Real closing history"
-            className="items-start"
-            arrow={<AnimatedArrow variant="up-right" className="scale-90" />}
-          />
+          <GuideSpeechBubble text="Real closing history" />
         </div>
       </div>
     </div>
@@ -282,17 +246,10 @@ function SlideAgentProfileFeed() {
         </div>
 
         <div className="pointer-events-none absolute -left-2 top-28 z-20 sm:left-0 sm:top-32">
-          <SageAnnotation
-            text="See all their listings"
-            arrow={<AnimatedArrow variant="down-right" className="ml-2 scale-75" />}
-          />
+          <GuideSpeechBubble text="See all their listings" />
         </div>
         <div className="pointer-events-none absolute -right-2 bottom-8 z-20 sm:right-0 sm:bottom-12">
-          <SageAnnotation
-            text="Contact directly via WhatsApp, SMS or Email"
-            className="items-end text-right"
-            arrow={<AnimatedArrow variant="down-left" className="-mr-1 scale-75" />}
-          />
+          <GuideSpeechBubble text="Contact directly via WhatsApp, SMS or Email" />
         </div>
       </div>
     </div>
@@ -353,23 +310,14 @@ function SlideScheduleViewing() {
           </div>
         </div>
 
-        <div className="pointer-events-none absolute right-0 top-[52%] z-20 max-w-[130px] sm:top-[50%]">
-          <SageAnnotation
-            text="Pick your preferred date and time"
-            className="items-end"
-            arrow={<AnimatedArrow variant="down-left" className="-mr-2 scale-[0.85]" />}
-          />
+        <div className="pointer-events-none absolute right-0 top-[52%] z-20 sm:top-[50%]">
+          <GuideSpeechBubble text="Pick your preferred date and time" />
         </div>
         <div className="pointer-events-none absolute bottom-16 left-0 z-20 sm:bottom-20">
-          <SageAnnotation
-            text="Choose which agent to meet"
-            arrow={<AnimatedArrow variant="up-right" className="scale-[0.85]" />}
-          />
+          <GuideSpeechBubble text="Choose which agent to meet" />
         </div>
         <div className="pointer-events-none absolute left-1/2 top-8 z-20 -translate-x-1/2 sm:top-10">
-          <div className="max-w-[240px] rounded-2xl bg-[#6B9E6E] px-3 py-2 text-center text-[11px] font-bold leading-snug text-white shadow-lg sm:text-xs">
-            Agent gets notified instantly
-          </div>
+          <GuideSpeechBubble text="Agent gets notified instantly" />
         </div>
       </div>
     </div>

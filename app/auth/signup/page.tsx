@@ -74,6 +74,7 @@ export default function SignupPage() {
     <AuthShell
       title="Create account"
       subtitle="Register as a client to save searches and work with agents."
+      largeLogo
     >
       <form onSubmit={submit} className="space-y-4">
         <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">

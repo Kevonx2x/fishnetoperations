@@ -5,9 +5,12 @@ type Props = {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
+  /** Wider logo for login/signup (160px). */
+  largeLogo?: boolean;
 };
 
-export function AuthShell({ title, subtitle, children }: Props) {
+export function AuthShell({ title, subtitle, children, largeLogo }: Props) {
+  const logoWidth = largeLogo ? 160 : 120;
   return (
     <div className="min-h-screen bg-[#f7f6f3] flex flex-col">
       <header className="border-b border-black/5 bg-white/80 backdrop-blur-sm">
@@ -20,7 +23,7 @@ export function AuthShell({ title, subtitle, children }: Props) {
       <main className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-md rounded-2xl border border-black/8 bg-white p-8 shadow-sm">
           <div className="flex justify-center">
-            <BahayGoLogoLink priority />
+            <BahayGoLogoLink priority width={logoWidth} />
           </div>
           <h1 className="mt-6 font-serif text-2xl font-medium text-gray-900">{title}</h1>
           {subtitle && <p className="mt-2 text-sm text-gray-500">{subtitle}</p>}

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -48,8 +49,6 @@ import {
   AGENT_AVAILABILITY_OFFLINE,
   isAgentAvailableNow,
 } from "@/components/marketplace/agent-availability-badge";
-import { BahayGoLogoLink } from "@/components/marketplace/bahaygo-logo";
-
 type NavLinkItem = { kind: "link"; label: string; href: string; icon: ReactNode };
 type NavDividerItem = { kind: "divider"; label: string };
 type NavPendingItem = { kind: "pending"; label: string; icon: ReactNode };
@@ -466,7 +465,16 @@ export function MaddenTopNav() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <BahayGoLogoLink priority />
+          <Link href="/" className="inline-flex shrink-0 items-center leading-none">
+            <Image
+              src="/bahaygologo.png"
+              alt="BahayGo"
+              width={140}
+              height={50}
+              className="h-[50px] w-[140px] object-contain"
+              priority
+            />
+          </Link>
         </div>
 
         <nav className="hidden min-w-0 justify-self-center sm:flex items-center gap-5 text-sm font-semibold text-[#2C2C2C]/70 md:gap-6">

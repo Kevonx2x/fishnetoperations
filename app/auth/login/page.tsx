@@ -65,6 +65,7 @@ function LoginForm() {
     <AuthShell
       title="Sign in"
       subtitle="Use your email and password to access your account."
+      largeLogo
     >
       <form onSubmit={submit} className="space-y-4">
         <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
