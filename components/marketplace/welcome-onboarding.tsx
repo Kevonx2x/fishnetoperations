@@ -28,6 +28,49 @@ const MOCK_AVATARS = [
 const MOCK_LISTING_IMG =
   "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=520&fit=crop";
 
+function SlideWelcome() {
+  const bullets = [
+    "Verified agents only",
+    "Real listings, zero scams",
+    "Find your home in minutes",
+  ] as const;
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center bg-white px-2 py-6 text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="flex flex-col items-center"
+      >
+        <Image
+          src="/bahaygologo.png"
+          alt="BahayGo"
+          width={180}
+          height={72}
+          className="h-auto w-[180px] object-contain"
+          priority
+          sizes="180px"
+        />
+        <h2 className="mt-8 max-w-md font-serif text-2xl font-bold leading-tight tracking-tight text-[#2C2C2C] sm:text-3xl">
+          Welcome to BahayGo! 🏠
+        </h2>
+        <p className="mt-3 max-w-md text-base font-semibold text-[#2C2C2C]/65 sm:text-lg">
+          The Philippines&apos; Trusted Real Estate Platform
+        </p>
+        <ul className="mt-10 w-full max-w-sm space-y-3.5 text-left">
+          {bullets.map((line) => (
+            <li key={line} className="flex items-center gap-3 text-sm font-semibold text-[#2C2C2C]/85 sm:text-base">
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-[#6B9E6E]" aria-hidden />
+              <span>{line}</span>
+            </li>
+          ))}
+        </ul>
+      </motion.div>
+    </div>
+  );
+}
+
 function AnimatedArrow({
   variant = "down-right",
   className,
@@ -368,7 +411,7 @@ function SlideZeroScams() {
   );
 }
 
-const SLIDE_KEYS = ["verified", "profiles", "viewing", "trust"] as const;
+const SLIDE_KEYS = ["welcome", "verified", "profiles", "viewing", "trust"] as const;
 
 export function WelcomeOnboarding() {
   const [mounted, setMounted] = useState(false);
@@ -461,10 +504,11 @@ export function WelcomeOnboarding() {
               transition={{ duration: 0.25 }}
               className="flex min-h-[min(58vh,500px)] flex-1 flex-col sm:min-h-[440px]"
             >
-              {idx === 0 ? <SlideFindVerifiedAgents /> : null}
-              {idx === 1 ? <SlideAgentProfileFeed /> : null}
-              {idx === 2 ? <SlideScheduleViewing /> : null}
-              {idx === 3 ? <SlideZeroScams /> : null}
+              {idx === 0 ? <SlideWelcome /> : null}
+              {idx === 1 ? <SlideFindVerifiedAgents /> : null}
+              {idx === 2 ? <SlideAgentProfileFeed /> : null}
+              {idx === 3 ? <SlideScheduleViewing /> : null}
+              {idx === 4 ? <SlideZeroScams /> : null}
             </motion.div>
           </AnimatePresence>
         </div>
