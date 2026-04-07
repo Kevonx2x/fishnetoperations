@@ -8,20 +8,24 @@ export function isAgentAvailableNow(availability: string | null | undefined): bo
   return availability?.trim() === AGENT_AVAILABILITY_NOW;
 }
 
-/** Relative "Last seen …" from agents.updated_at (or any ISO timestamp). */
+/** Relative time from agents.updated_at (or any ISO timestamp). Returns phrases like "5 minutes ago", "3 hours ago", "2 days ago". */
 export function formatLastSeenHours(iso: string | null | undefined): string {
-  if (!iso?.trim()) return "Last seen unknown";
+  if (!iso?.trim()) return "unknown";
   const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return "Last seen unknown";
+  if (Number.isNaN(t)) return "unknown";
   const ms = Date.now() - t;
-  if (ms < 0) return "Last seen just now";
+  if (ms < 0) return "just now";
   const hours = Math.floor(ms / 3600000);
   if (hours < 1) {
     const mins = Math.floor(ms / 60000);
-    if (mins < 1) return "Last seen just now";
-    return `Last seen ${mins} minute${mins === 1 ? "" : "s"} ago`;
+    if (mins < 1) return "just now";
+    return `${mins} minute${mins === 1 ? "" : "s"} ago`;
   }
-  return `Last seen ${hours} hour${hours === 1 ? "" : "s"} ago`;
+  if (hours < 24) {
+    return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  }
+  const days = Math.floor(ms / 86400000);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
 type Props = {
@@ -50,7 +54,9 @@ export function AgentAvailabilityBadge({ availability, updatedAt }: Props) {
         <span className="h-2 w-2 shrink-0 rounded-full bg-[#2C2C2C]/35" aria-hidden />
         Offline
       </span>
-      <span className="pl-3.5 text-[10px] font-medium text-[#2C2C2C]/45">{formatLastSeenHours(updatedAt)}</span>
+      <span className="pl-3.5 text-[10px] font-medium text-[#2C2C2C]/45">
+        Last seen {formatLastSeenHours(updatedAt)}
+      </span>
     </span>
   );
 }

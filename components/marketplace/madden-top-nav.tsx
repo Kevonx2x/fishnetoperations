@@ -41,6 +41,11 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
+import {
+  AGENT_AVAILABILITY_NOW,
+  AGENT_AVAILABILITY_OFFLINE,
+  isAgentAvailableNow,
+} from "@/components/marketplace/agent-availability-badge";
 
 type NavLinkItem = { kind: "link"; label: string; href: string; icon: ReactNode };
 type NavDividerItem = { kind: "divider"; label: string };
@@ -152,7 +157,12 @@ export function MaddenTopNav() {
   const { user, profile, role, loading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [busy, setBusy] = useState(false);
-  const [agentNav, setAgentNav] = useState<{ id: string; image_url: string | null } | null>(null);
+  const [agentNav, setAgentNav] = useState<{
+    id: string;
+    image_url: string | null;
+    availability: string | null;
+  } | null>(null);
+  const [availToggling, setAvailToggling] = useState(false);
   const [brokerNav, setBrokerNav] = useState<{ id: string } | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement | null>(null);
@@ -172,12 +182,17 @@ export function MaddenTopNav() {
     let cancelled = false;
     void (async () => {
       const [{ data: a }, { data: b }] = await Promise.all([
-        supabase.from("agents").select("id, image_url").eq("user_id", user.id).maybeSingle(),
+        supabase.from("agents").select("id, image_url, availability").eq("user_id", user.id).maybeSingle(),
         supabase.from("brokers").select("id").eq("user_id", user.id).maybeSingle(),
       ]);
       if (cancelled) return;
       if (a) {
-        setAgentNav({ id: a.id as string, image_url: (a as { image_url?: string | null }).image_url ?? null });
+        const row = a as { id: string; image_url?: string | null; availability?: string | null };
+        setAgentNav({
+          id: row.id,
+          image_url: row.image_url ?? null,
+          availability: row.availability ?? null,
+        });
       } else {
         setAgentNav(null);
       }
@@ -241,6 +256,17 @@ export function MaddenTopNav() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const toggleAgentAvailability = async () => {
+    if (!user?.id || !agentNav || role !== "agent" || availToggling) return;
+    setAvailToggling(true);
+    const next = isAgentAvailableNow(agentNav.availability) ? AGENT_AVAILABILITY_OFFLINE : AGENT_AVAILABILITY_NOW;
+    const { error } = await supabase.from("agents").update({ availability: next }).eq("user_id", user.id);
+    if (!error) {
+      setAgentNav((prev) => (prev ? { ...prev, availability: next } : null));
+    }
+    setAvailToggling(false);
   };
 
   const markNotificationRead = async (n: NotificationRow) => {
@@ -445,27 +471,52 @@ export function MaddenTopNav() {
                 </AnimatePresence>
               </div>
               <div className="relative" ref={accountRef}>
-                <button
-                  type="button"
-                  onClick={() => setAccountOpen((o) => !o)}
-                  className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white shadow-sm ring-2 ring-[#D4A843]/25 hover:bg-[#FAF8F4]"
-                  aria-expanded={accountOpen}
-                  aria-haspopup="menu"
-                >
-                  {agentNav?.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={agentNav.image_url} alt="" className="h-full w-full object-cover" />
-                  ) : profile?.avatar_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-xs font-bold text-white">
-                      {profile?.full_name?.trim()
-                        ? agentAvatarInitials(profile.full_name)
-                        : (user.email?.[0] ?? "?").toUpperCase()}
-                    </span>
-                  )}
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setAccountOpen((o) => !o)}
+                    className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white shadow-sm ring-2 ring-[#D4A843]/25 hover:bg-[#FAF8F4]"
+                    aria-expanded={accountOpen}
+                    aria-haspopup="menu"
+                  >
+                    {agentNav?.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={agentNav.image_url} alt="" className="h-full w-full object-cover" />
+                    ) : profile?.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-xs font-bold text-white">
+                        {profile?.full_name?.trim()
+                          ? agentAvatarInitials(profile.full_name)
+                          : (user.email?.[0] ?? "?").toUpperCase()}
+                      </span>
+                    )}
+                  </button>
+                  {role === "agent" && agentNav ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void toggleAgentAvailability();
+                      }}
+                      disabled={availToggling}
+                      title={
+                        isAgentAvailableNow(agentNav.availability)
+                          ? "You are online"
+                          : "You are offline"
+                      }
+                      aria-label={
+                        isAgentAvailableNow(agentNav.availability)
+                          ? "You are online. Click to go offline."
+                          : "You are offline. Click to go available now."
+                      }
+                      className={`absolute -bottom-0.5 -right-0.5 z-10 h-3 w-3 rounded-full border-2 border-white shadow-sm transition ${
+                        isAgentAvailableNow(agentNav.availability) ? "bg-[#6B9E6E]" : "bg-[#9ca3af]"
+                      } ${availToggling ? "opacity-60" : "hover:brightness-110"}`}
+                    />
+                  ) : null}
+                </div>
                 <AnimatePresence>
                   {accountOpen ? (
                     <motion.div

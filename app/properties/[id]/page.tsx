@@ -43,6 +43,7 @@ type PropertyRow = {
   property_type: string | null;
   lat: number | null;
   lng: number | null;
+  description: string | null;
   listing_agent: ListingAgentProfile;
   property_agents?: { agent: unknown }[];
 };
@@ -88,6 +89,7 @@ export default function PropertyPage() {
   const [listingLimitModalOpen, setListingLimitModalOpen] = useState(false);
   const [coAgentMsg, setCoAgentMsg] = useState<string | null>(null);
   const [coAgentSubmitting, setCoAgentSubmitting] = useState(false);
+  const [coAgentConfirmOpen, setCoAgentConfirmOpen] = useState(false);
   const [myAgent, setMyAgent] = useState<{
     id: string;
     listing_tier: string | null;
@@ -111,7 +113,7 @@ export default function PropertyPage() {
         .from("properties")
         .select(
           `
-          id, created_at, name, location, price, sqft, beds, baths, image_url, listed_by, property_type, lat, lng,
+          id, created_at, name, location, price, sqft, beds, baths, image_url, listed_by, property_type, lat, lng, description,
           listing_agent:profiles!listed_by (id, full_name, avatar_url),
           property_agents (
             agent:agents (
@@ -236,18 +238,30 @@ export default function PropertyPage() {
     return connectedAgents.find((a) => a.userId === property.listed_by) ?? connectedAgents[0] ?? null;
   }, [property?.listed_by, connectedAgents]);
 
-  const showCoAgentCta = useMemo(() => {
+  const isConnectedAsAgent = useMemo(() => {
+    if (!myAgent?.id) return false;
+    return connectedAgents.some((a) => a.id === myAgent.id);
+  }, [myAgent?.id, connectedAgents]);
+
+  const showCoAgentPendingBanner = useMemo(() => {
+    if (!isLoggedIn || profile?.role !== "agent" || !myAgent) return false;
+    if (isConnectedAsAgent) return false;
+    return hasPendingCoRequest;
+  }, [isLoggedIn, profile?.role, myAgent, isConnectedAsAgent, hasPendingCoRequest]);
+
+  const showCoAgentRequestButton = useMemo(() => {
     if (!isLoggedIn || profile?.role !== "agent" || !myAgent) return false;
     if (myAgent.status !== "approved" || !myAgent.verified) return false;
-    if (connectedAgents.some((a) => a.id === myAgent.id)) return false;
+    if (isConnectedAsAgent) return false;
     if (hasPendingCoRequest) return false;
     return true;
-  }, [isLoggedIn, profile?.role, myAgent, connectedAgents, hasPendingCoRequest]);
+  }, [isLoggedIn, profile?.role, myAgent, isConnectedAsAgent, hasPendingCoRequest]);
 
   const requestCoAgentJoin = async () => {
     if (!property?.id || !myAgent?.id) return;
     setCoAgentMsg(null);
     if (atListingLimit) {
+      setCoAgentConfirmOpen(false);
       setListingLimitModalOpen(true);
       return;
     }
@@ -262,7 +276,7 @@ export default function PropertyPage() {
       return;
     }
     setHasPendingCoRequest(true);
-    setCoAgentMsg("Request sent! An admin will review your request.");
+    setCoAgentConfirmOpen(false);
     void fetch("/api/notify-co-agent-request", {
       method: "POST",
       credentials: "include",
@@ -467,20 +481,22 @@ export default function PropertyPage() {
                               ) : null}
                             </div>
                             <div className="mt-3">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (!isLoggedIn) {
-                                    setSignInPromptOpen(true);
-                                    return;
-                                  }
-                                  setContactModalAgent(a);
-                                  setShowContactModal(true);
-                                }}
-                                className="inline-flex rounded-lg bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
-                              >
-                                Contact
-                              </button>
+                              {myAgent?.id === a.id ? null : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!isLoggedIn) {
+                                      setSignInPromptOpen(true);
+                                      return;
+                                    }
+                                    setContactModalAgent(a);
+                                    setShowContactModal(true);
+                                  }}
+                                  className="inline-flex rounded-lg bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                                >
+                                  Contact
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -488,27 +504,32 @@ export default function PropertyPage() {
                     ))}
                   </ul>
                 )}
-                {showCoAgentCta ? (
+                {showCoAgentPendingBanner ? (
+                  <div className="mt-6 rounded-2xl border border-[#D4A843]/30 bg-[#FAF8F4] p-4">
+                    <p className="text-sm font-bold text-[#2C2C2C]">Request Pending</p>
+                    <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/65">
+                      Your co-agent request is awaiting admin review.
+                    </p>
+                  </div>
+                ) : null}
+                {showCoAgentRequestButton ? (
                   <div className="mt-6 rounded-2xl border border-[#D4A843]/25 bg-[#FAF8F4] p-4">
                     <p className="text-sm font-semibold text-[#2C2C2C]/70">
                       Represent this listing too? Ask to be added as a connected agent.
                     </p>
                     <button
                       type="button"
-                      onClick={() => void requestCoAgentJoin()}
+                      onClick={() => {
+                        setCoAgentMsg(null);
+                        setCoAgentConfirmOpen(true);
+                      }}
                       disabled={coAgentSubmitting}
                       className="mt-3 inline-flex rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {coAgentSubmitting ? "Sending…" : "I also represent this property"}
+                      I also represent this property
                     </button>
                     {coAgentMsg ? (
-                      <p
-                        className={`mt-2 text-sm font-semibold ${
-                          coAgentMsg.startsWith("Request sent") ? "text-[#6B9E6E]" : "text-red-700"
-                        }`}
-                      >
-                        {coAgentMsg}
-                      </p>
+                      <p className="mt-2 text-sm font-semibold text-red-700">{coAgentMsg}</p>
                     ) : null}
                   </div>
                 ) : null}
@@ -592,6 +613,52 @@ export default function PropertyPage() {
                 isProTier={normalizeListingTier(myAgent?.listing_tier) === "pro"}
                 listingLimit={listingLimit}
               />
+            ) : null}
+            {coAgentConfirmOpen ? (
+              <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" role="presentation">
+                <button
+                  type="button"
+                  className="absolute inset-0 bg-black/50"
+                  aria-label="Close"
+                  onClick={() => setCoAgentConfirmOpen(false)}
+                />
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="co-agent-confirm-title"
+                  className="relative z-[201] w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h2
+                    id="co-agent-confirm-title"
+                    className="font-serif text-lg font-bold leading-snug text-[#2C2C2C]"
+                  >
+                    Submit co-agent request?
+                  </h2>
+                  <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/75">
+                    Submit co-agent request for{" "}
+                    <span className="text-[#2C2C2C]">{property.name?.trim() || property.location}</span>? Your
+                    profile will be shown to clients.
+                  </p>
+                  <div className="mt-6 flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCoAgentConfirmOpen(false)}
+                      className="rounded-full border border-[#2C2C2C]/15 px-4 py-2 text-sm font-semibold text-[#2C2C2C]/75"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void requestCoAgentJoin()}
+                      disabled={coAgentSubmitting}
+                      className="rounded-full bg-[#2C2C2C] px-5 py-2 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-60"
+                    >
+                      {coAgentSubmitting ? "Sending…" : "Confirm"}
+                    </button>
+                  </div>
+                </div>
+              </div>
             ) : null}
           </>
         )}

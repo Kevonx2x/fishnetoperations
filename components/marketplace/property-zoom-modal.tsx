@@ -2,12 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BadgeCheck, ChevronLeft, ChevronRight, Heart, MapPin, X } from "lucide-react";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { AgentSlotPlaceholderModal } from "@/components/marketplace/agent-slot-placeholder";
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
@@ -132,6 +133,7 @@ function AgentsList({
   onContactAgent,
   isLoggedIn,
   onSignInPrompt,
+  viewerAgentId,
 }: {
   modalAgents: MarketplaceAgent[];
   placeholderSlots: number;
@@ -139,6 +141,7 @@ function AgentsList({
   onContactAgent: (agent: MarketplaceAgent) => void;
   isLoggedIn: boolean;
   onSignInPrompt: () => void;
+  viewerAgentId: string | null;
 }) {
   return (
     <ul className="space-y-3">
@@ -176,19 +179,21 @@ function AgentsList({
                 <div>
                   <AgentAvailabilityBadge availability={a.availability} updatedAt={a.updatedAt} />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!isLoggedIn) {
-                      onSignInPrompt();
-                      return;
-                    }
-                    onContactAgent(a);
-                  }}
-                  className="rounded-lg bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
-                >
-                  Contact
-                </button>
+                {viewerAgentId && a.id === viewerAgentId ? null : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isLoggedIn) {
+                        onSignInPrompt();
+                        return;
+                      }
+                      onContactAgent(a);
+                    }}
+                    className="rounded-lg bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                  >
+                    Contact
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -211,35 +216,29 @@ function AgentsList({
   );
 }
 
-/** Subtle bounce on the agents block (mobile only, once on mount) to hint scrolling. */
-function MobileAgentsContactHint({ children }: { children: React.ReactNode }) {
-  const [active, setActive] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const narrow = window.matchMedia("(max-width: 767px)");
-    if (!narrow.matches) return;
-    const id = requestAnimationFrame(() => setActive(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-
-  if (!active) return <>{children}</>;
-
+function DescriptionPreview({
+  propertyId,
+  desc,
+  onClose,
+  descriptionNodeId,
+}: {
+  propertyId: string;
+  desc: string;
+  onClose: () => void;
+  descriptionNodeId?: string;
+}) {
   return (
-    <motion.div
-      initial={{ y: 0 }}
-      animate={{
-        y: [0, -12, 0, -10, 0, -7, 0, -4, 0],
-      }}
-      transition={{
-        duration: 2,
-        times: [0, 0.12, 0.24, 0.36, 0.48, 0.6, 0.72, 0.84, 1],
-        ease: [0.22, 1, 0.36, 1],
-      }}
-    >
-      {children}
-    </motion.div>
+    <div id={descriptionNodeId} className="my-5 border-t border-[#2C2C2C]/10 pt-5">
+      <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#2C2C2C]/45">Description</p>
+      <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-[#2C2C2C]/75">{desc}</p>
+      <Link
+        href={`/properties/${encodeURIComponent(propertyId)}`}
+        onClick={onClose}
+        className="mt-2 inline-block text-sm font-bold text-[#6B9E6E] underline-offset-2 hover:underline"
+      >
+        Read more
+      </Link>
+    </div>
   );
 }
 
@@ -250,6 +249,7 @@ function PropertyDetailsSection({
   detailsId,
   onClose,
   withA11yIds,
+  omitDescription,
 }: {
   property: DbProperty;
   statusLabel: string;
@@ -257,6 +257,7 @@ function PropertyDetailsSection({
   detailsId: string;
   onClose: () => void;
   withA11yIds: boolean;
+  omitDescription?: boolean;
 }) {
   return (
     <>
@@ -278,7 +279,7 @@ function PropertyDetailsSection({
         {statusLabel}
       </span>
       <div className="my-5 border-t border-[#2C2C2C]/10" />
-      {desc ? (
+      {desc && !omitDescription ? (
         <div id={withA11yIds ? detailsId : undefined}>
           <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#2C2C2C]/45">Description</p>
           <p className="mt-2 text-sm leading-relaxed text-[#2C2C2C]/75">{desc}</p>
@@ -332,6 +333,8 @@ function BottomActions({
 
 export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggleSaved }: Props) {
   const { user, loading: authLoading } = useAuth();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const [viewerAgentId, setViewerAgentId] = useState<string | null>(null);
   const [showViewingModal, setShowViewingModal] = useState(false);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
@@ -342,6 +345,25 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
 
   const agentUserId = listingAgentUserId(property, agents);
   const propertyTitle = property.name ?? property.location;
+
+  useEffect(() => {
+    if (!user?.id) {
+      setViewerAgentId(null);
+      return;
+    }
+    let cancelled = false;
+    void supabase
+      .from("agents")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setViewerAgentId((data as { id?: string } | null)?.id ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, supabase]);
 
   const onRequestViewing = () => {
     if (authLoading) return;
@@ -411,6 +433,7 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
     desc,
     detailsId,
     onClose,
+    omitDescription: Boolean(desc),
   };
 
   return (
@@ -443,22 +466,29 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
             style={{ WebkitOverflowScrolling: "touch" }}
           >
             <PropertyDetailsSection {...detailsProps} withA11yIds={true} />
-            <MobileAgentsContactHint>
-              <h3 className="mt-8 font-serif text-lg font-bold text-[#2C2C2C]">Contact an Agent</h3>
-              <div className="mt-4">
-                <AgentsList
-                  modalAgents={modalAgents}
-                  placeholderSlots={placeholderSlots}
-                  onClose={onClose}
-                  isLoggedIn={isLoggedIn}
-                  onSignInPrompt={() => setSignInPromptOpen(true)}
-                  onContactAgent={(a) => {
-                    setContactModalAgent(a);
-                    setShowContactModal(true);
-                  }}
-                />
-              </div>
-            </MobileAgentsContactHint>
+            {desc ? (
+              <DescriptionPreview
+                propertyId={property.id}
+                desc={desc}
+                onClose={onClose}
+                descriptionNodeId={detailsId}
+              />
+            ) : null}
+            <h3 className="mt-8 font-serif text-lg font-bold text-[#2C2C2C]">Contact an Agent</h3>
+            <div className="mt-4">
+              <AgentsList
+                modalAgents={modalAgents}
+                placeholderSlots={placeholderSlots}
+                onClose={onClose}
+                isLoggedIn={isLoggedIn}
+                onSignInPrompt={() => setSignInPromptOpen(true)}
+                viewerAgentId={viewerAgentId}
+                onContactAgent={(a) => {
+                  setContactModalAgent(a);
+                  setShowContactModal(true);
+                }}
+              />
+            </div>
           </div>
           <BottomActions
             isSaved={isSaved}
@@ -479,6 +509,7 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-[#2C2C2C]/10 bg-white md:w-[40%] md:max-w-[40%] md:flex-none md:border-l md:border-t-0">
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 pt-4 md:pt-5">
+              {desc ? <DescriptionPreview propertyId={property.id} desc={desc} onClose={onClose} /> : null}
               <h3 className="font-serif text-lg font-bold text-[#2C2C2C]">Contact an Agent</h3>
               <div className="mt-4">
                 <AgentsList
@@ -487,6 +518,7 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
                   onClose={onClose}
                   isLoggedIn={isLoggedIn}
                   onSignInPrompt={() => setSignInPromptOpen(true)}
+                  viewerAgentId={viewerAgentId}
                   onContactAgent={(a) => {
                     setContactModalAgent(a);
                     setShowContactModal(true);
