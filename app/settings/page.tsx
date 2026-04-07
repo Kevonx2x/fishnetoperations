@@ -1,33 +1,55 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
+import { SettingsAvatarUpload } from "@/components/settings/avatar-upload";
 import { useAuth } from "@/contexts/auth-context";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { ProfileRole } from "@/lib/auth-roles";
 import { pathForRole } from "@/lib/auth-roles";
 import { formatLicenseDate, isLicenseExpiringWithinDays } from "@/lib/license-expiry";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-const ROLE_OPTIONS: { value: Exclude<ProfileRole, "admin">; label: string; description: string }[] =
-  [
-    {
-      value: "client",
-      label: "Client",
-      description: "Browse listings, save properties, and connect with agents.",
-    },
-    {
-      value: "agent",
-      label: "Agent",
-      description: "List properties, manage leads, and grow your pipeline.",
-    },
-    {
-      value: "broker",
-      label: "Broker",
-      description: "Oversee your team and brokerage operations.",
-    },
-  ];
+const ROLE_OPTIONS: {
+  value: Exclude<ProfileRole, "admin">;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "client",
+    label: "Client",
+    description: "Browse listings, save properties, and connect with agents.",
+  },
+  {
+    value: "agent",
+    label: "Agent",
+    description: "List properties, manage leads, and grow your pipeline.",
+  },
+  {
+    value: "broker",
+    label: "Broker",
+    description: "Oversee your team and brokerage operations.",
+  },
+];
+
+type SettingsTabId = "profile" | "account" | "notifications" | "verification" | "saved";
+
+const TAB_LABEL: Record<SettingsTabId, string> = {
+  profile: "Profile",
+  account: "Account",
+  notifications: "Notifications",
+  verification: "Verification",
+  saved: "Saved searches",
+};
+
+function visibleTabsForRole(role: ProfileRole): SettingsTabId[] {
+  const base: SettingsTabId[] = ["profile", "account", "notifications"];
+  if (role === "agent" || role === "broker") return [...base, "verification"];
+  if (role === "client") return [...base, "saved"];
+  return base;
+}
 
 type BrokerRow = {
   id: string;
@@ -51,12 +73,16 @@ type AgentRow = {
   broker_id: string | null;
 };
 
-export default function SettingsPage() {
+function SettingsPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, profile, role, loading: authLoading, refreshProfile } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
   const [notifyEmail, setNotifyEmail] = useState(true);
+  const [notifySms, setNotifySms] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [savingNotif, setSavingNotif] = useState(false);
   const [roleSaving, setRoleSaving] = useState(false);
   const [notifMsg, setNotifMsg] = useState("");
   const [roleMsg, setRoleMsg] = useState("");
@@ -64,10 +90,12 @@ export default function SettingsPage() {
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState("");
 
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPw, setSavingPw] = useState(false);
@@ -76,6 +104,8 @@ export default function SettingsPage() {
   const [broker, setBroker] = useState<BrokerRow | null>(null);
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [brokerageName, setBrokerageName] = useState<string | null>(null);
+
+  const tabParam = searchParams.get("tab");
 
   useEffect(() => {
     if (authLoading) return;
@@ -86,19 +116,23 @@ export default function SettingsPage() {
       }
       const { data } = await supabase
         .from("profiles")
-        .select("notify_email, role, full_name, phone, avatar_url")
+        .select("notify_email, notify_sms, role, full_name, phone, avatar_url, bio")
         .eq("id", user.id)
         .maybeSingle();
       const row = data as {
         notify_email?: boolean;
+        notify_sms?: boolean;
         role?: string;
         full_name?: string | null;
         phone?: string | null;
         avatar_url?: string | null;
+        bio?: string | null;
       } | null;
       if (typeof row?.notify_email === "boolean") setNotifyEmail(row.notify_email);
+      if (typeof row?.notify_sms === "boolean") setNotifySms(row.notify_sms);
       setFullName(row?.full_name ?? "");
       setPhone(row?.phone ?? "");
+      setBio(row?.bio ?? "");
       setAvatarUrl(row?.avatar_url ?? "");
       const r = row?.role;
       if (r === "client" || r === "agent" || r === "broker") {
@@ -117,9 +151,7 @@ export default function SettingsPage() {
 
       const { data: a } = await supabase
         .from("agents")
-        .select(
-          "id, name, status, verified, license_expiry, license_number, email, broker_id",
-        )
+        .select("id, name, status, verified, license_expiry, license_number, email, broker_id")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -149,7 +181,32 @@ export default function SettingsPage() {
     if (r === "client" || r === "agent" || r === "broker") {
       setPendingRole(r);
     }
-  }, [profile?.role]);
+  }, [profile]);
+
+  const currentRole = profile?.role ?? "client";
+  const isAdmin = currentRole === "admin";
+  const visibleTabs = useMemo(() => visibleTabsForRole(currentRole), [currentRole]);
+
+  const activeTab: SettingsTabId = useMemo(() => {
+    const t = tabParam as SettingsTabId | null;
+    if (t && visibleTabs.includes(t)) return t;
+    return "profile";
+  }, [tabParam, visibleTabs]);
+
+  useEffect(() => {
+    if (!loaded || !user) return;
+    const t = tabParam as SettingsTabId | null;
+    if (!t || !visibleTabs.includes(t)) {
+      router.replace(`/settings?tab=${activeTab}`, { scroll: false });
+    }
+  }, [loaded, user, tabParam, visibleTabs, activeTab, router]);
+
+  const goTab = useCallback(
+    (id: SettingsTabId) => {
+      router.replace(`/settings?tab=${id}`, { scroll: false });
+    },
+    [router],
+  );
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,7 +219,7 @@ export default function SettingsPage() {
         .update({
           full_name: fullName.trim() || null,
           phone: phone.trim() || null,
-          avatar_url: avatarUrl.trim() || null,
+          bio: bio.trim() || null,
         })
         .eq("id", user.id);
       if (error) throw error;
@@ -177,18 +234,36 @@ export default function SettingsPage() {
   const savePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwMsg("");
+    if (!user?.email) {
+      setPwMsg("Missing account email.");
+      return;
+    }
     if (newPassword.length < 6) {
-      setPwMsg("Password must be at least 6 characters.");
+      setPwMsg("New password must be at least 6 characters.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPwMsg("Passwords do not match.");
+      setPwMsg("New passwords do not match.");
+      return;
+    }
+    if (!currentPassword) {
+      setPwMsg("Enter your current password.");
       return;
     }
     setSavingPw(true);
     try {
+      const { error: signErr } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+      if (signErr) {
+        setPwMsg("Current password is incorrect.");
+        setSavingPw(false);
+        return;
+      }
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       setPwMsg("Password updated.");
@@ -201,18 +276,22 @@ export default function SettingsPage() {
   const saveNotifications = async () => {
     if (!user?.id) return;
     setNotifMsg("");
-    setSaving(true);
+    setSavingNotif(true);
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ notify_email: notifyEmail })
+        .update({
+          notify_email: notifyEmail,
+          notify_sms: phone.trim() ? notifySms : false,
+        })
         .eq("id", user.id);
       if (error) throw error;
-      setNotifMsg("Settings saved.");
+      if (!phone.trim()) setNotifySms(false);
+      setNotifMsg("Notification preferences saved.");
     } catch (e) {
       setNotifMsg(e instanceof Error ? e.message : "Could not save");
     }
-    setSaving(false);
+    setSavingNotif(false);
   };
 
   const saveRole = async () => {
@@ -251,9 +330,19 @@ export default function SettingsPage() {
   const showExpiryWarn = (exp: string | null | undefined) =>
     isLicenseExpiringWithinDays(exp, 30);
 
+  const onAvatarUploaded = useCallback(
+    async (publicUrl: string) => {
+      setAvatarUrl(publicUrl);
+      await refreshProfile();
+    },
+    [refreshProfile],
+  );
+
+  const hasPhone = Boolean(phone.trim());
+
   if (authLoading || !loaded) {
     return (
-      <div className="min-h-screen bg-[#FAF8F4]">
+      <div className="min-h-screen bg-white">
         <MaddenTopNav />
         <div className="flex min-h-[50vh] items-center justify-center text-sm font-semibold text-[#2C2C2C]/50">
           Loading…
@@ -264,7 +353,7 @@ export default function SettingsPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#FAF8F4]">
+      <div className="min-h-screen bg-white">
         <MaddenTopNav />
         <div className="mx-auto max-w-lg px-4 py-16">
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 shadow-sm">
@@ -272,7 +361,7 @@ export default function SettingsPage() {
             <p className="mt-2 text-sm text-[#2C2C2C]/60">Sign in to manage settings.</p>
             <Link
               href="/auth/login?next=/settings"
-              className="mt-6 inline-flex rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
+              className="mt-6 inline-flex rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#5d8a60]"
             >
               Sign in
             </Link>
@@ -282,254 +371,312 @@ export default function SettingsPage() {
     );
   }
 
-  const currentRole = profile?.role ?? "client";
-  const isAdmin = currentRole === "admin";
-
   return (
-    <div className="min-h-screen bg-[#FAF8F4]">
+    <div className="min-h-screen bg-white">
       <MaddenTopNav />
-      <div className="mx-auto max-w-2xl px-4 py-10">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+      <div className="mx-auto max-w-2xl px-4 py-8 sm:py-10">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-serif text-3xl font-semibold text-[#2C2C2C]">Settings</h1>
             <p className="mt-1 text-sm text-[#2C2C2C]/55">
               Account profile, preferences, and notifications.
             </p>
           </div>
-          {role && (
+          {role ? (
             <Link
               href={pathForRole(role)}
-              className="text-sm font-semibold text-[#6B9E6E] underline underline-offset-2 hover:text-[#5f7a62]"
+              className="text-sm font-semibold text-[#6B9E6E] underline underline-offset-2 hover:text-[#5d8a60]"
             >
               Go to dashboard
             </Link>
-          )}
+          ) : null}
         </div>
 
-        <form
-          onSubmit={saveProfile}
-          className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-md"
-        >
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#D4A843]">
-            Profile
-          </h2>
-          <p className="mt-1 text-xs text-[#2C2C2C]/50">
-            Name, phone, and avatar apply to your account across the site.
-          </p>
-          <div className="mt-4 space-y-4">
-            <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-              Full name
-              <input
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#D4A843]/60"
-              />
-            </label>
-            <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-              Phone
-              <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#D4A843]/60"
-              />
-            </label>
-            <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-              Avatar image URL
-              <input
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
-                placeholder="https://…"
-                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#D4A843]/60"
-              />
-            </label>
-          </div>
-          {profileMsg && (
-            <p className="mt-4 text-sm text-[#6B9E6E]">{profileMsg}</p>
-          )}
-          <button
-            type="submit"
-            disabled={savingProfile}
-            className="mt-6 rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#6f8d71] disabled:opacity-50"
+        <div className="-mx-4 mb-6 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <nav
+            className="flex min-w-0 gap-1 border-b border-[#2C2C2C]/10 pb-px"
+            aria-label="Settings sections"
           >
-            {savingProfile ? "Saving…" : "Save profile"}
-          </button>
-        </form>
+            {visibleTabs.map((id) => {
+              const isActive = activeTab === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => goTab(id)}
+                  className={`shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold transition sm:px-4 ${
+                    isActive
+                      ? "border-[#6B9E6E] text-[#6B9E6E]"
+                      : "border-transparent text-[#2C2C2C]/55 hover:text-[#2C2C2C]"
+                  }`}
+                >
+                  {TAB_LABEL[id]}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
 
-        <form
-          onSubmit={savePassword}
-          className="mt-8 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-md"
-        >
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#D4A843]">
-            Change password
-          </h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <label className="block text-xs font-semibold text-[#2C2C2C]/55 sm:col-span-2">
-              New password
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#D4A843]/60"
-              />
-            </label>
-            <label className="block text-xs font-semibold text-[#2C2C2C]/55 sm:col-span-2">
-              Confirm new password
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#D4A843]/60"
-              />
-            </label>
-          </div>
-          {pwMsg && (
-            <p className="mt-4 text-sm text-[#6B9E6E]">{pwMsg}</p>
-          )}
-          <button
-            type="submit"
-            disabled={savingPw}
-            className="mt-6 rounded-full border border-[#2C2C2C]/15 bg-white px-6 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#FAF8F4] disabled:opacity-50"
-          >
-            {savingPw ? "Updating…" : "Update password"}
-          </button>
-        </form>
-
-        <div className="mt-8 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-md">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#D4A843]">
-            Account type
-          </h2>
-          {isAdmin ? (
-            <p className="mt-4 text-sm font-semibold text-[#2C2C2C]">
-              You are signed in as <span className="text-[#6B9E6E]">Admin</span>. Role changes for
-              admin accounts are managed in the{" "}
-              <Link href="/admin" className="font-bold text-[#D4A843] underline underline-offset-2">
-                Admin dashboard
-              </Link>
-              .
+        {activeTab === "profile" ? (
+          <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+            <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">Profile</h2>
+            <p className="mt-1 text-sm text-[#2C2C2C]/50">
+              Your name, photo, and bio appear on your account across BahayGo.
             </p>
-          ) : (
-            <>
-              <p className="mt-2 text-sm text-[#2C2C2C]/60">
-                Current:{" "}
-                <span className="font-semibold capitalize text-[#2C2C2C]">{currentRole}</span>
-              </p>
-              <div className="mt-5 space-y-3">
-                {ROLE_OPTIONS.map((opt) => (
-                  <label
-                    key={opt.value}
-                    className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition ${
-                      pendingRole === opt.value
-                        ? "border-[#D4A843] bg-[#FAF8F4] ring-1 ring-[#D4A843]/30"
-                        : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="account-type"
-                      checked={pendingRole === opt.value}
-                      onChange={() => setPendingRole(opt.value)}
-                      className="mt-1 h-4 w-4 border-[#2C2C2C]/20 text-[#6B9E6E] focus:ring-[#D4A843]"
-                    />
-                    <span>
-                      <span className="block text-sm font-bold text-[#2C2C2C]">{opt.label}</span>
-                      <span className="mt-0.5 block text-xs text-[#2C2C2C]/55">{opt.description}</span>
-                    </span>
-                  </label>
-                ))}
+            {user?.id ? (
+              <div className="mt-6">
+                <SettingsAvatarUpload
+                  userId={user.id}
+                  fullName={fullName}
+                  avatarUrl={avatarUrl.trim() || null}
+                  supabase={supabase}
+                  onUploaded={onAvatarUploaded}
+                />
               </div>
-              {pendingRole === "agent" && (
-                <div className="mt-4 rounded-xl border border-[#6B9E6E]/25 bg-[#6B9E6E]/8 px-4 py-3">
-                  <p className="text-xs text-[#2C2C2C]/70">
-                    Complete PRC verification to appear on the marketplace.
-                  </p>
-                  <Link
-                    href="/register/agent"
-                    className="mt-2 inline-flex rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#6b8a6d]"
-                  >
-                    Complete Agent Registration
-                  </Link>
-                </div>
-              )}
-              {pendingRole === "broker" && (
-                <div className="mt-4 rounded-xl border border-[#D4A843]/30 bg-[#D4A843]/10 px-4 py-3">
-                  <p className="text-xs text-[#2C2C2C]/70">
-                    Register your brokerage to manage agents and listings.
-                  </p>
-                  <Link
-                    href="/register/broker"
-                    className="mt-2 inline-flex rounded-full bg-[#D4A843] px-4 py-2 text-xs font-bold text-[#2C2C2C] shadow-sm hover:brightness-95"
-                  >
-                    Complete Broker Registration
-                  </Link>
-                </div>
-              )}
-              {roleMsg && (
-                <p className="mt-4 text-sm text-[#6B9E6E]" role="status">
-                  {roleMsg}
+            ) : null}
+            <form onSubmit={saveProfile} className="mt-8 space-y-4">
+              <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                Full name
+                <input
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                />
+              </label>
+              <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                Phone
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                />
+              </label>
+              <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                Bio
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  rows={4}
+                  placeholder="Tell buyers and agents a bit about yourself…"
+                  className="mt-1.5 w-full resize-y rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                />
+              </label>
+              {profileMsg ? (
+                <p className="text-sm text-[#6B9E6E]" role="status">
+                  {profileMsg}
                 </p>
-              )}
+              ) : null}
               <button
-                type="button"
-                onClick={() => void saveRole()}
-                disabled={roleSaving || pendingRole === currentRole}
-                className="mt-4 rounded-full bg-[#2C2C2C] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
+                type="submit"
+                disabled={savingProfile}
+                className="rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] disabled:opacity-50"
               >
-                {roleSaving ? "Saving…" : "Save account type"}
+                {savingProfile ? "Saving…" : "Save profile"}
               </button>
-            </>
-          )}
-        </div>
+            </form>
+          </div>
+        ) : null}
 
-        <div className="mt-8 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-md">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#D4A843]">
-            Notifications
-          </h2>
-          <label className="mt-4 flex cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              checked={notifyEmail}
-              onChange={(e) => setNotifyEmail(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-[#2C2C2C]/20 text-[#6B9E6E] focus:ring-[#D4A843]"
-            />
-            <span>
-              <span className="text-sm font-semibold text-[#2C2C2C]">
-                Email me about activity
+        {activeTab === "account" ? (
+          <div className="space-y-8">
+            <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+              <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">Account type</h2>
+              {isAdmin ? (
+                <p className="mt-4 text-sm font-semibold text-[#2C2C2C]">
+                  You are signed in as <span className="text-[#6B9E6E]">Admin</span>. Role changes
+                  for admin accounts are managed in the{" "}
+                  <Link
+                    href="/admin"
+                    className="font-bold text-[#D4A843] underline underline-offset-2"
+                  >
+                    Admin dashboard
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm text-[#2C2C2C]/60">
+                    Current:{" "}
+                    <span className="font-semibold capitalize text-[#2C2C2C]">{currentRole}</span>
+                  </p>
+                  <div className="mt-5 space-y-3">
+                    {ROLE_OPTIONS.map((opt) => (
+                      <label
+                        key={opt.value}
+                        className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition ${
+                          pendingRole === opt.value
+                            ? "border-[#6B9E6E] bg-[#6B9E6E]/8 ring-1 ring-[#6B9E6E]/25"
+                            : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/35"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="account-type"
+                          checked={pendingRole === opt.value}
+                          onChange={() => setPendingRole(opt.value)}
+                          className="mt-1 h-4 w-4 border-[#2C2C2C]/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                        />
+                        <span>
+                          <span className="block text-sm font-bold text-[#2C2C2C]">{opt.label}</span>
+                          <span className="mt-0.5 block text-xs text-[#2C2C2C]/55">
+                            {opt.description}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {pendingRole === "agent" ? (
+                    <div className="mt-4 rounded-xl border border-[#6B9E6E]/25 bg-[#6B9E6E]/8 px-4 py-3">
+                      <p className="text-xs text-[#2C2C2C]/70">
+                        Complete PRC verification to appear on the marketplace.
+                      </p>
+                      <Link
+                        href="/register/agent"
+                        className="mt-2 inline-flex rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#5d8a60]"
+                      >
+                        Complete Agent Registration
+                      </Link>
+                    </div>
+                  ) : null}
+                  {pendingRole === "broker" ? (
+                    <div className="mt-4 rounded-xl border border-[#D4A843]/30 bg-[#D4A843]/10 px-4 py-3">
+                      <p className="text-xs text-[#2C2C2C]/70">
+                        Register your brokerage to manage agents and listings.
+                      </p>
+                      <Link
+                        href="/register/broker"
+                        className="mt-2 inline-flex rounded-full bg-[#D4A843] px-4 py-2 text-xs font-bold text-[#2C2C2C] shadow-sm hover:brightness-95"
+                      >
+                        Complete Broker Registration
+                      </Link>
+                    </div>
+                  ) : null}
+                  {roleMsg ? (
+                    <p className="mt-4 text-sm text-[#6B9E6E]" role="status">
+                      {roleMsg}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void saveRole()}
+                    disabled={roleSaving || pendingRole === currentRole}
+                    className="mt-4 rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#5d8a60] disabled:opacity-50"
+                  >
+                    {roleSaving ? "Saving…" : "Save account type"}
+                  </button>
+                </>
+              )}
+            </div>
+
+            <form
+              onSubmit={savePassword}
+              className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm"
+            >
+              <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">Change password</h2>
+              <div className="mt-4 space-y-4">
+                <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                  Current password
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                  New password
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                  Confirm new password
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                  />
+                </label>
+              </div>
+              {pwMsg ? <p className="mt-4 text-sm text-[#6B9E6E]">{pwMsg}</p> : null}
+              <button
+                type="submit"
+                disabled={savingPw}
+                className="mt-6 rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] disabled:opacity-50"
+              >
+                {savingPw ? "Updating…" : "Update password"}
+              </button>
+            </form>
+          </div>
+        ) : null}
+
+        {activeTab === "notifications" ? (
+          <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+            <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">Notifications</h2>
+            <label className="mt-4 flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={notifyEmail}
+                onChange={(e) => setNotifyEmail(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-[#2C2C2C]/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+              />
+              <span>
+                <span className="text-sm font-semibold text-[#2C2C2C]">Email notifications</span>
+                <span className="mt-1 block text-xs text-[#2C2C2C]/50">
+                  Listing updates, saved search alerts, and account messages.
+                </span>
               </span>
-              <span className="mt-1 block text-xs text-[#2C2C2C]/50">
-                Listing updates, saved search alerts, and account messages.
+            </label>
+            <label
+              className={`mt-4 flex items-start gap-3 ${hasPhone ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
+            >
+              <input
+                type="checkbox"
+                checked={hasPhone && notifySms}
+                disabled={!hasPhone}
+                onChange={(e) => setNotifySms(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-[#2C2C2C]/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+              />
+              <span>
+                <span className="text-sm font-semibold text-[#2C2C2C]">SMS notifications</span>
+                <span className="mt-1 block text-xs text-[#2C2C2C]/50">
+                  {hasPhone
+                    ? "Time-sensitive alerts to your phone number on file."
+                    : "Add a phone number in Profile to enable SMS."}
+                </span>
               </span>
-            </span>
-          </label>
-          {notifMsg && <p className="mt-4 text-sm text-[#6B9E6E]">{notifMsg}</p>}
-          <button
-            type="button"
-            onClick={() => void saveNotifications()}
-            disabled={saving}
-            className="mt-6 rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#6f8d71] disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Save notification settings"}
-          </button>
-        </div>
+            </label>
+            {notifMsg ? <p className="mt-4 text-sm text-[#6B9E6E]">{notifMsg}</p> : null}
+            <button
+              type="button"
+              onClick={() => void saveNotifications()}
+              disabled={savingNotif}
+              className="mt-6 rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] disabled:opacity-50"
+            >
+              {savingNotif ? "Saving…" : "Save notification settings"}
+            </button>
+          </div>
+        ) : null}
 
-        <section className="mt-8 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-md">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#D4A843]">
-            Saved searches
-          </h2>
-          <p className="mt-4 text-sm text-[#2C2C2C]/50">
-            You don&apos;t have any saved searches yet. When you save a search from the marketplace,
-            it will appear here.
-          </p>
-        </section>
-
-        {(broker || agent) && (
-          <section className="mt-8 space-y-6">
-            <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">
-              License &amp; verification
-            </h2>
-            {broker && (
-              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-md">
+        {activeTab === "verification" && (currentRole === "agent" || currentRole === "broker") ? (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+              <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">
+                License &amp; verification
+              </h2>
+              <p className="mt-1 text-sm text-[#2C2C2C]/50">
+                Read-only details from your registration. Contact support to update your license.
+              </p>
+            </div>
+            {broker ? (
+              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-sm font-semibold text-[#2C2C2C]">Broker</h3>
                   {broker.verified && broker.status === "approved" ? (
@@ -537,7 +684,7 @@ export default function SettingsPage() {
                       Verified
                     </span>
                   ) : (
-                    <span className="rounded-full bg-[#FAF8F4] px-2.5 py-0.5 text-xs font-medium text-[#2C2C2C]/70 capitalize">
+                    <span className="rounded-full bg-[#FAF8F4] px-2.5 py-0.5 text-xs font-medium capitalize text-[#2C2C2C]/70">
                       {broker.status}
                     </span>
                   )}
@@ -547,19 +694,31 @@ export default function SettingsPage() {
                 <p className="text-xs text-[#2C2C2C]/45">
                   {broker.name} · {broker.email}
                 </p>
-                {broker.license_expiry && (
-                  <p className="mt-2 text-xs text-[#2C2C2C]/45">
-                    License expires {formatLicenseDate(broker.license_expiry)}
-                    {showExpiryWarn(broker.license_expiry) && (
-                      <span className="font-medium text-amber-800"> · renew soon</span>
-                    )}
+                {broker.license_number ? (
+                  <p className="mt-2 text-xs font-medium text-[#2C2C2C]/70">
+                    License no. {broker.license_number}
                   </p>
-                )}
+                ) : null}
+                {broker.license_expiry ? (
+                  <p className="mt-1 text-xs text-[#2C2C2C]/45">
+                    License expires {formatLicenseDate(broker.license_expiry)}
+                    {showExpiryWarn(broker.license_expiry) ? (
+                      <span className="font-medium text-amber-800"> · renew soon</span>
+                    ) : null}
+                  </p>
+                ) : null}
               </div>
-            )}
+            ) : currentRole === "broker" ? (
+              <p className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 text-sm text-[#2C2C2C]/60 shadow-sm">
+                No broker registration found yet.{" "}
+                <Link href="/register/broker" className="font-semibold text-[#6B9E6E] underline">
+                  Complete broker registration
+                </Link>
+              </p>
+            ) : null}
 
-            {agent && (
-              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-md">
+            {agent ? (
+              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-sm font-semibold text-[#2C2C2C]">Agent</h3>
                   {agent.verified && agent.status === "approved" ? (
@@ -567,7 +726,7 @@ export default function SettingsPage() {
                       Verified
                     </span>
                   ) : (
-                    <span className="rounded-full bg-[#FAF8F4] px-2.5 py-0.5 text-xs font-medium text-[#2C2C2C]/70 capitalize">
+                    <span className="rounded-full bg-[#FAF8F4] px-2.5 py-0.5 text-xs font-medium capitalize text-[#2C2C2C]/70">
                       {agent.status}
                     </span>
                   )}
@@ -575,21 +734,43 @@ export default function SettingsPage() {
                 </div>
                 <p className="mt-2 text-sm text-[#2C2C2C]/85">{agent.name}</p>
                 <p className="text-xs text-[#2C2C2C]/45">{agent.email}</p>
-                {brokerageName && (
+                {agent.license_number ? (
+                  <p className="mt-2 text-xs font-medium text-[#2C2C2C]/70">
+                    License no. {agent.license_number}
+                  </p>
+                ) : null}
+                {brokerageName ? (
                   <p className="mt-1 text-xs text-[#2C2C2C]/45">Brokerage: {brokerageName}</p>
-                )}
-                {agent.license_expiry && (
+                ) : null}
+                {agent.license_expiry ? (
                   <p className="mt-2 text-xs text-[#2C2C2C]/45">
                     License expires {formatLicenseDate(agent.license_expiry)}
-                    {showExpiryWarn(agent.license_expiry) && (
+                    {showExpiryWarn(agent.license_expiry) ? (
                       <span className="font-medium text-amber-800"> · renew soon</span>
-                    )}
+                    ) : null}
                   </p>
-                )}
+                ) : null}
               </div>
-            )}
-          </section>
-        )}
+            ) : currentRole === "agent" ? (
+              <p className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 text-sm text-[#2C2C2C]/60 shadow-sm">
+                No agent registration found yet.{" "}
+                <Link href="/register/agent" className="font-semibold text-[#6B9E6E] underline">
+                  Complete agent registration
+                </Link>
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {activeTab === "saved" && currentRole === "client" ? (
+          <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+            <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">Saved searches</h2>
+            <p className="mt-4 text-sm text-[#2C2C2C]/50">
+              You don&apos;t have any saved searches yet. When you save a search from the marketplace,
+              it will appear here.
+            </p>
+          </div>
+        ) : null}
 
         <div className="mt-10 border-t border-[#2C2C2C]/10 pt-8">
           <button
@@ -602,5 +783,22 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white">
+          <MaddenTopNav />
+          <div className="flex min-h-[50vh] items-center justify-center text-sm font-semibold text-[#2C2C2C]/50">
+            Loading…
+          </div>
+        </div>
+      }
+    >
+      <SettingsPageInner />
+    </Suspense>
   );
 }
