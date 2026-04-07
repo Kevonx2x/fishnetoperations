@@ -1111,7 +1111,7 @@ function CategorySection({
         </button>
         <div
           ref={sectionRef}
-          className="min-w-0 flex-1 touch-pan-x overflow-x-auto pb-2 [-webkit-overflow-scrolling:touch] scrollbar-hide"
+          className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide"
         >
           <div className="flex w-max flex-nowrap gap-3">
             {visible.map((p) => (
@@ -1699,7 +1699,7 @@ function RowCarousel({
           ref={(el) => {
             rowRefs.current[rowKey] = el;
           }}
-          className="min-w-0 flex-1 touch-pan-x overflow-x-auto pb-2 [-webkit-overflow-scrolling:touch] scrollbar-hide"
+          className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide"
         >
           <div className="flex w-max flex-nowrap gap-3">
             {list.map((p) => (
