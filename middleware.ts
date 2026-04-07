@@ -9,7 +9,6 @@ const protectedExact: { path: string; roles: ProfileRole[] }[] = [
   { path: "/admin", roles: ["admin"] },
   { path: "/dashboard/broker", roles: ["broker"] },
   { path: "/dashboard/agent", roles: ["agent"] },
-  { path: "/profile", roles: ["admin", "broker", "agent", "client"] },
   { path: "/settings", roles: ["admin", "broker", "agent", "client"] },
 ];
 
@@ -133,8 +132,6 @@ export const config = {
     "/dashboard/broker/:path*",
     "/dashboard/agent",
     "/dashboard/agent/:path*",
-    "/profile",
-    "/profile/:path*",
     "/settings",
     "/settings/:path*",
     "/auth/login",

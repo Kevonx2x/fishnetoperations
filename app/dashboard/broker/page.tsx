@@ -218,7 +218,7 @@ export default function BrokerDashboardPage() {
             <Link href="/" className="text-sm text-gray-600 hover:text-gray-900">
               Home
             </Link>
-            <Link href="/profile" className="text-sm text-gray-600 hover:text-gray-900">
+            <Link href="/settings" className="text-sm text-gray-600 hover:text-gray-900">
               Profile
             </Link>
             <button

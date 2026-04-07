@@ -458,35 +458,6 @@ export default function PropertyPage() {
                 </div>
               ) : null}
 
-              {showCoAgentPendingBanner ? (
-                <div className="rounded-2xl border border-[#D4A843]/30 bg-[#FAF8F4] p-4">
-                  <p className="text-sm font-bold text-[#2C2C2C]">Co-list request pending</p>
-                  <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/65">
-                    BahayGo admin will review your credentials. You’ll be notified when it’s approved or declined.
-                  </p>
-                </div>
-              ) : null}
-              {showCoAgentRequestButton ? (
-                <div className="rounded-2xl border border-[#D4A843]/25 bg-[#FAF8F4] p-4">
-                  <p className="text-sm font-semibold text-[#2C2C2C]/70">
-                    Want to co-list this property? Submit a request for admin approval.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCoAgentMsg(null);
-                      setCoAgentConfirmOpen(true);
-                    }}
-                    disabled={coAgentSubmitting}
-                    className="mt-3 inline-flex rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Request to Co-List
-                  </button>
-                  {coAgentMsg ? (
-                    <p className="mt-2 text-sm font-semibold text-red-700">{coAgentMsg}</p>
-                  ) : null}
-                </div>
-              ) : null}
             </section>
 
             <aside className="lg:sticky lg:top-24 lg:col-span-1 lg:self-start">
@@ -550,6 +521,36 @@ export default function PropertyPage() {
                     ))}
                   </ul>
                 )}
+
+                {showCoAgentPendingBanner ? (
+                  <div className="mt-4 rounded-xl border border-[#D4A843]/30 bg-[#FAF8F4] p-3">
+                    <p className="text-xs font-bold text-[#2C2C2C]">Co-list request pending</p>
+                    <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/65">
+                      BahayGo admin will review your credentials. You’ll be notified when it’s approved or declined.
+                    </p>
+                  </div>
+                ) : null}
+                {showCoAgentRequestButton ? (
+                  <div className="mt-4 rounded-xl border border-[#D4A843]/25 bg-[#FAF8F4] p-3">
+                    <p className="text-xs font-semibold text-[#2C2C2C]/70">
+                      Want to co-list this property? Submit a request for admin approval.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCoAgentMsg(null);
+                        setCoAgentConfirmOpen(true);
+                      }}
+                      disabled={coAgentSubmitting}
+                      className="mt-2 w-full rounded-full bg-[#2C2C2C] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Request to Co-List
+                    </button>
+                    {coAgentMsg ? (
+                      <p className="mt-2 text-xs font-semibold text-red-700">{coAgentMsg}</p>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div className="mt-6 border-t border-[#2C2C2C]/10 pt-4">
                   <p className="font-serif text-base font-bold text-[#2C2C2C]">Request a viewing</p>

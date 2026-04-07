@@ -228,7 +228,7 @@ export default function RegisterAgentPage() {
               Your agent profile is pending review. You will receive a notification when an admin has
               decided.
             </p>
-            <Link href="/profile" className="underline font-medium">
+            <Link href="/settings" className="underline font-medium">
               View profile status
             </Link>
           </div>

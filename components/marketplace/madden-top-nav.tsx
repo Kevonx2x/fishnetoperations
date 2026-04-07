@@ -535,7 +535,13 @@ export function MaddenTopNav() {
                       </div>
                       <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
                       <Link
-                        href="/profile"
+                        href={
+                          role === "agent" && agentNav
+                            ? `/agents/${agentNav.id}`
+                            : role === "broker" && brokerNav
+                              ? `/brokers/${brokerNav.id}`
+                              : "/settings"
+                        }
                         className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                         onClick={() => setAccountOpen(false)}
                       >

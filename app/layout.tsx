@@ -62,6 +62,7 @@ export default function RootLayout({
                   <div className="space-y-2 text-sm font-semibold text-[#2C2C2C]/70">
                     <a className="block hover:text-[#2C2C2C]" href="/privacy">Privacy</a>
                     <a className="block hover:text-[#2C2C2C]" href="/terms">Terms</a>
+                    <a className="block hover:text-[#2C2C2C]" href="/anti-scam">Anti-scam</a>
                     <a className="block hover:text-[#2C2C2C]" href="/saved">Saved</a>
                   </div>
                 </div>

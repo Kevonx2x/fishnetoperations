@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Heart,
   Home,
+  MapPin,
   Shield,
   BadgeCheck,
   Lock,
@@ -21,7 +22,6 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
-import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { ConnectedAgentsBox } from "@/components/marketplace/connected-agents-box";
 import { FinnMascot } from "@/components/marketplace/mascots/finn-mascot";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
@@ -120,6 +120,28 @@ function inferredType(p: DbProperty): FiltersState["propertyType"] {
 export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" }) {
   const { user } = useAuth();
   const saved = useSavedPropertyIds();
+  const [viewerVerifiedListingAgent, setViewerVerifiedListingAgent] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setViewerVerifiedListingAgent(false);
+      return;
+    }
+    let cancelled = false;
+    void supabase
+      .from("agents")
+      .select("verified, status")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const row = data as { verified?: boolean | null; status?: string | null } | null;
+        setViewerVerifiedListingAgent(Boolean(row?.verified && row?.status === "approved"));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const mode = listingMode;
   const [search, setSearch] = useState("");
@@ -347,7 +369,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const scrollRow = (ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") => {
     const el = ref.current;
     if (!el) return;
-    const step = Math.max(280, Math.round(el.clientWidth * 0.75));
+    const step = Math.max(300, Math.round(el.clientWidth * 0.75));
     el.scrollBy({ left: dir === "next" ? step : -step, behavior: "smooth" });
   };
 
@@ -374,7 +396,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4]">
+    <div className="min-h-screen bg-[#FFFFFF]">
       <MaddenTopNav />
 
       {/* 2. HERO SLIDER WITH SEARCH */}
@@ -447,7 +469,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       }
                       const el = rowRefs.current[mode === "buy" ? "buy-featured" : "rent-featured"];
                       if (!el) return;
-                      const step = Math.max(260, Math.round(el.clientWidth * 0.85));
+                      const step = Math.max(300, Math.round(el.clientWidth * 0.85));
                       el.scrollBy({ left: -step, behavior: "smooth" });
                     }}
                     className="rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#6C8C70] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
@@ -461,7 +483,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       <>
                         <Link
                           href="/buy"
-                          className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-[#FAF8F4]"
+                          className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50"
                         >
                           Buy
                         </Link>
@@ -476,7 +498,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         </span>
                         <Link
                           href="/"
-                          className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-[#FAF8F4]"
+                          className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50"
                         >
                           Rent
                         </Link>
@@ -508,7 +530,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       <hr className="mx-auto w-3/4 border-t border-[#2C2C2C]/10" />
 
       {/* 3. QUICK STATS BAR */}
-      <section className="mx-auto max-w-6xl px-4 py-8">
+      <section className="mx-auto max-w-7xl px-4 py-8">
         <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
           <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
             <Stat icon={<Home className="h-4 w-4 text-[#6B9E6E]" />} value="1,200+" label="Active Listings" />
@@ -520,7 +542,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
       <hr className="mx-auto w-3/4 border-t border-[#2C2C2C]/10" />
 
-      <main className="mx-auto max-w-6xl px-3 pb-16 pt-10">
+      <main className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-5">
         {/* Loading / error */}
         {loading ? <div className="h-40 rounded-2xl animate-pulse bg-black/5" /> : null}
         {!loading && error ? (
@@ -547,7 +569,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       key={chip.key}
                       type="button"
                       onClick={chip.onRemove}
-                      className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-[#FAF8F4]"
+                      className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-neutral-50"
                     >
                       {chip.label}
                       <span className="text-[#2C2C2C]/35">×</span>
@@ -568,7 +590,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   <button
                     type="button"
                     onClick={() => setFiltersOpen((v) => !v)}
-                    className="relative inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4]"
+                    className="relative inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50"
                   >
                     <Filter className="h-4 w-4" />
                     Filters
@@ -582,7 +604,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   <select
                     value={sortMode}
                     onChange={(e) => setSortMode(e.target.value as SortMode)}
-                    className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4] focus-visible:outline-none"
+                    className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50 focus-visible:outline-none"
                     aria-label="Sort"
                   >
                     <option value="newest">Newest</option>
@@ -642,7 +664,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           <select
                             value={String(filters.beds)}
                             onChange={(e) => setFilters((s) => ({ ...s, beds: (e.target.value === "any" ? "any" : Number(e.target.value)) as FiltersState["beds"] }))}
-                            className="mt-2 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
+                            className="mt-2 w-full rounded-xl border border-black/10 bg-neutral-50 px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
                           >
                             <option value="any">Any</option>
                             <option value="1">1</option>
@@ -656,7 +678,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           <select
                             value={String(filters.baths)}
                             onChange={(e) => setFilters((s) => ({ ...s, baths: (e.target.value === "any" ? "any" : Number(e.target.value)) as FiltersState["baths"] }))}
-                            className="mt-2 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
+                            className="mt-2 w-full rounded-xl border border-black/10 bg-neutral-50 px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
                           >
                             <option value="any">Any</option>
                             <option value="1">1</option>
@@ -669,7 +691,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           <select
                             value={filters.propertyType}
                             onChange={(e) => setFilters((s) => ({ ...s, propertyType: e.target.value as FiltersState["propertyType"] }))}
-                            className="mt-2 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
+                            className="mt-2 w-full rounded-xl border border-black/10 bg-neutral-50 px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
                           >
                             <option value="any">Any</option>
                             <option value="House">House</option>
@@ -717,7 +739,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       <button
                         type="button"
                         onClick={() => clearFiltersAndBrowse()}
-                        className="shrink-0 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4]"
+                        className="shrink-0 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50"
                       >
                         Clear Filters
                       </button>
@@ -770,6 +792,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             onOpenPropertyZoom={() => setZoomProperty(p)}
                             grid
                             viewerUserId={user?.id ?? null}
+                            verifiedListingAgent={viewerVerifiedListingAgent}
                           />
                         ))}
                       </div>
@@ -805,6 +828,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
                         viewerUserId={user?.id ?? null}
                         onOpenPropertyZoom={setZoomProperty}
+                        viewerVerifiedListingAgent={viewerVerifiedListingAgent}
                       />
                     ) : (
                       <PropertyRows
@@ -827,6 +851,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
                         viewerUserId={user?.id ?? null}
                         onOpenPropertyZoom={setZoomProperty}
+                        viewerVerifiedListingAgent={viewerVerifiedListingAgent}
                       />
                     )}
                   </motion.div>
@@ -889,7 +914,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 <button
                   type="button"
                   onClick={() => scrollRow(topAgentsRef, "prev")}
-                  className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] sm:flex"
+                  className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 sm:flex"
                   aria-label="Scroll left"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -904,7 +929,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 <button
                   type="button"
                   onClick={() => scrollRow(topAgentsRef, "next")}
-                  className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] sm:flex"
+                  className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 sm:flex"
                   aria-label="Scroll right"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -1041,6 +1066,7 @@ function CategorySection({
   connectedAgentsByPropertyId,
   scrollRow,
   onOpenPropertyZoom,
+  viewerVerifiedListingAgent,
 }: {
   title: string;
   subtitle: string;
@@ -1054,6 +1080,7 @@ function CategorySection({
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
   scrollRow: (ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") => void;
   onOpenPropertyZoom: (p: DbProperty) => void;
+  viewerVerifiedListingAgent: boolean;
 }) {
   const visible = expanded ? items : items.slice(0, 12);
 
@@ -1068,13 +1095,13 @@ function CategorySection({
         <button
           type="button"
           onClick={() => scrollRow(sectionRef, "prev")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] sm:flex"
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 sm:flex"
           aria-label="Scroll left"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div ref={sectionRef} className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide">
-          <div className="grid min-w-[980px] grid-cols-4 gap-4">
+          <div className="grid min-w-[1080px] grid-cols-5 gap-3">
             {visible.map((p) => (
               <NewlyListedCard
                 key={`${title}-${p.id}`}
@@ -1101,6 +1128,8 @@ function CategorySection({
                 connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
                 onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
                 grid
+                compact
+                verifiedListingAgent={viewerVerifiedListingAgent}
               />
             ))}
           </div>
@@ -1108,7 +1137,7 @@ function CategorySection({
         <button
           type="button"
           onClick={() => scrollRow(sectionRef, "next")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] sm:flex"
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 sm:flex"
           aria-label="Scroll right"
         >
           <ChevronRight className="h-4 w-4" />
@@ -1120,7 +1149,7 @@ function CategorySection({
           <button
             type="button"
             onClick={onToggleExpanded}
-            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-[#FAF8F4]"
+            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-neutral-50"
           >
             {expanded ? "Show less" : "Show more"}
             <ArrowDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
@@ -1159,7 +1188,7 @@ function Chip({
       type="button"
       onClick={onClick}
       className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold ring-1 ring-black/10 ${
-        active ? "bg-[#2C2C2C] text-white" : "bg-white text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
+        active ? "bg-[#2C2C2C] text-white" : "bg-white text-[#2C2C2C]/70 hover:bg-neutral-50"
       }`}
     >
       {label}
@@ -1195,6 +1224,8 @@ export function NewlyListedCard({
   grid,
   cardWidthClass,
   viewerUserId,
+  compact,
+  verifiedListingAgent,
 }: {
   property: DbProperty;
   roomUrls: string[];
@@ -1208,6 +1239,10 @@ export function NewlyListedCard({
   grid?: boolean;
   cardWidthClass?: string;
   viewerUserId?: string | null;
+  /** Smaller image + type for 5-across carousels */
+  compact?: boolean;
+  /** Logged-in viewer is approved + verified agent (homepage co-list CTA). */
+  verifiedListingAgent?: boolean;
 }) {
   const listedLabel = listingListedLabel(property.created_at);
   const statusLabel = property.status === "for_rent" ? "For Rent" : "For Sale";
@@ -1231,22 +1266,23 @@ export function NewlyListedCard({
     !!viewerUserId &&
     connectedAgents.some((a) => a.userId === viewerUserId);
 
+  const imgH = compact ? "h-44 sm:h-48" : "h-52 sm:h-56";
+  const titleLine = property.name?.trim() || property.location;
   return (
     <div
       className={`overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md ${
-        grid ? "" : `${cardWidthClass ?? "w-[260px]"} shrink-0`
+        grid ? "" : `${cardWidthClass ?? "w-[300px]"} shrink-0`
       }`}
     >
-      <div className="relative h-48 w-full overflow-hidden bg-neutral-900">
+      <div className={`relative w-full overflow-hidden bg-neutral-900 ${imgH}`}>
         <Image
           src={img}
           alt={property.name ?? property.location}
           fill
           quality={92}
           className="object-cover"
-          sizes={grid ? "(min-width: 1024px) 360px, 100vw" : "260px"}
+          sizes={grid ? "(min-width: 1024px) 320px, 100vw" : compact ? "300px" : "360px"}
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
         <button
           type="button"
           onClick={onOpenPropertyZoom}
@@ -1281,24 +1317,15 @@ export function NewlyListedCard({
           </>
         ) : null}
 
-        <div className="absolute left-3 top-3 z-20 flex max-w-[70%] flex-wrap items-center gap-2">
-          <span className="rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-sm">
-            {listedLabel}
-          </span>
-          {showYourListingBadge ? (
-            <Link
-              href="/dashboard/agent"
-              className="rounded-full bg-[#D4A843]/95 px-2.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm ring-1 ring-[#8a6d32]/30 backdrop-blur-sm hover:bg-[#D4A843]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              This is your listing
-            </Link>
-          ) : null}
-        </div>
-        <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-16 bg-gradient-to-t from-black/25 to-transparent" />
+
+        <div className="absolute left-3 top-3 z-20">
           <span className="rounded-full bg-[#6B9E6E] px-3 py-1 text-[11px] font-bold text-white shadow-sm">
             {statusLabel}
           </span>
+        </div>
+
+        <div className="absolute right-3 top-3 z-20">
           <button
             type="button"
             onClick={(e) => {
@@ -1312,18 +1339,45 @@ export function NewlyListedCard({
           </button>
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent p-4 pt-12">
-          <p className="font-serif text-2xl font-bold text-white drop-shadow-sm">{property.price}</p>
-          <p className="mt-1 line-clamp-1 text-sm font-semibold text-white/95">{property.name ?? property.location}</p>
-          <p className="mt-1 text-xs font-semibold text-white/85">
-            {property.beds ? `${property.beds} beds` : "Studio"} · {property.baths} baths · {property.sqft} sqft
-          </p>
+        <div className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-5rem)] flex-col items-start gap-1.5">
+          <span className="rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-sm ring-1 ring-black/5">
+            {listedLabel}
+          </span>
+          {showYourListingBadge ? (
+            <Link
+              href="/dashboard/agent"
+              className="pointer-events-auto rounded-full bg-[#D4A843]/95 px-2.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm ring-1 ring-[#8a6d32]/30 hover:bg-[#D4A843]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              This is your listing
+            </Link>
+          ) : null}
         </div>
+      </div>
+
+      <div className={`border-t border-[#2C2C2C]/10 bg-white ${compact ? "px-3 py-2.5" : "px-3 py-3 sm:px-4"}`}>
+        <p
+          className={`font-serif font-bold tracking-tight text-[#D4A843] ${compact ? "text-base" : "text-lg sm:text-xl"}`}
+        >
+          {property.price}
+        </p>
+        <p className={`mt-1 line-clamp-2 text-[#2C2C2C] ${compact ? "text-sm font-bold" : "text-base font-bold"}`}>
+          {titleLine}
+        </p>
+        <p className={`mt-1 text-[#6B6B6B] ${compact ? "text-[11px]" : "text-xs"}`}>
+          {property.beds ? `${property.beds} beds` : "Studio"} · {property.baths} baths · {property.sqft} sqft
+        </p>
+        <p
+          className={`mt-1.5 flex items-start gap-1 text-[#6B6B6B] ${compact ? "text-[11px]" : "text-xs"}`}
+        >
+          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8E8E8E]" aria-hidden />
+          <span className="line-clamp-2 leading-snug">{property.location}</span>
+        </p>
       </div>
 
       <div
         className="relative z-10 flex flex-col gap-0 border-t border-gray-100 bg-white pt-2"
-        style={{ minHeight: "130px" }}
+        style={{ minHeight: compact ? "108px" : "124px" }}
       >
         <div className="flex flex-1 flex-col justify-between px-4 pb-0 pt-2">
           <div>
@@ -1357,7 +1411,11 @@ export function NewlyListedCard({
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] ring-1 ring-black/10">
                       <span className="text-sm font-bold text-white">?</span>
                     </div>
-                    <AgentSlotPlaceholder onLinkClick={(e) => e.stopPropagation()} />
+                    <AgentSlotPlaceholder
+                      onLinkClick={(e) => e.stopPropagation()}
+                      propertyId={property.id}
+                      verifiedListingAgent={verifiedListingAgent}
+                    />
                   </div>
                 ),
               )}
@@ -1385,7 +1443,7 @@ export function NewlyListedCard({
           <button
             type="button"
             onClick={onOpenPropertyZoom}
-            className="rounded-full p-1 text-[#2C2C2C]/40 transition hover:bg-[#FAF8F4] hover:text-[#2C2C2C]/60"
+            className="rounded-full p-1 text-[#2C2C2C]/40 transition hover:bg-neutral-50 hover:text-[#2C2C2C]/60"
             aria-label="Open property details"
           >
             <ChevronDown className="h-4 w-4" strokeWidth={2} />
@@ -1459,6 +1517,7 @@ function PropertyRows({
   connectedAgentsByPropertyId,
   viewerUserId,
   onOpenPropertyZoom,
+  viewerVerifiedListingAgent,
 }: {
   rows: { key: string; title: string; subtitle: string; items: DbProperty[]; featured?: boolean }[];
   showMore: boolean;
@@ -1470,6 +1529,7 @@ function PropertyRows({
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
   viewerUserId?: string | null;
   onOpenPropertyZoom: (p: DbProperty) => void;
+  viewerVerifiedListingAgent: boolean;
 }) {
   const first = rows.slice(0, 4);
   const rest = rows.slice(4);
@@ -1491,6 +1551,7 @@ function PropertyRows({
             connectedAgentsByPropertyId={connectedAgentsByPropertyId}
             viewerUserId={viewerUserId}
             onOpenPropertyZoom={onOpenPropertyZoom}
+            viewerVerifiedListingAgent={viewerVerifiedListingAgent}
           />
           {i < first.length - 1 ? (
             <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
@@ -1502,7 +1563,7 @@ function PropertyRows({
         <button
           type="button"
           onClick={onToggleShowMore}
-          className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-[#2C2C2C]/75 ring-1 ring-black/10 hover:bg-[#FAF8F4]"
+          className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-[#2C2C2C]/75 ring-1 ring-black/10 hover:bg-neutral-50"
         >
           {showMore ? "Show Less ↑" : "Show More Categories ↓"}
         </button>
@@ -1533,6 +1594,7 @@ function PropertyRows({
                   connectedAgentsByPropertyId={connectedAgentsByPropertyId}
                   viewerUserId={viewerUserId}
                   onOpenPropertyZoom={onOpenPropertyZoom}
+                  viewerVerifiedListingAgent={viewerVerifiedListingAgent}
                 />
                 <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
               </div>
@@ -1568,6 +1630,7 @@ function RowCarousel({
   connectedAgentsByPropertyId,
   viewerUserId,
   onOpenPropertyZoom,
+  viewerVerifiedListingAgent,
 }: {
   rowKey: string;
   title: string;
@@ -1581,18 +1644,19 @@ function RowCarousel({
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
   viewerUserId?: string | null;
   onOpenPropertyZoom: (p: DbProperty) => void;
+  viewerVerifiedListingAgent: boolean;
 }) {
   const scroll = (dir: "prev" | "next") => {
     const el = rowRefs.current[rowKey];
     if (!el) return;
-    const step = Math.max(260, Math.round(el.clientWidth * 0.85));
+    const step = Math.max(300, Math.round(el.clientWidth * 0.85));
     el.scrollBy({ left: dir === "next" ? step : -step, behavior: "smooth" });
   };
 
   const list = items.slice(0, 12);
-  const placeholderCount = list.length > 0 && list.length < 4 ? 4 - list.length : 0;
+  const placeholderCount = list.length > 0 && list.length < 5 ? 5 - list.length : 0;
   const featuredClasses = featured ? "rounded-2xl border border-[#D4A843]/30 bg-[#D4A843]/5 px-3 pt-3" : "";
-  const cardWidthClass = "w-[260px]";
+  const cardWidthClass = "w-[280px] sm:w-[300px]";
 
   return (
     <div className={featuredClasses}>
@@ -1608,7 +1672,7 @@ function RowCarousel({
         <button
           type="button"
           onClick={() => scroll("prev")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] sm:flex"
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 sm:flex"
           aria-label="Scroll left"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -1619,7 +1683,7 @@ function RowCarousel({
           }}
           className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide"
         >
-          <div className="flex gap-4">
+          <div className="flex gap-3">
             {list.map((p) => (
               <NewlyListedCard
                 key={`${rowKey}-${p.id}`}
@@ -1646,6 +1710,8 @@ function RowCarousel({
                 onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
                 cardWidthClass={cardWidthClass}
                 viewerUserId={viewerUserId}
+                compact
+                verifiedListingAgent={viewerVerifiedListingAgent}
               />
             ))}
             {Array.from({ length: placeholderCount }).map((_, i) => (
@@ -1656,7 +1722,7 @@ function RowCarousel({
         <button
           type="button"
           onClick={() => scroll("next")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] sm:flex"
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 sm:flex"
           aria-label="Scroll right"
         >
           <ChevronRight className="h-4 w-4" />

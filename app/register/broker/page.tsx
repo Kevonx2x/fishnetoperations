@@ -243,7 +243,7 @@ export default function RegisterBrokerPage() {
               Your brokerage is pending review. You will receive a notification when an admin has
               decided.
             </p>
-            <Link href="/profile" className="underline font-medium">
+            <Link href="/settings" className="underline font-medium">
               View profile status
             </Link>
           </div>

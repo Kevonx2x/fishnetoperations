@@ -12,11 +12,32 @@ export function useShowListingAgentPlaceholderLink(): boolean {
 type AgentSlotPlaceholderProps = {
   /** Card carousel: stop click from opening property zoom */
   onLinkClick?: (e: React.MouseEvent) => void;
+  propertyId?: string;
+  /** Approved + verified agent: show co-list CTA (homepage cards). */
+  verifiedListingAgent?: boolean;
 };
 
 /** Two-line placeholder for property cards and zoom modal agent lists (sage ? circle is separate). */
-export function AgentSlotPlaceholder({ onLinkClick }: AgentSlotPlaceholderProps) {
+export function AgentSlotPlaceholder({
+  onLinkClick,
+  propertyId,
+  verifiedListingAgent,
+}: AgentSlotPlaceholderProps) {
   const showLink = useShowListingAgentPlaceholderLink();
+
+  if (verifiedListingAgent && propertyId) {
+    return (
+      <div className="min-w-0 flex-1">
+        <Link
+          href={`/properties/${encodeURIComponent(propertyId)}`}
+          className="text-[10px] font-semibold text-[#6B9E6E] hover:underline"
+          onClick={onLinkClick}
+        >
+          Want to co-list? →
+        </Link>
+      </div>
+    );
+  }
 
   if (showLink) {
     return (
