@@ -138,8 +138,14 @@ export function ViewingRequestModal({
     }
     setBusy(true);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.log("[ViewingRequestModal] auth session for insert:", sessionData.session);
+      if (!sessionData.session) {
+        setError("Please sign in again");
+        return;
+      }
+
       const scheduledAt = toScheduledIso(date, hour);
-      console.log("[ViewingRequestModal] insert session user id:", user?.id);
       const { data: row, error: insErr } = await supabase
         .from("viewing_requests")
         .insert({
