@@ -1,13 +1,15 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowDownRight,
   BadgeCheck,
   Calendar,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Clock,
   Mail,
   MessageCircle,
   Phone,
@@ -16,177 +18,315 @@ import {
 
 const STORAGE_KEY = "bahaygo_onboarded";
 
-function CalloutBubble({
-  children,
+/** Unsplash face crops for mock agent avatars */
+const MOCK_AVATARS = [
+  "https://images.unsplash.com/photo-1607746882042-944635dfe10e?w=100&h=100&fit=crop&crop=face",
+  "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&h=100&fit=crop&crop=face",
+  "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=face",
+] as const;
+
+const MOCK_LISTING_IMG =
+  "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=520&fit=crop";
+
+function AnimatedArrow({
+  variant = "down-right",
   className,
-  pointer = "bottom",
 }: {
-  children: React.ReactNode;
+  variant?: "down-right" | "up-left" | "down-left" | "up-right";
   className?: string;
-  pointer?: "bottom" | "left" | "right" | "top";
 }) {
-  const pointerClass =
-    pointer === "bottom"
-      ? "bottom-0 left-1/2 -translate-x-1/2 translate-y-full border-l-[10px] border-r-[10px] border-t-[12px] border-l-transparent border-r-transparent border-t-[#6B9E6E]"
-      : pointer === "top"
-        ? "top-0 left-1/2 -translate-x-1/2 -translate-y-full border-l-[10px] border-r-[10px] border-b-[12px] border-l-transparent border-r-transparent border-b-[#6B9E6E]"
-        : pointer === "left"
-          ? "left-0 top-1/2 -translate-x-full -translate-y-1/2 border-t-[10px] border-b-[10px] border-r-[12px] border-t-transparent border-b-transparent border-r-[#6B9E6E]"
-          : "right-0 top-1/2 translate-x-full -translate-y-1/2 border-t-[10px] border-b-[10px] border-l-[12px] border-t-transparent border-b-transparent border-l-[#6B9E6E]";
+  const rotate =
+    variant === "down-right"
+      ? ""
+      : variant === "up-left"
+        ? "rotate-180"
+        : variant === "down-left"
+          ? "-scale-x-100"
+          : "-rotate-90";
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.94 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: "spring", stiffness: 420, damping: 28 }}
-      className={`relative z-10 max-w-[220px] ${className ?? ""}`}
+      className={`flex items-center justify-center text-[#6B9E6E] ${className ?? ""}`}
+      animate={{ x: [0, 5, 0], y: [0, 4, 0] }}
+      transition={{ duration: 1.35, repeat: Infinity, ease: "easeInOut" }}
+      aria-hidden
     >
-      <div className="rounded-2xl bg-[#6B9E6E] px-3.5 py-2.5 text-center text-xs font-bold leading-snug text-white shadow-lg shadow-[#6B9E6E]/25">
-        {children}
+      <div className={`relative ${rotate}`}>
+        <ArrowDownRight className="h-9 w-9 drop-shadow-sm" strokeWidth={2.25} />
+        <span className="pointer-events-none absolute inset-0 rounded-full border-2 border-[#D4A843]/50" />
       </div>
-      <div className={`absolute h-0 w-0 ${pointerClass}`} aria-hidden />
     </motion.div>
   );
 }
 
-function SlideVerifiedAgents() {
+function SageAnnotation({
+  text,
+  className,
+  arrow,
+  arrowClassName,
+}: {
+  text: string;
+  className?: string;
+  arrow?: React.ReactNode;
+  arrowClassName?: string;
+}) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col px-1">
-      <h2 className="font-serif text-xl font-bold leading-tight text-[#2C2C2C] sm:text-2xl">
-        Every Agent is PRC Verified ✓
-      </h2>
-      <div className="relative mt-6 flex min-h-[280px] flex-1 flex-col items-center sm:min-h-[320px]">
-        <div className="relative w-full max-w-sm rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-lg">
-          <div className="flex items-start gap-3">
-            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#EBE6DC] ring-1 ring-black/10" />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="truncate font-semibold text-[#2C2C2C]">Maria Santos</span>
-                <span className="relative inline-flex shrink-0">
-                  <motion.span
-                    className="absolute -inset-1 rounded-full border-2 border-[#D4A843]"
-                    animate={{ scale: [1, 1.25, 1], opacity: [0.9, 0.35, 0.9] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                  <span className="relative inline-flex items-center gap-1 rounded-full bg-[#D4A843]/20 px-2 py-0.5 text-[11px] font-bold text-[#8a6d32] ring-2 ring-[#D4A843]/40">
-                    <BadgeCheck className="h-3.5 w-3.5 text-[#B99333]" aria-hidden />
-                    Verified
-                  </span>
-                </span>
-              </div>
-              <p className="mt-1 truncate text-xs font-semibold text-[#2C2C2C]/55">BahayGo Realty · Makati</p>
-              <div id="tour-agent-stats" className="mt-3 flex flex-wrap gap-2">
-                <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/75">
-                  24 closings
-                </span>
-                <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/75">
-                  Score 9.2
-                </span>
-              </div>
-            </div>
+    <div className={`flex flex-col items-center gap-1 ${className ?? ""}`}>
+      <div className="max-w-[200px] rounded-2xl bg-[#6B9E6E] px-3.5 py-2.5 text-center text-[11px] font-bold leading-snug text-white shadow-lg shadow-[#6B9E6E]/30 sm:max-w-[220px] sm:text-xs">
+        {text}
+      </div>
+      {arrow ?? <AnimatedArrow className={arrowClassName} variant="down-right" />}
+    </div>
+  );
+}
+
+function MockAgentCard({
+  name,
+  avatarUrl,
+  score,
+  closings,
+  broker,
+  highlightBadge,
+  highlightStats,
+}: {
+  name: string;
+  avatarUrl: string;
+  score: string;
+  closings: number;
+  broker: string;
+  highlightBadge?: boolean;
+  highlightStats?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+          <Image src={avatarUrl} alt="" width={48} height={48} className="object-cover" sizes="48px" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="truncate text-sm font-bold text-[#2C2C2C]">{name}</span>
+            <span
+              className={`relative inline-flex shrink-0 items-center gap-0.5 rounded-full bg-[#D4A843]/20 px-2 py-0.5 text-[10px] font-bold text-[#8a6d32] ${
+                highlightBadge ? "ring-2 ring-[#D4A843] ring-offset-1" : ""
+              }`}
+            >
+              <BadgeCheck className="h-3 w-3 text-[#B99333]" aria-hidden />
+              Verified
+            </span>
           </div>
-          <div className="mt-4 rounded-full bg-[#2C2C2C] py-2.5 text-center text-sm font-semibold text-white">View Profile</div>
+          <p className="mt-0.5 truncate text-[11px] font-semibold text-[#2C2C2C]/50">{broker}</p>
+          <div
+            className={`mt-2 flex flex-wrap gap-1.5 ${highlightStats ? "rounded-lg ring-2 ring-[#D4A843]/60 ring-offset-1" : ""}`}
+          >
+            <span className="rounded-full bg-[#6B9E6E]/12 px-2.5 py-0.5 text-[11px] font-semibold text-[#2C2C2C]/80">
+              {closings} closings
+            </span>
+            <span className="rounded-full bg-[#6B9E6E]/12 px-2.5 py-0.5 text-[11px] font-semibold text-[#2C2C2C]/80">
+              Score {score}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 rounded-full bg-[#2C2C2C] py-2 text-center text-[11px] font-bold text-white">View Profile</div>
+    </div>
+  );
+}
+
+function SlideFindVerifiedAgents() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <h2 className="font-serif text-xl font-bold leading-tight text-[#2C2C2C] sm:text-2xl">Find Verified Agents</h2>
+      <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/50">Directory — like in the app</p>
+
+      <div className="relative mt-4 min-h-[300px] flex-1 sm:min-h-[340px]">
+        {/* App chrome */}
+        <div className="relative mx-auto max-w-[340px] overflow-hidden rounded-[1.75rem] border-[10px] border-[#2C2C2C] bg-[#FAF8F4] shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
+          <div className="border-b border-black/5 bg-white px-3 py-2.5">
+            <div className="mx-auto h-1 w-24 rounded-full bg-black/10" />
+          </div>
+          <div className="max-h-[280px] space-y-2.5 overflow-y-auto px-2.5 py-3 sm:max-h-[300px]">
+            <MockAgentCard
+              name="Ana Reyes"
+              avatarUrl={MOCK_AVATARS[0]!}
+              score="9.2"
+              closings={24}
+              broker="BahayGo Realty · Makati"
+              highlightBadge
+              highlightStats
+            />
+            <MockAgentCard name="James Lim" avatarUrl={MOCK_AVATARS[1]!} score="8.7" closings={18} broker="Metro Homes · BGC" />
+            <MockAgentCard name="Miguel Cruz" avatarUrl={MOCK_AVATARS[2]!} score="9.0" closings={31} broker="Cebu Prime · Lahug" />
+          </div>
         </div>
 
-        <div className="pointer-events-none absolute right-0 top-8 z-20 sm:right-2 sm:top-10">
-          <CalloutBubble pointer="left" className="translate-x-1 sm:translate-x-0">
-            Look for this badge — it means the agent is licensed by PRC
-          </CalloutBubble>
+        <div className="pointer-events-none absolute -right-1 top-2 z-20 sm:right-0 sm:top-4">
+          <SageAnnotation
+            text="PRC Licensed & Verified"
+            className="items-end"
+            arrow={<AnimatedArrow variant="down-left" className="-mr-2 -mt-1 scale-90" />}
+          />
         </div>
-        <div className="pointer-events-none absolute -bottom-2 left-1/2 z-20 -translate-x-1/2 sm:bottom-4">
-          <CalloutBubble pointer="top" className="translate-y-2">
-            Check their score and number of closings
-          </CalloutBubble>
+        <div className="pointer-events-none absolute bottom-6 left-0 z-20 sm:bottom-10">
+          <SageAnnotation
+            text="Real closing history"
+            className="items-start"
+            arrow={<AnimatedArrow variant="up-right" className="scale-90" />}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function SlideAgentProfiles() {
+function SlideAgentProfileFeed() {
   return (
-    <div className="flex min-h-0 flex-1 flex-col px-1">
-      <h2 className="font-serif text-xl font-bold leading-tight text-[#2C2C2C] sm:text-2xl">Browse Agent Profiles</h2>
-      <div className="relative mt-6 flex min-h-[300px] flex-1 flex-col sm:min-h-[340px]">
-        <div className="mx-auto w-full max-w-sm space-y-3 rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/80 p-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="rounded-xl border border-white bg-white p-3 shadow-sm">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <h2 className="font-serif text-xl font-bold leading-tight text-[#2C2C2C] sm:text-2xl">View Their Full Profile</h2>
+      <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/50">Feed-style profile preview</p>
+
+      <div className="relative mt-4 min-h-[300px] flex-1 sm:min-h-[360px]">
+        <div className="relative mx-auto max-w-[340px] scale-[0.92] overflow-hidden rounded-[1.75rem] border-[10px] border-[#2C2C2C] bg-[#E8E4DC] shadow-[0_20px_50px_rgba(0,0,0,0.18)] sm:scale-100">
+          {/* Cover */}
+          <div className="relative h-24 w-full bg-gradient-to-br from-[#6B9E6E]/40 to-[#D4A843]/30" />
+          {/* Header card */}
+          <div className="relative -mt-8 px-3 pb-3">
+            <div className="rounded-2xl border border-white/80 bg-white p-3 shadow-md">
               <div className="flex gap-3">
-                <div className="h-12 w-12 shrink-0 rounded-full bg-[#EBE6DC]" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-[#2C2C2C]">Modern loft · BGC</p>
-                  <p className="text-xs font-semibold text-[#2C2C2C]/50">₱85,000/mo · 2 bed</p>
+                <div className="relative -mt-10 h-16 w-16 shrink-0 overflow-hidden rounded-full border-4 border-white shadow-md ring-1 ring-black/10">
+                  <Image src={MOCK_AVATARS[0]!} alt="" width={64} height={64} className="object-cover" sizes="64px" />
+                </div>
+                <div className="min-w-0 flex-1 pt-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-bold text-[#2C2C2C]">Ana Reyes</span>
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-[#D4A843]/20 px-2 py-0.5 text-[10px] font-bold text-[#8a6d32]">
+                      <BadgeCheck className="h-3 w-3" aria-hidden />
+                      Verified
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[11px] font-semibold text-[#2C2C2C]/50">Licensed · Makati</p>
                 </div>
               </div>
+              <div className="mt-3 flex gap-2 border-t border-black/5 pt-3">
+                <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/75">24 listings</span>
+                <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/75">Score 9.2</span>
+              </div>
             </div>
-          ))}
-          <p className="text-center text-[11px] font-semibold text-[#2C2C2C]/45">+ more listings on full profile</p>
-        </div>
-
-        <div className="pointer-events-none absolute -left-1 top-24 z-20 sm:left-0">
-          <CalloutBubble pointer="right" className="max-w-[200px]">
-            See all their active listings in one place
-          </CalloutBubble>
-        </div>
-        <div className="pointer-events-none absolute bottom-16 right-0 z-20 sm:bottom-20">
-          <CalloutBubble pointer="left" className="max-w-[210px]">
-            <span className="flex flex-wrap items-center justify-center gap-1">
-              Contact them directly via
-              <MessageCircle className="inline h-3.5 w-3.5 shrink-0" aria-hidden />
-              WhatsApp,
-              <Phone className="inline h-3.5 w-3.5 shrink-0" aria-hidden />
-              SMS or
-              <Mail className="inline h-3.5 w-3.5 shrink-0" aria-hidden />
+          </div>
+          {/* Listing post */}
+          <div className="mx-2 mb-3 rounded-xl border border-black/5 bg-white p-2 shadow-sm">
+            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg bg-black/5">
+              <Image src={MOCK_LISTING_IMG} alt="" fill className="object-cover" sizes="320px" />
+            </div>
+            <p className="mt-2 text-sm font-bold text-[#2C2C2C]">Sunny 2BR in BGC</p>
+            <p className="text-xs font-semibold text-[#D4A843]">₱12,500,000 · 2 bed · 2 bath</p>
+          </div>
+          {/* Contact bar */}
+          <div className="mx-2 mb-3 flex gap-1.5 rounded-xl border border-black/5 bg-white p-2 shadow-sm">
+            <span className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#25D366]/15 py-2 text-[10px] font-bold text-[#128C7E]">
+              <MessageCircle className="h-3.5 w-3.5" aria-hidden />
+              WhatsApp
+            </span>
+            <span className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#6B9E6E]/12 py-2 text-[10px] font-bold text-[#2C2C2C]">
+              <Phone className="h-3.5 w-3.5" aria-hidden />
+              SMS
+            </span>
+            <span className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#2C2C2C]/8 py-2 text-[10px] font-bold text-[#2C2C2C]">
+              <Mail className="h-3.5 w-3.5" aria-hidden />
               Email
             </span>
-          </CalloutBubble>
+          </div>
+        </div>
+
+        <div className="pointer-events-none absolute -left-2 top-28 z-20 sm:left-0 sm:top-32">
+          <SageAnnotation
+            text="See all their listings"
+            arrow={<AnimatedArrow variant="down-right" className="ml-2 scale-75" />}
+          />
+        </div>
+        <div className="pointer-events-none absolute -right-2 bottom-8 z-20 sm:right-0 sm:bottom-12">
+          <SageAnnotation
+            text="Contact directly via WhatsApp, SMS or Email"
+            className="items-end text-right"
+            arrow={<AnimatedArrow variant="down-left" className="-mr-1 scale-75" />}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function SlideViewing() {
+function SlideScheduleViewing() {
   return (
-    <div className="flex min-h-0 flex-1 flex-col px-1">
-      <h2 className="font-serif text-xl font-bold leading-tight text-[#2C2C2C] sm:text-2xl">Schedule Viewings Instantly</h2>
-      <div className="relative mt-6 flex min-h-[300px] flex-1 flex-col items-center sm:min-h-[340px]">
-        <div className="w-full max-w-sm rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-md">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Request a viewing</p>
-          <div className="mt-4 grid gap-3">
-            <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-              Preferred date
-              <div className="mt-1 flex items-center gap-2 rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]">
-                <Calendar className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
-                Apr 12, 2026
-              </div>
-            </label>
-            <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-              Time
-              <div className="mt-1 flex items-center gap-2 rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]">
-                <Clock className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
-                2:00 PM
-              </div>
-            </label>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <h2 className="font-serif text-xl font-bold leading-tight text-[#2C2C2C] sm:text-2xl">Schedule a Viewing</h2>
+      <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/50">Property zoom — request & agents</p>
+
+      <div className="relative mt-4 min-h-[300px] flex-1 sm:min-h-[360px]">
+        <div className="relative mx-auto max-w-[340px] overflow-hidden rounded-[1.75rem] border-[10px] border-[#2C2C2C] bg-black/80 shadow-[0_20px_50px_rgba(0,0,0,0.22)]">
+          <div className="relative aspect-[4/3] w-full bg-black/40">
+            <Image src={MOCK_LISTING_IMG} alt="" fill className="object-cover opacity-95" sizes="340px" />
+            <div className="absolute right-2 top-2 rounded-full bg-white/95 p-1.5 text-[#2C2C2C] shadow">
+              <span className="block h-3 w-3 rounded-full border-2 border-current" />
+            </div>
+            <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className={`h-1.5 rounded-full ${i === 0 ? "w-5 bg-white" : "w-1.5 bg-white/50"}`} />
+              ))}
+            </div>
+          </div>
+          <div className="max-h-[220px] overflow-y-auto rounded-t-2xl bg-white px-3 pb-3 pt-2">
+            <p className="font-serif text-base font-bold text-[#2C2C2C]">Sunny 2BR in BGC</p>
+            <p className="mt-0.5 font-serif text-lg font-bold text-[#D4A843]">₱12,500,000</p>
+            <p className="mt-1 text-[11px] font-semibold text-[#2C2C2C]/65">2 beds · 2 baths · 86 sqm</p>
+
             <button
               type="button"
-              className="mt-2 w-full rounded-full bg-[#6B9E6E] py-3 text-sm font-bold text-white"
+              className="relative mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#6B9E6E] py-3 text-sm font-bold text-white shadow-md"
               tabIndex={-1}
             >
-              Send request
+              <Calendar className="h-4 w-4" aria-hidden />
+              Request Viewing
             </button>
+
+            <p className="mt-4 text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">Meet an agent</p>
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+              {MOCK_AVATARS.map((url, i) => (
+                <div
+                  key={url}
+                  className={`flex shrink-0 flex-col items-center gap-1 rounded-xl border p-2 ${
+                    i === 0 ? "border-[#D4A843] bg-[#D4A843]/10 ring-2 ring-[#D4A843]/40" : "border-[#2C2C2C]/10 bg-[#FAF8F4]"
+                  }`}
+                >
+                  <div className="relative h-10 w-10 overflow-hidden rounded-full ring-1 ring-black/10">
+                    <Image src={url} alt="" width={40} height={40} className="object-cover" sizes="40px" />
+                  </div>
+                  <span className="max-w-[56px] truncate text-[9px] font-bold text-[#2C2C2C]">
+                    {["Ana", "James", "Miguel"][i]}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="pointer-events-none absolute right-0 top-28 z-20 sm:right-2">
-          <CalloutBubble pointer="left" className="max-w-[200px]">
-            Pick a date and time that works for you
-          </CalloutBubble>
+        <div className="pointer-events-none absolute right-0 top-[52%] z-20 max-w-[130px] sm:top-[50%]">
+          <SageAnnotation
+            text="Pick your preferred date and time"
+            className="items-end"
+            arrow={<AnimatedArrow variant="down-left" className="-mr-2 scale-[0.85]" />}
+          />
         </div>
-        <div className="pointer-events-none absolute bottom-8 left-0 z-20 sm:bottom-12">
-          <CalloutBubble pointer="right" className="max-w-[220px]">
-            Agent gets notified immediately by SMS and email
-          </CalloutBubble>
+        <div className="pointer-events-none absolute bottom-16 left-0 z-20 sm:bottom-20">
+          <SageAnnotation
+            text="Choose which agent to meet"
+            arrow={<AnimatedArrow variant="up-right" className="scale-[0.85]" />}
+          />
+        </div>
+        <div className="pointer-events-none absolute left-1/2 top-8 z-20 -translate-x-1/2 sm:top-10">
+          <div className="max-w-[240px] rounded-2xl bg-[#6B9E6E] px-3 py-2 text-center text-[11px] font-bold leading-snug text-white shadow-lg sm:text-xs">
+            Agent gets notified instantly
+          </div>
         </div>
       </div>
     </div>
@@ -195,21 +335,35 @@ function SlideViewing() {
 
 function SlideZeroScams() {
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-2 text-center">
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-1 text-center">
       <motion.div
-        initial={{ scale: 0.85, opacity: 0 }}
+        initial={{ scale: 0.88, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 300, damping: 22 }}
-        className="flex h-24 w-24 items-center justify-center rounded-full bg-[#6B9E6E]/15 ring-4 ring-[#D4A843]/35"
+        transition={{ type: "spring", stiffness: 280, damping: 22 }}
+        className="relative flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-[#6B9E6E]/20 to-[#D4A843]/25 ring-4 ring-[#D4A843]/40"
       >
-        <Shield className="h-14 w-14 text-[#6B9E6E]" strokeWidth={1.25} aria-hidden />
+        <Shield className="h-16 w-16 text-[#6B9E6E]" strokeWidth={1.15} aria-hidden />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#D4A843] shadow-lg ring-2 ring-white/90">
+            <BadgeCheck className="h-7 w-7 text-white" strokeWidth={2.5} aria-hidden />
+          </div>
+        </div>
       </motion.div>
-      <h2 className="mt-8 font-serif text-xl font-bold leading-tight text-[#2C2C2C] sm:text-2xl">
-        Zero Scams. Zero Fake Listings. 🛡️
-      </h2>
-      <p className="mt-4 max-w-md text-sm font-semibold leading-relaxed text-[#2C2C2C]/65">
-        Every listing on BahayGo is verified. Every agent is licensed. If something looks wrong, report it.
-      </p>
+      <h2 className="mt-8 font-serif text-xl font-bold leading-tight text-[#2C2C2C] sm:text-2xl">Zero Scams Guaranteed</h2>
+      <ul className="mt-6 w-full max-w-sm space-y-3 text-left">
+        <li className="flex gap-3 rounded-xl border border-[#2C2C2C]/8 bg-[#FAF8F4]/90 px-4 py-3">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#6B9E6E]" aria-hidden />
+          <span className="text-sm font-semibold text-[#2C2C2C]/85">Every agent is PRC licensed</span>
+        </li>
+        <li className="flex gap-3 rounded-xl border border-[#2C2C2C]/8 bg-[#FAF8F4]/90 px-4 py-3">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#6B9E6E]" aria-hidden />
+          <span className="text-sm font-semibold text-[#2C2C2C]/85">Every listing is reviewed</span>
+        </li>
+        <li className="flex gap-3 rounded-xl border border-[#2C2C2C]/8 bg-[#FAF8F4]/90 px-4 py-3">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#6B9E6E]" aria-hidden />
+          <span className="text-sm font-semibold text-[#2C2C2C]/85">Report suspicious activity instantly</span>
+        </li>
+      </ul>
     </div>
   );
 }
@@ -272,7 +426,7 @@ export function WelcomeOnboarding() {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="flex h-full w-full max-w-2xl flex-col overflow-hidden bg-white sm:h-auto sm:max-h-[min(92vh,880px)] sm:rounded-3xl sm:shadow-2xl sm:ring-1 sm:ring-[#2C2C2C]/10"
+        className="flex h-full w-full max-w-2xl flex-col overflow-hidden bg-white sm:h-auto sm:max-h-[min(92vh,900px)] sm:rounded-3xl sm:shadow-2xl sm:ring-1 sm:ring-[#2C2C2C]/10"
       >
         <div className="shrink-0 border-b border-[#2C2C2C]/10 px-4 pb-3 pt-4 sm:px-8 sm:pt-6">
           <div className="flex items-center justify-between gap-3 text-xs font-bold text-[#2C2C2C]/55">
@@ -305,11 +459,11 @@ export function WelcomeOnboarding() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -28 }}
               transition={{ duration: 0.25 }}
-              className="flex min-h-[min(60vh,520px)] flex-1 flex-col sm:min-h-[420px]"
+              className="flex min-h-[min(58vh,500px)] flex-1 flex-col sm:min-h-[440px]"
             >
-              {idx === 0 ? <SlideVerifiedAgents /> : null}
-              {idx === 1 ? <SlideAgentProfiles /> : null}
-              {idx === 2 ? <SlideViewing /> : null}
+              {idx === 0 ? <SlideFindVerifiedAgents /> : null}
+              {idx === 1 ? <SlideAgentProfileFeed /> : null}
+              {idx === 2 ? <SlideScheduleViewing /> : null}
               {idx === 3 ? <SlideZeroScams /> : null}
             </motion.div>
           </AnimatePresence>
