@@ -33,7 +33,6 @@ export function formatListingPricePhp(
   priceRaw: string | number | bigint | null | undefined,
   status: "for_sale" | "for_rent",
 ): string {
-  console.log("[formatListingPricePhp] raw:", priceRaw, "status:", status);
   const n = parsePriceToNumber(priceRaw);
   if (n === null) {
     const t = String(priceRaw ?? "").trim();
@@ -49,3 +48,4 @@ export function formatListingPricePhp(
   const base = `₱${formatted}`;
   return status === "for_rent" ? `${base}/mo` : base;
 }
+

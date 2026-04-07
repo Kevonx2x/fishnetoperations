@@ -45,6 +45,15 @@ import {
 } from "@/components/marketplace/agent-availability-badge";
 import { AgentAvailabilitySchedule } from "@/components/dashboard/agent-availability-schedule";
 import { toast } from "sonner";
+import {
+  formatDigitsOnly,
+  formatPriceInputDigits,
+  parseListingPricePesos,
+  validateBedsBaths,
+  validateListingPriceDisplay,
+  validateSqft,
+} from "@/lib/validation/listing-form";
+import { ServiceAreasMultiInput } from "@/components/ui/service-areas-multi-input";
 
 type Tab = "overview" | "leads" | "viewings" | "listings" | "profile" | "analytics" | "notifications";
 
@@ -63,6 +72,9 @@ type AgentRow = {
   specialties: string | null;
   service_areas: string | null;
   social_links: Record<string, string> | null;
+  age?: number | null;
+  years_experience?: number | null;
+  languages_spoken?: string | null;
   response_time?: string | null;
   closings?: number | null;
   listing_tier?: string | null;
@@ -129,6 +141,34 @@ const EDIT_LISTING_STATUSES = ["active", "under_offer", "sold", "off_market"] as
 
 const DEFAULT_LISTING_IMAGE =
   "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&h=800&fit=crop";
+
+const LANGUAGE_OPTIONS = ["English", "Filipino", "Mandarin", "Hokkien", "Spanish", "Bisaya", "Ilocano"] as const;
+const SPECIALTY_OPTIONS = ["Luxury", "Condo", "House & Lot", "Commercial", "Rental", "Farm"] as const;
+
+function propertyPriceToFormDisplay(price: PropertyRow["price"]): string {
+  if (typeof price === "number" && Number.isFinite(price)) {
+    return formatPriceInputDigits(String(Math.round(price)));
+  }
+  const n = parseListingPricePesos(String(price));
+  if (n === null) return "";
+  return formatPriceInputDigits(String(n));
+}
+
+function splitCsv(s: string | null | undefined): string[] {
+  if (!s?.trim()) return [];
+  return s
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+function splitServiceAreas(s: string | null | undefined): string[] {
+  if (!s?.trim()) return [];
+  return s
+    .split(/[;|\n]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
 
 type EditListingForm = {
   name: string;
@@ -203,8 +243,12 @@ export function AgentDashboard() {
     name: "",
     phone: "",
     bio: "",
-    specialties: "",
-    serviceAreas: "",
+    age: "",
+    yearsExperience: "",
+    languages: [] as string[],
+    specialties: [] as string[],
+    serviceAreaTags: [] as string[],
+    serviceAreaDraft: "",
     instagram: "",
     facebook: "",
     linkedin: "",
@@ -238,12 +282,14 @@ export function AgentDashboard() {
     price: "",
     beds: "2",
     baths: "2",
-    sqft: "1,000",
+    sqft: "1000",
     description: "",
     listingImageUrls: [] as string[],
     property_type: "Condo",
     listing_type: "sale" as "sale" | "rent",
   });
+  const [listingFormErrors, setListingFormErrors] = useState<Record<string, string>>({});
+  const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
@@ -352,12 +398,19 @@ export function AgentDashboard() {
   useEffect(() => {
     if (!agent) return;
     const sl = (agent.social_links ?? {}) as Record<string, string>;
+    const spec = splitCsv(agent.specialties);
+    const langs = splitCsv(agent.languages_spoken);
+    const areas = splitServiceAreas(agent.service_areas);
     setProfileForm({
       name: agent.name,
       phone: agent.phone ?? "",
       bio: agent.bio ?? "",
-      specialties: agent.specialties ?? "",
-      serviceAreas: agent.service_areas ?? "",
+      age: agent.age != null ? String(agent.age) : "",
+      yearsExperience: agent.years_experience != null ? String(agent.years_experience) : "",
+      languages: langs.filter((x) => (LANGUAGE_OPTIONS as readonly string[]).includes(x)),
+      specialties: spec.filter((x) => (SPECIALTY_OPTIONS as readonly string[]).includes(x)),
+      serviceAreaTags: areas,
+      serviceAreaDraft: "",
       instagram: sl.instagram ?? "",
       facebook: sl.facebook ?? "",
       linkedin: sl.linkedin ?? "",
@@ -391,6 +444,7 @@ export function AgentDashboard() {
       setListingLimitModalOpen(true);
       return;
     }
+    setListingFormErrors({});
     setListingOpen(true);
   };
 
@@ -423,14 +477,28 @@ export function AgentDashboard() {
       linkedin: profileForm.linkedin.trim() || undefined,
       website: profileForm.website.trim() || undefined,
     };
+    const ageN = profileForm.age.trim() ? Number.parseInt(profileForm.age.replace(/\D/g, ""), 10) : null;
+    const yexpN = profileForm.yearsExperience.trim()
+      ? Number.parseInt(profileForm.yearsExperience.replace(/\D/g, ""), 10)
+      : null;
+    const bioTrim = profileForm.bio.trim();
+    if (bioTrim.length > 500) {
+      setSaving(false);
+      setMsg("Bio must be 500 characters or less.");
+      return;
+    }
     const { error } = await supabase
       .from("agents")
       .update({
         name: profileForm.name.trim(),
         phone: profileForm.phone.trim() || null,
-        bio: profileForm.bio.trim() || null,
-        specialties: profileForm.specialties.trim() || null,
-        service_areas: profileForm.serviceAreas.trim() || null,
+        bio: bioTrim || null,
+        specialties: profileForm.specialties.length ? profileForm.specialties.join(", ") : null,
+        service_areas: profileForm.serviceAreaTags.length ? profileForm.serviceAreaTags.join("; ") : null,
+        languages_spoken: profileForm.languages.length ? profileForm.languages.join(", ") : null,
+        age: ageN != null && Number.isFinite(ageN) && ageN >= 18 && ageN <= 80 ? ageN : null,
+        years_experience:
+          yexpN != null && Number.isFinite(yexpN) && yexpN >= 0 && yexpN <= 50 ? yexpN : null,
         social_links,
       })
       .eq("user_id", user.id);
@@ -551,7 +619,6 @@ export function AgentDashboard() {
           .eq("property_id", p.id)
           .order("sort_order", { ascending: true });
         if (photoErr) {
-          console.error("property_photos:", photoErr);
           toast.error("Could not load extra photos. Main image and other fields are still editable.");
         }
         const pt = (p.property_type ?? "House").trim();
@@ -565,13 +632,14 @@ export function AgentDashboard() {
           typeof p.image_url === "string" && p.image_url.trim().length > 0 ? p.image_url.trim() : "";
         const imageUrls = [main, ...extras].filter(Boolean).slice(0, 10);
         setEditPropertyId(p.id);
+        setEditFormErrors({});
         setEditForm({
           name: p.name ?? "",
           location: p.location ?? "",
-          price: editFormPriceString(p.price),
-          beds: String(p.beds ?? 0),
-          baths: String(p.baths ?? 0),
-          sqft: p.sqft != null ? String(p.sqft) : "",
+          price: propertyPriceToFormDisplay(p.price),
+          beds: formatDigitsOnly(String(p.beds ?? 0), 2),
+          baths: formatDigitsOnly(String(p.baths ?? 0), 2),
+          sqft: p.sqft != null ? formatDigitsOnly(String(p.sqft), 6) : "",
           property_type: safeType,
           listing_type: p.status === "for_rent" ? "rent" : "sale",
           listing_status: normalizeEditListingStatus(p.listing_status),
@@ -581,8 +649,7 @@ export function AgentDashboard() {
         setEditFormOpen(true);
         setEditWarningOpen(false);
         setPendingEditProperty(null);
-      } catch (e) {
-        console.error("openEditFormFromProperty:", e);
+      } catch {
         toast.error("Could not open the edit form. Please try again.");
         setEditPropertyId(null);
         setEditListingImages([]);
@@ -613,10 +680,25 @@ export function AgentDashboard() {
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!editPropertyId) return;
+      setEditFormErrors({});
+      const errs: Record<string, string> = {};
+      const perr = validateListingPriceDisplay(editForm.price);
+      if (perr) errs.price = perr;
+      if (!editForm.location.trim()) errs.location = "Location is required.";
+      const sqe = validateSqft(editForm.sqft);
+      if (sqe) errs.sqft = sqe;
+      const be = validateBedsBaths(editForm.beds, "Beds");
+      if (be) errs.beds = be;
+      const ba = validateBedsBaths(editForm.baths, "Baths");
+      if (ba) errs.baths = ba;
+      if (Object.keys(errs).length > 0) {
+        setEditFormErrors(errs);
+        return;
+      }
       setSavingEdit(true);
       try {
-        const beds = Number(editForm.beds) || 0;
-        const baths = Number(editForm.baths) || 0;
+        const beds = Number(editForm.beds.replace(/\D/g, "")) || 0;
+        const baths = Number(editForm.baths.replace(/\D/g, "")) || 0;
         const imageUrls =
           editListingImages.length > 0 ? editListingImages : [DEFAULT_LISTING_IMAGE];
         const res = await fetch("/api/agent/update-listing", {
@@ -627,10 +709,10 @@ export function AgentDashboard() {
             propertyId: editPropertyId,
             name: editForm.name.trim() || null,
             location: editForm.location.trim(),
-            price: editForm.price.trim(),
+            price: String(parseListingPricePesos(editForm.price) ?? ""),
             beds,
             baths,
-            sqft: editForm.sqft.trim(),
+            sqft: editForm.sqft.replace(/\D/g, ""),
             property_type: editForm.property_type,
             status: editForm.listing_type === "sale" ? "for_sale" : "for_rent",
             listing_status: editForm.listing_status,
@@ -647,6 +729,7 @@ export function AgentDashboard() {
           return;
         }
         toast.success("Listing updated successfully");
+        setEditFormErrors({});
         setEditFormOpen(false);
         setEditPropertyId(null);
         setEditListingImages([]);
@@ -667,18 +750,34 @@ export function AgentDashboard() {
       setListingLimitModalOpen(true);
       return;
     }
+    setListingFormErrors({});
+    const errs: Record<string, string> = {};
+    const pr = validateListingPriceDisplay(listingForm.price);
+    if (pr) errs.price = pr;
+    if (!listingForm.location.trim()) errs.location = "Location is required.";
+    const sqe = validateSqft(listingForm.sqft);
+    if (sqe) errs.sqft = sqe;
+    const be = validateBedsBaths(listingForm.beds, "Beds");
+    if (be) errs.beds = be;
+    const ba = validateBedsBaths(listingForm.baths, "Baths");
+    if (ba) errs.baths = ba;
+    if (Object.keys(errs).length > 0) {
+      setListingFormErrors(errs);
+      return;
+    }
+    const priceNum = parseListingPricePesos(listingForm.price);
     setSaving(true);
     setMsg("");
-    const beds = Number(listingForm.beds) || 0;
-    const baths = Number(listingForm.baths) || 0;
+    const beds = Number(listingForm.beds.replace(/\D/g, "")) || 0;
+    const baths = Number(listingForm.baths.replace(/\D/g, "")) || 0;
     const mainImageUrl = listingForm.listingImageUrls[0]?.trim() || DEFAULT_LISTING_IMAGE;
     const { data: newProperty, error } = await supabase
       .from("properties")
       .insert({
         name: listingForm.name.trim() || null,
         location: listingForm.location.trim(),
-        price: listingForm.price.trim(),
-        sqft: listingForm.sqft.trim(),
+        price: priceNum != null ? String(priceNum) : "",
+        sqft: listingForm.sqft.replace(/\D/g, ""),
         beds,
         baths,
         image_url: mainImageUrl,
@@ -727,12 +826,13 @@ export function AgentDashboard() {
       price: "",
       beds: "2",
       baths: "2",
-      sqft: "1,000",
+      sqft: "1000",
       description: "",
       listingImageUrls: [],
       property_type: "Condo",
       listing_type: "sale",
     });
+    setListingFormErrors({});
     await loadData();
     setMsg("Listing created.");
     setTab("listings");
@@ -903,9 +1003,13 @@ export function AgentDashboard() {
                   ownedListingCount={ownedListingCount}
                   coListedCount={coListedCount}
                   listingOpen={listingOpen}
-                  setListingOpen={setListingOpen}
+                  setListingOpen={(open) => {
+                    setListingOpen(open);
+                    if (!open) setListingFormErrors({});
+                  }}
                   listingForm={listingForm}
                   setListingForm={setListingForm}
+                  listingFormErrors={listingFormErrors}
                   onSubmit={createListing}
                   saving={saving}
                   listingLimit={listingLimit}
@@ -1042,6 +1146,7 @@ export function AgentDashboard() {
               setEditFormOpen(false);
               setEditPropertyId(null);
               setEditListingImages([]);
+              setEditFormErrors({});
             }}
           >
             <motion.form
@@ -1060,6 +1165,7 @@ export function AgentDashboard() {
                     setEditFormOpen(false);
                     setEditPropertyId(null);
                     setEditListingImages([]);
+                    setEditFormErrors({});
                   }}
                   className="rounded-full p-2 text-[#2C2C2C]/55 hover:bg-white"
                 >
@@ -1080,11 +1186,16 @@ export function AgentDashboard() {
                   <input
                     required
                     value={editForm.price}
-                    onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
+                    onChange={(e) =>
+                      setEditForm((f) => ({ ...f, price: formatPriceInputDigits(e.target.value) }))
+                    }
                     className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                     placeholder="₱12,000,000"
                   />
                 </label>
+                {editFormErrors.price ? (
+                  <p className="text-sm font-semibold text-red-600">{editFormErrors.price}</p>
+                ) : null}
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Location
                   <PhLocationInput
@@ -1096,36 +1207,58 @@ export function AgentDashboard() {
                     inputClassName="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                   />
                 </label>
+                {editFormErrors.location ? (
+                  <p className="text-sm font-semibold text-red-600">{editFormErrors.location}</p>
+                ) : null}
                 <div className="grid grid-cols-2 gap-3">
                   <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                     Beds
                     <input
-                      type="number"
-                      min={0}
+                      inputMode="numeric"
                       value={editForm.beds}
-                      onChange={(e) => setEditForm((f) => ({ ...f, beds: e.target.value }))}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          beds: formatDigitsOnly(e.target.value, 2),
+                        }))
+                      }
                       className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                     />
                   </label>
                   <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                     Baths
                     <input
-                      type="number"
-                      min={0}
+                      inputMode="numeric"
                       value={editForm.baths}
-                      onChange={(e) => setEditForm((f) => ({ ...f, baths: e.target.value }))}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          baths: formatDigitsOnly(e.target.value, 2),
+                        }))
+                      }
                       className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                     />
                   </label>
                 </div>
+                {editFormErrors.beds || editFormErrors.baths ? (
+                  <p className="text-sm font-semibold text-red-600">
+                    {[editFormErrors.beds, editFormErrors.baths].filter(Boolean).join(" ")}
+                  </p>
+                ) : null}
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Sqft
                   <input
+                    inputMode="numeric"
                     value={editForm.sqft}
-                    onChange={(e) => setEditForm((f) => ({ ...f, sqft: e.target.value }))}
+                    onChange={(e) =>
+                      setEditForm((f) => ({ ...f, sqft: formatDigitsOnly(e.target.value, 6) }))
+                    }
                     className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                   />
                 </label>
+                {editFormErrors.sqft ? (
+                  <p className="text-sm font-semibold text-red-600">{editFormErrors.sqft}</p>
+                ) : null}
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Property type
                   <select
@@ -1533,6 +1666,7 @@ function ListingsTab({
   setListingOpen,
   listingForm,
   setListingForm,
+  listingFormErrors,
   onSubmit,
   saving,
   listingLimit,
@@ -1563,6 +1697,7 @@ function ListingsTab({
     listing_type: "sale" | "rent";
   };
   setListingForm: React.Dispatch<React.SetStateAction<typeof listingForm>>;
+  listingFormErrors: Record<string, string>;
   onSubmit: (e: React.FormEvent) => void;
   saving: boolean;
   listingLimit: number;
@@ -1700,6 +1835,9 @@ function ListingsTab({
                     inputClassName="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                   />
                 </label>
+                {listingFormErrors.location ? (
+                  <p className="text-sm font-semibold text-red-600">{listingFormErrors.location}</p>
+                ) : null}
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Title (optional)
                   <input
@@ -1713,41 +1851,65 @@ function ListingsTab({
                   <input
                     required
                     value={listingForm.price}
-                    onChange={(e) => setListingForm((f) => ({ ...f, price: e.target.value }))}
+                    onChange={(e) =>
+                      setListingForm((f) => ({ ...f, price: formatPriceInputDigits(e.target.value) }))
+                    }
                     className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
-                    placeholder="₱12M"
+                    placeholder="₱1,500,000"
                   />
                 </label>
+                {listingFormErrors.price ? (
+                  <p className="text-sm font-semibold text-red-600">{listingFormErrors.price}</p>
+                ) : null}
                 <div className="grid grid-cols-2 gap-3">
                   <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                     Beds
                     <input
-                      type="number"
-                      min={0}
+                      inputMode="numeric"
                       value={listingForm.beds}
-                      onChange={(e) => setListingForm((f) => ({ ...f, beds: e.target.value }))}
+                      onChange={(e) =>
+                        setListingForm((f) => ({
+                          ...f,
+                          beds: formatDigitsOnly(e.target.value, 2),
+                        }))
+                      }
                       className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
                     />
                   </label>
                   <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                     Baths
                     <input
-                      type="number"
-                      min={0}
+                      inputMode="numeric"
                       value={listingForm.baths}
-                      onChange={(e) => setListingForm((f) => ({ ...f, baths: e.target.value }))}
+                      onChange={(e) =>
+                        setListingForm((f) => ({
+                          ...f,
+                          baths: formatDigitsOnly(e.target.value, 2),
+                        }))
+                      }
                       className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
                     />
                   </label>
                 </div>
+                {listingFormErrors.beds || listingFormErrors.baths ? (
+                  <p className="text-sm font-semibold text-red-600">
+                    {[listingFormErrors.beds, listingFormErrors.baths].filter(Boolean).join(" ")}
+                  </p>
+                ) : null}
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Sqft
                   <input
+                    inputMode="numeric"
                     value={listingForm.sqft}
-                    onChange={(e) => setListingForm((f) => ({ ...f, sqft: e.target.value }))}
+                    onChange={(e) =>
+                      setListingForm((f) => ({ ...f, sqft: formatDigitsOnly(e.target.value, 6) }))
+                    }
                     className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
                   />
                 </label>
+                {listingFormErrors.sqft ? (
+                  <p className="text-sm font-semibold text-red-600">{listingFormErrors.sqft}</p>
+                ) : null}
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Property type
                   <select
@@ -1994,6 +2156,26 @@ function MyTeamSection({
   );
 }
 
+type ProfileFormState = {
+  name: string;
+  phone: string;
+  bio: string;
+  age: string;
+  yearsExperience: string;
+  languages: string[];
+  specialties: string[];
+  serviceAreaTags: string[];
+  serviceAreaDraft: string;
+  instagram: string;
+  facebook: string;
+  linkedin: string;
+  website: string;
+};
+
+function toggleProfileMulti(arr: string[], v: string) {
+  return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
+}
+
 function ProfileTab({
   agent,
   listingTier,
@@ -2009,18 +2191,8 @@ function ProfileTab({
 }: {
   agent: AgentRow;
   listingTier?: string | null;
-  profileForm: {
-    name: string;
-    phone: string;
-    bio: string;
-    specialties: string;
-    serviceAreas: string;
-    instagram: string;
-    facebook: string;
-    linkedin: string;
-    website: string;
-  };
-  setProfileForm: React.Dispatch<React.SetStateAction<typeof profileForm>>;
+  profileForm: ProfileFormState;
+  setProfileForm: React.Dispatch<React.SetStateAction<ProfileFormState>>;
   onSave: (e: React.FormEvent) => void;
   saving: boolean;
   onUpload: (file: File) => void;
@@ -2121,58 +2293,162 @@ function ProfileTab({
           </p>
           <LicenseExpiryBadge licenseExpiry={agent.license_expiry} />
         </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+            Age
+            <input
+              type="number"
+              min={18}
+              max={80}
+              inputMode="numeric"
+              value={profileForm.age}
+              onChange={(e) =>
+                setProfileForm((f) => ({ ...f, age: e.target.value.replace(/\D/g, "").slice(0, 2) }))
+              }
+              placeholder="18–80"
+              className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
+            />
+          </label>
+          <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+            Years of experience
+            <input
+              type="number"
+              min={0}
+              max={50}
+              inputMode="numeric"
+              value={profileForm.yearsExperience}
+              onChange={(e) =>
+                setProfileForm((f) => ({
+                  ...f,
+                  yearsExperience: e.target.value.replace(/\D/g, "").slice(0, 2),
+                }))
+              }
+              placeholder="0–50"
+              className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
+            />
+          </label>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Languages spoken</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {LANGUAGE_OPTIONS.map((lang) => {
+              const on = profileForm.languages.includes(lang);
+              return (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() =>
+                    setProfileForm((f) => ({
+                      ...f,
+                      languages: toggleProfileMulti(f.languages, lang),
+                    }))
+                  }
+                  className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                    on
+                      ? "bg-[#6B9E6E] text-white"
+                      : "border border-[#2C2C2C]/15 bg-[#FAF8F4] text-[#2C2C2C]/75 hover:bg-white"
+                  }`}
+                >
+                  {lang}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Specialties</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {SPECIALTY_OPTIONS.map((spec) => {
+              const on = profileForm.specialties.includes(spec);
+              return (
+                <button
+                  key={spec}
+                  type="button"
+                  onClick={() =>
+                    setProfileForm((f) => ({
+                      ...f,
+                      specialties: toggleProfileMulti(f.specialties, spec),
+                    }))
+                  }
+                  className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                    on
+                      ? "bg-[#D4A843] text-[#2C2C2C]"
+                      : "border border-[#2C2C2C]/15 bg-[#FAF8F4] text-[#2C2C2C]/75 hover:bg-white"
+                  }`}
+                >
+                  {spec}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Service areas</p>
+          <div className="mt-2">
+            <ServiceAreasMultiInput
+              id="profile-service-areas"
+              values={profileForm.serviceAreaTags}
+              onChange={(values) => setProfileForm((f) => ({ ...f, serviceAreaTags: values }))}
+              draft={profileForm.serviceAreaDraft}
+              onDraftChange={(v) => setProfileForm((f) => ({ ...f, serviceAreaDraft: v }))}
+            />
+          </div>
+        </div>
         <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-          Bio
+          Bio / About
           <textarea
             value={profileForm.bio}
-            onChange={(e) => setProfileForm((f) => ({ ...f, bio: e.target.value }))}
-            rows={4}
+            onChange={(e) => setProfileForm((f) => ({ ...f, bio: e.target.value.slice(0, 500) }))}
+            rows={5}
+            maxLength={500}
             className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
           />
-        </label>
-        <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-          Specialties (comma-separated)
-          <input
-            value={profileForm.specialties}
-            onChange={(e) => setProfileForm((f) => ({ ...f, specialties: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
-          />
-        </label>
-        <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-          Service areas
-          <input
-            value={profileForm.serviceAreas}
-            onChange={(e) => setProfileForm((f) => ({ ...f, serviceAreas: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
-            placeholder="Makati, BGC, Cebu…"
-          />
+          <span className="mt-1 block text-right text-[11px] font-semibold text-[#2C2C2C]/45">
+            {profileForm.bio.length}/500
+          </span>
         </label>
         <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Social links</p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <input
-            placeholder="Instagram URL"
-            value={profileForm.instagram}
-            onChange={(e) => setProfileForm((f) => ({ ...f, instagram: e.target.value }))}
-            className="rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
-          />
-          <input
-            placeholder="Facebook URL"
-            value={profileForm.facebook}
-            onChange={(e) => setProfileForm((f) => ({ ...f, facebook: e.target.value }))}
-            className="rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
-          />
-          <input
-            placeholder="LinkedIn URL"
-            value={profileForm.linkedin}
-            onChange={(e) => setProfileForm((f) => ({ ...f, linkedin: e.target.value }))}
-            className="rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
-          />
-          <input
-            placeholder="Website"
-            value={profileForm.website}
-            onChange={(e) => setProfileForm((f) => ({ ...f, website: e.target.value }))}
-            className="rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
-          />
+          <label className="text-xs font-semibold text-[#2C2C2C]/55 sm:col-span-2">
+            Facebook
+            <input
+              type="url"
+              placeholder="https://facebook.com/…"
+              value={profileForm.facebook}
+              onChange={(e) => setProfileForm((f) => ({ ...f, facebook: e.target.value }))}
+              className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
+            />
+          </label>
+          <label className="text-xs font-semibold text-[#2C2C2C]/55">
+            Instagram
+            <input
+              type="url"
+              placeholder="https://instagram.com/…"
+              value={profileForm.instagram}
+              onChange={(e) => setProfileForm((f) => ({ ...f, instagram: e.target.value }))}
+              className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
+            />
+          </label>
+          <label className="text-xs font-semibold text-[#2C2C2C]/55">
+            LinkedIn
+            <input
+              type="url"
+              placeholder="https://linkedin.com/in/…"
+              value={profileForm.linkedin}
+              onChange={(e) => setProfileForm((f) => ({ ...f, linkedin: e.target.value }))}
+              className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
+            />
+          </label>
+          <label className="text-xs font-semibold text-[#2C2C2C]/55 sm:col-span-2">
+            Website (optional)
+            <input
+              type="url"
+              placeholder="https://…"
+              value={profileForm.website}
+              onChange={(e) => setProfileForm((f) => ({ ...f, website: e.target.value }))}
+              className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
+            />
+          </label>
         </div>
         <button
           type="submit"
