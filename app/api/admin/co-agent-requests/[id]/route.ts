@@ -65,20 +65,34 @@ export async function PATCH(
       .eq("id", id);
     if (updErr) return fail("DATABASE_ERROR", updErr.message, 500);
 
+    const propRes = await sb
+      .from("properties")
+      .select("name, location")
+      .eq("id", row.property_id)
+      .maybeSingle();
+    const propLabel =
+      propRes.data?.name?.trim() || propRes.data?.location || "the property";
+
     const { data: agent } = await sb
       .from("agents")
-      .select("name, phone")
+      .select("user_id, name, phone")
       .eq("id", row.agent_id)
       .maybeSingle();
+    const agentUserId = (agent as { user_id?: string | null } | null)?.user_id;
+    if (agentUserId) {
+      const { error: notifErr } = await sb.from("notifications").insert({
+        user_id: agentUserId,
+        type: "co_agent_request",
+        title: "Co-List Request Approved!",
+        body: `You are now a listing agent on ${propLabel}. You will appear on the listing shortly.`,
+      });
+      if (notifErr) {
+        console.error("co-agent approval notification:", notifErr.message);
+      }
+    }
+
     const phone = normalizePhoneE164(agent?.phone ?? null);
     if (phone) {
-      const propRes = await sb
-        .from("properties")
-        .select("name, location")
-        .eq("id", row.property_id)
-        .maybeSingle();
-      const propLabel =
-        propRes.data?.name?.trim() || propRes.data?.location || "a property";
       await sendSmsTo(
         phone,
         `BahayGo: You were approved as a co-agent on ${propLabel}.`,

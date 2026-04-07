@@ -71,6 +71,8 @@ function safeNumber(v: unknown): number {
 export function mapRowToMarketplaceAgent(row: SupabaseAgentsRow): MarketplaceAgent {
   const brokers = (row.brokers ?? null) as SupabaseBrokersJoin;
   const prof = profileJoinFields(row.profiles);
+  /** Always pass through DB `agents.availability` as-is (null/undefined → ""). Never default to "Available Now". */
+  const availabilityFromDb = row.availability;
   return {
     id: safeString(row.id),
     userId: safeString(row.user_id),
@@ -80,7 +82,8 @@ export function mapRowToMarketplaceAgent(row: SupabaseAgentsRow): MarketplaceAge
     score: safeNumber(row.score),
     closings: Math.round(safeNumber(row.closings)),
     responseTime: safeString(row.response_time),
-    availability: safeString(row.availability),
+    availability:
+      availabilityFromDb == null ? "" : typeof availabilityFromDb === "string" ? availabilityFromDb : String(availabilityFromDb),
     updatedAt: safeString(row.updated_at),
     brokerId: typeof brokers?.id === "string" ? brokers.id : null,
     brokerName: safeString(brokers?.company_name),

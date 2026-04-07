@@ -1106,6 +1106,9 @@ function OverviewTab({
 }) {
   const recent = leads.slice(0, 5);
   const incomplete = profileComplete.pct < 100;
+  const totalRepresented = properties.length;
+  const ownedCount = properties.filter((p) => !p.isCoHost).length;
+  const coListedCount = properties.filter((p) => p.isCoHost).length;
 
   return (
     <div className="space-y-8">
@@ -1123,10 +1126,17 @@ function OverviewTab({
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Total Leads" value={String(leads.length)} />
-        <StatCard label="Active Listings" value={String(properties.length)} />
+        <StatCard label="Active Listings" value={String(totalRepresented)} />
         <StatCard label="Profile Views" value={String(mockProfileViews)} hint="mock" />
         <StatCard label="Response Rate" value={`${mockResponseRate}%`} hint="mock" />
       </div>
+
+      {approved ? (
+        <p className="text-sm font-semibold text-[#2C2C2C]/75">
+          You represent {totalRepresented} propert{totalRepresented === 1 ? "y" : "ies"} total ({ownedCount} owned,{" "}
+          {coListedCount} co-listed).
+        </p>
+      ) : null}
 
       {approved ? (
         <div
@@ -1365,7 +1375,7 @@ function ListingsTab({
           <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Listings</h1>
           <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
             Owned slots {ownedListingCount}/{listingLimit}
-            {cohostCount > 0 ? ` · Co-Agent: ${cohostCount}` : ""}.
+            {cohostCount > 0 ? ` · Co-listed: ${cohostCount}` : ""}.
           </p>
         </div>
         <button

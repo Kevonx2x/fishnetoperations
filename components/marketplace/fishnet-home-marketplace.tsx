@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAgentLiveAvailabilityFromPropertyRows } from "@/hooks/use-agent-live-availability";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
@@ -147,53 +148,61 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const topAgentsRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      const { data, error } = await supabase
-        .from("properties")
-        .select(
-          `
+  const loadProperties = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const { data, error: fetchErr } = await supabase
+      .from("properties")
+      .select(
+        `
           id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by, description,
           property_photos (url, sort_order),
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
         `,
-        )
-        .order("created_at", { ascending: false });
+      )
+      .order("created_at", { ascending: false });
 
-      if (cancelled) return;
-      if (error) {
-        setError(error.message);
-        setProperties([]);
-      } else {
-        setProperties((data ?? []) as unknown as DbProperty[]);
-      }
-      setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    if (fetchErr) {
+      setError(fetchErr.message);
+      setProperties([]);
+    } else {
+      setProperties((data ?? []) as unknown as DbProperty[]);
+    }
+    setLoading(false);
+  }, []);
+
+  const loadAgentsDirectory = useCallback(async () => {
+    const { data, error: fetchErr } = await supabase
+      .from("agents")
+      .select("*, brokers(*), profiles(email, phone)")
+      .eq("status", "approved")
+      .eq("verified", true);
+    if (!fetchErr) {
+      setAgents((data ?? []).map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0])));
+    }
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("agents")
-        .select("*, brokers(*), profiles(email, phone)")
-        .eq("status", "approved")
-        .eq("verified", true);
-      if (cancelled) return;
-      if (!error) {
-        setAgents((data ?? []).map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0])));
+    void loadProperties();
+  }, [loadProperties]);
+
+  useEffect(() => {
+    void loadAgentsDirectory();
+  }, [loadAgentsDirectory]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        void loadProperties();
+        void loadAgentsDirectory();
       }
-    })();
-    return () => {
-      cancelled = true;
     };
-  }, []);
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [loadProperties, loadAgentsDirectory]);
+
+  const directoryAgentIds = useMemo(() => agents.map((a) => a.id), [agents]);
+  const mergeLiveAvailability = useAgentLiveAvailabilityFromPropertyRows(properties, directoryAgentIds);
 
   const allConnectedAgentsByPropertyId = useMemo(() => {
     const m = new Map<string, MarketplaceAgent[]>();
@@ -201,12 +210,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       const nested = (p.property_agents ?? [])
         .map((x) => (x as { agent?: unknown }).agent)
         .filter(Boolean)
-        .map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]));
+        .map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]))
+        .map(mergeLiveAvailability);
       const dedup = new Map(nested.map((a) => [a.id, a]));
       m.set(p.id, [...dedup.values()]);
     }
     return m;
-  }, [properties]);
+  }, [properties, mergeLiveAvailability]);
 
   const baseModeProperties = useMemo(() => {
     const base = properties.filter((p) => (mode === "buy" ? p.status === "for_sale" : p.status === "for_rent"));
@@ -320,7 +330,14 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     return counts;
   }, [properties]);
 
-  const topAgents = useMemo(() => [...agents].sort((a, b) => b.score - a.score).slice(0, 10), [agents]);
+  const topAgents = useMemo(
+    () =>
+      [...agents]
+        .map(mergeLiveAvailability)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10),
+    [agents, mergeLiveAvailability],
+  );
   const featured = useMemo(() => properties[0] ?? null, [properties]);
   const featuredPhotos = useMemo(() => {
     const list = (featured?.property_photos ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -22,9 +22,12 @@ import { roomUrlsFor } from "@/lib/marketplace-property";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { useSavedPropertyIds } from "@/lib/saved-properties";
 import { useAuth } from "@/contexts/auth-context";
+import { useAgentLiveAvailabilityFromPropertyRows } from "@/hooks/use-agent-live-availability";
 
 const HERO_IMG =
   "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=2400&h=1200&fit=crop";
+
+const NO_EXTRA_AGENT_IDS: readonly string[] = [];
 
 type LandmarkType = "schools" | "hospitals" | "malls" | "parks" | "business" | "transport";
 
@@ -76,34 +79,41 @@ function LandmarksContent() {
   const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
   const [zoomProperty, setZoomProperty] = useState<DbProperty | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      const { data, error } = await supabase
-        .from("properties")
-        .select(
-          `
+  const loadProperties = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const { data, error: fetchErr } = await supabase
+      .from("properties")
+      .select(
+        `
           id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by, description,
           property_photos (url, sort_order),
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
         `,
-        )
-        .order("created_at", { ascending: false });
-      if (cancelled) return;
-      if (error) {
-        setError(error.message);
-        setProperties([]);
-      } else {
-        setProperties((data ?? []) as unknown as DbProperty[]);
-      }
-      setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
+      )
+      .order("created_at", { ascending: false });
+    if (fetchErr) {
+      setError(fetchErr.message);
+      setProperties([]);
+    } else {
+      setProperties((data ?? []) as unknown as DbProperty[]);
+    }
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    void loadProperties();
+  }, [loadProperties]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") void loadProperties();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [loadProperties]);
+
+  const mergeLiveAvailability = useAgentLiveAvailabilityFromPropertyRows(properties, NO_EXTRA_AGENT_IDS);
 
   const connectedAgentsByPropertyId = useMemo(() => {
     const m = new Map<string, MarketplaceAgent[]>();
@@ -111,12 +121,13 @@ function LandmarksContent() {
       const nested = (p.property_agents ?? [])
         .map((x) => (x as { agent?: unknown }).agent)
         .filter(Boolean)
-        .map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]));
+        .map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]))
+        .map(mergeLiveAvailability);
       const dedup = new Map(nested.map((a) => [a.id, a]));
       m.set(p.id, [...dedup.values()]);
     }
     return m;
-  }, [properties]);
+  }, [properties, mergeLiveAvailability]);
 
   const filtered = useMemo(() => {
     if (!activeType) return [];
