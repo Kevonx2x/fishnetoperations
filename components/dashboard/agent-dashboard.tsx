@@ -35,6 +35,7 @@ import {
   teamMemberLimitForTier,
 } from "@/lib/agent-listing-limits";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
+import { PropertyListingImagesInput } from "@/components/dashboard/property-listing-images-input";
 import { formatListingPricePhp } from "@/lib/format-listing-price";
 import {
   AGENT_AVAILABILITY_NOW,
@@ -43,6 +44,7 @@ import {
 } from "@/components/marketplace/agent-availability-badge";
 import { AgentAvailabilitySchedule } from "@/components/dashboard/agent-availability-schedule";
 import { toast } from "sonner";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type Tab = "overview" | "leads" | "viewings" | "listings" | "profile" | "analytics" | "notifications";
 
@@ -113,6 +115,9 @@ type PropertyRow = {
 };
 
 const EDIT_PROPERTY_TYPES = ["House", "Condo", "Apartment", "Studio", "Commercial"] as const;
+
+const DEFAULT_LISTING_IMAGE =
+  "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&h=800&fit=crop";
 
 type EditListingForm = {
   name: string;
@@ -197,6 +202,7 @@ export function AgentDashboard() {
     description: "",
   });
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editListingImages, setEditListingImages] = useState<string[]>([]);
   const [listingForm, setListingForm] = useState({
     location: "",
     name: "",
@@ -205,7 +211,7 @@ export function AgentDashboard() {
     baths: "2",
     sqft: "1,000",
     description: "",
-    image_url: "",
+    listingImageUrls: [] as string[],
     property_type: "Condo",
     listing_type: "sale" as "sale" | "rent",
   });
@@ -496,28 +502,40 @@ export function AgentDashboard() {
     setMsg("Lead removed.");
   };
 
-  const openEditFormFromProperty = useCallback((p: PropertyRow) => {
-    setEditPropertyId(p.id);
-    const pt = (p.property_type ?? "House").trim();
-    const safeType = EDIT_PROPERTY_TYPES.includes(pt as (typeof EDIT_PROPERTY_TYPES)[number])
-      ? pt
-      : "House";
-    setEditForm({
-      name: p.name ?? "",
-      location: p.location,
-      price: typeof p.price === "number" ? String(p.price) : String(p.price ?? ""),
-      beds: String(p.beds ?? 0),
-      baths: String(p.baths ?? 0),
-      sqft: String(p.sqft ?? ""),
-      property_type: safeType,
-      listing_type: p.status === "for_rent" ? "rent" : "sale",
-      listing_status: p.listing_status ?? "active",
-      description: p.description ?? "",
-    });
-    setEditFormOpen(true);
-    setEditWarningOpen(false);
-    setPendingEditProperty(null);
-  }, []);
+  const openEditFormFromProperty = useCallback(
+    async (p: PropertyRow) => {
+      setEditPropertyId(p.id);
+      const pt = (p.property_type ?? "House").trim();
+      const safeType = EDIT_PROPERTY_TYPES.includes(pt as (typeof EDIT_PROPERTY_TYPES)[number])
+        ? pt
+        : "House";
+      setEditForm({
+        name: p.name ?? "",
+        location: p.location,
+        price: typeof p.price === "number" ? String(p.price) : String(p.price ?? ""),
+        beds: String(p.beds ?? 0),
+        baths: String(p.baths ?? 0),
+        sqft: String(p.sqft ?? ""),
+        property_type: safeType,
+        listing_type: p.status === "for_rent" ? "rent" : "sale",
+        listing_status: p.listing_status ?? "active",
+        description: p.description ?? "",
+      });
+      const { data: photoRows } = await supabase
+        .from("property_photos")
+        .select("url, sort_order")
+        .eq("property_id", p.id)
+        .order("sort_order", { ascending: true });
+      const extras = (photoRows ?? [])
+        .map((r: { url: string }) => r.url)
+        .filter((u) => u && u !== p.image_url);
+      setEditListingImages([p.image_url, ...extras].filter(Boolean).slice(0, 10));
+      setEditFormOpen(true);
+      setEditWarningOpen(false);
+      setPendingEditProperty(null);
+    },
+    [supabase],
+  );
 
   const beginEditListing = useCallback(
     async (p: PropertyRow) => {
@@ -545,6 +563,8 @@ export function AgentDashboard() {
       try {
         const beds = Number(editForm.beds) || 0;
         const baths = Number(editForm.baths) || 0;
+        const imageUrls =
+          editListingImages.length > 0 ? editListingImages : [DEFAULT_LISTING_IMAGE];
         const res = await fetch("/api/agent/update-listing", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -561,6 +581,7 @@ export function AgentDashboard() {
             status: editForm.listing_type === "sale" ? "for_sale" : "for_rent",
             listing_status: editForm.listing_status,
             description: editForm.description.trim() || null,
+            imageUrls,
           }),
         });
         const json = (await res.json().catch(() => null)) as {
@@ -574,12 +595,13 @@ export function AgentDashboard() {
         toast.success("Listing updated successfully");
         setEditFormOpen(false);
         setEditPropertyId(null);
+        setEditListingImages([]);
         await loadData();
       } finally {
         setSavingEdit(false);
       }
     },
-    [editPropertyId, editForm, loadData],
+    [editPropertyId, editForm, editListingImages, loadData],
   );
 
   const createListing = async (e: React.FormEvent) => {
@@ -595,6 +617,7 @@ export function AgentDashboard() {
     setMsg("");
     const beds = Number(listingForm.beds) || 0;
     const baths = Number(listingForm.baths) || 0;
+    const mainImageUrl = listingForm.listingImageUrls[0]?.trim() || DEFAULT_LISTING_IMAGE;
     const { data: newProperty, error } = await supabase
       .from("properties")
       .insert({
@@ -604,7 +627,7 @@ export function AgentDashboard() {
         sqft: listingForm.sqft.trim(),
         beds,
         baths,
-        image_url: listingForm.image_url.trim() || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&h=800&fit=crop",
+        image_url: mainImageUrl,
         status: listingForm.listing_type === "sale" ? "for_sale" : "for_rent",
         listed_by: user.id,
         property_type: listingForm.property_type,
@@ -632,6 +655,17 @@ export function AgentDashboard() {
         setMsg(`Listing saved, but connected-agent link failed: ${linkErr.message}`);
       }
     }
+    if (newProperty?.id && listingForm.listingImageUrls.length > 1) {
+      const extras = listingForm.listingImageUrls.slice(1).map((url, i) => ({
+        property_id: newProperty.id,
+        url,
+        sort_order: i,
+      }));
+      const { error: phErr } = await supabase.from("property_photos").insert(extras);
+      if (phErr) {
+        setMsg(`Listing saved, but extra photos failed: ${phErr.message}`);
+      }
+    }
     setListingOpen(false);
     setListingForm({
       location: "",
@@ -641,7 +675,7 @@ export function AgentDashboard() {
       baths: "2",
       sqft: "1,000",
       description: "",
-      image_url: "",
+      listingImageUrls: [],
       property_type: "Condo",
       listing_type: "sale",
     });
@@ -828,6 +862,8 @@ export function AgentDashboard() {
                   onLeaveListing={leaveListing}
                   leavingPropertyId={leavingPropertyId}
                   onEditListing={beginEditListing}
+                  supabase={supabase}
+                  userId={user.id}
                 />
               )}
               {tab === "listings" && !approved && (
@@ -930,7 +966,7 @@ export function AgentDashboard() {
                 <button
                   type="button"
                   onClick={() => {
-                    openEditFormFromProperty(pendingEditProperty);
+                    void openEditFormFromProperty(pendingEditProperty);
                   }}
                   className="flex-1 rounded-full bg-[#D4A843] px-4 py-2.5 text-sm font-bold text-[#2C2C2C] shadow-sm hover:brightness-95"
                 >
@@ -952,6 +988,7 @@ export function AgentDashboard() {
             onClick={() => {
               setEditFormOpen(false);
               setEditPropertyId(null);
+              setEditListingImages([]);
             }}
           >
             <motion.form
@@ -969,6 +1006,7 @@ export function AgentDashboard() {
                   onClick={() => {
                     setEditFormOpen(false);
                     setEditPropertyId(null);
+                    setEditListingImages([]);
                   }}
                   className="rounded-full p-2 text-[#2C2C2C]/55 hover:bg-white"
                 >
@@ -1074,6 +1112,15 @@ export function AgentDashboard() {
                     </button>
                   </div>
                 </div>
+                {user?.id ? (
+                  <PropertyListingImagesInput
+                    supabase={supabase}
+                    userId={user.id}
+                    value={editListingImages}
+                    onChange={setEditListingImages}
+                    disabled={savingEdit}
+                  />
+                ) : null}
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Description
                   <textarea
@@ -1442,6 +1489,8 @@ function ListingsTab({
   onLeaveListing,
   leavingPropertyId,
   onEditListing,
+  supabase,
+  userId,
 }: {
   properties: PropertyRow[];
   ownedListingCount: number;
@@ -1456,7 +1505,7 @@ function ListingsTab({
     baths: string;
     sqft: string;
     description: string;
-    image_url: string;
+    listingImageUrls: string[];
     property_type: string;
     listing_type: "sale" | "rent";
   };
@@ -1471,6 +1520,8 @@ function ListingsTab({
   onLeaveListing: (id: string) => void | Promise<void>;
   leavingPropertyId: string | null;
   onEditListing: (p: PropertyRow) => void | Promise<void>;
+  supabase: SupabaseClient;
+  userId: string;
 }) {
   const ownedCap = Number.isFinite(listingLimit) ? String(listingLimit) : "∞";
   const coCap = Number.isFinite(coListLimit) ? String(coListLimit) : "∞";
@@ -1673,15 +1724,13 @@ function ListingsTab({
                     <option value="rent">For rent</option>
                   </select>
                 </label>
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Image URL
-                  <input
-                    value={listingForm.image_url}
-                    onChange={(e) => setListingForm((f) => ({ ...f, image_url: e.target.value }))}
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
-                    placeholder="https://..."
-                  />
-                </label>
+                <PropertyListingImagesInput
+                  supabase={supabase}
+                  userId={userId}
+                  value={listingForm.listingImageUrls}
+                  onChange={(urls) => setListingForm((f) => ({ ...f, listingImageUrls: urls }))}
+                  disabled={saving}
+                />
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Description
                   <textarea

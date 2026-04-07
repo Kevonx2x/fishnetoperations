@@ -20,6 +20,8 @@ const bodySchema = z.object({
   status: z.enum(["for_sale", "for_rent"]),
   listing_status: z.enum(LISTING_STATUSES),
   description: z.string().max(20000).nullable().optional(),
+  /** Ordered gallery: [0] = main `image_url`; rest → `property_photos`. Max 10. */
+  imageUrls: z.array(z.string().min(1).max(2000)).max(10).optional(),
 });
 
 export async function POST(req: Request) {
@@ -54,6 +56,12 @@ export async function POST(req: Request) {
     const priceStr =
       typeof parsed.data.price === "number" ? String(parsed.data.price) : parsed.data.price.trim();
 
+    const imageUrls = parsed.data.imageUrls;
+    const primaryImage =
+      imageUrls && imageUrls.length > 0
+        ? imageUrls[0]
+        : undefined;
+
     const { error: updErr } = await sb
       .from("properties")
       .update({
@@ -67,11 +75,31 @@ export async function POST(req: Request) {
         status: parsed.data.status,
         listing_status: parsed.data.listing_status,
         description: parsed.data.description?.trim() || null,
+        ...(primaryImage ? { image_url: primaryImage } : {}),
       })
       .eq("id", parsed.data.propertyId)
       .eq("listed_by", session.userId);
 
     if (updErr) return fail("DATABASE_ERROR", updErr.message, 500);
+
+    if (imageUrls && imageUrls.length > 0) {
+      const { error: delPh } = await sb
+        .from("property_photos")
+        .delete()
+        .eq("property_id", parsed.data.propertyId);
+      if (delPh) return fail("DATABASE_ERROR", delPh.message, 500);
+
+      const extras = imageUrls.slice(1);
+      if (extras.length > 0) {
+        const rows = extras.map((url, i) => ({
+          property_id: parsed.data.propertyId,
+          url,
+          sort_order: i,
+        }));
+        const { error: insPh } = await sb.from("property_photos").insert(rows);
+        if (insPh) return fail("DATABASE_ERROR", insPh.message, 500);
+      }
+    }
 
     const { data: profile } = await sb
       .from("profiles")
