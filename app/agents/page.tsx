@@ -16,6 +16,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { PhLocationInput } from "@/components/ui/ph-location-input";
 
 const SPECIALTY_CHIPS = [
   { key: "all", label: "All" },
@@ -38,6 +39,7 @@ type SortKey = (typeof SORT_OPTIONS)[number]["value"];
 type AgentWithMeta = MarketplaceAgent & {
   specialtiesText: string;
   createdAt: string;
+  serviceAreasText: string;
 };
 
 function hashPick<T>(id: string, arr: readonly T[]): T {
@@ -56,6 +58,20 @@ const SYNTHETIC_CHIPS: Exclude<SpecialtyKey, "all">[] = [
 
 function syntheticSpecialty(agentId: string): Exclude<SpecialtyKey, "all"> {
   return hashPick(agentId, SYNTHETIC_CHIPS);
+}
+
+/** When `loc` is set, agent must list overlapping text in `service_areas`. */
+function matchesAgentServiceArea(serviceAreas: string, loc: string): boolean {
+  const l = loc.trim().toLowerCase();
+  if (!l) return true;
+  const sa = serviceAreas.trim().toLowerCase();
+  if (!sa) return false;
+  if (sa.includes(l)) return true;
+  for (const part of l.split(",")) {
+    const p = part.trim();
+    if (p && sa.includes(p)) return true;
+  }
+  return false;
 }
 
 function matchesSpecialty(chip: SpecialtyKey, specialtiesText: string, agentId: string): boolean {
@@ -86,6 +102,7 @@ function AgentsDirectoryContent() {
   const searchParams = useSearchParams();
 
   const q = searchParams.get("q") ?? "";
+  const loc = searchParams.get("loc") ?? "";
   const verifiedOnly = searchParams.get("verified") === "1";
   const sortParam = searchParams.get("sort") ?? "score";
   const specialtyParam = (searchParams.get("specialty") ?? "all") as SpecialtyKey;
@@ -136,6 +153,7 @@ function AgentsDirectoryContent() {
               ...mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]),
               specialtiesText: typeof r.specialties === "string" ? r.specialties : "",
               createdAt: typeof r.created_at === "string" ? r.created_at : "",
+              serviceAreasText: typeof r.service_areas === "string" ? r.service_areas : "",
             };
           }),
         );
@@ -152,6 +170,7 @@ function AgentsDirectoryContent() {
     let list = agents.filter((a) => {
       if (verifiedOnly && !a.verified) return false;
       if (needle && !a.name.toLowerCase().includes(needle)) return false;
+      if (!matchesAgentServiceArea(a.serviceAreasText, loc)) return false;
       if (!matchesSpecialty(specialty, a.specialtiesText, a.id)) return false;
       return true;
     });
@@ -161,7 +180,7 @@ function AgentsDirectoryContent() {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
     return list;
-  }, [agents, q, verifiedOnly, sort, specialty]);
+  }, [agents, q, loc, verifiedOnly, sort, specialty]);
 
   const searchInput = (
     <label className="block">
@@ -177,6 +196,20 @@ function AgentsDirectoryContent() {
           className="w-full rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] py-3 pl-10 pr-4 text-sm font-semibold text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A843]/40"
         />
       </div>
+    </label>
+  );
+
+  const locationInput = (
+    <label className="block">
+      <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
+        Service area
+      </span>
+      <PhLocationInput
+        value={loc}
+        onChange={(v) => setParams({ loc: v.trim() || null })}
+        placeholder="Area or city (matches profile)"
+        className="mt-1.5 w-full"
+      />
     </label>
   );
 
@@ -250,6 +283,7 @@ function AgentsDirectoryContent() {
   const filterControls = (
     <div className="flex flex-col gap-4">
       {searchInput}
+      {locationInput}
       {filterControlsSecondary}
     </div>
   );
@@ -276,6 +310,7 @@ function AgentsDirectoryContent() {
         {/* Mobile: search always visible; other filters in drawer */}
         <div className="mb-4 space-y-3 md:hidden">
           {searchInput}
+          {locationInput}
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-semibold text-[#2C2C2C]/70">
               Showing <span className="font-bold text-[#2C2C2C]">{loading ? "…" : filteredSorted.length}</span>{" "}

@@ -34,6 +34,7 @@ import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { listingListedLabel } from "@/lib/listing-listed-time";
 import { AgentSlotPlaceholder } from "@/components/marketplace/agent-slot-placeholder";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
+import { PhLocationInput } from "@/components/ui/ph-location-input";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { roomUrlsFor } from "@/lib/marketplace-property";
@@ -453,12 +454,14 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 </p>
               </div>
               <div className="rounded-3xl border border-white/25 bg-white/85 p-4 shadow-2xl backdrop-blur-md">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <input
+                <div className="relative z-20 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <PhLocationInput
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search by location, neighborhood, or zip code"
-                    className="w-full flex-1 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
+                    onChange={setSearch}
+                    placeholder="Search by location or neighborhood"
+                    aria-label="Search listings by location"
+                    className="w-full flex-1"
+                    inputClassName="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
                   />
                   <button
                     type="button"

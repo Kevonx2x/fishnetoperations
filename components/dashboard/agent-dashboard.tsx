@@ -36,6 +36,7 @@ import {
 } from "@/lib/agent-listing-limits";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
 import { PropertyListingImagesInput } from "@/components/dashboard/property-listing-images-input";
+import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { formatListingPricePhp } from "@/lib/format-listing-price";
 import {
   AGENT_AVAILABILITY_NOW,
@@ -1086,11 +1087,13 @@ export function AgentDashboard() {
                 </label>
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Location
-                  <input
+                  <PhLocationInput
                     required
                     value={editForm.location}
-                    onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))}
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    onChange={(v) => setEditForm((f) => ({ ...f, location: v }))}
+                    placeholder="e.g. BGC, Taguig"
+                    className="mt-1 w-full"
+                    inputClassName="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                   />
                 </label>
                 <div className="grid grid-cols-2 gap-3">
@@ -1688,11 +1691,13 @@ function ListingsTab({
               <div className="mt-4 grid gap-3">
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Location
-                  <input
+                  <PhLocationInput
                     required
                     value={listingForm.location}
-                    onChange={(e) => setListingForm((f) => ({ ...f, location: e.target.value }))}
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
+                    onChange={(v) => setListingForm((f) => ({ ...f, location: v }))}
+                    placeholder="e.g. BGC, Taguig"
+                    className="mt-1 w-full"
+                    inputClassName="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                   />
                 </label>
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
