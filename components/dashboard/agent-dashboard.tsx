@@ -114,7 +114,18 @@ type PropertyRow = {
   isCoHost?: boolean;
 };
 
-const EDIT_PROPERTY_TYPES = ["House", "Condo", "Apartment", "Studio", "Commercial"] as const;
+const EDIT_PROPERTY_TYPES = [
+  "House",
+  "Condo",
+  "Apartment",
+  "Studio",
+  "Commercial",
+  "Villa",
+  "Townhouse",
+  "Land",
+] as const;
+
+const EDIT_LISTING_STATUSES = ["active", "under_offer", "sold", "off_market"] as const;
 
 const DEFAULT_LISTING_IMAGE =
   "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&h=800&fit=crop";
@@ -143,6 +154,24 @@ const LEAD_STAGE_OPTIONS = [
 
 function labelForStage(stage: string): string {
   return LEAD_STAGE_OPTIONS.find((o) => o.value === stage)?.label ?? stage;
+}
+
+function editFormPriceString(price: PropertyRow["price"] | null | undefined): string {
+  if (price === null || price === undefined) return "";
+  if (typeof price === "number" && Number.isFinite(price)) return String(price);
+  const s = String(price).trim();
+  if (!s || s === "null" || s === "undefined") return "";
+  return s;
+}
+
+function normalizeEditListingStatus(
+  raw: PropertyRow["listing_status"] | string | null | undefined,
+): EditListingForm["listing_status"] {
+  const s = (raw ?? "").trim();
+  if ((EDIT_LISTING_STATUSES as readonly string[]).includes(s)) {
+    return s as EditListingForm["listing_status"];
+  }
+  return "active";
 }
 
 export function AgentDashboard() {
@@ -455,11 +484,22 @@ export function AgentDashboard() {
     if (!user?.id) return;
     if (!confirm("Are you sure? This cannot be undone.")) return;
     setDeletingPropertyId(propertyId);
-    const { error } = await supabase
-      .from("properties")
-      .delete()
-      .eq("id", propertyId)
-      .eq("listed_by", user.id);
+    const orderedDeletes = [
+      { label: "co_agent_requests", run: () => supabase.from("co_agent_requests").delete().eq("property_id", propertyId) },
+      { label: "property_agents", run: () => supabase.from("property_agents").delete().eq("property_id", propertyId) },
+      { label: "property_photos", run: () => supabase.from("property_photos").delete().eq("property_id", propertyId) },
+      { label: "viewing_requests", run: () => supabase.from("viewing_requests").delete().eq("property_id", propertyId) },
+      { label: "leads", run: () => supabase.from("leads").delete().eq("property_id", propertyId) },
+    ] as const;
+    for (const step of orderedDeletes) {
+      const { error } = await step.run();
+      if (error) {
+        setDeletingPropertyId(null);
+        setMsg(`Could not delete listing (${step.label}): ${error.message}`);
+        return;
+      }
+    }
+    const { error } = await supabase.from("properties").delete().eq("id", propertyId).eq("listed_by", user.id);
     setDeletingPropertyId(null);
     if (error) {
       setMsg(error.message);
@@ -504,35 +544,49 @@ export function AgentDashboard() {
 
   const openEditFormFromProperty = useCallback(
     async (p: PropertyRow) => {
-      setEditPropertyId(p.id);
-      const pt = (p.property_type ?? "House").trim();
-      const safeType = EDIT_PROPERTY_TYPES.includes(pt as (typeof EDIT_PROPERTY_TYPES)[number])
-        ? pt
-        : "House";
-      setEditForm({
-        name: p.name ?? "",
-        location: p.location,
-        price: typeof p.price === "number" ? String(p.price) : String(p.price ?? ""),
-        beds: String(p.beds ?? 0),
-        baths: String(p.baths ?? 0),
-        sqft: String(p.sqft ?? ""),
-        property_type: safeType,
-        listing_type: p.status === "for_rent" ? "rent" : "sale",
-        listing_status: p.listing_status ?? "active",
-        description: p.description ?? "",
-      });
-      const { data: photoRows } = await supabase
-        .from("property_photos")
-        .select("url, sort_order")
-        .eq("property_id", p.id)
-        .order("sort_order", { ascending: true });
-      const extras = (photoRows ?? [])
-        .map((r: { url: string }) => r.url)
-        .filter((u) => u && u !== p.image_url);
-      setEditListingImages([p.image_url, ...extras].filter(Boolean).slice(0, 10));
-      setEditFormOpen(true);
-      setEditWarningOpen(false);
-      setPendingEditProperty(null);
+      try {
+        const { data: photoRows, error: photoErr } = await supabase
+          .from("property_photos")
+          .select("url, sort_order")
+          .eq("property_id", p.id)
+          .order("sort_order", { ascending: true });
+        if (photoErr) {
+          console.error("property_photos:", photoErr);
+          toast.error("Could not load extra photos. Main image and other fields are still editable.");
+        }
+        const pt = (p.property_type ?? "House").trim();
+        const safeType = EDIT_PROPERTY_TYPES.includes(pt as (typeof EDIT_PROPERTY_TYPES)[number])
+          ? pt
+          : "House";
+        const extras = (photoRows ?? [])
+          .map((r: { url: string }) => r.url)
+          .filter((u) => typeof u === "string" && u.trim().length > 0 && u !== p.image_url);
+        const main =
+          typeof p.image_url === "string" && p.image_url.trim().length > 0 ? p.image_url.trim() : "";
+        const imageUrls = [main, ...extras].filter(Boolean).slice(0, 10);
+        setEditPropertyId(p.id);
+        setEditForm({
+          name: p.name ?? "",
+          location: p.location ?? "",
+          price: editFormPriceString(p.price),
+          beds: String(p.beds ?? 0),
+          baths: String(p.baths ?? 0),
+          sqft: p.sqft != null ? String(p.sqft) : "",
+          property_type: safeType,
+          listing_type: p.status === "for_rent" ? "rent" : "sale",
+          listing_status: normalizeEditListingStatus(p.listing_status),
+          description: p.description ?? "",
+        });
+        setEditListingImages(imageUrls);
+        setEditFormOpen(true);
+        setEditWarningOpen(false);
+        setPendingEditProperty(null);
+      } catch (e) {
+        console.error("openEditFormFromProperty:", e);
+        toast.error("Could not open the edit form. Please try again.");
+        setEditPropertyId(null);
+        setEditListingImages([]);
+      }
     },
     [supabase],
   );
