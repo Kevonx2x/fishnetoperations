@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Heart, Mail, Phone, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Heart, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
@@ -46,6 +45,7 @@ type PropertyRow = {
   description: string | null;
   listing_agent: ListingAgentProfile;
   property_agents?: { agent: unknown }[];
+  property_photos?: { url: string; sort_order: number }[];
 };
 
 function listingAgentUserId(property: PropertyRow, agents: MarketplaceAgent[]): string | null {
@@ -64,10 +64,23 @@ const ROOM_IMAGES = [
   "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1000&h=700&fit=crop",
 ];
 
-function buildGallery(property: PropertyRow): string[] {
+function buildAllPhotos(property: PropertyRow): string[] {
+  const fromDb = (property.property_photos ?? [])
+    .slice()
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((x) => x.url)
+    .filter(Boolean);
+  if (fromDb.length) return fromDb;
   const primary = property.image_url;
   const extras = ROOM_IMAGES.filter((u) => u !== primary);
   return [primary, ...extras.slice(0, 4)];
+}
+
+function buildGridSlots(allPhotos: string[]): { main: string | null; small: (string | null)[] } {
+  return {
+    main: allPhotos[0] ?? null,
+    small: Array.from({ length: 4 }, (_, i) => allPhotos[i + 1] ?? null),
+  };
 }
 
 export default function PropertyPage() {
@@ -79,7 +92,8 @@ export default function PropertyPage() {
   const [property, setProperty] = useState<PropertyRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [idx, setIdx] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [showViewingModal, setShowViewingModal] = useState(false);
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [selectedViewingAgentUserId, setSelectedViewingAgentUserId] = useState<string | null>(null);
@@ -115,6 +129,7 @@ export default function PropertyPage() {
         .select(
           `
           id, created_at, name, location, price, sqft, beds, baths, image_url, listed_by, property_type, lat, lng, description,
+          property_photos (url, sort_order),
           listing_agent:profiles!listed_by (id, full_name, avatar_url),
           property_agents (
             agent:agents (
@@ -138,7 +153,7 @@ export default function PropertyPage() {
         setProperty(next);
         if (next?.id) recordRecentlyViewedPropertyId(next.id);
       }
-      setIdx(0);
+      setLightboxIndex(0);
       setLoading(false);
     })();
     return () => {
@@ -216,8 +231,14 @@ export default function PropertyPage() {
     };
   }, [property?.id, myAgent?.id]);
 
-  const gallery = useMemo(() => (property ? buildGallery(property) : []), [property]);
-  const img = gallery[idx] ?? gallery[0];
+  const allPhotos = useMemo(() => (property ? buildAllPhotos(property) : []), [property]);
+  const gridSlots = useMemo(() => buildGridSlots(allPhotos), [allPhotos]);
+
+  const openLightbox = (index: number) => {
+    if (allPhotos.length === 0) return;
+    setLightboxIndex(Math.min(Math.max(0, index), allPhotos.length - 1));
+    setLightboxOpen(true);
+  };
   const isSaved = property ? saved.has(property.id) : false;
 
   const connectedAgents = useMemo(() => {
@@ -309,7 +330,7 @@ export default function PropertyPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4] pb-12">
+    <div className="min-h-screen bg-white pb-12">
       <MaddenTopNav />
 
       <main className="mx-auto max-w-6xl px-4 pt-4 pb-12">
@@ -329,79 +350,80 @@ export default function PropertyPage() {
 
         {!loading && !error && property && (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <section className="lg:col-span-2">
+            <section className="space-y-6 lg:col-span-2">
               <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
-                <div className="relative aspect-[16/9] w-full bg-black/5">
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={img}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.35 }}
-                      className="absolute inset-0"
+                <div className="relative flex flex-col gap-2 p-2 md:h-[min(480px,52vh)] md:min-h-[320px] md:flex-row">
+                  <div className="relative h-56 w-full shrink-0 overflow-hidden rounded-xl bg-neutral-200 md:h-full md:w-[60%]">
+                    {gridSlots.main ? (
+                      <button
+                        type="button"
+                        onClick={() => openLightbox(0)}
+                        className="absolute inset-0 block"
+                        aria-label="Open photo 1"
+                      >
+                        <Image
+                          src={gridSlots.main}
+                          alt={property.location}
+                          fill
+                          sizes="(min-width: 768px) 60vw, 100vw"
+                          className="object-cover"
+                          priority
+                        />
+                      </button>
+                    ) : (
+                      <div className="h-full w-full bg-neutral-200" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => property && saved.toggle(property.id)}
+                      className="absolute right-3 top-3 z-10 rounded-full bg-white/95 p-2 shadow-sm"
+                      aria-label={isSaved ? "Unsave" : "Save"}
                     >
-                      <Image
-                        src={img ?? property.image_url}
-                        alt={property.location}
-                        fill
-                        sizes="(min-width: 1024px) 900px, 100vw"
-                        className="object-cover"
-                        priority
-                      />
-                    </motion.div>
-                  </AnimatePresence>
+                      <Heart className={`h-5 w-5 ${isSaved ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`} />
+                    </button>
+                  </div>
 
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-transparent" />
-
-                  {gallery.length > 1 && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setIdx((i) => (i - 1 + gallery.length) % gallery.length)}
-                        className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/35 p-2 text-white hover:bg-black/55"
-                        aria-label="Previous"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIdx((i) => (i + 1) % gallery.length)}
-                        className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/35 p-2 text-white hover:bg-black/55"
-                        aria-label="Next"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    </>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => property && saved.toggle(property.id)}
-                    className="absolute right-3 top-3 z-10 rounded-full bg-white/90 p-2 shadow-sm"
-                    aria-label={isSaved ? "Unsave" : "Save"}
-                  >
-                    <Heart className={`h-5 w-5 ${isSaved ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`} />
-                  </button>
-
-                  {gallery.length > 1 && (
-                    <div className="absolute bottom-3 left-0 right-0 z-10 px-3">
-                      <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-                        {gallery.map((u, i) => (
-                          <button
-                            key={u}
-                            type="button"
-                            onClick={() => setIdx(i)}
-                            className={`relative h-12 w-16 shrink-0 overflow-hidden rounded-lg border-2 ${
-                              i === idx ? "border-[#D4A843]" : "border-white/30"
-                            }`}
-                          >
-                            <Image src={u} alt="" fill sizes="64px" className="object-cover" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <div className="grid h-56 w-full shrink-0 grid-cols-2 grid-rows-2 gap-2 md:h-full md:w-[40%]">
+                    {gridSlots.small.map((url, i) => {
+                      const photoIndex = i + 1;
+                      const isShowAllCell = i === 3;
+                      return (
+                        <div
+                          key={i}
+                          className="relative min-h-0 overflow-hidden rounded-xl bg-neutral-200"
+                        >
+                          {url ? (
+                            <button
+                              type="button"
+                              onClick={() => openLightbox(photoIndex)}
+                              className="absolute inset-0 block"
+                              aria-label={`Open photo ${photoIndex + 1}`}
+                            >
+                              <Image
+                                src={url}
+                                alt=""
+                                fill
+                                sizes="(min-width: 768px) 20vw, 50vw"
+                                className="object-cover"
+                              />
+                            </button>
+                          ) : null}
+                          {isShowAllCell ? (
+                            <button
+                              type="button"
+                              onClick={() => openLightbox(0)}
+                              className="absolute inset-0 z-[1] flex items-center justify-center bg-black/45 text-center transition hover:bg-black/55"
+                              aria-label="Show all photos"
+                            >
+                              <span className="rounded-full bg-white px-4 py-2 text-xs font-bold text-[#2C2C2C] shadow-sm">
+                                Show all photos
+                              </span>
+                            </button>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="p-4">
@@ -427,63 +449,84 @@ export default function PropertyPage() {
                 </div>
               </div>
 
-              <div className="mt-6">
-                <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Connected Agents</h2>
+              {property.description?.trim() ? (
+                <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
+                  <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">About this property</h2>
+                  <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-[#2C2C2C]/80">
+                    {property.description.trim()}
+                  </p>
+                </div>
+              ) : null}
+
+              {showCoAgentPendingBanner ? (
+                <div className="rounded-2xl border border-[#D4A843]/30 bg-[#FAF8F4] p-4">
+                  <p className="text-sm font-bold text-[#2C2C2C]">Co-list request pending</p>
+                  <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/65">
+                    BahayGo admin will review your credentials. You’ll be notified when it’s approved or declined.
+                  </p>
+                </div>
+              ) : null}
+              {showCoAgentRequestButton ? (
+                <div className="rounded-2xl border border-[#D4A843]/25 bg-[#FAF8F4] p-4">
+                  <p className="text-sm font-semibold text-[#2C2C2C]/70">
+                    Want to co-list this property? Submit a request for admin approval.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCoAgentMsg(null);
+                      setCoAgentConfirmOpen(true);
+                    }}
+                    disabled={coAgentSubmitting}
+                    className="mt-3 inline-flex rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Request to Co-List
+                  </button>
+                  {coAgentMsg ? (
+                    <p className="mt-2 text-sm font-semibold text-red-700">{coAgentMsg}</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+
+            <aside className="lg:sticky lg:top-24 lg:col-span-1 lg:self-start">
+              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
+                <h2 className="font-serif text-lg font-bold text-[#2C2C2C]">Connected Agents</h2>
                 {connectedAgents.length === 0 ? (
-                  <PropertyPageEmptyAgents />
+                  <div className="mt-4">
+                    <PropertyPageEmptyAgents />
+                  </div>
                 ) : (
-                  <ul className="mt-4 grid list-none gap-4 p-0 sm:grid-cols-2">
+                  <ul className="mt-4 list-none space-y-4 p-0">
                     {connectedAgents.map((a) => (
                       <li
                         key={a.id}
-                        className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm"
+                        className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm"
                       >
                         <div className="flex gap-3">
                           <Link
                             href={`/agents/${encodeURIComponent(a.id)}`}
-                            className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10"
+                            className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10"
                           >
-                            <AgentAvatarFill name={a.name} imageUrl={a.image} sizes="56px" textClassName="text-sm" />
+                            <AgentAvatarFill name={a.name} imageUrl={a.image} sizes="48px" textClassName="text-sm" />
                           </Link>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <Link
                                 href={`/agents/${encodeURIComponent(a.id)}`}
-                                className="font-semibold text-[#2C2C2C] hover:underline"
+                                className="text-sm font-semibold text-[#2C2C2C] hover:underline"
                               >
                                 {a.name}
                               </Link>
                               {a.verified && a.status === "approved" ? <VerifiedAgentBadge show /> : null}
-                              <span className="rounded-md bg-[#2C2C2C]/8 px-2 py-0.5 text-xs font-bold text-[#2C2C2C]/80">
+                              <span className="rounded-md bg-[#2C2C2C]/8 px-2 py-0.5 text-[10px] font-bold text-[#2C2C2C]/80">
                                 {Math.round(a.score)}
                               </span>
                             </div>
-                            {a.brokerName ? (
-                              <p className="mt-1 text-xs font-medium text-[#2C2C2C]/55">{a.brokerName}</p>
-                            ) : null}
-                            {a.responseTime ? (
-                              <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/45">
-                                Response: {a.responseTime}
-                              </p>
-                            ) : null}
                             <div className="mt-1">
                               <AgentAvailabilityBadge availability={a.availability} />
                             </div>
-                            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-[#2C2C2C]/50">
-                              {a.email ? (
-                                <span className="inline-flex items-center gap-1">
-                                  <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                                  {a.email}
-                                </span>
-                              ) : null}
-                              {a.phone ? (
-                                <span className="inline-flex items-center gap-1">
-                                  <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                                  {a.phone}
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="mt-3">
+                            <div className="mt-2">
                               {myAgent?.id === a.id || user?.id === a.userId ? null : (
                                 <button
                                   type="button"
@@ -495,7 +538,7 @@ export default function PropertyPage() {
                                     setContactModalAgent(a);
                                     setShowContactModal(true);
                                   }}
-                                  className="inline-flex rounded-lg bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                                  className="inline-flex w-full justify-center rounded-lg bg-[#6B9E6E] px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60] sm:w-auto"
                                 >
                                   Contact
                                 </button>
@@ -507,71 +550,38 @@ export default function PropertyPage() {
                     ))}
                   </ul>
                 )}
-                {showCoAgentPendingBanner ? (
-                  <div className="mt-6 rounded-2xl border border-[#D4A843]/30 bg-[#FAF8F4] p-4">
-                    <p className="text-sm font-bold text-[#2C2C2C]">Co-list request pending</p>
-                    <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/65">
-                      BahayGo admin will review your credentials. You’ll be notified when it’s approved or declined.
-                    </p>
-                  </div>
-                ) : null}
-                {showCoAgentRequestButton ? (
-                  <div className="mt-6 rounded-2xl border border-[#D4A843]/25 bg-[#FAF8F4] p-4">
-                    <p className="text-sm font-semibold text-[#2C2C2C]/70">
-                      Want to co-list this property? Submit a request for admin approval.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCoAgentMsg(null);
-                        setCoAgentConfirmOpen(true);
-                      }}
-                      disabled={coAgentSubmitting}
-                      className="mt-3 inline-flex rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Request to Co-List
-                    </button>
-                    {coAgentMsg ? (
-                      <p className="mt-2 text-sm font-semibold text-red-700">{coAgentMsg}</p>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            </section>
 
-            <aside className="lg:col-span-1">
-              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
-                <p className="font-serif text-lg font-bold text-[#2C2C2C]">Request a viewing</p>
-                <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
-                  Pick a date and time. We’ll notify the listing agent by SMS and email.
-                </p>
-
-                {listingAgent ? (
-                  <div className="mt-3 rounded-2xl bg-[#FAF8F4] p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-[#2C2C2C]">{listingAgent.name}</p>
-                      <VerifiedAgentBadge show />
+                <div className="mt-6 border-t border-[#2C2C2C]/10 pt-4">
+                  <p className="font-serif text-base font-bold text-[#2C2C2C]">Request a viewing</p>
+                  <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
+                    Pick a date and time. We’ll notify the listing agent by SMS and email.
+                  </p>
+                  {listingAgent ? (
+                    <div className="mt-3 rounded-xl bg-neutral-50 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-[#2C2C2C]">{listingAgent.name}</p>
+                        <VerifiedAgentBadge show />
+                      </div>
+                      <p className="mt-0.5 text-xs font-semibold text-[#2C2C2C]/60">
+                        {listingAgent.company || listingAgent.brokerName}
+                      </p>
+                      <div className="mt-2">
+                        <AgentAvailabilityBadge
+                          availability={listingAgent.availability}
+                          updatedAt={listingAgent.updatedAt}
+                        />
+                      </div>
                     </div>
-                    <p className="mt-0.5 text-xs font-semibold text-[#2C2C2C]/60">
-                      {listingAgent.company || listingAgent.brokerName}
-                    </p>
-                    <div className="mt-2">
-                      <AgentAvailabilityBadge
-                        availability={listingAgent.availability}
-                        updatedAt={listingAgent.updatedAt}
-                      />
-                    </div>
-                  </div>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={onRequestViewing}
-                  disabled={authLoading || connectedAgents.length === 0}
-                  className="mt-4 w-full rounded-full bg-[#2C2C2C] px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#6B9E6E] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {authLoading ? "Loading…" : "Request viewing"}
-                </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={onRequestViewing}
+                    disabled={authLoading || connectedAgents.length === 0}
+                    className="mt-4 w-full rounded-full bg-[#2C2C2C] px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#6B9E6E] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {authLoading ? "Loading…" : "Request viewing"}
+                  </button>
+                </div>
               </div>
             </aside>
           </div>
@@ -599,6 +609,15 @@ export default function PropertyPage() {
               propertyTitle={property.name?.trim() || property.location}
               agentUserId={selectedViewingAgentUserId ?? listingAgentUserId(property, connectedAgents)}
             />
+            {lightboxOpen && allPhotos.length > 0 ? (
+              <PropertyPhotoLightbox
+                photos={allPhotos}
+                index={lightboxIndex}
+                title={property.name?.trim() || property.location}
+                onClose={() => setLightboxOpen(false)}
+                onGoTo={(i) => setLightboxIndex(i)}
+              />
+            ) : null}
             <SignInViewingPromptModal open={signInPromptOpen} onOpenChange={setSignInPromptOpen} />
             <AgentContactOptionsModal
               open={showContactModal}
@@ -675,6 +694,79 @@ export default function PropertyPage() {
       </main>
     </div>
   );
+}
+
+function PropertyPhotoLightbox({
+  photos,
+  index,
+  title,
+  onClose,
+  onGoTo,
+}: {
+  photos: string[];
+  index: number;
+  title: string;
+  onClose: () => void;
+  onGoTo: (i: number) => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  if (typeof document === "undefined") return null;
+  const shell = (
+    <div className="fixed inset-0 z-[210] flex flex-col bg-black" role="presentation">
+      <div className="flex items-center justify-between gap-2 px-4 py-3 text-white">
+        <p className="min-w-0 truncate text-sm font-semibold">{title}</p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="shrink-0 rounded-full p-2 hover:bg-white/10"
+          aria-label="Close"
+        >
+          <X className="h-6 w-6" />
+        </button>
+      </div>
+      <div className="relative min-h-0 flex-1">
+        <div className="absolute inset-0">
+          <Image src={photos[index] ?? photos[0]} alt="" fill className="object-contain" sizes="100vw" priority />
+        </div>
+        {photos.length > 1 ? (
+          <>
+            <button
+              type="button"
+              onClick={() => onGoTo((index - 1 + photos.length) % photos.length)}
+              className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/45 p-3 text-white hover:bg-black/65"
+              aria-label="Previous photo"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onGoTo((index + 1) % photos.length)}
+              className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/45 p-3 text-white hover:bg-black/65"
+              aria-label="Next photo"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+          </>
+        ) : null}
+      </div>
+      <p className="py-3 text-center text-xs font-semibold text-white/80">
+        {index + 1} / {photos.length}
+      </p>
+    </div>
+  );
+  return createPortal(shell, document.body);
 }
 
 function ViewingAgentPickerModal({

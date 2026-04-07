@@ -156,6 +156,7 @@ export function AgentDashboard() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null);
+  const [leavingPropertyId, setLeavingPropertyId] = useState<string | null>(null);
   const [deletingLeadId, setDeletingLeadId] = useState<number | null>(null);
 
   const [profileForm, setProfileForm] = useState({
@@ -441,6 +442,24 @@ export function AgentDashboard() {
       return;
     }
     setMsg("Listing deleted.");
+    await loadData();
+  };
+
+  const leaveListing = async (propertyId: string) => {
+    if (!agent?.id) return;
+    if (!confirm("Leave this co-listing? You will no longer appear on this property.")) return;
+    setLeavingPropertyId(propertyId);
+    const { error } = await supabase
+      .from("property_agents")
+      .delete()
+      .eq("property_id", propertyId)
+      .eq("agent_id", agent.id);
+    setLeavingPropertyId(null);
+    if (error) {
+      setMsg(error.message);
+      return;
+    }
+    setMsg("You left the listing.");
     await loadData();
   };
 
@@ -781,6 +800,8 @@ export function AgentDashboard() {
                   onOpenNewListing={openNewListingFlow}
                   onDeleteProperty={deleteListing}
                   deletingPropertyId={deletingPropertyId}
+                  onLeaveListing={leaveListing}
+                  leavingPropertyId={leavingPropertyId}
                   onEditListing={beginEditListing}
                 />
               )}
@@ -1126,7 +1147,7 @@ function OverviewTab({
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Total Leads" value={String(leads.length)} />
-        <StatCard label="Active Listings" value={String(totalRepresented)} />
+        <StatCard label="Owned listings" value={String(ownedCount)} />
         <StatCard label="Profile Views" value={String(mockProfileViews)} hint="mock" />
         <StatCard label="Response Rate" value={`${mockResponseRate}%`} hint="mock" />
       </div>
@@ -1153,7 +1174,7 @@ function OverviewTab({
             <p
               className={`text-sm font-bold tabular-nums ${atListingLimit ? "text-[#B8860B]" : "text-[#2C2C2C]/80"}`}
             >
-              {ownedListingCount}/{listingLimit} listings used
+              {ownedListingCount}/{listingLimit} owned slots used
             </p>
           </div>
           <div
@@ -1172,6 +1193,9 @@ function OverviewTab({
               }}
             />
           </div>
+          <p className="mt-2 text-xs font-semibold text-[#2C2C2C]/55">
+            Only listings you own count toward your plan limit. Co-listed properties do not use a slot.
+          </p>
           {atListingLimit ? (
             <p className="mt-3 text-xs font-semibold text-[#8a6d32]">
               You are at your plan limit. Upgrade to Pro on the{" "}
@@ -1340,6 +1364,8 @@ function ListingsTab({
   onOpenNewListing,
   onDeleteProperty,
   deletingPropertyId,
+  onLeaveListing,
+  leavingPropertyId,
   onEditListing,
 }: {
   properties: PropertyRow[];
@@ -1365,6 +1391,8 @@ function ListingsTab({
   onOpenNewListing: () => void;
   onDeleteProperty: (id: string) => void | Promise<void>;
   deletingPropertyId: string | null;
+  onLeaveListing: (id: string) => void | Promise<void>;
+  leavingPropertyId: string | null;
   onEditListing: (p: PropertyRow) => void | Promise<void>;
 }) {
   const cohostCount = properties.filter((p) => p.isCoHost).length;
@@ -1437,7 +1465,22 @@ function ListingsTab({
                   {deletingPropertyId === p.id ? "Deleting…" : "Delete"}
                 </button>
               </div>
-            ) : null}
+            ) : (
+              <div className="absolute right-2 top-2 z-10">
+                <button
+                  type="button"
+                  disabled={leavingPropertyId === p.id}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void onLeaveListing(p.id);
+                  }}
+                  className="rounded-full border border-[#2C2C2C]/20 bg-white/95 px-3 py-1.5 text-xs font-bold text-[#2C2C2C] shadow-sm hover:bg-[#2C2C2C]/5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {leavingPropertyId === p.id ? "Leaving…" : "Leave listing"}
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>

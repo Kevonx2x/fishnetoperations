@@ -141,6 +141,8 @@ function AgentsList({
   onSignInPrompt,
   viewerAgentId,
   viewerUserId,
+  propertyId,
+  verifiedListingAgent,
 }: {
   modalAgents: MarketplaceAgent[];
   placeholderSlots: number;
@@ -150,20 +152,9 @@ function AgentsList({
   onSignInPrompt: () => void;
   viewerAgentId: string | null;
   viewerUserId: string | null;
+  propertyId: string;
+  verifiedListingAgent: boolean;
 }) {
-  useEffect(() => {
-    console.log("[PropertyZoomModal AgentsList] viewerAgentId (agents.id for current user)", viewerAgentId);
-    console.log("[PropertyZoomModal AgentsList] viewerUserId (auth user id)", viewerUserId);
-    modalAgents.forEach((a) => {
-      console.log("[PropertyZoomModal AgentsList] card", {
-        agentRowId: a.id,
-        agentUserId: a.userId,
-        matchByAgentId: viewerAgentId != null && viewerAgentId === a.id,
-        matchByUserId: isSameAuthUser(viewerUserId, a.userId),
-      });
-    });
-  }, [viewerAgentId, viewerUserId, modalAgents]);
-
   return (
     <ul className="space-y-3">
       {modalAgents.map((a) => (
@@ -230,7 +221,11 @@ function AgentsList({
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] text-sm font-bold text-white">
               ?
             </div>
-            <AgentSlotPlaceholderModal onLinkClick={onClose} />
+            <AgentSlotPlaceholderModal
+              onLinkClick={onClose}
+              propertyId={propertyId}
+              verifiedListingAgent={verifiedListingAgent}
+            />
           </div>
         </li>
       ))}
@@ -357,6 +352,10 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
   const { user, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [viewerAgentId, setViewerAgentId] = useState<string | null>(null);
+  const [viewerAgentVerified, setViewerAgentVerified] = useState<{
+    verified: boolean | null;
+    status: string;
+  } | null>(null);
   const [showViewingModal, setShowViewingModal] = useState(false);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
@@ -371,21 +370,30 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
   useEffect(() => {
     if (!user?.id) {
       setViewerAgentId(null);
+      setViewerAgentVerified(null);
       return;
     }
     let cancelled = false;
     void supabase
       .from("agents")
-      .select("id")
+      .select("id, verified, status")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (!cancelled) setViewerAgentId((data as { id?: string } | null)?.id ?? null);
+        if (cancelled) return;
+        const row = data as { id?: string; verified?: boolean | null; status?: string | null } | null;
+        setViewerAgentId(row?.id ?? null);
+        setViewerAgentVerified(
+          row ? { verified: row.verified ?? null, status: row.status ?? "" } : null,
+        );
       });
     return () => {
       cancelled = true;
     };
   }, [user?.id, supabase]);
+
+  const verifiedListingAgent =
+    Boolean(viewerAgentVerified?.verified && viewerAgentVerified?.status === "approved");
 
   const onRequestViewing = () => {
     if (authLoading) return;
@@ -506,6 +514,8 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
                 onSignInPrompt={() => setSignInPromptOpen(true)}
                 viewerAgentId={viewerAgentId}
                 viewerUserId={user?.id ?? null}
+                propertyId={property.id}
+                verifiedListingAgent={verifiedListingAgent}
                 onContactAgent={(a) => {
                   setContactModalAgent(a);
                   setShowContactModal(true);
@@ -543,6 +553,8 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
                   onSignInPrompt={() => setSignInPromptOpen(true)}
                   viewerAgentId={viewerAgentId}
                   viewerUserId={user?.id ?? null}
+                  propertyId={property.id}
+                  verifiedListingAgent={verifiedListingAgent}
                   onContactAgent={(a) => {
                     setContactModalAgent(a);
                     setShowContactModal(true);

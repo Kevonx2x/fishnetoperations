@@ -40,9 +40,34 @@ export function AgentSlotPlaceholder({ onLinkClick }: AgentSlotPlaceholderProps)
   );
 }
 
+type AgentSlotPlaceholderModalProps = AgentSlotPlaceholderProps & {
+  /** When set and user is an approved, verified agent, show co-list CTA instead of registration. */
+  propertyId?: string;
+  verifiedListingAgent?: boolean;
+};
+
 /** Zoom modal: slightly larger second line */
-export function AgentSlotPlaceholderModal({ onLinkClick }: AgentSlotPlaceholderProps) {
+export function AgentSlotPlaceholderModal({
+  onLinkClick,
+  propertyId,
+  verifiedListingAgent,
+}: AgentSlotPlaceholderModalProps) {
   const showLink = useShowListingAgentPlaceholderLink();
+
+  if (verifiedListingAgent && propertyId) {
+    return (
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold text-[#2C2C2C]/70">Want to represent this property?</p>
+        <Link
+          href={`/properties/${encodeURIComponent(propertyId)}`}
+          onClick={onLinkClick}
+          className="mt-1 inline-block text-xs font-semibold text-[#6B9E6E] hover:underline"
+        >
+          Request to Co-List →
+        </Link>
+      </div>
+    );
+  }
 
   if (showLink) {
     return (
