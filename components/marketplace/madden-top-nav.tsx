@@ -46,6 +46,7 @@ import {
   AGENT_AVAILABILITY_OFFLINE,
   isAgentAvailableNow,
 } from "@/components/marketplace/agent-availability-badge";
+import { BahayGoLogoLink } from "@/components/marketplace/bahaygo-logo";
 
 type NavLinkItem = { kind: "link"; label: string; href: string; icon: ReactNode };
 type NavDividerItem = { kind: "divider"; label: string };
@@ -385,10 +386,9 @@ export function MaddenTopNav() {
   return (
     <header className="sticky top-0 z-50 border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
       <div className="mx-auto grid w-full max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-4">
-        <Link href="/" className="justify-self-start leading-none">
-          <div className="font-serif text-xl font-bold tracking-tight text-[#2C2C2C]">BahayGo</div>
-          <div className="mt-0.5 text-[11px] font-semibold tracking-[0.18em] text-[#2C2C2C]/50">FIND YOUR HOME</div>
-        </Link>
+        <div className="justify-self-start">
+          <BahayGoLogoLink priority />
+        </div>
 
         <nav className="hidden min-w-0 justify-self-center sm:flex items-center gap-5 text-sm font-semibold text-[#2C2C2C]/70 md:gap-6">
           <NavDropdownMenu label="Agents" entries={agentsEntries} />

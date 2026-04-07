@@ -1,10 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import { ImagePlus, Loader2, Trash2, Upload } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { getPublicSupabaseEnv } from "@/lib/supabase/public-env";
 import { cn } from "@/lib/utils";
 
 /** Must match Supabase Storage bucket id (hyphen, not underscore). */
@@ -45,36 +44,16 @@ export function PropertyListingImagesInput({
   const [progress, setProgress] = useState(0);
   const [activeFile, setActiveFile] = useState(0);
   const [totalFiles, setTotalFiles] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const canAdd = value.length < maxImages && !disabled;
-
-  useEffect(() => {
-    console.log("[ImageUpload] component mounted, userId prop:", userId);
-  }, [userId]);
-
-  useEffect(() => {
-    console.log("[ImageUpload] inputRef (drop zone visible):", inputRef.current ? "attached" : "null", {
-      canAdd,
-      disabled,
-      uploading,
-    });
-  }, [userId, canAdd, disabled, uploading]);
 
   const uploadOne = useCallback(
     async (file: File): Promise<string> => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      console.log(
-        "[ImageUpload] session:",
-        session?.user?.id,
-        "access_token present:",
-        !!session?.access_token,
-      );
 
       if (!session) {
-        console.error("[ImageUpload] No session found - user not authenticated");
         setLocalError("Please sign in again to upload images");
         throw new Error("Please sign in again to upload images");
       }
@@ -90,34 +69,15 @@ export function PropertyListingImagesInput({
       const filename = `${crypto.randomUUID()}.${ext}`;
       const path = `${userId}/${filename}`;
 
-      const origin = getPublicSupabaseEnv().url.replace(/\/$/, "");
-      const encodedObjectPath = path
-        .split("/")
-        .map((segment) => encodeURIComponent(segment))
-        .join("/");
-      const uploadUrl = `${origin}/storage/v1/object/${STORAGE_BUCKET}/${encodedObjectPath}`;
-
-      console.log("[property-images upload] bucket:", STORAGE_BUCKET);
-      console.log("[property-images upload] object path:", path, "(format: userId/filename)");
-      console.log("[property-images upload] supabaseUrl:", origin);
-      console.log("[property-images upload] storage HTTP URL (upload):", uploadUrl);
-
-      const { data: uploadData, error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, {
+      const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, {
         contentType: file.type,
         upsert: false,
       });
       if (error) {
-        console.error("[property-images upload] Supabase error object:", error);
-        console.error(
-          "[property-images upload] Supabase error JSON:",
-          JSON.stringify(error, Object.getOwnPropertyNames(error)),
-        );
         throw new Error(error.message || "Upload failed.");
       }
-      console.log("[property-images upload] upload success, path returned:", uploadData?.path);
 
       const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-      console.log("[property-images upload] public URL:", data.publicUrl);
       return data.publicUrl;
     },
     [supabase, userId],
@@ -149,13 +109,6 @@ export function PropertyListingImagesInput({
         }
         setProgress(100);
       } catch (e) {
-        console.error("[property-images upload] caught error:", e);
-        if (e && typeof e === "object") {
-          console.error(
-            "[property-images upload] caught error JSON:",
-            JSON.stringify(e, Object.getOwnPropertyNames(e as object)),
-          );
-        }
         setLocalError(e instanceof Error ? e.message : "Upload failed.");
       } finally {
         setUploading(false);
@@ -169,7 +122,6 @@ export function PropertyListingImagesInput({
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
-      console.log("[ImageUpload] drag drop triggered");
       e.preventDefault();
       e.stopPropagation();
       setDragOver(false);
@@ -179,15 +131,12 @@ export function PropertyListingImagesInput({
     [canAdd, processFiles, uploading],
   );
 
-  const onPick = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const f = e.target.files;
-      e.target.value = "";
-      if (!f?.length) return;
-      void processFiles(f);
-    },
-    [processFiles],
-  );
+  const onPick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    void processFiles(files);
+  }, [processFiles]);
 
   const removeAt = (index: number) => {
     onChange(value.filter((_, i) => i !== index));
@@ -282,7 +231,6 @@ export function PropertyListingImagesInput({
           )}
         >
           <input
-            ref={inputRef}
             id={inputId}
             type="file"
             accept="image/jpeg,image/png,image/webp"
