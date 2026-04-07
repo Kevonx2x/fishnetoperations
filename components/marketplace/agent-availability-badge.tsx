@@ -29,14 +29,15 @@ export function formatLastSeenHours(iso: string | null | undefined): string {
 }
 
 type Props = {
-  availability: string;
+  /** Only the exact string "Available Now" counts as online; null, empty, or anything else is Offline. */
+  availability: string | null | undefined;
   /** Agent row `updated_at` — used for offline “last seen”. */
   updatedAt?: string | null;
 };
 
 /**
  * Two states only: Available Now (green) or Offline (grey) + last seen.
- * “Available Now” only when the agent saved that status from the dashboard toggle.
+ * “Available Now” only when the value is exactly that string (trimmed).
  */
 export function AgentAvailabilityBadge({ availability, updatedAt }: Props) {
   const online = isAgentAvailableNow(availability);

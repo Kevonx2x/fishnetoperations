@@ -126,6 +126,12 @@ function ZoomGallery({
   );
 }
 
+function isSameAuthUser(viewerUserId: string | null | undefined, agentUserId: string): boolean {
+  const v = (viewerUserId ?? "").trim();
+  const a = (agentUserId ?? "").trim();
+  return v.length > 0 && a.length > 0 && v === a;
+}
+
 function AgentsList({
   modalAgents,
   placeholderSlots,
@@ -134,6 +140,7 @@ function AgentsList({
   isLoggedIn,
   onSignInPrompt,
   viewerAgentId,
+  viewerUserId,
 }: {
   modalAgents: MarketplaceAgent[];
   placeholderSlots: number;
@@ -142,7 +149,21 @@ function AgentsList({
   isLoggedIn: boolean;
   onSignInPrompt: () => void;
   viewerAgentId: string | null;
+  viewerUserId: string | null;
 }) {
+  useEffect(() => {
+    console.log("[PropertyZoomModal AgentsList] viewerAgentId (agents.id for current user)", viewerAgentId);
+    console.log("[PropertyZoomModal AgentsList] viewerUserId (auth user id)", viewerUserId);
+    modalAgents.forEach((a) => {
+      console.log("[PropertyZoomModal AgentsList] card", {
+        agentRowId: a.id,
+        agentUserId: a.userId,
+        matchByAgentId: viewerAgentId != null && viewerAgentId === a.id,
+        matchByUserId: isSameAuthUser(viewerUserId, a.userId),
+      });
+    });
+  }, [viewerAgentId, viewerUserId, modalAgents]);
+
   return (
     <ul className="space-y-3">
       {modalAgents.map((a) => (
@@ -179,7 +200,8 @@ function AgentsList({
                 <div>
                   <AgentAvailabilityBadge availability={a.availability} updatedAt={a.updatedAt} />
                 </div>
-                {viewerAgentId && a.id === viewerAgentId ? null : (
+                {isSameAuthUser(viewerUserId, a.userId) ||
+                (viewerAgentId != null && viewerAgentId === a.id) ? null : (
                   <button
                     type="button"
                     onClick={() => {
@@ -483,6 +505,7 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
                 isLoggedIn={isLoggedIn}
                 onSignInPrompt={() => setSignInPromptOpen(true)}
                 viewerAgentId={viewerAgentId}
+                viewerUserId={user?.id ?? null}
                 onContactAgent={(a) => {
                   setContactModalAgent(a);
                   setShowContactModal(true);
@@ -519,6 +542,7 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
                   isLoggedIn={isLoggedIn}
                   onSignInPrompt={() => setSignInPromptOpen(true)}
                   viewerAgentId={viewerAgentId}
+                  viewerUserId={user?.id ?? null}
                   onContactAgent={(a) => {
                     setContactModalAgent(a);
                     setShowContactModal(true);

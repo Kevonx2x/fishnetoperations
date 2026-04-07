@@ -6,7 +6,10 @@ import { motion } from "framer-motion";
 import { ArrowRight, Calendar, Zap } from "lucide-react";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import { AgentAvatarFill, agentAvatarInitials } from "@/components/marketplace/agent-avatar";
-import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
+import {
+  AgentAvailabilityBadge,
+  isAgentAvailableNow,
+} from "@/components/marketplace/agent-availability-badge";
 
 export function MaddenAgentRow({
   agent,
@@ -19,7 +22,7 @@ export function MaddenAgentRow({
   locationLine?: string;
   onAvailable: () => void;
 }) {
-  const isNow = agent.availability?.trim() === "Available Now";
+  const isNow = isAgentAvailableNow(agent.availability);
   const c = (connected ?? []).slice(0, 8);
 
   return (

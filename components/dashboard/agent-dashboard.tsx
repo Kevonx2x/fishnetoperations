@@ -33,6 +33,7 @@ import { formatListingPricePhp } from "@/lib/format-listing-price";
 import {
   AGENT_AVAILABILITY_NOW,
   AGENT_AVAILABILITY_OFFLINE,
+  isAgentAvailableNow,
 } from "@/components/marketplace/agent-availability-badge";
 import { AgentAvailabilitySchedule } from "@/components/dashboard/agent-availability-schedule";
 import { toast } from "sonner";
@@ -1576,6 +1577,174 @@ function ListingsTab({
   );
 }
 
+type TeamMemberRow = {
+  id: string;
+  assistant_email: string;
+  assistant_name: string | null;
+  status: string;
+  created_at: string;
+};
+
+function MyTeamSection({
+  agentId,
+  agentName,
+  supabase,
+}: {
+  agentId: string;
+  agentName: string;
+  supabase: ReturnType<typeof createSupabaseBrowserClient>;
+}) {
+  const [rows, setRows] = useState<TeamMemberRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [assistantDisplayName, setAssistantDisplayName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("agent_team_members")
+      .select("id, assistant_email, assistant_name, status, created_at")
+      .eq("agent_id", agentId)
+      .order("created_at", { ascending: false });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setRows((data ?? []) as TeamMemberRow[]);
+  }, [agentId, supabase]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const addMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const em = email.trim().toLowerCase();
+    if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+      toast.error("Enter a valid email address.");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("agent_team_members").insert({
+      agent_id: agentId,
+      assistant_email: em,
+      assistant_name: assistantDisplayName.trim() || null,
+      status: "invited",
+    });
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(
+      "Invitation saved. If they have a BahayGo account with that email, they’ll get an in-app notification.",
+    );
+    setEmail("");
+    setAssistantDisplayName("");
+    void load();
+  };
+
+  const remove = async (id: string) => {
+    setRemovingId(id);
+    const { error } = await supabase.from("agent_team_members").delete().eq("id", id);
+    setRemovingId(null);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Removed from team");
+    void load();
+  };
+
+  return (
+    <section className="mt-10 max-w-xl rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[#2C2C2C]">
+          <Users className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">My Team</h2>
+          <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/60">
+            Add showing assistants by email. They appear as <span className="text-[#2C2C2C]">Showing Assistant</span>{" "}
+            under you. Invites notify them in-app when their email matches a BahayGo account.
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={(e) => void addMember(e)} className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label className="min-w-0 flex-1 text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+          Email
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="assistant@example.com"
+            className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+            autoComplete="off"
+          />
+        </label>
+        <label className="min-w-0 flex-1 text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+          Name (optional)
+          <input
+            value={assistantDisplayName}
+            onChange={(e) => setAssistantDisplayName(e.target.value)}
+            placeholder="First Last"
+            className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={saving}
+          className="shrink-0 rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
+        >
+          {saving ? "Adding…" : "Add"}
+        </button>
+      </form>
+
+      <div className="mt-6 border-t border-[#2C2C2C]/10 pt-4">
+        {loading ? (
+          <p className="text-sm font-semibold text-[#2C2C2C]/50">Loading team…</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm font-semibold text-[#2C2C2C]/50">No assistants yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {rows.map((r) => (
+              <li
+                key={r.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-[#2C2C2C]">{r.assistant_email}</p>
+                  {r.assistant_name ? (
+                    <p className="truncate text-xs font-semibold text-[#2C2C2C]/55">{r.assistant_name}</p>
+                  ) : null}
+                  <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-[#6B9E6E]">
+                    Showing Assistant · {r.status}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={removingId === r.id}
+                  onClick={() => void remove(r.id)}
+                  className="shrink-0 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-bold text-red-800 hover:bg-red-100 disabled:opacity-50"
+                >
+                  {removingId === r.id ? "…" : "Remove"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <p className="mt-4 text-[11px] font-semibold text-[#2C2C2C]/45">
+        Listing agent: {agentName}. Permissions for assistants are coming later.
+      </p>
+    </section>
+  );
+}
+
 function ProfileTab({
   agent,
   profileForm,
@@ -1610,7 +1779,7 @@ function ProfileTab({
   onAvailabilityMessage: (msg: string) => void;
 }) {
   const [availSaving, setAvailSaving] = useState(false);
-  const showAvailableNow = agent.availability?.trim() === AGENT_AVAILABILITY_NOW;
+  const showAvailableNow = isAgentAvailableNow(agent.availability);
 
   const setAvailableNow = async (on: boolean) => {
     setAvailSaving(true);
@@ -1762,6 +1931,8 @@ function ProfileTab({
           {saving ? "Saving…" : "Save profile"}
         </button>
       </form>
+
+      <MyTeamSection agentId={agent.id} agentName={agent.name} supabase={supabase} />
 
       <AgentAvailabilitySchedule
         key={JSON.stringify(agent.availability_schedule ?? {})}

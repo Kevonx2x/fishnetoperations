@@ -95,6 +95,7 @@ export default function PropertyPage() {
     listing_tier: string | null;
     status: string;
     verified: boolean | null;
+    license_number: string | null;
   } | null>(null);
   const [myListingCount, setMyListingCount] = useState(0);
   const [hasPendingCoRequest, setHasPendingCoRequest] = useState(false);
@@ -154,7 +155,7 @@ export default function PropertyPage() {
     void (async () => {
       const { data } = await supabase
         .from("agents")
-        .select("id, listing_tier, status, verified")
+        .select("id, listing_tier, status, verified, license_number")
         .eq("user_id", user.id)
         .maybeSingle();
       if (!cancelled) {
@@ -165,6 +166,7 @@ export default function PropertyPage() {
                 listing_tier: string | null;
                 status: string;
                 verified: boolean | null;
+                license_number: string | null;
               })
             : null,
         );
@@ -252,6 +254,7 @@ export default function PropertyPage() {
   const showCoAgentRequestButton = useMemo(() => {
     if (!isLoggedIn || profile?.role !== "agent" || !myAgent) return false;
     if (myAgent.status !== "approved" || !myAgent.verified) return false;
+    if (!myAgent.license_number?.trim()) return false;
     if (isConnectedAsAgent) return false;
     if (hasPendingCoRequest) return false;
     return true;
@@ -481,7 +484,7 @@ export default function PropertyPage() {
                               ) : null}
                             </div>
                             <div className="mt-3">
-                              {myAgent?.id === a.id ? null : (
+                              {myAgent?.id === a.id || user?.id === a.userId ? null : (
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -506,16 +509,16 @@ export default function PropertyPage() {
                 )}
                 {showCoAgentPendingBanner ? (
                   <div className="mt-6 rounded-2xl border border-[#D4A843]/30 bg-[#FAF8F4] p-4">
-                    <p className="text-sm font-bold text-[#2C2C2C]">Request Pending</p>
+                    <p className="text-sm font-bold text-[#2C2C2C]">Co-list request pending</p>
                     <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/65">
-                      Your co-agent request is awaiting admin review.
+                      BahayGo admin will review your credentials. You’ll be notified when it’s approved or declined.
                     </p>
                   </div>
                 ) : null}
                 {showCoAgentRequestButton ? (
                   <div className="mt-6 rounded-2xl border border-[#D4A843]/25 bg-[#FAF8F4] p-4">
                     <p className="text-sm font-semibold text-[#2C2C2C]/70">
-                      Represent this listing too? Ask to be added as a connected agent.
+                      Want to co-list this property? Submit a request for admin approval.
                     </p>
                     <button
                       type="button"
@@ -526,7 +529,7 @@ export default function PropertyPage() {
                       disabled={coAgentSubmitting}
                       className="mt-3 inline-flex rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      I also represent this property
+                      Request to Co-List
                     </button>
                     {coAgentMsg ? (
                       <p className="mt-2 text-sm font-semibold text-red-700">{coAgentMsg}</p>
@@ -633,12 +636,13 @@ export default function PropertyPage() {
                     id="co-agent-confirm-title"
                     className="font-serif text-lg font-bold leading-snug text-[#2C2C2C]"
                   >
-                    Submit co-agent request?
+                    Request to co-list?
                   </h2>
                   <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/75">
-                    Submit co-agent request for{" "}
-                    <span className="text-[#2C2C2C]">{property.name?.trim() || property.location}</span>? Your
-                    profile will be shown to clients.
+                    Request to co-list{" "}
+                    <span className="text-[#2C2C2C]">{property.name?.trim() || property.location}</span>? BahayGo
+                    admin will review your credentials and approve your request. Once approved you will appear as a
+                    listing agent on this property.
                   </p>
                   <div className="mt-6 flex flex-wrap justify-end gap-2">
                     <button
