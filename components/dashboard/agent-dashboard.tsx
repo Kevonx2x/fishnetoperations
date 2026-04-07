@@ -781,7 +781,7 @@ export function AgentDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4] pb-20 md:pb-8">
+    <div className="min-h-screen bg-[#FAF8F4] pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-8">
       <div className="mx-auto flex max-w-6xl flex-col md:flex-row">
         {/* Desktop sidebar */}
         <aside className="hidden w-64 shrink-0 border-r border-[#2C2C2C]/10 bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-screen md:flex-col md:px-4 md:py-8">
@@ -830,7 +830,7 @@ export function AgentDashboard() {
           </Link>
         </aside>
 
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-10">
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-10 md:pb-10">
           {msg ? (
             <p className="mb-4 rounded-xl border border-[#D4A843]/30 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]">
               {msg}

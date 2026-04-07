@@ -338,7 +338,7 @@ export default function PropertyPage() {
     <div className="min-h-screen bg-white pb-12">
       <MaddenTopNav />
 
-      <main className="mx-auto max-w-6xl px-4 pt-4 pb-12">
+      <main className="mx-auto max-w-6xl px-4 pb-24 pt-4 md:pb-12">
         <div className="mb-4 text-sm font-semibold text-[#2C2C2C]/65">
           <Link href="/" className="hover:text-[#2C2C2C]">Home</Link> <span>·</span>{" "}
           <span className="text-[#2C2C2C]">Property</span>
@@ -358,7 +358,7 @@ export default function PropertyPage() {
             <section className="space-y-6 lg:col-span-2">
               <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
                 <div className="relative flex flex-col gap-2 p-2 md:h-[min(480px,52vh)] md:min-h-[320px] md:flex-row">
-                  <div className="relative h-56 w-full shrink-0 overflow-hidden rounded-xl bg-neutral-200 md:h-full md:w-[60%]">
+                  <div className="relative h-[min(52vh,22rem)] w-full shrink-0 overflow-hidden rounded-xl bg-neutral-200 md:h-full md:w-[60%]">
                     {gridSlots.main ? (
                       <button
                         type="button"
@@ -388,7 +388,17 @@ export default function PropertyPage() {
                     </button>
                   </div>
 
-                  <div className="grid h-56 w-full shrink-0 grid-cols-2 grid-rows-2 gap-2 md:h-full md:w-[40%]">
+                  {allPhotos.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => openLightbox(0)}
+                      className="w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] py-3 text-sm font-bold text-[#2C2C2C] shadow-sm transition hover:bg-[#6B9E6E]/10 md:hidden"
+                    >
+                      Show all {allPhotos.length} photos
+                    </button>
+                  ) : null}
+
+                  <div className="hidden h-56 w-full shrink-0 grid-cols-2 grid-rows-2 gap-2 md:grid md:h-full md:w-[40%]">
                     {gridSlots.small.map((url, i) => {
                       const photoIndex = i + 1;
                       const isShowAllCell = i === 3;

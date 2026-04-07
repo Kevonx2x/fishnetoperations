@@ -453,14 +453,14 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   Browse verified listings across Metro Manila, Cebu, and beyond
                 </p>
               </div>
-              <div className="rounded-3xl border border-white/25 bg-white/85 p-4 shadow-2xl backdrop-blur-md">
-                <div className="relative z-20 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="w-full rounded-3xl border border-white/25 bg-white/85 p-4 shadow-2xl backdrop-blur-md">
+                <div className="relative z-20 flex w-full flex-col gap-3 sm:flex-row sm:items-center">
                   <PhLocationInput
                     value={search}
                     onChange={setSearch}
                     placeholder="Search by location or neighborhood"
                     aria-label="Search listings by location"
-                    className="w-full flex-1"
+                    className="w-full min-w-0 flex-1"
                     inputClassName="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
                   />
                   <button
@@ -475,7 +475,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       const step = Math.max(300, Math.round(el.clientWidth * 0.85));
                       el.scrollBy({ left: -step, behavior: "smooth" });
                     }}
-                    className="rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#6C8C70] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
+                    className="w-full shrink-0 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#6C8C70] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 sm:w-auto"
                   >
                     Search
                   </button>
@@ -545,7 +545,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
       <hr className="mx-auto w-3/4 border-t border-[#2C2C2C]/10" />
 
-      <main className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-5">
+      <main className="mx-auto max-w-7xl px-4 pb-28 pt-10 sm:px-5 md:pb-16">
         {/* Loading / error */}
         {loading ? <div className="h-40 rounded-2xl animate-pulse bg-black/5" /> : null}
         {!loading && error ? (
@@ -560,7 +560,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
             {/* PROPERTY LISTING SECTION (controlled by Buy/Rent toggle) */}
             <section id="listings">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   {activeFilterChips(filters, sortMode, {
                     clearPrice: () => setFilters((s) => ({ ...s, minPrice: 0, maxPrice: 350_000_000 })),
                     clearBeds: () => setFilters((s) => ({ ...s, beds: "any" })),
@@ -589,7 +589,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   ) : null}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setFiltersOpen((v) => !v)}
@@ -866,22 +866,24 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
             {/* 5. BROWSE BY NEIGHBORHOOD */}
             <section id="neighborhoods" className="mt-12">
-              <div className="flex items-end justify-between">
-                <div>
-                  <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Browse by Neighborhood</h2>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0">
+                  <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">
+                    Browse by Neighborhood
+                  </h2>
                   <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Filter newly listed homes instantly</p>
                 </div>
                 {neighborhoodFilter ? (
                   <button
                     type="button"
                     onClick={() => setNeighborhoodFilter(null)}
-                    className="text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
+                    className="shrink-0 self-start text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C] sm:self-auto"
                   >
                     Clear filter
                   </button>
                 ) : null}
               </div>
-              <div className="mt-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {[
                   "Makati CBD",
                   "BGC",
@@ -922,10 +924,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <div ref={topAgentsRef} className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide">
-                  <div className="flex gap-4">
+                <div
+                  ref={topAgentsRef}
+                  className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide max-md:overflow-visible"
+                >
+                  <div className="flex flex-col gap-4 md:flex-row md:min-w-min md:gap-4">
                     {topAgents.map((a) => (
-                      <AgentDirectoryCard key={a.id} agent={a} />
+                      <AgentDirectoryCard key={a.id} agent={a} className="w-full shrink-0 md:w-[300px]" />
                     ))}
                   </div>
                 </div>
@@ -982,7 +987,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         sizes="(min-width: 1024px) 600px, 100vw"
                       />
                       <div className="absolute inset-x-0 bottom-0 bg-black/35 px-3 py-3 backdrop-blur-sm">
-                        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                        <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:overflow-x-auto sm:scrollbar-hide">
                           {featuredPhotos.slice(0, 4).map((u) => (
                             <div key={u} className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-white/30">
                               <Image src={u} alt="" fill sizes="80px" className="object-cover" />
@@ -1090,7 +1095,7 @@ function CategorySection({
   return (
     <>
       <div>
-        <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">{title}</h2>
+        <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">{title}</h2>
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
       </div>
 
@@ -1103,8 +1108,11 @@ function CategorySection({
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <div ref={sectionRef} className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide">
-          <div className="grid min-w-[1080px] grid-cols-5 gap-3">
+        <div
+          ref={sectionRef}
+          className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide max-md:overflow-visible"
+        >
+          <div className="grid grid-cols-1 gap-4 md:min-w-[1080px] md:grid-cols-5 md:gap-3">
             {visible.map((p) => (
               <NewlyListedCard
                 key={`${title}-${p.id}`}
@@ -1659,14 +1667,14 @@ function RowCarousel({
   const list = items.slice(0, 12);
   const placeholderCount = list.length > 0 && list.length < 5 ? 5 - list.length : 0;
   const featuredClasses = featured ? "rounded-2xl border border-[#D4A843]/30 bg-[#D4A843]/5 px-3 pt-3" : "";
-  const cardWidthClass = "w-[280px] sm:w-[300px]";
+  const cardWidthClass = "w-full max-w-full md:w-[280px] md:max-w-[300px] md:shrink-0";
 
   return (
     <div className={featuredClasses}>
       <div className="mb-3">
-        <div className="flex items-center gap-2">
-          {featured ? <Star className="h-4 w-4 text-[#D4A843]" /> : null}
-          <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">{title}</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          {featured ? <Star className="h-4 w-4 shrink-0 text-[#D4A843]" /> : null}
+          <h2 className="min-w-0 font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">{title}</h2>
         </div>
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
       </div>
@@ -1684,9 +1692,9 @@ function RowCarousel({
           ref={(el) => {
             rowRefs.current[rowKey] = el;
           }}
-          className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide"
+          className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide max-md:overflow-visible"
         >
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-4 md:flex-row md:gap-3">
             {list.map((p) => (
               <NewlyListedCard
                 key={`${rowKey}-${p.id}`}

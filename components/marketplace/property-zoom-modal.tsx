@@ -497,13 +497,13 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
         exit={{ opacity: 0, y: 16, scale: 0.98 }}
         transition={{ type: "spring", damping: 28, stiffness: 320 }}
         onClick={(e) => e.stopPropagation()}
-        className="flex h-[100dvh] max-h-[100dvh] w-full max-w-4xl flex-col overflow-hidden bg-[#FAF8F4] shadow-2xl md:h-[min(920px,92vh)] md:max-h-[min(920px,92vh)] md:flex-row md:rounded-2xl"
+        className="flex h-[100dvh] max-h-[100dvh] w-full max-w-4xl flex-col overflow-hidden rounded-none bg-[#FAF8F4] shadow-2xl md:h-[min(920px,92vh)] md:max-h-[min(920px,92vh)] md:flex-row md:rounded-2xl"
       >
         {/* ——— Mobile: fixed image | scroll (details + agents) | fixed bottom bar ——— */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:hidden">
-          <ZoomGallery {...galleryProps} heightClassName="h-56" />
+          <ZoomGallery {...galleryProps} heightClassName="h-[40dvh] max-h-[40dvh] min-h-[40dvh] shrink-0" />
           <div
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-4 [-webkit-overflow-scrolling:touch]"
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-4 pt-4 [-webkit-overflow-scrolling:touch]"
             style={{ WebkitOverflowScrolling: "touch" }}
           >
             <PropertyDetailsSection {...detailsProps} withA11yIds={true} />

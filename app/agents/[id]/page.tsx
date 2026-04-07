@@ -728,12 +728,12 @@ export default function AgentProfilePage() {
                               </p>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2 px-4 pb-4">
+                            <div className="flex flex-col gap-2 px-4 pb-4 sm:flex-row sm:flex-wrap sm:items-center">
                               <button
                                 type="button"
                                 onClick={() => openContactForListing(p)}
                                 disabled={authLoading}
-                                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#2C2C2C] px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#2C2C2C]/90 disabled:opacity-50"
+                                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-[#2C2C2C] px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#2C2C2C]/90 disabled:opacity-50 sm:w-auto"
                               >
                                 <Mail className="h-3.5 w-3.5" />
                                 Contact Agent
@@ -742,14 +742,14 @@ export default function AgentProfilePage() {
                                 type="button"
                                 onClick={() => openScheduleForListing(p)}
                                 disabled={authLoading}
-                                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:opacity-50"
+                                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:opacity-50 sm:w-auto"
                               >
                                 <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" />
                                 Schedule View
                               </button>
                               <Link
                                 href={`/properties/${encodeURIComponent(p.id)}`}
-                                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#D4A843]/60 bg-[#FAF8F4] px-3 py-2 text-sm font-bold text-[#8a6d32] hover:bg-[#D4A843]/15"
+                                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-[#D4A843]/60 bg-[#FAF8F4] px-3 py-2.5 text-sm font-bold text-[#8a6d32] hover:bg-[#D4A843]/15 sm:w-auto"
                               >
                                 Property Details
                                 <ArrowRight className="h-3.5 w-3.5" />

@@ -36,6 +36,8 @@ import {
   BadgeCheck,
   Bookmark,
   LayoutTemplate,
+  Menu,
+  X,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
@@ -52,6 +54,59 @@ type NavLinkItem = { kind: "link"; label: string; href: string; icon: ReactNode 
 type NavDividerItem = { kind: "divider"; label: string };
 type NavPendingItem = { kind: "pending"; label: string; icon: ReactNode };
 type NavDropdownEntry = NavLinkItem | NavDividerItem | NavPendingItem;
+
+function MobileNavSection({
+  title,
+  entries,
+  onNavigate,
+}: {
+  title: string;
+  entries: NavDropdownEntry[];
+  onNavigate: () => void;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#2C2C2C]/40">{title}</p>
+      <ul className="mt-2 space-y-0.5">
+        {entries.map((it, i) => {
+          if (it.kind === "divider") {
+            return (
+              <li key={`d-${title}-${i}`} className="py-2">
+                <p className="text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#2C2C2C]/35">
+                  {it.label}
+                </p>
+              </li>
+            );
+          }
+          if (it.kind === "pending") {
+            return (
+              <li
+                key={`p-${title}-${i}`}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold italic text-[#2C2C2C]/35"
+              >
+                <span className="text-[#6B9E6E]/40 [&>svg]:h-4 [&>svg]:w-4">{it.icon}</span>
+                <span className="flex-1">{it.label}</span>
+                <span className="shrink-0 text-[10px] font-bold text-[#8a6d32]">Soon</span>
+              </li>
+            );
+          }
+          return (
+            <li key={it.href + it.label}>
+              <Link
+                href={it.href}
+                onClick={onNavigate}
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 transition hover:bg-white"
+              >
+                <span className="text-[#6B9E6E] [&>svg]:h-4 [&>svg]:w-4">{it.icon}</span>
+                {it.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
 
 function NavDropdownMenu({ label, entries }: { label: string; entries: NavDropdownEntry[] }) {
   const [open, setOpen] = useState(false);
@@ -169,6 +224,7 @@ export function MaddenTopNav() {
   const accountRef = useRef<HTMLDivElement | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [notifUnread, setNotifUnread] = useState(0);
 
@@ -248,6 +304,19 @@ export function MaddenTopNav() {
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, []);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileNavOpen]);
 
   const logout = async () => {
     if (busy) return;
@@ -383,10 +452,20 @@ export function MaddenTopNav() {
     [],
   );
 
+  const closeMobileNav = () => setMobileNavOpen(false);
+
   return (
     <header className="sticky top-0 z-50 border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
-      <div className="mx-auto grid w-full max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-4">
-        <div className="justify-self-start">
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 py-4 md:gap-3">
+        <div className="flex items-center gap-2 justify-self-start">
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            className="rounded-lg p-2 text-[#2C2C2C]/80 ring-1 ring-black/5 transition hover:bg-[#FAF8F4] sm:hidden"
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
           <BahayGoLogoLink priority />
         </div>
 
@@ -636,6 +715,58 @@ export function MaddenTopNav() {
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {mobileNavOpen ? (
+          <motion.div
+            key="mobile-nav-layer"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[55] sm:hidden"
+          >
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/40"
+              aria-label="Close menu"
+              onClick={closeMobileNav}
+            />
+            <motion.aside
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 32, stiffness: 380 }}
+              className="absolute inset-y-0 left-0 flex w-[min(100vw-2.5rem,20rem)] flex-col border-r border-[#2C2C2C]/10 bg-[#FAF8F4] shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-[#2C2C2C]/10 px-4 py-3">
+                <span className="font-serif text-lg font-bold text-[#2C2C2C]">Menu</span>
+                <button
+                  type="button"
+                  onClick={closeMobileNav}
+                  className="rounded-lg p-2 text-[#2C2C2C]/70 hover:bg-white"
+                  aria-label="Close menu"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+                <div className="space-y-6">
+                  <MobileNavSection title="Agents" entries={agentsEntries} onNavigate={closeMobileNav} />
+                  <MobileNavSection title="Brokers" entries={brokersEntries} onNavigate={closeMobileNav} />
+                  <MobileNavSection title="Landmarks" entries={landmarksItems} onNavigate={closeMobileNav} />
+                  <MobileNavSection
+                    title={isBuyPage ? "Rent" : "Buy"}
+                    entries={isBuyPage ? rentWhenOnBuyItems : buyWhenOnRentItems}
+                    onNavigate={closeMobileNav}
+                  />
+                </div>
+              </div>
+            </motion.aside>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </header>
   );
 }
