@@ -1,10 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ImagePlus, Loader2, Trash2, Upload } from "lucide-react";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getPublicSupabaseEnv } from "@/lib/supabase/public-env";
 import { cn } from "@/lib/utils";
+
+/** Must match Supabase Storage bucket id (hyphen, not underscore). */
+const STORAGE_BUCKET = "property-images";
 
 const MAX_IMAGES = 10;
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -18,7 +22,6 @@ function extForMime(mime: string): string | null {
 }
 
 export type PropertyListingImagesInputProps = {
-  supabase: SupabaseClient;
   userId: string;
   value: string[];
   onChange: (urls: string[]) => void;
@@ -27,13 +30,14 @@ export type PropertyListingImagesInputProps = {
 };
 
 export function PropertyListingImagesInput({
-  supabase,
   userId,
   value,
   onChange,
   disabled,
   maxImages = MAX_IMAGES,
 }: PropertyListingImagesInputProps) {
+  /** Browser client only — uploads must not use a server/SSR client (avoids "failed to fetch" / wrong auth). */
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const inputId = useId();
   const [dragOver, setDragOver] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -45,8 +49,36 @@ export function PropertyListingImagesInput({
 
   const canAdd = value.length < maxImages && !disabled;
 
+  useEffect(() => {
+    console.log("[ImageUpload] component mounted, userId prop:", userId);
+  }, [userId]);
+
+  useEffect(() => {
+    console.log("[ImageUpload] inputRef (drop zone visible):", inputRef.current ? "attached" : "null", {
+      canAdd,
+      disabled,
+      uploading,
+    });
+  }, [userId, canAdd, disabled, uploading]);
+
   const uploadOne = useCallback(
     async (file: File): Promise<string> => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      console.log(
+        "[ImageUpload] session:",
+        session?.user?.id,
+        "access_token present:",
+        !!session?.access_token,
+      );
+
+      if (!session) {
+        console.error("[ImageUpload] No session found - user not authenticated");
+        setLocalError("Please sign in again to upload images");
+        throw new Error("Please sign in again to upload images");
+      }
+
       if (!ACCEPT_MIME.has(file.type)) {
         throw new Error("Use JPG, PNG, or WEBP only.");
       }
@@ -55,13 +87,37 @@ export function PropertyListingImagesInput({
       }
       const ext = extForMime(file.type);
       if (!ext) throw new Error("Invalid image type.");
-      const path = `${userId}/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from("property-images").upload(path, file, {
+      const filename = `${crypto.randomUUID()}.${ext}`;
+      const path = `${userId}/${filename}`;
+
+      const origin = getPublicSupabaseEnv().url.replace(/\/$/, "");
+      const encodedObjectPath = path
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
+      const uploadUrl = `${origin}/storage/v1/object/${STORAGE_BUCKET}/${encodedObjectPath}`;
+
+      console.log("[property-images upload] bucket:", STORAGE_BUCKET);
+      console.log("[property-images upload] object path:", path, "(format: userId/filename)");
+      console.log("[property-images upload] supabaseUrl:", origin);
+      console.log("[property-images upload] storage HTTP URL (upload):", uploadUrl);
+
+      const { data: uploadData, error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, {
         contentType: file.type,
         upsert: false,
       });
-      if (error) throw new Error(error.message);
-      const { data } = supabase.storage.from("property-images").getPublicUrl(path);
+      if (error) {
+        console.error("[property-images upload] Supabase error object:", error);
+        console.error(
+          "[property-images upload] Supabase error JSON:",
+          JSON.stringify(error, Object.getOwnPropertyNames(error)),
+        );
+        throw new Error(error.message || "Upload failed.");
+      }
+      console.log("[property-images upload] upload success, path returned:", uploadData?.path);
+
+      const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+      console.log("[property-images upload] public URL:", data.publicUrl);
       return data.publicUrl;
     },
     [supabase, userId],
@@ -93,6 +149,13 @@ export function PropertyListingImagesInput({
         }
         setProgress(100);
       } catch (e) {
+        console.error("[property-images upload] caught error:", e);
+        if (e && typeof e === "object") {
+          console.error(
+            "[property-images upload] caught error JSON:",
+            JSON.stringify(e, Object.getOwnPropertyNames(e as object)),
+          );
+        }
         setLocalError(e instanceof Error ? e.message : "Upload failed.");
       } finally {
         setUploading(false);
@@ -106,6 +169,7 @@ export function PropertyListingImagesInput({
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
+      console.log("[ImageUpload] drag drop triggered");
       e.preventDefault();
       e.stopPropagation();
       setDragOver(false);
@@ -166,16 +230,21 @@ export function PropertyListingImagesInput({
       {canAdd ? (
         <label
           htmlFor={inputId}
+          aria-label="Choose images to upload or drop files here"
+          onClick={(e) => e.stopPropagation()}
           onDragEnter={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             setDragOver(true);
           }}
           onDragLeave={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             setDragOver(false);
           }}
           onDragOver={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             e.dataTransfer.dropEffect = "copy";
           }}
           onDrop={onDrop}

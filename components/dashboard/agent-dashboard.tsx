@@ -44,7 +44,6 @@ import {
 } from "@/components/marketplace/agent-availability-badge";
 import { AgentAvailabilitySchedule } from "@/components/dashboard/agent-availability-schedule";
 import { toast } from "sonner";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 type Tab = "overview" | "leads" | "viewings" | "listings" | "profile" | "analytics" | "notifications";
 
@@ -916,7 +915,6 @@ export function AgentDashboard() {
                   onLeaveListing={leaveListing}
                   leavingPropertyId={leavingPropertyId}
                   onEditListing={beginEditListing}
-                  supabase={supabase}
                   userId={user.id}
                 />
               )}
@@ -1168,7 +1166,6 @@ export function AgentDashboard() {
                 </div>
                 {user?.id ? (
                   <PropertyListingImagesInput
-                    supabase={supabase}
                     userId={user.id}
                     value={editListingImages}
                     onChange={setEditListingImages}
@@ -1543,7 +1540,6 @@ function ListingsTab({
   onLeaveListing,
   leavingPropertyId,
   onEditListing,
-  supabase,
   userId,
 }: {
   properties: PropertyRow[];
@@ -1574,7 +1570,6 @@ function ListingsTab({
   onLeaveListing: (id: string) => void | Promise<void>;
   leavingPropertyId: string | null;
   onEditListing: (p: PropertyRow) => void | Promise<void>;
-  supabase: SupabaseClient;
   userId: string;
 }) {
   const ownedCap = Number.isFinite(listingLimit) ? String(listingLimit) : "∞";
@@ -1779,7 +1774,6 @@ function ListingsTab({
                   </select>
                 </label>
                 <PropertyListingImagesInput
-                  supabase={supabase}
                   userId={userId}
                   value={listingForm.listingImageUrls}
                   onChange={(urls) => setListingForm((f) => ({ ...f, listingImageUrls: urls }))}
