@@ -2,74 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Home } from "lucide-react";
 
 const STORAGE_KEY = "bahaygo_welcome_seen_v2";
-
-function FinnMascotSvg({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 128 128"
-      className={className}
-      role="img"
-      aria-label="Finn mascot"
-    >
-      <defs>
-        <linearGradient id="finnRoof" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#D4A843" />
-          <stop offset="100%" stopColor="#B99333" />
-        </linearGradient>
-      </defs>
-
-      {/* House */}
-      <path
-        d="M18 56 L64 22 L110 56 V108 C110 112.4 106.4 116 102 116 H26 C21.6 116 18 112.4 18 108 Z"
-        fill="#FFFFFF"
-        stroke="rgba(44,44,44,0.18)"
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-
-      {/* Roof */}
-      <path
-        d="M12 58 L64 18 L116 58"
-        fill="none"
-        stroke="url(#finnRoof)"
-        strokeWidth="10"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Door */}
-      <path
-        d="M54 116 V82 C54 77.6 57.6 74 62 74 H66 C70.4 74 74 77.6 74 82 V116"
-        fill="#FAF8F4"
-        stroke="rgba(44,44,44,0.14)"
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-
-      {/* Eyes */}
-      <circle cx="48" cy="70" r="6" fill="#2C2C2C" opacity="0.9" />
-      <circle cx="80" cy="70" r="6" fill="#2C2C2C" opacity="0.9" />
-      <circle cx="46" cy="68" r="2" fill="#FFFFFF" opacity="0.9" />
-      <circle cx="78" cy="68" r="2" fill="#FFFFFF" opacity="0.9" />
-
-      {/* Smile */}
-      <path
-        d="M52 86 C58 94, 70 94, 76 86"
-        fill="none"
-        stroke="#2C2C2C"
-        strokeWidth="4"
-        strokeLinecap="round"
-        opacity="0.75"
-      />
-
-      {/* Cheeks */}
-      <circle cx="38" cy="86" r="6" fill="#6B9E6E" opacity="0.18" />
-      <circle cx="90" cy="86" r="6" fill="#6B9E6E" opacity="0.18" />
-    </svg>
-  );
-}
 
 export function WelcomeOverlay() {
   const [open, setOpen] = useState(() => {
@@ -112,11 +47,13 @@ export function WelcomeOverlay() {
           >
             <div className="flex items-center justify-center">
               <motion.div
-                animate={{ y: [0, -8, 0] }}
+                animate={{ y: [0, -6, 0] }}
                 transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-                className="rounded-3xl bg-[#FAF8F4] p-4 shadow-inner shadow-black/5"
+                className="rounded-3xl bg-[#FAF8F4] p-5 shadow-inner shadow-black/5"
               >
-                <FinnMascotSvg className="h-20 w-20" />
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#6B9E6E]/12 ring-2 ring-[#D4A843]/25">
+                  <Home className="h-10 w-10 text-[#6B9E6E]" aria-hidden />
+                </div>
               </motion.div>
             </div>
 
@@ -147,4 +84,3 @@ export function WelcomeOverlay() {
     </AnimatePresence>
   );
 }
-

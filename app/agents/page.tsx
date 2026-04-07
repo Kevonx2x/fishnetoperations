@@ -3,11 +3,10 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Filter, Search } from "lucide-react";
+import { Filter, Search, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
-import { FinnMascot } from "@/components/marketplace/mascots/finn-mascot";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import {
   Sheet,
@@ -378,7 +377,9 @@ function AgentsDirectoryContent() {
           <>
             {filteredSorted.length === 0 ? (
               <div className="mt-10 flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white px-6 py-14 text-center">
-                <FinnMascot mood="sad" size={112} className="mx-auto" />
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#6B9E6E]/12 ring-2 ring-[#D4A843]/25">
+                  <Users className="h-10 w-10 text-[#6B9E6E]" aria-hidden />
+                </div>
                 <p className="mt-6 font-serif text-xl font-bold text-[#2C2C2C]">No agents match</p>
                 <p className="mt-2 max-w-md text-sm font-semibold text-[#2C2C2C]/55">
                   Try adjusting your search or filters — or clear filters to see everyone again.

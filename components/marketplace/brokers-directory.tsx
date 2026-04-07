@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { BadgeCheck, Phone, Users } from "lucide-react";
+import { BadgeCheck, Building2, Phone, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type BrokerCardRow = {
@@ -16,37 +16,11 @@ type BrokerCardRow = {
   agents?: { count: number }[] | null;
 };
 
-function FinnEmpty({ title, subtitle }: { title: string; subtitle: string }) {
+function DirectoryEmpty({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="rounded-2xl border border-dashed border-[#2C2C2C]/20 bg-white p-8 text-center">
-      <div className="mx-auto w-fit rounded-3xl bg-[#FAF8F4] p-4 shadow-inner shadow-black/5">
-        <svg viewBox="0 0 128 128" className="h-16 w-16" role="img" aria-label="Finn mascot">
-          <path
-            d="M18 56 L64 22 L110 56 V108 C110 112.4 106.4 116 102 116 H26 C21.6 116 18 112.4 18 108 Z"
-            fill="#FFFFFF"
-            stroke="rgba(44,44,44,0.18)"
-            strokeWidth="3"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M12 58 L64 18 L116 58"
-            fill="none"
-            stroke="#D4A843"
-            strokeWidth="10"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <circle cx="48" cy="70" r="6" fill="#2C2C2C" opacity="0.9" />
-          <circle cx="80" cy="70" r="6" fill="#2C2C2C" opacity="0.9" />
-          <path
-            d="M52 86 C58 94, 70 94, 76 86"
-            fill="none"
-            stroke="#2C2C2C"
-            strokeWidth="4"
-            strokeLinecap="round"
-            opacity="0.75"
-          />
-        </svg>
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#6B9E6E]/12 ring-2 ring-[#D4A843]/20">
+        <Building2 className="h-8 w-8 text-[#6B9E6E]" aria-hidden />
       </div>
       <p className="mt-4 font-serif text-lg font-bold text-[#2C2C2C]">{title}</p>
       <p className="mt-1 text-sm text-[#2C2C2C]/55">{subtitle}</p>
@@ -127,14 +101,14 @@ export function BrokersDirectory() {
       )}
 
       {!loading && error && (
-        <FinnEmpty
+        <DirectoryEmpty
           title="Couldn’t load brokers"
           subtitle={error}
         />
       )}
 
       {!loading && !error && cards.length === 0 && (
-        <FinnEmpty
+        <DirectoryEmpty
           title="No verified brokers yet"
           subtitle="Once brokerages are approved, they’ll show up here."
         />

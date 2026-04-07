@@ -7,7 +7,6 @@ import { Heart } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { useSavedPropertyIds } from "@/lib/saved-properties";
-import { FinnMascot } from "@/components/marketplace/mascots/finn-mascot";
 
 type PropertyCard = {
   id: string;
@@ -60,7 +59,9 @@ export default function SavedPage() {
     if (!saved.ids.length) {
       return (
         <div className="rounded-2xl border border-dashed border-[#2C2C2C]/20 bg-white p-10 text-center">
-          <FinnMascot mood="still" size={72} className="mx-auto" />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#6B9E6E]/12 ring-2 ring-[#D4A843]/25">
+            <Heart className="h-8 w-8 text-[#6B9E6E]" aria-hidden />
+          </div>
           <p className="mt-4 font-serif text-xl font-bold text-[#2C2C2C]">No saved homes yet</p>
           <p className="mt-1 text-sm text-[#2C2C2C]/55">
             Tap the heart on any listing to save it here.

@@ -18,12 +18,12 @@ import {
   BadgeCheck,
   Lock,
   Users,
+  Search,
   Star,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { ConnectedAgentsBox } from "@/components/marketplace/connected-agents-box";
-import { FinnMascot } from "@/components/marketplace/mascots/finn-mascot";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import type { DbProperty, SortMode } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
@@ -755,7 +755,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         transition={{ duration: 0.35 }}
                         className="mt-12 flex flex-col items-center justify-center px-4 text-center"
                       >
-                        <FinnMascot mood="sad" size={120} className="drop-shadow-sm" />
+                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#6B9E6E]/12 ring-2 ring-[#D4A843]/30">
+                          <Search className="h-10 w-10 text-[#6B9E6E]" aria-hidden />
+                        </div>
                         <p className="mt-6 font-serif text-xl font-bold text-[#2C2C2C]">No properties found in this area yet.</p>
                         <p className="mt-2 max-w-md text-sm font-semibold text-[#2C2C2C]/55">
                           Try adjusting your filters or exploring a different neighborhood.

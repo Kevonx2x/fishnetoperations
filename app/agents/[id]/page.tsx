@@ -10,6 +10,7 @@ import {
   Calendar,
   Clock,
   Heart,
+  LayoutGrid,
   Mail,
   MapPin,
   MoreHorizontal,
@@ -29,7 +30,6 @@ import { formatAgentScore } from "@/lib/format-agent-score";
 import { fetchSimilarAgents } from "@/lib/similar-agents";
 import { listingListedLabel } from "@/lib/listing-listed-time";
 import { useSavedPropertyIds } from "@/lib/saved-properties";
-import { FinnMascot } from "@/components/marketplace/mascots/finn-mascot";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -600,7 +600,9 @@ export default function AgentProfilePage() {
 
                   {listings.length === 0 ? (
                     <div className="rounded-2xl border border-[#2C2C2C]/8 bg-white px-4 py-16 text-center shadow-sm">
-                      <FinnMascot mood="sad" size={120} className="mx-auto drop-shadow-sm" />
+                      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#6B9E6E]/12 ring-2 ring-[#D4A843]/25">
+                        <LayoutGrid className="h-10 w-10 text-[#6B9E6E]" aria-hidden />
+                      </div>
                       <p className="mt-6 font-serif text-xl font-bold text-[#2C2C2C]">No listings yet</p>
                       <p className="mt-2 max-w-sm text-sm font-medium text-[#2C2C2C]/55">
                         When this agent adds properties, they’ll appear here.

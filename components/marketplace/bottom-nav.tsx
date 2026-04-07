@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Building2, Home, Map, Search, User } from "lucide-react";
+import { Building2, Home, Map, Search, Sparkles, User } from "lucide-react";
 
 export type BottomTab = "home" | "search" | "map" | "brokers" | "profile";
 
@@ -61,9 +61,9 @@ export function BottomNav({
                   <motion.div
                     animate={{ y: [0, -3, 0] }}
                     transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-                    className="drop-shadow-[0_10px_22px_rgba(0,0,0,0.12)]"
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[#6B9E6E] shadow-[0_10px_22px_rgba(0,0,0,0.12)] ring-2 ring-[#D4A843]/30"
                   >
-                    <FinnPeekSvg className="h-10 w-10" />
+                    <Sparkles className="h-5 w-5" aria-hidden />
                   </motion.div>
                 </motion.div>
               )}
@@ -78,47 +78,3 @@ export function BottomNav({
     </nav>
   );
 }
-
-function FinnPeekSvg({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 64 64" className={className} role="img" aria-label="Finn peeking">
-      <defs>
-        <linearGradient id="peekRoof" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#D4A843" />
-          <stop offset="100%" stopColor="#B99333" />
-        </linearGradient>
-      </defs>
-
-      {/* mask bottom so it looks like it peeks */}
-      <path
-        d="M10 30 L32 16 L54 30 V54 C54 56.2 52.2 58 50 58 H14 C11.8 58 10 56.2 10 54 Z"
-        fill="#FFFFFF"
-        stroke="rgba(44,44,44,0.16)"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M8 30 L32 14 L56 30"
-        fill="none"
-        stroke="url(#peekRoof)"
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="24" cy="36" r="3.2" fill="#2C2C2C" opacity="0.9" />
-      <circle cx="40" cy="36" r="3.2" fill="#2C2C2C" opacity="0.9" />
-      <path
-        d="M26 45 C28.5 48, 35.5 48, 38 45"
-        fill="none"
-        stroke="#2C2C2C"
-        strokeWidth="2.6"
-        strokeLinecap="round"
-        opacity="0.75"
-      />
-
-      {/* crop line */}
-      <rect x="0" y="52" width="64" height="12" fill="#FFFFFF" opacity="0" />
-    </svg>
-  );
-}
-
