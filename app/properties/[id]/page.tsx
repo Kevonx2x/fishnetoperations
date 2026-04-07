@@ -20,7 +20,7 @@ import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact
 import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
 import { useAuth } from "@/contexts/auth-context";
-import { listingLimitForTier, normalizeListingTier } from "@/lib/agent-listing-limits";
+import { coListLimitForTier, listingLimitForTier } from "@/lib/agent-listing-limits";
 
 type ListingAgentProfile = {
   id: string;
@@ -111,12 +111,13 @@ export default function PropertyPage() {
     verified: boolean | null;
     license_number: string | null;
   } | null>(null);
-  const [myListingCount, setMyListingCount] = useState(0);
+  const [myCoListCount, setMyCoListCount] = useState(0);
   const [hasPendingCoRequest, setHasPendingCoRequest] = useState(false);
 
   const isLoggedIn = !authLoading && !!user;
-  const listingLimit = listingLimitForTier(myAgent?.listing_tier);
-  const atListingLimit = myListingCount >= listingLimit;
+  const ownedListingLimit = listingLimitForTier(myAgent?.listing_tier);
+  const coListLimit = coListLimitForTier(myAgent?.listing_tier);
+  const atCoListLimit = myCoListCount >= coListLimit;
 
   useEffect(() => {
     let cancelled = false;
@@ -194,16 +195,19 @@ export default function PropertyPage() {
 
   useEffect(() => {
     if (!user?.id || !myAgent?.id) {
-      setMyListingCount(0);
+      setMyCoListCount(0);
       return;
     }
     let cancelled = false;
     void (async () => {
-      const { count } = await supabase
-        .from("properties")
-        .select("id", { count: "exact", head: true })
-        .eq("listed_by", user.id);
-      if (!cancelled) setMyListingCount(count ?? 0);
+      const [{ data: ownedRows }, { data: paRows }] = await Promise.all([
+        supabase.from("properties").select("id").eq("listed_by", user.id),
+        supabase.from("property_agents").select("property_id").eq("agent_id", myAgent.id),
+      ]);
+      if (cancelled) return;
+      const ownedIds = new Set((ownedRows ?? []).map((p) => p.id));
+      const coCount = (paRows ?? []).filter((row) => !ownedIds.has(row.property_id)).length;
+      setMyCoListCount(coCount);
     })();
     return () => {
       cancelled = true;
@@ -284,7 +288,7 @@ export default function PropertyPage() {
   const requestCoAgentJoin = async () => {
     if (!property?.id || !myAgent?.id) return;
     setCoAgentMsg(null);
-    if (atListingLimit) {
+    if (atCoListLimit) {
       setCoAgentConfirmOpen(false);
       setListingLimitModalOpen(true);
       return;
@@ -633,8 +637,10 @@ export default function PropertyPage() {
             {listingLimitModalOpen ? (
               <ListingLimitUpgradeModal
                 onClose={() => setListingLimitModalOpen(false)}
-                isProTier={normalizeListingTier(myAgent?.listing_tier) === "pro"}
-                listingLimit={listingLimit}
+                limitKind="coList"
+                tier={myAgent?.listing_tier}
+                ownedLimit={ownedListingLimit}
+                coListLimit={coListLimit}
               />
             ) : null}
             {coAgentConfirmOpen ? (

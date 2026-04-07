@@ -2,6 +2,7 @@ import { z } from "zod";
 import { fail, fromZodError, ok } from "@/lib/api/response";
 import { requireAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { coListLimitForTier, isUnlimitedCoList } from "@/lib/agent-listing-limits";
 import { normalizePhoneE164, sendSmsTo } from "@/lib/twilio-sms";
 
 const bodySchema = z.object({ decision: z.enum(["approve", "reject"]) });
@@ -51,6 +52,33 @@ export async function PATCH(
       return ok({ ok: true as const });
     }
 
+    const { data: agentRow, error: agentErr } = await sb
+      .from("agents")
+      .select("user_id, listing_tier, name, phone")
+      .eq("id", row.agent_id)
+      .maybeSingle();
+    if (agentErr) return fail("DATABASE_ERROR", agentErr.message, 500);
+    const agentUserId = (agentRow as { user_id?: string | null } | null)?.user_id;
+    const listingTier = (agentRow as { listing_tier?: string | null } | null)?.listing_tier;
+    const agentPhone = (agentRow as { phone?: string | null } | null)?.phone ?? null;
+    if (!isUnlimitedCoList(listingTier)) {
+      const cap = coListLimitForTier(listingTier);
+      const { data: paLinks } = await sb.from("property_agents").select("property_id").eq("agent_id", row.agent_id);
+      const propIds = (paLinks ?? []).map((l) => l.property_id).filter(Boolean);
+      let coCount = 0;
+      if (propIds.length > 0 && agentUserId) {
+        const { data: props } = await sb.from("properties").select("id, listed_by").in("id", propIds);
+        coCount = (props ?? []).filter((p) => p.listed_by !== agentUserId).length;
+      }
+      if (coCount >= cap) {
+        return fail(
+          "CO_LIST_LIMIT",
+          "This agent has reached their co-listing limit for their current plan.",
+          400,
+        );
+      }
+    }
+
     const { error: linkErr } = await sb.from("property_agents").insert({
       property_id: row.property_id,
       agent_id: row.agent_id,
@@ -73,12 +101,6 @@ export async function PATCH(
     const propLabel =
       propRes.data?.name?.trim() || propRes.data?.location || "the property";
 
-    const { data: agent } = await sb
-      .from("agents")
-      .select("user_id, name, phone")
-      .eq("id", row.agent_id)
-      .maybeSingle();
-    const agentUserId = (agent as { user_id?: string | null } | null)?.user_id;
     if (agentUserId) {
       const { error: notifErr } = await sb.from("notifications").insert({
         user_id: agentUserId,
@@ -91,7 +113,7 @@ export async function PATCH(
       }
     }
 
-    const phone = normalizePhoneE164(agent?.phone ?? null);
+    const phone = normalizePhoneE164(agentPhone);
     if (phone) {
       await sendSmsTo(
         phone,

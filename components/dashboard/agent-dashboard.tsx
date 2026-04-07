@@ -27,7 +27,13 @@ import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badg
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { formatLicenseDate } from "@/lib/license-expiry";
-import { listingLimitForTier } from "@/lib/agent-listing-limits";
+import {
+  coListLimitForTier,
+  isUnlimitedCoList,
+  isUnlimitedOwned,
+  listingLimitForTier,
+  teamMemberLimitForTier,
+} from "@/lib/agent-listing-limits";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
 import { formatListingPricePhp } from "@/lib/format-listing-price";
 import {
@@ -173,6 +179,7 @@ export function AgentDashboard() {
 
   const [listingOpen, setListingOpen] = useState(false);
   const [listingLimitModalOpen, setListingLimitModalOpen] = useState(false);
+  const [listingLimitModalKind, setListingLimitModalKind] = useState<"owned" | "coList">("owned");
   const [editWarningOpen, setEditWarningOpen] = useState(false);
   const [editFormOpen, setEditFormOpen] = useState(false);
   const [pendingEditProperty, setPendingEditProperty] = useState<PropertyRow | null>(null);
@@ -331,10 +338,21 @@ export function AgentDashboard() {
   );
 
   const listingLimit = useMemo(() => listingLimitForTier(agent?.listing_tier), [agent?.listing_tier]);
-  const atListingLimit = approved && ownedListingCount >= listingLimit;
+  const coListLimit = useMemo(() => coListLimitForTier(agent?.listing_tier), [agent?.listing_tier]);
+  const coListedCount = useMemo(
+    () => properties.filter((p) => p.isCoHost).length,
+    [properties],
+  );
+  const atListingLimit =
+    approved &&
+    !isUnlimitedOwned(agent?.listing_tier) &&
+    ownedListingCount >= listingLimit;
+  const atCoListLimit =
+    approved && !isUnlimitedCoList(agent?.listing_tier) && coListedCount >= coListLimit;
 
   const openNewListingFlow = () => {
     if (atListingLimit) {
+      setListingLimitModalKind("owned");
       setListingLimitModalOpen(true);
       return;
     }
@@ -569,6 +587,7 @@ export function AgentDashboard() {
     if (!user?.id) return;
     if (ownedListingCount >= listingLimit) {
       setListingOpen(false);
+      setListingLimitModalKind("owned");
       setListingLimitModalOpen(true);
       return;
     }
@@ -596,6 +615,7 @@ export function AgentDashboard() {
     setSaving(false);
     if (error) {
       if (/row-level security|violates row-level security policy/i.test(error.message)) {
+        setListingLimitModalKind("owned");
         setListingLimitModalOpen(true);
         setMsg("");
       } else {
@@ -744,11 +764,14 @@ export function AgentDashboard() {
                   leads={leads}
                   properties={properties}
                   ownedListingCount={ownedListingCount}
+                  coListedCount={coListedCount}
                   profileComplete={profileComplete}
                   mockProfileViews={mockProfileViews}
                   mockResponseRate={mockResponseRate}
                   listingLimit={listingLimit}
+                  coListLimit={coListLimit}
                   atListingLimit={atListingLimit}
+                  atCoListLimit={atCoListLimit}
                 />
               )}
               {tab === "leads" && approved && (
@@ -790,6 +813,7 @@ export function AgentDashboard() {
                 <ListingsTab
                   properties={properties}
                   ownedListingCount={ownedListingCount}
+                  coListedCount={coListedCount}
                   listingOpen={listingOpen}
                   setListingOpen={setListingOpen}
                   listingForm={listingForm}
@@ -797,6 +821,7 @@ export function AgentDashboard() {
                   onSubmit={createListing}
                   saving={saving}
                   listingLimit={listingLimit}
+                  coListLimit={coListLimit}
                   onOpenNewListing={openNewListingFlow}
                   onDeleteProperty={deleteListing}
                   deletingPropertyId={deletingPropertyId}
@@ -814,6 +839,7 @@ export function AgentDashboard() {
               {tab === "profile" && user && agent && (
                 <ProfileTab
                   agent={agent}
+                  listingTier={agent.listing_tier}
                   profileForm={profileForm}
                   setProfileForm={setProfileForm}
                   onSave={saveProfile}
@@ -857,8 +883,10 @@ export function AgentDashboard() {
         {listingLimitModalOpen ? (
           <ListingLimitUpgradeModal
             onClose={() => setListingLimitModalOpen(false)}
-            isProTier={agent.listing_tier === "pro"}
-            listingLimit={listingLimit}
+            limitKind={listingLimitModalKind}
+            tier={agent.listing_tier}
+            ownedLimit={listingLimit}
+            coListLimit={coListLimit}
           />
         ) : null}
       </AnimatePresence>
@@ -1108,28 +1136,33 @@ function OverviewTab({
   leads,
   properties,
   ownedListingCount,
+  coListedCount,
   profileComplete,
   mockProfileViews,
   mockResponseRate,
   listingLimit,
+  coListLimit,
   atListingLimit,
+  atCoListLimit,
 }: {
   agent: AgentRow;
   approved: boolean;
   leads: LeadRow[];
   properties: PropertyRow[];
   ownedListingCount: number;
+  coListedCount: number;
   profileComplete: { pct: number; checks: { ok: boolean; label: string }[] };
   mockProfileViews: number;
   mockResponseRate: number;
   listingLimit: number;
+  coListLimit: number;
   atListingLimit: boolean;
+  atCoListLimit: boolean;
 }) {
   const recent = leads.slice(0, 5);
   const incomplete = profileComplete.pct < 100;
   const totalRepresented = properties.length;
   const ownedCount = properties.filter((p) => !p.isCoHost).length;
-  const coListedCount = properties.filter((p) => p.isCoHost).length;
 
   return (
     <div className="space-y-8">
@@ -1162,47 +1195,87 @@ function OverviewTab({
       {approved ? (
         <div
           className={`rounded-2xl border bg-white p-5 shadow-sm ${
-            atListingLimit ? "border-[#D4A843]/50 ring-1 ring-[#D4A843]/25" : "border-[#2C2C2C]/10"
+            atListingLimit || atCoListLimit ? "border-[#D4A843]/50 ring-1 ring-[#D4A843]/25" : "border-[#2C2C2C]/10"
           }`}
         >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p
-              className={`text-sm font-bold ${atListingLimit ? "text-[#8a6d32]" : "text-[#2C2C2C]"}`}
-            >
-              Listing usage
-            </p>
-            <p
-              className={`text-sm font-bold tabular-nums ${atListingLimit ? "text-[#B8860B]" : "text-[#2C2C2C]/80"}`}
-            >
-              {ownedListingCount}/{listingLimit} owned slots used
-            </p>
-          </div>
-          <div
-            className={`mt-3 h-2.5 w-full overflow-hidden rounded-full ${
-              atListingLimit ? "bg-[#D4A843]/25" : "bg-[#EBE6DC]"
-            }`}
-          >
-            <div
-              className={`h-full rounded-full transition-all ${
-                atListingLimit
-                  ? "bg-gradient-to-r from-[#D4AF37] to-[#D4A843]"
-                  : "bg-gradient-to-r from-[#6B9E6E] to-[#D4A843]/90"
-              }`}
-              style={{
-                width: `${listingLimit > 0 ? Math.min(100, (ownedListingCount / listingLimit) * 100) : 0}%`,
-              }}
-            />
-          </div>
-          <p className="mt-2 text-xs font-semibold text-[#2C2C2C]/55">
-            Only listings you own count toward your plan limit. Co-listed properties do not use a slot.
+          <p className="text-sm font-bold text-[#2C2C2C]">Plan usage</p>
+          <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
+            Owned listings and co-listings each use separate slots on your plan.
           </p>
-          {atListingLimit ? (
+
+          <div className="mt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className={`text-xs font-bold uppercase tracking-wide ${atListingLimit ? "text-[#8a6d32]" : "text-[#2C2C2C]/80"}`}>
+                Owned listings
+              </p>
+              <p
+                className={`text-sm font-bold tabular-nums ${atListingLimit ? "text-[#B8860B]" : "text-[#2C2C2C]/80"}`}
+              >
+                {ownedListingCount}/{Number.isFinite(listingLimit) ? listingLimit : "∞"} used
+              </p>
+            </div>
+            <div
+              className={`mt-2 h-2 w-full overflow-hidden rounded-full ${
+                atListingLimit ? "bg-[#D4A843]/25" : "bg-[#EBE6DC]"
+              }`}
+            >
+              <div
+                className={`h-full rounded-full transition-all ${
+                  atListingLimit
+                    ? "bg-gradient-to-r from-[#D4AF37] to-[#D4A843]"
+                    : "bg-gradient-to-r from-[#6B9E6E] to-[#D4A843]/90"
+                }`}
+                style={{
+                  width: `${
+                    Number.isFinite(listingLimit) && listingLimit > 0
+                      ? Math.min(100, (ownedListingCount / listingLimit) * 100)
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className={`text-xs font-bold uppercase tracking-wide ${atCoListLimit ? "text-[#8a6d32]" : "text-[#2C2C2C]/80"}`}>
+                Co-listings
+              </p>
+              <p
+                className={`text-sm font-bold tabular-nums ${atCoListLimit ? "text-[#B8860B]" : "text-[#2C2C2C]/80"}`}
+              >
+                {coListedCount}/{Number.isFinite(coListLimit) ? coListLimit : "∞"} used
+              </p>
+            </div>
+            <div
+              className={`mt-2 h-2 w-full overflow-hidden rounded-full ${
+                atCoListLimit ? "bg-[#D4A843]/25" : "bg-[#EBE6DC]"
+              }`}
+            >
+              <div
+                className={`h-full rounded-full transition-all ${
+                  atCoListLimit
+                    ? "bg-gradient-to-r from-[#D4AF37] to-[#D4A843]"
+                    : "bg-gradient-to-r from-[#6B9E6E] to-[#D4A843]/90"
+                }`}
+                style={{
+                  width: `${
+                    Number.isFinite(coListLimit) && coListLimit > 0
+                      ? Math.min(100, (coListedCount / coListLimit) * 100)
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+          </div>
+
+          {atListingLimit || atCoListLimit ? (
             <p className="mt-3 text-xs font-semibold text-[#8a6d32]">
-              You are at your plan limit. Upgrade to Pro on the{" "}
+              You are at a plan limit. Compare tiers on the{" "}
               <Link href="/pricing" className="underline underline-offset-2 hover:text-[#2C2C2C]">
                 pricing page
-              </Link>{" "}
-              to list more properties.
+              </Link>
+              .
             </p>
           ) : null}
         </div>
@@ -1354,6 +1427,7 @@ function LeadsTab({
 function ListingsTab({
   properties,
   ownedListingCount,
+  coListedCount,
   listingOpen,
   setListingOpen,
   listingForm,
@@ -1361,6 +1435,7 @@ function ListingsTab({
   onSubmit,
   saving,
   listingLimit,
+  coListLimit,
   onOpenNewListing,
   onDeleteProperty,
   deletingPropertyId,
@@ -1370,6 +1445,7 @@ function ListingsTab({
 }: {
   properties: PropertyRow[];
   ownedListingCount: number;
+  coListedCount: number;
   listingOpen: boolean;
   setListingOpen: (v: boolean) => void;
   listingForm: {
@@ -1388,6 +1464,7 @@ function ListingsTab({
   onSubmit: (e: React.FormEvent) => void;
   saving: boolean;
   listingLimit: number;
+  coListLimit: number;
   onOpenNewListing: () => void;
   onDeleteProperty: (id: string) => void | Promise<void>;
   deletingPropertyId: string | null;
@@ -1395,15 +1472,15 @@ function ListingsTab({
   leavingPropertyId: string | null;
   onEditListing: (p: PropertyRow) => void | Promise<void>;
 }) {
-  const cohostCount = properties.filter((p) => p.isCoHost).length;
+  const ownedCap = Number.isFinite(listingLimit) ? String(listingLimit) : "∞";
+  const coCap = Number.isFinite(coListLimit) ? String(coListLimit) : "∞";
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Listings</h1>
           <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
-            Owned slots {ownedListingCount}/{listingLimit}
-            {cohostCount > 0 ? ` · Co-listed: ${cohostCount}` : ""}.
+            Owned {ownedListingCount}/{ownedCap} · Co-lists {coListedCount}/{coCap}
           </p>
         </div>
         <button
@@ -1642,10 +1719,12 @@ function MyTeamSection({
   agentId,
   agentName,
   supabase,
+  teamMemberLimit,
 }: {
   agentId: string;
   agentName: string;
   supabase: ReturnType<typeof createSupabaseBrowserClient>;
+  teamMemberLimit: number;
 }) {
   const [rows, setRows] = useState<TeamMemberRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1673,8 +1752,18 @@ function MyTeamSection({
     void load();
   }, [load]);
 
+  const atTeamLimit = Number.isFinite(teamMemberLimit) && rows.length >= teamMemberLimit;
+
   const addMember = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (atTeamLimit) {
+      toast.error(
+        Number.isFinite(teamMemberLimit) && teamMemberLimit === 0
+          ? "Your plan does not include team seats. Upgrade on the pricing page to invite assistants."
+          : `You've reached your plan limit of ${teamMemberLimit} team member${teamMemberLimit === 1 ? "" : "s"}.`,
+      );
+      return;
+    }
     const em = email.trim().toLowerCase();
     if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
       toast.error("Enter a valid email address.");
@@ -1724,6 +1813,11 @@ function MyTeamSection({
             Add showing assistants by email. They appear as <span className="text-[#2C2C2C]">Showing Assistant</span>{" "}
             under you. Invites notify them in-app when their email matches a BahayGo account.
           </p>
+          <p className="mt-2 text-xs font-semibold text-[#2C2C2C]/50">
+            Team seats: {rows.length}/
+            {Number.isFinite(teamMemberLimit) ? teamMemberLimit : "∞"} on your plan
+            {Number.isFinite(teamMemberLimit) && teamMemberLimit === 0 ? " — upgrade to Pro or higher for seats." : "."}
+          </p>
         </div>
       </div>
 
@@ -1750,8 +1844,8 @@ function MyTeamSection({
         </label>
         <button
           type="submit"
-          disabled={saving}
-          className="shrink-0 rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
+          disabled={saving || atTeamLimit}
+          className="shrink-0 rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? "Adding…" : "Add"}
         </button>
@@ -1800,6 +1894,7 @@ function MyTeamSection({
 
 function ProfileTab({
   agent,
+  listingTier,
   profileForm,
   setProfileForm,
   onSave,
@@ -1811,6 +1906,7 @@ function ProfileTab({
   onAvailabilityMessage,
 }: {
   agent: AgentRow;
+  listingTier?: string | null;
   profileForm: {
     name: string;
     phone: string;
@@ -1985,7 +2081,12 @@ function ProfileTab({
         </button>
       </form>
 
-      <MyTeamSection agentId={agent.id} agentName={agent.name} supabase={supabase} />
+      <MyTeamSection
+        agentId={agent.id}
+        agentName={agent.name}
+        supabase={supabase}
+        teamMemberLimit={teamMemberLimitForTier(listingTier)}
+      />
 
       <AgentAvailabilitySchedule
         key={JSON.stringify(agent.availability_schedule ?? {})}

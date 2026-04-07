@@ -2,16 +2,53 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { formatLimitN, normalizeListingTier, TIER_LABEL } from "@/lib/agent-listing-limits";
 
 export function ListingLimitUpgradeModal({
   onClose,
-  isProTier,
-  listingLimit,
+  limitKind,
+  tier,
+  ownedLimit,
+  coListLimit,
 }: {
   onClose: () => void;
-  isProTier: boolean;
-  listingLimit: number;
+  /** Which limit was hit when opening this modal */
+  limitKind: "owned" | "coList";
+  tier: string | null | undefined;
+  ownedLimit: number;
+  coListLimit: number;
 }) {
+  const t = normalizeListingTier(tier);
+  const tierName = TIER_LABEL[t];
+
+  const title =
+    limitKind === "owned"
+      ? Number.isFinite(ownedLimit)
+        ? `You've reached your plan limit of ${ownedLimit} owned listing${ownedLimit === 1 ? "" : "s"}`
+        : "You've reached a listing limit on your plan"
+      : Number.isFinite(coListLimit)
+        ? `You've reached your co-listing limit (${formatLimitN(coListLimit)} slot${coListLimit === 1 ? "" : "s"})`
+        : "You've reached a co-listing limit on your plan";
+
+  const body =
+    limitKind === "owned" ? (
+      <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/70">
+        Your <span className="text-[#2C2C2C]">{tierName}</span> plan includes{" "}
+        <span className="text-[#2C2C2C]">{formatLimitN(ownedLimit)}</span> owned listings and{" "}
+        <span className="text-[#2C2C2C]">{formatLimitN(coListLimit)}</span> co-listing slots. Remove or archive a
+        listing, or upgrade for a higher cap.
+      </p>
+    ) : (
+      <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/70">
+        Co-listings are properties where you appear as a co-agent but are not the listing owner. Your{" "}
+        <span className="text-[#2C2C2C]">{tierName}</span> plan allows up to{" "}
+        <span className="text-[#2C2C2C]">{formatLimitN(coListLimit)}</span> co-listed properties. Leave a co-listing
+        you no longer need, or upgrade for more slots and owned listings.
+      </p>
+    );
+
+  const showUpgrade = t !== "broker";
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -27,20 +64,8 @@ export function ListingLimitUpgradeModal({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-2xl border border-[#D4A843]/35 bg-[#FAF8F4] p-6 shadow-2xl"
       >
-        <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">
-          {isProTier
-            ? `You've reached your plan limit of ${listingLimit} listings`
-            : "You've reached your free limit of 3 listings"}
-        </h2>
-        {isProTier ? (
-          <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/70">
-            Remove or archive a listing before adding another, or contact support if you need a higher limit.
-          </p>
-        ) : (
-          <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/70">
-            Upgrade to Pro for ₱999/month to list up to 20 properties.
-          </p>
-        )}
+        <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">{title}</h2>
+        {body}
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
           <button
             type="button"
@@ -49,15 +74,23 @@ export function ListingLimitUpgradeModal({
           >
             Cancel
           </button>
-          {!isProTier ? (
+          {showUpgrade ? (
             <Link
               href="/pricing"
               onClick={onClose}
               className="order-1 inline-flex items-center justify-center rounded-full bg-[#D4A843] px-5 py-2.5 text-sm font-bold text-[#2C2C2C] shadow-sm hover:brightness-95 sm:order-2"
             >
-              Upgrade Now
+              View plans
             </Link>
-          ) : null}
+          ) : (
+            <p className="order-1 text-sm font-semibold text-[#2C2C2C]/60 sm:order-2">
+              If this looks wrong, contact support via{" "}
+              <Link href="/contact" className="font-bold text-[#2C2C2C] underline underline-offset-2">
+                Contact
+              </Link>
+              .
+            </p>
+          )}
         </div>
       </motion.div>
     </motion.div>
