@@ -53,37 +53,37 @@ const FEATURED_CITIES: {
   {
     key: "BGC",
     label: "BGC",
-    imageUrl: "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=300&h=200&fit=crop",
     match: (loc) => loc.toLowerCase().includes("bgc"),
   },
   {
     key: "Makati",
     label: "Makati",
-    imageUrl: "https://images.unsplash.com/photo-1583245177184-4ab97f5fcd7a?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=300&h=200&fit=crop",
     match: (loc) => loc.toLowerCase().includes("makati"),
   },
   {
     key: "Cebu City",
     label: "Cebu City",
-    imageUrl: "https://images.unsplash.com/photo-1597843786186-1f0e4ff4b0ec?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=300&h=200&fit=crop",
     match: (loc) => /cebu/i.test(loc),
   },
   {
     key: "Davao",
     label: "Davao",
-    imageUrl: "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=300&h=200&fit=crop",
     match: (loc) => /davao/i.test(loc),
   },
   {
     key: "Ortigas",
     label: "Ortigas",
-    imageUrl: "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=300&h=200&fit=crop",
     match: (loc) => loc.toLowerCase().includes("ortigas"),
   },
   {
     key: "Tagaytay",
     label: "Tagaytay",
-    imageUrl: "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=300&h=200&fit=crop",
     match: (loc) => /tagaytay/i.test(loc),
   },
 ];
@@ -786,67 +786,69 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           <>
             {/* PROPERTY LISTING SECTION (controlled by Buy/Rent toggle) */}
             <section id="listings">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  {activeFilterChips(filters, sortMode, {
-                    clearPrice: () => setFilters((s) => ({ ...s, minPrice: 0, maxPrice: 350_000_000 })),
-                    clearBeds: () => setFilters((s) => ({ ...s, beds: "any" })),
-                    clearBaths: () => setFilters((s) => ({ ...s, baths: "any" })),
-                    clearType: () => setFilters((s) => ({ ...s, propertyType: "any" })),
-                    clearSort: () => setSortMode("newest"),
-                  }).map((chip) => (
-                    <button
-                      key={chip.key}
-                      type="button"
-                      onClick={chip.onRemove}
-                      className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-neutral-50"
-                    >
-                      {chip.label}
-                      <span className="text-[#2C2C2C]/35">×</span>
-                    </button>
-                  ))}
-                  {countActiveFilters(filters, sortMode) > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => clearFiltersAndBrowse()}
-                      className="text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
-                    >
-                      Clear All
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFiltersOpen((v) => !v)}
-                    className="relative inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50"
-                  >
-                    <Filter className="h-4 w-4" />
-                    Filters
+              {!neighborhoodFilter ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    {activeFilterChips(filters, sortMode, {
+                      clearPrice: () => setFilters((s) => ({ ...s, minPrice: 0, maxPrice: 350_000_000 })),
+                      clearBeds: () => setFilters((s) => ({ ...s, beds: "any" })),
+                      clearBaths: () => setFilters((s) => ({ ...s, baths: "any" })),
+                      clearType: () => setFilters((s) => ({ ...s, propertyType: "any" })),
+                      clearSort: () => setSortMode("newest"),
+                    }).map((chip) => (
+                      <button
+                        key={chip.key}
+                        type="button"
+                        onClick={chip.onRemove}
+                        className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-neutral-50"
+                      >
+                        {chip.label}
+                        <span className="text-[#2C2C2C]/35">×</span>
+                      </button>
+                    ))}
                     {countActiveFilters(filters, sortMode) > 0 ? (
-                      <span className="ml-1 rounded-full bg-[#D4A843]/18 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                        {countActiveFilters(filters, sortMode)}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => clearFiltersAndBrowse()}
+                        className="text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
+                      >
+                        Clear All
+                      </button>
                     ) : null}
-                  </button>
+                  </div>
 
-                  <select
-                    value={sortMode}
-                    onChange={(e) => setSortMode(e.target.value as SortMode)}
-                    className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50 focus-visible:outline-none"
-                    aria-label="Sort"
-                  >
-                    <option value="newest">Newest</option>
-                    <option value="price_low">Price Low-High</option>
-                    <option value="price_high">Price High-Low</option>
-                    <option value="most_beds">Most Beds</option>
-                  </select>
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFiltersOpen((v) => !v)}
+                      className="relative inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50"
+                    >
+                      <Filter className="h-4 w-4" />
+                      Filters
+                      {countActiveFilters(filters, sortMode) > 0 ? (
+                        <span className="ml-1 rounded-full bg-[#D4A843]/18 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                          {countActiveFilters(filters, sortMode)}
+                        </span>
+                      ) : null}
+                    </button>
+
+                    <select
+                      value={sortMode}
+                      onChange={(e) => setSortMode(e.target.value as SortMode)}
+                      className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50 focus-visible:outline-none"
+                      aria-label="Sort"
+                    >
+                      <option value="newest">Newest</option>
+                      <option value="price_low">Price Low-High</option>
+                      <option value="price_high">Price High-Low</option>
+                      <option value="most_beds">Most Beds</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               <AnimatePresence initial={false}>
-                {filtersOpen ? (
+                {(filtersOpen || neighborhoodFilter !== null) ? (
                   <motion.div
                     key="filters"
                     initial={{ opacity: 0, y: -6 }}
@@ -855,6 +857,25 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     transition={{ duration: 0.18 }}
                     className="mt-4 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm"
                   >
+                    {neighborhoodFilter ? (
+                      <div className="mb-4 flex flex-wrap items-center justify-end gap-2 border-b border-[#2C2C2C]/10 pb-3">
+                        <label htmlFor="listings-sort-city" className="sr-only">
+                          Sort listings
+                        </label>
+                        <select
+                          id="listings-sort-city"
+                          value={sortMode}
+                          onChange={(e) => setSortMode(e.target.value as SortMode)}
+                          className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50 focus-visible:outline-none"
+                          aria-label="Sort"
+                        >
+                          <option value="newest">Newest</option>
+                          <option value="price_low">Price Low-High</option>
+                          <option value="price_high">Price High-Low</option>
+                          <option value="most_beds">Most Beds</option>
+                        </select>
+                      </div>
+                    ) : null}
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div>
                         <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Price range</p>
