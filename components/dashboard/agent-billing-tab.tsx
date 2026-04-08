@@ -114,16 +114,34 @@ export function AgentBillingTab({
   const coLimit = useMemo(() => coListLimitForTier(tier), [tier]);
   const teamLimit = useMemo(() => teamMemberLimitForTier(tier), [tier]);
 
-  async function startCheckout(t: PaymongoSubscriptionTier) {
-    setCheckoutTier(t);
+  async function startCheckout(tier: PaymongoSubscriptionTier) {
+    setCheckoutTier(tier);
     try {
       const res = await fetch("/api/paymongo/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier: t }),
+        body: JSON.stringify({ tier }),
       });
-      const j = (await res.json()) as { checkoutUrl?: string; error?: { message?: string } };
-      if (!res.ok) {
+      console.log("[Billing] checkout response status:", res.status);
+      const text = await res.text();
+      console.log("[Billing] checkout response body:", text);
+
+      let data: unknown;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.error("[Billing] checkout response was not JSON (likely HTML or empty)");
+        toast.error("Server returned a non-JSON response. Check the console for details.");
+        return;
+      }
+
+      const j = data as {
+        checkoutUrl?: string;
+        success?: boolean;
+        error?: { message?: string; code?: string };
+      };
+
+      if (!res.ok || j.success === false) {
         toast.error(j?.error?.message ?? "Could not start checkout");
         return;
       }
@@ -133,6 +151,7 @@ export function AgentBillingTab({
         toast.error("Missing checkout URL");
       }
     } catch (e) {
+      console.error("[Billing] checkout request failed:", e);
       toast.error(e instanceof Error ? e.message : "Checkout failed");
     } finally {
       setCheckoutTier(null);

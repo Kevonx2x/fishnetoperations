@@ -27,18 +27,19 @@ function extractCheckoutUrl(json: unknown): string | null {
   return typeof url === "string" && url.startsWith("http") ? url : null;
 }
 
-export async function POST(req: Request) {
-  const session = await getSessionProfile();
-  if (!session) {
-    return fail("UNAUTHORIZED", "Sign in to continue", 401);
+export async function POST(request: Request) {
+  let body: string;
+  try {
+    body = await request.text();
+  } catch (e) {
+    console.error("[PayMongo] create-checkout failed to read body:", e);
+    return fail("BAD_REQUEST", "Could not read request body", 400);
   }
-  if (session.role !== "agent" && session.role !== "broker") {
-    return fail("FORBIDDEN", "Only agents can subscribe", 403);
-  }
+  console.log("[PayMongo] create-checkout called, body:", body);
 
   let jsonBody: unknown;
   try {
-    jsonBody = await req.json();
+    jsonBody = body.trim() === "" ? {} : JSON.parse(body);
   } catch {
     return fail("BAD_REQUEST", "Invalid JSON", 400);
   }
@@ -48,6 +49,14 @@ export async function POST(req: Request) {
   const tier = parsed.data.tier as PaymongoSubscriptionTier;
   if (!isPaymongoSubscriptionTier(tier)) {
     return fail("VALIDATION_ERROR", "Invalid tier", 422);
+  }
+
+  const session = await getSessionProfile();
+  if (!session) {
+    return fail("UNAUTHORIZED", "Sign in to continue", 401);
+  }
+  if (session.role !== "agent" && session.role !== "broker") {
+    return fail("FORBIDDEN", "Only agents can subscribe", 403);
   }
 
   const supabase = await createSupabaseServerClient();
