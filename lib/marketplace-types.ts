@@ -18,6 +18,8 @@ export interface MarketplaceAgent {
   phone: string;
   verified: boolean;
   status: string;
+  /** When loaded from agents row: raw service areas string for city matching. */
+  serviceAreasText?: string;
 }
 
 type SupabaseBrokersJoin =
@@ -43,6 +45,8 @@ function profileJoinFields(p: ProfileJoinShape | ProfileJoinShape[] | null | und
 type SupabaseAgentsRow = {
   id?: string | null;
   user_id?: string | null;
+  /** Semicolon/comma-separated cities/areas (directory + matching). */
+  service_areas?: string | null;
   name?: string | null;
   email?: string | null;
   phone?: string | null;
@@ -92,6 +96,10 @@ export function mapRowToMarketplaceAgent(row: SupabaseAgentsRow): MarketplaceAge
     phone: safeString(row.phone) || safeString(prof?.phone),
     verified: row.verified === true,
     status: safeString(row.status),
+    serviceAreasText:
+      typeof row.service_areas === "string" && row.service_areas.trim()
+        ? row.service_areas.trim()
+        : undefined,
   };
 }
 

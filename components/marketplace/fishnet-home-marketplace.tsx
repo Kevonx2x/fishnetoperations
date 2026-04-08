@@ -484,6 +484,25 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         .slice(0, 10),
     [agents, mergeLiveAvailability],
   );
+
+  const cityFilterMeta = useMemo(
+    () =>
+      neighborhoodFilter ? FEATURED_CITIES.find((c) => c.key === neighborhoodFilter) ?? null : null,
+    [neighborhoodFilter],
+  );
+
+  const agentsForCityFilter = useMemo(() => {
+    if (!cityFilterMeta) return [];
+    return agents
+      .map(mergeLiveAvailability)
+      .filter((a) => {
+        const t = a.serviceAreasText?.trim();
+        if (!t) return false;
+        return cityFilterMeta.match(t);
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 12);
+  }, [agents, cityFilterMeta, mergeLiveAvailability]);
   const featured = useMemo(() => properties[0] ?? null, [properties]);
   const featuredPhotos = useMemo(() => {
     const list = (featured?.property_photos ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
@@ -1062,6 +1081,28 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {neighborhoodFilter && cityFilterMeta ? (
+                <div className="mt-12 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+                  <h2 className="font-serif text-xl font-bold tracking-tight text-[#2C2C2C] sm:text-2xl">
+                    Top Agents in {cityFilterMeta.label}
+                  </h2>
+                  <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+                    Verified agents who serve this area
+                  </p>
+                  {agentsForCityFilter.length === 0 ? (
+                    <p className="mt-6 text-center text-sm font-semibold text-[#2C2C2C]/45">
+                      No agents list this city in their service areas yet.
+                    </p>
+                  ) : (
+                    <div className="mt-6 flex flex-wrap justify-center gap-4 md:justify-start">
+                      {agentsForCityFilter.map((a) => (
+                        <AgentDirectoryCard key={`city-agent-${a.id}`} agent={a} className="w-full sm:w-[300px]" />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </section>
 
             <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
@@ -1396,6 +1437,7 @@ export function NewlyListedCard({
 
   const isLiked = engagement.isLiked(property.id);
   const isPinned = engagement.isPinned(property.id);
+  const showEng = engagement.showEngagementCounts(property.id);
 
   const imgH = compact ? "h-44 sm:h-48" : "h-52 sm:h-56";
   const titleLine = property.name?.trim() || property.location;
@@ -1466,12 +1508,13 @@ export function NewlyListedCard({
               e.stopPropagation();
               engagement.toggleLike(property.id);
             }}
-            className="rounded-full bg-white/95 p-2 shadow-sm ring-1 ring-black/5 transition hover:bg-[#FAF8F4]"
-            aria-label={isLiked ? "Unlike" : "Like"}
+            className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10 transition hover:bg-[#FAF8F4]"
+            aria-label={showEng ? `${engagement.likeCount(property.id)} likes` : isLiked ? "Unlike" : "Like"}
           >
             <Heart
               className={`h-4 w-4 ${isLiked ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
             />
+            {showEng ? <span>{engagement.likeCount(property.id)}</span> : null}
           </button>
           <button
             type="button"
@@ -1479,12 +1522,15 @@ export function NewlyListedCard({
               e.stopPropagation();
               engagement.togglePin(property.id);
             }}
-            className="rounded-full bg-white/95 p-2 shadow-sm ring-1 ring-black/5 transition hover:bg-[#FAF8F4]"
-            aria-label={isPinned ? "Unpin from profile" : "Pin to profile"}
+            className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10 transition hover:bg-[#FAF8F4]"
+            aria-label={
+              showEng ? `${engagement.saveCount(property.id)} saved` : isPinned ? "Unpin from profile" : "Pin to profile"
+            }
           >
             <Pin
               className={`h-4 w-4 ${isPinned ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
             />
+            {showEng ? <span>{engagement.saveCount(property.id)}</span> : null}
           </button>
         </div>
 

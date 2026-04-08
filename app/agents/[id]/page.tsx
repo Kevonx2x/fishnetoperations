@@ -140,8 +140,7 @@ export default function AgentProfilePage() {
   const [listingFilter, setListingFilter] = useState<ListingFilter>("active");
   const [listingSort, setListingSort] = useState<ListingSort>("newest");
 
-  const { engagement, likeCountsByPropertyId, saveCountsByPropertyId } =
-    usePropertyEngagementForProperties(listings);
+  const { engagement } = usePropertyEngagementForProperties(listings);
 
   const contactModalAgent = useMemo<MarketplaceAgent | null>(() => {
     if (!agent) return null;
@@ -255,14 +254,14 @@ export default function AgentProfilePage() {
       list = [...list].sort((a, b) => parsePesoToNumber(b.price) - parsePesoToNumber(a.price));
     } else {
       list = [...list].sort((a, b) => {
-        const ca = saveCountsByPropertyId[a.id] ?? 0;
-        const cb = saveCountsByPropertyId[b.id] ?? 0;
+        const ca = engagement.saveCount(a.id);
+        const cb = engagement.saveCount(b.id);
         if (cb !== ca) return cb - ca;
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
     }
     return list;
-  }, [listings, listingFilter, listingSort, saveCountsByPropertyId]);
+  }, [listings, listingFilter, listingSort, engagement]);
 
   const deleteListing = useCallback(
     async (propertyId: string) => {
@@ -594,8 +593,9 @@ export default function AgentProfilePage() {
                       {filteredAndSortedListings.map((p) => {
                         const title = p.name?.trim() || p.location;
                         const listed = listingListedLabel(p.created_at);
-                        const likeN = likeCountsByPropertyId[p.id] ?? 0;
-                        const pinN = saveCountsByPropertyId[p.id] ?? 0;
+                        const showEng = engagement.showEngagementCounts(p.id);
+                        const likeN = engagement.likeCount(p.id);
+                        const pinN = engagement.saveCount(p.id);
                         const statusLabel = p.status === "for_rent" ? "For Rent" : "For Sale";
                         const canManagePost =
                           isOwnProfile &&
@@ -679,13 +679,13 @@ export default function AgentProfilePage() {
                                     void engagement.toggleLike(p.id);
                                   }}
                                   className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10"
-                                  aria-label={`${likeN} likes`}
+                                  aria-label={showEng ? `${likeN} likes` : "Like"}
                                 >
                                   <Heart
                                     className={`h-3.5 w-3.5 shrink-0 ${engagement.isLiked(p.id) ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
                                     aria-hidden
                                   />
-                                  <span>{likeN}</span>
+                                  {showEng ? <span>{likeN}</span> : null}
                                 </button>
                                 <button
                                   type="button"
@@ -695,13 +695,13 @@ export default function AgentProfilePage() {
                                     void engagement.togglePin(p.id);
                                   }}
                                   className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10"
-                                  aria-label={`${pinN} pins`}
+                                  aria-label={showEng ? `${pinN} pins` : "Pin"}
                                 >
                                   <Pin
                                     className={`h-3.5 w-3.5 shrink-0 ${engagement.isPinned(p.id) ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
                                     aria-hidden
                                   />
-                                  <span>{pinN}</span>
+                                  {showEng ? <span>{pinN}</span> : null}
                                 </button>
                               </div>
                             </div>

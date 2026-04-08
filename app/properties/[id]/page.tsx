@@ -390,9 +390,11 @@ export default function PropertyPage() {
                             className={`h-4 w-4 ${engagement.isLiked(property.id) ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
                           />
                         </button>
-                        <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
-                          {engagement.likeCount(property.id)}
-                        </span>
+                        {engagement.showEngagementCounts(property.id) ? (
+                          <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
+                            {engagement.likeCount(property.id)}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="flex flex-col items-center gap-0.5 rounded-xl bg-white/95 px-1.5 py-1 shadow-sm ring-1 ring-black/5">
                         <button
@@ -407,9 +409,11 @@ export default function PropertyPage() {
                             className={`h-4 w-4 ${engagement.isPinned(property.id) ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
                           />
                         </button>
-                        <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
-                          {engagement.saveCount(property.id)}
-                        </span>
+                        {engagement.showEngagementCounts(property.id) ? (
+                          <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
+                            {engagement.saveCount(property.id)}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </div>

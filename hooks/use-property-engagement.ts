@@ -12,6 +12,13 @@ function propertyIdsDependencyKey(properties: readonly { id: string }[]): string
   return [...properties.map((p) => p.id)].sort().join(",");
 }
 
+/** Minimal shape for “does this agent represent this listing?” checks. */
+export type PropertyEngagementSource = {
+  id: string;
+  listed_by?: string | null;
+  property_agents?: { agent?: unknown }[] | null;
+};
+
 /** Heart (like) + pin (saved_properties) UI contract for property cards and modals. */
 export type PropertyEngagement = {
   isLiked: (id: string) => boolean;
@@ -20,6 +27,8 @@ export type PropertyEngagement = {
   togglePin: (id: string) => void | Promise<void>;
   likeCount: (id: string) => number;
   saveCount: (id: string) => number;
+  /** When false (agents viewing others’ listings), hide aggregate like/pin counts in the UI. */
+  showEngagementCounts: (id: string) => boolean;
 };
 
 export const ONLY_CLIENTS_CAN_LIKE_OR_PIN = "Only clients can like or pin properties";
@@ -39,6 +48,22 @@ function notifyPropertyEngagement(args: {
 
 function isClientRole(role: string | null | undefined): boolean {
   return role === "client";
+}
+
+function agentRepresentsListing(
+  viewerUserId: string,
+  viewerAgentRecordId: string | null,
+  row: PropertyEngagementSource,
+): boolean {
+  if (row.listed_by === viewerUserId) return true;
+  if (!viewerAgentRecordId) return false;
+  for (const pa of row.property_agents ?? []) {
+    const ag = pa?.agent;
+    const aid =
+      ag && typeof ag === "object" && "id" in ag ? String((ag as { id?: string }).id ?? "") : "";
+    if (aid && aid === viewerAgentRecordId) return true;
+  }
+  return false;
 }
 
 /** Heart / like — `property_likes` when signed-in client only. */
@@ -199,15 +224,18 @@ export function usePinnedPropertyIds() {
   return { has, toggle, ids };
 }
 
-/** Batch like/save counts + heart/pin toggles for listing pages (homepage, landmarks, etc.). */
-export function usePropertyEngagementForProperties(properties: readonly { id: string }[]): {
+/**
+ * Batch like/save counts + heart/pin toggles for listing pages (homepage, landmarks, etc.).
+ * RPCs: `property_like_counts_for(property_ids uuid[])`, `property_save_counts_for(property_ids uuid[])`.
+ */
+export function usePropertyEngagementForProperties(
+  properties: readonly PropertyEngagementSource[],
+): {
   engagement: PropertyEngagement;
-  /** Server totals from `property_likes` (for sorting / analytics). */
   likeCountsByPropertyId: Record<string, number>;
-  /** Server totals from `saved_properties` (pins). */
   saveCountsByPropertyId: Record<string, number>;
 } {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const likes = usePropertyLikes();
   const pins = usePinnedPropertyIds();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -215,9 +243,32 @@ export function usePropertyEngagementForProperties(properties: readonly { id: st
   const [saveCounts, setSaveCounts] = useState<Record<string, number>>({});
   const [likeCountBias, setLikeCountBias] = useState<Record<string, number>>({});
   const [saveCountBias, setSaveCountBias] = useState<Record<string, number>>({});
+  const [viewerAgentRecordId, setViewerAgentRecordId] = useState<string | null>(null);
 
-  /** String primitive — stable across renders when the set of listing ids is unchanged (unlike `properties` array identity). */
   const propertyIdsKey = propertyIdsDependencyKey(properties);
+
+  const propertyById = useMemo(() => {
+    const m = new Map<string, PropertyEngagementSource>();
+    for (const p of properties) m.set(p.id, p);
+    return m;
+  }, [properties]);
+
+  useEffect(() => {
+    if (!user?.id || profile?.role !== "agent") {
+      setViewerAgentRecordId(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase.from("agents").select("id").eq("user_id", user.id).maybeSingle();
+      if (cancelled) return;
+      const id = (data as { id?: string } | null)?.id;
+      setViewerAgentRecordId(id ? String(id) : null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, profile?.role, supabase]);
 
   useEffect(() => {
     if (!propertyIdsKey) {
@@ -235,6 +286,13 @@ export function usePropertyEngagementForProperties(properties: readonly { id: st
         supabase.rpc("property_save_counts_for", { property_ids: ids }),
       ]);
       if (cancelled) return;
+
+      if (lc.error) {
+        console.error("[usePropertyEngagementForProperties] property_like_counts_for", lc.error);
+      }
+      if (sc.error) {
+        console.error("[usePropertyEngagementForProperties] property_save_counts_for", sc.error);
+      }
 
       const lm: Record<string, number> = {};
       for (const row of (lc.data ?? []) as { property_id: string; like_count: number }[]) {
@@ -254,17 +312,27 @@ export function usePropertyEngagementForProperties(properties: readonly { id: st
     };
   }, [propertyIdsKey, supabase]);
 
+  const showEngagementCounts = useCallback(
+    (propertyId: string) => {
+      if (profile?.role !== "agent" || !user?.id) return true;
+      const row = propertyById.get(propertyId);
+      if (!row) return false;
+      return agentRepresentsListing(user.id, viewerAgentRecordId, row);
+    },
+    [profile?.role, user?.id, viewerAgentRecordId, propertyById],
+  );
+
   const toggleLikeWrapped = useCallback(
     async (propertyId: string) => {
       const wasLiked = likes.has(propertyId);
       const ok = await likes.toggle(propertyId);
-      if (!ok || !user?.id) return;
+      if (!ok) return;
       setLikeCountBias((prev) => ({
         ...prev,
         [propertyId]: (prev[propertyId] ?? 0) + (wasLiked ? -1 : 1),
       }));
     },
-    [likes, user?.id],
+    [likes],
   );
 
   const togglePinWrapped = useCallback(
@@ -290,12 +358,21 @@ export function usePropertyEngagementForProperties(properties: readonly { id: st
       togglePin: (id: string) => {
         void togglePinWrapped(id);
       },
-      likeCount: (id: string) =>
-        (likeCounts[id] ?? 0) + (likeCountBias[id] ?? 0),
-      saveCount: (id: string) =>
-        (saveCounts[id] ?? 0) + (saveCountBias[id] ?? 0),
+      likeCount: (id: string) => (likeCounts[id] ?? 0) + (likeCountBias[id] ?? 0),
+      saveCount: (id: string) => (saveCounts[id] ?? 0) + (saveCountBias[id] ?? 0),
+      showEngagementCounts,
     }),
-    [likes, pins, likeCounts, saveCounts, likeCountBias, saveCountBias, toggleLikeWrapped, togglePinWrapped],
+    [
+      likes,
+      pins,
+      likeCounts,
+      saveCounts,
+      likeCountBias,
+      saveCountBias,
+      toggleLikeWrapped,
+      togglePinWrapped,
+      showEngagementCounts,
+    ],
   );
 
   return { engagement, likeCountsByPropertyId: likeCounts, saveCountsByPropertyId: saveCounts };

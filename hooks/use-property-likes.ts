@@ -7,4 +7,5 @@ export {
   usePinnedPropertyIds,
   usePropertyEngagementForProperties,
   type PropertyEngagement,
+  type PropertyEngagementSource,
 } from "./use-property-engagement";

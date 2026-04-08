@@ -332,6 +332,7 @@ function BottomActions({
 }) {
   const isLiked = engagement.isLiked(propertyId);
   const isPinned = engagement.isPinned(propertyId);
+  const showCounts = engagement.showEngagementCounts(propertyId);
   return (
     <div className="shrink-0 space-y-2 border-t border-gray-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <button
@@ -352,9 +353,11 @@ function BottomActions({
             <Heart className={`h-4 w-4 ${isLiked ? "fill-red-500 text-red-500" : ""}`} />
             Like
           </span>
-          <span className="text-[11px] font-semibold text-[#2C2C2C]/55">
-            {engagement.likeCount(propertyId)} likes
-          </span>
+          {showCounts ? (
+            <span className="text-[11px] font-semibold text-[#2C2C2C]/55">
+              {engagement.likeCount(propertyId)} likes
+            </span>
+          ) : null}
         </button>
         <button
           type="button"
@@ -367,9 +370,11 @@ function BottomActions({
             />
             Pin
           </span>
-          <span className="text-[11px] font-semibold text-[#2C2C2C]/55">
-            {engagement.saveCount(propertyId)} saved
-          </span>
+          {showCounts ? (
+            <span className="text-[11px] font-semibold text-[#2C2C2C]/55">
+              {engagement.saveCount(propertyId)} saved
+            </span>
+          ) : null}
         </button>
       </div>
     </div>
