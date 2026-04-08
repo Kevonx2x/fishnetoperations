@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
 import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
 import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
@@ -398,7 +399,13 @@ export default function AgentProfilePage() {
                   <div className="relative mx-auto h-[100px] w-[100px]">
                     <div className="relative h-full w-full overflow-hidden rounded-full bg-[#FAF8F4] ring-2 ring-white">
                       {agent.image_url ? (
-                        <Image src={agent.image_url} alt={agent.name} fill sizes="100px" className="object-cover" />
+                        <SupabasePublicImage
+                          src={agent.image_url}
+                          alt={agent.name}
+                          fill
+                          sizes="100px"
+                          className="object-cover"
+                        />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center font-serif text-3xl font-bold text-[#2C2C2C]/25">
                           {agent.name.slice(0, 1)}
@@ -610,7 +617,7 @@ export default function AgentProfilePage() {
                               <div className="flex min-w-0 flex-1 items-start gap-3">
                                 <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
                                   {agent.image_url ? (
-                                    <Image src={agent.image_url} alt="" fill sizes="40px" className="object-cover" />
+                                    <SupabasePublicImage src={agent.image_url} alt="" fill sizes="40px" className="object-cover" />
                                   ) : (
                                     <div className="flex h-full w-full items-center justify-center font-serif text-sm font-bold text-[#2C2C2C]/40">
                                       {agent.name.slice(0, 1)}

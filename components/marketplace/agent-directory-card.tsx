@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Flame } from "lucide-react";
+import { BadgeCheck, ChevronRight, Flame } from "lucide-react";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { formatAgentScore } from "@/lib/format-agent-score";
@@ -37,47 +37,38 @@ export function AgentDirectoryCard({
       className={cn(
         "group block cursor-pointer rounded-2xl border border-[#2C2C2C]/10 bg-white p-3 shadow-md",
         "transition-all duration-200 ease-in-out will-change-transform",
+        "max-lg:rounded-none max-lg:border-0 max-lg:border-b max-lg:border-[#2C2C2C]/10 max-lg:bg-white max-lg:p-3 max-lg:shadow-none",
+        "max-lg:hover:translate-y-0 max-lg:hover:scale-100 max-lg:hover:shadow-none max-lg:hover:border-[#2C2C2C]/10",
+        "max-lg:hover:bg-[#6B9E6E15] max-lg:hover:underline",
         "hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl hover:border-[#2C2C2C]/15",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A843] focus-visible:ring-offset-2",
         "lg:flex lg:h-[280px] lg:flex-col lg:items-stretch lg:p-5",
         className ?? "w-[320px] shrink-0",
       )}
     >
-      {/* Mobile: horizontal compact layout */}
-      <div className="lg:hidden">
-        <div className="flex items-start gap-2.5">
-          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
-            <AgentAvatarFill
-              name={agent.name}
-              imageUrl={agent.image}
-              sizes="48px"
-              textClassName="text-base"
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 flex-wrap items-center gap-1">
-              <p className="min-w-0 truncate text-sm font-bold text-[#2C2C2C]">{agent.name}</p>
-              {agent.verified ? (
-                <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-[#D4A843]/18 px-1.5 py-0.5 text-[9px] font-bold leading-none text-[#8a6d32]">
-                  <Flame className="h-2.5 w-2.5 text-[#D4A843]" aria-hidden />
-                  Verified
-                </span>
-              ) : null}
-            </div>
-            <p className="mt-0.5 truncate text-[10px] font-semibold text-[#2C2C2C]/55">{companyLine}</p>
-            <div className="mt-1.5 flex min-w-0 flex-row flex-nowrap gap-1 text-[#2C2C2C]/60">
-              <span className="shrink-0 rounded-full bg-[#6B9E6E]/12 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[#2C2C2C]/60 whitespace-nowrap">
-                {agent.closings} closings
-              </span>
-              <span className="shrink-0 rounded-full bg-[#6B9E6E]/12 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[#2C2C2C]/60 whitespace-nowrap">
-                Score {formatAgentScore(agent.score)}
-              </span>
-            </div>
-          </div>
+      {/* Mobile: same single-row layout as connected agents under property cards (NewlyListedCard agent strip) */}
+      <div className="flex min-w-0 items-center gap-2.5 lg:hidden">
+        <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+          <AgentAvatarFill
+            name={agent.name}
+            imageUrl={agent.image}
+            sizes="32px"
+            textClassName="text-sm"
+          />
         </div>
-        <span className="mt-3 inline-flex w-full justify-center rounded-full bg-[#2C2C2C] px-3 py-1.5 text-xs font-semibold text-white transition-colors group-hover:bg-[#6B9E6E]">
-          View Profile
+        <span className="min-w-0 flex-1 truncate text-xs font-bold text-[#2C2C2C] transition-colors duration-150 ease-out group-hover:text-[#2C2C2C]">
+          {agent.name.length > 12 ? `${agent.name.slice(0, 12)}…` : agent.name}
         </span>
+        {agent.verified ? (
+          <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
+        ) : null}
+        <span className="shrink-0 text-xs font-bold text-[#2C2C2C]/80 transition-colors duration-150 ease-out group-hover:text-[#2C2C2C]">
+          {formatAgentScore(agent.score)}
+        </span>
+        <ChevronRight
+          className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E] opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100"
+          aria-hidden
+        />
       </div>
 
       {/* Desktop: uniform centered column, fixed height card */}

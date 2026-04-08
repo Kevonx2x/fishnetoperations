@@ -15,6 +15,7 @@ import {
   Phone,
   Shield,
 } from "lucide-react";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 
 const STORAGE_KEY = "bahaygo_onboarded";
 
@@ -117,7 +118,7 @@ function MockAgentCard({
     <div className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
-          <Image src={avatarUrl} alt="" width={48} height={48} className="object-cover" sizes="48px" />
+          <SupabasePublicImage src={avatarUrl} alt="" width={48} height={48} className="object-cover" sizes="48px" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -229,7 +230,7 @@ function SlideAgentProfileFeed() {
             <div className="rounded-2xl border border-white/80 bg-white p-3 shadow-md">
               <div className="flex gap-3">
                 <div className="relative -mt-10 h-16 w-16 shrink-0 overflow-hidden rounded-full border-4 border-white shadow-md ring-1 ring-black/10">
-                  <Image src={MOCK_AVATARS[0]!} alt="" width={64} height={64} className="object-cover" sizes="64px" />
+                  <SupabasePublicImage src={MOCK_AVATARS[0]!} alt="" width={64} height={64} className="object-cover" sizes="64px" />
                 </div>
                 <div className="min-w-0 flex-1 pt-1">
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -327,7 +328,7 @@ function SlideScheduleViewing() {
                   }`}
                 >
                   <div className="relative h-10 w-10 overflow-hidden rounded-full ring-1 ring-black/10">
-                    <Image src={url} alt="" width={40} height={40} className="object-cover" sizes="40px" />
+                    <SupabasePublicImage src={url} alt="" width={40} height={40} className="object-cover" sizes="40px" />
                   </div>
                   <span className="max-w-[56px] truncate text-[9px] font-bold text-[#2C2C2C]">
                     {["Ana", "James", "Miguel"][i]}

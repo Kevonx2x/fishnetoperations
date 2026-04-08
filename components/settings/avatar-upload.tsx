@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import Image from "next/image";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { getPublicSupabaseEnv } from "@/lib/supabase/public-env";
 import {
   avatarObjectExt,
@@ -106,13 +106,12 @@ export function SettingsAvatarUpload({
         className="group relative h-28 w-28 shrink-0 overflow-hidden rounded-full border-2 border-[#2C2C2C]/10 bg-[#FAF8F4] shadow-sm outline-none ring-offset-2 transition hover:border-[#6B9E6E]/50 focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/35 disabled:opacity-70"
       >
         {showImg ? (
-          <Image
+          <SupabasePublicImage
             src={avatarUrl!}
             alt=""
             width={112}
             height={112}
             className="h-full w-full object-cover"
-            unoptimized
           />
         ) : (
           <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-2xl font-bold text-white">

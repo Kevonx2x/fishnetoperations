@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Calendar, Zap } from "lucide-react";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { AgentAvatarFill, agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import {
   AgentAvailabilityBadge,
@@ -37,13 +37,7 @@ export function MaddenAgentRow({
       <div className="flex items-start gap-3">
         <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl ring-1 ring-black/10">
           {agent.image?.trim() ? (
-            <Image
-              src={agent.image}
-              alt={agent.name}
-              fill
-              sizes="56px"
-              className="object-cover"
-            />
+            <SupabasePublicImage src={agent.image} alt={agent.name} fill sizes="56px" className="object-cover" />
           ) : (
             <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-sm font-bold text-white">
               {agentAvatarInitials(agent.name)}
@@ -74,7 +68,7 @@ export function MaddenAgentRow({
               </span>
               {agent.brokerLogo ? (
                 <div className="relative h-9 w-9 overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-black/10">
-                  <Image
+                  <SupabasePublicImage
                     src={agent.brokerLogo}
                     alt={agent.brokerName || "Broker"}
                     fill

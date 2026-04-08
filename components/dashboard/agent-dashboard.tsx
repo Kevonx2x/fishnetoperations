@@ -19,6 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { AgentBillingTab } from "@/components/dashboard/agent-billing-tab";
 import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
@@ -960,7 +961,7 @@ export function AgentDashboard() {
           <div className="mb-8 flex items-center gap-3 px-2">
             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-[#D4A843]/35">
               {agent.image_url ? (
-                <Image src={agent.image_url} alt="" fill className="object-cover" sizes="56px" />
+                <SupabasePublicImage src={agent.image_url} alt="" fill className="object-cover" sizes="56px" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/20 text-lg font-bold text-[#2C2C2C]">
                   {agent.name.slice(0, 1)}
@@ -2323,7 +2324,9 @@ function ProfileTab({
           <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Photo</p>
           <div className="mt-2 flex items-center gap-4">
             <div className="relative h-20 w-20 overflow-hidden rounded-full bg-[#EBE6DC] ring-2 ring-[#D4A843]/30">
-              {agent.image_url ? <Image src={agent.image_url} alt="" fill className="object-cover" sizes="80px" /> : null}
+              {agent.image_url ? (
+                <SupabasePublicImage src={agent.image_url} alt="" fill className="object-cover" sizes="80px" />
+              ) : null}
             </div>
             <label className="cursor-pointer rounded-full border border-[#6B9E6E] bg-[#6B9E6E]/10 px-4 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/20">
               Upload

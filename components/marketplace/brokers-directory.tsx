@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { BadgeCheck, Building2, Phone, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -130,7 +130,7 @@ export function BrokersDirectory() {
                 <div className="flex items-start gap-3">
                   <div className="relative h-12 w-12 overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-black/10">
                     {b.logo_url ? (
-                      <Image
+                      <SupabasePublicImage
                         src={b.logo_url}
                         alt={b.company_name}
                         fill

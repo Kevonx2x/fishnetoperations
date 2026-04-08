@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Trash2, X } from "lucide-react";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type LeadRow = {
@@ -170,7 +170,7 @@ export function AgentLeadSlideOver({
                   <div className="flex gap-2">
                     <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-white ring-1 ring-black/10">
                       {agentAvatarUrl ? (
-                        <Image src={agentAvatarUrl} alt="" fill className="object-cover" sizes="32px" />
+                        <SupabasePublicImage src={agentAvatarUrl} alt="" fill className="object-cover" sizes="32px" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/20 text-xs font-bold">
                           {agentName.slice(0, 1)}

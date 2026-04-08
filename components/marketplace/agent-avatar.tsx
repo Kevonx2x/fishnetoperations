@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { isSupabasePublicStorageUrl } from "@/lib/supabase/public-storage-url";
 
 /** First letter of first name + first letter of last name (or first two letters of single name). */
 export function agentAvatarInitials(name: string): string {
@@ -22,6 +23,9 @@ export function AgentAvatarFill({
   textClassName?: string;
 }) {
   if (imageUrl?.trim()) {
+    if (isSupabasePublicStorageUrl(imageUrl)) {
+      return <img src={imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />;
+    }
     return <Image src={imageUrl} alt="" fill sizes={sizes} className="object-cover" />;
   }
   return (

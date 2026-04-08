@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 
 type BrokerRow = {
   id: string;
@@ -74,7 +74,7 @@ export default function BrokerProfilePage() {
             <div className="flex items-center gap-4">
               <div className="relative h-16 w-16 overflow-hidden rounded-2xl bg-[#FAF8F4] ring-1 ring-black/10">
                 {row.logo_url ? (
-                  <Image src={row.logo_url} alt={row.company_name} fill sizes="64px" className="object-cover" />
+                  <SupabasePublicImage src={row.logo_url} alt={row.company_name} fill sizes="64px" className="object-cover" />
                 ) : null}
               </div>
               <div className="min-w-0">

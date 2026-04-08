@@ -10,6 +10,7 @@ import { ViewingRequestModal } from "@/components/marketplace/viewing-request-mo
 import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -726,13 +727,12 @@ export default function ClientPublicProfilePage() {
               <div className="flex flex-col items-center rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 text-center shadow-sm">
                 <div className="relative h-28 w-28 overflow-hidden rounded-full border-2 border-[#2C2C2C]/10 bg-[#FAF8F4]">
                   {clientProfile.avatar_url?.trim() ? (
-                    <Image
+                    <SupabasePublicImage
                       src={clientProfile.avatar_url}
                       alt=""
                       width={112}
                       height={112}
                       className="h-full w-full object-cover"
-                      unoptimized
                     />
                   ) : (
                     <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-2xl font-bold text-white">
@@ -1053,13 +1053,12 @@ export default function ClientPublicProfilePage() {
                             <div className="flex items-start gap-3 px-4 pt-4">
                               <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
                                 {clientProfile.avatar_url?.trim() ? (
-                                  <Image
+                                  <SupabasePublicImage
                                     src={clientProfile.avatar_url}
                                     alt=""
                                     fill
                                     sizes="40px"
                                     className="object-cover"
-                                    unoptimized
                                   />
                                 ) : (
                                   <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-sm font-bold text-white">

@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { BadgeCheck } from "lucide-react";
 
 type BrokerRow = {
@@ -166,7 +166,9 @@ export default function BrokersIndexPage() {
               >
                 <div className="flex items-start gap-3">
                   <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-[#FAF8F4] ring-1 ring-black/10">
-                    {b.logo_url ? <Image src={b.logo_url} alt={b.company_name} fill sizes="56px" className="object-cover" /> : null}
+                    {b.logo_url ? (
+                      <SupabasePublicImage src={b.logo_url} alt={b.company_name} fill sizes="56px" className="object-cover" />
+                    ) : null}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-serif text-lg font-bold text-[#2C2C2C]">{b.company_name}</p>
