@@ -53,43 +53,37 @@ const FEATURED_CITIES: {
   {
     key: "BGC",
     label: "BGC",
-    imageUrl:
-      "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=400&h=300&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=300&h=200&fit=crop",
     match: (loc) => loc.toLowerCase().includes("bgc"),
   },
   {
     key: "Makati",
     label: "Makati",
-    imageUrl:
-      "https://images.unsplash.com/photo-1583245177184-4ab97f5fcd7a?w=400&h=300&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1583245177184-4ab97f5fcd7a?w=300&h=200&fit=crop",
     match: (loc) => loc.toLowerCase().includes("makati"),
-  },
-  {
-    key: "Ortigas",
-    label: "Ortigas",
-    imageUrl:
-      "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=400&h=300&fit=crop",
-    match: (loc) => loc.toLowerCase().includes("ortigas"),
   },
   {
     key: "Cebu City",
     label: "Cebu City",
-    imageUrl:
-      "https://images.unsplash.com/photo-1597843786186-1f0e4ff4b0ec?w=400&h=300&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1597843786186-1f0e4ff4b0ec?w=300&h=200&fit=crop",
     match: (loc) => /cebu/i.test(loc),
   },
   {
     key: "Davao",
     label: "Davao",
-    imageUrl:
-      "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=400&h=300&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=300&h=200&fit=crop",
     match: (loc) => /davao/i.test(loc),
+  },
+  {
+    key: "Ortigas",
+    label: "Ortigas",
+    imageUrl: "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=300&h=200&fit=crop",
+    match: (loc) => loc.toLowerCase().includes("ortigas"),
   },
   {
     key: "Tagaytay",
     label: "Tagaytay",
-    imageUrl:
-      "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=400&h=300&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=300&h=200&fit=crop",
     match: (loc) => /tagaytay/i.test(loc),
   },
 ];
@@ -139,7 +133,8 @@ function formatPeso(n: number): string {
   return `₱${Math.round(n).toLocaleString()}`;
 }
 
-const HERO_FALLBACK_PHOTOS = [
+/** Fixed hero showcase cards (always Unsplash; links to agent directory). */
+const HERO_FLOATING_CARDS = [
   {
     id: "hero-1",
     name: "BGC Luxury Condo",
@@ -160,47 +155,7 @@ const HERO_FALLBACK_PHOTOS = [
   },
 ] as const;
 
-type HeroCardItem =
-  | { kind: "property"; property: DbProperty }
-  | { kind: "fallback"; id: string; name: string; location: string; image_url: string };
-
-function buildHeroCards(properties: DbProperty[]): HeroCardItem[] {
-  const seenIds = new Set<string>();
-  const uniqueReal: DbProperty[] = [];
-  for (const p of properties) {
-    if (seenIds.has(p.id)) continue;
-    seenIds.add(p.id);
-    uniqueReal.push(p);
-    if (uniqueReal.length >= 3) break;
-  }
-
-  const cards: HeroCardItem[] = uniqueReal.map((property) => ({ kind: "property", property }));
-  let fb = 0;
-  while (cards.length < 3 && fb < HERO_FALLBACK_PHOTOS.length) {
-    const row = HERO_FALLBACK_PHOTOS[fb]!;
-    fb += 1;
-    cards.push({
-      kind: "fallback",
-      id: row.id,
-      name: row.name,
-      location: row.location,
-      image_url: row.image_url,
-    });
-  }
-  return cards.slice(0, 3);
-}
-
-function HeroFloatingPropertyCards({ properties }: { properties: DbProperty[] }) {
-  const cards = useMemo(() => buildHeroCards(properties), [properties]);
-
-  if (cards.length === 0) {
-    return (
-      <div className="flex h-[320px] max-w-sm items-center justify-center rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white/60 px-6 text-center text-sm font-semibold text-[#2C2C2C]/45">
-        Loading listings…
-      </div>
-    );
-  }
-
+function HeroFloatingPropertyCards() {
   const configs = [
     {
       top: "top-0",
@@ -227,26 +182,13 @@ function HeroFloatingPropertyCards({ properties }: { properties: DbProperty[] })
 
   return (
     <div className="relative mx-auto h-[400px] w-full max-w-[340px]">
-      {cards.map((item, idx) => {
+      {HERO_FLOATING_CARDS.map((card, idx) => {
         const cfg = configs[idx]!;
-        const href =
-          item.kind === "property"
-            ? `/properties/${encodeURIComponent(item.property.id)}`
-            : "/search";
-        const img =
-          item.kind === "property"
-            ? (roomUrlsFor(item.property)[0] ?? item.property.image_url)
-            : item.image_url;
-        const locShort =
-          item.kind === "property"
-            ? item.property.location.split(",")[0]?.trim() || item.property.location
-            : item.location.split(",")[0]?.trim() || item.location;
-        const cardKey =
-          item.kind === "property" ? `${item.property.id}-float-${idx}` : `${item.id}-float-${idx}`;
+        const locShort = card.location.split(",")[0]?.trim() || card.location;
         return (
           <Link
-            key={cardKey}
-            href={href}
+            key={card.id}
+            href="/agents"
             className={cn(
               "absolute left-1/2 -translate-x-1/2 overflow-hidden rounded-2xl border border-white/95 bg-white shadow-[0_18px_40px_-12px_rgba(44,44,44,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_48px_-10px_rgba(44,44,44,0.4)]",
               cfg.top,
@@ -257,7 +199,7 @@ function HeroFloatingPropertyCards({ properties }: { properties: DbProperty[] })
             )}
           >
             <div className="relative h-[128px] w-full sm:h-[136px]">
-              <Image src={img} alt="" fill className="object-cover" sizes="300px" />
+              <Image src={card.image_url} alt="" fill className="object-cover" sizes="300px" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/5 to-transparent" />
               <span className="absolute left-2.5 top-2.5 rounded-full bg-[#D4A843] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#2C2C2C] shadow-sm">
                 Verified
@@ -429,12 +371,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     if (city) return searched.filter((p) => city.match(p.location));
     return searched.filter((p) => neighborhoodKey(p.location) === neighborhoodFilter);
   }, [properties, mode, search, neighborhoodFilter]);
-
-  const heroShowcaseProperties = useMemo(() => {
-    const base = properties.filter((p) => (mode === "buy" ? p.status === "for_sale" : p.status === "for_rent"));
-    const list = [...base].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return list.slice(0, 3);
-  }, [properties, mode]);
 
   const cityListingCounts = useMemo(() => {
     const base = properties.filter((p) => (mode === "buy" ? p.status === "for_sale" : p.status === "for_rent"));
@@ -720,29 +656,38 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
               <div className="mt-6 lg:hidden">
                 <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#2C2C2C]/45">
-                  Featured Cities
+                  Featured Locations
                 </p>
                 <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-hide">
-                  {FEATURED_CITIES.slice(0, 4).map((c) => (
-                    <button
-                      key={c.key}
-                      type="button"
-                      onClick={() => selectCityFilter(c.key)}
-                      className={`w-[100px] shrink-0 overflow-hidden rounded-xl border text-left shadow-sm transition ${
-                        neighborhoodFilter === c.key
-                          ? "border-[#D4A843] ring-2 ring-[#D4A843]/40"
-                          : "border-[#2C2C2C]/10"
-                      }`}
-                    >
-                      <div className="relative h-[72px] w-full">
-                        <Image src={c.imageUrl} alt="" fill className="object-cover" sizes="100px" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
-                      </div>
-                      <p className="truncate bg-white px-2 py-1.5 text-center text-[11px] font-bold text-[#2C2C2C]">
-                        {c.label}
-                      </p>
-                    </button>
-                  ))}
+                  {FEATURED_CITIES.map((c) => {
+                    const count = cityListingCounts.get(c.key) ?? 0;
+                    const active = neighborhoodFilter === c.key;
+                    return (
+                      <button
+                        key={c.key}
+                        type="button"
+                        onClick={() => selectCityFilter(c.key)}
+                        className={`group relative h-[100px] w-[112px] shrink-0 overflow-hidden rounded-2xl border text-left shadow-md transition hover:scale-[1.03] ${
+                          active ? "border-[#D4A843] ring-2 ring-[#D4A843]/45" : "border-[#2C2C2C]/10"
+                        }`}
+                      >
+                        <Image
+                          src={c.imageUrl}
+                          alt=""
+                          fill
+                          className="object-cover transition duration-500 group-hover:scale-105"
+                          sizes="112px"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-2">
+                          <p className="text-[11px] font-bold leading-tight text-white drop-shadow-sm">{c.label}</p>
+                          <p className="mt-0.5 text-[10px] font-semibold text-white/90">
+                            {count} {count === 1 ? "listing" : "listings"}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -754,7 +699,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               <div className="pointer-events-none absolute bottom-[28%] left-[20%] h-2.5 w-2.5 rotate-45 bg-[#6B9E6E]/25" />
 
               <div className="relative mx-auto flex h-[440px] w-full max-w-[380px] items-center justify-center">
-                <HeroFloatingPropertyCards properties={heroShowcaseProperties} />
+                <HeroFloatingPropertyCards />
               </div>
             </div>
           </div>
@@ -762,14 +707,14 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       </section>
 
       <section
-        id="neighborhoods"
+        id="featured-locations"
         className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4] py-8 sm:py-10"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0 text-center sm:text-left">
               <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">
-                Featured Neighborhoods
+                Featured Locations
               </h2>
               <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
                 Tap a city to filter listings
@@ -795,7 +740,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     key={c.key}
                     type="button"
                     onClick={() => selectCityFilter(c.key)}
-                    className={`group relative h-[160px] w-[min(280px,78vw)] shrink-0 overflow-hidden rounded-2xl border text-left shadow-md transition lg:h-[120px] lg:w-[160px] ${
+                    className={`group relative h-[160px] w-[min(280px,78vw)] shrink-0 overflow-hidden rounded-2xl border text-left shadow-md transition hover:scale-[1.02] lg:h-[120px] lg:w-[160px] ${
                       active
                         ? "border-[#D4A843] ring-2 ring-[#D4A843]/45"
                         : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
@@ -808,7 +753,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       className="object-cover transition duration-500 group-hover:scale-105"
                       sizes="(min-width: 1024px) 160px, 280px"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#2C2C2C]/90 via-[#2C2C2C]/25 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
                     <div className="absolute bottom-0 left-0 right-0 p-3 lg:p-2.5">
                       <p className="font-serif text-lg font-bold text-white drop-shadow-sm lg:text-base">
                         {c.label}

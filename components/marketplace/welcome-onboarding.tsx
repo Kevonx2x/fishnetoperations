@@ -165,10 +165,10 @@ function SlideAreYouRealEstateAgent() {
           List properties, get verified, and connect with serious buyers and renters on BahayGo.
         </p>
         <Link
-          href="/register/agent"
+          href="/settings?tab=account"
           className="mt-8 inline-flex items-center justify-center gap-1 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-bold text-white shadow-md transition hover:brightness-95"
         >
-          Join as Agent
+          Become a Verified Agent
           <span aria-hidden>→</span>
         </Link>
       </motion.div>
@@ -387,7 +387,7 @@ function SlideZeroScams() {
   );
 }
 
-const SLIDE_KEYS = ["welcome", "verified", "joinAgent", "profiles", "viewing", "trust"] as const;
+const SLIDE_KEYS = ["welcome", "verified", "profiles", "viewing", "trust", "joinAgent"] as const;
 
 export function WelcomeOnboarding() {
   const [mounted, setMounted] = useState(false);
@@ -482,10 +482,10 @@ export function WelcomeOnboarding() {
             >
               {idx === 0 ? <SlideWelcome /> : null}
               {idx === 1 ? <SlideFindVerifiedAgents /> : null}
-              {idx === 2 ? <SlideAreYouRealEstateAgent /> : null}
-              {idx === 3 ? <SlideAgentProfileFeed /> : null}
-              {idx === 4 ? <SlideScheduleViewing /> : null}
-              {idx === 5 ? <SlideZeroScams /> : null}
+              {idx === 2 ? <SlideAgentProfileFeed /> : null}
+              {idx === 3 ? <SlideScheduleViewing /> : null}
+              {idx === 4 ? <SlideZeroScams /> : null}
+              {idx === 5 ? <SlideAreYouRealEstateAgent /> : null}
             </motion.div>
           </AnimatePresence>
         </div>

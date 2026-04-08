@@ -411,7 +411,7 @@ export function MaddenTopNav() {
       { kind: "link", label: "Luxury Homes ₱50M+", href: "/buy?focus=luxury#listings", icon: <Star /> },
       { kind: "link", label: "Foreclosures & Deals", href: "/buy?focus=deals#listings", icon: <TrendingUp /> },
       { kind: "link", label: "Open House This Weekend", href: "/buy?focus=open#listings", icon: <Landmark /> },
-      { kind: "link", label: "Browse by Neighborhood", href: "/buy#neighborhoods", icon: <MapPin /> },
+      { kind: "link", label: "Browse by Location", href: "/buy#featured-locations", icon: <MapPin /> },
     ],
     [],
   );
