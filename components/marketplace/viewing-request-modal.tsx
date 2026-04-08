@@ -29,6 +29,41 @@ function toScheduledIso(date: Date, hour: number): string {
   return setMinutes(setHours(d0, hour), 0).toISOString();
 }
 
+type ClientPrefsRow = {
+  budget_min: number | null;
+  budget_max: number | null;
+  looking_to: string | null;
+  preferred_property_type: string | null;
+  preferred_locations: unknown;
+};
+
+function pesoFmt(n: number): string {
+  return `₱${Math.round(n).toLocaleString("en-US")}`;
+}
+
+/** One line for the notes field from saved profile preferences */
+function buildClientPrefsNotesLine(row: ClientPrefsRow): string {
+  const parts: string[] = [];
+  if (row.budget_min != null || row.budget_max != null) {
+    const a = row.budget_min != null ? pesoFmt(Number(row.budget_min)) : "—";
+    const b = row.budget_max != null ? pesoFmt(Number(row.budget_max)) : "—";
+    parts.push(`Budget: ${a}–${b}`);
+  }
+  if (row.looking_to) {
+    const map: Record<string, string> = { buy: "Buy", rent: "Rent", both: "Both" };
+    parts.push(`Looking to: ${map[row.looking_to] ?? row.looking_to}`);
+  }
+  if (row.preferred_property_type?.trim()) {
+    parts.push(`Property type: ${row.preferred_property_type.trim()}`);
+  }
+  const locs = row.preferred_locations;
+  if (Array.isArray(locs) && locs.length) {
+    const labels = locs.filter((x): x is string => typeof x === "string");
+    if (labels.length) parts.push(`Preferred areas: ${labels.join(", ")}`);
+  }
+  return parts.join(" | ");
+}
+
 export function ViewingRequestModal({
   open,
   onOpenChange,
@@ -52,6 +87,9 @@ export function ViewingRequestModal({
   const [date, setDate] = useState<Date | undefined>(() => startOfDay(new Date()));
   const [hour, setHour] = useState<number>(10);
   const [notes, setNotes] = useState("");
+  const [occupantCount, setOccupantCount] = useState(1);
+  const [hasPets, setHasPets] = useState(false);
+  const [moveInDate, setMoveInDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notifyWarning, setNotifyWarning] = useState<string | null>(null);
@@ -63,15 +101,33 @@ export function ViewingRequestModal({
     setError(null);
     setNotifyWarning(null);
     setSuccess(false);
+    setOccupantCount(1);
+    setHasPets(false);
+    setMoveInDate("");
     if (user) {
       setEmail(user.email ?? "");
       setName(profile?.full_name?.trim() ?? "");
       setPhone(profile?.phone?.trim() ?? "");
+      if (profile?.role === "client") {
+        setNotes("");
+        void (async () => {
+          const { data } = await supabase
+            .from("profiles")
+            .select("budget_min, budget_max, looking_to, preferred_property_type, preferred_locations")
+            .eq("id", user.id)
+            .maybeSingle();
+          const line = data ? buildClientPrefsNotesLine(data as ClientPrefsRow) : "";
+          setNotes(line ? `${line}\n\n` : "");
+        })();
+      } else {
+        setNotes("");
+      }
+    } else {
+      setNotes("");
     }
     setDate(startOfDay(new Date()));
     setHour(10);
-    setNotes("");
-  }, [open, user, profile]);
+  }, [open, user, profile, supabase]);
 
   useEffect(() => {
     if (!open || !agentUserId) {
@@ -155,6 +211,7 @@ export function ViewingRequestModal({
       }
 
       const scheduledAt = toScheduledIso(date, hour);
+      const occ = Math.min(50, Math.max(1, Math.floor(occupantCount) || 1));
       const { data: row, error: insErr } = await supabase
         .from("viewing_requests")
         .insert({
@@ -167,6 +224,9 @@ export function ViewingRequestModal({
           scheduled_at: scheduledAt,
           notes: notes.trim() ? notes.trim() : null,
           status: "pending",
+          occupant_count: occ,
+          has_pets: hasPets,
+          preferred_move_in_date: moveInDate.trim() || null,
         })
         .select("id")
         .single();
@@ -300,6 +360,70 @@ export function ViewingRequestModal({
                 />
               </div>
 
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Number of occupants
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  inputMode="numeric"
+                  value={occupantCount}
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    if (!Number.isFinite(n)) {
+                      setOccupantCount(1);
+                      return;
+                    }
+                    setOccupantCount(Math.min(50, Math.max(1, Math.floor(n))));
+                  }}
+                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] outline-none ring-[#D4A843]/30 focus-visible:ring-2"
+                />
+              </label>
+
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">Pets?</span>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setHasPets(false)}
+                    className={cn(
+                      "flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold transition",
+                      !hasPets
+                        ? "border-[#6B9E6E] bg-[#6B9E6E]/15 text-[#2C2C2C]"
+                        : "border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70",
+                    )}
+                  >
+                    No
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHasPets(true)}
+                    className={cn(
+                      "flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold transition",
+                      hasPets
+                        ? "border-[#6B9E6E] bg-[#6B9E6E]/15 text-[#2C2C2C]"
+                        : "border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70",
+                    )}
+                  >
+                    Yes
+                  </button>
+                </div>
+              </div>
+
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  When would you like to move in?
+                </span>
+                <input
+                  type="date"
+                  value={moveInDate}
+                  onChange={(e) => setMoveInDate(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] outline-none ring-[#D4A843]/30 focus-visible:ring-2"
+                />
+              </label>
+
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">Preferred date</span>
                 <div className="mt-2 flex justify-center rounded-xl border border-[#2C2C2C]/10 bg-white p-2">
@@ -341,9 +465,9 @@ export function ViewingRequestModal({
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
+                  rows={4}
                   className="mt-1.5 w-full resize-none rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] outline-none ring-[#D4A843]/30 focus-visible:ring-2"
-                  placeholder="Anything the agent should know?"
+                  placeholder="Your saved search preferences appear above when you are signed in as a client. Add anything else the agent should know."
                 />
               </label>
 

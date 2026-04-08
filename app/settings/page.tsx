@@ -12,6 +12,7 @@ import { pathForRole } from "@/lib/auth-roles";
 import { formatLicenseDate, isLicenseExpiringWithinDays } from "@/lib/license-expiry";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { formatPriceInputDigits, parseListingPricePesos } from "@/lib/validation/listing-form";
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
 import { ServiceAreasMultiInput } from "@/components/ui/service-areas-multi-input";
 import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
@@ -48,12 +49,6 @@ const PREFERRED_TYPE_OPTIONS = [
   "Commercial",
   "Farm",
 ] as const;
-
-function parseBudgetInput(raw: string): number | null {
-  const n = Number(String(raw).replace(/[^\d.]/g, ""));
-  if (!Number.isFinite(n) || n < 0) return null;
-  return n;
-}
 
 const ROLE_OPTIONS: {
   value: Exclude<ProfileRole, "admin">;
@@ -205,12 +200,12 @@ function SettingsPageInner() {
       );
       setBudgetMin(
         row?.budget_min != null && Number.isFinite(Number(row.budget_min))
-          ? String(Math.round(Number(row.budget_min)))
+          ? formatPriceInputDigits(String(Math.round(Number(row.budget_min))))
           : "",
       );
       setBudgetMax(
         row?.budget_max != null && Number.isFinite(Number(row.budget_max))
-          ? String(Math.round(Number(row.budget_max)))
+          ? formatPriceInputDigits(String(Math.round(Number(row.budget_max))))
           : "",
       );
       setPreferredPropertyType(row?.preferred_property_type ?? "");
@@ -326,8 +321,8 @@ function SettingsPageInner() {
 
       if (currentRole === "client" && !isAdmin) {
         const abroad = countryOfOrigin.trim() && countryOfOrigin.trim() !== "Philippines";
-        const bmin = parseBudgetInput(budgetMin);
-        const bmax = parseBudgetInput(budgetMax);
+        const bmin = budgetMin.trim() ? parseListingPricePesos(budgetMin) : null;
+        const bmax = budgetMax.trim() ? parseListingPricePesos(budgetMax) : null;
         if (budgetMin.trim() && bmin === null) {
           toast.error("Enter a valid minimum budget or leave it blank.");
           return;
@@ -672,24 +667,30 @@ function SettingsPageInner() {
                     </p>
                     <div className="mt-3 grid gap-4 sm:grid-cols-2">
                       <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-                        Min budget (₱)
+                        Min budget
                         <input
                           inputMode="numeric"
                           value={budgetMin}
-                          onChange={(e) => setBudgetMin(e.target.value.replace(/[^\d]/g, ""))}
-                          placeholder="e.g. 5000000"
+                          onChange={(e) => setBudgetMin(formatPriceInputDigits(e.target.value))}
+                          placeholder="₱500,000"
                           className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
                         />
+                        <span className="mt-1 block text-[11px] font-medium text-[#2C2C2C]/45">
+                          e.g. ₱500,000 for minimum budget
+                        </span>
                       </label>
                       <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-                        Max budget (₱)
+                        Max budget
                         <input
                           inputMode="numeric"
                           value={budgetMax}
-                          onChange={(e) => setBudgetMax(e.target.value.replace(/[^\d]/g, ""))}
-                          placeholder="e.g. 15000000"
+                          onChange={(e) => setBudgetMax(formatPriceInputDigits(e.target.value))}
+                          placeholder="₱15,000,000"
                           className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
                         />
+                        <span className="mt-1 block text-[11px] font-medium text-[#2C2C2C]/45">
+                          Digits only; formatted with commas
+                        </span>
                       </label>
                     </div>
                     <label className="mt-4 block text-xs font-semibold text-[#2C2C2C]/55">

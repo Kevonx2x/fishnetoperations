@@ -9,6 +9,7 @@ import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { usePropertyLikes } from "@/hooks/use-property-engagement";
 import type { ProfileRole } from "@/lib/auth-roles";
 
 type PropertyRow = {
@@ -77,7 +78,7 @@ export default function ClientPublicProfilePage() {
     status: string;
   } | null>(null);
   const [properties, setProperties] = useState<PropertyRow[]>([]);
-  const [saveCounts, setSaveCounts] = useState<Record<string, number>>({});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [savedTotal, setSavedTotal] = useState(0);
   const [filter, setFilter] = useState<WishFilter>("all");
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -85,6 +86,8 @@ export default function ClientPublicProfilePage() {
   const clientId = rawId;
   const isOwn = Boolean(user?.id && user.id === clientId);
   const isAdmin = profile?.role === "admin";
+
+  const likes = usePropertyLikes();
 
   const canSeeWishlist = useMemo(() => {
     if (isOwn || isAdmin) return true;
@@ -189,7 +192,7 @@ export default function ClientPublicProfilePage() {
 
         if (!allowWishlist) {
           setProperties([]);
-          setSaveCounts({});
+          setLikeCounts({});
           setSavedTotal(0);
           return;
         }
@@ -205,7 +208,7 @@ export default function ClientPublicProfilePage() {
 
         if (ids.length === 0) {
           setProperties([]);
-          setSaveCounts({});
+          setLikeCounts({});
           return;
         }
 
@@ -221,24 +224,24 @@ export default function ClientPublicProfilePage() {
         if (propsErr) {
           console.error(propsErr);
           setProperties([]);
-          setSaveCounts({});
+          setLikeCounts({});
           return;
         }
 
         const list = (props ?? []) as PropertyRow[];
         setProperties(list);
 
-        const { data: counts } = await supabase.rpc("property_save_counts_for", {
+        const { data: counts } = await supabase.rpc("property_like_counts_for", {
           property_ids: ids,
         });
         if (cancelled) return;
 
         const map: Record<string, number> = {};
         for (const c of counts ?? []) {
-          const r = c as { property_id: string; save_count: number };
-          map[r.property_id] = Number(r.save_count);
+          const r = c as { property_id: string; like_count: number };
+          map[r.property_id] = Number(r.like_count);
         }
-        setSaveCounts(map);
+        setLikeCounts(map);
       } finally {
         if (!cancelled) setWishlistLoading(false);
       }
@@ -393,7 +396,7 @@ export default function ClientPublicProfilePage() {
                     <ul className="mt-8 space-y-8">
                       {filtered.map((p) => {
                         const overlay = overlayLabel(p);
-                        const hearts = saveCounts[p.id] ?? 0;
+                        const likeTotal = likeCounts[p.id] ?? 0;
                         return (
                           <li
                             key={p.id}
@@ -408,14 +411,14 @@ export default function ClientPublicProfilePage() {
                                 sizes="(max-width: 1024px) 100vw, 70vw"
                               />
                               {overlay ? (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/35">
+                                <div className="absolute inset-0 z-[5] flex items-center justify-center bg-black/35">
                                   <span className="rounded-lg border-2 border-white/90 bg-black/40 px-6 py-2 font-serif text-xl font-bold tracking-widest text-white">
                                     {overlay}
                                   </span>
                                 </div>
                               ) : null}
                               <span
-                                className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-bold ${
+                                className={`absolute left-3 top-3 z-20 rounded-full px-3 py-1 text-xs font-bold ${
                                   p.status === "for_rent"
                                     ? "bg-[#D4A843] text-[#2C2C2C]"
                                     : "bg-[#6B9E6E] text-white"
@@ -423,6 +426,24 @@ export default function ClientPublicProfilePage() {
                               >
                                 {p.status === "for_rent" ? "For Rent" : "For Sale"}
                               </span>
+                              <div className="absolute right-3 top-3 z-20">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    void likes.toggle(p.id);
+                                  }}
+                                  className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1.5 text-xs font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10 transition hover:bg-white"
+                                  aria-label={`${likeTotal} likes. ${likes.has(p.id) ? "Unlike" : "Like"}`}
+                                >
+                                  <Heart
+                                    className={`h-3.5 w-3.5 shrink-0 ${likes.has(p.id) ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
+                                    aria-hidden
+                                  />
+                                  <span>{likeTotal}</span>
+                                </button>
+                              </div>
                             </div>
                             <div className="p-4 sm:p-5">
                               <h3 className="font-serif text-xl font-semibold text-[#2C2C2C]">
@@ -436,10 +457,6 @@ export default function ClientPublicProfilePage() {
                                 {p.beds} bed · {p.baths} bath · {p.sqft} sqft
                               </p>
                               <div className="mt-4 flex flex-wrap items-center gap-4">
-                                <span className="inline-flex items-center gap-1 text-sm font-semibold text-[#2C2C2C]/70">
-                                  <Heart className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
-                                  {hearts}
-                                </span>
                                 <Link
                                   href={`/properties/${p.id}`}
                                   className="inline-flex rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5d8a60]"
