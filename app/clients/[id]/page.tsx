@@ -11,6 +11,13 @@ import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { usePropertyLikes } from "@/hooks/use-property-engagement";
 import type { ProfileRole } from "@/lib/auth-roles";
+import {
+  formatBudgetRangePhp,
+  isClientProfilePrefsComplete,
+  lookingToLabel,
+  preferredLocationsLabel,
+  type ClientPreferenceFields,
+} from "@/lib/client-profile-preferences";
 
 type PropertyRow = {
   id: string;
@@ -72,6 +79,10 @@ export default function ClientPublicProfilePage() {
     created_at: string;
     role: ProfileRole;
   } | null>(null);
+  const [clientPrefs, setClientPrefs] = useState<
+    (ClientPreferenceFields & { preferred_locations: unknown }) | null
+  >(null);
+  const [moveInFromRequests, setMoveInFromRequests] = useState<string | null>(null);
   const [viewerAgent, setViewerAgent] = useState<{
     listing_tier: string;
     verified: boolean;
@@ -96,9 +107,35 @@ export default function ClientPublicProfilePage() {
     return t === "pro" || t === "featured" || t === "broker";
   }, [isOwn, isAdmin, viewerAgent]);
 
+  const showClientPrefsCard = useMemo(() => {
+    if (isOwn || !clientProfile) return false;
+    if (isAdmin) return true;
+    const ag = viewerAgent;
+    return Boolean(
+      ag &&
+        ag.verified &&
+        ag.status === "approved" &&
+        ["pro", "featured", "broker"].includes(ag.listing_tier),
+    );
+  }, [isOwn, isAdmin, clientProfile, viewerAgent]);
+
+  const prefsComplete = useMemo(
+    () => (clientPrefs ? isClientProfilePrefsComplete(clientPrefs) : false),
+    [clientPrefs],
+  );
+
+  const moveInDisplay = useMemo(() => {
+    if (!moveInFromRequests) return "—";
+    const d = new Date(`${moveInFromRequests}T12:00:00`);
+    return Number.isNaN(d.getTime())
+      ? moveInFromRequests
+      : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }, [moveInFromRequests]);
+
   useEffect(() => {
     if (!UUID_RE.test(clientId)) {
       setClientProfile(null);
+      setClientPrefs(null);
       setProfileLoading(false);
       setWishlistLoading(false);
       return;
@@ -110,7 +147,9 @@ export default function ClientPublicProfilePage() {
       setProfileLoading(true);
       const { data: p, error: pe } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, created_at, role")
+        .select(
+          "id, full_name, avatar_url, created_at, role, budget_min, budget_max, looking_to, preferred_property_type, country_of_origin, preferred_locations",
+        )
         .eq("id", clientId)
         .maybeSingle();
 
@@ -118,6 +157,7 @@ export default function ClientPublicProfilePage() {
 
       if (pe || !p || (p as { role: string }).role !== "client") {
         setClientProfile(null);
+        setClientPrefs(null);
         setProfileLoading(false);
         setWishlistLoading(false);
         return;
@@ -129,6 +169,12 @@ export default function ClientPublicProfilePage() {
         avatar_url: string | null;
         created_at: string;
         role: string;
+        budget_min: number | null;
+        budget_max: number | null;
+        looking_to: string | null;
+        preferred_property_type: string | null;
+        country_of_origin: string | null;
+        preferred_locations: unknown;
       };
 
       setClientProfile({
@@ -138,6 +184,14 @@ export default function ClientPublicProfilePage() {
         created_at: row.created_at,
         role: row.role as ProfileRole,
       });
+      setClientPrefs({
+        budget_min: row.budget_min,
+        budget_max: row.budget_max,
+        looking_to: row.looking_to,
+        preferred_property_type: row.preferred_property_type,
+        country_of_origin: row.country_of_origin,
+        preferred_locations: row.preferred_locations,
+      });
       setProfileLoading(false);
     })();
 
@@ -145,6 +199,36 @@ export default function ClientPublicProfilePage() {
       cancelled = true;
     };
   }, [clientId, supabase]);
+
+  useEffect(() => {
+    if (!UUID_RE.test(clientId) || !clientProfile || !showClientPrefsCard) {
+      setMoveInFromRequests(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      let q = supabase
+        .from("viewing_requests")
+        .select("preferred_move_in_date")
+        .eq("client_user_id", clientId)
+        .not("preferred_move_in_date", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (!isAdmin && user?.id) {
+        q = q.eq("agent_user_id", user.id);
+      }
+      const { data } = await q.maybeSingle();
+      if (cancelled) return;
+      const raw = (data as { preferred_move_in_date?: string } | null)?.preferred_move_in_date;
+      setMoveInFromRequests(raw ?? null);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, clientProfile, showClientPrefsCard, isAdmin, user?.id, supabase]);
 
   useEffect(() => {
     if (!UUID_RE.test(clientId) || !clientProfile || authLoading) {
@@ -326,16 +410,79 @@ export default function ClientPublicProfilePage() {
                   <span className="text-[#6B9E6E]">{savedTotal}</span> properties saved
                 </p>
                 <p className="mt-1 text-xs text-[#2C2C2C]/45">0 properties viewed · coming soon</p>
+                {isOwn && clientPrefs ? (
+                  <div className="mt-6 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-4 text-left">
+                    <p
+                      className={`text-xs font-medium leading-snug ${
+                        prefsComplete ? "text-[#6B9E6E]" : "text-[#D4A843]"
+                      }`}
+                    >
+                      {prefsComplete
+                        ? "✓ Profile preferences complete"
+                        : "⚠️ Complete your preferences so agents can serve you better"}
+                    </p>
+                    <Link
+                      href="/settings?tab=profile"
+                      className="mt-3 flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                    >
+                      Edit Profile Preferences
+                    </Link>
+                  </div>
+                ) : null}
                 {isOwn ? (
                   <Link
                     href="/settings?tab=profile"
-                    className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#6B9E6E] bg-[#6B9E6E] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                    className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#6B9E6E] bg-transparent px-5 py-2.5 text-sm font-semibold text-[#6B9E6E] shadow-sm transition hover:bg-[#FAF8F4]"
                   >
                     <Pencil className="h-4 w-4" aria-hidden />
                     Edit profile
                   </Link>
                 ) : null}
               </div>
+              {showClientPrefsCard && clientPrefs ? (
+                <div className="mt-6 w-full rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-5 text-left shadow-sm">
+                  <h3 className="font-serif text-base font-semibold text-[#2C2C2C]">
+                    Client Preferences <span className="text-[#D4A843]">🔒</span>{" "}
+                    <span className="text-sm font-normal text-[#2C2C2C]/70">Pro Feature</span>
+                  </h3>
+                  <dl className="mt-4 space-y-2.5 text-sm">
+                    <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-4">
+                      <dt className="shrink-0 text-[#2C2C2C]/55">Budget</dt>
+                      <dd className="font-medium text-[#2C2C2C]">
+                        {formatBudgetRangePhp(clientPrefs.budget_min, clientPrefs.budget_max)}
+                      </dd>
+                    </div>
+                    <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-4">
+                      <dt className="shrink-0 text-[#2C2C2C]/55">Looking to</dt>
+                      <dd className="font-medium text-[#2C2C2C]">
+                        {lookingToLabel(clientPrefs.looking_to)}
+                      </dd>
+                    </div>
+                    <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-4">
+                      <dt className="shrink-0 text-[#2C2C2C]/55">Property type</dt>
+                      <dd className="font-medium text-[#2C2C2C]">
+                        {clientPrefs.preferred_property_type?.trim() || "—"}
+                      </dd>
+                    </div>
+                    <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-4">
+                      <dt className="shrink-0 text-[#2C2C2C]/55">Preferred areas</dt>
+                      <dd className="font-medium text-[#2C2C2C]">
+                        {preferredLocationsLabel(clientPrefs.preferred_locations)}
+                      </dd>
+                    </div>
+                    <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-4">
+                      <dt className="shrink-0 text-[#2C2C2C]/55">Country</dt>
+                      <dd className="font-medium text-[#2C2C2C]">
+                        {clientPrefs.country_of_origin?.trim() || "—"}
+                      </dd>
+                    </div>
+                    <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-4">
+                      <dt className="shrink-0 text-[#2C2C2C]/55">Move-in timeline</dt>
+                      <dd className="font-medium text-[#2C2C2C]">{moveInDisplay}</dd>
+                    </div>
+                  </dl>
+                </div>
+              ) : null}
             </aside>
 
             <main className="min-w-0 flex-1 lg:w-[70%]">

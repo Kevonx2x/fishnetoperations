@@ -12,6 +12,10 @@ import { cn } from "@/lib/utils";
 import { parseSchedule, viewingDateDisabled, type AvailabilitySchedule } from "@/lib/availability-schedule";
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
 import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
+import {
+  getMissingClientPreferenceLabels,
+  type ClientPreferenceFields,
+} from "@/lib/client-profile-preferences";
 
 const TIME_SLOTS = [
   { label: "9:00 AM", hour: 9 },
@@ -29,11 +33,7 @@ function toScheduledIso(date: Date, hour: number): string {
   return setMinutes(setHours(d0, hour), 0).toISOString();
 }
 
-type ClientPrefsRow = {
-  budget_min: number | null;
-  budget_max: number | null;
-  looking_to: string | null;
-  preferred_property_type: string | null;
+type ClientPrefsRow = ClientPreferenceFields & {
   preferred_locations: unknown;
 };
 
@@ -61,8 +61,13 @@ function buildClientPrefsNotesLine(row: ClientPrefsRow): string {
     const labels = locs.filter((x): x is string => typeof x === "string");
     if (labels.length) parts.push(`Preferred areas: ${labels.join(", ")}`);
   }
+  if (row.country_of_origin?.trim()) {
+    parts.push(`Country: ${row.country_of_origin.trim()}`);
+  }
   return parts.join(" | ");
 }
+
+type PrefsGateState = "idle" | "loading" | "complete" | "incomplete";
 
 export function ViewingRequestModal({
   open,
@@ -73,7 +78,6 @@ export function ViewingRequestModal({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** When null (e.g. agent profile), request is not tied to a listing. */
   propertyId: string | null;
   propertyTitle: string;
   agentUserId: string | null;
@@ -87,47 +91,79 @@ export function ViewingRequestModal({
   const [date, setDate] = useState<Date | undefined>(() => startOfDay(new Date()));
   const [hour, setHour] = useState<number>(10);
   const [notes, setNotes] = useState("");
-  const [occupantCount, setOccupantCount] = useState(1);
-  const [hasPets, setHasPets] = useState(false);
-  const [moveInDate, setMoveInDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notifyWarning, setNotifyWarning] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [agentSchedule, setAgentSchedule] = useState<AvailabilitySchedule | undefined>(undefined);
+  const [prefsGate, setPrefsGate] = useState<PrefsGateState>("idle");
+  const [missingPrefs, setMissingPrefs] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
     setError(null);
     setNotifyWarning(null);
     setSuccess(false);
-    setOccupantCount(1);
-    setHasPets(false);
-    setMoveInDate("");
     if (user) {
       setEmail(user.email ?? "");
       setName(profile?.full_name?.trim() ?? "");
       setPhone(profile?.phone?.trim() ?? "");
-      if (profile?.role === "client") {
-        setNotes("");
-        void (async () => {
-          const { data } = await supabase
-            .from("profiles")
-            .select("budget_min, budget_max, looking_to, preferred_property_type, preferred_locations")
-            .eq("id", user.id)
-            .maybeSingle();
-          const line = data ? buildClientPrefsNotesLine(data as ClientPrefsRow) : "";
-          setNotes(line ? `${line}\n\n` : "");
-        })();
-      } else {
-        setNotes("");
-      }
-    } else {
+    }
+    if (!user || profile?.role !== "client") {
       setNotes("");
     }
     setDate(startOfDay(new Date()));
     setHour(10);
-  }, [open, user, profile, supabase]);
+  }, [open, user, profile]);
+
+  useEffect(() => {
+    if (!open) {
+      setPrefsGate("idle");
+      setMissingPrefs([]);
+      return;
+    }
+    if (!user?.id) {
+      setPrefsGate("complete");
+      return;
+    }
+    if (profile?.role !== "client") {
+      setPrefsGate("complete");
+      return;
+    }
+
+    setPrefsGate("loading");
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select(
+          "budget_min, budget_max, looking_to, preferred_property_type, preferred_locations, country_of_origin",
+        )
+        .eq("id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (!data) {
+        setMissingPrefs(["Profile"]);
+        setPrefsGate("incomplete");
+        setNotes("");
+        return;
+      }
+      const row = data as ClientPrefsRow;
+      const missing = getMissingClientPreferenceLabels(row);
+      setMissingPrefs(missing);
+      if (missing.length > 0) {
+        setPrefsGate("incomplete");
+        setNotes("");
+      } else {
+        setPrefsGate("complete");
+        const line = buildClientPrefsNotesLine(row);
+        setNotes(line ? `${line}\n\n` : "");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, user?.id, profile?.role, supabase]);
 
   useEffect(() => {
     if (!open || !agentUserId) {
@@ -136,7 +172,11 @@ export function ViewingRequestModal({
     }
     let cancelled = false;
     void (async () => {
-      const { data } = await supabase.from("agents").select("availability_schedule").eq("user_id", agentUserId).maybeSingle();
+      const { data } = await supabase
+        .from("agents")
+        .select("availability_schedule")
+        .eq("user_id", agentUserId)
+        .maybeSingle();
       if (cancelled) return;
       setAgentSchedule(parseSchedule(data?.availability_schedule));
     })();
@@ -182,6 +222,10 @@ export function ViewingRequestModal({
       setError("No agent is available for this request yet.");
       return;
     }
+    if (profile?.role === "client" && prefsGate !== "complete") {
+      setError("Complete your profile preferences before requesting a viewing.");
+      return;
+    }
     if (!name.trim() || !email.trim()) {
       setError("Please enter your name and email.");
       return;
@@ -204,14 +248,12 @@ export function ViewingRequestModal({
     setBusy(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
-      console.log("[ViewingRequestModal] auth session for insert:", sessionData.session);
       if (!sessionData.session) {
         setError("Please sign in again");
         return;
       }
 
       const scheduledAt = toScheduledIso(date, hour);
-      const occ = Math.min(50, Math.max(1, Math.floor(occupantCount) || 1));
       const { data: row, error: insErr } = await supabase
         .from("viewing_requests")
         .insert({
@@ -224,9 +266,6 @@ export function ViewingRequestModal({
           scheduled_at: scheduledAt,
           notes: notes.trim() ? notes.trim() : null,
           status: "pending",
-          occupant_count: occ,
-          has_pets: hasPets,
-          preferred_move_in_date: moveInDate.trim() || null,
         })
         .select("id")
         .single();
@@ -235,7 +274,6 @@ export function ViewingRequestModal({
       if (!row?.id) throw new Error("Could not create request.");
 
       const viewingRequestId = row.id;
-      console.log("[ViewingRequestModal] viewing request inserted successfully, viewingRequestId:", viewingRequestId);
 
       const res = await fetch("/api/create-lead", {
         method: "POST",
@@ -251,11 +289,6 @@ export function ViewingRequestModal({
       } catch {
         /* keep raw text */
       }
-      console.log("[ViewingRequestModal] /api/create-lead response:", {
-        status: res.status,
-        ok: res.ok,
-        body: responseBody,
-      });
 
       if (!res.ok) {
         const j = responseBody as { error?: { message?: string } } | null;
@@ -275,6 +308,17 @@ export function ViewingRequestModal({
 
   if (!open) return null;
 
+  const isClient = profile?.role === "client";
+  const showPrefsGate = Boolean(user && isClient && prefsGate === "incomplete");
+  const showPrefsLoading = Boolean(user && isClient && (prefsGate === "loading" || prefsGate === "idle"));
+  const showForm = Boolean(
+    user &&
+      !showPrefsGate &&
+      !showPrefsLoading &&
+      (profile?.role !== "client" || prefsGate === "complete"),
+  );
+  const headerTitle = showPrefsGate ? "Complete Your Profile First" : "Request a viewing";
+
   const shell = (
     <div className="fixed inset-0 z-[200] flex items-end justify-center sm:items-center" role="presentation">
       <button
@@ -293,9 +337,11 @@ export function ViewingRequestModal({
         <div className="flex items-start justify-between gap-3 border-b border-[#2C2C2C]/10 px-5 py-4">
           <div>
             <h2 id={titleId} className="font-serif text-xl font-bold text-[#2C2C2C]">
-              Request a viewing
+              {headerTitle}
             </h2>
-            <p className="mt-1 line-clamp-2 text-xs font-semibold text-[#2C2C2C]/55">{propertyTitle}</p>
+            {!showPrefsGate ? (
+              <p className="mt-1 line-clamp-2 text-xs font-semibold text-[#2C2C2C]/55">{propertyTitle}</p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -331,8 +377,52 @@ export function ViewingRequestModal({
                 Done
               </Button>
             </div>
-          ) : (
+          ) : showPrefsLoading ? (
+            <p className="text-sm font-semibold text-[#2C2C2C]/60">Checking your profile…</p>
+          ) : showPrefsGate ? (
+            <div className="space-y-5">
+              <p className="text-sm leading-relaxed text-[#2C2C2C]/80">
+                To request a viewing, we need a few details about what you&apos;re looking for. This helps the
+                agent prepare for your visit.
+              </p>
+              {missingPrefs.length > 0 ? (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Still needed
+                  </p>
+                  <ul className="mt-2 list-inside list-disc space-y-1 text-sm font-semibold text-[#2C2C2C]">
+                    {missingPrefs.map((m) => (
+                      <li key={m}>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <Button
+                type="button"
+                className="w-full rounded-xl bg-[#6B9E6E] py-3 font-semibold text-white shadow-sm hover:bg-[#5d8a60]"
+                onClick={() => window.open("/settings?tab=profile", "_blank", "noopener,noreferrer")}
+              >
+                Complete My Profile
+              </Button>
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="w-full text-center text-sm font-semibold text-[#2C2C2C]/55 underline underline-offset-2 hover:text-[#2C2C2C]"
+              >
+                I&apos;ll do this later
+              </button>
+              <p className="border-t border-[#2C2C2C]/10 pt-4 text-center text-[11px] font-medium text-[#2C2C2C]/45">
+                Your preferences are shared with the agent when you request a viewing
+              </p>
+            </div>
+          ) : showForm ? (
             <div className="space-y-4">
+              {isClient && prefsGate === "complete" ? (
+                <div className="rounded-xl border border-[#6B9E6E]/30 bg-[#6B9E6E]/10 px-3 py-2.5 text-xs font-semibold text-[#2C2C2C]">
+                  Your profile preferences will be shared with the agent 📋
+                </div>
+              ) : null}
+
               <label className="block">
                 <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">Name</span>
                 <input
@@ -360,72 +450,10 @@ export function ViewingRequestModal({
                 />
               </div>
 
-              <label className="block">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                  Number of occupants
-                </span>
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  inputMode="numeric"
-                  value={occupantCount}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    if (!Number.isFinite(n)) {
-                      setOccupantCount(1);
-                      return;
-                    }
-                    setOccupantCount(Math.min(50, Math.max(1, Math.floor(n))));
-                  }}
-                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] outline-none ring-[#D4A843]/30 focus-visible:ring-2"
-                />
-              </label>
-
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">Pets?</span>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setHasPets(false)}
-                    className={cn(
-                      "flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold transition",
-                      !hasPets
-                        ? "border-[#6B9E6E] bg-[#6B9E6E]/15 text-[#2C2C2C]"
-                        : "border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70",
-                    )}
-                  >
-                    No
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setHasPets(true)}
-                    className={cn(
-                      "flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold transition",
-                      hasPets
-                        ? "border-[#6B9E6E] bg-[#6B9E6E]/15 text-[#2C2C2C]"
-                        : "border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70",
-                    )}
-                  >
-                    Yes
-                  </button>
-                </div>
-              </div>
-
-              <label className="block">
                 <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                  When would you like to move in?
+                  Preferred viewing date
                 </span>
-                <input
-                  type="date"
-                  value={moveInDate}
-                  onChange={(e) => setMoveInDate(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] outline-none ring-[#D4A843]/30 focus-visible:ring-2"
-                />
-              </label>
-
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">Preferred date</span>
                 <div className="mt-2 flex justify-center rounded-xl border border-[#2C2C2C]/10 bg-white p-2">
                   <Calendar
                     mode="single"
@@ -444,7 +472,9 @@ export function ViewingRequestModal({
               </div>
 
               <label className="block">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">Time</span>
+                <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Preferred viewing time
+                </span>
                 <select
                   value={hour}
                   onChange={(e) => setHour(Number(e.target.value))}
@@ -467,7 +497,7 @@ export function ViewingRequestModal({
                   onChange={(e) => setNotes(e.target.value)}
                   rows={4}
                   className="mt-1.5 w-full resize-none rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] outline-none ring-[#D4A843]/30 focus-visible:ring-2"
-                  placeholder="Your saved search preferences appear above when you are signed in as a client. Add anything else the agent should know."
+                  placeholder="Anything else the agent should know?"
                 />
               </label>
 
@@ -489,6 +519,8 @@ export function ViewingRequestModal({
                 {busy ? "Sending…" : "Submit request"}
               </Button>
             </div>
+          ) : (
+            <p className="text-sm font-semibold text-[#2C2C2C]/60">Loading…</p>
           )}
         </div>
       </div>

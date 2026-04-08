@@ -18,7 +18,6 @@ import {
   Shield,
   BadgeCheck,
   Lock,
-  Users,
   Search,
   Star,
 } from "lucide-react";
@@ -44,22 +43,55 @@ import { cn } from "@/lib/utils";
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { roomUrlsFor } from "@/lib/marketplace-property";
 
-const HERO_SLIDES = [
-  "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=2400&h=1300&fit=crop",
-  "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=2400&h=1300&fit=crop",
-  "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=2400&h=1300&fit=crop",
-  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=2400&h=1300&fit=crop",
-  "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=2400&h=1300&fit=crop",
-  "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=2400&h=1300&fit=crop",
-  "https://images.unsplash.com/photo-1484154218962-a197022b5858?w=2400&h=1300&fit=crop",
-  "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=2400&h=1300&fit=crop",
+const FEATURED_CITIES: {
+  key: string;
+  label: string;
+  imageUrl: string;
+  match: (location: string) => boolean;
+}[] = [
+  {
+    key: "BGC",
+    label: "BGC",
+    imageUrl:
+      "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=400&h=300&fit=crop",
+    match: (loc) => loc.toLowerCase().includes("bgc"),
+  },
+  {
+    key: "Makati",
+    label: "Makati",
+    imageUrl:
+      "https://images.unsplash.com/photo-1583245177184-4ab97f5fcd7a?w=400&h=300&fit=crop",
+    match: (loc) => loc.toLowerCase().includes("makati"),
+  },
+  {
+    key: "Ortigas",
+    label: "Ortigas",
+    imageUrl:
+      "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=400&h=300&fit=crop",
+    match: (loc) => loc.toLowerCase().includes("ortigas"),
+  },
+  {
+    key: "Cebu City",
+    label: "Cebu City",
+    imageUrl:
+      "https://images.unsplash.com/photo-1597843786186-1f0e4ff4b0ec?w=400&h=300&fit=crop",
+    match: (loc) => /cebu/i.test(loc),
+  },
+  {
+    key: "Davao",
+    label: "Davao",
+    imageUrl:
+      "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=400&h=300&fit=crop",
+    match: (loc) => /davao/i.test(loc),
+  },
+  {
+    key: "Tagaytay",
+    label: "Tagaytay",
+    imageUrl:
+      "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=400&h=300&fit=crop",
+    match: (loc) => /tagaytay/i.test(loc),
+  },
 ];
-
-function hoursAgo(createdAtIso: string): number {
-  const t = new Date(createdAtIso).getTime();
-  if (!Number.isFinite(t)) return 999;
-  return Math.max(0, Math.floor((Date.now() - t) / (1000 * 60 * 60)));
-}
 
 function neighborhoodKey(location: string): string {
   const l = location.toLowerCase();
@@ -104,6 +136,81 @@ function formatPeso(n: number): string {
   if (!Number.isFinite(n)) return "₱0";
   if (n >= 1_000_000) return `₱${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
   return `₱${Math.round(n).toLocaleString()}`;
+}
+
+function HeroFloatingPropertyCards({ properties }: { properties: DbProperty[] }) {
+  if (properties.length === 0) {
+    return (
+      <div className="flex h-[320px] max-w-sm items-center justify-center rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white/60 px-6 text-center text-sm font-semibold text-[#2C2C2C]/45">
+        Loading listings…
+      </div>
+    );
+  }
+
+  const pick = (i: number) => properties[Math.min(i, properties.length - 1)]!;
+  const configs = [
+    {
+      top: "top-0",
+      width: "w-[248px]",
+      rotate: "rotate-[5deg]",
+      z: "z-10",
+      scale: "",
+    },
+    {
+      top: "top-[108px]",
+      width: "w-[292px]",
+      rotate: "rotate-0",
+      z: "z-20",
+      scale: "scale-[1.04]",
+    },
+    {
+      top: "top-[238px]",
+      width: "w-[248px]",
+      rotate: "-rotate-[5deg]",
+      z: "z-10",
+      scale: "",
+    },
+  ] as const;
+
+  return (
+    <div className="relative mx-auto h-[400px] w-full max-w-[340px]">
+      {[0, 1, 2].map((idx) => {
+        const p = pick(idx);
+        const urls = roomUrlsFor(p);
+        const img = urls[0] ?? p.image_url;
+        const cfg = configs[idx]!;
+        const locShort = p.location.split(",")[0]?.trim() || p.location;
+        return (
+          <Link
+            key={`${p.id}-float-${idx}`}
+            href={`/properties/${encodeURIComponent(p.id)}`}
+            className={cn(
+              "absolute left-1/2 -translate-x-1/2 overflow-hidden rounded-2xl border border-white/95 bg-white shadow-[0_18px_40px_-12px_rgba(44,44,44,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_48px_-10px_rgba(44,44,44,0.4)]",
+              cfg.top,
+              cfg.width,
+              cfg.rotate,
+              cfg.z,
+              cfg.scale,
+            )}
+          >
+            <div className="relative h-[128px] w-full sm:h-[136px]">
+              <Image src={img} alt="" fill className="object-cover" sizes="300px" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/5 to-transparent" />
+              <span className="absolute left-2.5 top-2.5 rounded-full bg-[#D4A843] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#2C2C2C] shadow-sm">
+                Verified
+              </span>
+            </div>
+            <div className="flex items-center gap-2 border-t border-[#2C2C2C]/8 bg-[#FAF8F4] px-3 py-2.5">
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
+              <span className="line-clamp-2 text-left text-xs font-bold leading-snug text-[#2C2C2C]">
+                {locShort}
+              </span>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  );
 }
 
 type FiltersState = {
@@ -152,7 +259,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
   const mode = listingMode;
   const [search, setSearch] = useState("");
-  const [heroIdx, setHeroIdx] = useState(0);
   const [listingViewMode, setListingViewMode] = useState<"browse" | "results">("browse");
 
   const [properties, setProperties] = useState<DbProperty[]>([]);
@@ -255,8 +361,26 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     const searched = q
       ? base.filter((p) => `${p.location} ${p.name ?? ""}`.toLowerCase().includes(q))
       : base;
-    return neighborhoodFilter ? searched.filter((p) => neighborhoodKey(p.location) === neighborhoodFilter) : searched;
+    if (!neighborhoodFilter) return searched;
+    const city = FEATURED_CITIES.find((c) => c.key === neighborhoodFilter);
+    if (city) return searched.filter((p) => city.match(p.location));
+    return searched.filter((p) => neighborhoodKey(p.location) === neighborhoodFilter);
   }, [properties, mode, search, neighborhoodFilter]);
+
+  const heroShowcaseProperties = useMemo(() => {
+    const base = properties.filter((p) => (mode === "buy" ? p.status === "for_sale" : p.status === "for_rent"));
+    const list = [...base].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return list.slice(0, 3);
+  }, [properties, mode]);
+
+  const cityListingCounts = useMemo(() => {
+    const base = properties.filter((p) => (mode === "buy" ? p.status === "for_sale" : p.status === "for_rent"));
+    const m = new Map<string, number>();
+    for (const c of FEATURED_CITIES) {
+      m.set(c.key, base.filter((p) => c.match(p.location)).length);
+    }
+    return m;
+  }, [properties, mode]);
 
   const filteredAllRows = useMemo(() => {
     return baseModeProperties.filter((p) => {
@@ -351,16 +475,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const shortTerm = useMemo(() => pickMockSubset("shortterm"), [sortedAllRows]);
   const familyRent = useMemo(() => sortedAllRows.filter((p) => p.beds >= 3), [sortedAllRows]);
 
-  const neighborhoodCounts = useMemo(() => {
-    const base = properties.filter((p) => hoursAgo(p.created_at) <= 48);
-    const counts = new Map<string, number>();
-    for (const p of base) {
-      const k = neighborhoodKey(p.location);
-      counts.set(k, (counts.get(k) ?? 0) + 1);
-    }
-    return counts;
-  }, [properties]);
-
   const topAgents = useMemo(
     () =>
       [...agents]
@@ -404,149 +518,163 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     setSortMode("newest");
   };
 
+  const onSearchSubmit = () => {
+    if (hasActiveSearchOrFilters) {
+      setListingViewMode("results");
+      return;
+    }
+    const el = rowRefs.current[mode === "buy" ? "buy-featured" : "rent-featured"];
+    if (!el) return;
+    const step = Math.max(300, Math.round(el.clientWidth * 0.85));
+    el.scrollBy({ left: -step, behavior: "smooth" });
+  };
+
+  const selectCityFilter = (key: string) => {
+    setNeighborhoodFilter((v) => (v === key ? null : key));
+    setListingViewMode("results");
+    requestAnimationFrame(() => {
+      document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  const heroSearchCard = (
+    <>
+      <div className="flex justify-center lg:justify-start">
+        <div className="inline-flex gap-2 rounded-full bg-[#EBE6DC]/90 p-1 ring-1 ring-[#D4A843]/35 backdrop-blur-sm">
+          {mode === "rent" ? (
+            <>
+              <Link
+                href="/buy"
+                className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50"
+              >
+                Buy
+              </Link>
+              <span className="rounded-full bg-gradient-to-b from-[#8faf91] to-[#6B9E6E] px-5 py-2 text-xs font-semibold text-white shadow-sm ring-1 ring-[#D4A843]/50">
+                Rent
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="rounded-full bg-gradient-to-b from-[#8faf91] to-[#6B9E6E] px-5 py-2 text-xs font-semibold text-white shadow-sm ring-1 ring-[#D4A843]/50">
+                Buy
+              </span>
+              <Link
+                href="/"
+                className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50"
+              >
+                Rent
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="mt-4 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
+        <div className="relative z-20 flex w-full flex-col gap-3 sm:flex-row sm:items-center">
+          <PhLocationInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search by location or neighborhood"
+            aria-label="Search listings by location"
+            className="w-full min-w-0 flex-1"
+            inputClassName="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
+          />
+          <button
+            type="button"
+            onClick={onSearchSubmit}
+            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-full bg-[#D4A843] px-6 py-3 text-sm font-bold text-[#2C2C2C] shadow-md transition hover:bg-[#c49a38] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 sm:w-auto"
+          >
+            <Search className="h-4 w-4" aria-hidden />
+            Search
+          </button>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-[#2C2C2C]/80 lg:justify-start">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="text-[#6B9E6E]">✓</span> PRC Licensed Agents Only
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="text-[#6B9E6E]">✓</span> 0 Scams Guarantee
+        </span>
+      </div>
+      <p className="mt-3 text-center text-[11px] font-semibold tracking-wide text-[#2C2C2C]/45 lg:text-left">
+        1,200+ Listings · 847 Verified Agents · 0 Scams
+      </p>
+    </>
+  );
+
   return (
-    <div className="min-h-screen bg-[#FFFFFF]">
+    <div className="min-h-screen bg-[#FAF8F4]">
       <MaddenTopNav />
 
-      {/* 2. HERO SLIDER WITH SEARCH */}
-      <section className="relative">
-        <div className="relative h-[500px] w-full overflow-hidden bg-black/5">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={HERO_SLIDES[heroIdx]}
-              className="absolute inset-0"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.45 }}
-            >
-              <Image
-                src={HERO_SLIDES[heroIdx] ?? HERO_SLIDES[0]}
-                alt="Luxury property"
-                fill
-                priority
-                quality={95}
-                className="object-cover"
-                sizes="100vw"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-black/10" />
-            </motion.div>
-          </AnimatePresence>
+      <section className="relative border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:py-10 lg:py-14">
+          <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-14">
+            <div className="min-w-0">
+              <div className="text-center lg:hidden">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B9E6E]">
+                  Verified Agents · Real Listings · 100% Filipino
+                </p>
+                <h1 className="mt-4 font-serif text-2xl font-bold leading-tight tracking-tight text-[#2C2C2C] sm:text-3xl">
+                  FIND YOUR HOME IN THE PHILIPPINES
+                </h1>
+                <p className="mt-3 text-sm font-semibold text-[#2C2C2C]/65">
+                  Verified Agents, Real Listings, 100% Filipino
+                </p>
+              </div>
 
-          <button
-            type="button"
-            onClick={() => setHeroIdx((i) => (i - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
-            className="absolute left-5 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md hover:bg-white"
-            aria-label="Previous slide"
-          >
-            <ChevronLeft className="h-5 w-5 text-[#2C2C2C]" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setHeroIdx((i) => (i + 1) % HERO_SLIDES.length)}
-            className="absolute right-5 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md hover:bg-white"
-            aria-label="Next slide"
-          >
-            <ChevronRight className="h-5 w-5 text-[#2C2C2C]" />
-          </button>
-
-          {/* Search overlay */}
-          <div className="absolute inset-0 z-10 grid place-items-center px-4">
-            <div className="w-full max-w-3xl">
-              <div className="mb-5 text-center">
-                <h1 className="font-serif text-3xl font-bold tracking-tight text-white drop-shadow-md sm:text-4xl md:text-5xl">
+              <div className="hidden lg:block">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6B9E6E]">
+                  Verified Agents · Real Listings · 100% Filipino
+                </p>
+                <h1 className="mt-4 font-serif text-5xl font-bold leading-[1.08] tracking-tight text-[#2C2C2C]">
                   Find Your Home in the Philippines
                 </h1>
-                <p className="mt-2 text-sm font-semibold text-white/95 drop-shadow sm:text-base md:text-lg">
+                <p className="mt-4 text-lg font-medium text-[#2C2C2C]/70">
                   Browse verified listings across Metro Manila, Cebu, and beyond
                 </p>
               </div>
-              <div className="w-full rounded-3xl border border-white/25 bg-white/85 p-4 shadow-2xl backdrop-blur-md">
-                <div className="relative z-20 flex w-full flex-col gap-3 sm:flex-row sm:items-center">
-                  <PhLocationInput
-                    value={search}
-                    onChange={setSearch}
-                    placeholder="Search by location or neighborhood"
-                    aria-label="Search listings by location"
-                    className="w-full min-w-0 flex-1"
-                    inputClassName="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (hasActiveSearchOrFilters) {
-                        setListingViewMode("results");
-                        return;
-                      }
-                      const el = rowRefs.current[mode === "buy" ? "buy-featured" : "rent-featured"];
-                      if (!el) return;
-                      const step = Math.max(300, Math.round(el.clientWidth * 0.85));
-                      el.scrollBy({ left: -step, behavior: "smooth" });
-                    }}
-                    className="w-full shrink-0 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#6C8C70] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 sm:w-auto"
-                  >
-                    Search
-                  </button>
-                </div>
-                <div className="mt-3 flex justify-center">
-                  <div className="inline-flex gap-2 rounded-full bg-[#EBE6DC]/90 p-1 ring-1 ring-[#D4A843]/35 backdrop-blur-sm">
-                    {mode === "rent" ? (
-                      <>
-                        <Link
-                          href="/buy"
-                          className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50"
-                        >
-                          Buy
-                        </Link>
-                        <span className="rounded-full bg-gradient-to-b from-[#8faf91] to-[#6B9E6E] px-5 py-2 text-xs font-semibold text-white shadow-sm ring-1 ring-[#D4A843]/50">
-                          Rent
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="rounded-full bg-gradient-to-b from-[#8faf91] to-[#6B9E6E] px-5 py-2 text-xs font-semibold text-white shadow-sm ring-1 ring-[#D4A843]/50">
-                          Buy
-                        </span>
-                        <Link
-                          href="/"
-                          className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50"
-                        >
-                          Rent
-                        </Link>
-                      </>
-                    )}
-                  </div>
+
+              <div className="mt-6 lg:mt-8">{heroSearchCard}</div>
+
+              <div className="mt-6 lg:hidden">
+                <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#2C2C2C]/45">
+                  Featured Cities
+                </p>
+                <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-hide">
+                  {FEATURED_CITIES.slice(0, 4).map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => selectCityFilter(c.key)}
+                      className={`w-[100px] shrink-0 overflow-hidden rounded-xl border text-left shadow-sm transition ${
+                        neighborhoodFilter === c.key
+                          ? "border-[#D4A843] ring-2 ring-[#D4A843]/40"
+                          : "border-[#2C2C2C]/10"
+                      }`}
+                    >
+                      <div className="relative h-[72px] w-full">
+                        <Image src={c.imageUrl} alt="" fill className="object-cover" sizes="100px" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
+                      </div>
+                      <p className="truncate bg-white px-2 py-1.5 text-center text-[11px] font-bold text-[#2C2C2C]">
+                        {c.label}
+                      </p>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Slide dots */}
-          <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2">
-            {HERO_SLIDES.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setHeroIdx(i)}
-                aria-label={`Slide ${i + 1}`}
-                className={`h-2 rounded-full transition-all ${
-                  i === heroIdx ? "w-7 bg-white" : "w-2 bg-white/50 hover:bg-white/70"
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
+            <div className="relative hidden min-h-[440px] lg:block">
+              <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-gradient-to-br from-[#FAF8F4] via-[#FFF9F0] to-[#F5EFE4]" />
+              <div className="pointer-events-none absolute left-[12%] top-[22%] h-4 w-4 rotate-45 bg-[#D4A843]/25" />
+              <div className="pointer-events-none absolute right-[18%] top-[38%] h-3 w-3 rotate-45 bg-[#D4A843]/35" />
+              <div className="pointer-events-none absolute bottom-[28%] left-[20%] h-2.5 w-2.5 rotate-45 bg-[#6B9E6E]/25" />
 
-      <hr className="mx-auto w-3/4 border-t border-[#2C2C2C]/10" />
-
-      {/* 3. QUICK STATS BAR */}
-      <section className="mx-auto max-w-7xl px-4 py-8">
-        <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
-            <Stat icon={<Home className="h-4 w-4 text-[#6B9E6E]" />} value="1,200+" label="Active Listings" />
-            <Stat icon={<Users className="h-4 w-4 text-[#6B9E6E]" />} value="847" label="Verified Agents" />
-            <Stat icon={<Shield className="h-4 w-4 text-[#6B9E6E]" />} value="0" label="Reported Scams" />
+              <div className="relative mx-auto flex h-[440px] w-full max-w-[380px] items-center justify-center">
+                <HeroFloatingPropertyCards properties={heroShowcaseProperties} />
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -873,14 +1001,16 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
             <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
 
-            {/* 5. BROWSE BY NEIGHBORHOOD */}
+            {/* 5. FEATURED NEIGHBORHOODS */}
             <section id="neighborhoods" className="mt-12">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div className="min-w-0">
                   <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">
-                    Browse by Neighborhood
+                    Featured Neighborhoods
                   </h2>
-                  <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Filter newly listed homes instantly</p>
+                  <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+                    Tap a city to filter listings
+                  </p>
                 </div>
                 {neighborhoodFilter ? (
                   <button
@@ -892,27 +1022,38 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   </button>
                 ) : null}
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {[
-                  "Makati CBD",
-                  "BGC",
-                  "Alabang",
-                  "Forbes Park",
-                  "Tagaytay",
-                  "Ortigas",
-                  "Pasig",
-                  "Quezon City",
-                  "Mandaluyong",
-                  "San Juan",
-                ].map((n) => (
-                  <Chip
-                    key={n}
-                    active={neighborhoodFilter === n}
-                    label={n}
-                    count={neighborhoodCounts.get(n) ?? 0}
-                    onClick={() => setNeighborhoodFilter((v) => (v === n ? null : n))}
-                  />
-                ))}
+              <div className="-mx-4 mt-5 flex gap-4 overflow-x-auto px-4 pb-2 scrollbar-hide sm:-mx-0 sm:px-0">
+                {FEATURED_CITIES.map((c) => {
+                  const count = cityListingCounts.get(c.key) ?? 0;
+                  const active = neighborhoodFilter === c.key;
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => selectCityFilter(c.key)}
+                      className={`group relative h-[200px] w-[min(280px,85vw)] shrink-0 overflow-hidden rounded-2xl border text-left shadow-md transition ${
+                        active
+                          ? "border-[#D4A843] ring-2 ring-[#D4A843]/45"
+                          : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
+                      }`}
+                    >
+                      <Image
+                        src={c.imageUrl}
+                        alt=""
+                        fill
+                        className="object-cover transition duration-500 group-hover:scale-105"
+                        sizes="280px"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#2C2C2C]/90 via-[#2C2C2C]/25 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-4">
+                        <p className="font-serif text-xl font-bold text-white drop-shadow-sm">{c.label}</p>
+                        <p className="mt-1 text-sm font-semibold text-white/90">
+                          {count} {count === 1 ? "listing" : "listings"}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
@@ -1175,45 +1316,6 @@ function CategorySection({
         </div>
       ) : null}
     </>
-  );
-}
-
-function Stat({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
-  return (
-    <div className="flex items-center justify-center gap-3">
-      <div className="grid h-9 w-9 place-items-center rounded-full bg-[#6B9E6E]/12">{icon}</div>
-      <div className="text-left">
-        <div className="text-lg font-bold text-[#2C2C2C]">{value}</div>
-        <div className="text-xs font-semibold text-[#2C2C2C]/55">{label}</div>
-      </div>
-    </div>
-  );
-}
-
-function Chip({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold ring-1 ring-black/10 ${
-        active ? "bg-[#2C2C2C] text-white" : "bg-white text-[#2C2C2C]/70 hover:bg-neutral-50"
-      }`}
-    >
-      {label}
-      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${active ? "bg-white/20" : "bg-[#6B9E6E]/12 text-[#2C2C2C]/70"}`}>
-        {count}
-      </span>
-    </button>
   );
 }
 
