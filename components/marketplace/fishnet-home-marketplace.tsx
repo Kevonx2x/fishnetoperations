@@ -726,8 +726,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               </button>
             ) : null}
           </div>
-          <div className="mt-6 overflow-x-auto px-4 scrollbar-hide">
-            <div className="flex w-max gap-3 pb-2 sm:gap-4">
+          <div className="mt-6 overflow-x-auto px-4 scrollbar-hide lg:px-0">
+            <div className="flex w-max gap-3 pb-2 sm:gap-4 lg:mx-auto lg:max-w-full lg:justify-center">
               {FEATURED_CITIES.map((c) => {
                 const count = cityListingCounts.get(c.key) ?? 0;
                 const active = neighborhoodFilter === c.key;
@@ -751,7 +751,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
                     <div className="absolute bottom-0 left-0 right-0 p-2 lg:p-2.5">
-                      <p className="font-serif text-xs font-bold text-white drop-shadow-sm lg:text-base">
+                      <p className="text-xs font-bold text-white drop-shadow-sm lg:font-serif lg:text-base lg:font-bold lg:drop-shadow-sm">
                         {c.label}
                       </p>
                       <p className="mt-0.5 text-[10px] font-semibold text-white/90 lg:text-[11px]">
@@ -1162,7 +1162,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         <AgentDirectoryCard
                           key={a.id}
                           agent={a}
-                          className="w-[180px] shrink-0 md:w-[300px]"
+                          className="w-[180px] shrink-0 lg:w-[300px]"
                         />
                       ))}
                       {topAgents.length < 4 ? <MoreAgentsComingSoonCard /> : null}
@@ -2002,7 +2002,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
 function MoreAgentsComingSoonCard() {
   return (
     <motion.div
-      className="w-[180px] shrink-0 md:w-[300px]"
+      className="w-[180px] shrink-0 lg:w-[300px]"
       animate={{ opacity: [0.88, 1, 0.88] }}
       transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
     >
