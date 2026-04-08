@@ -242,26 +242,32 @@ export function ViewingRequestModal({
 
       const viewingRequestId = row.id;
 
-      const res = await fetch("/api/create-lead", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ source: "viewing_request", viewingRequestId }),
-      });
-
-      const responseText = await res.text();
-      let responseBody: unknown = responseText;
       try {
-        responseBody = responseText ? JSON.parse(responseText) : null;
-      } catch {
-        /* keep raw text */
-      }
+        const res = await fetch("/api/create-lead", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ source: "viewing_request", viewingRequestId }),
+        });
 
-      if (!res.ok) {
-        const j = responseBody as { error?: { message?: string } } | null;
+        const responseText = await res.text();
+        let responseBody: unknown = responseText;
+        try {
+          responseBody = responseText ? JSON.parse(responseText) : null;
+        } catch {
+          /* keep raw text */
+        }
+
+        if (!res.ok) {
+          const j = responseBody as { error?: { message?: string } } | null;
+          setNotifyWarning(
+            j?.error?.message ??
+              "Your request was saved, but we could not notify the agent automatically.",
+          );
+        }
+      } catch {
         setNotifyWarning(
-          j?.error?.message ??
-            "Your request was saved, but we could not notify the agent automatically.",
+          "Your request was saved, but we could not notify the agent automatically.",
         );
       }
 

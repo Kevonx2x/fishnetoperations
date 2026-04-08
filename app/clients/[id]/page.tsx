@@ -51,11 +51,17 @@ function listingAgentUserId(property: PropertyRow, agents: MarketplaceAgent[]): 
 }
 
 function connectedAgentsFromPropertyAgentsRaw(
-  raw: { property_agents?: { agent?: unknown }[] | null },
+  raw: { property_agents?: { agent?: unknown; agents?: unknown }[] | null },
 ): MarketplaceAgent[] {
   const nested = raw.property_agents ?? [];
   const mapped = nested
-    .map((row) => row.agent)
+    .map((row) => {
+      const r = row as { agent?: unknown; agents?: unknown } | null | undefined;
+      const a = r?.agent ?? r?.agents;
+      if (a && typeof a === "object" && !Array.isArray(a)) return a;
+      if (Array.isArray(a) && a[0]) return a[0];
+      return null;
+    })
     .filter(Boolean)
     .map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]));
   const seen = new Set<string>();
@@ -569,6 +575,43 @@ export default function ClientPublicProfilePage() {
           });
         }
 
+        const { data: paWithAgents, error: paBatchErr } = await supabase
+          .from("property_agents")
+          .select(
+            `
+            property_id,
+            agent:agents (
+              id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at,
+              verified, status,
+              brokers (id, company_name, logo_url),
+              profiles(email, phone)
+            )
+          `,
+          )
+          .in("property_id", ids);
+
+        if (paBatchErr) {
+          console.error("[ClientWishlist] property_agents batch query failed", paBatchErr);
+        } else {
+          const byProperty = new Map<string, MarketplaceAgent[]>();
+          for (const row of paWithAgents ?? []) {
+            const r = row as { property_id: string; agent?: unknown };
+            if (!r.agent) continue;
+            const a = mapRowToMarketplaceAgent(
+              r.agent as Parameters<typeof mapRowToMarketplaceAgent>[0],
+            );
+            if (!a.id) continue;
+            const cur = byProperty.get(r.property_id) ?? [];
+            if (!cur.some((x) => x.id === a.id)) cur.push(a);
+            byProperty.set(r.property_id, cur);
+          }
+          list = list.map((p) => {
+            const batch = byProperty.get(p.id);
+            if (batch && batch.length > 0) return { ...p, connectedAgents: batch };
+            return p;
+          });
+        }
+
         setProperties(list);
 
         const { data: counts } = await supabase.rpc("property_like_counts_for", {
@@ -633,18 +676,19 @@ export default function ClientPublicProfilePage() {
     [clientId, supabase, user?.id],
   );
 
-  const onRequestViewingForProperty = useCallback(
+  const openViewingForProperty = useCallback(
     (p: PropertyRow) => {
       if (authLoading) return;
       if (!user) {
         setSignInPromptOpen(true);
         return;
       }
-      const agents = p.connectedAgents ?? [];
-      if (agents.length === 0) return;
-      if (agents.length === 1) {
+      const connectedAgents = p.connectedAgents ?? [];
+      console.log("[ClientWishlist] connectedAgents for property:", p.id, connectedAgents);
+      if (connectedAgents.length === 0) return;
+      if (connectedAgents.length === 1) {
         setSelectedViewingProperty(p);
-        setSelectedViewingAgentUserId(agents[0].userId);
+        setSelectedViewingAgentUserId(connectedAgents[0].userId);
         setShowViewingModal(true);
         return;
       }
@@ -1120,7 +1164,7 @@ export default function ClientPublicProfilePage() {
                               <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
                                 <button
                                   type="button"
-                                  onClick={() => onRequestViewingForProperty(p)}
+                                  onClick={() => openViewingForProperty(p)}
                                   disabled={
                                     authLoading ||
                                     !hasAgents ||
