@@ -58,6 +58,90 @@ const MOVE_IN_TIMELINE_OPTIONS = [
   "Just browsing",
 ] as const;
 
+type ClientPrefsSnapshot = {
+  countryOfOrigin: string;
+  visaType: string;
+  visaExpiry: string;
+  budgetMin: string;
+  budgetMax: string;
+  preferredPropertyType: string;
+  preferredLocationsKey: string;
+  lookingTo: "" | "buy" | "rent" | "both";
+  occupantCount: number;
+  hasPets: boolean;
+  moveInTimeline: string;
+  agentNotes: string;
+};
+
+function serializeProfileSnapshot(args: {
+  fullName: string;
+  phone: string;
+  bio: string;
+  avatarUrl: string;
+  clientPrefs: ClientPrefsSnapshot | null;
+}): string {
+  const { fullName, phone, bio, avatarUrl, clientPrefs } = args;
+  if (!clientPrefs) {
+    return JSON.stringify({ fullName, phone, bio, avatarUrl });
+  }
+  return JSON.stringify({ fullName, phone, bio, avatarUrl, ...clientPrefs });
+}
+
+function profileSnapshotFromRow(
+  row: Record<string, unknown>,
+  includeClientPrefs: boolean,
+): string {
+  const str = (v: unknown) => (typeof v === "string" ? v : v == null ? "" : String(v));
+  if (!includeClientPrefs) {
+    return serializeProfileSnapshot({
+      fullName: str(row.full_name),
+      phone: str(row.phone),
+      bio: str(row.bio),
+      avatarUrl: str(row.avatar_url),
+      clientPrefs: null,
+    });
+  }
+  const locs = row.preferred_locations;
+  const arr = Array.isArray(locs) ? locs.filter((x): x is string => typeof x === "string") : [];
+  const lt = row.looking_to;
+  const lookingTo =
+    lt === "buy" || lt === "rent" || lt === "both" ? lt : ("" as const);
+  const oc = row.occupant_count;
+  const occupantCount =
+    oc != null && Number.isFinite(Number(oc))
+      ? Math.min(20, Math.max(1, Math.round(Number(oc))))
+      : 1;
+  const bmin =
+    row.budget_min != null && Number.isFinite(Number(row.budget_min))
+      ? formatPriceInputDigits(String(Math.round(Number(row.budget_min))))
+      : "";
+  const bmax =
+    row.budget_max != null && Number.isFinite(Number(row.budget_max))
+      ? formatPriceInputDigits(String(Math.round(Number(row.budget_max))))
+      : "";
+  const ve = row.visa_expiry;
+  return serializeProfileSnapshot({
+    fullName: str(row.full_name),
+    phone: str(row.phone),
+    bio: str(row.bio),
+    avatarUrl: str(row.avatar_url),
+    clientPrefs: {
+      countryOfOrigin: str(row.country_of_origin),
+      visaType: str(row.visa_type),
+      visaExpiry: ve && typeof ve === "string" ? ve.slice(0, 10) : "",
+      budgetMin: bmin,
+      budgetMax: bmax,
+      preferredPropertyType: str(row.preferred_property_type),
+      preferredLocationsKey: JSON.stringify([...arr].sort()),
+      lookingTo,
+      occupantCount,
+      hasPets: Boolean(row.has_pets),
+      moveInTimeline: str(row.move_in_timeline),
+      agentNotes: str(row.agent_notes),
+    },
+  });
+}
+
 const ROLE_OPTIONS: {
   value: Exclude<ProfileRole, "admin">;
   label: string;
@@ -137,6 +221,8 @@ function SettingsPageInner() {
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [baselineProfileJson, setBaselineProfileJson] = useState<string | null>(null);
+  const [hasSavedProfileOnce, setHasSavedProfileOnce] = useState(false);
 
   const [countryOfOrigin, setCountryOfOrigin] = useState("");
   const [visaType, setVisaType] = useState("");
@@ -167,17 +253,39 @@ function SettingsPageInner() {
   useEffect(() => {
     if (authLoading) return;
     void (async () => {
-      if (!user?.id) {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      if (!authUser?.id) {
+        setBaselineProfileJson(null);
+        setHasSavedProfileOnce(false);
         setLoaded(true);
         return;
       }
-      const { data } = await supabase
+      const uid = authUser.id;
+
+      const { data, error: profileErr } = await supabase
         .from("profiles")
-        .select(
-          "notify_email, notify_sms, role, full_name, phone, avatar_url, bio, country_of_origin, visa_type, visa_expiry, budget_min, budget_max, preferred_property_type, preferred_locations, looking_to, occupant_count, has_pets, move_in_timeline, agent_notes",
-        )
-        .eq("id", user.id)
+        .select("*")
+        .eq("id", uid)
         .maybeSingle();
+
+      if (profileErr) {
+        console.error(profileErr);
+        toast.error(profileErr.message || "Could not load your profile.");
+        setBaselineProfileJson(null);
+        setHasSavedProfileOnce(false);
+        setLoaded(true);
+        return;
+      }
+      if (!data) {
+        toast.error("No profile row found for your account.");
+        setBaselineProfileJson(null);
+        setHasSavedProfileOnce(false);
+        setLoaded(true);
+        return;
+      }
+
       const row = data as {
         notify_email?: boolean;
         notify_sms?: boolean;
@@ -199,6 +307,7 @@ function SettingsPageInner() {
         move_in_timeline?: string | null;
         agent_notes?: string | null;
       } | null;
+
       if (typeof row?.notify_email === "boolean") setNotifyEmail(row.notify_email);
       if (typeof row?.notify_sms === "boolean") setNotifySms(row.notify_sms);
       setFullName(row?.full_name ?? "");
@@ -248,18 +357,28 @@ function SettingsPageInner() {
         setPendingRole("client");
       }
 
+      const roleFromRow = row?.role;
+      const includeClientPrefs = roleFromRow === "client";
+      setBaselineProfileJson(
+        profileSnapshotFromRow(
+          (row ?? {}) as Record<string, unknown>,
+          includeClientPrefs,
+        ),
+      );
+      setHasSavedProfileOnce(false);
+
       const { data: b } = await supabase
         .from("brokers")
         .select(
           "id, company_name, name, status, verified, license_expiry, license_number, email",
         )
-        .eq("user_id", user.id)
+        .eq("user_id", uid)
         .maybeSingle();
 
       const { data: a } = await supabase
         .from("agents")
         .select("id, name, status, verified, license_expiry, license_number, email, broker_id")
-        .eq("user_id", user.id)
+        .eq("user_id", uid)
         .maybeSingle();
 
       setBroker((b as BrokerRow | null) ?? null);
@@ -280,7 +399,7 @@ function SettingsPageInner() {
 
       setLoaded(true);
     })();
-  }, [user?.id, authLoading, supabase]);
+  }, [authLoading, supabase, user?.id]);
 
   useEffect(() => {
     if (!profile || profile.role === "admin") return;
@@ -293,6 +412,60 @@ function SettingsPageInner() {
   const currentRole = profile?.role ?? "client";
   const isAdmin = currentRole === "admin";
   const visibleTabs = useMemo(() => visibleTabsForRole(currentRole), [currentRole]);
+
+  const profileFormSnapshot = useMemo(() => {
+    if (currentRole !== "client" || isAdmin) {
+      return serializeProfileSnapshot({
+        fullName,
+        phone,
+        bio,
+        avatarUrl,
+        clientPrefs: null,
+      });
+    }
+    return serializeProfileSnapshot({
+      fullName,
+      phone,
+      bio,
+      avatarUrl,
+      clientPrefs: {
+        countryOfOrigin,
+        visaType,
+        visaExpiry,
+        budgetMin,
+        budgetMax,
+        preferredPropertyType,
+        preferredLocationsKey: JSON.stringify([...preferredLocations].sort()),
+        lookingTo,
+        occupantCount,
+        hasPets,
+        moveInTimeline,
+        agentNotes,
+      },
+    });
+  }, [
+    currentRole,
+    isAdmin,
+    fullName,
+    phone,
+    bio,
+    avatarUrl,
+    countryOfOrigin,
+    visaType,
+    visaExpiry,
+    budgetMin,
+    budgetMax,
+    preferredPropertyType,
+    preferredLocations,
+    lookingTo,
+    occupantCount,
+    hasPets,
+    moveInTimeline,
+    agentNotes,
+  ]);
+
+  const profileFormIsDirty =
+    baselineProfileJson !== null && profileFormSnapshot !== baselineProfileJson;
 
   const activeTab: SettingsTabId = useMemo(() => {
     const t = tabParam as SettingsTabId | null;
@@ -438,6 +611,41 @@ function SettingsPageInner() {
         return;
       }
       await refreshProfile();
+      if (currentRole === "client" && !isAdmin) {
+        setBaselineProfileJson(
+          serializeProfileSnapshot({
+            fullName,
+            phone,
+            bio,
+            avatarUrl,
+            clientPrefs: {
+              countryOfOrigin,
+              visaType,
+              visaExpiry,
+              budgetMin,
+              budgetMax,
+              preferredPropertyType,
+              preferredLocationsKey: JSON.stringify([...preferredLocations].sort()),
+              lookingTo,
+              occupantCount,
+              hasPets,
+              moveInTimeline,
+              agentNotes,
+            },
+          }),
+        );
+      } else {
+        setBaselineProfileJson(
+          serializeProfileSnapshot({
+            fullName,
+            phone,
+            bio,
+            avatarUrl,
+            clientPrefs: null,
+          }),
+        );
+      }
+      setHasSavedProfileOnce(true);
       toast.success("Profile saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save profile");
@@ -917,13 +1125,32 @@ function SettingsPageInner() {
                   </div>
                 </div>
               ) : null}
-              <button
-                type="submit"
-                disabled={savingProfile}
-                className="rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] disabled:opacity-50"
-              >
-                {savingProfile ? "Saving…" : "Save profile"}
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={
+                    savingProfile || baselineProfileJson === null || !profileFormIsDirty
+                  }
+                  className="rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {savingProfile
+                    ? "Saving…"
+                    : currentRole === "client" && !isAdmin
+                      ? hasSavedProfileOnce
+                        ? "Update Preferences"
+                        : "Save Preferences"
+                      : hasSavedProfileOnce
+                        ? "Update profile"
+                        : "Save profile"}
+                </button>
+                {!profileFormIsDirty &&
+                hasSavedProfileOnce &&
+                baselineProfileJson !== null ? (
+                  <span className="text-sm font-semibold text-[#6B9E6E]" aria-live="polite">
+                    ✓ Saved
+                  </span>
+                ) : null}
+              </div>
             </form>
           </div>
         ) : null}

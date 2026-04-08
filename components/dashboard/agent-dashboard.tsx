@@ -95,6 +95,7 @@ type LeadRow = {
   stage: string;
   created_at: string;
   updated_at?: string;
+  client_id: string | null;
 };
 
 type ViewingRow = {
@@ -108,6 +109,7 @@ type ViewingRow = {
   notes: string | null;
   reminder_minutes?: number | null;
   reminder_sent?: boolean | null;
+  client_user_id: string | null;
 };
 
 type PropertyRow = {
@@ -304,7 +306,9 @@ export function AgentDashboard() {
       const [{ data: ld }, { data: owned }, { data: paRows }, vwRes] = await Promise.all([
         supabase
           .from("leads")
-          .select("id, name, email, phone, property_interest, message, stage, created_at, updated_at")
+          .select(
+            "id, name, email, phone, property_interest, message, stage, created_at, updated_at, client_id",
+          )
           .eq("agent_id", user.id)
           .order("created_at", { ascending: false }),
         supabase
@@ -1627,7 +1631,19 @@ function LeadsTab({
                 className="cursor-pointer border-b border-[#2C2C2C]/5 hover:bg-[#FAF8F4]/80"
                 onClick={() => onSelect(l)}
               >
-                <td className="px-4 py-3 font-semibold text-[#2C2C2C]">{l.name}</td>
+                <td className="px-4 py-3 font-semibold text-[#2C2C2C]">
+                  {l.client_id ? (
+                    <Link
+                      href={`/clients/${encodeURIComponent(l.client_id)}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="cursor-pointer hover:underline"
+                    >
+                      {l.name}
+                    </Link>
+                  ) : (
+                    l.name
+                  )}
+                </td>
                 <td className="px-4 py-3 text-[#2C2C2C]/70">{l.email}</td>
                 <td className="px-4 py-3 text-[#2C2C2C]/70">{l.phone ?? "—"}</td>
                 <td className="max-w-[200px] truncate px-4 py-3 text-[#2C2C2C]/70">{l.property_interest ?? "—"}</td>

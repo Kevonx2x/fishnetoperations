@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import DatePicker from "react-datepicker";
 import { Calendar } from "lucide-react";
@@ -15,6 +16,7 @@ type ViewingRow = {
   notes: string | null;
   reminder_minutes?: number | null;
   reminder_sent?: boolean | null;
+  client_user_id: string | null;
 };
 
 type PropertyMini = { id: string; location: string; name: string | null };
@@ -160,7 +162,18 @@ function ViewingCard({
       <div className="flex flex-wrap items-start gap-2">
         <Calendar className="h-5 w-5 shrink-0 text-[#6B9E6E]" />
         <div>
-          <p className="font-semibold text-[#2C2C2C]">{v.client_name}</p>
+          <p className="font-semibold text-[#2C2C2C]">
+            {v.client_user_id ? (
+              <Link
+                href={`/clients/${encodeURIComponent(v.client_user_id)}`}
+                className="cursor-pointer hover:underline"
+              >
+                {v.client_name}
+              </Link>
+            ) : (
+              v.client_name
+            )}
+          </p>
           <p className="text-xs font-semibold text-[#2C2C2C]/45">{v.client_email}</p>
           <p className="mt-1 text-sm font-bold text-[#D4A843]">{propertyLabel}</p>
         </div>

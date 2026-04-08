@@ -1537,7 +1537,7 @@ export function NewlyListedCard({
                     href={`/agents/${encodeURIComponent(row.agent.id)}`}
                     title={row.agent.name}
                     onClick={(e) => e.stopPropagation()}
-                    className="group flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-0.5 -mx-1 transition-colors duration-150 ease-out hover:bg-[#6B9E6E15]"
+                    className="group flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-0.5 -mx-1 transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
                   >
                     <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
                       <AgentAvatarFill name={row.agent.name} imageUrl={row.agent.image} sizes="28px" />

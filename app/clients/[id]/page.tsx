@@ -135,6 +135,7 @@ export default function ClientPublicProfilePage() {
   const [viewingPropertyId, setViewingPropertyId] = useState<string | null>(null);
   const [viewingPropertyTitle, setViewingPropertyTitle] = useState("");
   const [viewingAgentUserId, setViewingAgentUserId] = useState<string | null>(null);
+  const [freeAgentWishlistPreview, setFreeAgentWishlistPreview] = useState(false);
 
   const clientId = rawId;
   const isOwn = Boolean(user?.id && user.id === clientId);
@@ -146,8 +147,9 @@ export default function ClientPublicProfilePage() {
     if (isOwn || isAdmin) return true;
     if (!viewerAgent?.verified || viewerAgent.status !== "approved") return false;
     const t = viewerAgent.listing_tier;
-    return t === "pro" || t === "featured" || t === "broker";
-  }, [isOwn, isAdmin, viewerAgent]);
+    if (t === "pro" || t === "featured" || t === "broker") return true;
+    return freeAgentWishlistPreview;
+  }, [isOwn, isAdmin, viewerAgent, freeAgentWishlistPreview]);
 
   const showClientPrefsCard = useMemo(() => {
     if (isOwn || !clientProfile) return false;
@@ -165,6 +167,12 @@ export default function ClientPublicProfilePage() {
     () => (clientPrefs ? isClientProfilePrefsComplete(clientPrefs) : false),
     [clientPrefs],
   );
+
+  /** When viewing own profile as client, viewing requests require complete profile prefs. */
+  const viewingPrefsBlocked = useMemo(() => {
+    if (!isOwn || profile?.role !== "client" || clientPrefs === null) return false;
+    return !isClientProfilePrefsComplete(clientPrefs as ClientPreferenceFields);
+  }, [isOwn, profile?.role, clientPrefs]);
 
   const moveInDisplay = useMemo(() => {
     if (!moveInFromRequests) return "—";
@@ -326,9 +334,16 @@ export default function ClientPublicProfilePage() {
           ag.status === "approved" &&
           ["pro", "featured", "broker"].includes(ag.listing_tier);
 
-        const allowWishlist = own || admin || tierOk;
+        const freeAgentViewer =
+          Boolean(uid && uid !== clientId) &&
+          !own &&
+          !admin &&
+          Boolean(ag && ag.verified && ag.status === "approved" && !tierOk);
+
+        const allowWishlist = own || admin || tierOk || freeAgentViewer;
 
         if (!allowWishlist) {
+          setFreeAgentWishlistPreview(false);
           setProperties([]);
           setLikeCounts({});
           setSavedTotal(0);
@@ -340,14 +355,63 @@ export default function ClientPublicProfilePage() {
           .from("saved_properties")
           .select("property_id, created_at")
           .eq("user_id", clientId);
-        const pinMap: Record<string, string> = {};
+        let pinMap: Record<string, string> = {};
         for (const r of saves ?? []) {
           const row = r as { property_id: string; created_at: string };
           pinMap[row.property_id] = row.created_at;
         }
         if (cancelled) return;
+
+        let ids = Object.keys(pinMap);
+
+        if (freeAgentViewer) {
+          const { data: agentRow } = await supabase
+            .from("agents")
+            .select("id")
+            .eq("user_id", uid)
+            .maybeSingle();
+          const agentRecordId = (agentRow as { id?: string } | null)?.id;
+          if (!agentRecordId) {
+            setFreeAgentWishlistPreview(false);
+            setProperties([]);
+            setLikeCounts({});
+            setSavedTotal(0);
+            setPinnedAtByPropertyId({});
+            return;
+          }
+          const { data: ownedProps } = await supabase
+            .from("properties")
+            .select("id")
+            .eq("listed_by", uid);
+          const mine = new Set(
+            (ownedProps ?? []).map((r) => (r as { id: string }).id),
+          );
+          const { data: paLinks } = await supabase
+            .from("property_agents")
+            .select("property_id")
+            .eq("agent_id", agentRecordId);
+          for (const r of paLinks ?? []) {
+            mine.add((r as { property_id: string }).property_id);
+          }
+          ids = ids.filter((pid) => mine.has(pid));
+          pinMap = Object.fromEntries(
+            Object.entries(pinMap).filter(([pid]) => mine.has(pid)),
+          );
+          if (ids.length === 0) {
+            setFreeAgentWishlistPreview(false);
+            setProperties([]);
+            setLikeCounts({});
+            setSavedTotal(0);
+            setPinnedAtByPropertyId({});
+            return;
+          }
+          setFreeAgentWishlistPreview(true);
+        } else {
+          setFreeAgentWishlistPreview(false);
+        }
+
+        if (cancelled) return;
         setPinnedAtByPropertyId(pinMap);
-        const ids = Object.keys(pinMap);
 
         if (cancelled) return;
         setSavedTotal(ids.length);
@@ -374,7 +438,42 @@ export default function ClientPublicProfilePage() {
           return;
         }
 
-        const list = (props ?? []) as PropertyRow[];
+        let list = (props ?? []) as PropertyRow[];
+        const missingListedBy = list.filter((p) => !p.listed_by).map((p) => p.id);
+        if (missingListedBy.length > 0) {
+          const { data: paRows, error: paErr } = await supabase
+            .from("property_agents")
+            .select("property_id, agent_id")
+            .in("property_id", missingListedBy);
+          if (!paErr && paRows?.length) {
+            const agentIds = [
+              ...new Set(
+                (paRows as { agent_id: string }[]).map((r) => r.agent_id),
+              ),
+            ];
+            const { data: ags } = await supabase
+              .from("agents")
+              .select("id, user_id")
+              .in("id", agentIds);
+            const userByAgentId = new Map(
+              (ags ?? []).map((a) => {
+                const row = a as { id: string; user_id: string | null };
+                return [row.id, row.user_id] as const;
+              }),
+            );
+            const firstUserByProperty = new Map<string, string>();
+            for (const pa of paRows as { property_id: string; agent_id: string }[]) {
+              const uid = userByAgentId.get(pa.agent_id);
+              if (uid && !firstUserByProperty.has(pa.property_id)) {
+                firstUserByProperty.set(pa.property_id, uid);
+              }
+            }
+            list = list.map((p) => ({
+              ...p,
+              listed_by: p.listed_by ?? firstUserByProperty.get(p.id) ?? null,
+            }));
+          }
+        }
         setProperties(list);
 
         const { data: counts } = await supabase.rpc("property_like_counts_for", {
@@ -711,7 +810,10 @@ export default function ClientPublicProfilePage() {
               {!isOwn && !canSeeWishlist ? (
                 <div className="mt-8 rounded-2xl border border-[#D4A843]/40 bg-gradient-to-br from-[#FAF8F4] to-white p-8 text-center shadow-sm">
                   <Lock className="mx-auto h-10 w-10 text-[#D4A843]" aria-hidden />
-                  <p className="mt-4 text-base font-semibold text-[#2C2C2C]">
+                  <p className="mt-4 font-serif text-lg font-bold text-[#2C2C2C]">
+                    🔒 Pro Feature
+                  </p>
+                  <p className="mt-2 text-base font-semibold text-[#2C2C2C]">
                     Upgrade to Pro to see client property interests
                   </p>
                   <p className="mt-2 text-sm text-[#2C2C2C]/60">
@@ -727,6 +829,20 @@ export default function ClientPublicProfilePage() {
                 </div>
               ) : (
                 <>
+                  {!isOwn && freeAgentWishlistPreview && canSeeWishlist ? (
+                    <div className="mt-6 rounded-xl border border-[#D4A843]/45 bg-gradient-to-r from-[#FAF8F4] to-white p-4 shadow-sm">
+                      <p className="text-sm font-semibold leading-snug text-[#2C2C2C]">
+                        This client pinned your listing! Upgrade to Pro to see their full wishlist
+                        and preferences.
+                      </p>
+                      <Link
+                        href="/dashboard/agent"
+                        className="mt-3 inline-flex text-sm font-bold text-[#6B9E6E] underline underline-offset-2 hover:text-[#5d8a60]"
+                      >
+                        Upgrade in dashboard
+                      </Link>
+                    </div>
+                  ) : null}
                   <div className="mt-6 flex flex-wrap gap-2 border-b border-[#2C2C2C]/10 pb-px">
                     {FILTERS.map((f) => (
                       <button
@@ -782,6 +898,9 @@ export default function ClientPublicProfilePage() {
                         const listedLine = listingListedLabel(p.created_at);
                         const title = p.name?.trim() || p.location || "Listing";
                         const statusLabel = p.status === "for_rent" ? "For Rent" : "For Sale";
+                        const hasListingAgent = Boolean(p.listed_by);
+                        const canRequestViewing =
+                          hasListingAgent && !viewingPrefsBlocked;
                         return (
                           <article
                             key={p.id}
@@ -888,20 +1007,40 @@ export default function ClientPublicProfilePage() {
                               >
                                 View Property
                               </Link>
-                              <button
-                                type="button"
-                                onClick={() => openViewingForProperty(p)}
-                                disabled={!p.listed_by}
-                                title={
-                                  p.listed_by
-                                    ? undefined
-                                    : "Listing has no assigned agent yet"
-                                }
-                                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                              >
-                                <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
-                                Request Viewing
-                              </button>
+                              <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => openViewingForProperty(p)}
+                                  disabled={!canRequestViewing}
+                                  title={
+                                    !hasListingAgent
+                                      ? "No listing agent is assigned to this property yet."
+                                      : viewingPrefsBlocked
+                                        ? "Complete your profile preferences to request a viewing."
+                                        : undefined
+                                  }
+                                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                                >
+                                  <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
+                                  Request Viewing
+                                </button>
+                                {!hasListingAgent ? (
+                                  <p className="max-w-md text-xs leading-snug text-[#2C2C2C]/65">
+                                    No listing agent is assigned to this property yet, so viewing
+                                    requests are unavailable.
+                                  </p>
+                                ) : viewingPrefsBlocked ? (
+                                  <p className="max-w-md text-xs leading-snug text-[#2C2C2C]">
+                                    Complete your profile preferences to request a viewing.{" "}
+                                    <Link
+                                      href="/settings?tab=profile"
+                                      className="font-semibold text-[#6B9E6E] underline underline-offset-2"
+                                    >
+                                      Open settings
+                                    </Link>
+                                  </p>
+                                ) : null}
+                              </div>
                               {isOwn ? (
                                 <button
                                   type="button"

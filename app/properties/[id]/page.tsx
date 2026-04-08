@@ -525,7 +525,7 @@ export default function PropertyPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <Link
                                 href={`/agents/${encodeURIComponent(a.id)}`}
-                                className="text-sm font-semibold text-[#2C2C2C] hover:underline"
+                                className="cursor-pointer text-sm font-semibold text-[#2C2C2C] hover:underline"
                               >
                                 {a.name}
                               </Link>
@@ -600,7 +600,12 @@ export default function PropertyPage() {
                   {listingAgent ? (
                     <div className="mt-3 rounded-xl bg-neutral-50 p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-[#2C2C2C]">{listingAgent.name}</p>
+                        <Link
+                          href={`/agents/${encodeURIComponent(listingAgent.id)}`}
+                          className="cursor-pointer text-sm font-semibold text-[#2C2C2C] hover:underline"
+                        >
+                          {listingAgent.name}
+                        </Link>
                         <VerifiedAgentBadge show />
                       </div>
                       <p className="mt-0.5 text-xs font-semibold text-[#2C2C2C]/60">
