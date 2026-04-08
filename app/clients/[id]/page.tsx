@@ -5,9 +5,12 @@ import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Calendar, Heart, Home, Lock, MapPin, Pin, Pencil } from "lucide-react";
+import { ViewingAgentPickerModal } from "@/components/marketplace/viewing-agent-picker-modal";
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
+import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
+import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { usePropertyLikes } from "@/hooks/use-property-engagement";
@@ -35,7 +38,33 @@ type PropertyRow = {
   listing_status: string | null;
   created_at: string;
   listed_by: string | null;
+  /** Agents linked via property_agents (+ listed_by fallback when join is empty). */
+  connectedAgents: MarketplaceAgent[];
 };
+
+function listingAgentUserId(property: PropertyRow, agents: MarketplaceAgent[]): string | null {
+  if (property.listed_by) {
+    const match = agents.find((a) => a.userId === property.listed_by);
+    if (match) return property.listed_by;
+  }
+  return agents[0]?.userId ?? null;
+}
+
+function connectedAgentsFromPropertyAgentsRaw(
+  raw: { property_agents?: { agent?: unknown }[] | null },
+): MarketplaceAgent[] {
+  const nested = raw.property_agents ?? [];
+  const mapped = nested
+    .map((row) => row.agent)
+    .filter(Boolean)
+    .map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]));
+  const seen = new Set<string>();
+  return mapped.filter((a) => {
+    if (!a.id || seen.has(a.id)) return false;
+    seen.add(a.id);
+    return true;
+  });
+}
 
 function pinnedRelativeLabel(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -131,10 +160,11 @@ export default function ClientPublicProfilePage() {
   const [filter, setFilter] = useState<WishFilter>("all");
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [pinnedAtByPropertyId, setPinnedAtByPropertyId] = useState<Record<string, string>>({});
-  const [viewingOpen, setViewingOpen] = useState(false);
-  const [viewingPropertyId, setViewingPropertyId] = useState<string | null>(null);
-  const [viewingPropertyTitle, setViewingPropertyTitle] = useState("");
-  const [viewingAgentUserId, setViewingAgentUserId] = useState<string | null>(null);
+  const [showViewingModal, setShowViewingModal] = useState(false);
+  const [showAgentPicker, setShowAgentPicker] = useState(false);
+  const [selectedViewingAgentUserId, setSelectedViewingAgentUserId] = useState<string | null>(null);
+  const [selectedViewingProperty, setSelectedViewingProperty] = useState<PropertyRow | null>(null);
+  const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const [freeAgentWishlistPreview, setFreeAgentWishlistPreview] = useState(false);
 
   const clientId = rawId;
@@ -425,7 +455,17 @@ export default function ClientPublicProfilePage() {
         const { data: props, error: propsErr } = await supabase
           .from("properties")
           .select(
-            "id, name, location, price, beds, baths, sqft, image_url, status, listing_status, created_at, listed_by",
+            `
+            id, name, location, price, beds, baths, sqft, image_url, status, listing_status, created_at, listed_by,
+            property_agents (
+              agent:agents (
+                id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at,
+                verified, status,
+                brokers (id, company_name, logo_url),
+                profiles(email, phone)
+              )
+            )
+          `,
           )
           .in("id", ids);
 
@@ -438,7 +478,27 @@ export default function ClientPublicProfilePage() {
           return;
         }
 
-        let list = (props ?? []) as PropertyRow[];
+        let list: PropertyRow[] = (props ?? []).map((raw) => {
+          const r = raw as Record<string, unknown>;
+          return {
+            id: String(r.id),
+            name: (r.name as string | null) ?? null,
+            location: String(r.location ?? ""),
+            price: String(r.price ?? ""),
+            beds: Number(r.beds) || 0,
+            baths: Number(r.baths) || 0,
+            sqft: String(r.sqft ?? ""),
+            image_url: String(r.image_url ?? ""),
+            status: String(r.status ?? ""),
+            listing_status: (r.listing_status as string | null) ?? null,
+            created_at: String(r.created_at ?? ""),
+            listed_by: (r.listed_by as string | null) ?? null,
+            connectedAgents: connectedAgentsFromPropertyAgentsRaw(
+              raw as { property_agents?: { agent?: unknown }[] },
+            ),
+          };
+        });
+
         const missingListedBy = list.filter((p) => !p.listed_by).map((p) => p.id);
         if (missingListedBy.length > 0) {
           const { data: paRows, error: paErr } = await supabase
@@ -463,9 +523,9 @@ export default function ClientPublicProfilePage() {
             );
             const firstUserByProperty = new Map<string, string>();
             for (const pa of paRows as { property_id: string; agent_id: string }[]) {
-              const uid = userByAgentId.get(pa.agent_id);
-              if (uid && !firstUserByProperty.has(pa.property_id)) {
-                firstUserByProperty.set(pa.property_id, uid);
+              const listerUid = userByAgentId.get(pa.agent_id);
+              if (listerUid && !firstUserByProperty.has(pa.property_id)) {
+                firstUserByProperty.set(pa.property_id, listerUid);
               }
             }
             list = list.map((p) => ({
@@ -474,6 +534,41 @@ export default function ClientPublicProfilePage() {
             }));
           }
         }
+
+        const listedByNeedingAgent = [
+          ...new Set(
+            list
+              .filter((p) => p.connectedAgents.length === 0 && p.listed_by)
+              .map((p) => p.listed_by!),
+          ),
+        ];
+        if (listedByNeedingAgent.length > 0) {
+          const { data: agentRows } = await supabase
+            .from("agents")
+            .select(
+              `
+              id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at,
+              verified, status,
+              brokers (id, company_name, logo_url),
+              profiles(email, phone)
+            `,
+            )
+            .in("user_id", listedByNeedingAgent);
+          const byUserId = new Map<string, MarketplaceAgent>();
+          for (const row of agentRows ?? []) {
+            const a = mapRowToMarketplaceAgent(
+              row as Parameters<typeof mapRowToMarketplaceAgent>[0],
+            );
+            byUserId.set(a.userId, a);
+          }
+          list = list.map((p) => {
+            if (p.connectedAgents.length > 0 || !p.listed_by) return p;
+            const one = byUserId.get(p.listed_by);
+            if (!one) return p;
+            return { ...p, connectedAgents: [one] };
+          });
+        }
+
         setProperties(list);
 
         const { data: counts } = await supabase.rpc("property_like_counts_for", {
@@ -538,12 +633,27 @@ export default function ClientPublicProfilePage() {
     [clientId, supabase, user?.id],
   );
 
-  const openViewingForProperty = useCallback((p: PropertyRow) => {
-    setViewingPropertyId(p.id);
-    setViewingPropertyTitle(p.name?.trim() || p.location || "Property");
-    setViewingAgentUserId(p.listed_by);
-    setViewingOpen(true);
-  }, []);
+  const onRequestViewingForProperty = useCallback(
+    (p: PropertyRow) => {
+      if (authLoading) return;
+      if (!user) {
+        setSignInPromptOpen(true);
+        return;
+      }
+      const agents = p.connectedAgents ?? [];
+      if (agents.length === 0) return;
+      if (agents.length === 1) {
+        setSelectedViewingProperty(p);
+        setSelectedViewingAgentUserId(agents[0].userId);
+        setShowViewingModal(true);
+        return;
+      }
+      setSelectedViewingProperty(p);
+      setSelectedViewingAgentUserId(null);
+      setShowAgentPicker(true);
+    },
+    [authLoading, user],
+  );
 
   const pageLoading = profileLoading || authLoading || wishlistLoading;
 
@@ -898,9 +1008,9 @@ export default function ClientPublicProfilePage() {
                         const listedLine = listingListedLabel(p.created_at);
                         const title = p.name?.trim() || p.location || "Listing";
                         const statusLabel = p.status === "for_rent" ? "For Rent" : "For Sale";
-                        const hasListingAgent = Boolean(p.listed_by);
-                        const canRequestViewing =
-                          hasListingAgent && !viewingPrefsBlocked;
+                        const agents = p.connectedAgents ?? [];
+                        const hasAgents = agents.length > 0;
+                        const canRequestViewing = hasAgents && !viewingPrefsBlocked;
                         return (
                           <article
                             key={p.id}
@@ -1010,11 +1120,15 @@ export default function ClientPublicProfilePage() {
                               <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
                                 <button
                                   type="button"
-                                  onClick={() => openViewingForProperty(p)}
-                                  disabled={!canRequestViewing}
+                                  onClick={() => onRequestViewingForProperty(p)}
+                                  disabled={
+                                    authLoading ||
+                                    !hasAgents ||
+                                    viewingPrefsBlocked
+                                  }
                                   title={
-                                    !hasListingAgent
-                                      ? "No listing agent is assigned to this property yet."
+                                    user && !hasAgents
+                                      ? "No agent available"
                                       : viewingPrefsBlocked
                                         ? "Complete your profile preferences to request a viewing."
                                         : undefined
@@ -1024,7 +1138,7 @@ export default function ClientPublicProfilePage() {
                                   <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
                                   Request Viewing
                                 </button>
-                                {!hasListingAgent ? (
+                                {!hasAgents ? (
                                   <p className="max-w-md text-xs leading-snug text-[#2C2C2C]/65">
                                     No listing agent is assigned to this property yet, so viewing
                                     requests are unavailable.
@@ -1063,20 +1177,42 @@ export default function ClientPublicProfilePage() {
           </div>
         </div>
       )}
+      <ViewingAgentPickerModal
+        open={showAgentPicker}
+        onOpenChange={setShowAgentPicker}
+        agents={selectedViewingProperty?.connectedAgents ?? []}
+        onSelect={(a) => {
+          setSelectedViewingAgentUserId(a.userId);
+          setShowAgentPicker(false);
+          setShowViewingModal(true);
+        }}
+      />
       <ViewingRequestModal
-        open={viewingOpen}
+        open={showViewingModal}
         onOpenChange={(open) => {
-          setViewingOpen(open);
+          setShowViewingModal(open);
           if (!open) {
-            setViewingPropertyId(null);
-            setViewingPropertyTitle("");
-            setViewingAgentUserId(null);
+            setSelectedViewingProperty(null);
+            setSelectedViewingAgentUserId(null);
           }
         }}
-        propertyId={viewingPropertyId}
-        propertyTitle={viewingPropertyTitle}
-        agentUserId={viewingAgentUserId}
+        propertyId={selectedViewingProperty?.id ?? null}
+        propertyTitle={
+          selectedViewingProperty?.name?.trim() ||
+          selectedViewingProperty?.location ||
+          "Property"
+        }
+        agentUserId={
+          selectedViewingAgentUserId ??
+          (selectedViewingProperty
+            ? listingAgentUserId(
+                selectedViewingProperty,
+                selectedViewingProperty.connectedAgents,
+              )
+            : null)
+        }
       />
+      <SignInViewingPromptModal open={signInPromptOpen} onOpenChange={setSignInPromptOpen} />
     </div>
   );
 }
