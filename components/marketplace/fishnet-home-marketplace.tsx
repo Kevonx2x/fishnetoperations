@@ -1501,38 +1501,38 @@ export function NewlyListedCard({
           </span>
         </div>
 
-        <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              engagement.toggleLike(property.id);
-            }}
-            className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10 transition hover:bg-[#FAF8F4]"
-            aria-label={showEng ? `${engagement.likeCount(property.id)} likes` : isLiked ? "Unlike" : "Like"}
-          >
-            <Heart
-              className={`h-4 w-4 ${isLiked ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
-            />
-            {showEng ? <span>{engagement.likeCount(property.id)}</span> : null}
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              engagement.togglePin(property.id);
-            }}
-            className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10 transition hover:bg-[#FAF8F4]"
-            aria-label={
-              showEng ? `${engagement.saveCount(property.id)} saved` : isPinned ? "Unpin from profile" : "Pin to profile"
-            }
-          >
-            <Pin
-              className={`h-4 w-4 ${isPinned ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
-            />
-            {showEng ? <span>{engagement.saveCount(property.id)}</span> : null}
-          </button>
-        </div>
+        {showEng ? (
+          <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                engagement.toggleLike(property.id);
+              }}
+              className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10 transition hover:bg-[#FAF8F4]"
+              aria-label={`${engagement.likeCount(property.id)} likes`}
+            >
+              <Heart
+                className={`h-4 w-4 ${isLiked ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
+              />
+              <span>{engagement.likeCount(property.id)}</span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                engagement.togglePin(property.id);
+              }}
+              className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10 transition hover:bg-[#FAF8F4]"
+              aria-label={`${engagement.saveCount(property.id)} saved`}
+            >
+              <Pin
+                className={`h-4 w-4 ${isPinned ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
+              />
+              <span>{engagement.saveCount(property.id)}</span>
+            </button>
+          </div>
+        ) : null}
 
         <div className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-5rem)] flex-col items-start gap-1.5">
           <span className="rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-sm ring-1 ring-black/5">

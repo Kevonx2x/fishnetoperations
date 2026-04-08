@@ -332,7 +332,7 @@ function BottomActions({
 }) {
   const isLiked = engagement.isLiked(propertyId);
   const isPinned = engagement.isPinned(propertyId);
-  const showCounts = engagement.showEngagementCounts(propertyId);
+  const showEngagementControls = engagement.showEngagementCounts(propertyId);
   return (
     <div className="shrink-0 space-y-2 border-t border-gray-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <button
@@ -343,40 +343,38 @@ function BottomActions({
       >
         {authLoading ? "Loading…" : "Request Viewing"}
       </button>
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => engagement.toggleLike(propertyId)}
-          className="flex flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#2C2C2C]/20 bg-white px-2 py-2.5 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]"
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <Heart className={`h-4 w-4 ${isLiked ? "fill-red-500 text-red-500" : ""}`} />
-            Like
-          </span>
-          {showCounts ? (
+      {showEngagementControls ? (
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => engagement.toggleLike(propertyId)}
+            className="flex flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#2C2C2C]/20 bg-white px-2 py-2.5 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]"
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Heart className={`h-4 w-4 ${isLiked ? "fill-red-500 text-red-500" : ""}`} />
+              Like
+            </span>
             <span className="text-[11px] font-semibold text-[#2C2C2C]/55">
               {engagement.likeCount(propertyId)} likes
             </span>
-          ) : null}
-        </button>
-        <button
-          type="button"
-          onClick={() => engagement.togglePin(propertyId)}
-          className="flex flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#2C2C2C]/20 bg-white px-2 py-2.5 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]"
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <Pin
-              className={`h-4 w-4 ${isPinned ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
-            />
-            Pin
-          </span>
-          {showCounts ? (
+          </button>
+          <button
+            type="button"
+            onClick={() => engagement.togglePin(propertyId)}
+            className="flex flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#2C2C2C]/20 bg-white px-2 py-2.5 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]"
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Pin
+                className={`h-4 w-4 ${isPinned ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
+              />
+              Pin
+            </span>
             <span className="text-[11px] font-semibold text-[#2C2C2C]/55">
               {engagement.saveCount(propertyId)} saved
             </span>
-          ) : null}
-        </button>
-      </div>
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
