@@ -34,6 +34,7 @@ type SupabaseBrokersJoin =
 type ProfileJoinShape = {
   email?: string | null;
   phone?: string | null;
+  role?: string | null;
 };
 
 function profileJoinFields(p: ProfileJoinShape | ProfileJoinShape[] | null | undefined): ProfileJoinShape | null {
@@ -59,7 +60,7 @@ type SupabaseAgentsRow = {
   verified?: boolean | null;
   status?: string | null;
   brokers?: SupabaseBrokersJoin;
-  /** From `.select(..., profiles(email, phone))` join on agents.user_id → profiles.id */
+  /** From `.select(..., profiles(email, phone, role))` join on agents.user_id → profiles.id */
   profiles?: ProfileJoinShape | ProfileJoinShape[];
 };
 

@@ -20,6 +20,7 @@ import {
   Lock,
   Search,
   Star,
+  UserPlus,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
@@ -131,6 +132,13 @@ function formatPeso(n: number): string {
   if (!Number.isFinite(n)) return "₱0";
   if (n >= 1_000_000) return `₱${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
   return `₱${Math.round(n).toLocaleString()}`;
+}
+
+/** Hide admin/test accounts from homepage directory lists (top agents, city agents). */
+function isExcludedFromPublicAgentDirectory(a: MarketplaceAgent): boolean {
+  if (a.name.trim().toLowerCase() === "ron admin") return true;
+  if (a.email.toLowerCase().includes("ron.business101")) return true;
+  return false;
 }
 
 /** Fixed hero showcase cards (always Unsplash; links to agent directory). */
@@ -316,11 +324,17 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const loadAgentsDirectory = useCallback(async () => {
     const { data, error: fetchErr } = await supabase
       .from("agents")
-      .select("*, brokers(*), profiles(email, phone)")
+      .select("*, brokers(*), profiles!inner(email, phone, role)")
       .eq("status", "approved")
-      .eq("verified", true);
+      .eq("verified", true)
+      .eq("profiles.role", "agent")
+      .neq("name", "Ron Admin");
     if (!fetchErr) {
-      setAgents((data ?? []).map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0])));
+      setAgents(
+        (data ?? [])
+          .map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]))
+          .filter((a) => !isExcludedFromPublicAgentDirectory(a)),
+      );
     }
   }, []);
 
@@ -1081,6 +1095,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         viewerUserId={user?.id ?? null}
                         onOpenPropertyZoom={setZoomProperty}
                         viewerVerifiedListingAgent={viewerVerifiedListingAgent}
+                        listingsOnboardingHref={user ? "/register/agent" : "/auth/signup"}
                       />
                     ) : (
                       <PropertyRows
@@ -1104,6 +1119,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         viewerUserId={user?.id ?? null}
                         onOpenPropertyZoom={setZoomProperty}
                         viewerVerifiedListingAgent={viewerVerifiedListingAgent}
+                        listingsOnboardingHref={user ? "/register/agent" : "/auth/signup"}
                       />
                     )}
                   </motion.div>
@@ -1158,6 +1174,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     {topAgents.map((a) => (
                       <AgentDirectoryCard key={a.id} agent={a} className="w-full shrink-0 md:w-[300px]" />
                     ))}
+                    {topAgents.length < 4 ? <MoreAgentsComingSoonCard /> : null}
                   </div>
                 </div>
                 <button
@@ -1300,6 +1317,7 @@ function CategorySection({
   scrollRow,
   onOpenPropertyZoom,
   viewerVerifiedListingAgent,
+  listingOnboardingHref,
 }: {
   title: string;
   subtitle: string;
@@ -1314,8 +1332,10 @@ function CategorySection({
   scrollRow: (ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") => void;
   onOpenPropertyZoom: (p: DbProperty) => void;
   viewerVerifiedListingAgent: boolean;
+  listingOnboardingHref: string;
 }) {
   const visible = expanded ? items : items.slice(0, 12);
+  const categoryCardWidthClass = "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]";
 
   return (
     <>
@@ -1338,35 +1358,43 @@ function CategorySection({
           className="min-w-0 flex-1 overflow-x-auto px-1 pb-2 scrollbar-hide"
         >
           <div className="flex w-max flex-nowrap gap-3">
-            {visible.map((p) => (
-              <NewlyListedCard
-                key={`${title}-${p.id}`}
-                property={p}
-                roomUrls={roomUrlsFor(p)}
-                roomIdx={cardRoomIdx[p.id] ?? 0}
-                onRoomPrev={() =>
-                  setCardRoomIdx((s) => ({
-                    ...s,
-                    [p.id]:
-                      (roomUrlsFor(p).length + (s[p.id] ?? 0) - 1) %
-                      Math.max(1, roomUrlsFor(p).length),
-                  }))
-                }
-                onRoomNext={() =>
-                  setCardRoomIdx((s) => ({
-                    ...s,
-                    [p.id]:
-                      ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
-                  }))
-                }
-                engagement={engagement}
-                connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
-                onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
-                grid
-                compact
-                verifiedListingAgent={viewerVerifiedListingAgent}
-              />
-            ))}
+            {visible.length === 0
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <ListingsComingSoonPlaceholderCard
+                    key={`${title}-empty-${i}`}
+                    cardWidthClass={categoryCardWidthClass}
+                    href={listingOnboardingHref}
+                  />
+                ))
+              : visible.map((p) => (
+                  <NewlyListedCard
+                    key={`${title}-${p.id}`}
+                    property={p}
+                    roomUrls={roomUrlsFor(p)}
+                    roomIdx={cardRoomIdx[p.id] ?? 0}
+                    onRoomPrev={() =>
+                      setCardRoomIdx((s) => ({
+                        ...s,
+                        [p.id]:
+                          (roomUrlsFor(p).length + (s[p.id] ?? 0) - 1) %
+                          Math.max(1, roomUrlsFor(p).length),
+                      }))
+                    }
+                    onRoomNext={() =>
+                      setCardRoomIdx((s) => ({
+                        ...s,
+                        [p.id]:
+                          ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
+                      }))
+                    }
+                    engagement={engagement}
+                    connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
+                    onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
+                    grid
+                    compact
+                    verifiedListingAgent={viewerVerifiedListingAgent}
+                  />
+                ))}
           </div>
         </div>
         <button
@@ -1741,6 +1769,7 @@ function PropertyRows({
   viewerUserId,
   onOpenPropertyZoom,
   viewerVerifiedListingAgent,
+  listingsOnboardingHref,
 }: {
   rows: { key: string; title: string; subtitle: string; items: DbProperty[]; featured?: boolean }[];
   showMore: boolean;
@@ -1753,6 +1782,7 @@ function PropertyRows({
   viewerUserId?: string | null;
   onOpenPropertyZoom: (p: DbProperty) => void;
   viewerVerifiedListingAgent: boolean;
+  listingsOnboardingHref: string;
 }) {
   const first = rows.slice(0, 4);
   const rest = rows.slice(4);
@@ -1775,6 +1805,7 @@ function PropertyRows({
             viewerUserId={viewerUserId}
             onOpenPropertyZoom={onOpenPropertyZoom}
             viewerVerifiedListingAgent={viewerVerifiedListingAgent}
+            listingsOnboardingHref={listingsOnboardingHref}
           />
           {i < first.length - 1 ? (
             <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
@@ -1818,6 +1849,7 @@ function PropertyRows({
                   viewerUserId={viewerUserId}
                   onOpenPropertyZoom={onOpenPropertyZoom}
                   viewerVerifiedListingAgent={viewerVerifiedListingAgent}
+                  listingsOnboardingHref={listingsOnboardingHref}
                 />
                 <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
               </div>
@@ -1829,14 +1861,50 @@ function PropertyRows({
   );
 }
 
-function ListingRowPlaceholderCard({ cardWidthClass }: { cardWidthClass: string }) {
+function ListingsComingSoonPlaceholderCard({
+  cardWidthClass,
+  href,
+}: {
+  cardWidthClass: string;
+  href: string;
+}) {
   return (
-    <div
-      className={`flex min-h-[300px] shrink-0 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#2C2C2C]/15 bg-white px-3 py-8 shadow-md ${cardWidthClass}`}
+    <motion.div
+      className="shrink-0"
+      animate={{ opacity: [0.88, 1, 0.88] }}
+      transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
     >
-      <Home className="mb-2 h-6 w-6 text-[#6B9E6E]/55" />
-      <p className="text-center text-xs font-semibold text-[#2C2C2C]/45">More listings coming soon</p>
-    </div>
+      <Link
+        href={href}
+        className={cn(
+          "flex min-h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-3 py-8 text-center shadow-sm transition hover:bg-[#F4F1EA]",
+          cardWidthClass,
+        )}
+      >
+        <Home className="mb-3 h-11 w-11 text-[#6B9E6E]" strokeWidth={1.5} aria-hidden />
+        <p className="font-serif text-sm font-bold text-[#2C2C2C]">More listings coming soon</p>
+        <p className="mt-2 text-xs font-semibold text-[#6B9E6E]">Be the first to list here →</p>
+      </Link>
+    </motion.div>
+  );
+}
+
+function MoreAgentsComingSoonCard() {
+  return (
+    <motion.div
+      className="w-full shrink-0 md:w-[300px]"
+      animate={{ opacity: [0.88, 1, 0.88] }}
+      transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+    >
+      <Link
+        href="/register/agent"
+        className="flex min-h-[240px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-4 py-8 text-center shadow-sm transition hover:bg-[#F4F1EA] md:min-h-0"
+      >
+        <UserPlus className="mb-3 h-11 w-11 text-[#6B9E6E]" strokeWidth={1.5} aria-hidden />
+        <h3 className="font-serif text-lg font-bold tracking-tight text-[#2C2C2C]">More Agents Coming Soon</h3>
+        <p className="mt-2 text-sm font-semibold text-[#2C2C2C]">Join as a verified agent</p>
+      </Link>
+    </motion.div>
   );
 }
 
@@ -1854,6 +1922,7 @@ function RowCarousel({
   viewerUserId,
   onOpenPropertyZoom,
   viewerVerifiedListingAgent,
+  listingsOnboardingHref,
 }: {
   rowKey: string;
   title: string;
@@ -1868,6 +1937,7 @@ function RowCarousel({
   viewerUserId?: string | null;
   onOpenPropertyZoom: (p: DbProperty) => void;
   viewerVerifiedListingAgent: boolean;
+  listingsOnboardingHref: string;
 }) {
   const scroll = (dir: "prev" | "next") => {
     const el = rowRefs.current[rowKey];
@@ -1877,7 +1947,8 @@ function RowCarousel({
   };
 
   const list = items.slice(0, 12);
-  const placeholderCount = list.length > 0 && list.length < 5 ? 5 - list.length : 0;
+  const fillerCount =
+    list.length === 0 ? 3 : list.length > 0 && list.length < 5 ? 5 - list.length : 0;
   const featuredClasses = featured ? "rounded-2xl border border-[#D4A843]/30 bg-[#D4A843]/5 px-3 pt-3" : "";
   const cardWidthClass = "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]";
 
@@ -1936,8 +2007,12 @@ function RowCarousel({
                 verifiedListingAgent={viewerVerifiedListingAgent}
               />
             ))}
-            {Array.from({ length: placeholderCount }).map((_, i) => (
-              <ListingRowPlaceholderCard key={`ph-${rowKey}-${i}`} cardWidthClass={cardWidthClass} />
+            {Array.from({ length: fillerCount }).map((_, i) => (
+              <ListingsComingSoonPlaceholderCard
+                key={`ph-${rowKey}-${i}`}
+                cardWidthClass={cardWidthClass}
+                href={listingsOnboardingHref}
+              />
             ))}
           </div>
         </div>
