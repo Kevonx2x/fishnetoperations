@@ -1,5 +1,5 @@
 /**
- * Agent caps by tier (`agents.listing_tier`). Payments not wired yet — tier set manually or via billing.
+ * Agent caps by tier (`agents.listing_tier`). Tier may be updated by PayMongo subscription webhooks or admin.
  * Broker tier uses unlimited (Infinity) for owned / co-list / team in app logic; DB uses a large int.
  */
 

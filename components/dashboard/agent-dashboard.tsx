@@ -10,6 +10,7 @@ import {
   Bell,
   Calendar,
   Check,
+  CreditCard,
   Home,
   LayoutDashboard,
   Loader2,
@@ -18,6 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { AgentBillingTab } from "@/components/dashboard/agent-billing-tab";
 import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
 import { AgentLeadTemplatesSection } from "@/components/dashboard/agent-lead-templates";
@@ -57,7 +59,15 @@ import {
 } from "@/lib/validation/listing-form";
 import { ServiceAreasMultiInput } from "@/components/ui/service-areas-multi-input";
 
-type Tab = "overview" | "leads" | "viewings" | "listings" | "profile" | "analytics" | "notifications";
+type Tab =
+  | "overview"
+  | "leads"
+  | "viewings"
+  | "listings"
+  | "profile"
+  | "analytics"
+  | "notifications"
+  | "billing";
 
 type AgentRow = {
   id: string;
@@ -225,12 +235,34 @@ export function AgentDashboard() {
 
   const [tab, setTab] = useState<Tab>("overview");
   const [agent, setAgent] = useState<AgentRow | null>(null);
+  const [paymentBannerTier, setPaymentBannerTier] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const raw = new URLSearchParams(window.location.search).get("tab");
-    const allowed: Tab[] = ["overview", "leads", "viewings", "listings", "profile", "analytics", "notifications"];
+    const sp = new URLSearchParams(window.location.search);
+    const raw = sp.get("tab");
+    const allowed: Tab[] = [
+      "overview",
+      "leads",
+      "viewings",
+      "listings",
+      "profile",
+      "analytics",
+      "notifications",
+      "billing",
+    ];
     if (raw && allowed.includes(raw as Tab)) setTab(raw as Tab);
+
+    if (sp.get("payment") === "success") {
+      const tier = sp.get("tier");
+      if (tier === "pro" || tier === "featured" || tier === "broker") {
+        setPaymentBannerTier(tier);
+      }
+      sp.delete("payment");
+      sp.delete("tier");
+      const qs = sp.toString();
+      window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    }
   }, []);
   const [loaded, setLoaded] = useState(false);
   const [leads, setLeads] = useState<LeadRow[]>([]);
@@ -400,6 +432,12 @@ export function AgentDashboard() {
     }
     void loadData();
   }, [authLoading, user, router, loadData]);
+
+  useEffect(() => {
+    if (paymentBannerTier) {
+      void loadData();
+    }
+  }, [paymentBannerTier, loadData]);
 
   useEffect(() => {
     if (!agent) return;
@@ -891,6 +929,7 @@ export function AgentDashboard() {
     { id: "viewings", label: "Viewings", icon: <Calendar className="h-5 w-5" /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" /> },
     { id: "listings", label: "Listings", icon: <Home className="h-5 w-5" /> },
+    { id: "billing", label: "Billing", icon: <CreditCard className="h-5 w-5" /> },
     { id: "notifications", label: "Notifications", icon: <Bell className="h-5 w-5" /> },
     { id: "profile", label: "Profile", icon: <Settings className="h-5 w-5" /> },
   ];
@@ -1043,6 +1082,17 @@ export function AgentDashboard() {
               )}
               {tab === "notifications" && user && (
                 <AgentNotificationsTab userId={user.id} supabase={supabase} />
+              )}
+              {tab === "billing" && user && agent && (
+                <AgentBillingTab
+                  agentId={agent.id}
+                  tier={agent.listing_tier}
+                  supabase={supabase}
+                  ownedListingCount={ownedListingCount}
+                  coListedCount={coListedCount}
+                  paymentBannerTier={paymentBannerTier}
+                  onDismissPaymentBanner={() => setPaymentBannerTier(null)}
+                />
               )}
               {tab === "profile" && user && agent && (
                 <ProfileTab
