@@ -7,6 +7,7 @@ import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { SettingsAvatarUpload } from "@/components/settings/avatar-upload";
 import { useAuth } from "@/contexts/auth-context";
+import { useGlobalAlert } from "@/contexts/global-alert-context";
 import type { ProfileRole } from "@/lib/auth-roles";
 import { pathForRole } from "@/lib/auth-roles";
 import { formatLicenseDate, isLicenseExpiringWithinDays } from "@/lib/license-expiry";
@@ -202,6 +203,7 @@ type AgentRow = {
 };
 
 function SettingsPageInner() {
+  const { showAlert } = useGlobalAlert();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, profile, role, loading: authLoading, refreshProfile } = useAuth();
@@ -646,7 +648,7 @@ function SettingsPageInner() {
         );
       }
       setHasSavedProfileOnce(true);
-      toast.success("Profile saved");
+      showAlert("✅ Profile saved successfully!", "success");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save profile");
     } finally {
@@ -747,7 +749,7 @@ function SettingsPageInner() {
 
   const logout = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/";
+    window.location.href = "/auth/signout";
   };
 
   const showExpiryWarn = (exp: string | null | undefined) =>

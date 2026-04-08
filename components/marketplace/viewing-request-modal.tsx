@@ -6,6 +6,7 @@ import { addDays, isBefore, setHours, setMinutes, startOfDay } from "date-fns";
 import { X } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
+import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,7 @@ export function ViewingRequestModal({
   propertyTitle: string;
   agentUserId: string | null;
 }) {
+  const { showAlert } = useGlobalAlert();
   const { user, profile, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const titleId = useId();
@@ -272,6 +274,7 @@ export function ViewingRequestModal({
       }
 
       setSuccess(true);
+      showAlert("✅ Viewing request sent! The agent will confirm shortly.", "success");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {

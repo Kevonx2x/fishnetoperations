@@ -562,7 +562,7 @@ export default function AdminPage() {
 
   const signOutAdmin = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/";
+    window.location.href = "/auth/signout";
   };
 
   const updateLeadStage = async (id: string | number, stage: string) => {

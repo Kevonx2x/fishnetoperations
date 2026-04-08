@@ -172,7 +172,7 @@ export default function BrokerDashboardPage() {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/";
+    window.location.href = "/auth/signout";
   };
 
   if (authLoading || !loaded) {

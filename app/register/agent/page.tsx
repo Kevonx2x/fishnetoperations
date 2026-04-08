@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
+import { useGlobalAlert } from "@/contexts/global-alert-context";
 import {
   formatPrcLicenseInput,
   validateAgentName,
@@ -34,6 +35,7 @@ type FieldErrors = Partial<
 >;
 
 export default function RegisterAgentPage() {
+  const { showAlert } = useGlobalAlert();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -124,6 +126,7 @@ export default function RegisterAgentPage() {
       throw new Error(json.error?.message || "Registration failed");
     }
     setDone(true);
+    showAlert("🎉 Application submitted! We'll review your details within 24 hours.", "success");
   };
 
   const handleGuestCombinedRegister = async (ev: React.FormEvent) => {
@@ -169,7 +172,7 @@ export default function RegisterAgentPage() {
   const signOut = async () => {
     await supabase.auth.signOut();
     setSessionReady(false);
-    window.location.href = "/";
+    window.location.href = "/auth/signout";
   };
 
   const validateDetailForm = (): boolean => {

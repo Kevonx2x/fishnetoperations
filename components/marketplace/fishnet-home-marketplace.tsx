@@ -21,6 +21,7 @@ import {
   Search,
   Star,
   UserPlus,
+  Flame,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
@@ -139,6 +140,22 @@ function isExcludedFromPublicAgentDirectory(a: MarketplaceAgent): boolean {
   if (a.name.trim().toLowerCase() === "ron admin") return true;
   if (a.email.toLowerCase().includes("ron.business101")) return true;
   return false;
+}
+
+type AgentRowWithProfile = {
+  name?: string | null;
+  email?: string | null;
+  profiles?: { role?: string | null } | { role?: string | null }[] | null;
+};
+
+function shouldIncludeAgentDirectoryRow(row: unknown): boolean {
+  const r = row as AgentRowWithProfile;
+  const prof = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
+  if (prof?.role === "admin") return false;
+  if ((r.name ?? "").trim().toLowerCase() === "ron admin") return false;
+  const em = (r.email ?? "").toLowerCase();
+  if (em.includes("ron.business101")) return false;
+  return true;
 }
 
 /** Fixed hero showcase cards (always Unsplash; links to agent directory). */
@@ -332,6 +349,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     if (!fetchErr) {
       setAgents(
         (data ?? [])
+          .filter(shouldIncludeAgentDirectoryRow)
           .map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]))
           .filter((a) => !isExcludedFromPublicAgentDirectory(a)),
       );
@@ -668,42 +686,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
               <div className="mt-6 lg:mt-8">{heroSearchCard}</div>
 
-              <div className="mt-6 lg:hidden">
-                <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#2C2C2C]/45">
-                  Featured Locations
-                </p>
-                <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-hide">
-                  {FEATURED_CITIES.map((c) => {
-                    const count = cityListingCounts.get(c.key) ?? 0;
-                    const active = neighborhoodFilter === c.key;
-                    return (
-                      <button
-                        key={c.key}
-                        type="button"
-                        onClick={() => selectCityFilter(c.key)}
-                        className={`group relative h-[100px] w-[112px] shrink-0 overflow-hidden rounded-2xl border text-left shadow-md transition hover:scale-[1.03] ${
-                          active ? "border-[#D4A843] ring-2 ring-[#D4A843]/45" : "border-[#2C2C2C]/10"
-                        }`}
-                      >
-                        <Image
-                          src={c.imageUrl}
-                          alt=""
-                          fill
-                          className="object-cover transition duration-500 group-hover:scale-105"
-                          sizes="112px"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
-                        <div className="absolute bottom-0 left-0 right-0 p-2">
-                          <p className="text-[11px] font-bold leading-tight text-white drop-shadow-sm">{c.label}</p>
-                          <p className="mt-0.5 text-[10px] font-semibold text-white/90">
-                            {count} {count === 1 ? "listing" : "listings"}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
 
             <div className="relative hidden min-h-[440px] lg:block">
@@ -1157,34 +1139,58 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Top Verified Agents This Week</h2>
                 <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">High scores, fast responses, proven closings</p>
               </div>
-              <div className="mt-4 flex items-stretch gap-1 sm:gap-2">
-                <button
-                  type="button"
-                  onClick={() => scrollRow(topAgentsRef, "prev")}
-                  className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 sm:flex"
-                  aria-label="Scroll left"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <div
-                  ref={topAgentsRef}
-                  className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide max-md:overflow-visible"
-                >
-                  <div className="flex flex-col gap-4 md:flex-row md:min-w-min md:gap-4">
-                    {topAgents.map((a) => (
-                      <AgentDirectoryCard key={a.id} agent={a} className="w-full shrink-0 md:w-[300px]" />
-                    ))}
-                    {topAgents.length < 4 ? <MoreAgentsComingSoonCard /> : null}
+              <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-4">
+                <div className="flex min-w-0 flex-1 items-stretch gap-1 sm:gap-2">
+                  <button
+                    type="button"
+                    onClick={() => scrollRow(topAgentsRef, "prev")}
+                    className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
+                    aria-label="Scroll left"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <div
+                    ref={topAgentsRef}
+                    className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide"
+                    style={{ WebkitOverflowScrolling: "touch" }}
+                  >
+                    <div className="flex w-max flex-nowrap gap-3 md:gap-4">
+                      {topAgents.map((a) => (
+                        <AgentDirectoryCard
+                          key={a.id}
+                          agent={a}
+                          className="w-[180px] shrink-0 md:w-[300px]"
+                        />
+                      ))}
+                      {topAgents.length < 4 ? <MoreAgentsComingSoonCard /> : null}
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => scrollRow(topAgentsRef, "next")}
+                    className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
+                    aria-label="Scroll right"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => scrollRow(topAgentsRef, "next")}
-                  className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 sm:flex"
-                  aria-label="Scroll right"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                <AgentScoreTutorialCard />
+              </div>
+              <div className="mt-6 lg:hidden">
+                <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 shadow-md">
+                  <div className="relative aspect-[2/1] w-full bg-black/5">
+                    <Image
+                      src={MOBILE_AGENTS_LIFESTYLE_IMG}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="100vw"
+                    />
+                  </div>
+                  <p className="bg-[#FAF8F4] px-4 py-3 text-center text-sm font-semibold text-[#2C2C2C]/85">
+                    Already the most trusted real estate platform in the Philippines 🏠
+                  </p>
+                </div>
               </div>
             </section>
 
@@ -1889,10 +1895,71 @@ function ListingsComingSoonPlaceholderCard({
   );
 }
 
+function AgentScoreTutorialCard() {
+  const mariaAvatar =
+    "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&h=100&fit=crop&crop=face";
+  return (
+    <div className="relative hidden h-full min-h-[300px] w-full max-w-[320px] flex-col rounded-2xl border border-[#6B9E6E]/40 bg-[#6B9E6E]/15 p-5 shadow-sm lg:flex">
+      <p className="text-center font-serif text-xs font-bold uppercase tracking-[0.12em] text-[#2C2C2C]/55">
+        Score guide
+      </p>
+      <div className="mt-3 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
+        <div className="flex gap-3">
+          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+            <Image src={mariaAvatar} alt="" width={56} height={56} className="object-cover" sizes="56px" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold text-[#2C2C2C]">Maria Santos</p>
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#D4A843]/18 px-2 py-0.5 text-[10px] font-bold text-[#8a6d32]">
+                <Flame className="h-3 w-3 text-[#D4A843]" aria-hidden />
+                Verified
+              </span>
+            </div>
+            <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/60">
+              Score {formatAgentScore(95)} · 312 closings
+            </p>
+            <p className="mt-1 text-[11px] font-semibold text-[#6B9E6E]">Fast response</p>
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 flex-1">
+        <h3 className="font-serif text-lg font-bold text-[#2C2C2C]">How Scores Work</h3>
+        <ul className="mt-3 space-y-2 text-sm font-medium text-[#2C2C2C]/85">
+          <li className="flex">
+            <Star className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-[#D4A843]" aria-hidden />
+            <span>
+              <strong className="text-[#2C2C2C]">90–100:</strong> Elite Agent
+            </span>
+          </li>
+          <li className="flex">
+            <Star className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-[#D4A843]" aria-hidden />
+            <span>
+              <strong className="text-[#2C2C2C]">70–89:</strong> Experienced
+            </span>
+          </li>
+          <li className="flex">
+            <Star className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-[#D4A843]" aria-hidden />
+            <span>
+              <strong className="text-[#2C2C2C]">50–69:</strong> Growing
+            </span>
+          </li>
+        </ul>
+        <p className="mt-4 text-xs font-semibold leading-relaxed text-[#2C2C2C]/60">
+          Score based on: closings, response time, client reviews
+        </p>
+      </div>
+    </div>
+  );
+}
+
+const MOBILE_AGENTS_LIFESTYLE_IMG =
+  "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&h=400&fit=crop";
+
 function MoreAgentsComingSoonCard() {
   return (
     <motion.div
-      className="w-full shrink-0 md:w-[300px]"
+      className="w-[180px] shrink-0 md:w-[300px]"
       animate={{ opacity: [0.88, 1, 0.88] }}
       transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
     >

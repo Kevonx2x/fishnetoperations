@@ -304,7 +304,7 @@ export function MaddenTopNav() {
     setBusy(true);
     try {
       await supabase.auth.signOut();
-      router.push("/");
+      router.push("/auth/signout");
       router.refresh();
     } finally {
       setBusy(false);
@@ -430,7 +430,7 @@ export function MaddenTopNav() {
   const closeMobileNav = () => setMobileNavOpen(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+    <header className="sticky top-0 z-50 w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4]/95 backdrop-blur-sm">
       <div className="mx-auto grid w-full max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 py-4 md:gap-3">
         <div className="flex items-center gap-2 justify-self-start">
           <button
@@ -723,6 +723,16 @@ export function MaddenTopNav() {
                       className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
                     >
                       <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                      My Profile
+                    </Link>
+                  ) : null}
+                  {user && role === "broker" && brokerNav ? (
+                    <Link
+                      href={`/brokers/${brokerNav.id}`}
+                      onClick={closeMobileNav}
+                      className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
+                    >
+                      <Building2 className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
                       My Profile
                     </Link>
                   ) : null}

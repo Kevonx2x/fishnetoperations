@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BarChart3,
@@ -25,6 +25,7 @@ import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover"
 import { AgentLeadTemplatesSection } from "@/components/dashboard/agent-lead-templates";
 import { AgentViewingsTab } from "@/components/dashboard/agent-viewings-tab";
 import { useAuth } from "@/contexts/auth-context";
+import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
@@ -34,7 +35,9 @@ import {
   isUnlimitedCoList,
   isUnlimitedOwned,
   listingLimitForTier,
+  normalizeListingTier,
   teamMemberLimitForTier,
+  TIER_LABEL,
 } from "@/lib/agent-listing-limits";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
 import { PropertyListingImagesInput } from "@/components/dashboard/property-listing-images-input";
@@ -58,6 +61,11 @@ import {
   validateSqft,
 } from "@/lib/validation/listing-form";
 import { ServiceAreasMultiInput } from "@/components/ui/service-areas-multi-input";
+import {
+  NotificationCard,
+  resolveNotificationLink,
+  type NotificationListItem,
+} from "@/components/notifications/notification-list";
 
 type Tab =
   | "overview"
@@ -264,6 +272,16 @@ export function AgentDashboard() {
       window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
     }
   }, []);
+
+  const { showAlert } = useGlobalAlert();
+  const paymentAlertShownRef = useRef(false);
+  useEffect(() => {
+    if (!paymentBannerTier || paymentAlertShownRef.current) return;
+    paymentAlertShownRef.current = true;
+    const tier = normalizeListingTier(paymentBannerTier);
+    showAlert(`🎉 Welcome to ${TIER_LABEL[tier]}! Your account has been upgraded.`, "success");
+  }, [paymentBannerTier, showAlert]);
+
   const [loaded, setLoaded] = useState(false);
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [viewings, setViewings] = useState<ViewingRow[]>([]);
@@ -2558,29 +2576,6 @@ function ProfileTab({
   );
 }
 
-type AgentNotifRow = {
-  id: string;
-  created_at: string;
-  type: string;
-  title: string;
-  body: string | null;
-  read_at: string | null;
-};
-
-function notificationListIcon(type: string) {
-  if (type === "property_match") return <Home className="h-4 w-4 text-[#6B9E6E]" />;
-  if (type === "lead_created") return <Sparkles className="h-4 w-4 text-[#D4A843]" />;
-  return <Bell className="h-4 w-4 text-[#2C2C2C]/50" />;
-}
-
-function notificationTimeAgo(iso: string): string {
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
-
 function AgentNotificationsTab({
   userId,
   supabase,
@@ -2588,7 +2583,8 @@ function AgentNotificationsTab({
   userId: string;
   supabase: ReturnType<typeof createSupabaseBrowserClient>;
 }) {
-  const [rows, setRows] = useState<AgentNotifRow[]>([]);
+  const router = useRouter();
+  const [rows, setRows] = useState<NotificationListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -2596,12 +2592,12 @@ function AgentNotificationsTab({
     void (async () => {
       const { data } = await supabase
         .from("notifications")
-        .select("id, created_at, type, title, body, read_at")
+        .select("id, created_at, type, title, body, read_at, metadata")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(50);
       if (cancelled) return;
-      setRows((data ?? []) as AgentNotifRow[]);
+      setRows((data ?? []) as NotificationListItem[]);
       setLoading(false);
     })();
     return () => {
@@ -2609,14 +2605,17 @@ function AgentNotificationsTab({
     };
   }, [userId, supabase]);
 
-  const markRead = async (n: AgentNotifRow) => {
-    if (n.read_at) return;
-    const { error } = await supabase
-      .from("notifications")
-      .update({ read_at: new Date().toISOString() })
-      .eq("id", n.id);
-    if (error) return;
-    setRows((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)));
+  const markRead = async (n: NotificationListItem, navigateTo?: string | null) => {
+    if (!n.read_at) {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ read_at: new Date().toISOString() })
+        .eq("id", n.id);
+      if (error) return;
+      setRows((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)));
+    }
+    const href = navigateTo ?? resolveNotificationLink(n.metadata ?? null);
+    if (href) router.push(href);
   };
 
   return (
@@ -2626,29 +2625,14 @@ function AgentNotificationsTab({
       {loading ? (
         <p className="mt-8 text-sm font-semibold text-[#2C2C2C]/45">Loading…</p>
       ) : rows.length === 0 ? (
-        <p className="mt-8 rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center text-sm font-semibold text-[#2C2C2C]/45">
-          No new notifications
+        <p className="mt-8 rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center text-sm font-semibold text-[#2C2C2C]/45 shadow-sm">
+          No notifications yet
         </p>
       ) : (
-        <ul className="mt-6 divide-y divide-[#2C2C2C]/10 rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+        <ul className="mt-6 space-y-3">
           {rows.map((n) => (
             <li key={n.id}>
-              <button
-                type="button"
-                onClick={() => void markRead(n)}
-                className={`flex w-full gap-3 px-4 py-4 text-left transition hover:bg-[#FAF8F4] ${n.read_at ? "opacity-75" : ""}`}
-              >
-                <span className="mt-0.5 shrink-0">{notificationListIcon(n.type)}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-[#2C2C2C]">{n.title}</span>
-                  {n.body ? (
-                    <span className="mt-1 line-clamp-3 block text-xs font-semibold text-[#2C2C2C]/55">{n.body}</span>
-                  ) : null}
-                  <span className="mt-1 block text-[10px] font-semibold text-[#2C2C2C]/40">
-                    {notificationTimeAgo(n.created_at)}
-                  </span>
-                </span>
-              </button>
+              <NotificationCard n={n} onMarkRead={markRead} />
             </li>
           ))}
         </ul>
