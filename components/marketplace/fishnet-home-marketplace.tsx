@@ -679,6 +679,70 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         </div>
       </section>
 
+      <section
+        id="neighborhoods"
+        className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4] py-8 sm:py-10"
+      >
+        <div className="mx-auto max-w-7xl px-4 sm:px-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0 text-center sm:text-left">
+              <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">
+                Featured Neighborhoods
+              </h2>
+              <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+                Tap a city to filter listings
+              </p>
+            </div>
+            {neighborhoodFilter ? (
+              <button
+                type="button"
+                onClick={() => setNeighborhoodFilter(null)}
+                className="shrink-0 self-center text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C] sm:self-auto"
+              >
+                Clear filter
+              </button>
+            ) : null}
+          </div>
+          <div className="mt-6 overflow-x-auto scrollbar-hide">
+            <div className="mx-auto flex w-max max-w-full justify-center gap-3 pb-2 sm:gap-4">
+              {FEATURED_CITIES.map((c) => {
+                const count = cityListingCounts.get(c.key) ?? 0;
+                const active = neighborhoodFilter === c.key;
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => selectCityFilter(c.key)}
+                    className={`group relative h-[160px] w-[min(280px,78vw)] shrink-0 overflow-hidden rounded-2xl border text-left shadow-md transition lg:h-[120px] lg:w-[160px] ${
+                      active
+                        ? "border-[#D4A843] ring-2 ring-[#D4A843]/45"
+                        : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
+                    }`}
+                  >
+                    <Image
+                      src={c.imageUrl}
+                      alt=""
+                      fill
+                      className="object-cover transition duration-500 group-hover:scale-105"
+                      sizes="(min-width: 1024px) 160px, 280px"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#2C2C2C]/90 via-[#2C2C2C]/25 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-3 lg:p-2.5">
+                      <p className="font-serif text-lg font-bold text-white drop-shadow-sm lg:text-base">
+                        {c.label}
+                      </p>
+                      <p className="mt-0.5 text-xs font-semibold text-white/90 lg:text-[11px]">
+                        {count} {count === 1 ? "listing" : "listings"}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <hr className="mx-auto w-3/4 border-t border-[#2C2C2C]/10" />
 
       <main className="mx-auto max-w-7xl px-4 pb-28 pt-10 sm:px-5 md:pb-16">
@@ -906,7 +970,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         </button>
                       </motion.div>
                     ) : (
-                      <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         {sortedAllRows.map((p) => (
                           <NewlyListedCard
                             key={`result-${p.id}`}
@@ -997,64 +1061,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   </motion.div>
                 )}
               </AnimatePresence>
-            </section>
-
-            <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
-
-            {/* 5. FEATURED NEIGHBORHOODS */}
-            <section id="neighborhoods" className="mt-12">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                <div className="min-w-0">
-                  <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">
-                    Featured Neighborhoods
-                  </h2>
-                  <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
-                    Tap a city to filter listings
-                  </p>
-                </div>
-                {neighborhoodFilter ? (
-                  <button
-                    type="button"
-                    onClick={() => setNeighborhoodFilter(null)}
-                    className="shrink-0 self-start text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C] sm:self-auto"
-                  >
-                    Clear filter
-                  </button>
-                ) : null}
-              </div>
-              <div className="-mx-4 mt-5 flex gap-4 overflow-x-auto px-4 pb-2 scrollbar-hide sm:-mx-0 sm:px-0">
-                {FEATURED_CITIES.map((c) => {
-                  const count = cityListingCounts.get(c.key) ?? 0;
-                  const active = neighborhoodFilter === c.key;
-                  return (
-                    <button
-                      key={c.key}
-                      type="button"
-                      onClick={() => selectCityFilter(c.key)}
-                      className={`group relative h-[200px] w-[min(280px,85vw)] shrink-0 overflow-hidden rounded-2xl border text-left shadow-md transition ${
-                        active
-                          ? "border-[#D4A843] ring-2 ring-[#D4A843]/45"
-                          : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
-                      }`}
-                    >
-                      <Image
-                        src={c.imageUrl}
-                        alt=""
-                        fill
-                        className="object-cover transition duration-500 group-hover:scale-105"
-                        sizes="280px"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#2C2C2C]/90 via-[#2C2C2C]/25 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-4">
-                        <p className="font-serif text-xl font-bold text-white drop-shadow-sm">{c.label}</p>
-                        <p className="mt-1 text-sm font-semibold text-white/90">
-                          {count} {count === 1 ? "listing" : "listings"}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
             </section>
 
             <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
@@ -1248,18 +1254,18 @@ function CategorySection({
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
       </div>
 
-      <div className="mt-4 flex items-stretch gap-1 md:gap-2">
+      <div className="-mx-4 mt-4 flex items-stretch gap-1 md:gap-2">
         <button
           type="button"
           onClick={() => scrollRow(sectionRef, "prev")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pl-2"
           aria-label="Scroll left"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div
           ref={sectionRef}
-          className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide"
+          className="min-w-0 flex-1 overflow-x-auto px-1 pb-2 scrollbar-hide"
         >
           <div className="flex w-max flex-nowrap gap-3">
             {visible.map((p) => (
@@ -1296,7 +1302,7 @@ function CategorySection({
         <button
           type="button"
           onClick={() => scrollRow(sectionRef, "next")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 pr-2 shadow-sm hover:bg-neutral-50 md:flex md:pr-2"
           aria-label="Scroll right"
         >
           <ChevronRight className="h-4 w-4" />
@@ -1397,8 +1403,8 @@ export function NewlyListedCard({
       className={cn(
         "overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md",
         grid
-          ? gridCardClassName ?? "w-[260px] shrink-0 md:w-[280px] lg:w-[300px]"
-          : cn(cardWidthClass ?? "w-[300px]", "shrink-0"),
+          ? gridCardClassName ?? "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]"
+          : cn(cardWidthClass ?? "w-[240px]", "shrink-0"),
       )}
     >
       <div className={`relative w-full overflow-hidden bg-neutral-900 ${imgH}`}>
@@ -1408,7 +1414,7 @@ export function NewlyListedCard({
           fill
           quality={92}
           className="object-cover"
-          sizes={grid ? "(min-width: 1024px) 300px, (min-width: 768px) 280px, 260px" : compact ? "300px" : "360px"}
+          sizes={grid ? "(min-width: 1024px) 240px, (min-width: 640px) 232px, 220px" : compact ? "240px" : "360px"}
         />
         <button
           type="button"
@@ -1798,7 +1804,7 @@ function RowCarousel({
   const list = items.slice(0, 12);
   const placeholderCount = list.length > 0 && list.length < 5 ? 5 - list.length : 0;
   const featuredClasses = featured ? "rounded-2xl border border-[#D4A843]/30 bg-[#D4A843]/5 px-3 pt-3" : "";
-  const cardWidthClass = "w-[260px] shrink-0 md:w-[280px] lg:w-[300px]";
+  const cardWidthClass = "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]";
 
   return (
     <div className={featuredClasses}>
@@ -1810,11 +1816,11 @@ function RowCarousel({
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
       </div>
 
-      <div className="flex items-stretch gap-1 md:gap-2">
+      <div className="-mx-4 flex items-stretch gap-1 md:gap-2">
         <button
           type="button"
           onClick={() => scroll("prev")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pl-2"
           aria-label="Scroll left"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -1823,7 +1829,7 @@ function RowCarousel({
           ref={(el) => {
             rowRefs.current[rowKey] = el;
           }}
-          className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide"
+          className="min-w-0 flex-1 overflow-x-auto px-1 pb-2 scrollbar-hide"
         >
           <div className="flex w-max flex-nowrap gap-3">
             {list.map((p) => (
@@ -1863,7 +1869,7 @@ function RowCarousel({
         <button
           type="button"
           onClick={() => scroll("next")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
+          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pr-2"
           aria-label="Scroll right"
         >
           <ChevronRight className="h-4 w-4" />

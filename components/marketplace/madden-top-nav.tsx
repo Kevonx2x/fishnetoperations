@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -54,6 +53,32 @@ type NavLinkItem = { kind: "link"; label: string; href: string; icon: ReactNode 
 type NavDividerItem = { kind: "divider"; label: string };
 type NavPendingItem = { kind: "pending"; label: string; icon: ReactNode };
 type NavDropdownEntry = NavLinkItem | NavDividerItem | NavPendingItem;
+
+/** Geometric gold house + bahay (charcoal) / go (sage) wordmark — inline SVG, no asset file */
+function BahayGoWordmark({ className }: { className?: string }) {
+  return (
+    <span className={`inline-flex items-center gap-2 ${className ?? ""}`}>
+      <svg
+        width={40}
+        height={36}
+        viewBox="0 0 40 36"
+        className="shrink-0"
+        aria-hidden
+      >
+        {/* Gold pentagon house with door cutout (cream = nav bg) */}
+        <path
+          fill="#D4A843"
+          d="M20 2 L36 14 L36 32 L4 32 L4 14 Z"
+        />
+        <rect x="16" y="22" width="8" height="10" rx="1" fill="#FAF8F4" />
+      </svg>
+      <span className="hidden items-baseline gap-0 font-serif text-[1.35rem] font-bold leading-none tracking-tight sm:inline-flex">
+        <span className="text-[#2C2C2C]">bahay</span>
+        <span className="text-[#6B9E6E]">go</span>
+      </span>
+    </span>
+  );
+}
 
 function MobileNavSection({
   title,
@@ -466,15 +491,8 @@ export function MaddenTopNav() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <Link href="/" className="inline-flex shrink-0 items-center leading-none">
-            <Image
-              src="/bahaygologo.png"
-              alt="BahayGo"
-              width={140}
-              height={50}
-              className="h-[50px] w-[140px] object-contain"
-              priority
-            />
+          <Link href="/" className="inline-flex shrink-0 items-center leading-none" aria-label="BahayGo home">
+            <BahayGoWordmark />
           </Link>
         </div>
 
@@ -494,6 +512,15 @@ export function MaddenTopNav() {
             <div className="h-9 w-20 animate-pulse rounded-full bg-black/5" />
           ) : user ? (
             <>
+              {role === "client" && user.id ? (
+                <Link
+                  href={`/clients/${user.id}`}
+                  className="hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-[#2C2C2C]/75 transition hover:bg-white/80 hover:text-[#2C2C2C] sm:inline-flex"
+                >
+                  <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                  My Profile
+                </Link>
+              ) : null}
               <div className="relative" ref={notifRef}>
                 <button
                   type="button"
@@ -772,6 +799,16 @@ export function MaddenTopNav() {
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
                 <div className="space-y-6">
+                  {user && role === "client" && user.id ? (
+                    <Link
+                      href={`/clients/${user.id}`}
+                      onClick={closeMobileNav}
+                      className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
+                    >
+                      <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                      My Profile
+                    </Link>
+                  ) : null}
                   <MobileNavSection title="Agents" entries={agentsEntries} onNavigate={closeMobileNav} />
                   <MobileNavSection title="Brokers" entries={brokersEntries} onNavigate={closeMobileNav} />
                   <MobileNavSection title="Landmarks" entries={landmarksItems} onNavigate={closeMobileNav} />
