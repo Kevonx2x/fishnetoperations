@@ -50,19 +50,19 @@ export function GlobalAlertBanner({
     <AnimatePresence>
       <motion.div
         role="status"
-        initial={{ y: -80, opacity: 0 }}
+        initial={{ y: 48, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        exit={{ y: -40, opacity: 0 }}
+        exit={{ y: 24, opacity: 0 }}
         transition={{ type: "spring", damping: 28, stiffness: 320 }}
         className={cn(
-          "fixed left-0 right-0 top-0 z-[999] flex items-center justify-center border-b px-3 py-2.5 shadow-sm sm:px-4",
+          "fixed bottom-8 left-1/2 z-[999] w-full max-w-sm -translate-x-1/2 rounded-xl border px-4 py-3 shadow-lg",
           styles.bar,
           styles.border,
         )}
       >
-        <div className="flex w-full max-w-4xl items-center gap-3">
-          <LeadIcon className={cn("h-5 w-5 shrink-0", styles.icon)} aria-hidden />
-          <p className="flex-1 text-center text-sm font-semibold text-[#2C2C2C]">{message}</p>
+        <div className="flex items-start gap-3">
+          <LeadIcon className={cn("mt-0.5 h-5 w-5 shrink-0", styles.icon)} aria-hidden />
+          <p className="min-w-0 flex-1 text-sm font-semibold leading-snug text-[#2C2C2C]">{message}</p>
           <button
             type="button"
             onClick={onDismiss}

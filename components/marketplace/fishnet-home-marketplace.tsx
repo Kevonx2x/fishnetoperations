@@ -1139,6 +1139,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Top Verified Agents This Week</h2>
                 <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">High scores, fast responses, proven closings</p>
               </div>
+              <div className="mt-4 lg:hidden">
+                <AgentScoreTutorialCard compact />
+              </div>
               <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-4">
                 <div className="flex min-w-0 flex-1 items-stretch gap-1 sm:gap-2">
                   <button
@@ -1151,15 +1154,15 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   </button>
                   <div
                     ref={topAgentsRef}
-                    className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide"
+                    className="min-w-0 flex-1 overflow-x-auto px-4 pb-2 scrollbar-hide"
                     style={{ WebkitOverflowScrolling: "touch" }}
                   >
-                    <div className="flex w-max flex-nowrap gap-3 md:gap-4">
+                    <div className="flex w-max flex-nowrap gap-4 md:gap-4">
                       {topAgents.map((a) => (
                         <AgentDirectoryCard
                           key={a.id}
                           agent={a}
-                          className="w-[180px] shrink-0 md:w-[300px]"
+                          className="w-[160px] shrink-0 md:w-[300px]"
                         />
                       ))}
                       {topAgents.length < 4 ? <MoreAgentsComingSoonCard /> : null}
@@ -1174,7 +1177,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>
-                <AgentScoreTutorialCard />
+                <div className="hidden w-full max-w-[320px] shrink-0 lg:block">
+                  <AgentScoreTutorialCard />
+                </div>
               </div>
               <div className="mt-6 lg:hidden">
                 <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 shadow-md">
@@ -1895,11 +1900,68 @@ function ListingsComingSoonPlaceholderCard({
   );
 }
 
-function AgentScoreTutorialCard() {
+function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
   const mariaAvatar =
     "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&h=100&fit=crop&crop=face";
+
+  if (compact) {
+    return (
+      <div className="w-full rounded-xl border border-[#6B9E6E]/40 bg-[#6B9E6E]/15 p-3 shadow-sm">
+        <p className="text-center font-serif text-[10px] font-bold uppercase tracking-[0.12em] text-[#2C2C2C]/55">
+          Score guide
+        </p>
+        <div className="mt-2 rounded-xl border border-[#2C2C2C]/10 bg-white p-2.5 shadow-sm">
+          <div className="flex gap-2.5">
+            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+              <Image src={mariaAvatar} alt="" width={40} height={40} className="object-cover" sizes="40px" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="text-sm font-semibold text-[#2C2C2C]">Maria Santos</p>
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#D4A843]/18 px-1.5 py-0.5 text-[9px] font-bold text-[#8a6d32]">
+                  <Flame className="h-2.5 w-2.5 text-[#D4A843]" aria-hidden />
+                  Verified
+                </span>
+              </div>
+              <p className="mt-0.5 text-[11px] font-semibold text-[#2C2C2C]/60">
+                Score {formatAgentScore(95)} · 312 closings ·{" "}
+                <span className="text-[#6B9E6E]">Fast response</span>
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="mt-2.5">
+          <h3 className="font-serif text-sm font-bold text-[#2C2C2C]">How Scores Work</h3>
+          <ul className="mt-1.5 space-y-1 text-[11px] font-medium text-[#2C2C2C]/85">
+            <li className="flex gap-1.5">
+              <Star className="mt-0.5 h-3 w-3 shrink-0 text-[#D4A843]" aria-hidden />
+              <span>
+                <strong className="text-[#2C2C2C]">90–100:</strong> Elite
+              </span>
+            </li>
+            <li className="flex gap-1.5">
+              <Star className="mt-0.5 h-3 w-3 shrink-0 text-[#D4A843]" aria-hidden />
+              <span>
+                <strong className="text-[#2C2C2C]">70–89:</strong> Experienced
+              </span>
+            </li>
+            <li className="flex gap-1.5">
+              <Star className="mt-0.5 h-3 w-3 shrink-0 text-[#D4A843]" aria-hidden />
+              <span>
+                <strong className="text-[#2C2C2C]">50–69:</strong> Growing
+              </span>
+            </li>
+          </ul>
+          <p className="mt-2 text-[10px] font-semibold leading-snug text-[#2C2C2C]/55">
+            Based on closings, response time, reviews
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative hidden h-full min-h-[300px] w-full max-w-[320px] flex-col rounded-2xl border border-[#6B9E6E]/40 bg-[#6B9E6E]/15 p-5 shadow-sm lg:flex">
+    <div className="relative flex h-full min-h-[300px] w-full flex-col rounded-2xl border border-[#6B9E6E]/40 bg-[#6B9E6E]/15 p-5 shadow-sm">
       <p className="text-center font-serif text-xs font-bold uppercase tracking-[0.12em] text-[#2C2C2C]/55">
         Score guide
       </p>
@@ -1959,7 +2021,7 @@ const MOBILE_AGENTS_LIFESTYLE_IMG =
 function MoreAgentsComingSoonCard() {
   return (
     <motion.div
-      className="w-[180px] shrink-0 md:w-[300px]"
+      className="w-[160px] shrink-0 md:w-[300px]"
       animate={{ opacity: [0.88, 1, 0.88] }}
       transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
     >

@@ -304,8 +304,7 @@ export function MaddenTopNav() {
     setBusy(true);
     try {
       await supabase.auth.signOut();
-      router.push("/auth/signout");
-      router.refresh();
+      window.location.href = "/auth/signout";
     } finally {
       setBusy(false);
     }
