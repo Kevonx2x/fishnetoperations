@@ -1139,9 +1139,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Top Verified Agents This Week</h2>
                 <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">High scores, fast responses, proven closings</p>
               </div>
-              <div className="mt-4 lg:hidden">
-                <AgentScoreTutorialCard compact />
-              </div>
               <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-4">
                 <div className="flex min-w-0 flex-1 items-stretch gap-1 sm:gap-2">
                   <button
@@ -1180,6 +1177,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 <div className="hidden w-full max-w-[320px] shrink-0 lg:block">
                   <AgentScoreTutorialCard />
                 </div>
+              </div>
+              <div className="mt-4 lg:hidden">
+                <AgentScoreTutorialCard compact />
               </div>
             </section>
 

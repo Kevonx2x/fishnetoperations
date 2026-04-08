@@ -36,7 +36,7 @@ export function AgentDirectoryCard({
           />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-1 lg:gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-1 lg:flex-nowrap lg:items-center lg:gap-2">
             <p className="min-w-0 truncate text-sm font-bold text-[#2C2C2C] lg:text-base lg:font-semibold">{agent.name}</p>
             {agent.verified ? (
               <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-[#D4A843]/18 px-1.5 py-0.5 text-[9px] font-bold leading-none text-[#8a6d32] lg:gap-1 lg:px-2 lg:py-1 lg:text-[11px]">
@@ -48,11 +48,11 @@ export function AgentDirectoryCard({
           <p className="mt-0.5 truncate text-[10px] font-semibold text-[#2C2C2C]/55 lg:mt-1 lg:text-xs">
             {agent.company || agent.brokerName}
           </p>
-          <div className="mt-1.5 flex flex-row flex-nowrap items-center gap-1.5 text-xs font-semibold text-[#2C2C2C]/60 lg:mt-2 lg:flex-wrap lg:gap-2">
-            <span className="shrink-0 rounded-full bg-[#6B9E6E]/12 px-2 py-0.5 lg:px-3 lg:py-1">
+          <div className="mt-1.5 flex min-w-0 flex-row flex-nowrap gap-1 text-[#2C2C2C]/60 lg:mt-2 lg:flex-wrap lg:gap-2 lg:text-xs lg:font-semibold">
+            <span className="shrink-0 rounded-full bg-[#6B9E6E]/12 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[#2C2C2C]/60 whitespace-nowrap lg:px-3 lg:py-1 lg:text-xs">
               {agent.closings} closings
             </span>
-            <span className="shrink-0 rounded-full bg-[#6B9E6E]/12 px-2 py-0.5 lg:px-3 lg:py-1">
+            <span className="shrink-0 rounded-full bg-[#6B9E6E]/12 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[#2C2C2C]/60 whitespace-nowrap lg:px-3 lg:py-1 lg:text-xs">
               Score {formatAgentScore(agent.score)}
             </span>
           </div>
