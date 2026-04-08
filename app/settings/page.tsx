@@ -11,6 +11,7 @@ import type { ProfileRole } from "@/lib/auth-roles";
 import { pathForRole } from "@/lib/auth-roles";
 import { formatLicenseDate, isLicenseExpiringWithinDays } from "@/lib/license-expiry";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 
 const ROLE_OPTIONS: {
   value: Exclude<ProfileRole, "admin">;
@@ -93,7 +94,6 @@ function SettingsPageInner() {
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
-  const [profileMsg, setProfileMsg] = useState("");
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -210,25 +210,73 @@ function SettingsPageInner() {
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.id) return;
-    setProfileMsg("");
     setSavingProfile(true);
     try {
-      const { error } = await supabase
+      const {
+        data: { user: authUser },
+        error: authErr,
+      } = await supabase.auth.getUser();
+      if (authErr || !authUser?.id) {
+        toast.error(authErr?.message ?? "You must be signed in to save your profile.");
+        return;
+      }
+      const uid = authUser.id;
+
+      const payload = {
+        full_name: fullName.trim() || null,
+        phone: phone.trim() || null,
+        bio: bio.trim() || null,
+      };
+
+      let { data, error } = await supabase
         .from("profiles")
-        .update({
-          full_name: fullName.trim() || null,
-          phone: phone.trim() || null,
-          bio: bio.trim() || null,
-        })
-        .eq("id", user.id);
-      if (error) throw error;
+        .update(payload)
+        .eq("id", uid)
+        .select("id")
+        .maybeSingle();
+
+      const bioLikelyMissing =
+        error &&
+        (/bio/i.test(error.message ?? "") ||
+          /column.*does not exist/i.test(error.message ?? ""));
+
+      if (bioLikelyMissing) {
+        const retry = await supabase
+          .from("profiles")
+          .update({
+            full_name: payload.full_name,
+            phone: payload.phone,
+          })
+          .eq("id", uid)
+          .select("id")
+          .maybeSingle();
+        data = retry.data;
+        error = retry.error;
+        if (!error && data?.id) {
+          await refreshProfile();
+          toast.success("Profile saved");
+          toast.warning("Bio could not be saved until the database includes a bio column.", {
+            duration: 6000,
+          });
+          return;
+        }
+      }
+
+      if (error) {
+        toast.error(error.message || "Could not save profile");
+        return;
+      }
+      if (!data?.id) {
+        toast.error("No profile row was updated. Check that your account has a profile.");
+        return;
+      }
       await refreshProfile();
-      setProfileMsg("Profile saved.");
+      toast.success("Profile saved");
     } catch (err) {
-      setProfileMsg(err instanceof Error ? err.message : "Could not save profile");
+      toast.error(err instanceof Error ? err.message : "Could not save profile");
+    } finally {
+      setSavingProfile(false);
     }
-    setSavingProfile(false);
   };
 
   const savePassword = async (e: React.FormEvent) => {
@@ -461,11 +509,6 @@ function SettingsPageInner() {
                   className="mt-1.5 w-full resize-y rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
                 />
               </label>
-              {profileMsg ? (
-                <p className="text-sm text-[#6B9E6E]" role="status">
-                  {profileMsg}
-                </p>
-              ) : null}
               <button
                 type="submit"
                 disabled={savingProfile}
