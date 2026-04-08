@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+/** Stable comma-separated sorted ids — avoids effect loops when `properties` is a new array reference each render. */
+function propertyIdsDependencyKey(properties: readonly { id: string }[]): string {
+  if (!properties.length) return "";
+  return [...properties.map((p) => p.id)].sort().join(",");
+}
+
 /** Heart (like) + pin (saved_properties) UI contract for property cards and modals. */
 export type PropertyEngagement = {
   isLiked: (id: string) => boolean;
@@ -199,13 +205,16 @@ export function usePropertyEngagementForProperties(properties: readonly { id: st
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [saveCounts, setSaveCounts] = useState<Record<string, number>>({});
 
+  /** String primitive — stable across renders when the set of listing ids is unchanged (unlike `properties` array identity). */
+  const propertyIdsKey = propertyIdsDependencyKey(properties);
+
   useEffect(() => {
-    if (!properties.length) {
+    if (!propertyIdsKey) {
       setLikeCounts({});
       setSaveCounts({});
       return;
     }
-    const ids = properties.map((p) => p.id);
+    const ids = propertyIdsKey.split(",");
     let cancelled = false;
     void (async () => {
       const [lc, sc] = await Promise.all([
@@ -227,7 +236,7 @@ export function usePropertyEngagementForProperties(properties: readonly { id: st
     return () => {
       cancelled = true;
     };
-  }, [properties, supabase]);
+  }, [propertyIdsKey, supabase]);
 
   const engagement = useMemo(
     () => ({
