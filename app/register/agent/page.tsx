@@ -316,16 +316,22 @@ export default function RegisterAgentPage() {
                 </label>
                 {detailErrors.name ? <p className="mt-1 text-sm text-red-600">{detailErrors.name}</p> : null}
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500">
+              <div className="relative z-10">
+                <label htmlFor="agent-reg-license" className="block text-xs font-medium text-gray-500">
                   PRC / license number
-                  <input
-                    value={licenseNumber}
-                    onChange={(e) => setLicenseNumber(formatPrcLicenseInput(e.target.value))}
-                    placeholder="PRC-AG-2024-12345"
-                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
-                  />
                 </label>
+                <input
+                  id="agent-reg-license"
+                  name="license_number"
+                  type="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  value={licenseNumber}
+                  onChange={(e) => setLicenseNumber(formatPrcLicenseInput(e.target.value))}
+                  placeholder="PRC-AG-2024-12345"
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-400/30"
+                />
                 {detailErrors.licenseNumber ? (
                   <p className="mt-1 text-sm text-red-600">{detailErrors.licenseNumber}</p>
                 ) : null}

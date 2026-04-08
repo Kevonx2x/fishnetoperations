@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -144,6 +145,33 @@ function MockAgentCard({
         </div>
       </div>
       <div className="mt-3 rounded-full bg-[#2C2C2C] py-2 text-center text-[11px] font-bold text-white">View Profile</div>
+    </div>
+  );
+}
+
+function SlideAreYouRealEstateAgent() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-2 text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="flex w-full max-w-md flex-col items-center"
+      >
+        <h2 className="font-serif text-xl font-bold leading-tight text-[#2C2C2C] sm:text-2xl">
+          Are You a Real Estate Agent?
+        </h2>
+        <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/65 sm:text-base">
+          List properties, get verified, and connect with serious buyers and renters on BahayGo.
+        </p>
+        <Link
+          href="/register/agent"
+          className="mt-8 inline-flex items-center justify-center gap-1 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-bold text-white shadow-md transition hover:brightness-95"
+        >
+          Join as Agent
+          <span aria-hidden>→</span>
+        </Link>
+      </motion.div>
     </div>
   );
 }
@@ -359,7 +387,7 @@ function SlideZeroScams() {
   );
 }
 
-const SLIDE_KEYS = ["welcome", "verified", "profiles", "viewing", "trust"] as const;
+const SLIDE_KEYS = ["welcome", "verified", "joinAgent", "profiles", "viewing", "trust"] as const;
 
 export function WelcomeOnboarding() {
   const [mounted, setMounted] = useState(false);
@@ -454,9 +482,10 @@ export function WelcomeOnboarding() {
             >
               {idx === 0 ? <SlideWelcome /> : null}
               {idx === 1 ? <SlideFindVerifiedAgents /> : null}
-              {idx === 2 ? <SlideAgentProfileFeed /> : null}
-              {idx === 3 ? <SlideScheduleViewing /> : null}
-              {idx === 4 ? <SlideZeroScams /> : null}
+              {idx === 2 ? <SlideAreYouRealEstateAgent /> : null}
+              {idx === 3 ? <SlideAgentProfileFeed /> : null}
+              {idx === 4 ? <SlideScheduleViewing /> : null}
+              {idx === 5 ? <SlideZeroScams /> : null}
             </motion.div>
           </AnimatePresence>
         </div>

@@ -139,8 +139,61 @@ function formatPeso(n: number): string {
   return `₱${Math.round(n).toLocaleString()}`;
 }
 
+const HERO_FALLBACK_PHOTOS = [
+  {
+    id: "hero-1",
+    name: "BGC Luxury Condo",
+    location: "BGC, Taguig",
+    image_url: "https://images.unsplash.com/photo-1600596542815-ffad4c1ee5b8?w=600&h=400&fit=crop",
+  },
+  {
+    id: "hero-2",
+    name: "Makati Penthouse",
+    location: "Makati CBD, Makati",
+    image_url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&h=400&fit=crop",
+  },
+  {
+    id: "hero-3",
+    name: "Ortigas Modern Home",
+    location: "Ortigas Center, Pasig",
+    image_url: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&h=400&fit=crop",
+  },
+] as const;
+
+type HeroCardItem =
+  | { kind: "property"; property: DbProperty }
+  | { kind: "fallback"; id: string; name: string; location: string; image_url: string };
+
+function buildHeroCards(properties: DbProperty[]): HeroCardItem[] {
+  const seenIds = new Set<string>();
+  const uniqueReal: DbProperty[] = [];
+  for (const p of properties) {
+    if (seenIds.has(p.id)) continue;
+    seenIds.add(p.id);
+    uniqueReal.push(p);
+    if (uniqueReal.length >= 3) break;
+  }
+
+  const cards: HeroCardItem[] = uniqueReal.map((property) => ({ kind: "property", property }));
+  let fb = 0;
+  while (cards.length < 3 && fb < HERO_FALLBACK_PHOTOS.length) {
+    const row = HERO_FALLBACK_PHOTOS[fb]!;
+    fb += 1;
+    cards.push({
+      kind: "fallback",
+      id: row.id,
+      name: row.name,
+      location: row.location,
+      image_url: row.image_url,
+    });
+  }
+  return cards.slice(0, 3);
+}
+
 function HeroFloatingPropertyCards({ properties }: { properties: DbProperty[] }) {
-  if (properties.length === 0) {
+  const cards = useMemo(() => buildHeroCards(properties), [properties]);
+
+  if (cards.length === 0) {
     return (
       <div className="flex h-[320px] max-w-sm items-center justify-center rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white/60 px-6 text-center text-sm font-semibold text-[#2C2C2C]/45">
         Loading listings…
@@ -148,7 +201,6 @@ function HeroFloatingPropertyCards({ properties }: { properties: DbProperty[] })
     );
   }
 
-  const pick = (i: number) => properties[Math.min(i, properties.length - 1)]!;
   const configs = [
     {
       top: "top-0",
@@ -175,16 +227,26 @@ function HeroFloatingPropertyCards({ properties }: { properties: DbProperty[] })
 
   return (
     <div className="relative mx-auto h-[400px] w-full max-w-[340px]">
-      {[0, 1, 2].map((idx) => {
-        const p = pick(idx);
-        const urls = roomUrlsFor(p);
-        const img = urls[0] ?? p.image_url;
+      {cards.map((item, idx) => {
         const cfg = configs[idx]!;
-        const locShort = p.location.split(",")[0]?.trim() || p.location;
+        const href =
+          item.kind === "property"
+            ? `/properties/${encodeURIComponent(item.property.id)}`
+            : "/search";
+        const img =
+          item.kind === "property"
+            ? (roomUrlsFor(item.property)[0] ?? item.property.image_url)
+            : item.image_url;
+        const locShort =
+          item.kind === "property"
+            ? item.property.location.split(",")[0]?.trim() || item.property.location
+            : item.location.split(",")[0]?.trim() || item.location;
+        const cardKey =
+          item.kind === "property" ? `${item.property.id}-float-${idx}` : `${item.id}-float-${idx}`;
         return (
           <Link
-            key={`${p.id}-float-${idx}`}
-            href={`/properties/${encodeURIComponent(p.id)}`}
+            key={cardKey}
+            href={href}
             className={cn(
               "absolute left-1/2 -translate-x-1/2 overflow-hidden rounded-2xl border border-white/95 bg-white shadow-[0_18px_40px_-12px_rgba(44,44,44,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_48px_-10px_rgba(44,44,44,0.4)]",
               cfg.top,
