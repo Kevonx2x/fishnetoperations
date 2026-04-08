@@ -87,6 +87,7 @@ export default function RegisterBrokerPage() {
   const signOut = async () => {
     await supabase.auth.signOut();
     setSessionReady(false);
+    window.location.href = "/";
   };
 
   const uploadLogoIfNeeded = async (userId: string): Promise<string | null> => {

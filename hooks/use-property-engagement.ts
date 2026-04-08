@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useAuth } from "@/contexts/auth-context";
+import { useOpenEngagementSignIn } from "@/contexts/engagement-signin-context";
 
 /** Stable comma-separated sorted ids — avoids effect loops when `properties` is a new array reference each render. */
 function propertyIdsDependencyKey(properties: readonly { id: string }[]): string {
@@ -17,9 +21,8 @@ export type PropertyEngagement = {
   likeCount: (id: string) => number;
   saveCount: (id: string) => number;
 };
-import { toast } from "sonner";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { useAuth } from "@/contexts/auth-context";
+
+export const ONLY_CLIENTS_CAN_LIKE_OR_PIN = "Only clients can like or pin properties";
 
 function notifyPropertyEngagement(args: {
   propertyId: string;
@@ -34,56 +37,19 @@ function notifyPropertyEngagement(args: {
   }).catch(() => {});
 }
 
-const LOCAL_LIKES_KEY = "bahaygo_property_likes_v1";
-
-function readLocalLikeIds(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(LOCAL_LIKES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((x) => typeof x === "string");
-  } catch {
-    return [];
-  }
+function isClientRole(role: string | null | undefined): boolean {
+  return role === "client";
 }
 
-function writeLocalLikeIds(ids: string[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(LOCAL_LIKES_KEY, JSON.stringify(ids));
-    window.dispatchEvent(new Event("bahaygo:property-likes"));
-  } catch {
-    /* ignore */
-  }
-}
-
-function toggleLocalLikeId(id: string) {
-  const ids = readLocalLikeIds();
-  const next = ids.includes(id) ? ids.filter((x) => x !== id) : [id, ...ids];
-  writeLocalLikeIds(next);
-}
-
-/** Heart / like — localStorage when anonymous; `property_likes` when signed in. */
+/** Heart / like — `property_likes` when signed-in client only. */
 export function usePropertyLikes() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
+  const openSignIn = useOpenEngagementSignIn();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const [localIds, setLocalIds] = useState<string[]>(() => readLocalLikeIds());
   const [dbIds, setDbIds] = useState<string[]>([]);
 
   useEffect(() => {
-    const onStorage = () => setLocalIds(readLocalLikeIds());
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("bahaygo:property-likes", onStorage);
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("bahaygo:property-likes", onStorage);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!user?.id) {
+    if (!user?.id || !isClientRole(profile?.role)) {
       setDbIds([]);
       return;
     }
@@ -99,20 +65,26 @@ export function usePropertyLikes() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, supabase]);
+  }, [user?.id, profile?.role, supabase]);
 
   const has = useCallback(
-    (id: string) => dbIds.includes(id) || localIds.includes(id),
-    [dbIds, localIds],
+    (id: string) =>
+      user?.id && profile && isClientRole(profile.role) ? dbIds.includes(id) : false,
+    [dbIds, user?.id, profile],
   );
 
   const toggle = useCallback(
     async (propertyId: string): Promise<boolean> => {
       if (!user?.id) {
-        toggleLocalLikeId(propertyId);
-        setLocalIds(readLocalLikeIds());
-        return true;
+        openSignIn();
+        return false;
       }
+      if (authLoading || !profile) return false;
+      if (!isClientRole(profile.role)) {
+        toast.error(ONLY_CLIENTS_CAN_LIKE_OR_PIN);
+        return false;
+      }
+
       if (dbIds.includes(propertyId)) {
         const { error } = await supabase
           .from("property_likes")
@@ -142,20 +114,21 @@ export function usePropertyLikes() {
       });
       return true;
     },
-    [user?.id, supabase, dbIds, profile?.full_name],
+    [user?.id, supabase, dbIds, profile, profile?.full_name, profile?.role, authLoading, openSignIn],
   );
 
-  return { has, toggle, localIds, dbIds };
+  return { has, toggle, dbIds };
 }
 
-/** Pin / wishlist — `saved_properties` only; requires sign-in. */
+/** Pin / wishlist — `saved_properties` only; clients only. */
 export function usePinnedPropertyIds() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
+  const openSignIn = useOpenEngagementSignIn();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [ids, setIds] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!user?.id) {
+    if (!user?.id || !isClientRole(profile?.role)) {
       setIds([]);
       return;
     }
@@ -171,16 +144,26 @@ export function usePinnedPropertyIds() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, supabase]);
+  }, [user?.id, profile?.role, supabase]);
 
-  const has = useCallback((id: string) => ids.includes(id), [ids]);
+  const has = useCallback(
+    (id: string) =>
+      user?.id && profile && isClientRole(profile.role) ? ids.includes(id) : false,
+    [ids, user?.id, profile],
+  );
 
   const toggle = useCallback(
     async (propertyId: string): Promise<boolean> => {
       if (!user?.id) {
-        toast.error("Sign in to pin properties to your profile.");
+        openSignIn();
         return false;
       }
+      if (authLoading || !profile) return false;
+      if (!isClientRole(profile.role)) {
+        toast.error(ONLY_CLIENTS_CAN_LIKE_OR_PIN);
+        return false;
+      }
+
       if (ids.includes(propertyId)) {
         const { error } = await supabase
           .from("saved_properties")
@@ -210,7 +193,7 @@ export function usePinnedPropertyIds() {
       });
       return true;
     },
-    [user?.id, supabase, ids, profile?.full_name],
+    [user?.id, supabase, ids, profile, profile?.full_name, profile?.role, authLoading, openSignIn],
   );
 
   return { has, toggle, ids };
@@ -252,17 +235,6 @@ export function usePropertyEngagementForProperties(properties: readonly { id: st
         supabase.rpc("property_save_counts_for", { property_ids: ids }),
       ]);
       if (cancelled) return;
-
-      console.log("[property_like_counts_for]", {
-        property_ids: ids,
-        data: lc.data,
-        error: lc.error,
-      });
-      console.log("[property_save_counts_for]", {
-        property_ids: ids,
-        data: sc.data,
-        error: sc.error,
-      });
 
       const lm: Record<string, number> = {};
       for (const row of (lc.data ?? []) as { property_id: string; like_count: number }[]) {

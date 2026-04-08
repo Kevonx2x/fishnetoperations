@@ -842,6 +842,14 @@ function SettingsPageInner() {
 
         {activeTab === "profile" ? (
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+            {role === "client" && user?.id ? (
+              <Link
+                href={`/clients/${user.id}`}
+                className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[#6B9E6E] transition hover:text-[#5d8a60]"
+              >
+                ← Back to My Profile
+              </Link>
+            ) : null}
             <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">Profile</h2>
             <p className="mt-1 text-sm text-[#2C2C2C]/50">
               Your name, photo, and bio appear on your account across BahayGo.

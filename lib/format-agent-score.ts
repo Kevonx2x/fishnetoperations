@@ -1,5 +1,9 @@
-/** Star-scale (≤10) shows one decimal; legacy 0–100 scores round to integer. */
-export function formatAgentScore(score: number): string {
-  if (score <= 10) return score.toFixed(1);
-  return String(Math.round(score));
+/**
+ * Display agent scores as stored: 0–100 style (>10) as whole numbers; 0–10 scale with one decimal.
+ */
+export function formatAgentScore(score: number | null | undefined): string {
+  const n = Number(score);
+  if (!Number.isFinite(n)) return "—";
+  if (n > 10) return String(Math.round(n));
+  return n.toFixed(1);
 }

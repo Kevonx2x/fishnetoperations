@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import Image from "next/image";
+import { formatAgentScore } from "@/lib/format-agent-score";
 
 // Types
 interface Agent {
@@ -412,7 +413,7 @@ function AgentCardCompact({ agent }: { agent: Agent }) {
             className="h-12 w-12 rounded-lg object-cover"
           />
           <div className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-sage text-xs font-bold text-primary-foreground">
-            {agent.score}
+            {formatAgentScore(agent.score)}
           </div>
         </div>
         <div className="flex-1 min-w-0">
@@ -487,7 +488,7 @@ function AgentCardExpanded({ agent }: { agent: Agent }) {
       <div className="flex items-center gap-3">
         <div className="relative flex-shrink-0">
           <span className="absolute -top-1 -left-1 flex h-7 w-7 items-center justify-center rounded-full bg-sage text-xs font-bold text-primary-foreground shadow-sm">
-            {agent.score}
+            {formatAgentScore(agent.score)}
           </span>
           <Image
             src={agent.image}

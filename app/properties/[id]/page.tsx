@@ -22,6 +22,7 @@ import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availabil
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
 import { useAuth } from "@/contexts/auth-context";
 import { coListLimitForTier, listingLimitForTier } from "@/lib/agent-listing-limits";
+import { formatAgentScore } from "@/lib/format-agent-score";
 
 type ListingAgentProfile = {
   id: string;
@@ -531,7 +532,7 @@ export default function PropertyPage() {
                               </Link>
                               {a.verified && a.status === "approved" ? <VerifiedAgentBadge show /> : null}
                               <span className="rounded-md bg-[#2C2C2C]/8 px-2 py-0.5 text-[10px] font-bold text-[#2C2C2C]/80">
-                                {Math.round(a.score)}
+                                {formatAgentScore(a.score)}
                               </span>
                             </div>
                             <div className="mt-1">

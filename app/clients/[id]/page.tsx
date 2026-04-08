@@ -684,7 +684,6 @@ export default function ClientPublicProfilePage() {
         return;
       }
       const connectedAgents = p.connectedAgents ?? [];
-      console.log("[ClientWishlist] connectedAgents for property:", p.id, connectedAgents);
       if (connectedAgents.length === 0) return;
       if (connectedAgents.length === 1) {
         setSelectedViewingProperty(p);
@@ -881,15 +880,6 @@ export default function ClientPublicProfilePage() {
                       Edit Profile Preferences
                     </Link>
                   </div>
-                ) : null}
-                {isOwn ? (
-                  <Link
-                    href="/settings?tab=profile"
-                    className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#6B9E6E] bg-transparent px-5 py-2.5 text-sm font-semibold text-[#6B9E6E] shadow-sm transition hover:bg-[#FAF8F4]"
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden />
-                    Edit profile
-                  </Link>
                 ) : null}
               </div>
               {showClientPrefsCard && clientPrefs ? (
@@ -1119,7 +1109,26 @@ export default function ClientPublicProfilePage() {
                                   {statusLabel}
                                 </span>
                               </div>
-                              <div className="absolute right-3 top-3 z-10">
+                              <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+                                {isOwn ? (
+                                  <button
+                                    type="button"
+                                    disabled={removingId === p.id}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      void removeFromWishlist(p.id);
+                                    }}
+                                    className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10 disabled:opacity-50"
+                                    title="Remove from wishlist"
+                                    aria-label="Unpin from wishlist"
+                                  >
+                                    <Pin
+                                      className={`h-3.5 w-3.5 shrink-0 ${removingId === p.id ? "text-[#2C2C2C]/35" : "text-[#D4A843]"}`}
+                                      aria-hidden
+                                    />
+                                  </button>
+                                ) : null}
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -1199,16 +1208,6 @@ export default function ClientPublicProfilePage() {
                                   </p>
                                 ) : null}
                               </div>
-                              {isOwn ? (
-                                <button
-                                  type="button"
-                                  disabled={removingId === p.id}
-                                  onClick={() => void removeFromWishlist(p.id)}
-                                  className="text-center text-sm font-semibold text-red-600 underline underline-offset-2 hover:text-red-700 disabled:opacity-50 sm:ml-1"
-                                >
-                                  {removingId === p.id ? "Removing…" : "Remove from wishlist"}
-                                </button>
-                              ) : null}
                             </div>
                           </article>
                         );

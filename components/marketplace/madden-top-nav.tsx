@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -209,30 +210,8 @@ function NavDropdownMenu({ label, entries }: { label: string; entries: NavDropdo
   );
 }
 
-type NotificationRow = {
-  id: string;
-  created_at: string;
-  type: string;
-  title: string;
-  body: string | null;
-  read_at: string | null;
-};
-
-function notificationIcon(type: string) {
-  if (type === "property_match") return <Home className="h-4 w-4 text-[#6B9E6E]" />;
-  if (type === "lead_created") return <Sparkles className="h-4 w-4 text-[#D4A843]" />;
-  return <Bell className="h-4 w-4 text-[#2C2C2C]/50" />;
-}
-
-function formatTimeAgo(iso: string): string {
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
-
 export function MaddenTopNav() {
+  const router = useRouter();
   const pathname = usePathname();
   const isBuyPage = pathname === "/buy";
   const { user, profile, role, loading } = useAuth();
@@ -247,17 +226,13 @@ export function MaddenTopNav() {
   const [brokerNav, setBrokerNav] = useState<{ id: string } | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement | null>(null);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const notifRef = useRef<HTMLDivElement | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [notifUnread, setNotifUnread] = useState(0);
 
   useEffect(() => {
     if (!user?.id) {
       setAgentNav(null);
       setBrokerNav(null);
-      setNotifications([]);
       setNotifUnread(0);
       return;
     }
@@ -303,28 +278,9 @@ export function MaddenTopNav() {
   }, [user?.id, supabase]);
 
   useEffect(() => {
-    if (!notifOpen || !user?.id) return;
-    let cancelled = false;
-    void (async () => {
-      const { data } = await supabase
-        .from("notifications")
-        .select("id, created_at, type, title, body, read_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(25);
-      if (cancelled) return;
-      setNotifications((data ?? []) as NotificationRow[]);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [notifOpen, user?.id, supabase]);
-
-  useEffect(() => {
     const close = (e: MouseEvent) => {
       const t = e.target as Node;
       if (accountRef.current && !accountRef.current.contains(t)) setAccountOpen(false);
-      if (notifRef.current && !notifRef.current.contains(t)) setNotifOpen(false);
     };
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
@@ -348,6 +304,8 @@ export function MaddenTopNav() {
     setBusy(true);
     try {
       await supabase.auth.signOut();
+      router.push("/");
+      router.refresh();
     } finally {
       setBusy(false);
     }
@@ -362,14 +320,6 @@ export function MaddenTopNav() {
       setAgentNav((prev) => (prev ? { ...prev, availability: next } : null));
     }
     setAvailToggling(false);
-  };
-
-  const markNotificationRead = async (n: NotificationRow) => {
-    if (n.read_at) return;
-    const { error } = await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", n.id);
-    if (error) return;
-    setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)));
-    setNotifUnread((c) => Math.max(0, c - 1));
   };
 
   const publicAgentsEntries: NavDropdownEntry[] = useMemo(
@@ -521,70 +471,27 @@ export function MaddenTopNav() {
                   My Profile
                 </Link>
               ) : null}
-              <div className="relative" ref={notifRef}>
-                <button
-                  type="button"
-                  onClick={() => setNotifOpen((o) => !o)}
-                  className="relative inline-flex rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm hover:bg-[#FAF8F4]"
-                  aria-label="Notifications"
-                  aria-expanded={notifOpen}
+              {role === "agent" && agentNav ? (
+                <Link
+                  href={`/agents/${agentNav.id}`}
+                  className="hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-[#2C2C2C]/75 transition hover:bg-white/80 hover:text-[#2C2C2C] sm:inline-flex"
                 >
-                  <Bell className="h-4 w-4" />
-                  {notifUnread > 0 ? (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#D4A843] px-1 text-[10px] font-bold text-[#2C2C2C]">
-                      {notifUnread > 9 ? "9+" : notifUnread}
-                    </span>
-                  ) : null}
-                </button>
-                <AnimatePresence>
-                  {notifOpen ? (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-full z-[80] mt-2 w-[min(100vw-2rem,22rem)] max-h-[min(70vh,420px)] overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg ring-1 ring-black/5"
-                      role="menu"
-                    >
-                      <div className="border-b border-[#2C2C2C]/10 px-3 py-2">
-                        <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Notifications</p>
-                      </div>
-                      <div className="max-h-[min(60vh,360px)] overflow-y-auto">
-                        {notifications.length === 0 ? (
-                          <p className="px-4 py-8 text-center text-sm font-semibold text-[#2C2C2C]/45">No new notifications</p>
-                        ) : (
-                          <ul className="divide-y divide-[#2C2C2C]/8">
-                            {notifications.map((n) => (
-                              <li key={n.id}>
-                                <button
-                                  type="button"
-                                  onClick={() => void markNotificationRead(n)}
-                                  className={`flex w-full gap-3 px-3 py-3 text-left transition hover:bg-[#FAF8F4] ${
-                                    n.read_at ? "opacity-75" : ""
-                                  }`}
-                                >
-                                  <span className="mt-0.5 shrink-0">{notificationIcon(n.type)}</span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block text-sm font-semibold text-[#2C2C2C]">{n.title}</span>
-                                    {n.body ? (
-                                      <span className="mt-0.5 line-clamp-2 block text-xs font-semibold text-[#2C2C2C]/55">
-                                        {n.body}
-                                      </span>
-                                    ) : null}
-                                    <span className="mt-1 block text-[10px] font-semibold text-[#2C2C2C]/40">
-                                      {formatTimeAgo(n.created_at)}
-                                    </span>
-                                  </span>
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
-              </div>
+                  <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                  My Profile
+                </Link>
+              ) : null}
+              <Link
+                href="/notifications"
+                className="relative inline-flex rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm transition hover:bg-[#FAF8F4]"
+                aria-label="Notifications"
+              >
+                <Bell className="h-4 w-4" />
+                {notifUnread > 0 ? (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#D4A843] px-1 text-[10px] font-bold text-[#2C2C2C]">
+                    {notifUnread > 9 ? "9+" : notifUnread}
+                  </span>
+                ) : null}
+              </Link>
               <div className="relative" ref={accountRef}>
                 <div className="relative">
                   <button
@@ -802,6 +709,16 @@ export function MaddenTopNav() {
                   {user && role === "client" && user.id ? (
                     <Link
                       href={`/clients/${user.id}`}
+                      onClick={closeMobileNav}
+                      className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
+                    >
+                      <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                      My Profile
+                    </Link>
+                  ) : null}
+                  {user && role === "agent" && agentNav ? (
+                    <Link
+                      href={`/agents/${agentNav.id}`}
                       onClick={closeMobileNav}
                       className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
                     >

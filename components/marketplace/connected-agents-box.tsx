@@ -8,6 +8,7 @@ import { ChevronDown } from "lucide-react";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
+import { formatAgentScore } from "@/lib/format-agent-score";
 
 export function ConnectedAgentsBox({
   title = "Connected Agents",
@@ -70,9 +71,9 @@ export function ConnectedAgentsBox({
                       href={`/agents/${encodeURIComponent(a.id)}`}
                       title="Trust Score"
                       className="shrink-0 rounded-full bg-white px-2 py-1 text-xs font-bold text-[#2C2C2C] ring-1 ring-black/10 hover:bg-[#FAF8F4]"
-                      aria-label={`Trust Score ${Math.round(a.score)}`}
+                      aria-label={`Trust Score ${formatAgentScore(a.score)}`}
                     >
-                      {Math.round(a.score)}
+                      {formatAgentScore(a.score)}
                     </Link>
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-[#2C2C2C]/60">
@@ -100,7 +101,7 @@ export function ConnectedAgentsBox({
                   title="Trust Score"
                   className="inline-flex items-center gap-1 hover:text-[#2C2C2C]"
                 >
-                  Score {Math.round(a.score)}
+                  Score {formatAgentScore(a.score)}
                 </Link>
                 <Link href={`/agents/${encodeURIComponent(a.id)}`} className="hover:text-[#2C2C2C]">
                   View →

@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
+import { formatAgentScore } from "@/lib/format-agent-score";
 
 export function ViewingAgentPickerModal({
   open,
@@ -59,7 +60,7 @@ export function ViewingAgentPickerModal({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-[#2C2C2C]">{a.name}</p>
-                  <p className="text-xs font-bold text-[#2C2C2C]/55">Score {Math.round(a.score)}</p>
+                  <p className="text-xs font-bold text-[#2C2C2C]/55">Score {formatAgentScore(a.score)}</p>
                 </div>
               </button>
             </li>

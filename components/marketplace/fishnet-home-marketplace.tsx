@@ -39,6 +39,7 @@ import { AgentSlotPlaceholder } from "@/components/marketplace/agent-slot-placeh
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { cn } from "@/lib/utils";
+import { formatAgentScore } from "@/lib/format-agent-score";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { roomUrlsFor } from "@/lib/marketplace-property";
@@ -1547,7 +1548,7 @@ export function NewlyListedCard({
                     </span>
                     <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
                     <span className="shrink-0 text-xs font-bold text-[#2C2C2C]/80 transition-colors duration-150 ease-out group-hover:text-[#2C2C2C]">
-                      {Math.round(row.agent.score)}
+                      {formatAgentScore(row.agent.score)}
                     </span>
                     <ChevronRight
                       className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E] opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100"

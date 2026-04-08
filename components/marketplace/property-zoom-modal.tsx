@@ -18,6 +18,7 @@ import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact
 import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
 import { useAuth } from "@/contexts/auth-context";
 import type { PropertyEngagement } from "@/hooks/use-property-engagement";
+import { formatAgentScore } from "@/lib/format-agent-score";
 
 type Props = {
   property: DbProperty;
@@ -182,7 +183,7 @@ function AgentsList({
                 </Link>
                 <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
                 <span className="rounded-md bg-[#2C2C2C]/8 px-1.5 py-0.5 text-[11px] font-bold text-[#2C2C2C]/80">
-                  {Math.round(a.score)}
+                  {formatAgentScore(a.score)}
                 </span>
               </div>
               {a.brokerName ? (

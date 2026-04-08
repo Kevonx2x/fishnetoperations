@@ -133,6 +133,7 @@ export default function RegisterAgentPage() {
   const signOut = async () => {
     await supabase.auth.signOut();
     setSessionReady(false);
+    window.location.href = "/";
   };
 
   const validateDetailForm = (): boolean => {

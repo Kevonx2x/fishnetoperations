@@ -10,6 +10,7 @@ import {
   AgentAvailabilityBadge,
   isAgentAvailableNow,
 } from "@/components/marketplace/agent-availability-badge";
+import { formatAgentScore } from "@/lib/format-agent-score";
 
 export function MaddenAgentRow({
   agent,
@@ -69,7 +70,7 @@ export function MaddenAgentRow({
             <div className="flex shrink-0 items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-[#D4A843]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]">
                 <Zap className="h-3.5 w-3.5" />
-                {Math.round(agent.score)}
+                {formatAgentScore(agent.score)}
               </span>
               {agent.brokerLogo ? (
                 <div className="relative h-9 w-9 overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-black/10">

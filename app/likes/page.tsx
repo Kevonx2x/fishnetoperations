@@ -20,16 +20,7 @@ type PropertyCard = {
 
 export default function LikesPage() {
   const likes = usePropertyLikes();
-  const orderedIds = useMemo(() => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const id of [...likes.localIds, ...likes.dbIds]) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      out.push(id);
-    }
-    return out;
-  }, [likes.localIds, likes.dbIds]);
+  const orderedIds = useMemo(() => likes.dbIds, [likes.dbIds]);
   const idsKey = useMemo(() => orderedIds.join(","), [orderedIds]);
 
   const [rows, setRows] = useState<PropertyCard[]>([]);
