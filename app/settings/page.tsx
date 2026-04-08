@@ -338,41 +338,88 @@ function SettingsPageInner() {
         }
       }
 
+      const { data: existingRow, error: loadErr } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", uid)
+        .maybeSingle();
+
+      if (loadErr || !existingRow) {
+        toast.error(loadErr?.message ?? "Could not load your profile to save.");
+        return;
+      }
+
+      const ex = existingRow as Record<string, unknown>;
+
+      const str = (v: unknown) => (typeof v === "string" ? v : v == null ? "" : String(v));
+      const numOrNull = (v: unknown): number | null =>
+        v != null && Number.isFinite(Number(v)) ? Number(v) : null;
+
       const payload: Record<string, unknown> = {
-        full_name: fullName.trim() || null,
-        phone: ph || null,
-        bio: bio.trim() || null,
+        full_name: fullName.trim() || str(ex.full_name) || null,
+        phone: ph || str(ex.phone) || null,
+        bio: bio.trim() !== "" ? bio.trim() : ex.bio ?? null,
       };
 
       if (currentRole === "client" && !isAdmin) {
-        const abroad = countryOfOrigin.trim() && countryOfOrigin.trim() !== "Philippines";
-        const bmin = budgetMin.trim() ? parseListingPricePesos(budgetMin) : null;
-        const bmax = budgetMax.trim() ? parseListingPricePesos(budgetMax) : null;
-        if (budgetMin.trim() && bmin === null) {
+        const country = countryOfOrigin.trim();
+        const isPH = !country || country === "Philippines";
+
+        const bminParsed = budgetMin.trim() ? parseListingPricePesos(budgetMin) : null;
+        const bmaxParsed = budgetMax.trim() ? parseListingPricePesos(budgetMax) : null;
+        if (budgetMin.trim() && bminParsed === null) {
           toast.error("Enter a valid minimum budget or leave it blank.");
           return;
         }
-        if (budgetMax.trim() && bmax === null) {
+        if (budgetMax.trim() && bmaxParsed === null) {
           toast.error("Enter a valid maximum budget or leave it blank.");
           return;
         }
+        const bmin =
+          budgetMin.trim() && bminParsed !== null ? bminParsed : numOrNull(ex.budget_min);
+        const bmax =
+          budgetMax.trim() && bmaxParsed !== null ? bmaxParsed : numOrNull(ex.budget_max);
         if (bmin != null && bmax != null && bmin > bmax) {
           toast.error("Minimum budget cannot be greater than maximum.");
           return;
         }
-        payload.country_of_origin = countryOfOrigin.trim() || null;
-        payload.visa_type = abroad && visaType.trim() ? visaType.trim() : null;
-        payload.visa_expiry =
-          abroad && visaType.trim() && visaExpiry.trim() ? visaExpiry.trim() : null;
+
+        payload.country_of_origin = country || str(ex.country_of_origin) || null;
+
+        if (isPH) {
+          payload.visa_type = null;
+          payload.visa_expiry = null;
+        } else {
+          payload.visa_type = visaType.trim() || str(ex.visa_type) || null;
+          payload.visa_expiry =
+            visaType.trim() && visaExpiry.trim()
+              ? visaExpiry.trim()
+              : str(ex.visa_expiry) || null;
+        }
+
         payload.budget_min = bmin;
         payload.budget_max = bmax;
-        payload.preferred_property_type = preferredPropertyType.trim() || null;
-        payload.preferred_locations = preferredLocations;
-        payload.looking_to = lookingTo || null;
+        payload.preferred_property_type =
+          preferredPropertyType.trim() || str(ex.preferred_property_type) || null;
+
+        const prevLocs = ex.preferred_locations;
+        const prevArr = Array.isArray(prevLocs)
+          ? prevLocs.filter((x): x is string => typeof x === "string")
+          : [];
+        payload.preferred_locations =
+          preferredLocations.length > 0 ? preferredLocations : prevArr;
+
+        payload.looking_to =
+          lookingTo !== "" ? lookingTo : (ex.looking_to as string | null) ?? null;
+
         payload.occupant_count = Math.min(20, Math.max(1, Math.round(Number(occupantCount)) || 1));
         payload.has_pets = hasPets;
-        payload.move_in_timeline = moveInTimeline.trim() || null;
-        payload.agent_notes = agentNotes.trim() ? agentNotes.trim().slice(0, 300) : null;
+        payload.move_in_timeline =
+          moveInTimeline.trim() || str(ex.move_in_timeline) || null;
+        payload.agent_notes =
+          agentNotes.trim() !== ""
+            ? agentNotes.trim().slice(0, 300)
+            : str(ex.agent_notes) || null;
       }
 
       const { data, error } = await supabase
@@ -640,16 +687,19 @@ function SettingsPageInner() {
                       Optional — helps agents match you with the right listings.
                     </p>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#2C2C2C]/45">
-                      Personal
+                  <div className="rounded-xl border-2 border-[#6B9E6E]/35 bg-[#FAF8F4] p-4 shadow-sm ring-1 ring-[#6B9E6E]/15">
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#6B9E6E]">
+                      Location & immigration
                     </p>
-                    <label className="mt-3 block text-xs font-semibold text-[#2C2C2C]/55">
+                    <p className="mt-1 text-sm text-[#2C2C2C]/60">
+                      Start here — country and visa help agents assist you correctly.
+                    </p>
+                    <label className="mt-4 block text-xs font-semibold text-[#2C2C2C]">
                       Country of origin
                       <select
                         value={countryOfOrigin}
                         onChange={(e) => setCountryOfOrigin(e.target.value)}
-                        className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                        className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
                       >
                         <option value="">Select…</option>
                         {COUNTRY_OPTIONS.map((c) => (
@@ -660,13 +710,13 @@ function SettingsPageInner() {
                       </select>
                     </label>
                     {countryOfOrigin && countryOfOrigin !== "Philippines" ? (
-                      <div className="mt-4 space-y-4">
-                        <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                      <div className="mt-4 space-y-4 border-t border-[#2C2C2C]/10 pt-4">
+                        <label className="block text-xs font-semibold text-[#2C2C2C]">
                           Visa type
                           <select
                             value={visaType}
                             onChange={(e) => setVisaType(e.target.value)}
-                            className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                            className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
                           >
                             <option value="">Select…</option>
                             {VISA_OPTIONS.map((v) => (
@@ -677,13 +727,13 @@ function SettingsPageInner() {
                           </select>
                         </label>
                         {visaType ? (
-                          <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-                            Visa expiry
+                          <label className="block text-xs font-semibold text-[#2C2C2C]">
+                            Visa expiry date
                             <input
                               type="date"
                               value={visaExpiry}
                               onChange={(e) => setVisaExpiry(e.target.value)}
-                              className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                              className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
                             />
                           </label>
                         ) : null}

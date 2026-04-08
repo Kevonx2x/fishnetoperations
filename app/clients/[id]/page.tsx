@@ -4,13 +4,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Heart, Home, Lock, Pencil } from "lucide-react";
+import { Calendar, Heart, Home, Lock, MapPin, Pin, Pencil } from "lucide-react";
+import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { usePropertyLikes } from "@/hooks/use-property-engagement";
 import type { ProfileRole } from "@/lib/auth-roles";
+import { listingListedLabel } from "@/lib/listing-listed-time";
 import {
   formatBudgetRangePhp,
   isClientProfilePrefsComplete,
@@ -31,7 +33,32 @@ type PropertyRow = {
   image_url: string;
   status: string;
   listing_status: string | null;
+  created_at: string;
+  listed_by: string | null;
 };
+
+function pinnedRelativeLabel(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms)) return "Pinned recently";
+  const totalHours = Math.floor(ms / (1000 * 60 * 60));
+  if (totalHours < 1) return "Pinned just now";
+  if (totalHours < 24) return `Pinned ${totalHours} hours ago`;
+  const totalDays = Math.floor(ms / (1000 * 60 * 60 * 24));
+  if (totalDays <= 6) return `Pinned ${totalDays} days ago`;
+  if (totalDays < 30) {
+    const weeks = Math.floor(totalDays / 7);
+    return `Pinned ${weeks} weeks ago`;
+  }
+  const months = Math.floor(totalDays / 30);
+  return `Pinned ${months} months ago`;
+}
+
+function visaExpiryDisplay(iso: string | null | undefined): string {
+  if (!iso?.trim()) return "";
+  const d = new Date(`${iso.trim().slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return "";
+  return `Expires: ${d.toLocaleDateString(undefined, { month: "long", year: "numeric" })}`;
+}
 
 type WishFilter = "all" | "sale" | "rent" | "sold";
 
@@ -84,6 +111,7 @@ export default function ClientPublicProfilePage() {
     | (ClientPreferenceFields & {
         preferred_locations: unknown;
         visa_type: string | null;
+        visa_expiry: string | null;
         occupant_count: number | null;
         has_pets: boolean | null;
         move_in_timeline: string | null;
@@ -102,6 +130,11 @@ export default function ClientPublicProfilePage() {
   const [savedTotal, setSavedTotal] = useState(0);
   const [filter, setFilter] = useState<WishFilter>("all");
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [pinnedAtByPropertyId, setPinnedAtByPropertyId] = useState<Record<string, string>>({});
+  const [viewingOpen, setViewingOpen] = useState(false);
+  const [viewingPropertyId, setViewingPropertyId] = useState<string | null>(null);
+  const [viewingPropertyTitle, setViewingPropertyTitle] = useState("");
+  const [viewingAgentUserId, setViewingAgentUserId] = useState<string | null>(null);
 
   const clientId = rawId;
   const isOwn = Boolean(user?.id && user.id === clientId);
@@ -157,7 +190,7 @@ export default function ClientPublicProfilePage() {
       const { data: p, error: pe } = await supabase
         .from("profiles")
         .select(
-          "id, full_name, avatar_url, created_at, role, budget_min, budget_max, looking_to, preferred_property_type, country_of_origin, preferred_locations, visa_type, occupant_count, has_pets, move_in_timeline, agent_notes",
+          "id, full_name, avatar_url, created_at, role, budget_min, budget_max, looking_to, preferred_property_type, country_of_origin, preferred_locations, visa_type, visa_expiry, occupant_count, has_pets, move_in_timeline, agent_notes",
         )
         .eq("id", clientId)
         .maybeSingle();
@@ -185,6 +218,7 @@ export default function ClientPublicProfilePage() {
         country_of_origin: string | null;
         preferred_locations: unknown;
         visa_type: string | null;
+        visa_expiry: string | null;
         occupant_count: number | null;
         has_pets: boolean | null;
         move_in_timeline: string | null;
@@ -206,6 +240,7 @@ export default function ClientPublicProfilePage() {
         country_of_origin: row.country_of_origin,
         preferred_locations: row.preferred_locations,
         visa_type: row.visa_type,
+        visa_expiry: row.visa_expiry,
         occupant_count: row.occupant_count,
         has_pets: row.has_pets,
         move_in_timeline: row.move_in_timeline,
@@ -297,14 +332,22 @@ export default function ClientPublicProfilePage() {
           setProperties([]);
           setLikeCounts({});
           setSavedTotal(0);
+          setPinnedAtByPropertyId({});
           return;
         }
 
         const { data: saves } = await supabase
           .from("saved_properties")
-          .select("property_id")
+          .select("property_id, created_at")
           .eq("user_id", clientId);
-        const ids = (saves ?? []).map((r) => (r as { property_id: string }).property_id);
+        const pinMap: Record<string, string> = {};
+        for (const r of saves ?? []) {
+          const row = r as { property_id: string; created_at: string };
+          pinMap[row.property_id] = row.created_at;
+        }
+        if (cancelled) return;
+        setPinnedAtByPropertyId(pinMap);
+        const ids = Object.keys(pinMap);
 
         if (cancelled) return;
         setSavedTotal(ids.length);
@@ -318,7 +361,7 @@ export default function ClientPublicProfilePage() {
         const { data: props, error: propsErr } = await supabase
           .from("properties")
           .select(
-            "id, name, location, price, beds, baths, sqft, image_url, status, listing_status",
+            "id, name, location, price, beds, baths, sqft, image_url, status, listing_status, created_at, listed_by",
           )
           .in("id", ids);
 
@@ -360,6 +403,18 @@ export default function ClientPublicProfilePage() {
     [properties, filter],
   );
 
+  const sortedFiltered = useMemo(() => {
+    const list = [...filtered];
+    list.sort((a, b) => {
+      const pa = pinnedAtByPropertyId[a.id];
+      const pb = pinnedAtByPropertyId[b.id];
+      const ta = pa ? new Date(pa).getTime() : 0;
+      const tb = pb ? new Date(pb).getTime() : 0;
+      return tb - ta;
+    });
+    return list;
+  }, [filtered, pinnedAtByPropertyId]);
+
   const removeFromWishlist = useCallback(
     async (propertyId: string) => {
       if (!user?.id || user.id !== clientId) return;
@@ -372,12 +427,24 @@ export default function ClientPublicProfilePage() {
           .eq("property_id", propertyId);
         setProperties((prev) => prev.filter((p) => p.id !== propertyId));
         setSavedTotal((c) => Math.max(0, c - 1));
+        setPinnedAtByPropertyId((prev) => {
+          const next = { ...prev };
+          delete next[propertyId];
+          return next;
+        });
       } finally {
         setRemovingId(null);
       }
     },
     [clientId, supabase, user?.id],
   );
+
+  const openViewingForProperty = useCallback((p: PropertyRow) => {
+    setViewingPropertyId(p.id);
+    setViewingPropertyTitle(p.name?.trim() || p.location || "Property");
+    setViewingAgentUserId(p.listed_by);
+    setViewingOpen(true);
+  }, []);
 
   const pageLoading = profileLoading || authLoading || wishlistLoading;
 
@@ -444,6 +511,30 @@ export default function ClientPublicProfilePage() {
                           <Pencil className="h-4 w-4" aria-hidden />
                         </Link>
                       </div>
+                      <div className="mt-3 rounded-lg border border-[#6B9E6E]/30 bg-white/80 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B9E6E]">
+                          Location & visa
+                        </p>
+                        <p className="mt-1 font-serif text-lg font-bold text-[#2C2C2C]">
+                          {clientPrefs.country_of_origin?.trim() || "—"}
+                        </p>
+                        {isNonFilipinoCountry(clientPrefs.country_of_origin) ? (
+                          <div className="mt-2 space-y-1 border-t border-[#2C2C2C]/10 pt-2 text-sm">
+                            {clientPrefs.visa_type?.trim() ? (
+                              <p className="font-semibold text-[#2C2C2C]">
+                                Visa: {clientPrefs.visa_type.trim()}
+                              </p>
+                            ) : (
+                              <p className="text-[#2C2C2C]/55">Visa not specified</p>
+                            )}
+                            {clientPrefs.visa_expiry?.trim() ? (
+                              <p className="font-medium text-[#D4A843]">
+                                {visaExpiryDisplay(clientPrefs.visa_expiry)}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
                       <dl className="mt-3 space-y-2 text-sm">
                         <div className="flex flex-col gap-0.5">
                           <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
@@ -479,23 +570,6 @@ export default function ClientPublicProfilePage() {
                             {preferredLocationsLabel(clientPrefs.preferred_locations)}
                           </dd>
                         </div>
-                        <div className="flex flex-col gap-0.5">
-                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
-                            Country
-                          </dt>
-                          <dd className="font-medium text-[#2C2C2C]">
-                            {clientPrefs.country_of_origin?.trim() || "—"}
-                          </dd>
-                        </div>
-                        {isNonFilipinoCountry(clientPrefs.country_of_origin) &&
-                        clientPrefs.visa_type?.trim() ? (
-                          <div className="flex flex-col gap-0.5">
-                            <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
-                              Visa type
-                            </dt>
-                            <dd className="font-medium text-[#2C2C2C]">{clientPrefs.visa_type.trim()}</dd>
-                          </div>
-                        ) : null}
                         <div className="flex flex-col gap-0.5">
                           <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
                             Occupants
@@ -571,6 +645,30 @@ export default function ClientPublicProfilePage() {
                     Client Preferences <span className="text-[#D4A843]">🔒</span>{" "}
                     <span className="text-sm font-normal text-[#2C2C2C]/70">Pro Feature</span>
                   </h3>
+                  <div className="mt-4 rounded-lg border border-[#6B9E6E]/30 bg-white/80 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B9E6E]">
+                      Location & visa
+                    </p>
+                    <p className="mt-1 font-serif text-lg font-bold text-[#2C2C2C]">
+                      {clientPrefs.country_of_origin?.trim() || "—"}
+                    </p>
+                    {isNonFilipinoCountry(clientPrefs.country_of_origin) ? (
+                      <div className="mt-2 space-y-1 border-t border-[#2C2C2C]/10 pt-2 text-sm">
+                        {clientPrefs.visa_type?.trim() ? (
+                          <p className="font-semibold text-[#2C2C2C]">
+                            Visa: {clientPrefs.visa_type.trim()}
+                          </p>
+                        ) : (
+                          <p className="text-[#2C2C2C]/55">Visa not specified</p>
+                        )}
+                        {clientPrefs.visa_expiry?.trim() ? (
+                          <p className="font-medium text-[#D4A843]">
+                            {visaExpiryDisplay(clientPrefs.visa_expiry)}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                   <dl className="mt-4 space-y-2.5 text-sm">
                     <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-4">
                       <dt className="shrink-0 text-[#2C2C2C]/55">Budget</dt>
@@ -594,12 +692,6 @@ export default function ClientPublicProfilePage() {
                       <dt className="shrink-0 text-[#2C2C2C]/55">Preferred areas</dt>
                       <dd className="font-medium text-[#2C2C2C]">
                         {preferredLocationsLabel(clientPrefs.preferred_locations)}
-                      </dd>
-                    </div>
-                    <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-4">
-                      <dt className="shrink-0 text-[#2C2C2C]/55">Country</dt>
-                      <dd className="font-medium text-[#2C2C2C]">
-                        {clientPrefs.country_of_origin?.trim() || "—"}
                       </dd>
                     </div>
                     <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-4">
@@ -652,7 +744,7 @@ export default function ClientPublicProfilePage() {
                     ))}
                   </div>
 
-                  {filtered.length === 0 ? (
+                  {properties.length === 0 ? (
                     <div className="mt-12 flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-[#FAF8F4]/50 py-16 text-center">
                       <Home className="h-14 w-14 text-[#6B9E6E]/50" strokeWidth={1.25} />
                       <p className="mt-4 font-medium text-[#2C2C2C]/70">
@@ -665,41 +757,96 @@ export default function ClientPublicProfilePage() {
                         Browse listings
                       </Link>
                     </div>
+                  ) : filtered.length === 0 ? (
+                    <div className="mt-12 rounded-2xl border border-[#2C2C2C]/8 bg-white px-4 py-12 text-center shadow-sm">
+                      <p className="font-serif text-lg font-bold text-[#2C2C2C]">
+                        No listings match this tab
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setFilter("all")}
+                        className="mt-4 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-bold text-white hover:bg-[#5c8a5f]"
+                      >
+                        View all
+                      </button>
+                    </div>
                   ) : (
-                    <ul className="mt-8 space-y-8">
-                      {filtered.map((p) => {
+                    <div className="mt-8 flex flex-col gap-4">
+                      {sortedFiltered.map((p) => {
                         const overlay = overlayLabel(p);
                         const likeTotal = likeCounts[p.id] ?? 0;
+                        const pinnedIso = pinnedAtByPropertyId[p.id];
+                        const pinnedLine = pinnedIso
+                          ? pinnedRelativeLabel(pinnedIso)
+                          : "Pinned recently";
+                        const listedLine = listingListedLabel(p.created_at);
+                        const title = p.name?.trim() || p.location || "Listing";
+                        const statusLabel = p.status === "for_rent" ? "For Rent" : "For Sale";
                         return (
-                          <li
+                          <article
                             key={p.id}
-                            className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md"
+                            className="overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm"
                           >
-                            <div className="relative aspect-[16/10] w-full bg-[#2C2C2C]/5">
-                              <Image
-                                src={p.image_url}
-                                alt=""
-                                fill
-                                className={`object-cover ${overlay ? "brightness-[0.65]" : ""}`}
-                                sizes="(max-width: 1024px) 100vw, 70vw"
-                              />
+                            <div className="flex items-start gap-3 px-4 pt-4">
+                              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
+                                {clientProfile.avatar_url?.trim() ? (
+                                  <Image
+                                    src={clientProfile.avatar_url}
+                                    alt=""
+                                    fill
+                                    sizes="40px"
+                                    className="object-cover"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-sm font-bold text-white">
+                                    {agentAvatarInitials(displayName)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-[#2C2C2C]">{displayName}</p>
+                                <p className="text-xs font-medium text-[#2C2C2C]/50">{pinnedLine}</p>
+                                <p className="text-xs font-medium text-[#2C2C2C]/50">{listedLine}</p>
+                              </div>
+                            </div>
+
+                            <div className="relative mt-3 w-full overflow-hidden">
+                              <Link
+                                href={`/properties/${encodeURIComponent(p.id)}`}
+                                className="relative block aspect-video w-full bg-[#2C2C2C]/5"
+                              >
+                                <Image
+                                  src={p.image_url}
+                                  alt=""
+                                  fill
+                                  sizes="(max-width: 1024px) 100vw, 70vw"
+                                  className={`object-cover ${overlay ? "brightness-[0.55]" : ""}`}
+                                />
+                              </Link>
                               {overlay ? (
-                                <div className="absolute inset-0 z-[5] flex items-center justify-center bg-black/35">
+                                <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center bg-black/35">
                                   <span className="rounded-lg border-2 border-white/90 bg-black/40 px-6 py-2 font-serif text-xl font-bold tracking-widest text-white">
                                     {overlay}
                                   </span>
                                 </div>
                               ) : null}
-                              <span
-                                className={`absolute left-3 top-3 z-20 rounded-full px-3 py-1 text-xs font-bold ${
-                                  p.status === "for_rent"
-                                    ? "bg-[#D4A843] text-[#2C2C2C]"
-                                    : "bg-[#6B9E6E] text-white"
-                                }`}
-                              >
-                                {p.status === "for_rent" ? "For Rent" : "For Sale"}
-                              </span>
-                              <div className="absolute right-3 top-3 z-20">
+                              <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10">
+                                  <Pin className="h-3.5 w-3.5 shrink-0 text-[#D4A843]" aria-hidden />
+                                  Pinned
+                                </span>
+                                <span
+                                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold text-white shadow-md ${
+                                    p.status === "for_rent"
+                                      ? "bg-[#D4A843] text-[#2C2C2C]"
+                                      : "bg-[#6B9E6E]"
+                                  }`}
+                                >
+                                  {statusLabel}
+                                </span>
+                              </div>
+                              <div className="absolute right-3 top-3 z-10">
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -707,8 +854,8 @@ export default function ClientPublicProfilePage() {
                                     e.stopPropagation();
                                     void likes.toggle(p.id);
                                   }}
-                                  className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1.5 text-xs font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10 transition hover:bg-white"
-                                  aria-label={`${likeTotal} likes. ${likes.has(p.id) ? "Unlike" : "Like"}`}
+                                  className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10"
+                                  aria-label={`${likeTotal} likes`}
                                 >
                                   <Heart
                                     className={`h-3.5 w-3.5 shrink-0 ${likes.has(p.id) ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
@@ -718,40 +865,58 @@ export default function ClientPublicProfilePage() {
                                 </button>
                               </div>
                             </div>
-                            <div className="p-4 sm:p-5">
-                              <h3 className="font-serif text-xl font-semibold text-[#2C2C2C]">
-                                {p.name?.trim() || "Listing"}
-                              </h3>
-                              <p className="mt-1 text-sm text-[#2C2C2C]/60">{p.location}</p>
-                              <p className="mt-2 font-serif text-lg font-semibold text-[#D4A843]">
-                                {p.price}
+
+                            <div className="space-y-1 px-4 pb-3 pt-3">
+                              <p className="font-serif text-2xl font-bold text-[#D4A843]">{p.price}</p>
+                              <p className="font-serif text-lg font-bold text-[#2C2C2C]">{title}</p>
+                              <p className="flex items-start gap-1.5 text-sm text-[#2C2C2C]/55">
+                                <MapPin
+                                  className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]"
+                                  aria-hidden
+                                />
+                                <span>{p.location}</span>
                               </p>
-                              <p className="mt-2 text-sm text-[#2C2C2C]/70">
-                                {p.beds} bed · {p.baths} bath · {p.sqft} sqft
+                              <p className="text-sm text-[#6B6B6B]">
+                                {p.sqft} sqft · {p.beds} beds · {p.baths} baths
                               </p>
-                              <div className="mt-4 flex flex-wrap items-center gap-4">
-                                <Link
-                                  href={`/properties/${p.id}`}
-                                  className="inline-flex rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5d8a60]"
-                                >
-                                  View property
-                                </Link>
-                                {isOwn ? (
-                                  <button
-                                    type="button"
-                                    disabled={removingId === p.id}
-                                    onClick={() => void removeFromWishlist(p.id)}
-                                    className="text-sm font-semibold text-red-600 underline underline-offset-2 hover:text-red-700 disabled:opacity-50"
-                                  >
-                                    {removingId === p.id ? "Removing…" : "Remove from wishlist"}
-                                  </button>
-                                ) : null}
-                              </div>
                             </div>
-                          </li>
+
+                            <div className="flex flex-col gap-2 px-4 pb-4 sm:flex-row sm:flex-wrap sm:items-center">
+                              <Link
+                                href={`/properties/${encodeURIComponent(p.id)}`}
+                                className="inline-flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] sm:w-auto"
+                              >
+                                View Property
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => openViewingForProperty(p)}
+                                disabled={!p.listed_by}
+                                title={
+                                  p.listed_by
+                                    ? undefined
+                                    : "Listing has no assigned agent yet"
+                                }
+                                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                              >
+                                <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
+                                Request Viewing
+                              </button>
+                              {isOwn ? (
+                                <button
+                                  type="button"
+                                  disabled={removingId === p.id}
+                                  onClick={() => void removeFromWishlist(p.id)}
+                                  className="text-center text-sm font-semibold text-red-600 underline underline-offset-2 hover:text-red-700 disabled:opacity-50 sm:ml-1"
+                                >
+                                  {removingId === p.id ? "Removing…" : "Remove from wishlist"}
+                                </button>
+                              ) : null}
+                            </div>
+                          </article>
                         );
                       })}
-                    </ul>
+                    </div>
                   )}
                 </>
               )}
@@ -759,6 +924,20 @@ export default function ClientPublicProfilePage() {
           </div>
         </div>
       )}
+      <ViewingRequestModal
+        open={viewingOpen}
+        onOpenChange={(open) => {
+          setViewingOpen(open);
+          if (!open) {
+            setViewingPropertyId(null);
+            setViewingPropertyTitle("");
+            setViewingAgentUserId(null);
+          }
+        }}
+        propertyId={viewingPropertyId}
+        propertyTitle={viewingPropertyTitle}
+        agentUserId={viewingAgentUserId}
+      />
     </div>
   );
 }
