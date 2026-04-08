@@ -165,7 +165,7 @@ function SlideAreYouRealEstateAgent() {
           List properties, get verified, and connect with serious buyers and renters on BahayGo.
         </p>
         <Link
-          href="/settings?tab=account"
+          href="/register/agent"
           className="mt-8 inline-flex items-center justify-center gap-1 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-bold text-white shadow-md transition hover:brightness-95"
         >
           Become a Verified Agent

@@ -147,7 +147,7 @@ const HERO_FLOATING_CARDS = [
     id: "hero-1",
     name: "BGC Luxury Condo",
     location: "BGC, Taguig",
-    image_url: "https://images.unsplash.com/photo-1600596542815-ffad4c1ee5b8?w=600&h=400&fit=crop",
+    image_url: "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=600&h=400&fit=crop",
   },
   {
     id: "hero-2",
