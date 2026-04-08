@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { BadgeCheck, ChevronLeft, ChevronRight, Heart, MapPin, X } from "lucide-react";
+import { BadgeCheck, ChevronLeft, ChevronRight, Heart, MapPin, Pin, X } from "lucide-react";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
@@ -17,13 +17,13 @@ import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewi
 import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
 import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
 import { useAuth } from "@/contexts/auth-context";
+import type { PropertyEngagement } from "@/hooks/use-property-engagement";
 
 type Props = {
   property: DbProperty;
   agents: MarketplaceAgent[];
   onClose: () => void;
-  isSaved: boolean;
-  onToggleSaved: () => void;
+  engagement: PropertyEngagement;
 };
 
 function listingAgentUserId(property: DbProperty, agents: MarketplaceAgent[]): string | null {
@@ -317,18 +317,20 @@ function PropertyDetailsSection({
 }
 
 function BottomActions({
-  isSaved,
-  onToggleSaved,
+  engagement,
+  propertyId,
   onRequestViewing,
   authLoading,
   requestDisabled,
 }: {
-  isSaved: boolean;
-  onToggleSaved: () => void;
+  engagement: PropertyEngagement;
+  propertyId: string;
   onRequestViewing: () => void;
   authLoading: boolean;
   requestDisabled: boolean;
 }) {
+  const isLiked = engagement.isLiked(propertyId);
+  const isPinned = engagement.isPinned(propertyId);
   return (
     <div className="shrink-0 space-y-2 border-t border-gray-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <button
@@ -339,19 +341,41 @@ function BottomActions({
       >
         {authLoading ? "Loading…" : "Request Viewing"}
       </button>
-      <button
-        type="button"
-        onClick={() => onToggleSaved()}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#2C2C2C]/20 bg-white py-3 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]"
-      >
-        <Heart className={`h-4 w-4 ${isSaved ? "fill-red-500 text-red-500" : ""}`} />
-        {isSaved ? "Saved" : "Save Property"}
-      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => engagement.toggleLike(propertyId)}
+          className="flex flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#2C2C2C]/20 bg-white px-2 py-2.5 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Heart className={`h-4 w-4 ${isLiked ? "fill-red-500 text-red-500" : ""}`} />
+            Like
+          </span>
+          <span className="text-[11px] font-semibold text-[#2C2C2C]/55">
+            {engagement.likeCount(propertyId)} likes
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => engagement.togglePin(propertyId)}
+          className="flex flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#2C2C2C]/20 bg-white px-2 py-2.5 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Pin
+              className={`h-4 w-4 ${isPinned ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
+            />
+            Pin
+          </span>
+          <span className="text-[11px] font-semibold text-[#2C2C2C]/55">
+            {engagement.saveCount(propertyId)} saved
+          </span>
+        </button>
+      </div>
     </div>
   );
 }
 
-export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggleSaved }: Props) {
+export function PropertyZoomModal({ property, agents, onClose, engagement }: Props) {
   const { user, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [viewerAgentId, setViewerAgentId] = useState<string | null>(null);
@@ -535,8 +559,8 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
             </div>
           </div>
           <BottomActions
-            isSaved={isSaved}
-            onToggleSaved={onToggleSaved}
+            engagement={engagement}
+            propertyId={property.id}
             onRequestViewing={onRequestViewing}
             authLoading={authLoading}
             requestDisabled={authLoading || agents.length === 0}
@@ -575,8 +599,8 @@ export function PropertyZoomModal({ property, agents, onClose, isSaved, onToggle
               </div>
             </div>
             <BottomActions
-              isSaved={isSaved}
-              onToggleSaved={onToggleSaved}
+              engagement={engagement}
+              propertyId={property.id}
               onRequestViewing={onRequestViewing}
               authLoading={authLoading}
               requestDisabled={authLoading || agents.length === 0}

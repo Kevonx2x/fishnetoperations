@@ -10,6 +10,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { parseSchedule, viewingDateDisabled, type AvailabilitySchedule } from "@/lib/availability-schedule";
+import { PhPhoneInput } from "@/components/ui/ph-phone-input";
+import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
 
 const TIME_SLOTS = [
   { label: "9:00 AM", hour: 9 },
@@ -131,6 +133,13 @@ export function ViewingRequestModal({
     if (!phone.trim()) {
       setError("Please enter your phone number.");
       return;
+    }
+    if (isPhilippinePhoneMode(phone)) {
+      const pe = validatePhilippinePhoneInput(phone);
+      if (pe) {
+        setError(pe);
+        return;
+      }
     }
     if (!date) {
       setError("Please choose a date.");
@@ -281,16 +290,15 @@ export function ViewingRequestModal({
                   className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] outline-none ring-[#D4A843]/30 focus-visible:ring-2"
                 />
               </label>
-              <label className="block">
+              <div>
                 <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">Phone</span>
-                <input
-                  type="tel"
+                <PhPhoneInput
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] outline-none ring-[#D4A843]/30 focus-visible:ring-2"
-                  placeholder="+63…"
+                  onChange={setPhone}
+                  className="mt-1.5"
+                  inputClassName="font-semibold ring-[#D4A843]/30 focus-visible:ring-2"
                 />
-              </label>
+              </div>
 
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">Preferred date</span>

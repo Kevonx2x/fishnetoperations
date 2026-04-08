@@ -12,6 +12,7 @@ import {
   Building2,
   GitCompare,
   GraduationCap,
+  Heart,
   HeartHandshake,
   Home,
   Hospital,
@@ -35,8 +36,8 @@ import {
   UserPlus,
   Users,
   BadgeCheck,
-  Bookmark,
   LayoutTemplate,
+  Pin,
   Menu,
   X,
 } from "lucide-react";
@@ -638,12 +639,20 @@ export function MaddenTopNav() {
                         My Profile
                       </Link>
                       <Link
+                        href="/likes"
+                        className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                        onClick={() => setAccountOpen(false)}
+                      >
+                        <Heart className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
+                        My Likes
+                      </Link>
+                      <Link
                         href="/saved"
                         className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                         onClick={() => setAccountOpen(false)}
                       >
-                        <Bookmark className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
-                        Saved Properties
+                        <Pin className="h-4 w-4 shrink-0 text-[#D4A843]" />
+                        Pinned properties
                       </Link>
                       <Link
                         href="/settings"

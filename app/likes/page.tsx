@@ -3,11 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Pin } from "lucide-react";
+import { Heart } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
-import { useAuth } from "@/contexts/auth-context";
-import { usePinnedPropertyIds } from "@/hooks/use-property-engagement";
+import { usePropertyLikes } from "@/hooks/use-property-engagement";
 
 type PropertyCard = {
   id: string;
@@ -19,11 +18,19 @@ type PropertyCard = {
   image_url: string;
 };
 
-export default function SavedPage() {
-  const { user, loading: authLoading } = useAuth();
-  const pins = usePinnedPropertyIds();
-  const ids = pins.ids;
-  const idsKey = useMemo(() => [...ids].sort().join(","), [ids]);
+export default function LikesPage() {
+  const likes = usePropertyLikes();
+  const orderedIds = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const id of [...likes.localIds, ...likes.dbIds]) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+    return out;
+  }, [likes.localIds, likes.dbIds]);
+  const idsKey = useMemo(() => orderedIds.join(","), [orderedIds]);
 
   const [rows, setRows] = useState<PropertyCard[]>([]);
   const [loading, setLoading] = useState(false);
@@ -32,12 +39,7 @@ export default function SavedPage() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      if (!user?.id) {
-        setRows([]);
-        setLoading(false);
-        return;
-      }
-      if (!ids.length) {
+      if (!orderedIds.length) {
         setRows([]);
         return;
       }
@@ -46,7 +48,7 @@ export default function SavedPage() {
       const { data, error: fetchErr } = await supabase
         .from("properties")
         .select("id, location, price, beds, baths, sqft, image_url")
-        .in("id", ids);
+        .in("id", orderedIds);
       if (cancelled) return;
       if (fetchErr) {
         setError(fetchErr.message);
@@ -54,40 +56,25 @@ export default function SavedPage() {
       } else {
         const list = (data ?? []) as unknown as PropertyCard[];
         const byId = new Map(list.map((p) => [p.id, p]));
-        setRows(ids.map((id) => byId.get(id)).filter(Boolean) as PropertyCard[]);
+        setRows(orderedIds.map((id) => byId.get(id)).filter(Boolean) as PropertyCard[]);
       }
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [user?.id, idsKey]);
+  }, [idsKey]);
 
   const content = useMemo(() => {
-    if (!user?.id) {
-      return (
-        <div className="rounded-2xl border border-dashed border-[#2C2C2C]/20 bg-white p-10 text-center">
-          <p className="font-serif text-xl font-bold text-[#2C2C2C]">Sign in to see pinned homes</p>
-          <p className="mt-1 text-sm text-[#2C2C2C]/55">Pin listings to build your public wishlist.</p>
-          <Link
-            href="/login"
-            className="mt-5 inline-flex rounded-full bg-[#2C2C2C] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
-          >
-            Sign in
-          </Link>
-        </div>
-      );
-    }
-
-    if (!ids.length) {
+    if (!orderedIds.length) {
       return (
         <div className="rounded-2xl border border-dashed border-[#2C2C2C]/20 bg-white p-10 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#6B9E6E]/12 ring-2 ring-[#D4A843]/25">
-            <Pin className="h-8 w-8 text-[#D4A843]" aria-hidden />
+            <Heart className="h-8 w-8 text-[#6B9E6E]" aria-hidden />
           </div>
-          <p className="mt-4 font-serif text-xl font-bold text-[#2C2C2C]">No pinned homes yet</p>
+          <p className="mt-4 font-serif text-xl font-bold text-[#2C2C2C]">No likes yet</p>
           <p className="mt-1 text-sm text-[#2C2C2C]/55">
-            Tap the pin on any listing to save it to your profile wishlist.
+            Tap the heart on a listing to add it here. Sign in to sync likes across devices.
           </p>
           <Link
             href="/"
@@ -110,11 +97,11 @@ export default function SavedPage() {
               <Image src={p.image_url} alt={p.location} fill sizes="420px" className="object-cover" />
               <button
                 type="button"
-                onClick={() => void pins.toggle(p.id)}
+                onClick={() => void likes.toggle(p.id)}
                 className="absolute right-3 top-3 rounded-full bg-white/90 p-2 shadow-sm"
-                aria-label="Unpin"
+                aria-label="Unlike"
               >
-                <Pin className="h-5 w-5 fill-[#D4A843] text-[#D4A843]" />
+                <Heart className="h-5 w-5 fill-red-500 text-red-500" />
               </button>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent p-3">
                 <p className="font-serif text-xl font-bold text-white">{p.price}</p>
@@ -136,7 +123,7 @@ export default function SavedPage() {
         ))}
       </div>
     );
-  }, [rows, ids.length, pins.toggle, user?.id]);
+  }, [rows, orderedIds.length, likes.toggle]);
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] pb-12">
@@ -145,26 +132,25 @@ export default function SavedPage() {
         <div className="mb-4 flex items-end justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#2C2C2C]/55">
-              Wishlist
+              Likes
             </p>
             <h1 className="mt-1 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">
-              Pinned properties
+              My likes
             </h1>
           </div>
           <div className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/70">
-            {user?.id ? `${ids.length} pinned` : "—"}
+            {orderedIds.length} liked
           </div>
         </div>
 
-        {authLoading && <div className="h-40 rounded-2xl animate-pulse bg-black/5" />}
-        {!authLoading && loading && <div className="h-40 rounded-2xl animate-pulse bg-black/5" />}
-        {!authLoading && !loading && error && (
+        {loading && <div className="h-40 rounded-2xl animate-pulse bg-black/5" />}
+        {!loading && error && (
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6">
-            <p className="font-semibold text-[#2C2C2C]">Couldn’t load pinned homes</p>
+            <p className="font-semibold text-[#2C2C2C]">Couldn’t load liked homes</p>
             <p className="mt-1 text-sm text-[#2C2C2C]/60">{error}</p>
           </div>
         )}
-        {!authLoading && !loading && !error && content}
+        {!loading && !error && content}
       </main>
     </div>
   );

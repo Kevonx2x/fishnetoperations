@@ -9,10 +9,6 @@ import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import {
-  readAllLocalSavedPropertyIds,
-  removeSavedPropertyIdLocal,
-} from "@/lib/saved-properties";
 import type { ProfileRole } from "@/lib/auth-roles";
 
 type PropertyRow = {
@@ -198,22 +194,11 @@ export default function ClientPublicProfilePage() {
           return;
         }
 
-        let ids: string[] = [];
-        if (own || admin) {
-          const { data: saves } = await supabase
-            .from("saved_properties")
-            .select("property_id")
-            .eq("user_id", clientId);
-          const dbIds = (saves ?? []).map((r) => (r as { property_id: string }).property_id);
-          const localIds = readAllLocalSavedPropertyIds();
-          ids = [...new Set([...dbIds, ...localIds])];
-        } else {
-          const { data: saves } = await supabase
-            .from("saved_properties")
-            .select("property_id")
-            .eq("user_id", clientId);
-          ids = (saves ?? []).map((r) => (r as { property_id: string }).property_id);
-        }
+        const { data: saves } = await supabase
+          .from("saved_properties")
+          .select("property_id")
+          .eq("user_id", clientId);
+        const ids = (saves ?? []).map((r) => (r as { property_id: string }).property_id);
 
         if (cancelled) return;
         setSavedTotal(ids.length);
@@ -279,7 +264,6 @@ export default function ClientPublicProfilePage() {
           .delete()
           .eq("user_id", user.id)
           .eq("property_id", propertyId);
-        removeSavedPropertyIdLocal(propertyId);
         setProperties((prev) => prev.filter((p) => p.id !== propertyId));
         setSavedTotal((c) => Math.max(0, c - 1));
       } finally {

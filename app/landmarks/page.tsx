@@ -20,8 +20,8 @@ import { PropertyZoomModal } from "@/components/marketplace/property-zoom-modal"
 import type { DbProperty } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
-import { useSavedPropertyIds } from "@/lib/saved-properties";
 import { useAuth } from "@/contexts/auth-context";
+import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagement";
 import { useAgentLiveAvailabilityFromPropertyRows } from "@/hooks/use-agent-live-availability";
 
 const HERO_IMG =
@@ -72,12 +72,13 @@ function LandmarksContent() {
   const activeType =
     typeParam && CATEGORIES.some((c) => c.type === typeParam) ? typeParam : null;
 
-  const saved = useSavedPropertyIds();
   const [properties, setProperties] = useState<DbProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
   const [zoomProperty, setZoomProperty] = useState<DbProperty | null>(null);
+
+  const { engagement } = usePropertyEngagementForProperties(properties);
 
   const loadProperties = useCallback(async () => {
     setLoading(true);
@@ -240,8 +241,7 @@ function LandmarksContent() {
                         [p.id]: ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
                       }))
                     }
-                    isSaved={saved.has(p.id)}
-                    onToggleSaved={() => saved.toggle(p.id)}
+                    engagement={engagement}
                     connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
                     onOpenPropertyZoom={() => setZoomProperty(p)}
                     grid
@@ -260,8 +260,7 @@ function LandmarksContent() {
             property={zoomProperty}
             agents={connectedAgentsByPropertyId.get(zoomProperty.id) ?? []}
             onClose={() => setZoomProperty(null)}
-            isSaved={saved.has(zoomProperty.id)}
-            onToggleSaved={() => saved.toggle(zoomProperty.id)}
+            engagement={engagement}
           />
         ) : null}
       </AnimatePresence>

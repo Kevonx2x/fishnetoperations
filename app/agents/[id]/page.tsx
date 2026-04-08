@@ -10,6 +10,7 @@ import {
   Calendar,
   Clock,
   Heart,
+  Pin,
   LayoutGrid,
   Mail,
   MapPin,
@@ -29,7 +30,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { fetchSimilarAgents } from "@/lib/similar-agents";
 import { listingListedLabel } from "@/lib/listing-listed-time";
-import { useSavedPropertyIds } from "@/lib/saved-properties";
+import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagement";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -110,12 +111,6 @@ function passesListingFilter(p: ListingRow, mode: ListingFilter): boolean {
   return true;
 }
 
-function displaySaveCount(dbCount: number, savedLocally: boolean): number {
-  if (dbCount > 0) return dbCount;
-  if (savedLocally) return 1;
-  return 0;
-}
-
 function isAgentVerified(agent: AgentRow): boolean {
   return Boolean(agent.verified && agent.status === "approved");
 }
@@ -124,14 +119,12 @@ export default function AgentProfilePage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
   const { user, loading: authLoading } = useAuth();
-  const saved = useSavedPropertyIds();
 
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [listings, setListings] = useState<ListingRow[]>([]);
-  const [saveCounts, setSaveCounts] = useState<Map<string, number>>(new Map());
   const [similarAgents, setSimilarAgents] = useState<MarketplaceAgent[]>([]);
   const [similarLoading, setSimilarLoading] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
@@ -146,6 +139,9 @@ export default function AgentProfilePage() {
 
   const [listingFilter, setListingFilter] = useState<ListingFilter>("active");
   const [listingSort, setListingSort] = useState<ListingSort>("newest");
+
+  const { engagement, likeCountsByPropertyId, saveCountsByPropertyId } =
+    usePropertyEngagementForProperties(listings);
 
   const contactModalAgent = useMemo<MarketplaceAgent | null>(() => {
     if (!agent) return null;
@@ -229,32 +225,6 @@ export default function AgentProfilePage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!listings.length) {
-        setSaveCounts(new Map());
-        return;
-      }
-      const ids = listings.map((p) => p.id);
-      const { data, error: rpcErr } = await supabase.rpc("property_save_counts_for", { property_ids: ids });
-      if (cancelled) return;
-      if (rpcErr || !data) {
-        setSaveCounts(new Map());
-        return;
-      }
-      const rows = data as { property_id: string; save_count: number | string }[];
-      const m = new Map<string, number>();
-      for (const row of rows) {
-        m.set(row.property_id, Number(row.save_count));
-      }
-      setSaveCounts(m);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [listings]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
       if (!agent?.id) {
         setSimilarAgents([]);
         setSimilarLoading(false);
@@ -285,14 +255,14 @@ export default function AgentProfilePage() {
       list = [...list].sort((a, b) => parsePesoToNumber(b.price) - parsePesoToNumber(a.price));
     } else {
       list = [...list].sort((a, b) => {
-        const ca = saveCounts.get(a.id) ?? 0;
-        const cb = saveCounts.get(b.id) ?? 0;
+        const ca = saveCountsByPropertyId[a.id] ?? 0;
+        const cb = saveCountsByPropertyId[b.id] ?? 0;
         if (cb !== ca) return cb - ca;
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
     }
     return list;
-  }, [listings, listingFilter, listingSort, saveCounts]);
+  }, [listings, listingFilter, listingSort, saveCountsByPropertyId]);
 
   const deleteListing = useCallback(
     async (propertyId: string) => {
@@ -592,7 +562,7 @@ export default function AgentProfilePage() {
                         >
                           <option value="newest">Newest</option>
                           <option value="price_high">Price High-Low</option>
-                          <option value="most_saved">Most Saved</option>
+                          <option value="most_saved">Most Pinned</option>
                         </select>
                       </div>
                     </div>
@@ -624,9 +594,8 @@ export default function AgentProfilePage() {
                       {filteredAndSortedListings.map((p) => {
                         const title = p.name?.trim() || p.location;
                         const listed = listingListedLabel(p.created_at);
-                        const dbCount = saveCounts.get(p.id) ?? 0;
-                        const localSaved = saved.has(p.id);
-                        const heartCount = displaySaveCount(dbCount, localSaved);
+                        const likeN = likeCountsByPropertyId[p.id] ?? 0;
+                        const pinN = saveCountsByPropertyId[p.id] ?? 0;
                         const statusLabel = p.status === "for_rent" ? "For Rent" : "For Sale";
                         const canManagePost =
                           isOwnProfile &&
@@ -701,20 +670,39 @@ export default function AgentProfilePage() {
                               <span className="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-[#6B9E6E] px-2.5 py-1 text-[11px] font-bold text-white shadow-md">
                                 {statusLabel}
                               </span>
-                              <div
-                                className="pointer-events-none absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-[#2C2C2C] shadow-md ring-1 ring-black/10"
-                                aria-label={`${heartCount} ${heartCount === 1 ? "save" : "saves"}`}
-                                title={
-                                  dbCount === 0 && localSaved
-                                    ? "Includes your save on this device"
-                                    : undefined
-                                }
-                              >
-                                <Heart
-                                  className={`h-3.5 w-3.5 shrink-0 text-[#D4A843] ${localSaved ? "fill-[#D4A843]" : ""}`}
-                                  aria-hidden
-                                />
-                                <span>{heartCount}</span>
+                              <div className="absolute right-3 top-3 z-10 flex items-start gap-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    void engagement.toggleLike(p.id);
+                                  }}
+                                  className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10"
+                                  aria-label={`${likeN} likes`}
+                                >
+                                  <Heart
+                                    className={`h-3.5 w-3.5 shrink-0 ${engagement.isLiked(p.id) ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
+                                    aria-hidden
+                                  />
+                                  <span>{likeN}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    void engagement.togglePin(p.id);
+                                  }}
+                                  className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10"
+                                  aria-label={`${pinN} pins`}
+                                >
+                                  <Pin
+                                    className={`h-3.5 w-3.5 shrink-0 ${engagement.isPinned(p.id) ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
+                                    aria-hidden
+                                  />
+                                  <span>{pinN}</span>
+                                </button>
                               </div>
                             </div>
 

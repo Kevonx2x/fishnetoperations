@@ -5,12 +5,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Heart, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Heart, Pin, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
-import { useSavedPropertyIds } from "@/lib/saved-properties";
+import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagement";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { recordRecentlyViewedPropertyId } from "@/lib/recently-viewed";
 import { PropertyPageEmptyAgents } from "@/components/marketplace/agent-slot-placeholder";
@@ -89,7 +89,6 @@ export default function PropertyPage() {
   const id = params?.id;
   const { user, profile, loading: authLoading } = useAuth();
 
-  const saved = useSavedPropertyIds();
   const [property, setProperty] = useState<PropertyRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +113,8 @@ export default function PropertyPage() {
   } | null>(null);
   const [myCoListCount, setMyCoListCount] = useState(0);
   const [hasPendingCoRequest, setHasPendingCoRequest] = useState(false);
+
+  const { engagement } = usePropertyEngagementForProperties(property ? [property] : []);
 
   const isLoggedIn = !authLoading && !!user;
   const ownedListingLimit = listingLimitForTier(myAgent?.listing_tier);
@@ -244,8 +245,6 @@ export default function PropertyPage() {
     setLightboxIndex(Math.min(Math.max(0, index), allPhotos.length - 1));
     setLightboxOpen(true);
   };
-  const isSaved = property ? saved.has(property.id) : false;
-
   const connectedAgents = useMemo(() => {
     if (!property) return [];
     const raw = property.property_agents ?? [];
@@ -378,14 +377,40 @@ export default function PropertyPage() {
                     ) : (
                       <div className="h-full w-full bg-neutral-200" />
                     )}
-                    <button
-                      type="button"
-                      onClick={() => property && saved.toggle(property.id)}
-                      className="absolute right-3 top-3 z-10 rounded-full bg-white/95 p-2 shadow-sm"
-                      aria-label={isSaved ? "Unsave" : "Save"}
-                    >
-                      <Heart className={`h-5 w-5 ${isSaved ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`} />
-                    </button>
+                    <div className="absolute right-3 top-3 z-10 flex items-start gap-1.5">
+                      <div className="flex flex-col items-center gap-0.5 rounded-xl bg-white/95 px-1.5 py-1 shadow-sm ring-1 ring-black/5">
+                        <button
+                          type="button"
+                          onClick={() => engagement.toggleLike(property.id)}
+                          className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
+                          aria-label={engagement.isLiked(property.id) ? "Unlike" : "Like"}
+                        >
+                          <Heart
+                            className={`h-4 w-4 ${engagement.isLiked(property.id) ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
+                          />
+                        </button>
+                        <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
+                          {engagement.likeCount(property.id)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5 rounded-xl bg-white/95 px-1.5 py-1 shadow-sm ring-1 ring-black/5">
+                        <button
+                          type="button"
+                          onClick={() => engagement.togglePin(property.id)}
+                          className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
+                          aria-label={
+                            engagement.isPinned(property.id) ? "Unpin from profile" : "Pin to profile"
+                          }
+                        >
+                          <Pin
+                            className={`h-4 w-4 ${engagement.isPinned(property.id) ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
+                          />
+                        </button>
+                        <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
+                          {engagement.saveCount(property.id)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   {allPhotos.length > 1 ? (

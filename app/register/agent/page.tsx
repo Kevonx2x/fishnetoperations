@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import { PhPhoneInput } from "@/components/ui/ph-phone-input";
 import {
-  formatPhMobileInput,
   formatPrcLicenseInput,
   validateAgentName,
   validateEmailField,
@@ -344,15 +344,15 @@ export default function RegisterAgentPage() {
                 ) : null}
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-gray-500" htmlFor="agent-reg-phone">
                   Phone
-                  <input
-                    value={phone}
-                    onChange={(e) => setPhone(formatPhMobileInput(e.target.value))}
-                    placeholder="+63 917 123 4567"
-                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
-                  />
                 </label>
+                <PhPhoneInput
+                  id="agent-reg-phone"
+                  value={phone}
+                  onChange={setPhone}
+                  className="mt-1"
+                />
                 {detailErrors.phone ? <p className="mt-1 text-sm text-red-600">{detailErrors.phone}</p> : null}
               </div>
               <div>

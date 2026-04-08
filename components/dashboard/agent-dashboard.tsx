@@ -37,6 +37,8 @@ import {
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
 import { PropertyListingImagesInput } from "@/components/dashboard/property-listing-images-input";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
+import { PhPhoneInput } from "@/components/ui/ph-phone-input";
+import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
 import { formatListingPricePhp } from "@/lib/format-listing-price";
 import {
   AGENT_AVAILABILITY_NOW,
@@ -487,11 +489,20 @@ export function AgentDashboard() {
       setMsg("Bio must be 500 characters or less.");
       return;
     }
+    const phTrim = profileForm.phone.trim();
+    if (phTrim && isPhilippinePhoneMode(phTrim)) {
+      const pe = validatePhilippinePhoneInput(phTrim);
+      if (pe) {
+        setSaving(false);
+        setMsg(pe);
+        return;
+      }
+    }
     const { error } = await supabase
       .from("agents")
       .update({
         name: profileForm.name.trim(),
-        phone: profileForm.phone.trim() || null,
+        phone: phTrim || null,
         bio: bioTrim || null,
         specialties: profileForm.specialties.length ? profileForm.specialties.join(", ") : null,
         service_areas: profileForm.serviceAreaTags.length ? profileForm.serviceAreaTags.join("; ") : null,
@@ -2277,14 +2288,18 @@ function ProfileTab({
             className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
           />
         </label>
-        <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-          Phone
-          <input
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45" htmlFor="agent-dash-phone">
+            Phone
+          </label>
+          <PhPhoneInput
+            id="agent-dash-phone"
             value={profileForm.phone}
-            onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
+            onChange={(v) => setProfileForm((f) => ({ ...f, phone: v }))}
+            className="mt-1"
+            inputClassName="border-black/10 bg-[#FAF8F4] font-semibold"
           />
-        </label>
+        </div>
         <div className="rounded-xl bg-[#FAF8F4] px-4 py-3 text-sm">
           <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">License (read-only)</p>
           <p className="mt-1 font-semibold text-[#2C2C2C]">{agent.license_number}</p>

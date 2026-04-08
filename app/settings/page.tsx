@@ -12,6 +12,48 @@ import { pathForRole } from "@/lib/auth-roles";
 import { formatLicenseDate, isLicenseExpiringWithinDays } from "@/lib/license-expiry";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { PhPhoneInput } from "@/components/ui/ph-phone-input";
+import { ServiceAreasMultiInput } from "@/components/ui/service-areas-multi-input";
+import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
+
+const COUNTRY_OPTIONS = [
+  "Philippines",
+  "USA",
+  "Canada",
+  "Australia",
+  "UK",
+  "Singapore",
+  "UAE",
+  "Japan",
+  "South Korea",
+  "China",
+  "Other",
+] as const;
+
+const VISA_OPTIONS = [
+  "Tourist Visa",
+  "9g Work Visa",
+  "SRRV Retirement Visa",
+  "ACR I-Card",
+  "Permanent Resident",
+  "Dual Citizen",
+  "Other",
+] as const;
+
+const PREFERRED_TYPE_OPTIONS = [
+  "Any",
+  "House & Lot",
+  "Condo",
+  "Apartment",
+  "Commercial",
+  "Farm",
+] as const;
+
+function parseBudgetInput(raw: string): number | null {
+  const n = Number(String(raw).replace(/[^\d.]/g, ""));
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
+}
 
 const ROLE_OPTIONS: {
   value: Exclude<ProfileRole, "admin">;
@@ -95,6 +137,16 @@ function SettingsPageInner() {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
 
+  const [countryOfOrigin, setCountryOfOrigin] = useState("");
+  const [visaType, setVisaType] = useState("");
+  const [visaExpiry, setVisaExpiry] = useState("");
+  const [budgetMin, setBudgetMin] = useState("");
+  const [budgetMax, setBudgetMax] = useState("");
+  const [preferredPropertyType, setPreferredPropertyType] = useState("");
+  const [preferredLocations, setPreferredLocations] = useState<string[]>([]);
+  const [locationDraft, setLocationDraft] = useState("");
+  const [lookingTo, setLookingTo] = useState<"" | "buy" | "rent" | "both">("");
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -116,7 +168,9 @@ function SettingsPageInner() {
       }
       const { data } = await supabase
         .from("profiles")
-        .select("notify_email, notify_sms, role, full_name, phone, avatar_url, bio")
+        .select(
+          "notify_email, notify_sms, role, full_name, phone, avatar_url, bio, country_of_origin, visa_type, visa_expiry, budget_min, budget_max, preferred_property_type, preferred_locations, looking_to",
+        )
         .eq("id", user.id)
         .maybeSingle();
       const row = data as {
@@ -127,6 +181,14 @@ function SettingsPageInner() {
         phone?: string | null;
         avatar_url?: string | null;
         bio?: string | null;
+        country_of_origin?: string | null;
+        visa_type?: string | null;
+        visa_expiry?: string | null;
+        budget_min?: number | null;
+        budget_max?: number | null;
+        preferred_property_type?: string | null;
+        preferred_locations?: unknown;
+        looking_to?: string | null;
       } | null;
       if (typeof row?.notify_email === "boolean") setNotifyEmail(row.notify_email);
       if (typeof row?.notify_sms === "boolean") setNotifySms(row.notify_sms);
@@ -134,6 +196,31 @@ function SettingsPageInner() {
       setPhone(row?.phone ?? "");
       setBio(row?.bio ?? "");
       setAvatarUrl(row?.avatar_url ?? "");
+      setCountryOfOrigin(row?.country_of_origin ?? "");
+      setVisaType(row?.visa_type ?? "");
+      setVisaExpiry(
+        row?.visa_expiry && typeof row.visa_expiry === "string"
+          ? row.visa_expiry.slice(0, 10)
+          : "",
+      );
+      setBudgetMin(
+        row?.budget_min != null && Number.isFinite(Number(row.budget_min))
+          ? String(Math.round(Number(row.budget_min)))
+          : "",
+      );
+      setBudgetMax(
+        row?.budget_max != null && Number.isFinite(Number(row.budget_max))
+          ? String(Math.round(Number(row.budget_max)))
+          : "",
+      );
+      setPreferredPropertyType(row?.preferred_property_type ?? "");
+      const locs = row?.preferred_locations;
+      setPreferredLocations(
+        Array.isArray(locs) ? locs.filter((x): x is string => typeof x === "string") : [],
+      );
+      setLocationDraft("");
+      const lt = row?.looking_to;
+      setLookingTo(lt === "buy" || lt === "rent" || lt === "both" ? lt : "");
       const r = row?.role;
       if (r === "client" || r === "agent" || r === "broker") {
         setPendingRole(r);
@@ -222,45 +309,54 @@ function SettingsPageInner() {
       }
       const uid = authUser.id;
 
-      const payload = {
+      const ph = phone.trim();
+      if (ph && isPhilippinePhoneMode(ph)) {
+        const phErr = validatePhilippinePhoneInput(ph);
+        if (phErr) {
+          toast.error(phErr);
+          return;
+        }
+      }
+
+      const payload: Record<string, unknown> = {
         full_name: fullName.trim() || null,
-        phone: phone.trim() || null,
+        phone: ph || null,
         bio: bio.trim() || null,
       };
 
-      let { data, error } = await supabase
+      if (currentRole === "client" && !isAdmin) {
+        const abroad = countryOfOrigin.trim() && countryOfOrigin.trim() !== "Philippines";
+        const bmin = parseBudgetInput(budgetMin);
+        const bmax = parseBudgetInput(budgetMax);
+        if (budgetMin.trim() && bmin === null) {
+          toast.error("Enter a valid minimum budget or leave it blank.");
+          return;
+        }
+        if (budgetMax.trim() && bmax === null) {
+          toast.error("Enter a valid maximum budget or leave it blank.");
+          return;
+        }
+        if (bmin != null && bmax != null && bmin > bmax) {
+          toast.error("Minimum budget cannot be greater than maximum.");
+          return;
+        }
+        payload.country_of_origin = countryOfOrigin.trim() || null;
+        payload.visa_type = abroad && visaType.trim() ? visaType.trim() : null;
+        payload.visa_expiry =
+          abroad && visaType.trim() && visaExpiry.trim() ? visaExpiry.trim() : null;
+        payload.budget_min = bmin;
+        payload.budget_max = bmax;
+        payload.preferred_property_type = preferredPropertyType.trim() || null;
+        payload.preferred_locations = preferredLocations;
+        payload.looking_to = lookingTo || null;
+      }
+
+      const { data, error } = await supabase
         .from("profiles")
         .update(payload)
         .eq("id", uid)
         .select("id")
         .maybeSingle();
-
-      const bioLikelyMissing =
-        error &&
-        (/bio/i.test(error.message ?? "") ||
-          /column.*does not exist/i.test(error.message ?? ""));
-
-      if (bioLikelyMissing) {
-        const retry = await supabase
-          .from("profiles")
-          .update({
-            full_name: payload.full_name,
-            phone: payload.phone,
-          })
-          .eq("id", uid)
-          .select("id")
-          .maybeSingle();
-        data = retry.data;
-        error = retry.error;
-        if (!error && data?.id) {
-          await refreshProfile();
-          toast.success("Profile saved");
-          toast.warning("Bio could not be saved until the database includes a bio column.", {
-            duration: 6000,
-          });
-          return;
-        }
-      }
 
       if (error) {
         toast.error(error.message || "Could not save profile");
@@ -491,14 +587,17 @@ function SettingsPageInner() {
                   className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
                 />
               </label>
-              <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-                Phone
-                <input
+              <div>
+                <label className="block text-xs font-semibold text-[#2C2C2C]/55" htmlFor="settings-phone">
+                  Phone
+                </label>
+                <PhPhoneInput
+                  id="settings-phone"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                  onChange={setPhone}
+                  className="mt-1.5"
                 />
-              </label>
+              </div>
               <label className="block text-xs font-semibold text-[#2C2C2C]/55">
                 Bio
                 <textarea
@@ -509,6 +608,153 @@ function SettingsPageInner() {
                   className="mt-1.5 w-full resize-y rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
                 />
               </label>
+              {currentRole === "client" && !isAdmin ? (
+                <div className="space-y-6 border-t border-[#2C2C2C]/10 pt-6">
+                  <div>
+                    <h3 className="font-serif text-lg font-semibold text-[#2C2C2C]">Property preferences</h3>
+                    <p className="mt-1 text-sm text-[#2C2C2C]/50">
+                      Optional — helps agents match you with the right listings.
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#2C2C2C]/45">
+                      Personal
+                    </p>
+                    <label className="mt-3 block text-xs font-semibold text-[#2C2C2C]/55">
+                      Country of origin
+                      <select
+                        value={countryOfOrigin}
+                        onChange={(e) => setCountryOfOrigin(e.target.value)}
+                        className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                      >
+                        <option value="">Select…</option>
+                        {COUNTRY_OPTIONS.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {countryOfOrigin && countryOfOrigin !== "Philippines" ? (
+                      <div className="mt-4 space-y-4">
+                        <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                          Visa type
+                          <select
+                            value={visaType}
+                            onChange={(e) => setVisaType(e.target.value)}
+                            className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                          >
+                            <option value="">Select…</option>
+                            {VISA_OPTIONS.map((v) => (
+                              <option key={v} value={v}>
+                                {v}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        {visaType ? (
+                          <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                            Visa expiry
+                            <input
+                              type="date"
+                              value={visaExpiry}
+                              onChange={(e) => setVisaExpiry(e.target.value)}
+                              className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                            />
+                          </label>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#2C2C2C]/45">
+                      Property
+                    </p>
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                      <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                        Min budget (₱)
+                        <input
+                          inputMode="numeric"
+                          value={budgetMin}
+                          onChange={(e) => setBudgetMin(e.target.value.replace(/[^\d]/g, ""))}
+                          placeholder="e.g. 5000000"
+                          className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                        />
+                      </label>
+                      <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                        Max budget (₱)
+                        <input
+                          inputMode="numeric"
+                          value={budgetMax}
+                          onChange={(e) => setBudgetMax(e.target.value.replace(/[^\d]/g, ""))}
+                          placeholder="e.g. 15000000"
+                          className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                        />
+                      </label>
+                    </div>
+                    <label className="mt-4 block text-xs font-semibold text-[#2C2C2C]/55">
+                      Preferred property type
+                      <select
+                        value={preferredPropertyType}
+                        onChange={(e) => setPreferredPropertyType(e.target.value)}
+                        className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                      >
+                        <option value="">Select…</option>
+                        {PREFERRED_TYPE_OPTIONS.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="mt-4">
+                      <p className="text-xs font-semibold text-[#2C2C2C]/55">Preferred locations</p>
+                      <div className="mt-1.5">
+                        <ServiceAreasMultiInput
+                          values={preferredLocations}
+                          onChange={setPreferredLocations}
+                          draft={locationDraft}
+                          onDraftChange={setLocationDraft}
+                          id="settings-pref-locations"
+                        />
+                      </div>
+                    </div>
+                    <fieldset className="mt-4">
+                      <legend className="text-xs font-semibold text-[#2C2C2C]/55">Looking to</legend>
+                      <div className="mt-2 flex flex-wrap gap-4">
+                        <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-[#2C2C2C]/70">
+                          <input
+                            type="radio"
+                            name="looking-to"
+                            checked={lookingTo === ""}
+                            onChange={() => setLookingTo("")}
+                            className="h-4 w-4 border-[#2C2C2C]/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                          />
+                          Not specified
+                        </label>
+                        {(
+                          [
+                            { v: "buy" as const, label: "Buy" },
+                            { v: "rent" as const, label: "Rent" },
+                            { v: "both" as const, label: "Both" },
+                          ] as const
+                        ).map(({ v, label }) => (
+                          <label key={v} className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-[#2C2C2C]">
+                            <input
+                              type="radio"
+                              name="looking-to"
+                              checked={lookingTo === v}
+                              onChange={() => setLookingTo(v)}
+                              className="h-4 w-4 border-[#2C2C2C]/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                  </div>
+                </div>
+              ) : null}
               <button
                 type="submit"
                 disabled={savingProfile}

@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Heart,
+  Pin,
   Home,
   MapPin,
   Shield,
@@ -27,7 +28,10 @@ import { ConnectedAgentsBox } from "@/components/marketplace/connected-agents-bo
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import type { DbProperty, SortMode } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
-import { useSavedPropertyIds } from "@/lib/saved-properties";
+import {
+  usePropertyEngagementForProperties,
+  type PropertyEngagement,
+} from "@/hooks/use-property-engagement";
 import { useAuth } from "@/contexts/auth-context";
 import { PropertyZoomModal } from "@/components/marketplace/property-zoom-modal";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
@@ -119,9 +123,10 @@ function inferredType(p: DbProperty): FiltersState["propertyType"] {
   return "House";
 }
 
+export type { PropertyEngagement } from "@/hooks/use-property-engagement";
+
 export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" }) {
   const { user } = useAuth();
-  const saved = useSavedPropertyIds();
   const [viewerVerifiedListingAgent, setViewerVerifiedListingAgent] = useState(false);
 
   useEffect(() => {
@@ -168,6 +173,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   });
   const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
   const [zoomProperty, setZoomProperty] = useState<DbProperty | null>(null);
+
+  const { engagement } = usePropertyEngagementForProperties(properties);
 
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const topAgentsRef = useRef<HTMLDivElement | null>(null);
@@ -792,8 +799,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                                 [p.id]: ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
                               }))
                             }
-                            isSaved={saved.has(p.id)}
-                            onToggleSaved={() => saved.toggle(p.id)}
+                            engagement={engagement}
                             connectedAgents={allConnectedAgentsByPropertyId.get(p.id) ?? []}
                             onOpenPropertyZoom={() => setZoomProperty(p)}
                             grid
@@ -830,7 +836,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         rowRefs={rowRefs}
                         cardRoomIdx={cardRoomIdx}
                         setCardRoomIdx={setCardRoomIdx}
-                        saved={saved}
+                        engagement={engagement}
                         connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
                         viewerUserId={user?.id ?? null}
                         onOpenPropertyZoom={setZoomProperty}
@@ -853,7 +859,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         rowRefs={rowRefs}
                         cardRoomIdx={cardRoomIdx}
                         setCardRoomIdx={setCardRoomIdx}
-                        saved={saved}
+                        engagement={engagement}
                         connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
                         viewerUserId={user?.id ?? null}
                         onOpenPropertyZoom={setZoomProperty}
@@ -1055,8 +1061,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
             property={zoomProperty}
             agents={allConnectedAgentsByPropertyId.get(zoomProperty.id) ?? []}
             onClose={() => setZoomProperty(null)}
-            isSaved={saved.has(zoomProperty.id)}
-            onToggleSaved={() => saved.toggle(zoomProperty.id)}
+            engagement={engagement}
           />
         ) : null}
       </AnimatePresence>
@@ -1073,7 +1078,7 @@ function CategorySection({
   items,
   cardRoomIdx,
   setCardRoomIdx,
-  saved,
+  engagement,
   connectedAgentsByPropertyId,
   scrollRow,
   onOpenPropertyZoom,
@@ -1087,7 +1092,7 @@ function CategorySection({
   items: DbProperty[];
   cardRoomIdx: Record<string, number>;
   setCardRoomIdx: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-  saved: ReturnType<typeof useSavedPropertyIds>;
+  engagement: PropertyEngagement;
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
   scrollRow: (ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") => void;
   onOpenPropertyZoom: (p: DbProperty) => void;
@@ -1137,8 +1142,7 @@ function CategorySection({
                       ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
                   }))
                 }
-                isSaved={saved.has(p.id)}
-                onToggleSaved={() => saved.toggle(p.id)}
+                engagement={engagement}
                 connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
                 onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
                 grid
@@ -1231,8 +1235,7 @@ export function NewlyListedCard({
   roomIdx,
   onRoomPrev,
   onRoomNext,
-  isSaved,
-  onToggleSaved,
+  engagement,
   connectedAgents,
   onOpenPropertyZoom,
   grid,
@@ -1247,8 +1250,7 @@ export function NewlyListedCard({
   roomIdx: number;
   onRoomPrev: () => void;
   onRoomNext: () => void;
-  isSaved: boolean;
-  onToggleSaved: () => void;
+  engagement: PropertyEngagement;
   connectedAgents: MarketplaceAgent[];
   onOpenPropertyZoom: () => void;
   grid?: boolean;
@@ -1282,6 +1284,9 @@ export function NewlyListedCard({
   const showYourListingBadge =
     !!viewerUserId &&
     connectedAgents.some((a) => a.userId === viewerUserId);
+
+  const isLiked = engagement.isLiked(property.id);
+  const isPinned = engagement.isPinned(property.id);
 
   const imgH = compact ? "h-44 sm:h-48" : "h-52 sm:h-56";
   const titleLine = property.name?.trim() || property.location;
@@ -1345,18 +1350,43 @@ export function NewlyListedCard({
           </span>
         </div>
 
-        <div className="absolute right-3 top-3 z-20">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleSaved();
-            }}
-            className="rounded-full bg-white/95 p-2 shadow-sm ring-1 ring-black/5"
-            aria-label={isSaved ? "Unsave" : "Save"}
-          >
-            <Heart className={`h-4 w-4 ${isSaved ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`} />
-          </button>
+        <div className="absolute right-3 top-3 z-20 flex items-start gap-1.5">
+          <div className="flex flex-col items-center gap-0.5 rounded-xl bg-white/95 px-1.5 py-1 shadow-sm ring-1 ring-black/5">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                engagement.toggleLike(property.id);
+              }}
+              className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
+              aria-label={isLiked ? "Unlike" : "Like"}
+            >
+              <Heart
+                className={`h-4 w-4 ${isLiked ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
+              />
+            </button>
+            <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
+              {engagement.likeCount(property.id)}
+            </span>
+          </div>
+          <div className="flex flex-col items-center gap-0.5 rounded-xl bg-white/95 px-1.5 py-1 shadow-sm ring-1 ring-black/5">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                engagement.togglePin(property.id);
+              }}
+              className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
+              aria-label={isPinned ? "Unpin from profile" : "Pin to profile"}
+            >
+              <Pin
+                className={`h-4 w-4 ${isPinned ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
+              />
+            </button>
+            <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
+              {engagement.saveCount(property.id)}
+            </span>
+          </div>
         </div>
 
         <div className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-5rem)] flex-col items-start gap-1.5">
@@ -1533,7 +1563,7 @@ function PropertyRows({
   rowRefs,
   cardRoomIdx,
   setCardRoomIdx,
-  saved,
+  engagement,
   connectedAgentsByPropertyId,
   viewerUserId,
   onOpenPropertyZoom,
@@ -1545,7 +1575,7 @@ function PropertyRows({
   rowRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
   cardRoomIdx: Record<string, number>;
   setCardRoomIdx: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-  saved: ReturnType<typeof useSavedPropertyIds>;
+  engagement: PropertyEngagement;
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
   viewerUserId?: string | null;
   onOpenPropertyZoom: (p: DbProperty) => void;
@@ -1567,7 +1597,7 @@ function PropertyRows({
             rowRefs={rowRefs}
             cardRoomIdx={cardRoomIdx}
             setCardRoomIdx={setCardRoomIdx}
-            saved={saved}
+            engagement={engagement}
             connectedAgentsByPropertyId={connectedAgentsByPropertyId}
             viewerUserId={viewerUserId}
             onOpenPropertyZoom={onOpenPropertyZoom}
@@ -1610,7 +1640,7 @@ function PropertyRows({
                   rowRefs={rowRefs}
                   cardRoomIdx={cardRoomIdx}
                   setCardRoomIdx={setCardRoomIdx}
-                  saved={saved}
+                  engagement={engagement}
                   connectedAgentsByPropertyId={connectedAgentsByPropertyId}
                   viewerUserId={viewerUserId}
                   onOpenPropertyZoom={onOpenPropertyZoom}
@@ -1646,7 +1676,7 @@ function RowCarousel({
   rowRefs,
   cardRoomIdx,
   setCardRoomIdx,
-  saved,
+  engagement,
   connectedAgentsByPropertyId,
   viewerUserId,
   onOpenPropertyZoom,
@@ -1660,7 +1690,7 @@ function RowCarousel({
   rowRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
   cardRoomIdx: Record<string, number>;
   setCardRoomIdx: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-  saved: ReturnType<typeof useSavedPropertyIds>;
+  engagement: PropertyEngagement;
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
   viewerUserId?: string | null;
   onOpenPropertyZoom: (p: DbProperty) => void;
@@ -1724,8 +1754,7 @@ function RowCarousel({
                     [p.id]: ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
                   }))
                 }
-                isSaved={saved.has(p.id)}
-                onToggleSaved={() => saved.toggle(p.id)}
+                engagement={engagement}
                 connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
                 onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
                 cardWidthClass={cardWidthClass}
