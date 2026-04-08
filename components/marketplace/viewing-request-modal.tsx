@@ -13,8 +13,9 @@ import { parseSchedule, viewingDateDisabled, type AvailabilitySchedule } from "@
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
 import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
 import {
+  buildClientViewingNotesPrefill,
   getMissingClientPreferenceLabels,
-  type ClientPreferenceFields,
+  type ClientProfileExtendedRow,
 } from "@/lib/client-profile-preferences";
 
 const TIME_SLOTS = [
@@ -31,40 +32,6 @@ const TIME_SLOTS = [
 function toScheduledIso(date: Date, hour: number): string {
   const d0 = startOfDay(date);
   return setMinutes(setHours(d0, hour), 0).toISOString();
-}
-
-type ClientPrefsRow = ClientPreferenceFields & {
-  preferred_locations: unknown;
-};
-
-function pesoFmt(n: number): string {
-  return `₱${Math.round(n).toLocaleString("en-US")}`;
-}
-
-/** One line for the notes field from saved profile preferences */
-function buildClientPrefsNotesLine(row: ClientPrefsRow): string {
-  const parts: string[] = [];
-  if (row.budget_min != null || row.budget_max != null) {
-    const a = row.budget_min != null ? pesoFmt(Number(row.budget_min)) : "—";
-    const b = row.budget_max != null ? pesoFmt(Number(row.budget_max)) : "—";
-    parts.push(`Budget: ${a}–${b}`);
-  }
-  if (row.looking_to) {
-    const map: Record<string, string> = { buy: "Buy", rent: "Rent", both: "Both" };
-    parts.push(`Looking to: ${map[row.looking_to] ?? row.looking_to}`);
-  }
-  if (row.preferred_property_type?.trim()) {
-    parts.push(`Property type: ${row.preferred_property_type.trim()}`);
-  }
-  const locs = row.preferred_locations;
-  if (Array.isArray(locs) && locs.length) {
-    const labels = locs.filter((x): x is string => typeof x === "string");
-    if (labels.length) parts.push(`Preferred areas: ${labels.join(", ")}`);
-  }
-  if (row.country_of_origin?.trim()) {
-    parts.push(`Country: ${row.country_of_origin.trim()}`);
-  }
-  return parts.join(" | ");
 }
 
 type PrefsGateState = "idle" | "loading" | "complete" | "incomplete";
@@ -137,7 +104,7 @@ export function ViewingRequestModal({
       const { data } = await supabase
         .from("profiles")
         .select(
-          "budget_min, budget_max, looking_to, preferred_property_type, preferred_locations, country_of_origin",
+          "budget_min, budget_max, looking_to, preferred_property_type, preferred_locations, country_of_origin, visa_type, occupant_count, has_pets, move_in_timeline, agent_notes",
         )
         .eq("id", user.id)
         .maybeSingle();
@@ -148,7 +115,7 @@ export function ViewingRequestModal({
         setNotes("");
         return;
       }
-      const row = data as ClientPrefsRow;
+      const row = data as ClientProfileExtendedRow;
       const missing = getMissingClientPreferenceLabels(row);
       setMissingPrefs(missing);
       if (missing.length > 0) {
@@ -156,8 +123,8 @@ export function ViewingRequestModal({
         setNotes("");
       } else {
         setPrefsGate("complete");
-        const line = buildClientPrefsNotesLine(row);
-        setNotes(line ? `${line}\n\n` : "");
+        const line = buildClientViewingNotesPrefill(row);
+        setNotes(line);
       }
     })();
     return () => {

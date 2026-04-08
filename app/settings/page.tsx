@@ -50,6 +50,14 @@ const PREFERRED_TYPE_OPTIONS = [
   "Farm",
 ] as const;
 
+const MOVE_IN_TIMELINE_OPTIONS = [
+  "As soon as possible",
+  "1-3 months",
+  "3-6 months",
+  "6-12 months",
+  "Just browsing",
+] as const;
+
 const ROLE_OPTIONS: {
   value: Exclude<ProfileRole, "admin">;
   label: string;
@@ -139,6 +147,10 @@ function SettingsPageInner() {
   const [preferredLocations, setPreferredLocations] = useState<string[]>([]);
   const [locationDraft, setLocationDraft] = useState("");
   const [lookingTo, setLookingTo] = useState<"" | "buy" | "rent" | "both">("");
+  const [occupantCount, setOccupantCount] = useState(1);
+  const [hasPets, setHasPets] = useState(false);
+  const [moveInTimeline, setMoveInTimeline] = useState("");
+  const [agentNotes, setAgentNotes] = useState("");
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -162,7 +174,7 @@ function SettingsPageInner() {
       const { data } = await supabase
         .from("profiles")
         .select(
-          "notify_email, notify_sms, role, full_name, phone, avatar_url, bio, country_of_origin, visa_type, visa_expiry, budget_min, budget_max, preferred_property_type, preferred_locations, looking_to",
+          "notify_email, notify_sms, role, full_name, phone, avatar_url, bio, country_of_origin, visa_type, visa_expiry, budget_min, budget_max, preferred_property_type, preferred_locations, looking_to, occupant_count, has_pets, move_in_timeline, agent_notes",
         )
         .eq("id", user.id)
         .maybeSingle();
@@ -182,6 +194,10 @@ function SettingsPageInner() {
         preferred_property_type?: string | null;
         preferred_locations?: unknown;
         looking_to?: string | null;
+        occupant_count?: number | null;
+        has_pets?: boolean | null;
+        move_in_timeline?: string | null;
+        agent_notes?: string | null;
       } | null;
       if (typeof row?.notify_email === "boolean") setNotifyEmail(row.notify_email);
       if (typeof row?.notify_sms === "boolean") setNotifySms(row.notify_sms);
@@ -214,6 +230,17 @@ function SettingsPageInner() {
       setLocationDraft("");
       const lt = row?.looking_to;
       setLookingTo(lt === "buy" || lt === "rent" || lt === "both" ? lt : "");
+      const oc = row?.occupant_count;
+      setOccupantCount(
+        oc != null && Number.isFinite(Number(oc))
+          ? Math.min(20, Math.max(1, Math.round(Number(oc))))
+          : 1,
+      );
+      setHasPets(Boolean(row?.has_pets));
+      setMoveInTimeline(
+        typeof row?.move_in_timeline === "string" ? row.move_in_timeline : "",
+      );
+      setAgentNotes(typeof row?.agent_notes === "string" ? row.agent_notes : "");
       const r = row?.role;
       if (r === "client" || r === "agent" || r === "broker") {
         setPendingRole(r);
@@ -342,6 +369,10 @@ function SettingsPageInner() {
         payload.preferred_property_type = preferredPropertyType.trim() || null;
         payload.preferred_locations = preferredLocations;
         payload.looking_to = lookingTo || null;
+        payload.occupant_count = Math.min(20, Math.max(1, Math.round(Number(occupantCount)) || 1));
+        payload.has_pets = hasPets;
+        payload.move_in_timeline = moveInTimeline.trim() || null;
+        payload.agent_notes = agentNotes.trim() ? agentNotes.trim().slice(0, 300) : null;
       }
 
       const { data, error } = await supabase
@@ -751,6 +782,88 @@ function SettingsPageInner() {
                         ))}
                       </div>
                     </fieldset>
+                    <div className="mt-6 space-y-4 border-t border-[#2C2C2C]/10 pt-6">
+                      <div>
+                        <h4 className="font-serif text-base font-semibold text-[#2C2C2C]">
+                          Household & timing
+                        </h4>
+                        <p className="mt-1 text-xs text-[#2C2C2C]/50">
+                          Used when you request viewings so agents can prepare.
+                        </p>
+                      </div>
+                      <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                        How many people will be living there?
+                        <input
+                          type="number"
+                          min={1}
+                          max={20}
+                          value={occupantCount}
+                          onChange={(e) => {
+                            const n = Number(e.target.value);
+                            if (!Number.isFinite(n)) {
+                              setOccupantCount(1);
+                              return;
+                            }
+                            setOccupantCount(Math.min(20, Math.max(1, Math.round(n))));
+                          }}
+                          className="mt-1.5 w-full max-w-[12rem] rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                        />
+                      </label>
+                      <div>
+                        <p className="text-xs font-semibold text-[#2C2C2C]/55">Do you have pets?</p>
+                        <div className="mt-2 flex flex-wrap gap-4">
+                          <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-[#2C2C2C]/80">
+                            <input
+                              type="radio"
+                              name="settings-has-pets"
+                              checked={!hasPets}
+                              onChange={() => setHasPets(false)}
+                              className="h-4 w-4 border-[#2C2C2C]/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                            />
+                            No
+                          </label>
+                          <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-[#2C2C2C]/80">
+                            <input
+                              type="radio"
+                              name="settings-has-pets"
+                              checked={hasPets}
+                              onChange={() => setHasPets(true)}
+                              className="h-4 w-4 border-[#2C2C2C]/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                            />
+                            Yes
+                          </label>
+                        </div>
+                      </div>
+                      <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                        Preferred move-in timeline
+                        <select
+                          value={moveInTimeline}
+                          onChange={(e) => setMoveInTimeline(e.target.value)}
+                          className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                        >
+                          <option value="">Select…</option>
+                          {MOVE_IN_TIMELINE_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                        Anything agents should know?
+                        <textarea
+                          value={agentNotes}
+                          onChange={(e) => setAgentNotes(e.target.value.slice(0, 300))}
+                          rows={3}
+                          maxLength={300}
+                          placeholder="Parking needs, accessibility, viewing windows…"
+                          className="mt-1.5 w-full resize-y rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                        />
+                        <span className="mt-1 block text-[11px] font-medium text-[#2C2C2C]/40">
+                          {agentNotes.length}/300
+                        </span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               ) : null}

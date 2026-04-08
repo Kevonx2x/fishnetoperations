@@ -14,6 +14,7 @@ import type { ProfileRole } from "@/lib/auth-roles";
 import {
   formatBudgetRangePhp,
   isClientProfilePrefsComplete,
+  isNonFilipinoCountry,
   lookingToLabel,
   preferredLocationsLabel,
   type ClientPreferenceFields,
@@ -80,7 +81,15 @@ export default function ClientPublicProfilePage() {
     role: ProfileRole;
   } | null>(null);
   const [clientPrefs, setClientPrefs] = useState<
-    (ClientPreferenceFields & { preferred_locations: unknown }) | null
+    | (ClientPreferenceFields & {
+        preferred_locations: unknown;
+        visa_type: string | null;
+        occupant_count: number | null;
+        has_pets: boolean | null;
+        move_in_timeline: string | null;
+        agent_notes: string | null;
+      })
+    | null
   >(null);
   const [moveInFromRequests, setMoveInFromRequests] = useState<string | null>(null);
   const [viewerAgent, setViewerAgent] = useState<{
@@ -148,7 +157,7 @@ export default function ClientPublicProfilePage() {
       const { data: p, error: pe } = await supabase
         .from("profiles")
         .select(
-          "id, full_name, avatar_url, created_at, role, budget_min, budget_max, looking_to, preferred_property_type, country_of_origin, preferred_locations",
+          "id, full_name, avatar_url, created_at, role, budget_min, budget_max, looking_to, preferred_property_type, country_of_origin, preferred_locations, visa_type, occupant_count, has_pets, move_in_timeline, agent_notes",
         )
         .eq("id", clientId)
         .maybeSingle();
@@ -175,6 +184,11 @@ export default function ClientPublicProfilePage() {
         preferred_property_type: string | null;
         country_of_origin: string | null;
         preferred_locations: unknown;
+        visa_type: string | null;
+        occupant_count: number | null;
+        has_pets: boolean | null;
+        move_in_timeline: string | null;
+        agent_notes: string | null;
       };
 
       setClientProfile({
@@ -191,6 +205,11 @@ export default function ClientPublicProfilePage() {
         preferred_property_type: row.preferred_property_type,
         country_of_origin: row.country_of_origin,
         preferred_locations: row.preferred_locations,
+        visa_type: row.visa_type,
+        occupant_count: row.occupant_count,
+        has_pets: row.has_pets,
+        move_in_timeline: row.move_in_timeline,
+        agent_notes: row.agent_notes,
       });
       setProfileLoading(false);
     })();
@@ -411,9 +430,116 @@ export default function ClientPublicProfilePage() {
                 </p>
                 <p className="mt-1 text-xs text-[#2C2C2C]/45">0 properties viewed · coming soon</p>
                 {isOwn && clientPrefs ? (
-                  <div className="mt-6 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-4 text-left">
+                  <div className="mt-6 w-full space-y-3 text-left">
+                    <div className="rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-serif text-lg font-semibold text-[#2C2C2C]">
+                          My Preferences
+                        </h3>
+                        <Link
+                          href="/settings?tab=profile"
+                          className="rounded-lg p-1.5 text-[#6B9E6E] transition hover:bg-[#6B9E6E]/15"
+                          aria-label="Edit preferences in settings"
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden />
+                        </Link>
+                      </div>
+                      <dl className="mt-3 space-y-2 text-sm">
+                        <div className="flex flex-col gap-0.5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                            Budget
+                          </dt>
+                          <dd className="font-medium text-[#2C2C2C]">
+                            {clientPrefs.budget_min != null || clientPrefs.budget_max != null
+                              ? formatBudgetRangePhp(clientPrefs.budget_min, clientPrefs.budget_max)
+                              : "—"}
+                          </dd>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                            Looking to
+                          </dt>
+                          <dd className="font-medium text-[#2C2C2C]">
+                            {lookingToLabel(clientPrefs.looking_to)}
+                          </dd>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                            Property type
+                          </dt>
+                          <dd className="font-medium text-[#2C2C2C]">
+                            {clientPrefs.preferred_property_type?.trim() || "—"}
+                          </dd>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                            Preferred areas
+                          </dt>
+                          <dd className="font-medium text-[#2C2C2C]">
+                            {preferredLocationsLabel(clientPrefs.preferred_locations)}
+                          </dd>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                            Country
+                          </dt>
+                          <dd className="font-medium text-[#2C2C2C]">
+                            {clientPrefs.country_of_origin?.trim() || "—"}
+                          </dd>
+                        </div>
+                        {isNonFilipinoCountry(clientPrefs.country_of_origin) &&
+                        clientPrefs.visa_type?.trim() ? (
+                          <div className="flex flex-col gap-0.5">
+                            <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                              Visa type
+                            </dt>
+                            <dd className="font-medium text-[#2C2C2C]">{clientPrefs.visa_type.trim()}</dd>
+                          </div>
+                        ) : null}
+                        <div className="flex flex-col gap-0.5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                            Occupants
+                          </dt>
+                          <dd className="font-medium text-[#2C2C2C]">
+                            {clientPrefs.occupant_count != null
+                              ? String(clientPrefs.occupant_count)
+                              : "—"}
+                          </dd>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                            Pets
+                          </dt>
+                          <dd className="font-medium text-[#2C2C2C]">
+                            {clientPrefs.has_pets === true
+                              ? "Yes"
+                              : clientPrefs.has_pets === false
+                                ? "No"
+                                : "—"}
+                          </dd>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                            Move-in timeline
+                          </dt>
+                          <dd className="font-medium text-[#2C2C2C]">
+                            {clientPrefs.move_in_timeline?.trim() || "—"}
+                          </dd>
+                        </div>
+                        {clientPrefs.agent_notes?.trim() ? (
+                          <div className="flex flex-col gap-0.5">
+                            <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                              Notes for agents
+                            </dt>
+                            <dd className="text-sm font-medium leading-snug text-[#2C2C2C]">
+                              {clientPrefs.agent_notes.trim()}
+                            </dd>
+                          </div>
+                        ) : null}
+                      </dl>
+                    </div>
                     <p
-                      className={`text-xs font-medium leading-snug ${
+                      className={`text-center text-xs font-medium leading-snug ${
                         prefsComplete ? "text-[#6B9E6E]" : "text-[#D4A843]"
                       }`}
                     >
@@ -423,7 +549,7 @@ export default function ClientPublicProfilePage() {
                     </p>
                     <Link
                       href="/settings?tab=profile"
-                      className="mt-3 flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                      className="flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5d8a60]"
                     >
                       Edit Profile Preferences
                     </Link>
