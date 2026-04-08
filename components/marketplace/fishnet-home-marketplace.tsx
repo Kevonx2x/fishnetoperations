@@ -726,8 +726,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               </button>
             ) : null}
           </div>
-          <div className="mt-6 overflow-x-auto scrollbar-hide">
-            <div className="mx-auto flex w-max max-w-full justify-center gap-3 pb-2 sm:gap-4">
+          <div className="mt-6 overflow-x-auto px-4 scrollbar-hide">
+            <div className="flex w-max gap-3 pb-2 sm:gap-4">
               {FEATURED_CITIES.map((c) => {
                 const count = cityListingCounts.get(c.key) ?? 0;
                 const active = neighborhoodFilter === c.key;
@@ -736,7 +736,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     key={c.key}
                     type="button"
                     onClick={() => selectCityFilter(c.key)}
-                    className={`group relative h-[160px] w-[min(280px,78vw)] shrink-0 overflow-hidden rounded-2xl border text-left shadow-md transition hover:scale-[1.02] lg:h-[120px] lg:w-[160px] ${
+                    className={`group relative h-[100px] w-[130px] shrink-0 overflow-hidden rounded-2xl border text-left shadow-md transition hover:scale-[1.02] lg:h-[120px] lg:w-[160px] ${
                       active
                         ? "border-[#D4A843] ring-2 ring-[#D4A843]/45"
                         : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
@@ -747,14 +747,14 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       alt=""
                       fill
                       className="object-cover transition duration-500 group-hover:scale-105"
-                      sizes="(min-width: 1024px) 160px, 280px"
+                      sizes="(min-width: 1024px) 160px, 130px"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3 lg:p-2.5">
-                      <p className="font-serif text-lg font-bold text-white drop-shadow-sm lg:text-base">
+                    <div className="absolute bottom-0 left-0 right-0 p-2 lg:p-2.5">
+                      <p className="font-serif text-xs font-bold text-white drop-shadow-sm lg:text-base">
                         {c.label}
                       </p>
-                      <p className="mt-0.5 text-xs font-semibold text-white/90 lg:text-[11px]">
+                      <p className="mt-0.5 text-[10px] font-semibold text-white/90 lg:text-[11px]">
                         {count} {count === 1 ? "listing" : "listings"}
                       </p>
                     </div>
@@ -1162,7 +1162,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         <AgentDirectoryCard
                           key={a.id}
                           agent={a}
-                          className="w-[160px] shrink-0 md:w-[300px]"
+                          className="w-[180px] shrink-0 md:w-[300px]"
                         />
                       ))}
                       {topAgents.length < 4 ? <MoreAgentsComingSoonCard /> : null}
@@ -1179,22 +1179,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 </div>
                 <div className="hidden w-full max-w-[320px] shrink-0 lg:block">
                   <AgentScoreTutorialCard />
-                </div>
-              </div>
-              <div className="mt-6 lg:hidden">
-                <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 shadow-md">
-                  <div className="relative aspect-[2/1] w-full bg-black/5">
-                    <Image
-                      src={MOBILE_AGENTS_LIFESTYLE_IMG}
-                      alt=""
-                      fill
-                      className="object-cover"
-                      sizes="100vw"
-                    />
-                  </div>
-                  <p className="bg-[#FAF8F4] px-4 py-3 text-center text-sm font-semibold text-[#2C2C2C]/85">
-                    Already the most trusted real estate platform in the Philippines 🏠
-                  </p>
                 </div>
               </div>
             </section>
@@ -2015,13 +1999,10 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
   );
 }
 
-const MOBILE_AGENTS_LIFESTYLE_IMG =
-  "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&h=400&fit=crop";
-
 function MoreAgentsComingSoonCard() {
   return (
     <motion.div
-      className="w-[160px] shrink-0 md:w-[300px]"
+      className="w-[180px] shrink-0 md:w-[300px]"
       animate={{ opacity: [0.88, 1, 0.88] }}
       transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
     >
