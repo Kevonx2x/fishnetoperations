@@ -84,6 +84,7 @@ interface AllAgentRow {
   closings: number;
   status: string;
   verified: boolean;
+  verification_status?: string | null;
   broker_id: string | null;
   user_id: string;
   created_at: string;
@@ -123,6 +124,32 @@ const emptyPropertyForm = {
   baths: "",
   image_url: "",
 };
+
+const MASKED_PRC_DISPLAY = "PRC-AG-202*-*****";
+
+function maskPrcForAdminQueue(_licenseNumber: string | null | undefined): string {
+  return MASKED_PRC_DISPLAY;
+}
+
+function verificationColumnLabel(v: string | null | undefined): string {
+  if (v === "verified") return "Verified";
+  if (v === "pending") return "Pending Docs";
+  if (v === "rejected") return "Rejected";
+  return "Unverified";
+}
+
+function verificationColumnClass(v: string | null | undefined): string {
+  if (v === "verified") return "text-emerald-700";
+  if (v === "pending") return "text-amber-700";
+  if (v === "rejected") return "text-red-700";
+  return "text-gray-500";
+}
+
+function docQueueBadgeClass(v: string | null | undefined): string {
+  if (v === "pending") return "rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900";
+  if (v === "rejected") return "rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-900";
+  return "rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700";
+}
 
 function formatVerificationErrorDetails(
   status: number,
@@ -170,6 +197,17 @@ export default function AdminPage() {
   >(null);
   const [rejectReason, setRejectReason] = useState("");
 
+  const [docReviewAgent, setDocReviewAgent] = useState<AllAgentRow | null>(null);
+  const [docReviewUrls, setDocReviewUrls] = useState<{
+    license_number: string;
+    prc_signed_url: string | null;
+    selfie_signed_url: string | null;
+    has_documents: boolean;
+  } | null>(null);
+  const [docReviewLoading, setDocReviewLoading] = useState(false);
+  const [docRejectReason, setDocRejectReason] = useState("");
+  const [docActionSaving, setDocActionSaving] = useState(false);
+
   const [adminUsers, setAdminUsers] = useState<AdminUserRow[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState("");
@@ -200,6 +238,14 @@ export default function AdminPage() {
   const [manageAgentsError, setManageAgentsError] = useState("");
   const [selectedAgentToAdd, setSelectedAgentToAdd] = useState("");
   const [manageAgentsMutating, setManageAgentsMutating] = useState(false);
+
+  const documentQueueAgents = useMemo(() => {
+    return allAgentsList.filter(
+      (a) =>
+        a.status === "approved" &&
+        (a.verification_status === "pending" || a.verification_status === "rejected"),
+    );
+  }, [allAgentsList]);
 
   const [resetPasswordAgent, setResetPasswordAgent] = useState<AllAgentRow | null>(null);
   const [resetPasswordValue, setResetPasswordValue] = useState("");
@@ -556,6 +602,77 @@ export default function AdminPage() {
     setRejectOpen(null);
     setRejectReason("");
     void fetchVerification();
+  };
+
+  const openDocReviewModal = async (agent: AllAgentRow) => {
+    setDocReviewAgent(agent);
+    setDocReviewUrls(null);
+    setDocRejectReason("");
+    setDocReviewLoading(true);
+    try {
+      const res = await fetch(`/api/admin/agents/${agent.id}/verification-review`, {
+        credentials: "include",
+      });
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: {
+          license_number: string;
+          prc_signed_url: string | null;
+          selfie_signed_url: string | null;
+          has_documents: boolean;
+        };
+        error?: { message?: string };
+      };
+      if (!res.ok || !json.success || !json.data) {
+        toast.error(json.error?.message ?? "Could not load documents");
+        setDocReviewAgent(null);
+        return;
+      }
+      setDocReviewUrls(json.data);
+    } catch {
+      toast.error("Could not load documents");
+      setDocReviewAgent(null);
+    } finally {
+      setDocReviewLoading(false);
+    }
+  };
+
+  const closeDocReviewModal = () => {
+    setDocReviewAgent(null);
+    setDocReviewUrls(null);
+    setDocRejectReason("");
+    setDocActionSaving(false);
+  };
+
+  const submitDocReviewDecision = async (decision: "approve" | "reject") => {
+    if (!docReviewAgent) return;
+    setDocActionSaving(true);
+    try {
+      const res = await fetch(`/api/admin/agents/${docReviewAgent.id}/verification-review`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          decision,
+          ...(decision === "reject" && docRejectReason.trim()
+            ? { reason: docRejectReason.trim() }
+            : {}),
+        }),
+      });
+      const json = (await res.json()) as { success?: boolean; error?: { message?: string } };
+      if (!res.ok || !json.success) {
+        toast.error(json.error?.message ?? "Update failed");
+        return;
+      }
+      toast.success(decision === "approve" ? "Identity verification updated." : "Verification rejected.");
+      closeDocReviewModal();
+      void fetchAllAgents();
+      void fetchVerification();
+    } catch {
+      toast.error("Update failed");
+    } finally {
+      setDocActionSaving(false);
+    }
   };
 
   const leadStage = (l: Lead) => l.stage ?? l.status ?? "new";
@@ -1463,7 +1580,9 @@ export default function AdminPage() {
             {!verificationLoading &&
               !verificationError &&
               pendingBrokers.length === 0 &&
-              pendingAgents.length === 0 && (
+              pendingAgents.length === 0 &&
+              documentQueueAgents.length === 0 &&
+              !allAgentsLoading && (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
                   No pending applications.
                 </div>
@@ -1684,6 +1803,69 @@ export default function AdminPage() {
                 )}
               </div>
             </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                Document Verification Queue
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  ({documentQueueAgents.length})
+                </span>
+              </h2>
+              <p className="mb-3 text-sm text-gray-500">
+                Approved agents waiting on PRC / identity document review (verification_status pending or rejected).
+              </p>
+              <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+                {allAgentsLoading ? (
+                  <div className="p-8 text-center text-sm text-gray-400">Loading…</div>
+                ) : documentQueueAgents.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-gray-400">No agents in the document queue.</div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="border-b border-gray-100 bg-gray-50/80">
+                      <tr className="text-left text-xs text-gray-500 uppercase tracking-wide">
+                        <th className="px-4 py-3">Name</th>
+                        <th className="px-4 py-3">Contact</th>
+                        <th className="px-4 py-3">PRC (masked)</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {documentQueueAgents.map((a) => (
+                        <tr key={a.id} className="hover:bg-gray-50/80 align-top">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{a.name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {a.email}
+                            {a.phone ? <p className="text-xs text-gray-500">{a.phone}</p> : null}
+                          </td>
+                          <td className="px-4 py-3 text-xs font-mono text-gray-600">
+                            {maskPrcForAdminQueue(a.license_number)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={docQueueBadgeClass(a.verification_status)}>
+                              {a.verification_status === "pending"
+                                ? "pending"
+                                : a.verification_status === "rejected"
+                                  ? "rejected"
+                                  : "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => void openDocReviewModal(a)}
+                              className="rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-gray-800"
+                            >
+                              Review Documents
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </section>
           </div>
         )}
 
@@ -1724,7 +1906,7 @@ export default function AdminPage() {
                         <th className="px-4 py-3">Email</th>
                         <th className="px-4 py-3">License</th>
                         <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3">Verified</th>
+                        <th className="px-4 py-3">Verification</th>
                         <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -1740,8 +1922,12 @@ export default function AdminPage() {
                                 {a.status}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-sm font-semibold text-[#6B9E6E]">
-                              {a.verified ? "Yes" : "No"}
+                            <td className="px-4 py-3">
+                              <span
+                                className={`text-sm font-semibold ${verificationColumnClass(a.verification_status)}`}
+                              >
+                                {verificationColumnLabel(a.verification_status)}
+                              </span>
                             </td>
                             <td className="px-4 py-3 text-right">
                               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -2008,6 +2194,140 @@ export default function AdminPage() {
                 Only agents with status <strong>approved</strong> and <strong>verified</strong> appear here.
               </p>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {docReviewAgent ? (
+        <div className="fixed inset-0 z-[109] flex items-center justify-center overflow-y-auto p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close"
+            onClick={() => closeDocReviewModal()}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-doc-review-title"
+            className="relative z-[110] my-8 w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2 id="admin-doc-review-title" className="font-serif text-xl font-bold text-[#2C2C2C]">
+                Review documents
+              </h2>
+              <button
+                type="button"
+                onClick={() => closeDocReviewModal()}
+                className="rounded-full p-2 text-[#2C2C2C]/55 hover:bg-[#2C2C2C]/10"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mt-1 text-sm text-[#2C2C2C]/60">
+              <strong>{docReviewAgent.name}</strong> · {docReviewAgent.email}
+            </p>
+
+            {docReviewLoading ? (
+              <p className="mt-6 text-sm text-gray-500">Loading documents…</p>
+            ) : docReviewUrls ? (
+              <div className="mt-4 space-y-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Full PRC number (admin)
+                  </p>
+                  <p className="mt-1 font-mono text-sm font-semibold text-[#2C2C2C]">
+                    {docReviewUrls.license_number || "—"}
+                  </p>
+                </div>
+
+                {!docReviewUrls.has_documents ? (
+                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    No documents uploaded yet
+                  </p>
+                ) : (
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                        PRC license photo
+                      </p>
+                      {docReviewUrls.prc_signed_url ? (
+                        docReviewUrls.prc_signed_url.toLowerCase().includes(".pdf") ? (
+                          <a
+                            href={docReviewUrls.prc_signed_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 inline-flex rounded-lg border border-[#6B9E6E]/30 bg-[#6B9E6E]/10 px-4 py-2 text-sm font-semibold text-[#2C2C2C] underline"
+                          >
+                            Open PDF
+                          </a>
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={docReviewUrls.prc_signed_url}
+                            alt="PRC license"
+                            className="mt-2 max-h-64 w-full rounded-lg border border-gray-200 object-contain"
+                          />
+                        )
+                      ) : (
+                        <p className="mt-2 text-sm text-gray-500">Could not load file.</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                        Selfie / live photo
+                      </p>
+                      {docReviewUrls.selfie_signed_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={docReviewUrls.selfie_signed_url}
+                          alt="Selfie"
+                          className="mt-2 max-h-64 w-full rounded-lg border border-gray-200 object-contain"
+                        />
+                      ) : (
+                        <p className="mt-2 text-sm text-gray-500">Could not load file.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Rejection reason (optional, stored with decision)
+                  </label>
+                  <textarea
+                    value={docRejectReason}
+                    onChange={(e) => setDocRejectReason(e.target.value)}
+                    rows={3}
+                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm text-[#2C2C2C]"
+                    placeholder="Shown in admin metadata only"
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <button
+                    type="button"
+                    disabled={docActionSaving}
+                    onClick={() => void submitDocReviewDecision("approve")}
+                    className="rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#5d8a60] disabled:opacity-50"
+                  >
+                    {docActionSaving ? "Saving…" : "Approve"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={docActionSaving}
+                    onClick={() => void submitDocReviewDecision("reject")}
+                    className="rounded-full border-2 border-red-300 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-800 hover:bg-red-100 disabled:opacity-50"
+                  >
+                    {docActionSaving ? "Saving…" : "Reject"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-6 text-sm text-red-600">Could not load document data.</p>
+            )}
           </div>
         </div>
       ) : null}

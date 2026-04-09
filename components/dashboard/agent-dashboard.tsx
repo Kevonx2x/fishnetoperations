@@ -1865,29 +1865,43 @@ function ListingsTab({
             </Link>
             {!p.isCoHost ? (
               <div className="absolute right-2 top-2 z-10 flex flex-col gap-1.5 sm:flex-row sm:items-center">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    void onEditListing(p);
-                  }}
-                  className="rounded-full border border-[#6B9E6E]/25 bg-white/95 px-3 py-1.5 text-xs font-bold text-[#2C2C2C] shadow-sm hover:bg-[#6B9E6E]/12"
+                <div
+                  title={!canAddListing ? "Get verified to manage your listings" : undefined}
+                  className={!canAddListing ? "cursor-not-allowed" : undefined}
                 >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  disabled={deletingPropertyId === p.id}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    void onDeleteProperty(p.id);
-                  }}
-                  className="rounded-full border border-red-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-red-800 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void onEditListing(p);
+                    }}
+                    className={`rounded-full border border-[#6B9E6E]/25 bg-white/95 px-3 py-1.5 text-xs font-bold text-[#2C2C2C] shadow-sm hover:bg-[#6B9E6E]/12 ${
+                      !canAddListing ? "cursor-not-allowed opacity-40 pointer-events-none" : ""
+                    }`}
+                  >
+                    Edit
+                  </button>
+                </div>
+                <div
+                  title={!canAddListing ? "Get verified to manage your listings" : undefined}
+                  className={!canAddListing ? "cursor-not-allowed" : undefined}
                 >
-                  {deletingPropertyId === p.id ? "Deleting…" : "Delete"}
-                </button>
+                  <button
+                    type="button"
+                    disabled={deletingPropertyId === p.id}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void onDeleteProperty(p.id);
+                    }}
+                    className={`rounded-full border border-red-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-red-800 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 ${
+                      !canAddListing ? "cursor-not-allowed opacity-40 pointer-events-none" : ""
+                    }`}
+                  >
+                    {deletingPropertyId === p.id ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="absolute right-2 top-2 z-10">

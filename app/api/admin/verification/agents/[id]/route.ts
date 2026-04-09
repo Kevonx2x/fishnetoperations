@@ -24,11 +24,13 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
             status: "approved" as const,
             rejection_reason: null,
             verified: true,
+            verification_status: "verified" as const,
           }
         : {
             status: "rejected" as const,
             rejection_reason: parsed.data.reason,
             verified: false,
+            verification_status: "rejected" as const,
           };
 
     const { data, error } = await sb
@@ -44,6 +46,30 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     if (!data) {
       return fail("NOT_FOUND", "Agent not found", 404);
     }
+
+    const userId = data.user_id as string | undefined;
+    if (userId) {
+      const isApprove = parsed.data.decision === "approve";
+      const { error: notifErr } = await sb.from("notifications").insert({
+        user_id: userId,
+        type: "verification",
+        title: isApprove
+          ? "You're now a Verified Agent! 🎉"
+          : "Verification unsuccessful",
+        body: isApprove
+          ? "Your PRC license has been verified. You now have full access to post listings and manage deals."
+          : "Your documents could not be verified. Please resubmit in Settings → Verification.",
+        metadata: {
+          agent_id: data.id,
+          entity: "agent",
+          decision: parsed.data.decision,
+        },
+      });
+      if (notifErr) {
+        console.error("[admin verification agents] notification insert:", notifErr);
+      }
+    }
+
     return ok(data);
   } catch (e) {
     return fail(

@@ -393,6 +393,16 @@ export default function AgentProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#2C2C2C]">
+      {!loading && !error && agent && isOwnProfile && agent.verification_status !== "verified" ? (
+        <div className="mx-auto max-w-6xl px-4 pt-4 sm:px-6">
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            ⚠️ Your account is unverified. Listings may be hidden.{" "}
+            <Link href="/settings?tab=verification" className="font-semibold underline">
+              Settings → Verification
+            </Link>
+          </div>
+        </div>
+      ) : null}
       <MaddenTopNav />
 
       {loading && (
