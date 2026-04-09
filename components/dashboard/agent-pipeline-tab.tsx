@@ -168,35 +168,38 @@ export function AgentPipelineTab({
   };
 
   const uploadDoc = async (lead: PipelineLeadRow, docKey: string, file: File) => {
-    const ext = file.name.split(".").pop() || "pdf";
-    const safeExt = ext.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8) || "pdf";
-    const path = `${lead.id}/${docKey}.${safeExt}`;
     setUploadingKey(docKey);
     try {
-      const { error: upErr } = await supabase.storage.from("deals").upload(path, file, {
-        upsert: true,
-        contentType: file.type || "application/octet-stream",
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.id) {
+        toast.error("Sign in required");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("lead_id", String(lead.id));
+      formData.append("document_type", docKey);
+      formData.append("agent_id", user.id);
+
+      const res = await fetch("/api/agent/upload-deal-document", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
       });
-      if (upErr) {
-        toast.error(upErr.message);
-        return;
+
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: string };
+        throw new Error(err.error ?? "Upload failed");
       }
-      const { error: rowErr } = await supabase.from("deal_documents").upsert(
-        {
-          lead_id: lead.id,
-          document_type: docKey,
-          status: "uploaded",
-          file_url: path,
-        },
-        { onConflict: "lead_id,document_type" },
-      );
-      if (rowErr) {
-        toast.error(rowErr.message);
-        return;
-      }
+
       toast.success("Uploaded");
       await loadDocs(lead);
       onRefresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploadingKey(null);
     }
