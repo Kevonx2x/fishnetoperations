@@ -292,10 +292,9 @@ export function MaddenTopNav() {
 
   useEffect(() => {
     if (!mobileNavOpen) return;
-    const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = prev;
+      document.body.style.overflow = "";
     };
   }, [mobileNavOpen]);
 
@@ -670,40 +669,38 @@ export function MaddenTopNav() {
 
       <AnimatePresence>
         {mobileNavOpen ? (
-          <motion.div
-            key="mobile-nav-layer"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 sm:hidden"
-          >
-            <button
+          <>
+            <motion.button
+              key="mobile-nav-overlay"
               type="button"
-              className="fixed inset-0 z-0 bg-black/40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-50 bg-black/50 sm:hidden"
               aria-label="Close menu"
               onClick={closeMobileNav}
             />
             <motion.aside
+              key="mobile-nav-drawer"
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 32, stiffness: 380 }}
-              className="fixed inset-y-0 left-0 z-10 flex w-[min(100vw-2.5rem,20rem)] flex-col border-r border-[#2C2C2C]/10 bg-[#FAF8F4] shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
+              className="fixed left-0 top-0 z-50 flex h-full w-4/5 max-w-xs flex-col overflow-y-auto border-r border-[#2C2C2C]/10 bg-white shadow-2xl sm:hidden"
             >
-              <div className="flex items-center justify-between border-b border-[#2C2C2C]/10 px-4 py-3">
+              <div className="flex shrink-0 items-center justify-between border-b border-[#2C2C2C]/10 px-4 py-3">
                 <span className="font-serif text-lg font-bold text-[#2C2C2C]">Menu</span>
                 <button
                   type="button"
                   onClick={closeMobileNav}
-                  className="rounded-lg p-2 text-[#2C2C2C]/70 hover:bg-white"
+                  className="rounded-lg p-2 text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
                   aria-label="Close menu"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+              <div className="px-4 py-4">
                 <div className="space-y-6">
                   {user && role === "client" && user.id ? (
                     <Link
@@ -746,7 +743,7 @@ export function MaddenTopNav() {
                 </div>
               </div>
             </motion.aside>
-          </motion.div>
+          </>
         ) : null}
       </AnimatePresence>
     </header>
