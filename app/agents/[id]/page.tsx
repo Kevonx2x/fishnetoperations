@@ -287,6 +287,7 @@ export default function AgentProfilePage() {
   const [engagementMap, setEngagementMap] = useState<
     Record<string, { likers: EngagementMapUser[]; pinners: EngagementMapUser[] }>
   >({});
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [engagementAgentIdByUserId, setEngagementAgentIdByUserId] = useState<Record<string, string>>({});
   /** Own listing cards: which face is shown; `likes` / `pins` = back side with that list. */
   const [listingFlipById, setListingFlipById] = useState<Record<string, "front" | "likes" | "pins">>({});
@@ -388,79 +389,65 @@ export default function AgentProfilePage() {
     };
   }, [agent?.id, agent?.broker_id, agent?.score]);
 
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   useEffect(() => {
-    if (!listings || listings.length === 0) {
-      setEngagementMap({});
-      setEngagementAgentIdByUserId({});
-      return;
-    }
+    if (!isOwnProfile || !listings || listings.length === 0) return;
 
     const fetchEngagement = async () => {
-      const ids = listings.map((l) => l.id);
+      const ids = listings.map((l: any) => l.id);
+      console.log("Fetching engagement for ids:", ids);
 
-      const { data: likes } = await supabase
-        .from("property_likes")
-        .select("property_id, user_id")
-        .in("property_id", ids);
+      const [{ data: likes }, { data: pins }] = await Promise.all([
+        supabase.from("property_likes").select("property_id, user_id").in("property_id", ids),
+        supabase.from("saved_properties").select("property_id, user_id").in("property_id", ids),
+      ]);
 
-      const { data: pins } = await supabase
-        .from("saved_properties")
-        .select("property_id, user_id")
-        .in("property_id", ids);
+      console.log("likes:", likes, "pins:", pins);
 
-      const userIds = [
-        ...new Set([...(likes ?? []).map((l) => l.user_id), ...(pins ?? []).map((p) => p.user_id)]),
+      const allUserIds = [
+        ...new Set([
+          ...(likes || []).map((l: any) => l.user_id),
+          ...(pins || []).map((p: any) => p.user_id),
+        ]),
       ];
 
-      const map: Record<string, { likers: EngagementMapUser[]; pinners: EngagementMapUser[] }> = {};
-      for (const id of ids) {
-        map[id] = { likers: [], pinners: [] };
-      }
+      console.log("allUserIds:", allUserIds);
 
-      if (userIds.length === 0) {
-        setEngagementMap(map);
-        setEngagementAgentIdByUserId({});
+      if (allUserIds.length === 0) {
+        setEngagementMap({});
         return;
       }
 
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id, full_name, avatar_url, role")
-        .in("id", userIds);
+        .in("id", allUserIds);
 
-      const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p as EngagementMapUser]));
+      console.log("profiles:", profiles);
 
-      for (const like of likes ?? []) {
-        const prof = profileMap[like.user_id];
-        if (prof && map[like.property_id]) {
-          map[like.property_id].likers.push(prof);
-        }
+      const profileMap = Object.fromEntries((profiles || []).map((p: any) => [p.id, p]));
+
+      const map: Record<string, { likers: any[]; pinners: any[] }> = {};
+
+      for (const id of ids) {
+        map[id] = { likers: [], pinners: [] };
       }
-      for (const pin of pins ?? []) {
-        const prof = profileMap[pin.user_id];
-        if (prof && map[pin.property_id]) {
-          map[pin.property_id].pinners.push(prof);
-        }
+      for (const like of likes || []) {
+        const p = profileMap[like.user_id];
+        if (p) map[like.property_id]?.likers.push(p);
       }
-
-      const agentUserIds = new Set<string>();
-      for (const entry of Object.values(map)) {
-        for (const u of entry.likers) if (u.role === "agent") agentUserIds.add(u.id);
-        for (const u of entry.pinners) if (u.role === "agent") agentUserIds.add(u.id);
+      for (const pin of pins || []) {
+        const p = profileMap[pin.user_id];
+        if (p) map[pin.property_id]?.pinners.push(p);
       }
 
-      let agentIdByUserId: Record<string, string> = {};
-      if (agentUserIds.size > 0) {
-        const { data: ags } = await supabase.from("agents").select("id, user_id").in("user_id", [...agentUserIds]);
-        if (ags) agentIdByUserId = Object.fromEntries(ags.map((a) => [a.user_id, a.id as string]));
-      }
-
+      console.log("final engagementMap:", map);
       setEngagementMap(map);
-      setEngagementAgentIdByUserId(agentIdByUserId);
     };
 
-    void fetchEngagement();
-  }, [listings]);
+    fetchEngagement();
+  }, [isOwnProfile, listings]);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   const filteredAndSortedListings = useMemo(() => {
     let list = listings.filter((p) => passesListingFilter(p, listingFilter));
@@ -952,11 +939,7 @@ export default function AgentProfilePage() {
                                       className={engagementChipClass}
                                       aria-label={showEng ? `${likeN} likes` : "Like"}
                                     >
-                                      <Heart
-                                        className={`h-3.5 w-3.5 shrink-0 ${engagement.isLiked(p.id) ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
-                                        aria-hidden
-                                      />
-                                      {showEng ? <span>{likeN}</span> : null}
+                                      <Heart className="h-3.5 w-3.5 shrink-0 text-red-500" aria-hidden />
                                     </button>
                                     <button
                                       type="button"
@@ -968,11 +951,7 @@ export default function AgentProfilePage() {
                                       className={engagementChipClass}
                                       aria-label={showEng ? `${pinN} pins` : "Pin"}
                                     >
-                                      <Pin
-                                        className={`h-3.5 w-3.5 shrink-0 ${engagement.isPinned(p.id) ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
-                                        aria-hidden
-                                      />
-                                      {showEng ? <span>{pinN}</span> : null}
+                                      <Pin className="h-3.5 w-3.5 shrink-0 text-[#D4A843]" aria-hidden />
                                     </button>
                                   </>
                                 ) : (
