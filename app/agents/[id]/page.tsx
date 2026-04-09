@@ -10,11 +10,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
-  type ReactNode,
 } from "react";
 import { motion } from "framer-motion";
-import { createPortal } from "react-dom";
 import {
   ArrowRight,
   BadgeCheck,
@@ -234,44 +231,15 @@ function AgentBioBlock({ bio }: { bio: string }) {
   );
 }
 
-type EngagementPreviewUser = {
+type EngagementMapUser = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
   role: string | null;
 };
 
-type EngagementPreview = {
-  users: EngagementPreviewUser[];
-  agentIdByUserId: Record<string, string>;
-};
-
-function groupEngagementTopUsers(
-  rows: { user_id: string; property_id: string; created_at: string }[],
-): Map<string, string[]> {
-  const byProperty = new Map<string, typeof rows>();
-  for (const row of rows) {
-    if (!byProperty.has(row.property_id)) byProperty.set(row.property_id, []);
-    byProperty.get(row.property_id)!.push(row);
-  }
-  const out = new Map<string, string[]>();
-  for (const [pid, list] of byProperty) {
-    list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    const seen = new Set<string>();
-    const uids: string[] = [];
-    for (const r of list) {
-      if (seen.has(r.user_id)) continue;
-      seen.add(r.user_id);
-      uids.push(r.user_id);
-      if (uids.length >= 3) break;
-    }
-    out.set(pid, uids);
-  }
-  return out;
-}
-
 function profileHrefForEngagement(
-  u: EngagementPreviewUser,
+  u: EngagementMapUser,
   agentIdByUserId: Record<string, string>,
 ): string | null {
   if (u.role === "client") return `/clients/${u.id}`;
@@ -280,178 +248,6 @@ function profileHrefForEngagement(
     return aid ? `/agents/${aid}` : null;
   }
   return null;
-}
-
-function OwnListingEngagementButton({
-  kind,
-  count,
-  showCount,
-  topUsers,
-  isOwnProfile,
-  icon,
-  ariaLabel,
-  onToggle,
-}: {
-  kind: "like" | "pin";
-  count: number;
-  showCount: boolean;
-  topUsers: EngagementPreview | undefined;
-  isOwnProfile: boolean;
-  icon: ReactNode;
-  ariaLabel: string;
-  /** Used only when viewing someone else’s profile (clients can like/pin). Own profile: ignored. */
-  onToggle: () => void | Promise<void>;
-}) {
-  const [showPopover, setShowPopover] = useState(false);
-  const anchorRef = useRef<HTMLDivElement>(null);
-  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [popoverStyle, setPopoverStyle] = useState<CSSProperties | null>(null);
-
-  const canOpenPopover =
-    isOwnProfile && count > 0 && Boolean(topUsers?.users.length);
-
-  const triggerClass =
-    "relative inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10";
-
-  const iconAndCount = (
-    <>
-      {icon}
-      {showCount ? <span>{count}</span> : null}
-    </>
-  );
-
-  const clearLeaveTimer = () => {
-    if (leaveTimerRef.current) {
-      clearTimeout(leaveTimerRef.current);
-      leaveTimerRef.current = null;
-    }
-  };
-
-  const scheduleClose = () => {
-    clearLeaveTimer();
-    leaveTimerRef.current = setTimeout(() => {
-      setShowPopover(false);
-      setPopoverStyle(null);
-    }, 200);
-  };
-
-  const openPopover = () => {
-    console.log("hover triggered");
-    console.log("topUsers", topUsers);
-    if (!canOpenPopover) return;
-    clearLeaveTimer();
-    setShowPopover(true);
-    if (typeof window === "undefined" || !anchorRef.current) return;
-    const r = anchorRef.current.getBoundingClientRect();
-    setPopoverStyle({
-      position: "fixed",
-      right: window.innerWidth - r.right,
-      bottom: window.innerHeight - r.top + 8,
-      zIndex: 50,
-      minWidth: 160,
-    });
-  };
-
-  /** Own listing on your agent profile: counts are read-only; hover opens popover only (no like/pin toggle). */
-  if (isOwnProfile) {
-    if (!canOpenPopover) {
-      return (
-        <div className={triggerClass} aria-label={ariaLabel} role="group">
-          {iconAndCount}
-        </div>
-      );
-    }
-
-    const others = Math.max(0, count - 3);
-
-    const popoverContent = (
-      <div
-        className="min-w-[160px] rounded-xl bg-white p-2 shadow-lg"
-        style={popoverStyle ?? undefined}
-        role="tooltip"
-        onMouseEnter={() => {
-          clearLeaveTimer();
-          setShowPopover(true);
-        }}
-        onMouseLeave={scheduleClose}
-      >
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-          {kind === "like" ? "Liked by" : "Pinned by"}
-        </p>
-        <ul className="space-y-2">
-          {topUsers!.users.map((u) => {
-            const href = profileHrefForEngagement(u, topUsers!.agentIdByUserId);
-            const label = u.full_name?.trim() || "User";
-            const inner = (
-              <>
-                <div className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
-                  {u.avatar_url?.trim() ? (
-                    <SupabasePublicImage src={u.avatar_url} alt="" fill sizes="24px" className="object-cover" />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center text-[9px] font-bold text-[#2C2C2C]/55">
-                      {agentAvatarInitials(label)}
-                    </span>
-                  )}
-                </div>
-                <span className="min-w-0 truncate text-xs font-semibold text-[#2C2C2C]">{label}</span>
-              </>
-            );
-            return (
-              <li key={`${kind}-${u.id}`}>
-                {href ? (
-                  <Link
-                    href={href}
-                    className="flex items-center gap-2 hover:opacity-90"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {inner}
-                  </Link>
-                ) : (
-                  <div className="flex items-center gap-2">{inner}</div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-        {others > 0 ? (
-          <p className="mt-2 text-xs font-medium text-[#2C2C2C]/45">and {others} others</p>
-        ) : null}
-      </div>
-    );
-
-    return (
-      <>
-        <div
-          ref={anchorRef}
-          className={triggerClass}
-          onMouseEnter={openPopover}
-          onMouseLeave={scheduleClose}
-          aria-label={ariaLabel}
-          role="group"
-        >
-          {iconAndCount}
-        </div>
-        {showPopover && popoverStyle && typeof document !== "undefined"
-          ? createPortal(popoverContent, document.body)
-          : null}
-      </>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        void onToggle();
-      }}
-      className={triggerClass}
-      aria-label={ariaLabel}
-    >
-      {iconAndCount}
-    </button>
-  );
 }
 
 export default function AgentProfilePage() {
@@ -488,13 +284,12 @@ export default function AgentProfilePage() {
 
   const isOwnProfile = Boolean(user?.id && agent?.user_id && user.id === agent.user_id);
 
-  const listingIdsKey = useMemo(
-    () => [...listings.map((l) => l.id)].sort().join(","),
-    [listings],
-  );
-
-  const [likePreviewByProperty, setLikePreviewByProperty] = useState<Record<string, EngagementPreview>>({});
-  const [pinPreviewByProperty, setPinPreviewByProperty] = useState<Record<string, EngagementPreview>>({});
+  const [engagementMap, setEngagementMap] = useState<
+    Record<string, { likers: EngagementMapUser[]; pinners: EngagementMapUser[] }>
+  >({});
+  const [engagementAgentIdByUserId, setEngagementAgentIdByUserId] = useState<Record<string, string>>({});
+  /** Own listing cards: which face is shown; `likes` / `pins` = back side with that list. */
+  const [listingFlipById, setListingFlipById] = useState<Record<string, "front" | "likes" | "pins">>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -594,99 +389,78 @@ export default function AgentProfilePage() {
   }, [agent?.id, agent?.broker_id, agent?.score]);
 
   useEffect(() => {
-    if (!isOwnProfile || !user?.id || listings.length === 0) {
-      setLikePreviewByProperty({});
-      setPinPreviewByProperty({});
+    if (!listings || listings.length === 0) {
+      setEngagementMap({});
+      setEngagementAgentIdByUserId({});
       return;
     }
-    let cancelled = false;
-    const propertyIds = listings.map((l) => l.id);
-    void (async () => {
-      const [likesRes, savesRes] = await Promise.all([
-        supabase
-          .from("property_likes")
-          .select("user_id, property_id, created_at")
-          .in("property_id", propertyIds)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("saved_properties")
-          .select("user_id, property_id, created_at")
-          .in("property_id", propertyIds)
-          .order("created_at", { ascending: false }),
-      ]);
-      if (cancelled) return;
-      if (likesRes.error) console.error(likesRes.error);
-      if (savesRes.error) console.error(savesRes.error);
 
-      const likeRows = (likesRes.data ?? []) as {
-        user_id: string;
-        property_id: string;
-        created_at: string;
-      }[];
-      const saveRows = (savesRes.data ?? []) as {
-        user_id: string;
-        property_id: string;
-        created_at: string;
-      }[];
+    const fetchEngagement = async () => {
+      const ids = listings.map((l) => l.id);
 
-      const likeTop3 = groupEngagementTopUsers(likeRows);
-      const pinTop3 = groupEngagementTopUsers(saveRows);
+      const { data: likes } = await supabase
+        .from("property_likes")
+        .select("property_id, user_id")
+        .in("property_id", ids);
 
-      const allUserIds = new Set<string>();
-      for (const uids of likeTop3.values()) for (const u of uids) allUserIds.add(u);
-      for (const uids of pinTop3.values()) for (const u of uids) allUserIds.add(u);
+      const { data: pins } = await supabase
+        .from("saved_properties")
+        .select("property_id, user_id")
+        .in("property_id", ids);
 
-      if (allUserIds.size === 0) {
-        if (!cancelled) {
-          setLikePreviewByProperty({});
-          setPinPreviewByProperty({});
-        }
+      const userIds = [
+        ...new Set([...(likes ?? []).map((l) => l.user_id), ...(pins ?? []).map((p) => p.user_id)]),
+      ];
+
+      const map: Record<string, { likers: EngagementMapUser[]; pinners: EngagementMapUser[] }> = {};
+      for (const id of ids) {
+        map[id] = { likers: [], pinners: [] };
+      }
+
+      if (userIds.length === 0) {
+        setEngagementMap(map);
+        setEngagementAgentIdByUserId({});
         return;
       }
 
-      const { data: prof, error: profErr } = await supabase
+      const { data: profiles } = await supabase
         .from("profiles")
         .select("id, full_name, avatar_url, role")
-        .in("id", [...allUserIds]);
-      if (cancelled) return;
-      if (profErr) console.error(profErr);
+        .in("id", userIds);
 
-      const profileMap = new Map((prof ?? []).map((p) => [p.id, p as EngagementPreviewUser]));
+      const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p as EngagementMapUser]));
 
-      const agentUserIdsForLinks = [
-        ...new Set((prof ?? []).filter((p) => p.role === "agent").map((p) => p.id)),
-      ];
+      for (const like of likes ?? []) {
+        const prof = profileMap[like.user_id];
+        if (prof && map[like.property_id]) {
+          map[like.property_id].likers.push(prof);
+        }
+      }
+      for (const pin of pins ?? []) {
+        const prof = profileMap[pin.user_id];
+        if (prof && map[pin.property_id]) {
+          map[pin.property_id].pinners.push(prof);
+        }
+      }
+
+      const agentUserIds = new Set<string>();
+      for (const entry of Object.values(map)) {
+        for (const u of entry.likers) if (u.role === "agent") agentUserIds.add(u.id);
+        for (const u of entry.pinners) if (u.role === "agent") agentUserIds.add(u.id);
+      }
+
       let agentIdByUserId: Record<string, string> = {};
-      if (agentUserIdsForLinks.length > 0) {
-        const { data: ags } = await supabase.from("agents").select("id, user_id").in("user_id", agentUserIdsForLinks);
-        if (cancelled) return;
+      if (agentUserIds.size > 0) {
+        const { data: ags } = await supabase.from("agents").select("id, user_id").in("user_id", [...agentUserIds]);
         if (ags) agentIdByUserId = Object.fromEntries(ags.map((a) => [a.user_id, a.id as string]));
       }
 
-      function buildPreview(map: Map<string, string[]>): Record<string, EngagementPreview> {
-        const rec: Record<string, EngagementPreview> = {};
-        for (const pid of propertyIds) {
-          const uids = map.get(pid);
-          if (!uids || uids.length === 0) continue;
-          const users = uids
-            .map((uid) => profileMap.get(uid))
-            .filter((p): p is EngagementPreviewUser => Boolean(p));
-          if (users.length === 0) continue;
-          rec[pid] = { users, agentIdByUserId };
-        }
-        return rec;
-      }
-
-      if (!cancelled) {
-        setLikePreviewByProperty(buildPreview(likeTop3));
-        setPinPreviewByProperty(buildPreview(pinTop3));
-      }
-    })();
-
-    return () => {
-      cancelled = true;
+      setEngagementMap(map);
+      setEngagementAgentIdByUserId(agentIdByUserId);
     };
-  }, [isOwnProfile, user?.id, listingIdsKey]);
+
+    void fetchEngagement();
+  }, [listings]);
 
   const filteredAndSortedListings = useMemo(() => {
     let list = listings.filter((p) => passesListingFilter(p, listingFilter));
@@ -1067,11 +841,40 @@ export default function AgentProfilePage() {
                           isOwnProfile &&
                           user?.id &&
                           p.listed_by === agent.user_id;
+                        const flipFace = listingFlipById[p.id] ?? "front";
+                        const showBack = isOwnProfile && flipFace !== "front";
+                        const engagementChipClass =
+                          "inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10";
                         return (
-                          <article
+                          <div
                             key={p.id}
-                            className="overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm"
+                            className="w-full"
+                            style={isOwnProfile ? { perspective: "1000px" } : undefined}
                           >
+                            <div
+                              className="relative w-full"
+                              style={
+                                isOwnProfile
+                                  ? {
+                                      transformStyle: "preserve-3d",
+                                      transition: "transform 0.5s",
+                                      transform: showBack ? "rotateY(180deg)" : "rotateY(0deg)",
+                                    }
+                                  : undefined
+                              }
+                            >
+                              <article
+                                className="relative overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm"
+                                style={
+                                  isOwnProfile
+                                    ? {
+                                        backfaceVisibility: "hidden",
+                                        WebkitBackfaceVisibility: "hidden",
+                                        transform: "rotateY(0deg)",
+                                      }
+                                    : undefined
+                                }
+                              >
                             <div className="flex items-start justify-between gap-2 px-4 pt-4">
                               <div className="flex min-w-0 flex-1 items-start gap-3">
                                 <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
@@ -1137,36 +940,77 @@ export default function AgentProfilePage() {
                                 {statusLabel}
                               </span>
                               <div className="absolute right-3 top-3 z-10 flex items-start gap-1">
-                                <OwnListingEngagementButton
-                                  kind="like"
-                                  count={likeN}
-                                  showCount={showEng}
-                                  topUsers={likePreviewByProperty[p.id]}
-                                  isOwnProfile={isOwnProfile}
-                                  ariaLabel={showEng ? `${likeN} likes` : "Like"}
-                                  onToggle={() => engagement.toggleLike(p.id)}
-                                  icon={
-                                    <Heart
-                                      className={`h-3.5 w-3.5 shrink-0 ${engagement.isLiked(p.id) ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
-                                      aria-hidden
-                                    />
-                                  }
-                                />
-                                <OwnListingEngagementButton
-                                  kind="pin"
-                                  count={pinN}
-                                  showCount={showEng}
-                                  topUsers={pinPreviewByProperty[p.id]}
-                                  isOwnProfile={isOwnProfile}
-                                  ariaLabel={showEng ? `${pinN} pins` : "Pin"}
-                                  onToggle={() => engagement.togglePin(p.id)}
-                                  icon={
-                                    <Pin
-                                      className={`h-3.5 w-3.5 shrink-0 ${engagement.isPinned(p.id) ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
-                                      aria-hidden
-                                    />
-                                  }
-                                />
+                                {isOwnProfile ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setListingFlipById((prev) => ({ ...prev, [p.id]: "likes" }));
+                                      }}
+                                      className={engagementChipClass}
+                                      aria-label={showEng ? `${likeN} likes` : "Like"}
+                                    >
+                                      <Heart
+                                        className={`h-3.5 w-3.5 shrink-0 ${engagement.isLiked(p.id) ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
+                                        aria-hidden
+                                      />
+                                      {showEng ? <span>{likeN}</span> : null}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setListingFlipById((prev) => ({ ...prev, [p.id]: "pins" }));
+                                      }}
+                                      className={engagementChipClass}
+                                      aria-label={showEng ? `${pinN} pins` : "Pin"}
+                                    >
+                                      <Pin
+                                        className={`h-3.5 w-3.5 shrink-0 ${engagement.isPinned(p.id) ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
+                                        aria-hidden
+                                      />
+                                      {showEng ? <span>{pinN}</span> : null}
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        void engagement.toggleLike(p.id);
+                                      }}
+                                      className={engagementChipClass}
+                                      aria-label={showEng ? `${likeN} likes` : "Like"}
+                                    >
+                                      <Heart
+                                        className={`h-3.5 w-3.5 shrink-0 ${engagement.isLiked(p.id) ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
+                                        aria-hidden
+                                      />
+                                      {showEng ? <span>{likeN}</span> : null}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        void engagement.togglePin(p.id);
+                                      }}
+                                      className={engagementChipClass}
+                                      aria-label={showEng ? `${pinN} pins` : "Pin"}
+                                    >
+                                      <Pin
+                                        className={`h-3.5 w-3.5 shrink-0 ${engagement.isPinned(p.id) ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
+                                        aria-hidden
+                                      />
+                                      {showEng ? <span>{pinN}</span> : null}
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </div>
 
@@ -1213,7 +1057,96 @@ export default function AgentProfilePage() {
                                 <ArrowRight className="h-3.5 w-3.5" />
                               </Link>
                             </div>
-                          </article>
+                              </article>
+
+                              {isOwnProfile ? (
+                                <div
+                                  className="absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm"
+                                  style={{
+                                    backfaceVisibility: "hidden",
+                                    WebkitBackfaceVisibility: "hidden",
+                                    transform: "rotateY(180deg)",
+                                  }}
+                                >
+                                  <div className="flex shrink-0 items-center border-b border-[#2C2C2C]/10 px-3 py-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setListingFlipById((prev) => ({ ...prev, [p.id]: "front" }))
+                                      }
+                                      className="text-sm font-semibold text-[#6B9E6E] hover:underline"
+                                    >
+                                      ← Back
+                                    </button>
+                                  </div>
+                                  <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+                                    <p className="font-serif text-lg font-bold text-[#2C2C2C]">
+                                      {flipFace === "likes" ? "❤️ Liked by" : "📌 Pinned by"}
+                                    </p>
+                                    {(() => {
+                                      const users =
+                                        flipFace === "likes"
+                                          ? engagementMap[p.id]?.likers ?? []
+                                          : engagementMap[p.id]?.pinners ?? [];
+                                      if (users.length === 0) {
+                                        return (
+                                          <p className="mt-3 text-sm font-medium text-[#2C2C2C]/55">
+                                            No one yet
+                                          </p>
+                                        );
+                                      }
+                                      return (
+                                        <ul className="mt-3 space-y-3">
+                                          {users.map((u) => {
+                                            const href = profileHrefForEngagement(
+                                              u,
+                                              engagementAgentIdByUserId,
+                                            );
+                                            const label = u.full_name?.trim() || "User";
+                                            const row = (
+                                              <>
+                                                <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
+                                                  {u.avatar_url?.trim() ? (
+                                                    <SupabasePublicImage
+                                                      src={u.avatar_url}
+                                                      alt=""
+                                                      fill
+                                                      sizes="32px"
+                                                      className="object-cover"
+                                                    />
+                                                  ) : (
+                                                    <span className="flex h-full w-full items-center justify-center text-[10px] font-bold text-[#2C2C2C]/55">
+                                                      {agentAvatarInitials(label)}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <span className="font-medium text-[#2C2C2C]">{label}</span>
+                                              </>
+                                            );
+                                            return (
+                                              <li key={u.id}>
+                                                {href ? (
+                                                  <Link
+                                                    href={href}
+                                                    className="flex items-center gap-3 hover:opacity-90"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                  >
+                                                    {row}
+                                                  </Link>
+                                                ) : (
+                                                  <div className="flex items-center gap-3">{row}</div>
+                                                )}
+                                              </li>
+                                            );
+                                          })}
+                                        </ul>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
                         );
                       })}
                     </div>
