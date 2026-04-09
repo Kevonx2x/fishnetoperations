@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FileText, Loader2, X } from "lucide-react";
+import { Loader2, MoreHorizontal, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const PIPELINE_STAGES = [
@@ -24,6 +24,8 @@ export type PipelineLeadRow = {
   pipeline_stage: PipelineStageId;
   property_id: string | null;
   created_at: string;
+  /** When `0`, UI may show a “hot lead” indicator (optional; set when provided by API). */
+  pipeline_position?: number | null;
 };
 
 type DocDef = { key: string; label: string };
@@ -62,6 +64,25 @@ function nextStage(s: PipelineStageId): PipelineStageId | null {
   const i = STAGE_ORDER.indexOf(s);
   if (i < 0 || i >= STAGE_ORDER.length - 1) return null;
   return STAGE_ORDER[i + 1];
+}
+
+const MOVE_TO_LABEL: Record<PipelineStageId, string | null> = {
+  lead: "Move to Viewing",
+  viewing: "Move to Offer",
+  offer: "Move to Reservation",
+  reservation: "Move to Closed",
+  closed: null,
+};
+
+function clientInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  if (parts.length === 1 && parts[0].length >= 2) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (parts[0]?.[0] ?? "?").toUpperCase();
 }
 
 function stageBadgeClass(stage: PipelineStageId): string {
@@ -256,35 +277,51 @@ export function AgentPipelineTab({
       </div>
 
       {/* Pipeline overview */}
-      <div className="rounded-2xl border border-[#2C2C2C]/10 bg-[#2C2C2C] p-4 shadow-inner ring-1 ring-white/10">
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-white/50">Pipeline overview</p>
+      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">Pipeline overview</p>
         <div className="-mx-1 overflow-x-auto pb-1 scrollbar-hide">
           <div className="flex min-w-[min(100%,520px)] items-center justify-between gap-1 px-1 sm:min-w-0 sm:gap-0">
-            {PIPELINE_STAGES.map((s, idx) => (
-              <div key={s.id} className="flex min-w-0 flex-1 items-center">
-                <div className="flex w-full min-w-[56px] flex-col items-center gap-1.5">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-[#6B9E6E]/80 bg-[#6B9E6E]/20 text-sm font-bold text-[#6B9E6E] shadow-sm ring-2 ring-[#D4A843]/20">
-                    {counts[s.id]}
+            {PIPELINE_STAGES.map((s, idx) => {
+              const n = counts[s.id];
+              const hasCount = n > 0;
+              return (
+                <div key={s.id} className="flex min-w-0 flex-1 items-center">
+                  <div className="flex w-full min-w-[56px] flex-col items-center gap-1.5">
+                    <div
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 bg-white text-sm font-bold shadow-sm ${
+                        hasCount
+                          ? "border-[#6B9E6E] text-[#6B9E6E]"
+                          : "border-gray-300 text-gray-400"
+                      }`}
+                    >
+                      {n}
+                    </div>
+                    <span
+                      className={`text-center text-[10px] font-bold sm:text-[11px] ${
+                        hasCount ? "text-[#6B9E6E]" : "text-gray-400"
+                      }`}
+                    >
+                      {s.label}
+                    </span>
                   </div>
-                  <span className="text-center text-[10px] font-bold text-white/85 sm:text-[11px]">{s.label}</span>
+                  {idx < PIPELINE_STAGES.length - 1 ? (
+                    <div
+                      className="mx-0.5 h-0.5 min-w-[8px] flex-1 bg-gray-200 sm:min-w-[12px]"
+                      aria-hidden
+                    />
+                  ) : null}
                 </div>
-                {idx < PIPELINE_STAGES.length - 1 ? (
-                  <div
-                    className="mx-0.5 h-0.5 min-w-[8px] flex-1 bg-gradient-to-r from-[#6B9E6E]/50 to-[#D4A843]/40 sm:min-w-[12px]"
-                    aria-hidden
-                  />
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
-        <p className="mt-3 text-center text-[9px] font-semibold text-[#6B9E6E]/90">
+        <p className="mt-3 text-center text-[9px] font-semibold text-gray-500">
           Lead → Viewing → Offer → Reservation → Closed
         </p>
       </div>
 
       {/* Filter pills */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 scrollbar-hide">
         {PIPELINE_STAGES.map((s) => {
           const active = filterStage === s.id;
           return (
@@ -292,7 +329,7 @@ export function AgentPipelineTab({
               key={s.id}
               type="button"
               onClick={() => setFilterStage(s.id)}
-              className={`rounded-full px-4 py-2 text-xs font-bold transition ${
+              className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition ${
                 active
                   ? "bg-[#6B9E6E] text-white shadow-sm"
                   : "border border-[#2C2C2C]/20 bg-white text-[#2C2C2C]/75 hover:border-[#6B9E6E]/40"
@@ -317,61 +354,90 @@ export function AgentPipelineTab({
           filtered.map((deal) => {
             const next = nextStage(deal.pipeline_stage);
             const propLine = propertyLabel(deal.property_id);
+            const moveLabel = MOVE_TO_LABEL[deal.pipeline_stage];
+            const isHot = deal.pipeline_position === 0;
             return (
               <div
                 key={deal.id}
-                className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-[0_8px_24px_rgba(0,0,0,0.04)]"
+                className="relative rounded-2xl border border-gray-100 border-l-4 border-l-[#6B9E6E] bg-white p-4 shadow-sm"
               >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-[#2C2C2C]">{deal.name}</p>
-                    <p className="truncate text-sm text-[#2C2C2C]/55">{deal.email}</p>
-                    {deal.property_id ? (
-                      <Link
-                        href={`/properties/${deal.property_id}`}
-                        className="mt-1 inline-block text-sm font-semibold text-[#6B9E6E] underline-offset-2 hover:underline"
-                      >
-                        {propLine}
-                      </Link>
-                    ) : (
-                      <p className="mt-1 text-sm font-medium text-[#2C2C2C]/65">{propLine}</p>
-                    )}
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${stageBadgeClass(deal.pipeline_stage)}`}
-                      >
-                        {
-                          PIPELINE_STAGES.find((x) => x.id === deal.pipeline_stage)?.label ??
-                          deal.pipeline_stage
-                        }
-                      </span>
-                      <span className="text-xs font-medium text-[#2C2C2C]/45">
-                        Created {new Date(deal.created_at).toLocaleDateString(undefined, { dateStyle: "medium" })}
-                      </span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-1 gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/20 text-sm font-semibold text-[#6B9E6E]">
+                      {clientInitials(deal.name)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-[#2C2C2C]">{deal.name}</p>
+                      <p className="truncate text-xs text-gray-400">{deal.email}</p>
                     </div>
                   </div>
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    {next ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMoveLead(deal);
-                          setMoveNote("");
-                        }}
-                        className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#5a8a5d]"
-                      >
-                        Move to next stage
-                      </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {isHot ? (
+                      <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-500">
+                        🔥 Hot
+                      </span>
                     ) : null}
                     <button
                       type="button"
-                      onClick={() => openDocs(deal)}
-                      className="inline-flex items-center gap-1 rounded-full border border-[#2C2C2C]/20 bg-white px-3 py-1.5 text-xs font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
+                      aria-label="More options"
+                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                     >
-                      <FileText className="h-3.5 w-3.5" />
-                      View Documents
+                      <MoreHorizontal className="h-5 w-5" />
                     </button>
                   </div>
+                </div>
+
+                <div className="mt-3">
+                  {deal.property_id ? (
+                    <Link
+                      href={`/properties/${deal.property_id}`}
+                      className="font-medium text-[#6B9E6E] underline-offset-2 hover:underline"
+                    >
+                      {propLine}
+                    </Link>
+                  ) : (
+                    <p className="font-medium text-[#6B9E6E]">{propLine}</p>
+                  )}
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${stageBadgeClass(deal.pipeline_stage)}`}
+                  >
+                    {
+                      PIPELINE_STAGES.find((x) => x.id === deal.pipeline_stage)?.label ??
+                      deal.pipeline_stage
+                    }
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    Created {new Date(deal.created_at).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                  {next && moveLabel ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoveLead(deal);
+                        setMoveNote("");
+                      }}
+                      className="flex flex-1 items-center justify-center rounded-xl bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
+                    >
+                      → {moveLabel}
+                    </button>
+                  ) : (
+                    <div className="flex flex-1 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 py-2.5 text-sm font-semibold text-[#6B9E6E]">
+                      ✓ Closed
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => openDocs(deal)}
+                    className="flex flex-1 items-center justify-center rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-gray-50"
+                  >
+                    📄 View Documents
+                  </button>
                 </div>
               </div>
             );
