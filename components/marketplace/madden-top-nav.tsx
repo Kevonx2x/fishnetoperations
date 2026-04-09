@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Award,
@@ -428,7 +428,7 @@ export function MaddenTopNav() {
   const closeMobileNav = () => setMobileMenuOpen(false);
 
   return (
-    <>
+    <Fragment>
     <header className="sticky top-0 z-50 w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4]/95 backdrop-blur-sm">
       <div className="mx-auto grid w-full max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 py-4 md:gap-3">
         <div className="flex items-center gap-2 justify-self-start">
@@ -746,6 +746,6 @@ export function MaddenTopNav() {
         </div>
       </div>
     )}
-    </>
+    </Fragment>
   );
 }
