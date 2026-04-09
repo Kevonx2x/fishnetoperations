@@ -226,7 +226,7 @@ export function MaddenTopNav() {
   const [brokerNav, setBrokerNav] = useState<{ id: string } | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement | null>(null);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifUnread, setNotifUnread] = useState(0);
 
   useEffect(() => {
@@ -287,16 +287,16 @@ export function MaddenTopNav() {
   }, []);
 
   useEffect(() => {
-    setMobileNavOpen(false);
+    setMobileMenuOpen(false);
   }, [pathname]);
 
   useEffect(() => {
-    if (!mobileNavOpen) return;
+    if (!mobileMenuOpen) return;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [mobileNavOpen]);
+  }, [mobileMenuOpen]);
 
   const logout = async () => {
     if (busy) return;
@@ -425,15 +425,16 @@ export function MaddenTopNav() {
     [],
   );
 
-  const closeMobileNav = () => setMobileNavOpen(false);
+  const closeMobileNav = () => setMobileMenuOpen(false);
 
   return (
+    <>
     <header className="sticky top-0 z-50 w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4]/95 backdrop-blur-sm">
       <div className="mx-auto grid w-full max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 py-4 md:gap-3">
         <div className="flex items-center gap-2 justify-self-start">
           <button
             type="button"
-            onClick={() => setMobileNavOpen(true)}
+            onClick={() => setMobileMenuOpen((open) => !open)}
             className="rounded-lg p-2 text-[#2C2C2C]/80 ring-1 ring-black/5 transition hover:bg-[#FAF8F4] sm:hidden"
             aria-label="Open menu"
           >
@@ -666,86 +667,85 @@ export function MaddenTopNav() {
           )}
         </div>
       </div>
-
-      <AnimatePresence>
-        {mobileNavOpen ? (
-          <>
-            <motion.button
-              key="mobile-nav-overlay"
-              type="button"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-black/50 sm:hidden"
-              aria-label="Close menu"
-              onClick={closeMobileNav}
-            />
-            <motion.aside
-              key="mobile-nav-drawer"
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 32, stiffness: 380 }}
-              className="fixed left-0 top-0 z-50 flex h-full w-4/5 max-w-xs flex-col overflow-y-auto border-r border-[#2C2C2C]/10 bg-white shadow-2xl sm:hidden"
-            >
-              <div className="flex shrink-0 items-center justify-between border-b border-[#2C2C2C]/10 px-4 py-3">
-                <span className="font-serif text-lg font-bold text-[#2C2C2C]">Menu</span>
-                <button
-                  type="button"
-                  onClick={closeMobileNav}
-                  className="rounded-lg p-2 text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
-                  aria-label="Close menu"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="px-4 py-4">
-                <div className="space-y-6">
-                  {user && role === "client" && user.id ? (
-                    <Link
-                      href={`/clients/${user.id}`}
-                      onClick={closeMobileNav}
-                      className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
-                    >
-                      <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                      My Profile
-                    </Link>
-                  ) : null}
-                  {user && role === "agent" && agentNav ? (
-                    <Link
-                      href={`/agents/${agentNav.id}`}
-                      onClick={closeMobileNav}
-                      className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
-                    >
-                      <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                      My Profile
-                    </Link>
-                  ) : null}
-                  {user && role === "broker" && brokerNav ? (
-                    <Link
-                      href={`/brokers/${brokerNav.id}`}
-                      onClick={closeMobileNav}
-                      className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
-                    >
-                      <Building2 className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                      My Profile
-                    </Link>
-                  ) : null}
-                  <MobileNavSection title="Agents" entries={agentsEntries} onNavigate={closeMobileNav} />
-                  <MobileNavSection title="Brokers" entries={brokersEntries} onNavigate={closeMobileNav} />
-                  <MobileNavSection title="Landmarks" entries={landmarksItems} onNavigate={closeMobileNav} />
-                  <MobileNavSection
-                    title={isBuyPage ? "Rent" : "Buy"}
-                    entries={isBuyPage ? rentWhenOnBuyItems : buyWhenOnRentItems}
-                    onNavigate={closeMobileNav}
-                  />
-                </div>
-              </div>
-            </motion.aside>
-          </>
-        ) : null}
-      </AnimatePresence>
     </header>
+
+    {mobileMenuOpen && (
+      <div
+        className="sm:hidden"
+        style={{ position: "fixed", inset: 0, zIndex: 9999 }}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "80%",
+            maxWidth: "320px",
+            height: "100vh",
+            background: "white",
+            zIndex: 9999,
+            overflowY: "auto",
+            boxShadow: "4px 0 20px rgba(0,0,0,0.15)",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex shrink-0 items-center justify-between border-b border-[#2C2C2C]/10 px-4 py-3">
+            <span className="font-serif text-lg font-bold text-[#2C2C2C]">Menu</span>
+            <button
+              type="button"
+              onClick={closeMobileNav}
+              className="rounded-lg p-2 text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="px-4 py-4">
+            <div className="space-y-6">
+              {user && role === "client" && user.id ? (
+                <Link
+                  href={`/clients/${user.id}`}
+                  onClick={closeMobileNav}
+                  className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
+                >
+                  <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                  My Profile
+                </Link>
+              ) : null}
+              {user && role === "agent" && agentNav ? (
+                <Link
+                  href={`/agents/${agentNav.id}`}
+                  onClick={closeMobileNav}
+                  className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
+                >
+                  <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                  My Profile
+                </Link>
+              ) : null}
+              {user && role === "broker" && brokerNav ? (
+                <Link
+                  href={`/brokers/${brokerNav.id}`}
+                  onClick={closeMobileNav}
+                  className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
+                >
+                  <Building2 className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                  My Profile
+                </Link>
+              ) : null}
+              <MobileNavSection title="Agents" entries={agentsEntries} onNavigate={closeMobileNav} />
+              <MobileNavSection title="Brokers" entries={brokersEntries} onNavigate={closeMobileNav} />
+              <MobileNavSection title="Landmarks" entries={landmarksItems} onNavigate={closeMobileNav} />
+              <MobileNavSection
+                title={isBuyPage ? "Rent" : "Buy"}
+                entries={isBuyPage ? rentWhenOnBuyItems : buyWhenOnRentItems}
+                onNavigate={closeMobileNav}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

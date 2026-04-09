@@ -12,6 +12,7 @@ import {
   Check,
   CreditCard,
   GitBranch,
+  House,
   Home,
   LayoutDashboard,
   Loader2,
@@ -1022,7 +1023,7 @@ export function AgentDashboard() {
     { id: "profile", label: "Profile", icon: <Settings className="h-5 w-5" /> },
   ];
 
-  const mobilePrimaryTabIds: Tab[] = ["overview", "leads", "listings", "notifications"];
+  const mobilePrimaryTabIds: Tab[] = ["overview", "leads", "listings"];
   const mobileMoreTabIds: Tab[] = ["pipeline", "viewings", "analytics", "billing", "profile"];
 
   return (
@@ -1227,8 +1228,21 @@ export function AgentDashboard() {
         </main>
       </div>
 
-      {/* Mobile bottom bar — 5 slots: Overview, Leads, Listings, Notifications, More */}
+      {/* Mobile bottom bar — Home, Overview, Leads, Listings, More */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-stretch justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-1 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur md:hidden">
+        <button
+          type="button"
+          onClick={() => {
+            setMoreDrawerOpen(false);
+            router.push("/");
+          }}
+          className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-1 text-[10px] font-bold text-[#2C2C2C]/45"
+        >
+          <span className="text-[#2C2C2C]/45">
+            <House className="h-5 w-5" aria-hidden />
+          </span>
+          Home
+        </button>
         {mobilePrimaryTabIds.map((tid) => {
           const t = tabs.find((x) => x.id === tid)!;
           return (
@@ -1315,17 +1329,6 @@ export function AgentDashboard() {
                   );
                 })}
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setMoreDrawerOpen(false);
-                  router.push("/");
-                }}
-                className="mt-2 flex w-full items-center gap-2 border-t border-gray-100 px-4 py-3 text-left text-sm text-gray-500"
-              >
-                <span aria-hidden>🏠</span>
-                Homepage
-              </button>
             </motion.div>
           </motion.div>
         ) : null}
