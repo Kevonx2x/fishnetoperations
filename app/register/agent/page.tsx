@@ -318,7 +318,20 @@ export default function RegisterAgentPage() {
     if (!prcFile || !selfieFile) {
       throw new Error("PRC license photo and selfie are required.");
     }
-    const paths = await uploadVerificationPair(userId, prcFile, selfieFile);
+    let prc_document_url: string | undefined;
+    let selfie_url: string | undefined;
+    try {
+      const paths = await uploadVerificationPair(userId, prcFile, selfieFile);
+      prc_document_url = paths.prc_document_url;
+      selfie_url = paths.selfie_url;
+    } catch {
+      prc_document_url = undefined;
+      selfie_url = undefined;
+      showAlert(
+        "Document upload failed — you can resubmit in Settings after registration",
+        "warning",
+      );
+    }
     const res = await fetch("/api/v1/register/agent", {
       method: "POST",
       credentials: "include",
@@ -331,8 +344,9 @@ export default function RegisterAgentPage() {
         email: contactEmail.trim(),
         bio: bio.trim() || null,
         broker_id: brokerId || null,
-        prc_document_url: paths.prc_document_url,
-        selfie_url: paths.selfie_url,
+        ...(prc_document_url !== undefined && selfie_url !== undefined
+          ? { prc_document_url, selfie_url }
+          : {}),
       }),
     });
     const json = (await res.json()) as {
