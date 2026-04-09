@@ -17,6 +17,50 @@ import {
 
 const supabase = createSupabaseBrowser();
 
+const PRC_LICENSE_PREFIX = "PRC-AG-";
+
+function PrcLicenseInput({
+  id,
+  value,
+  onChange,
+  error,
+}: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+}) {
+  const suffix = value.startsWith(PRC_LICENSE_PREFIX) ? value.slice(PRC_LICENSE_PREFIX.length) : value;
+  return (
+    <div>
+      <p className="text-xs font-medium text-gray-500">PRC / license number</p>
+      <div className="mt-1.5 flex min-w-0 items-stretch overflow-hidden rounded-xl border border-gray-200 bg-white focus-within:ring-2 focus-within:ring-[#6B9E6E]">
+        <span
+          className="flex shrink-0 select-none items-center border-r border-[#6B9E6E]/25 bg-[#6B9E6E]/12 px-3 py-3 font-mono text-sm font-bold tabular-nums tracking-tight text-[#2C2C2C]"
+          title="Fixed prefix — type only the year and five digits"
+        >
+          {PRC_LICENSE_PREFIX}
+        </span>
+        <input
+          type="text"
+          id={id}
+          name="license_number"
+          placeholder="2024-12345"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          value={suffix}
+          onChange={(e) => onChange(formatPrcLicenseInput(e.target.value))}
+          className="min-w-0 flex-1 border-0 bg-transparent px-3 py-3 text-sm text-[#2C2C2C] outline-none placeholder:text-gray-400"
+          aria-label="PRC license — year and five-digit number (after PRC-AG-)"
+        />
+      </div>
+      {error ? <p className="mt-1 text-sm text-red-600">{error}</p> : null}
+      <p className="mt-1.5 text-xs text-gray-500">Enter your year and five-digit number — the {PRC_LICENSE_PREFIX} prefix is added automatically.</p>
+    </div>
+  );
+}
+
 type ApprovedBroker = { id: string; company_name: string };
 
 type FieldErrors = Partial<
@@ -296,25 +340,12 @@ export default function RegisterAgentPage() {
                 <h2 className="text-sm font-semibold text-gray-900">Professional details</h2>
                 <p className="mt-1 text-xs text-gray-500">PRC license and contact for your application.</p>
               </div>
-              <div>
-                <p className="text-xs font-medium text-gray-500">PRC / license number</p>
-                <input
-                  type="text"
-                  id="license_number"
-                  name="license_number"
-                  placeholder="PRC-AG-2024-12345"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  value={licenseNumber}
-                  onChange={(e) => setLicenseNumber(formatPrcLicenseInput(e.target.value))}
-                  className="mt-1.5 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6B9E6E]"
-                  aria-label="PRC / license number"
-                />
-                {detailErrors.licenseNumber ? (
-                  <p className="mt-1 text-sm text-red-600">{detailErrors.licenseNumber}</p>
-                ) : null}
-              </div>
+              <PrcLicenseInput
+                id="license_number_guest"
+                value={licenseNumber}
+                onChange={setLicenseNumber}
+                error={detailErrors.licenseNumber}
+              />
               <div>
                 <label className="block text-xs font-medium text-gray-500">
                   License expiry
@@ -411,25 +442,12 @@ export default function RegisterAgentPage() {
                 </label>
                 {detailErrors.name ? <p className="mt-1 text-sm text-red-600">{detailErrors.name}</p> : null}
               </div>
-              <div>
-                <p className="text-xs font-medium text-gray-500">PRC / license number</p>
-                <input
-                  type="text"
-                  id="license_number"
-                  name="license_number"
-                  placeholder="PRC-AG-2024-12345"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  value={licenseNumber}
-                  onChange={(e) => setLicenseNumber(formatPrcLicenseInput(e.target.value))}
-                  className="mt-1.5 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6B9E6E]"
-                  aria-label="PRC / license number"
-                />
-                {detailErrors.licenseNumber ? (
-                  <p className="mt-1 text-sm text-red-600">{detailErrors.licenseNumber}</p>
-                ) : null}
-              </div>
+              <PrcLicenseInput
+                id="license_number_session"
+                value={licenseNumber}
+                onChange={setLicenseNumber}
+                error={detailErrors.licenseNumber}
+              />
               <div>
                 <label className="block text-xs font-medium text-gray-500">
                   License expiry
