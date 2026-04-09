@@ -16,6 +16,7 @@ import {
   MapPin,
   MoreHorizontal,
   Pencil,
+  Plus,
   Star,
   Trophy,
 } from "lucide-react";
@@ -571,7 +572,7 @@ export default function AgentProfilePage() {
                 <div className="flex flex-col gap-4">
                   <div className="rounded-2xl border border-[#2C2C2C]/8 bg-white px-4 py-4 shadow-sm sm:px-5">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap items-center gap-1">
                         {FILTER_TABS.map((t) => (
                           <button
                             key={t.id}
@@ -586,6 +587,16 @@ export default function AgentProfilePage() {
                             {t.label}
                           </button>
                         ))}
+                        {isOwnProfile ? (
+                          <Link
+                            href="/dashboard/agent?tab=listings"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] text-white"
+                            aria-label="Open listings in dashboard"
+                            title="Add listing"
+                          >
+                            <Plus className="h-4 w-4" aria-hidden />
+                          </Link>
+                        ) : null}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <label htmlFor="agent-feed-sort" className="sr-only">

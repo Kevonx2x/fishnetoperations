@@ -102,6 +102,7 @@ type AgentRow = {
   availability_schedule?: unknown;
   availability?: string | null;
   updated_at?: string | null;
+  verification_status?: "pending" | "verified" | "rejected" | null;
 };
 
 type LeadRow = {
@@ -1094,6 +1095,7 @@ export function AgentDashboard() {
                   leavingPropertyId={leavingPropertyId}
                   onEditListing={beginEditListing}
                   userId={user.id}
+                  canAddListing={agent?.verification_status === "verified"}
                 />
               )}
               {tab === "listings" && !approved && (
@@ -1774,6 +1776,7 @@ function ListingsTab({
   leavingPropertyId,
   onEditListing,
   userId,
+  canAddListing,
 }: {
   properties: PropertyRow[];
   ownedListingCount: number;
@@ -1805,6 +1808,7 @@ function ListingsTab({
   leavingPropertyId: string | null;
   onEditListing: (p: PropertyRow) => void | Promise<void>;
   userId: string;
+  canAddListing: boolean;
 }) {
   const ownedCap = Number.isFinite(listingLimit) ? String(listingLimit) : "∞";
   const coCap = Number.isFinite(coListLimit) ? String(coListLimit) : "∞";
@@ -1817,13 +1821,22 @@ function ListingsTab({
             Owned {ownedListingCount}/{ownedCap} · Co-lists {coListedCount}/{coCap}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onOpenNewListing}
-          className="rounded-full bg-[#D4A843] px-5 py-2.5 text-sm font-bold text-[#2C2C2C] shadow-sm hover:brightness-95"
-        >
-          Add New Listing
-        </button>
+        {canAddListing ? (
+          <button
+            type="button"
+            onClick={onOpenNewListing}
+            className="rounded-full bg-[#D4A843] px-5 py-2.5 text-sm font-bold text-[#2C2C2C] shadow-sm hover:brightness-95"
+          >
+            Add New Listing
+          </button>
+        ) : (
+          <p className="max-w-sm rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-4 py-3 text-xs font-semibold leading-relaxed text-[#2C2C2C]/55">
+            Get verified to post listings.{" "}
+            <Link href="/settings?tab=verification" className="font-semibold text-[#6B9E6E] underline">
+              Settings → Verification
+            </Link>
+          </p>
+        )}
       </div>
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {properties.map((p) => (

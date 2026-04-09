@@ -1,7 +1,8 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { FileText } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
@@ -200,7 +201,163 @@ type AgentRow = {
   license_number: string;
   email: string;
   broker_id: string | null;
+  verification_status?: "pending" | "verified" | "rejected" | null;
+  prc_document_url?: string | null;
+  selfie_url?: string | null;
 };
+
+const MAX_VERIFICATION_BYTES = 5 * 1024 * 1024;
+
+function extForVerification(kind: "license" | "selfie", file: File): string {
+  const fromName = file.name.split(".").pop()?.toLowerCase();
+  if (fromName && /^[a-z0-9]{1,8}$/.test(fromName)) {
+    if (kind === "license" && (fromName === "pdf" || ["jpg", "jpeg", "png", "webp", "heic"].includes(fromName))) {
+      return fromName;
+    }
+    if (kind === "selfie" && ["jpg", "jpeg", "png", "webp", "heic"].includes(fromName)) {
+      return fromName;
+    }
+  }
+  if (file.type === "application/pdf") return "pdf";
+  if (file.type === "image/jpeg") return "jpg";
+  if (file.type === "image/png") return "png";
+  if (file.type === "image/webp") return "webp";
+  return kind === "license" ? "pdf" : "jpg";
+}
+
+async function uploadVerificationPairSettings(
+  supabase: ReturnType<typeof createSupabaseBrowserClient>,
+  userId: string,
+  prc: File,
+  selfie: File,
+): Promise<{ prc_document_url: string; selfie_url: string }> {
+  const prcExt = extForVerification("license", prc);
+  const selfieExt = extForVerification("selfie", selfie);
+  const prcPath = `prc/${userId}/license.${prcExt}`;
+  const selfiePath = `prc/${userId}/selfie.${selfieExt}`;
+  const { error: e1 } = await supabase.storage.from("verification").upload(prcPath, prc, {
+    upsert: true,
+    contentType: prc.type || undefined,
+  });
+  if (e1) throw e1;
+  const { error: e2 } = await supabase.storage.from("verification").upload(selfiePath, selfie, {
+    upsert: true,
+    contentType: selfie.type || undefined,
+  });
+  if (e2) throw e2;
+  return { prc_document_url: prcPath, selfie_url: selfiePath };
+}
+
+type SettingsVerificationDropzoneProps = {
+  id: string;
+  label: string;
+  accept: string;
+  file: File | null;
+  onChange: (f: File | null) => void;
+  error?: string;
+};
+
+function SettingsVerificationDropzone({
+  id,
+  label,
+  accept,
+  file,
+  onChange,
+  error,
+}: SettingsVerificationDropzoneProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file || file.type === "application/pdf" || !file.type.startsWith("image/")) {
+      setPreviewUrl(null);
+      return;
+    }
+    const u = URL.createObjectURL(file);
+    setPreviewUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+
+  const onPick = (list: FileList | null) => {
+    onChange(list?.[0] ?? null);
+  };
+
+  return (
+    <div>
+      <p className="text-xs font-medium text-[#2C2C2C]/55">{label}</p>
+      <div
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        onDragEnter={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          onPick(e.dataTransfer.files);
+        }}
+        onClick={() => inputRef.current?.click()}
+        className={`mt-1.5 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#6B9E6E]/55 bg-[#6B9E6E]/6 px-4 py-8 text-center transition hover:border-[#6B9E6E] hover:bg-[#6B9E6E]/10 ${
+          dragging ? "border-[#6B9E6E] bg-[#6B9E6E]/12" : ""
+        }`}
+      >
+        <input
+          ref={inputRef}
+          id={id}
+          type="file"
+          accept={accept}
+          className="sr-only"
+          onChange={(e) => onPick(e.target.files)}
+        />
+        <p className="text-sm font-medium text-[#2C2C2C]">Drag and drop here, or click to browse</p>
+        <p className="mt-1 text-xs text-[#2C2C2C]/45">Max 5MB</p>
+      </div>
+      {file ? (
+        <div className="mt-3 flex items-start gap-3 rounded-xl border border-[#2C2C2C]/10 bg-white p-3">
+          {file.type === "application/pdf" ? (
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-[#6B9E6E]/10">
+              <FileText className="h-10 w-10 text-[#6B9E6E]" aria-hidden />
+            </div>
+          ) : previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={previewUrl} alt="" className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+          ) : (
+            <div className="h-20 w-20 shrink-0 rounded-lg bg-[#FAF8F4]" />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-[#2C2C2C]">{file.name}</p>
+            <p className="text-xs text-[#2C2C2C]/45">{(file.size / 1024).toFixed(1)} KB</p>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange(null);
+                if (inputRef.current) inputRef.current.value = "";
+              }}
+              className="mt-2 text-xs font-medium text-red-600 underline"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {error ? <p className="mt-1 text-sm text-red-600">{error}</p> : null}
+    </div>
+  );
+}
 
 function SettingsPageInner() {
   const { showAlert } = useGlobalAlert();
@@ -249,6 +406,13 @@ function SettingsPageInner() {
   const [broker, setBroker] = useState<BrokerRow | null>(null);
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [brokerageName, setBrokerageName] = useState<string | null>(null);
+  const [verifyPrcFile, setVerifyPrcFile] = useState<File | null>(null);
+  const [verifySelfieFile, setVerifySelfieFile] = useState<File | null>(null);
+  const [verifySubmitBusy, setVerifySubmitBusy] = useState(false);
+  const [verifyFieldErrors, setVerifyFieldErrors] = useState<{
+    prc?: string;
+    selfie?: string;
+  }>({});
 
   const tabParam = searchParams.get("tab");
 
@@ -379,7 +543,9 @@ function SettingsPageInner() {
 
       const { data: a } = await supabase
         .from("agents")
-        .select("id, name, status, verified, license_expiry, license_number, email, broker_id")
+        .select(
+          "id, name, status, verified, license_expiry, license_number, email, broker_id, verification_status, prc_document_url, selfie_url",
+        )
         .eq("user_id", uid)
         .maybeSingle();
 
@@ -717,6 +883,53 @@ function SettingsPageInner() {
       setNotifMsg(e instanceof Error ? e.message : "Could not save");
     }
     setSavingNotif(false);
+  };
+
+  const submitVerificationDocuments = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.id || !agent) return;
+    const err: { prc?: string; selfie?: string } = {};
+    if (!verifyPrcFile) err.prc = "PRC license photo is required.";
+    else if (verifyPrcFile.size > MAX_VERIFICATION_BYTES) err.prc = "PRC file must be 5MB or less.";
+    else if (!verifyPrcFile.type.startsWith("image/") && verifyPrcFile.type !== "application/pdf") {
+      err.prc = "Upload an image or PDF.";
+    }
+    if (!verifySelfieFile) err.selfie = "Selfie photo is required.";
+    else if (verifySelfieFile.size > MAX_VERIFICATION_BYTES) err.selfie = "Selfie must be 5MB or less.";
+    else if (!verifySelfieFile.type.startsWith("image/")) err.selfie = "Upload an image only.";
+    setVerifyFieldErrors(err);
+    if (Object.keys(err).length > 0) return;
+
+    setVerifySubmitBusy(true);
+    try {
+      const paths = await uploadVerificationPairSettings(supabase, user.id, verifyPrcFile!, verifySelfieFile!);
+      const { error } = await supabase
+        .from("agents")
+        .update({
+          prc_document_url: paths.prc_document_url,
+          selfie_url: paths.selfie_url,
+          verification_status: "pending",
+        })
+        .eq("user_id", user.id);
+      if (error) throw error;
+      setAgent((prev) =>
+        prev
+          ? {
+              ...prev,
+              prc_document_url: paths.prc_document_url,
+              selfie_url: paths.selfie_url,
+              verification_status: "pending",
+            }
+          : null,
+      );
+      setVerifyPrcFile(null);
+      setVerifySelfieFile(null);
+      setVerifyFieldErrors({});
+      toast.success("Documents submitted — pending admin review");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not upload documents");
+    }
+    setVerifySubmitBusy(false);
   };
 
   const saveRole = async () => {
@@ -1406,39 +1619,92 @@ function SettingsPageInner() {
             ) : null}
 
             {agent ? (
-              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-sm font-semibold text-[#2C2C2C]">Agent</h3>
-                  {agent.verified && agent.status === "approved" ? (
-                    <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-900">
-                      Verified
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-[#FAF8F4] px-2.5 py-0.5 text-xs font-medium capitalize text-[#2C2C2C]/70">
-                      {agent.status}
-                    </span>
-                  )}
-                  <LicenseExpiryBadge licenseExpiry={agent.license_expiry} />
+              <>
+                <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-semibold text-[#2C2C2C]">Agent</h3>
+                    {agent.verified && agent.status === "approved" ? (
+                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-900">
+                        Verified
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-[#FAF8F4] px-2.5 py-0.5 text-xs font-medium capitalize text-[#2C2C2C]/70">
+                        {agent.status}
+                      </span>
+                    )}
+                    <LicenseExpiryBadge licenseExpiry={agent.license_expiry} />
+                  </div>
+                  <p className="mt-2 text-sm text-[#2C2C2C]/85">{agent.name}</p>
+                  <p className="text-xs text-[#2C2C2C]/45">{agent.email}</p>
+                  {agent.license_number ? (
+                    <p className="mt-2 text-xs font-medium text-[#2C2C2C]/70">
+                      License no. {agent.license_number}
+                    </p>
+                  ) : null}
+                  {brokerageName ? (
+                    <p className="mt-1 text-xs text-[#2C2C2C]/45">Brokerage: {brokerageName}</p>
+                  ) : null}
+                  {agent.license_expiry ? (
+                    <p className="mt-2 text-xs text-[#2C2C2C]/45">
+                      License expires {formatLicenseDate(agent.license_expiry)}
+                      {showExpiryWarn(agent.license_expiry) ? (
+                        <span className="font-medium text-amber-800"> · renew soon</span>
+                      ) : null}
+                    </p>
+                  ) : null}
                 </div>
-                <p className="mt-2 text-sm text-[#2C2C2C]/85">{agent.name}</p>
-                <p className="text-xs text-[#2C2C2C]/45">{agent.email}</p>
-                {agent.license_number ? (
-                  <p className="mt-2 text-xs font-medium text-[#2C2C2C]/70">
-                    License no. {agent.license_number}
-                  </p>
-                ) : null}
-                {brokerageName ? (
-                  <p className="mt-1 text-xs text-[#2C2C2C]/45">Brokerage: {brokerageName}</p>
-                ) : null}
-                {agent.license_expiry ? (
-                  <p className="mt-2 text-xs text-[#2C2C2C]/45">
-                    License expires {formatLicenseDate(agent.license_expiry)}
-                    {showExpiryWarn(agent.license_expiry) ? (
-                      <span className="font-medium text-amber-800"> · renew soon</span>
+                {agent.verification_status !== "verified" ? (
+                  <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+                    <h3 className="text-sm font-semibold text-[#2C2C2C]">Identity verification</h3>
+                    {agent.verification_status === "rejected" ? (
+                      <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-900">
+                        Your verification was rejected. Please resubmit your documents.
+                      </div>
+                    ) : agent.verification_status === "pending" ? (
+                      <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950">
+                        Your documents are under review.
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-4 py-3 text-sm font-medium text-[#2C2C2C]/65">
+                        Submit your documents to get verified.
+                      </div>
+                    )}
+                    {agent.verification_status === "rejected" || agent.verification_status == null ? (
+                      <form onSubmit={submitVerificationDocuments} className="mt-6 space-y-5">
+                        <div>
+                          <p className="text-xs font-semibold text-[#2C2C2C]">PRC License Photo</p>
+                          <SettingsVerificationDropzone
+                            id="settings_verify_prc"
+                            label="Upload your PRC ID or license card"
+                            accept="image/*,application/pdf"
+                            file={verifyPrcFile}
+                            onChange={setVerifyPrcFile}
+                            error={verifyFieldErrors.prc}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-[#2C2C2C]">Selfie / Live Photo</p>
+                          <SettingsVerificationDropzone
+                            id="settings_verify_selfie"
+                            label="Take or upload a clear photo of your face"
+                            accept="image/*"
+                            file={verifySelfieFile}
+                            onChange={setVerifySelfieFile}
+                            error={verifyFieldErrors.selfie}
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={verifySubmitBusy}
+                          className="rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] disabled:opacity-50"
+                        >
+                          {verifySubmitBusy ? "Submitting…" : "Submit documents"}
+                        </button>
+                      </form>
                     ) : null}
-                  </p>
+                  </div>
                 ) : null}
-              </div>
+              </>
             ) : currentRole === "agent" ? (
               <p className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 text-sm text-[#2C2C2C]/60 shadow-sm">
                 No agent registration found yet.{" "}
