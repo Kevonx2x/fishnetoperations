@@ -163,6 +163,7 @@ export default function ClientPublicProfilePage() {
   } | null>(null);
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [saveCounts, setSaveCounts] = useState<Record<string, number>>({});
   const [savedTotal, setSavedTotal] = useState(0);
   const [filter, setFilter] = useState<WishFilter>("all");
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -383,6 +384,7 @@ export default function ClientPublicProfilePage() {
           setFreeAgentWishlistPreview(false);
           setProperties([]);
           setLikeCounts({});
+          setSaveCounts({});
           setSavedTotal(0);
           setPinnedAtByPropertyId({});
           return;
@@ -412,6 +414,7 @@ export default function ClientPublicProfilePage() {
             setFreeAgentWishlistPreview(false);
             setProperties([]);
             setLikeCounts({});
+            setSaveCounts({});
             setSavedTotal(0);
             setPinnedAtByPropertyId({});
             return;
@@ -438,6 +441,7 @@ export default function ClientPublicProfilePage() {
             setFreeAgentWishlistPreview(false);
             setProperties([]);
             setLikeCounts({});
+            setSaveCounts({});
             setSavedTotal(0);
             setPinnedAtByPropertyId({});
             return;
@@ -456,6 +460,7 @@ export default function ClientPublicProfilePage() {
         if (ids.length === 0) {
           setProperties([]);
           setLikeCounts({});
+          setSaveCounts({});
           return;
         }
 
@@ -482,6 +487,7 @@ export default function ClientPublicProfilePage() {
           console.error(propsErr);
           setProperties([]);
           setLikeCounts({});
+          setSaveCounts({});
           return;
         }
 
@@ -626,6 +632,17 @@ export default function ClientPublicProfilePage() {
           map[r.property_id] = Number(r.like_count);
         }
         setLikeCounts(map);
+
+        const { data: saveRows } = await supabase.rpc("property_save_counts_for", {
+          property_ids: ids,
+        });
+        if (cancelled) return;
+        const sm: Record<string, number> = {};
+        for (const row of saveRows ?? []) {
+          const r = row as { property_id: string; save_count: number };
+          sm[r.property_id] = Number(r.save_count);
+        }
+        setSaveCounts(sm);
       } finally {
         if (!cancelled) setWishlistLoading(false);
       }
@@ -1035,6 +1052,9 @@ export default function ClientPublicProfilePage() {
                       {sortedFiltered.map((p) => {
                         const overlay = overlayLabel(p);
                         const likeTotal = likeCounts[p.id] ?? 0;
+                        const pinSaveN = saveCounts[p.id] ?? 0;
+                        const wishlistEngagementPill =
+                          "inline-flex flex-row items-center gap-1 rounded-full bg-white/95 px-1.5 py-1 text-[10px] font-bold shadow-md ring-1 ring-black/10";
                         const pinnedIso = pinnedAtByPropertyId[p.id];
                         const pinnedLine = pinnedIso
                           ? pinnedRelativeLabel(pinnedIso)
@@ -1108,7 +1128,34 @@ export default function ClientPublicProfilePage() {
                                   {statusLabel}
                                 </span>
                               </div>
-                              <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+                              <div className="absolute right-3 top-3 z-10 flex items-start gap-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    void likes.toggle(p.id);
+                                  }}
+                                  className={wishlistEngagementPill}
+                                  aria-label={likeTotal > 0 ? `${likeTotal} likes` : "Like"}
+                                >
+                                  <Heart
+                                    className={`h-3.5 w-3.5 shrink-0 text-red-500 ${likes.has(p.id) ? "fill-red-500" : ""}`}
+                                    aria-hidden
+                                  />
+                                  {likeTotal > 0 ? (
+                                    <span className="tabular-nums text-red-500">{likeTotal}</span>
+                                  ) : null}
+                                </button>
+                                <span
+                                  className={`${wishlistEngagementPill} pointer-events-none`}
+                                  aria-label={pinSaveN > 0 ? `${pinSaveN} saves` : "Saves"}
+                                >
+                                  <Pin className="h-3.5 w-3.5 shrink-0 text-[#D4A843]" aria-hidden />
+                                  {pinSaveN > 0 ? (
+                                    <span className="tabular-nums text-[#D4A843]">{pinSaveN}</span>
+                                  ) : null}
+                                </span>
                                 {isOwn ? (
                                   <button
                                     type="button"
@@ -1118,7 +1165,7 @@ export default function ClientPublicProfilePage() {
                                       e.stopPropagation();
                                       void removeFromWishlist(p.id);
                                     }}
-                                    className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10 disabled:opacity-50"
+                                    className={`${wishlistEngagementPill} disabled:opacity-50`}
                                     title="Remove from wishlist"
                                     aria-label="Unpin from wishlist"
                                   >
@@ -1128,22 +1175,6 @@ export default function ClientPublicProfilePage() {
                                     />
                                   </button>
                                 ) : null}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    void likes.toggle(p.id);
-                                  }}
-                                  className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10"
-                                  aria-label={`${likeTotal} likes`}
-                                >
-                                  <Heart
-                                    className={`h-3.5 w-3.5 shrink-0 ${likes.has(p.id) ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
-                                    aria-hidden
-                                  />
-                                  <span>{likeTotal}</span>
-                                </button>
                               </div>
                             </div>
 

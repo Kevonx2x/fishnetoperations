@@ -41,6 +41,13 @@ import { useAuth } from "@/contexts/auth-context";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { fetchSimilarAgents } from "@/lib/similar-agents";
 import { listingListedLabel } from "@/lib/listing-listed-time";
+import {
+  formatBudgetRangePhp,
+  lookingToLabel,
+  preferredLocationsLabel,
+} from "@/lib/client-profile-preferences";
+import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagement";
 import {
   DropdownMenu,
@@ -48,6 +55,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+const ENGAGEMENT_MESSAGE_PRESETS = [
+  "Hi! I saw you liked my listing. Would you like to schedule a viewing?",
+  "Hi! Are you still interested in this property? I'd love to help.",
+  "Hi! I noticed you saved my listing. Let me know if you have any questions!",
+  "Hi! This property is still available. Want to book a viewing this week?",
+] as const;
 
 type AgentRow = {
   id: string;
@@ -231,15 +245,29 @@ function AgentBioBlock({ bio }: { bio: string }) {
   );
 }
 
-type EngagementMapUser = {
+type EngagementEngager = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
   role: string | null;
+  email: string | null;
+  budget_min: number | null;
+  budget_max: number | null;
+  preferred_locations: unknown;
+  looking_to: string | null;
+  likedAt: string | null;
+  savedAt: string | null;
 };
 
+function engagementHasPrefs(u: EngagementEngager): boolean {
+  const locs = preferredLocationsLabel(u.preferred_locations);
+  const hasBudget = u.budget_min != null || u.budget_max != null;
+  const hasLooking = Boolean(u.looking_to?.trim());
+  return locs !== "—" || hasBudget || hasLooking;
+}
+
 function profileHrefForEngagement(
-  u: EngagementMapUser,
+  u: EngagementEngager,
   agentIdByUserId: Record<string, string>,
 ): string | null {
   if (u.role === "client") return `/clients/${u.id}`;
@@ -248,6 +276,12 @@ function profileHrefForEngagement(
     return aid ? `/agents/${aid}` : null;
   }
   return null;
+}
+
+function engagementRoleBadgeLabel(role: string | null | undefined): string {
+  if (role === "client") return "Verified Buyer";
+  if (role === "agent") return "Agent";
+  return "Member";
 }
 
 export default function AgentProfilePage() {
@@ -285,12 +319,14 @@ export default function AgentProfilePage() {
   const isOwnProfile = Boolean(user?.id && agent?.user_id && user.id === agent.user_id);
 
   const [engagementMap, setEngagementMap] = useState<
-    Record<string, { likers: EngagementMapUser[]; pinners: EngagementMapUser[] }>
+    Record<string, { likers: EngagementEngager[]; pinners: EngagementEngager[] }>
   >({});
+  const [engagementLeadAdded, setEngagementLeadAdded] = useState<Record<string, boolean>>({});
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [engagementAgentIdByUserId, setEngagementAgentIdByUserId] = useState<Record<string, string>>({});
   /** Own listing cards: which face is shown; `likes` / `pins` = back side with that list. */
   const [listingFlipById, setListingFlipById] = useState<Record<string, "front" | "likes" | "pins">>({});
+  const [seenFlips, setSeenFlips] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -398,8 +434,8 @@ export default function AgentProfilePage() {
       console.log("Fetching engagement for ids:", ids);
 
       const [{ data: likes }, { data: pins }] = await Promise.all([
-        supabase.from("property_likes").select("property_id, user_id").in("property_id", ids),
-        supabase.from("saved_properties").select("property_id, user_id").in("property_id", ids),
+        supabase.from("property_likes").select("property_id, user_id, created_at").in("property_id", ids),
+        supabase.from("saved_properties").select("property_id, user_id, created_at").in("property_id", ids),
       ]);
 
       console.log("likes:", likes, "pins:", pins);
@@ -420,25 +456,75 @@ export default function AgentProfilePage() {
 
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, role")
+        .select(
+          "id, full_name, avatar_url, role, email, budget_min, budget_max, preferred_locations, looking_to",
+        )
         .in("id", allUserIds);
 
       console.log("profiles:", profiles);
 
       const profileMap = Object.fromEntries((profiles || []).map((p: any) => [p.id, p]));
 
-      const map: Record<string, { likers: any[]; pinners: any[] }> = {};
+      const timeKey = (propertyId: string, userId: string) => `${propertyId}:${userId}`;
+      const likeTimeMap = new Map<string, string>();
+      for (const row of likes || []) {
+        const r = row as { property_id: string; user_id: string; created_at: string };
+        likeTimeMap.set(timeKey(r.property_id, r.user_id), r.created_at);
+      }
+      const pinTimeMap = new Map<string, string>();
+      for (const row of pins || []) {
+        const r = row as { property_id: string; user_id: string; created_at: string };
+        pinTimeMap.set(timeKey(r.property_id, r.user_id), r.created_at);
+      }
+
+      const map: Record<string, { likers: EngagementEngager[]; pinners: EngagementEngager[] }> = {};
 
       for (const id of ids) {
         map[id] = { likers: [], pinners: [] };
       }
       for (const like of likes || []) {
-        const p = profileMap[like.user_id];
-        if (p) map[like.property_id]?.likers.push(p);
+        const raw = profileMap[like.user_id as string];
+        if (!raw) continue;
+        const pid = like.property_id as string;
+        const uid = like.user_id as string;
+        const likedAt = like.created_at as string;
+        const savedAt = pinTimeMap.get(timeKey(pid, uid)) ?? null;
+        const row: EngagementEngager = {
+          id: raw.id,
+          full_name: raw.full_name ?? null,
+          avatar_url: raw.avatar_url ?? null,
+          role: raw.role ?? null,
+          email: raw.email ?? null,
+          budget_min: raw.budget_min ?? null,
+          budget_max: raw.budget_max ?? null,
+          preferred_locations: raw.preferred_locations,
+          looking_to: raw.looking_to ?? null,
+          likedAt,
+          savedAt,
+        };
+        map[pid]?.likers.push(row);
       }
       for (const pin of pins || []) {
-        const p = profileMap[pin.user_id];
-        if (p) map[pin.property_id]?.pinners.push(p);
+        const raw = profileMap[pin.user_id as string];
+        if (!raw) continue;
+        const pid = pin.property_id as string;
+        const uid = pin.user_id as string;
+        const savedAt = pin.created_at as string;
+        const likedAt = likeTimeMap.get(timeKey(pid, uid)) ?? null;
+        const row: EngagementEngager = {
+          id: raw.id,
+          full_name: raw.full_name ?? null,
+          avatar_url: raw.avatar_url ?? null,
+          role: raw.role ?? null,
+          email: raw.email ?? null,
+          budget_min: raw.budget_min ?? null,
+          budget_max: raw.budget_max ?? null,
+          preferred_locations: raw.preferred_locations,
+          looking_to: raw.looking_to ?? null,
+          likedAt,
+          savedAt,
+        };
+        map[pid]?.pinners.push(row);
       }
 
       console.log("final engagementMap:", map);
@@ -830,8 +916,8 @@ export default function AgentProfilePage() {
                           p.listed_by === agent.user_id;
                         const flipFace = listingFlipById[p.id] ?? "front";
                         const showBack = isOwnProfile && flipFace !== "front";
-                        const engagementChipClass =
-                          "inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10";
+                        const engagementPillBase =
+                          "inline-flex flex-row items-center gap-1 rounded-full bg-white/95 px-1.5 py-1 text-[10px] font-bold shadow-md";
                         return (
                           <div
                             key={p.id}
@@ -934,24 +1020,40 @@ export default function AgentProfilePage() {
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
+                                        setSeenFlips((prev) => ({ ...prev, [p.id]: true }));
                                         setListingFlipById((prev) => ({ ...prev, [p.id]: "likes" }));
                                       }}
-                                      className={engagementChipClass}
-                                      aria-label={showEng ? `${likeN} likes` : "Like"}
+                                      className={`${engagementPillBase} ${
+                                        !seenFlips[p.id] && likeN > 0
+                                          ? "ring-2 ring-red-400 animate-pulse"
+                                          : "ring-1 ring-black/10"
+                                      }`}
+                                      aria-label={likeN > 0 ? `${likeN} likes` : "Like"}
                                     >
                                       <Heart className="h-3.5 w-3.5 shrink-0 text-red-500" aria-hidden />
+                                      {likeN > 0 ? (
+                                        <span className="tabular-nums text-red-500">{likeN}</span>
+                                      ) : null}
                                     </button>
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
+                                        setSeenFlips((prev) => ({ ...prev, [p.id]: true }));
                                         setListingFlipById((prev) => ({ ...prev, [p.id]: "pins" }));
                                       }}
-                                      className={engagementChipClass}
-                                      aria-label={showEng ? `${pinN} pins` : "Pin"}
+                                      className={`${engagementPillBase} ${
+                                        !seenFlips[p.id] && pinN > 0
+                                          ? "ring-2 ring-[#D4A843] animate-pulse"
+                                          : "ring-1 ring-black/10"
+                                      }`}
+                                      aria-label={pinN > 0 ? `${pinN} pins` : "Pin"}
                                     >
                                       <Pin className="h-3.5 w-3.5 shrink-0 text-[#D4A843]" aria-hidden />
+                                      {pinN > 0 ? (
+                                        <span className="tabular-nums text-[#D4A843]">{pinN}</span>
+                                      ) : null}
                                     </button>
                                   </>
                                 ) : (
@@ -963,14 +1065,18 @@ export default function AgentProfilePage() {
                                         e.stopPropagation();
                                         void engagement.toggleLike(p.id);
                                       }}
-                                      className={engagementChipClass}
-                                      aria-label={showEng ? `${likeN} likes` : "Like"}
+                                      className={`${engagementPillBase} ring-1 ring-black/10`}
+                                      aria-label={
+                                        showEng && likeN > 0 ? `${likeN} likes` : "Like"
+                                      }
                                     >
                                       <Heart
-                                        className={`h-3.5 w-3.5 shrink-0 ${engagement.isLiked(p.id) ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
+                                        className={`h-3.5 w-3.5 shrink-0 text-red-500 ${engagement.isLiked(p.id) ? "fill-red-500" : ""}`}
                                         aria-hidden
                                       />
-                                      {showEng ? <span>{likeN}</span> : null}
+                                      {showEng && likeN > 0 ? (
+                                        <span className="tabular-nums text-red-500">{likeN}</span>
+                                      ) : null}
                                     </button>
                                     <button
                                       type="button"
@@ -979,14 +1085,18 @@ export default function AgentProfilePage() {
                                         e.stopPropagation();
                                         void engagement.togglePin(p.id);
                                       }}
-                                      className={engagementChipClass}
-                                      aria-label={showEng ? `${pinN} pins` : "Pin"}
+                                      className={`${engagementPillBase} ring-1 ring-black/10`}
+                                      aria-label={
+                                        showEng && pinN > 0 ? `${pinN} pins` : "Pin"
+                                      }
                                     >
                                       <Pin
-                                        className={`h-3.5 w-3.5 shrink-0 ${engagement.isPinned(p.id) ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
+                                        className={`h-3.5 w-3.5 shrink-0 text-[#D4A843] ${engagement.isPinned(p.id) ? "fill-[#D4A843]" : ""}`}
                                         aria-hidden
                                       />
-                                      {showEng ? <span>{pinN}</span> : null}
+                                      {showEng && pinN > 0 ? (
+                                        <span className="tabular-nums text-[#D4A843]">{pinN}</span>
+                                      ) : null}
                                     </button>
                                   </>
                                 )}
@@ -1040,7 +1150,7 @@ export default function AgentProfilePage() {
 
                               {isOwnProfile ? (
                                 <div
-                                  className="absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm"
+                                  className="absolute inset-0 flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm"
                                   style={{
                                     backfaceVisibility: "hidden",
                                     WebkitBackfaceVisibility: "hidden",
@@ -1058,70 +1168,249 @@ export default function AgentProfilePage() {
                                       ← Back
                                     </button>
                                   </div>
-                                  <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-                                    <p className="font-serif text-lg font-bold text-[#2C2C2C]">
-                                      {flipFace === "likes" ? "❤️ Liked by" : "📌 Pinned by"}
-                                    </p>
-                                    {(() => {
-                                      const users =
-                                        flipFace === "likes"
-                                          ? engagementMap[p.id]?.likers ?? []
-                                          : engagementMap[p.id]?.pinners ?? [];
-                                      if (users.length === 0) {
-                                        return (
-                                          <p className="mt-3 text-sm font-medium text-[#2C2C2C]/55">
-                                            No one yet
-                                          </p>
-                                        );
-                                      }
-                                      return (
-                                        <ul className="mt-3 space-y-3">
-                                          {users.map((u) => {
-                                            const href = profileHrefForEngagement(
-                                              u,
-                                              engagementAgentIdByUserId,
-                                            );
-                                            const label = u.full_name?.trim() || "User";
-                                            const row = (
-                                              <>
-                                                <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
-                                                  {u.avatar_url?.trim() ? (
-                                                    <SupabasePublicImage
-                                                      src={u.avatar_url}
-                                                      alt=""
-                                                      fill
-                                                      sizes="32px"
-                                                      className="object-cover"
-                                                    />
-                                                  ) : (
-                                                    <span className="flex h-full w-full items-center justify-center text-[10px] font-bold text-[#2C2C2C]/55">
-                                                      {agentAvatarInitials(label)}
-                                                    </span>
-                                                  )}
-                                                </div>
-                                                <span className="font-medium text-[#2C2C2C]">{label}</span>
-                                              </>
-                                            );
-                                            return (
-                                              <li key={u.id}>
-                                                {href ? (
-                                                  <Link
-                                                    href={href}
-                                                    className="flex items-center gap-3 hover:opacity-90"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                  >
-                                                    {row}
-                                                  </Link>
-                                                ) : (
-                                                  <div className="flex items-center gap-3">{row}</div>
-                                                )}
-                                              </li>
-                                            );
-                                          })}
-                                        </ul>
-                                      );
-                                    })()}
-                                  </div>
+                                  {(() => {
+                                    const users =
+                                      flipFace === "likes"
+                                        ? engagementMap[p.id]?.likers ?? []
+                                        : engagementMap[p.id]?.pinners ?? [];
+                                    const hasUsers = users.length > 0;
+                                    return (
+                                      <>
+                                        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                                          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-3">
+                                            <h2 className="font-serif text-lg font-bold text-[#2C2C2C]">
+                                              {flipFace === "likes" ? "❤️ Liked by" : "📌 Pinned by"}
+                                            </h2>
+                                            <div className="mt-2 border-b border-[#2C2C2C]/10" />
+                                            {!hasUsers ? (
+                                              <div className="flex flex-col items-center justify-center px-2 py-10 text-center">
+                                                <span className="text-5xl leading-none" aria-hidden>
+                                                  🏡
+                                                </span>
+                                                <p className="mt-4 font-semibold text-[#2C2C2C]">
+                                                  No engagement yet
+                                                </p>
+                                                <p className="mt-1 max-w-xs text-sm text-[#2C2C2C]/55">
+                                                  Share your listing to get more eyes on it
+                                                </p>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    const url = `${typeof window !== "undefined" ? window.location.origin : ""}/properties/${encodeURIComponent(p.id)}`;
+                                                    void navigator.clipboard.writeText(url).then(() => {
+                                                      toast.success("Link copied");
+                                                    });
+                                                  }}
+                                                  className="mt-5 rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white hover:bg-[#5d8a60]"
+                                                >
+                                                  Copy listing link
+                                                </button>
+                                              </div>
+                                            ) : (
+                                              <ul className="mt-4 space-y-4">
+                                                {users.map((u) => {
+                                                  const href = profileHrefForEngagement(
+                                                    u,
+                                                    engagementAgentIdByUserId,
+                                                  );
+                                                  const label = u.full_name?.trim() || "User";
+                                                  const leadKey = `${p.id}:${u.id}`;
+                                                  const leadAdded = engagementLeadAdded[leadKey];
+                                                  return (
+                                                    <li
+                                                      key={u.id}
+                                                      className="border-b border-[#2C2C2C]/8 pb-4 last:border-0 last:pb-0"
+                                                    >
+                                                      <div className="flex items-start gap-2">
+                                                        <div className="flex min-w-0 flex-1 gap-3">
+                                                          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-2 ring-[#6B9E6E]">
+                                                            {u.avatar_url?.trim() ? (
+                                                              <SupabasePublicImage
+                                                                src={u.avatar_url}
+                                                                alt=""
+                                                                fill
+                                                                sizes="48px"
+                                                                className="object-cover"
+                                                              />
+                                                            ) : (
+                                                              <span className="flex h-full w-full items-center justify-center text-xs font-bold text-[#2C2C2C]/55">
+                                                                {agentAvatarInitials(label)}
+                                                              </span>
+                                                            )}
+                                                          </div>
+                                                          <div className="min-w-0 flex-1">
+                                                            <p className="font-semibold text-sm text-[#2C2C2C]">
+                                                              {label}
+                                                            </p>
+                                                            <span className="mt-0.5 inline-flex rounded-full bg-[#6B9E6E]/12 px-2 py-0.5 text-[10px] font-semibold text-[#6B9E6E]">
+                                                              {engagementRoleBadgeLabel(u.role)}
+                                                            </span>
+                                                            <p className="mt-1 min-w-0 truncate text-xs text-gray-500">
+                                                              {engagementHasPrefs(u) ? (
+                                                                <>
+                                                                  📍 {preferredLocationsLabel(u.preferred_locations)} ·
+                                                                  💰{" "}
+                                                                  {formatBudgetRangePhp(
+                                                                    u.budget_min,
+                                                                    u.budget_max,
+                                                                  )}{" "}
+                                                                  · 🏠 {lookingToLabel(u.looking_to)}
+                                                                </>
+                                                              ) : (
+                                                                <span className="text-[#2C2C2C]/45">
+                                                                  No preferences set yet
+                                                                </span>
+                                                              )}
+                                                            </p>
+                                                            {u.likedAt ? (
+                                                              <p className="mt-1 text-xs text-gray-400">
+                                                                ❤️ Liked this listing ·{" "}
+                                                                {formatDistanceToNow(
+                                                                  new Date(u.likedAt),
+                                                                  { addSuffix: true },
+                                                                )}
+                                                              </p>
+                                                            ) : null}
+                                                            {u.savedAt ? (
+                                                              <p className="mt-1 text-xs text-gray-400">
+                                                                📌 Saved this listing ·{" "}
+                                                                {formatDistanceToNow(
+                                                                  new Date(u.savedAt),
+                                                                  { addSuffix: true },
+                                                                )}
+                                                              </p>
+                                                            ) : null}
+                                                          </div>
+                                                        </div>
+                                                        {href ? (
+                                                          <Link
+                                                            href={href}
+                                                            className="shrink-0 text-xs font-semibold text-[#6B9E6E] hover:underline"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                          >
+                                                            View Profile →
+                                                          </Link>
+                                                        ) : null}
+                                                      </div>
+                                                      <div className="mt-2 flex flex-wrap gap-2">
+                                                        <button
+                                                          type="button"
+                                                          disabled={leadAdded}
+                                                          onClick={() => {
+                                                            void (async () => {
+                                                              if (!agent) return;
+                                                              const { error } = await supabase
+                                                                .from("leads")
+                                                                .insert({
+                                                                  name: label,
+                                                                  email: u.email?.trim() || "",
+                                                                  agent_id: agent.user_id,
+                                                                  client_id: u.id,
+                                                                  property_id: p.id,
+                                                                  source: "engagement",
+                                                                  stage: "new",
+                                                                  property_interest: title,
+                                                                });
+                                                              if (error) {
+                                                                if (error.code === "23505") {
+                                                                  setEngagementLeadAdded((prev) => ({
+                                                                    ...prev,
+                                                                    [leadKey]: true,
+                                                                  }));
+                                                                  toast.success("Lead added!");
+                                                                } else {
+                                                                  toast.error(error.message);
+                                                                }
+                                                                return;
+                                                              }
+                                                              setEngagementLeadAdded((prev) => ({
+                                                                ...prev,
+                                                                [leadKey]: true,
+                                                              }));
+                                                              toast.success("Lead added!");
+                                                            })();
+                                                          }}
+                                                          className="rounded-full bg-[#6B9E6E] px-3 py-1 text-xs text-white disabled:cursor-not-allowed disabled:opacity-70"
+                                                        >
+                                                          {leadAdded ? "✓ Lead Added" : "+ Add as Lead"}
+                                                        </button>
+                                                        <DropdownMenu>
+                                                          <DropdownMenuTrigger asChild>
+                                                            <button
+                                                              type="button"
+                                                              className="rounded-full border border-[#6B9E6E] px-3 py-1 text-xs text-[#6B9E6E]"
+                                                            >
+                                                              💬 Message
+                                                            </button>
+                                                          </DropdownMenuTrigger>
+                                                          <DropdownMenuContent
+                                                            align="start"
+                                                            className="max-w-[280px]"
+                                                          >
+                                                            {ENGAGEMENT_MESSAGE_PRESETS.map((msg) => (
+                                                              <DropdownMenuItem
+                                                                key={msg}
+                                                                className="whitespace-normal text-xs"
+                                                                onClick={() => {
+                                                                  void (async () => {
+                                                                    if (!agent) return;
+                                                                    const res = await fetch(
+                                                                      "/api/agent/engagement-notify-client",
+                                                                      {
+                                                                        method: "POST",
+                                                                        headers: {
+                                                                          "Content-Type":
+                                                                            "application/json",
+                                                                        },
+                                                                        body: JSON.stringify({
+                                                                          propertyId: p.id,
+                                                                          recipientUserId: u.id,
+                                                                          message: msg,
+                                                                          agentFullName: agent.name,
+                                                                        }),
+                                                                      },
+                                                                    );
+                                                                    const data = (await res
+                                                                      .json()
+                                                                      .catch(() => null)) as {
+                                                                      success?: boolean;
+                                                                      error?: { message?: string };
+                                                                    } | null;
+                                                                    if (
+                                                                      !res.ok ||
+                                                                      !data?.success
+                                                                    ) {
+                                                                      toast.error(
+                                                                        data?.error?.message ??
+                                                                          "Could not send message.",
+                                                                      );
+                                                                      return;
+                                                                    }
+                                                                    toast.success("Message sent!");
+                                                                  })();
+                                                                }}
+                                                              >
+                                                                {msg}
+                                                              </DropdownMenuItem>
+                                                            ))}
+                                                          </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                      </div>
+                                                    </li>
+                                                  );
+                                                })}
+                                              </ul>
+                                            )}
+                                          </div>
+                                          <div className="shrink-0 border-t border-[#2C2C2C]/10 px-4 py-3">
+                                            <p className="text-center text-xs text-gray-400">
+                                              👁️ {likeN} likes · 📌 {pinN} saves · 🏠 {listed}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               ) : null}
                             </div>
