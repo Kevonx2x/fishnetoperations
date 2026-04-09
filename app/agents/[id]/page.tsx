@@ -1067,7 +1067,7 @@ export default function AgentProfilePage() {
                                       <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
                                     ) : null}
                                   </div>
-                                  <p className="text-xs font-medium text-gray-400">{listed}</p>
+                                  <p className="text-xs font-medium text-[#2C2C2C]/50">{listed}</p>
                                 </div>
                               </div>
                               {canManagePost ? (
@@ -1310,43 +1310,54 @@ export default function AgentProfilePage() {
                               ) : null}
                               {isOwnProfile &&
                               canManagePost &&
-                              (p.listing_status === "active" || p.listing_status === "under_offer") ? (
-                                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                                  {p.status === "for_sale" && !p.is_presale ? (
-                                    <button
-                                      type="button"
-                                      disabled={markingStatus}
-                                      onClick={() => {
-                                        if (!confirm("Mark this property as sold?")) return;
-                                        void markPropertySold(p.id);
-                                      }}
-                                      className="rounded-full border border-red-400 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
-                                    >
-                                      Mark as Sold
-                                    </button>
-                                  ) : null}
-                                  {p.status === "for_rent" ? (
-                                    <button
-                                      type="button"
-                                      disabled={markingStatus}
-                                      onClick={() => {
-                                        if (!confirm("Mark this property as rented?")) return;
-                                        void markPropertyRented(p.id);
-                                      }}
-                                      className="rounded-full border border-[#D4A843] bg-white px-3 py-1.5 text-xs font-semibold text-[#8a6d32] hover:bg-[#D4A843]/10 disabled:opacity-50"
-                                    >
-                                      Mark as Rented
-                                    </button>
-                                  ) : null}
+                              (p.listing_status === "active" || p.listing_status === "under_offer") &&
+                              (p.status === "for_rent" || (p.status === "for_sale" && !p.is_presale)) ? (
+                                <div className="flex w-full min-w-0 flex-nowrap items-center justify-between gap-2">
+                                  <div className="flex min-w-0 shrink items-center gap-2">
+                                    {p.status === "for_sale" && !p.is_presale ? (
+                                      <button
+                                        type="button"
+                                        disabled={markingStatus}
+                                        onClick={() => {
+                                          if (!confirm("Mark this property as sold?")) return;
+                                          void markPropertySold(p.id);
+                                        }}
+                                        className="rounded-full border border-red-400 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                      >
+                                        Mark as Sold
+                                      </button>
+                                    ) : null}
+                                    {p.status === "for_rent" ? (
+                                      <button
+                                        type="button"
+                                        disabled={markingStatus}
+                                        onClick={() => {
+                                          if (!confirm("Mark this property as rented?")) return;
+                                          void markPropertyRented(p.id);
+                                        }}
+                                        className="rounded-full border border-[#D4A843] bg-white px-3 py-1.5 text-xs font-semibold text-[#8a6d32] hover:bg-[#D4A843]/10 disabled:opacity-50"
+                                      >
+                                        Mark as Rented
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                  <Link
+                                    href={`/properties/${encodeURIComponent(p.id)}`}
+                                    className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#D4A843]/60 bg-[#FAF8F4] px-3 py-2.5 text-sm font-bold text-[#8a6d32] hover:bg-[#D4A843]/15"
+                                  >
+                                    Property Details
+                                    <ArrowRight className="h-3.5 w-3.5" />
+                                  </Link>
                                 </div>
-                              ) : null}
-                              <Link
-                                href={`/properties/${encodeURIComponent(p.id)}`}
-                                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-[#D4A843]/60 bg-[#FAF8F4] px-3 py-2.5 text-sm font-bold text-[#8a6d32] hover:bg-[#D4A843]/15 sm:w-auto"
-                              >
-                                Property Details
-                                <ArrowRight className="h-3.5 w-3.5" />
-                              </Link>
+                              ) : (
+                                <Link
+                                  href={`/properties/${encodeURIComponent(p.id)}`}
+                                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-[#D4A843]/60 bg-[#FAF8F4] px-3 py-2.5 text-sm font-bold text-[#8a6d32] hover:bg-[#D4A843]/15 sm:w-auto"
+                                >
+                                  Property Details
+                                  <ArrowRight className="h-3.5 w-3.5" />
+                                </Link>
+                              )}
                             </div>
                               </article>
 

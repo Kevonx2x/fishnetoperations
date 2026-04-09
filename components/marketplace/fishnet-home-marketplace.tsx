@@ -1589,7 +1589,11 @@ export function NewlyListedCard({
               disabled={agentEngagementLocked}
               className={cn(
                 "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
-                isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
+                property.is_presale
+                  ? cn("border bg-white", isLiked ? "border-red-200" : "border-gray-200")
+                  : isLiked
+                    ? "border border-red-200 bg-white"
+                    : "border border-gray-200 bg-white/80",
                 agentEngagementLocked && "pointer-events-none opacity-50",
               )}
               aria-label={`${engagement.likeCount(property.id)} likes`}
@@ -1600,7 +1604,7 @@ export function NewlyListedCard({
                   isLiked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
                 )}
               />
-              {showEng || agentEngagementLocked ? (
+              {showEng || agentEngagementLocked || property.is_presale ? (
                 <span
                   className={cn(
                     "text-xs font-medium tabular-nums",
@@ -1620,7 +1624,11 @@ export function NewlyListedCard({
               disabled={agentEngagementLocked}
               className={cn(
                 "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
-                isPinned ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
+                property.is_presale
+                  ? cn("border bg-white", isPinned ? "border-[#D4A843]/40" : "border-gray-200")
+                  : isPinned
+                    ? "border border-[#D4A843]/40 bg-white"
+                    : "border border-gray-200 bg-white/80",
                 agentEngagementLocked && "pointer-events-none opacity-50",
               )}
               aria-label={`${engagement.saveCount(property.id)} saved`}
@@ -1631,7 +1639,7 @@ export function NewlyListedCard({
                   isPinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
                 )}
               />
-              {showEng || agentEngagementLocked ? (
+              {showEng || agentEngagementLocked || property.is_presale ? (
                 <span
                   className={cn(
                     "text-xs font-medium tabular-nums",
@@ -1646,13 +1654,13 @@ export function NewlyListedCard({
         ) : null}
 
         <div className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-5rem)] flex-col items-start gap-1.5">
-          <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-gray-400 shadow-sm ring-1 ring-black/5">
+          <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-xs font-bold text-[#2C2C2C] shadow-sm ring-1 ring-black/5">
             {listedLabel}
           </span>
           {showYourListingBadge ? (
             <Link
               href="/dashboard/agent"
-              className="pointer-events-auto rounded-full bg-[#D4A843]/95 px-2.5 py-1 text-xs font-bold text-gray-400 shadow-sm ring-1 ring-[#8a6d32]/30 hover:bg-[#D4A843]"
+              className="pointer-events-auto rounded-full bg-[#D4A843]/95 px-2 py-0.5 text-xs font-bold text-[#2C2C2C] shadow-sm ring-1 ring-[#8a6d32]/30 hover:bg-[#D4A843]"
               onClick={(e) => e.stopPropagation()}
             >
               This is your listing
