@@ -82,6 +82,9 @@ export async function POST(request: NextRequest) {
       email: emailTrim,
       bio: parsed.data.bio?.trim() || null,
       broker_id: brokerId,
+      prc_document_url: parsed.data.prc_document_url,
+      selfie_url: parsed.data.selfie_url,
+      verification_status: "pending" as const,
     };
 
     const { data, error } = await supabase

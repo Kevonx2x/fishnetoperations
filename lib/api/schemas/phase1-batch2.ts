@@ -2,6 +2,9 @@ import { z } from "zod";
 
 const PRC_LICENSE = /^PRC-AG-\d{4}-\d{5}$/;
 
+/** Object paths in private bucket `verification` (see registration upload flow). */
+const VERIFICATION_OBJECT_PATH = /^prc\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(license|selfie)\.[a-z0-9]+$/i;
+
 export const registerBrokerSchema = z.object({
   name: z.string().min(1).max(200),
   company_name: z.string().min(1).max(200),
@@ -45,6 +48,14 @@ export const registerAgentSchema = z.object({
   email: z.string().email(),
   bio: z.string().max(5000).optional().nullable(),
   broker_id: z.string().uuid().optional().nullable(),
+  prc_document_url: z
+    .string()
+    .regex(VERIFICATION_OBJECT_PATH, "Invalid verification document path")
+    .refine((s) => s.toLowerCase().includes("/license."), "PRC document path must be license.*"),
+  selfie_url: z
+    .string()
+    .regex(VERIFICATION_OBJECT_PATH, "Invalid verification selfie path")
+    .refine((s) => s.toLowerCase().includes("/selfie."), "Selfie path must be selfie.*"),
 });
 
 export const verificationDecisionSchema = z.discriminatedUnion("decision", [

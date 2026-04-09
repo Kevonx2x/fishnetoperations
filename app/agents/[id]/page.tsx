@@ -56,6 +56,7 @@ type AgentRow = {
   user_id: string;
   verified?: boolean;
   status?: string;
+  verification_status?: "pending" | "verified" | "rejected" | null;
   specialties?: string | null;
   service_areas?: string | null;
   brokers?: { id: string; company_name: string; logo_url: string | null } | null;
@@ -112,8 +113,39 @@ function passesListingFilter(p: ListingRow, mode: ListingFilter): boolean {
   return true;
 }
 
-function isAgentVerified(agent: AgentRow): boolean {
-  return Boolean(agent.verified && agent.status === "approved");
+const MASKED_PUBLIC_PRC = "PRC-AG-202*-*****";
+
+function isAgentIdentityVerified(agent: AgentRow): boolean {
+  return agent.verification_status === "verified";
+}
+
+function verificationStatusBadge(agent: AgentRow): { label: string; className: string } {
+  const v = agent.verification_status;
+  if (v === "verified") {
+    return {
+      label: "Verified Agent",
+      className: "rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-bold text-white shadow-sm",
+    };
+  }
+  if (v === "pending") {
+    return {
+      label: "Verification Pending",
+      className:
+        "rounded-full border border-[#2C2C2C]/15 bg-[#FAF8F4] px-5 py-2 text-sm font-bold text-[#2C2C2C]/70",
+    };
+  }
+  if (v === "rejected") {
+    return {
+      label: "Verification Failed - Resubmit in Settings",
+      className:
+        "max-w-[280px] rounded-full border border-red-300 bg-red-50 px-4 py-2 text-center text-xs font-bold leading-snug text-red-700 sm:max-w-none sm:text-sm",
+    };
+  }
+  return {
+    label: "Unverified",
+    className:
+      "rounded-full border border-[#2C2C2C]/15 bg-[#FAF8F4] px-5 py-2 text-sm font-bold text-[#2C2C2C]/55",
+  };
 }
 
 export default function AgentProfilePage() {
@@ -346,6 +378,8 @@ export default function AgentProfilePage() {
     }
   };
 
+  const identityBadge = agent ? verificationStatusBadge(agent) : null;
+
   const brokerageDisplay = (a: AgentRow) => {
     const n = a.brokers?.company_name?.trim();
     return n ? n : "Independent Agent";
@@ -353,7 +387,7 @@ export default function AgentProfilePage() {
 
   const licenseDisplay = (a: AgentRow) => {
     const n = String(a.license_number ?? "").trim();
-    return n ? n : null;
+    return n ? MASKED_PUBLIC_PRC : null;
   };
 
   return (
@@ -412,7 +446,7 @@ export default function AgentProfilePage() {
                         </div>
                       )}
                     </div>
-                    {isAgentVerified(agent) ? (
+                    {isAgentIdentityVerified(agent) ? (
                       <span
                         className="absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#D4A843] shadow-md ring-2 ring-white"
                         title="Verified"
@@ -451,13 +485,11 @@ export default function AgentProfilePage() {
                     </span>
                   </div>
 
-                  {isAgentVerified(agent) ? (
-                    <div className="mt-5 flex justify-center">
-                      <span className="rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-bold text-white shadow-sm">
-                        Verified Agent
-                      </span>
-                    </div>
-                  ) : null}
+                  <div className="mt-5 flex justify-center">
+                    {identityBadge ? (
+                      <span className={identityBadge.className}>{identityBadge.label}</span>
+                    ) : null}
+                  </div>
 
                   <div className="mt-6 border-t border-[#2C2C2C]/10 pt-5">
                     <p className="text-center font-serif text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
@@ -627,7 +659,7 @@ export default function AgentProfilePage() {
                                 <div className="min-w-0">
                                   <div className="flex flex-wrap items-center gap-1.5">
                                     <span className="font-bold text-[#2C2C2C]">{agent.name}</span>
-                                    {isAgentVerified(agent) ? (
+                                    {isAgentIdentityVerified(agent) ? (
                                       <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
                                     ) : null}
                                   </div>

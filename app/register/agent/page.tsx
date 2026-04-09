@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { FileText } from "lucide-react";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
@@ -18,6 +19,150 @@ import {
 const supabase = createSupabaseBrowser();
 
 const PRC_LICENSE_PREFIX = "PRC-AG-";
+const MAX_VERIFICATION_BYTES = 5 * 1024 * 1024;
+
+function extForVerification(kind: "license" | "selfie", file: File): string {
+  const fromName = file.name.split(".").pop()?.toLowerCase();
+  if (fromName && /^[a-z0-9]{1,8}$/.test(fromName)) {
+    if (kind === "license" && (fromName === "pdf" || ["jpg", "jpeg", "png", "webp", "heic"].includes(fromName))) {
+      return fromName;
+    }
+    if (kind === "selfie" && ["jpg", "jpeg", "png", "webp", "heic"].includes(fromName)) {
+      return fromName;
+    }
+  }
+  if (file.type === "application/pdf") return "pdf";
+  if (file.type === "image/jpeg") return "jpg";
+  if (file.type === "image/png") return "png";
+  if (file.type === "image/webp") return "webp";
+  return kind === "license" ? "pdf" : "jpg";
+}
+
+async function uploadVerificationPair(
+  userId: string,
+  prc: File,
+  selfie: File,
+): Promise<{ prc_document_url: string; selfie_url: string }> {
+  const prcExt = extForVerification("license", prc);
+  const selfieExt = extForVerification("selfie", selfie);
+  const prcPath = `prc/${userId}/license.${prcExt}`;
+  const selfiePath = `prc/${userId}/selfie.${selfieExt}`;
+  const { error: e1 } = await supabase.storage.from("verification").upload(prcPath, prc, {
+    upsert: true,
+    contentType: prc.type || undefined,
+  });
+  if (e1) throw e1;
+  const { error: e2 } = await supabase.storage.from("verification").upload(selfiePath, selfie, {
+    upsert: true,
+    contentType: selfie.type || undefined,
+  });
+  if (e2) throw e2;
+  return { prc_document_url: prcPath, selfie_url: selfiePath };
+}
+
+type VerificationDropzoneProps = {
+  id: string;
+  label: string;
+  accept: string;
+  file: File | null;
+  onChange: (f: File | null) => void;
+  error?: string;
+};
+
+function VerificationDropzone({ id, label, accept, file, onChange, error }: VerificationDropzoneProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file || file.type === "application/pdf" || !file.type.startsWith("image/")) {
+      setPreviewUrl(null);
+      return;
+    }
+    const u = URL.createObjectURL(file);
+    setPreviewUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+
+  const onPick = (list: FileList | null) => {
+    onChange(list?.[0] ?? null);
+  };
+
+  return (
+    <div>
+      <p className="text-xs font-medium text-gray-500">{label}</p>
+      <div
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        onDragEnter={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          onPick(e.dataTransfer.files);
+        }}
+        onClick={() => inputRef.current?.click()}
+        className={`mt-1.5 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#6B9E6E]/55 bg-[#6B9E6E]/6 px-4 py-8 text-center transition hover:border-[#6B9E6E] hover:bg-[#6B9E6E]/10 ${
+          dragging ? "border-[#6B9E6E] bg-[#6B9E6E]/12" : ""
+        }`}
+      >
+        <input
+          ref={inputRef}
+          id={id}
+          type="file"
+          accept={accept}
+          className="sr-only"
+          onChange={(e) => onPick(e.target.files)}
+        />
+        <p className="text-sm font-medium text-[#2C2C2C]">Drag and drop here, or click to browse</p>
+        <p className="mt-1 text-xs text-gray-500">Max 5MB</p>
+      </div>
+      {file ? (
+        <div className="mt-3 flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-3">
+          {file.type === "application/pdf" ? (
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-[#6B9E6E]/10">
+              <FileText className="h-10 w-10 text-[#6B9E6E]" aria-hidden />
+            </div>
+          ) : previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={previewUrl} alt="" className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+          ) : (
+            <div className="h-20 w-20 shrink-0 rounded-lg bg-gray-100" />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-[#2C2C2C]">{file.name}</p>
+            <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange(null);
+                if (inputRef.current) inputRef.current.value = "";
+              }}
+              className="mt-2 text-xs font-medium text-red-600 underline"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {error ? <p className="mt-1 text-sm text-red-600">{error}</p> : null}
+    </div>
+  );
+}
 
 function PrcLicenseInput({
   id,
@@ -73,6 +218,8 @@ type FieldErrors = Partial<
     | "licenseExpiry"
     | "phone"
     | "regEmail"
+    | "prcUpload"
+    | "selfieUpload"
     | "form",
     string
   >
@@ -99,6 +246,8 @@ export default function RegisterAgentPage() {
   const [submitError, setSubmitError] = useState("");
   const [detailErrors, setDetailErrors] = useState<FieldErrors>({});
   const [done, setDone] = useState(false);
+  const [prcFile, setPrcFile] = useState<File | null>(null);
+  const [selfieFile, setSelfieFile] = useState<File | null>(null);
 
   const refreshSession = async () => {
     const {
@@ -126,6 +275,23 @@ export default function RegisterAgentPage() {
     })();
   }, []);
 
+  const validateVerificationFiles = (de: FieldErrors) => {
+    if (!prcFile) {
+      de.prcUpload = "PRC license photo is required.";
+    } else if (prcFile.size > MAX_VERIFICATION_BYTES) {
+      de.prcUpload = "PRC file must be 5MB or less.";
+    } else if (!prcFile.type.startsWith("image/") && prcFile.type !== "application/pdf") {
+      de.prcUpload = "Upload an image or PDF.";
+    }
+    if (!selfieFile) {
+      de.selfieUpload = "Selfie photo is required.";
+    } else if (selfieFile.size > MAX_VERIFICATION_BYTES) {
+      de.selfieUpload = "Selfie must be 5MB or less.";
+    } else if (!selfieFile.type.startsWith("image/")) {
+      de.selfieUpload = "Upload an image only.";
+    }
+  };
+
   const validateGuestCombinedForm = (): boolean => {
     const ae: FieldErrors = {};
     const de: FieldErrors = {};
@@ -142,12 +308,17 @@ export default function RegisterAgentPage() {
     if (exp) de.licenseExpiry = exp;
     const ph = validatePhoneField(phone);
     if (ph) de.phone = ph;
+    validateVerificationFiles(de);
     setAuthFieldErrors(ae);
     setDetailErrors(de);
     return Object.keys(ae).length === 0 && Object.keys(de).length === 0;
   };
 
-  const submitAgentRegistration = async (contactEmail: string) => {
+  const submitAgentRegistration = async (contactEmail: string, userId: string) => {
+    if (!prcFile || !selfieFile) {
+      throw new Error("PRC license photo and selfie are required.");
+    }
+    const paths = await uploadVerificationPair(userId, prcFile, selfieFile);
     const res = await fetch("/api/v1/register/agent", {
       method: "POST",
       credentials: "include",
@@ -160,6 +331,8 @@ export default function RegisterAgentPage() {
         email: contactEmail.trim(),
         bio: bio.trim() || null,
         broker_id: brokerId || null,
+        prc_document_url: paths.prc_document_url,
+        selfie_url: paths.selfie_url,
       }),
     });
     const json = (await res.json()) as {
@@ -206,7 +379,7 @@ export default function RegisterAgentPage() {
         setSubmitBusy(false);
         return;
       }
-      await submitAgentRegistration(email.trim());
+      await submitAgentRegistration(email.trim(), session.user.id);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Registration failed");
     }
@@ -231,6 +404,7 @@ export default function RegisterAgentPage() {
     if (ph) e.phone = ph;
     const em = validateEmailField(regEmail);
     if (em) e.regEmail = em;
+    validateVerificationFiles(e);
     setDetailErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -249,7 +423,7 @@ export default function RegisterAgentPage() {
     if (!validateDetailForm()) return;
     setSubmitBusy(true);
     try {
-      await submitAgentRegistration(regEmail.trim());
+      await submitAgentRegistration(regEmail.trim(), session.user.id);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Registration failed");
     }
@@ -361,6 +535,28 @@ export default function RegisterAgentPage() {
                 ) : null}
               </div>
               <div>
+                <p className="text-xs font-semibold text-gray-900">PRC License Photo</p>
+                <VerificationDropzone
+                  id="prc_license_guest"
+                  label="Upload your PRC ID or license card"
+                  accept="image/*,application/pdf"
+                  file={prcFile}
+                  onChange={setPrcFile}
+                  error={detailErrors.prcUpload}
+                />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-900">Selfie / Live Photo</p>
+                <VerificationDropzone
+                  id="selfie_guest"
+                  label="Take or upload a clear photo of your face"
+                  accept="image/*"
+                  file={selfieFile}
+                  onChange={setSelfieFile}
+                  error={detailErrors.selfieUpload}
+                />
+              </div>
+              <div>
                 <label className="block text-xs font-medium text-gray-500" htmlFor="guest-agent-reg-phone">
                   Phone
                 </label>
@@ -461,6 +657,28 @@ export default function RegisterAgentPage() {
                 {detailErrors.licenseExpiry ? (
                   <p className="mt-1 text-sm text-red-600">{detailErrors.licenseExpiry}</p>
                 ) : null}
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-900">PRC License Photo</p>
+                <VerificationDropzone
+                  id="prc_license_session"
+                  label="Upload your PRC ID or license card"
+                  accept="image/*,application/pdf"
+                  file={prcFile}
+                  onChange={setPrcFile}
+                  error={detailErrors.prcUpload}
+                />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-900">Selfie / Live Photo</p>
+                <VerificationDropzone
+                  id="selfie_session"
+                  label="Take or upload a clear photo of your face"
+                  accept="image/*"
+                  file={selfieFile}
+                  onChange={setSelfieFile}
+                  error={detailErrors.selfieUpload}
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500" htmlFor="agent-reg-phone">
