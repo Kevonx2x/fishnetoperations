@@ -110,7 +110,7 @@ export function AgentPipelineTab({
   const [filterStage, setFilterStage] = useState<PipelineStageId>("lead");
   const [docsLead, setDocsLead] = useState<PipelineLeadRow | null>(null);
   const [docRows, setDocRows] = useState<
-    { document_type: string; status: string; storage_path: string }[]
+    { document_type: string; status: string; file_url: string }[]
   >([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [moveLead, setMoveLead] = useState<PipelineLeadRow | null>(null);
@@ -142,14 +142,14 @@ export function AgentPipelineTab({
       setDocsLoading(true);
       const { data, error } = await supabase
         .from("deal_documents")
-        .select("document_type, status, storage_path")
+        .select("document_type, status, file_url")
         .eq("lead_id", lead.id);
       setDocsLoading(false);
       if (error) {
         toast.error(error.message);
         return;
       }
-      setDocRows((data ?? []) as { document_type: string; status: string; storage_path: string }[]);
+      setDocRows((data ?? []) as { document_type: string; status: string; file_url: string }[]);
     },
     [supabase],
   );
@@ -186,7 +186,7 @@ export function AgentPipelineTab({
           lead_id: lead.id,
           document_type: docKey,
           status: "uploaded",
-          storage_path: path,
+          file_url: path,
         },
         { onConflict: "lead_id,document_type" },
       );
