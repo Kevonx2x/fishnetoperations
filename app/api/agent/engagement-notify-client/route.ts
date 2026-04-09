@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { fail, fromZodError, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
+import { propertyAddressLabel } from "@/lib/property-address-label";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const bodySchema = z.object({
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
 
     const { data: prop, error: propErr } = await admin
       .from("properties")
-      .select("listed_by")
+      .select("listed_by, name, location")
       .eq("id", propertyId)
       .maybeSingle();
 
@@ -58,7 +59,10 @@ export async function POST(req: Request) {
       return fail("FORBIDDEN", "Not your listing", 403);
     }
 
-    const title = `Message from ${agentFullName.trim()}`;
+    const propertyAddress = propertyAddressLabel(
+      prop as { name?: string | null; location?: string | null },
+    );
+    const title = `Message from ${agentFullName.trim()} about ${propertyAddress}`;
 
     const { error: insErr } = await admin.from("notifications").insert({
       user_id: recipientUserId,

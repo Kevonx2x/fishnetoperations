@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { Resend } from "resend";
 import { fail, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
+import { propertyAddressLabel } from "@/lib/property-address-label";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizePhoneE164, sendSmsTo } from "@/lib/twilio-sms";
@@ -74,6 +75,10 @@ export async function POST(request: NextRequest) {
       (prop as { location?: string } | null)?.location?.trim() ||
       (propertyId ? "Property" : "General viewing");
 
+    const propertyAddressForNotification = propertyAddressLabel(
+      prop as { name?: string | null; location?: string | null } | null,
+    );
+
     const { data: listingAgent } = await sb
       .from("agents")
       .select("name, phone")
@@ -125,7 +130,7 @@ export async function POST(request: NextRequest) {
           user_id: clientUserId,
           type: "viewing_declined",
           title: "Viewing request update",
-          body: `${agentName} is unavailable on your requested date. Please request a new time.`,
+          body: `Your viewing request for ${propertyAddressForNotification} needs a new time. ${agentName} is unavailable on your requested date.`,
           metadata: { viewing_request_id: viewingId, property_label: propLabel },
         });
       }

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
+import { PROPERTY_ADDRESS_FALLBACK, propertyAddressLabel } from "@/lib/property-address-label";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
     const sb = await createSupabaseServerClient();
     const { data: lead, error: fetchErr } = await sb
       .from("leads")
-      .select("id, agent_id, broker_id, pipeline_stage, client_id, email")
+      .select("id, agent_id, broker_id, pipeline_stage, client_id, email, property_id")
       .eq("id", leadId)
       .maybeSingle();
 
@@ -104,12 +105,28 @@ export async function POST(request: NextRequest) {
       lead as { client_id?: string | null; email: string },
     );
     const nextLabel = STAGE_LABEL[next] ?? next;
+
+    let propertyAddress = PROPERTY_ADDRESS_FALLBACK;
+    if (admin) {
+      const pid = (lead as { property_id?: string | null }).property_id;
+      if (pid) {
+        const { data: propRow } = await admin
+          .from("properties")
+          .select("name, location")
+          .eq("id", pid)
+          .maybeSingle();
+        propertyAddress = propertyAddressLabel(
+          propRow as { name?: string | null; location?: string | null } | null,
+        );
+      }
+    }
+
     if (admin && clientUserId) {
       await admin.from("notifications").insert({
         user_id: clientUserId,
         type: "deal_pipeline",
         title: "Deal update",
-        body: `Your deal has moved to ${nextLabel}.`,
+        body: `Your deal for ${propertyAddress} has moved to ${nextLabel}. Check your pipeline for next steps.`,
         metadata: { lead_id: leadId, pipeline_stage: next },
       });
     }
