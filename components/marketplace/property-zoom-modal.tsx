@@ -19,6 +19,7 @@ import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availabil
 import { useAuth } from "@/contexts/auth-context";
 import type { PropertyEngagement } from "@/hooks/use-property-engagement";
 import { formatAgentScore } from "@/lib/format-agent-score";
+import { cn } from "@/lib/utils";
 
 type Props = {
   property: DbProperty;
@@ -348,10 +349,18 @@ function BottomActions({
           <button
             type="button"
             onClick={() => engagement.toggleLike(propertyId)}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#2C2C2C]/20 bg-white px-2 py-2.5 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]"
+            className={cn(
+              "flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-2.5 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]",
+              isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
+            )}
           >
             <span className="inline-flex items-center gap-1.5">
-              <Heart className={`h-4 w-4 ${isLiked ? "fill-red-500 text-red-500" : ""}`} />
+              <Heart
+                className={cn(
+                  "h-4 w-4",
+                  isLiked ? "fill-red-500 text-red-500" : "text-red-400",
+                )}
+              />
               Like
             </span>
             <span className="text-[11px] font-semibold text-[#2C2C2C]/55">
@@ -361,11 +370,17 @@ function BottomActions({
           <button
             type="button"
             onClick={() => engagement.togglePin(propertyId)}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#2C2C2C]/20 bg-white px-2 py-2.5 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]"
+            className={cn(
+              "flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-2.5 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]",
+              isPinned ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
+            )}
           >
             <span className="inline-flex items-center gap-1.5">
               <Pin
-                className={`h-4 w-4 ${isPinned ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
+                className={cn(
+                  "h-4 w-4",
+                  isPinned ? "fill-[#D4A843] text-[#D4A843]" : "text-[#D4A843]",
+                )}
               />
               Pin
             </span>

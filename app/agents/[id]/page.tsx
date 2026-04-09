@@ -39,6 +39,7 @@ import { ViewingRequestModal } from "@/components/marketplace/viewing-request-mo
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { useAuth } from "@/contexts/auth-context";
 import { formatAgentScore } from "@/lib/format-agent-score";
+import { cn } from "@/lib/utils";
 import { fetchSimilarAgents } from "@/lib/similar-agents";
 import { listingListedLabel } from "@/lib/listing-listed-time";
 import {
@@ -918,6 +919,8 @@ export default function AgentProfilePage() {
                         const showBack = isOwnProfile && flipFace !== "front";
                         const engagementChipBase =
                           "inline-flex flex-row items-center gap-1 rounded-full bg-white p-1.5 shadow-sm";
+                        const visitorLiked = engagement.isLiked(p.id);
+                        const viewerPinned = engagement.isPinned(p.id);
                         return (
                           <div
                             key={p.id}
@@ -1075,17 +1078,32 @@ export default function AgentProfilePage() {
                                         e.stopPropagation();
                                         void engagement.toggleLike(p.id);
                                       }}
-                                      className={engagementChipBase}
+                                      className={cn(
+                                        "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+                                        visitorLiked
+                                          ? "border border-red-200 bg-white"
+                                          : "border border-gray-200 bg-white/80",
+                                      )}
                                       aria-label={
                                         showEng && likeN > 0 ? `${likeN} likes` : "Like"
                                       }
                                     >
                                       <Heart
-                                        className="h-3.5 w-3.5 shrink-0 fill-red-500 text-red-500"
+                                        className={cn(
+                                          "h-3.5 w-3.5 shrink-0",
+                                          visitorLiked
+                                            ? "fill-red-500 text-red-500"
+                                            : "text-red-400",
+                                        )}
                                         aria-hidden
                                       />
                                       {showEng && likeN > 0 ? (
-                                        <span className="text-xs font-medium tabular-nums text-red-500">
+                                        <span
+                                          className={cn(
+                                            "text-xs font-medium tabular-nums",
+                                            visitorLiked ? "text-red-500" : "text-red-400",
+                                          )}
+                                        >
                                           {likeN}
                                         </span>
                                       ) : null}
@@ -1097,13 +1115,23 @@ export default function AgentProfilePage() {
                                         e.stopPropagation();
                                         void engagement.togglePin(p.id);
                                       }}
-                                      className={engagementChipBase}
+                                      className={cn(
+                                        "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+                                        viewerPinned
+                                          ? "border border-[#D4A843]/40 bg-white"
+                                          : "border border-gray-200 bg-white/80",
+                                      )}
                                       aria-label={
                                         showEng && pinN > 0 ? `${pinN} pins` : "Pin"
                                       }
                                     >
                                       <Pin
-                                        className="h-3.5 w-3.5 shrink-0 fill-[#D4A843] text-[#D4A843]"
+                                        className={cn(
+                                          "h-3.5 w-3.5 shrink-0",
+                                          viewerPinned
+                                            ? "fill-[#D4A843] text-[#D4A843]"
+                                            : "text-[#D4A843]",
+                                        )}
                                         aria-hidden
                                       />
                                       {showEng && pinN > 0 ? (

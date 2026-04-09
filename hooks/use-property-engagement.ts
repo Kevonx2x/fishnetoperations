@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
@@ -72,6 +72,7 @@ export function usePropertyLikes() {
   const openSignIn = useOpenEngagementSignIn();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [dbIds, setDbIds] = useState<string[]>([]);
+  const pendingRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user?.id || !isClientRole(profile?.role)) {
@@ -100,53 +101,59 @@ export function usePropertyLikes() {
 
   const toggle = useCallback(
     async (propertyId: string): Promise<boolean> => {
-      if (!user?.id) {
-        openSignIn();
-        return false;
-      }
-      if (authLoading || !profile) return false;
-      if (!isClientRole(profile.role)) {
-        toast.error(ONLY_CLIENTS_CAN_LIKE_OR_PIN);
-        return false;
-      }
-
-      if (dbIds.includes(propertyId)) {
-        const { data: existing } = await supabase
-          .from("property_likes")
-          .select("user_id")
-          .eq("user_id", user.id)
-          .eq("property_id", propertyId)
-          .maybeSingle();
-
-        if (existing) {
-          const { error } = await supabase
-            .from("property_likes")
-            .delete()
-            .eq("user_id", user.id)
-            .eq("property_id", propertyId);
-          if (error) {
-            toast.error(error.message);
-            return false;
-          }
+      if (pendingRef.current.has(propertyId)) return false;
+      pendingRef.current.add(propertyId);
+      try {
+        if (!user?.id) {
+          openSignIn();
+          return false;
         }
-        setDbIds((prev) => prev.filter((x) => x !== propertyId));
+        if (authLoading || !profile) return false;
+        if (!isClientRole(profile.role)) {
+          toast.error(ONLY_CLIENTS_CAN_LIKE_OR_PIN);
+          return false;
+        }
+
+        if (dbIds.includes(propertyId)) {
+          const { data: existing } = await supabase
+            .from("property_likes")
+            .select("user_id")
+            .eq("user_id", user.id)
+            .eq("property_id", propertyId)
+            .maybeSingle();
+
+          if (existing) {
+            const { error } = await supabase
+              .from("property_likes")
+              .delete()
+              .eq("user_id", user.id)
+              .eq("property_id", propertyId);
+            if (error) {
+              toast.error(error.message);
+              return false;
+            }
+          }
+          setDbIds((prev) => prev.filter((x) => x !== propertyId));
+          return true;
+        }
+        const { error } = await supabase.from("property_likes").upsert(
+          { user_id: user.id, property_id: propertyId },
+          { onConflict: "user_id,property_id", ignoreDuplicates: true },
+        );
+        if (error) {
+          toast.error(error.message);
+          return false;
+        }
+        setDbIds((prev) => (prev.includes(propertyId) ? prev : [propertyId, ...prev]));
+        notifyPropertyEngagement({
+          propertyId,
+          type: "like",
+          clientName: profile?.full_name?.trim() || "Someone",
+        });
         return true;
+      } finally {
+        pendingRef.current.delete(propertyId);
       }
-      const { error } = await supabase.from("property_likes").upsert(
-        { user_id: user.id, property_id: propertyId },
-        { onConflict: "user_id,property_id", ignoreDuplicates: true },
-      );
-      if (error) {
-        toast.error(error.message);
-        return false;
-      }
-      setDbIds((prev) => (prev.includes(propertyId) ? prev : [propertyId, ...prev]));
-      notifyPropertyEngagement({
-        propertyId,
-        type: "like",
-        clientName: profile?.full_name?.trim() || "Someone",
-      });
-      return true;
     },
     [user?.id, supabase, dbIds, profile, profile?.full_name, profile?.role, authLoading, openSignIn],
   );
@@ -160,6 +167,7 @@ export function usePinnedPropertyIds() {
   const openSignIn = useOpenEngagementSignIn();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [ids, setIds] = useState<string[]>([]);
+  const pendingRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user?.id || !isClientRole(profile?.role)) {
@@ -188,53 +196,59 @@ export function usePinnedPropertyIds() {
 
   const toggle = useCallback(
     async (propertyId: string): Promise<boolean> => {
-      if (!user?.id) {
-        openSignIn();
-        return false;
-      }
-      if (authLoading || !profile) return false;
-      if (!isClientRole(profile.role)) {
-        toast.error(ONLY_CLIENTS_CAN_LIKE_OR_PIN);
-        return false;
-      }
-
-      if (ids.includes(propertyId)) {
-        const { data: existing } = await supabase
-          .from("saved_properties")
-          .select("user_id")
-          .eq("user_id", user.id)
-          .eq("property_id", propertyId)
-          .maybeSingle();
-
-        if (existing) {
-          const { error } = await supabase
-            .from("saved_properties")
-            .delete()
-            .eq("user_id", user.id)
-            .eq("property_id", propertyId);
-          if (error) {
-            toast.error(error.message);
-            return false;
-          }
+      if (pendingRef.current.has(propertyId)) return false;
+      pendingRef.current.add(propertyId);
+      try {
+        if (!user?.id) {
+          openSignIn();
+          return false;
         }
-        setIds((prev) => prev.filter((x) => x !== propertyId));
+        if (authLoading || !profile) return false;
+        if (!isClientRole(profile.role)) {
+          toast.error(ONLY_CLIENTS_CAN_LIKE_OR_PIN);
+          return false;
+        }
+
+        if (ids.includes(propertyId)) {
+          const { data: existing } = await supabase
+            .from("saved_properties")
+            .select("user_id")
+            .eq("user_id", user.id)
+            .eq("property_id", propertyId)
+            .maybeSingle();
+
+          if (existing) {
+            const { error } = await supabase
+              .from("saved_properties")
+              .delete()
+              .eq("user_id", user.id)
+              .eq("property_id", propertyId);
+            if (error) {
+              toast.error(error.message);
+              return false;
+            }
+          }
+          setIds((prev) => prev.filter((x) => x !== propertyId));
+          return true;
+        }
+        const { error } = await supabase.from("saved_properties").upsert(
+          { user_id: user.id, property_id: propertyId },
+          { onConflict: "user_id,property_id", ignoreDuplicates: true },
+        );
+        if (error) {
+          toast.error(error.message);
+          return false;
+        }
+        setIds((prev) => (prev.includes(propertyId) ? prev : [propertyId, ...prev]));
+        notifyPropertyEngagement({
+          propertyId,
+          type: "pin",
+          clientName: profile?.full_name?.trim() || "Someone",
+        });
         return true;
+      } finally {
+        pendingRef.current.delete(propertyId);
       }
-      const { error } = await supabase.from("saved_properties").upsert(
-        { user_id: user.id, property_id: propertyId },
-        { onConflict: "user_id,property_id", ignoreDuplicates: true },
-      );
-      if (error) {
-        toast.error(error.message);
-        return false;
-      }
-      setIds((prev) => (prev.includes(propertyId) ? prev : [propertyId, ...prev]));
-      notifyPropertyEngagement({
-        propertyId,
-        type: "pin",
-        clientName: profile?.full_name?.trim() || "Someone",
-      });
-      return true;
     },
     [user?.id, supabase, ids, profile, profile?.full_name, profile?.role, authLoading, openSignIn],
   );

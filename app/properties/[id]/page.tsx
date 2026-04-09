@@ -23,6 +23,7 @@ import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit
 import { useAuth } from "@/contexts/auth-context";
 import { coListLimitForTier, listingLimitForTier } from "@/lib/agent-listing-limits";
 import { formatAgentScore } from "@/lib/format-agent-score";
+import { cn } from "@/lib/utils";
 
 type ListingAgentProfile = {
   id: string;
@@ -379,7 +380,14 @@ export default function PropertyPage() {
                       <div className="h-full w-full bg-neutral-200" />
                     )}
                     <div className="absolute right-3 top-3 z-10 flex items-start gap-1.5">
-                      <div className="flex flex-col items-center gap-0.5 rounded-xl bg-white/95 px-1.5 py-1 shadow-sm ring-1 ring-black/5">
+                      <div
+                        className={cn(
+                          "flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 shadow-sm",
+                          engagement.isLiked(property.id)
+                            ? "border border-red-200 bg-white"
+                            : "border border-gray-200 bg-white/80",
+                        )}
+                      >
                         <button
                           type="button"
                           onClick={() => engagement.toggleLike(property.id)}
@@ -387,7 +395,12 @@ export default function PropertyPage() {
                           aria-label={engagement.isLiked(property.id) ? "Unlike" : "Like"}
                         >
                           <Heart
-                            className={`h-4 w-4 ${engagement.isLiked(property.id) ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
+                            className={cn(
+                              "h-4 w-4",
+                              engagement.isLiked(property.id)
+                                ? "fill-red-500 text-red-500"
+                                : "text-red-400",
+                            )}
                           />
                         </button>
                         {engagement.showEngagementCounts(property.id) ? (
@@ -396,7 +409,14 @@ export default function PropertyPage() {
                           </span>
                         ) : null}
                       </div>
-                      <div className="flex flex-col items-center gap-0.5 rounded-xl bg-white/95 px-1.5 py-1 shadow-sm ring-1 ring-black/5">
+                      <div
+                        className={cn(
+                          "flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 shadow-sm",
+                          engagement.isPinned(property.id)
+                            ? "border border-[#D4A843]/40 bg-white"
+                            : "border border-gray-200 bg-white/80",
+                        )}
+                      >
                         <button
                           type="button"
                           onClick={() => engagement.togglePin(property.id)}
@@ -406,7 +426,12 @@ export default function PropertyPage() {
                           }
                         >
                           <Pin
-                            className={`h-4 w-4 ${engagement.isPinned(property.id) ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
+                            className={cn(
+                              "h-4 w-4",
+                              engagement.isPinned(property.id)
+                                ? "fill-[#D4A843] text-[#D4A843]"
+                                : "text-[#D4A843]",
+                            )}
                           />
                         </button>
                         {engagement.showEngagementCounts(property.id) ? (

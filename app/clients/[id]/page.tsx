@@ -14,7 +14,7 @@ import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { usePropertyLikes } from "@/hooks/use-property-engagement";
+import { usePinnedPropertyIds, usePropertyLikes } from "@/hooks/use-property-engagement";
 import type { ProfileRole } from "@/lib/auth-roles";
 import { listingListedLabel } from "@/lib/listing-listed-time";
 import {
@@ -25,6 +25,7 @@ import {
   preferredLocationsLabel,
   type ClientPreferenceFields,
 } from "@/lib/client-profile-preferences";
+import { cn } from "@/lib/utils";
 
 type PropertyRow = {
   id: string;
@@ -180,6 +181,7 @@ export default function ClientPublicProfilePage() {
   const isAdmin = profile?.role === "admin";
 
   const likes = usePropertyLikes();
+  const pins = usePinnedPropertyIds();
 
   const canSeeWishlist = useMemo(() => {
     if (isOwn || isAdmin) return true;
@@ -1053,8 +1055,8 @@ export default function ClientPublicProfilePage() {
                         const overlay = overlayLabel(p);
                         const likeTotal = likeCounts[p.id] ?? 0;
                         const pinSaveN = saveCounts[p.id] ?? 0;
-                        const engagementChipBase =
-                          "inline-flex flex-row items-center gap-1 rounded-full bg-white p-1.5 shadow-sm";
+                        const isHeartLiked = likes.has(p.id);
+                        const isPinSaved = pins.has(p.id);
                         const pinnedIso = pinnedAtByPropertyId[p.id];
                         const pinnedLine = pinnedIso
                           ? pinnedRelativeLabel(pinnedIso)
@@ -1136,15 +1138,28 @@ export default function ClientPublicProfilePage() {
                                     e.stopPropagation();
                                     void likes.toggle(p.id);
                                   }}
-                                  className={engagementChipBase}
+                                  className={cn(
+                                    "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+                                    isHeartLiked
+                                      ? "border border-red-200 bg-white"
+                                      : "border border-gray-200 bg-white/80",
+                                  )}
                                   aria-label={likeTotal > 0 ? `${likeTotal} likes` : "Like"}
                                 >
                                   <Heart
-                                    className="h-3.5 w-3.5 shrink-0 fill-red-500 text-red-500"
+                                    className={cn(
+                                      "h-3.5 w-3.5 shrink-0",
+                                      isHeartLiked ? "fill-red-500 text-red-500" : "text-red-400",
+                                    )}
                                     aria-hidden
                                   />
                                   {likeTotal > 0 ? (
-                                    <span className="text-xs font-medium tabular-nums text-red-500">
+                                    <span
+                                      className={cn(
+                                        "text-xs font-medium tabular-nums",
+                                        isHeartLiked ? "text-red-500" : "text-red-400",
+                                      )}
+                                    >
                                       {likeTotal}
                                     </span>
                                   ) : null}
@@ -1158,7 +1173,12 @@ export default function ClientPublicProfilePage() {
                                       e.stopPropagation();
                                       void removeFromWishlist(p.id);
                                     }}
-                                    className={`${engagementChipBase} disabled:opacity-50`}
+                                    className={cn(
+                                      "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4] disabled:opacity-50",
+                                      isPinSaved
+                                        ? "border border-[#D4A843]/40 bg-white"
+                                        : "border border-gray-200 bg-white/80",
+                                    )}
                                     title="Remove from wishlist"
                                     aria-label={
                                       pinSaveN > 0
@@ -1167,7 +1187,13 @@ export default function ClientPublicProfilePage() {
                                     }
                                   >
                                     <Pin
-                                      className={`h-3.5 w-3.5 shrink-0 fill-[#D4A843] text-[#D4A843] ${removingId === p.id ? "opacity-35" : ""}`}
+                                      className={cn(
+                                        "h-3.5 w-3.5 shrink-0",
+                                        isPinSaved
+                                          ? "fill-[#D4A843] text-[#D4A843]"
+                                          : "text-[#D4A843]",
+                                        removingId === p.id ? "opacity-35" : "",
+                                      )}
                                       aria-hidden
                                     />
                                     {pinSaveN > 0 ? (
@@ -1178,11 +1204,21 @@ export default function ClientPublicProfilePage() {
                                   </button>
                                 ) : (
                                   <span
-                                    className={`${engagementChipBase} pointer-events-none`}
+                                    className={cn(
+                                      "pointer-events-none inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm",
+                                      isPinSaved
+                                        ? "border border-[#D4A843]/40 bg-white"
+                                        : "border border-gray-200 bg-white/80",
+                                    )}
                                     aria-label={pinSaveN > 0 ? `${pinSaveN} saves` : "Saves"}
                                   >
                                     <Pin
-                                      className="h-3.5 w-3.5 shrink-0 fill-[#D4A843] text-[#D4A843]"
+                                      className={cn(
+                                        "h-3.5 w-3.5 shrink-0",
+                                        isPinSaved
+                                          ? "fill-[#D4A843] text-[#D4A843]"
+                                          : "text-[#D4A843]",
+                                      )}
                                       aria-hidden
                                     />
                                     {pinSaveN > 0 ? (
