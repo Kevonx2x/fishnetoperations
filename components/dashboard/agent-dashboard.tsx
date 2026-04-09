@@ -15,6 +15,7 @@ import {
   Home,
   LayoutDashboard,
   Loader2,
+  MoreHorizontal,
   Settings,
   Sparkles,
   Users,
@@ -259,6 +260,7 @@ export function AgentDashboard() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [tab, setTab] = useState<Tab>("overview");
+  const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [paymentBannerTier, setPaymentBannerTier] = useState<string | null>(null);
 
@@ -1020,8 +1022,11 @@ export function AgentDashboard() {
     { id: "profile", label: "Profile", icon: <Settings className="h-5 w-5" /> },
   ];
 
+  const mobilePrimaryTabIds: Tab[] = ["overview", "leads", "listings", "notifications"];
+  const mobileMoreTabIds: Tab[] = ["pipeline", "viewings", "analytics", "billing", "profile"];
+
   return (
-    <div className="min-h-screen bg-[#FAF8F4] pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-8">
+    <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
       <div className="mx-auto flex max-w-6xl flex-col md:flex-row">
         {/* Desktop sidebar */}
         <aside className="hidden w-64 shrink-0 border-r border-[#2C2C2C]/10 bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-screen md:flex-col md:px-4 md:py-8">
@@ -1222,25 +1227,98 @@ export function AgentDashboard() {
         </main>
       </div>
 
-      {/* Mobile bottom bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`relative flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1 text-[10px] font-bold ${
-              tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
-            }`}
+      {/* Mobile bottom bar — 5 slots: Overview, Leads, Listings, Notifications, More */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-stretch justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-1 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur md:hidden">
+        {mobilePrimaryTabIds.map((tid) => {
+          const t = tabs.find((x) => x.id === tid)!;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => {
+                setTab(t.id);
+                setMoreDrawerOpen(false);
+              }}
+              className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-1 text-[10px] font-bold ${
+                tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
+              }`}
+            >
+              <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>{t.icon}</span>
+              {t.label}
+              {t.id === "leads" && newLeadsCount > 0 ? (
+                <span className="absolute right-1 top-0.5 h-2 w-2 rounded-full bg-[#D4A843]" />
+              ) : null}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setMoreDrawerOpen(true)}
+          className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-1 text-[10px] font-bold ${
+            moreDrawerOpen || mobileMoreTabIds.includes(tab) ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
+          }`}
+        >
+          <span
+            className={
+              moreDrawerOpen || mobileMoreTabIds.includes(tab) ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
+            }
           >
-            <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>{t.icon}</span>
-            {t.label}
-            {t.id === "leads" && newLeadsCount > 0 ? (
-              <span className="absolute right-2 top-0 h-2 w-2 rounded-full bg-[#D4A843]" />
-            ) : null}
-          </button>
-        ))}
+            <MoreHorizontal className="h-5 w-5" />
+          </span>
+          More
+        </button>
       </nav>
+
+      <AnimatePresence>
+        {moreDrawerOpen ? (
+          <motion.div
+            key="more-drawer"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[45] md:hidden"
+          >
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/40"
+              aria-label="Close menu"
+              onClick={() => setMoreDrawerOpen(false)}
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 32, stiffness: 380 }}
+              className="absolute bottom-0 left-0 right-0 max-h-[70vh] overflow-y-auto rounded-t-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="text-center text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">More</p>
+              <div className="mx-auto mt-3 max-w-md space-y-1">
+                {mobileMoreTabIds.map((tid) => {
+                  const t = tabs.find((x) => x.id === tid)!;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        setTab(t.id);
+                        setMoreDrawerOpen(false);
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${
+                        tab === t.id ? "bg-[#6B9E6E]/15 text-[#6B9E6E]" : "text-[#2C2C2C]/75 hover:bg-white/80"
+                      }`}
+                    >
+                      <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>{t.icon}</span>
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <AnimatePresence>
         {listingLimitModalOpen ? (

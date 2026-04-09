@@ -676,11 +676,11 @@ export function MaddenTopNav() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[55] sm:hidden"
+            className="fixed inset-0 z-50 sm:hidden"
           >
             <button
               type="button"
-              className="absolute inset-0 bg-black/40"
+              className="fixed inset-0 z-0 bg-black/40"
               aria-label="Close menu"
               onClick={closeMobileNav}
             />
@@ -689,7 +689,7 @@ export function MaddenTopNav() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 32, stiffness: 380 }}
-              className="absolute inset-y-0 left-0 flex w-[min(100vw-2.5rem,20rem)] flex-col border-r border-[#2C2C2C]/10 bg-[#FAF8F4] shadow-2xl"
+              className="fixed inset-y-0 left-0 z-10 flex w-[min(100vw-2.5rem,20rem)] flex-col border-r border-[#2C2C2C]/10 bg-[#FAF8F4] shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between border-b border-[#2C2C2C]/10 px-4 py-3">

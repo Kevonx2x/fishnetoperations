@@ -27,6 +27,7 @@ import {
   Plus,
   Star,
   Trophy,
+  ChevronDown,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
@@ -58,6 +59,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const ENGAGEMENT_MESSAGE_PRESETS = [
   "Hi! I saw you liked my listing. Would you like to schedule a viewing?",
@@ -281,6 +283,13 @@ function engagementHasPrefs(u: EngagementEngager): boolean {
   const hasBudget = u.budget_min != null || u.budget_max != null;
   const hasLooking = Boolean(u.looking_to?.trim());
   return locs !== "—" || hasBudget || hasLooking;
+}
+
+function engagementLastActivityAt(u: EngagementEngager): Date | null {
+  const a = u.likedAt ? new Date(u.likedAt).getTime() : 0;
+  const b = u.savedAt ? new Date(u.savedAt).getTime() : 0;
+  const m = Math.max(a, b);
+  return m > 0 ? new Date(m) : null;
 }
 
 function profileHrefForEngagement(
@@ -1370,17 +1379,6 @@ export default function AgentProfilePage() {
                                     transform: "rotateY(180deg)",
                                   }}
                                 >
-                                  <div className="flex shrink-0 items-center border-b border-[#2C2C2C]/10 px-3 py-2">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setListingFlipById((prev) => ({ ...prev, [p.id]: "front" }))
-                                      }
-                                      className="text-sm font-semibold text-[#6B9E6E] hover:underline"
-                                    >
-                                      ← Back
-                                    </button>
-                                  </div>
                                   {(() => {
                                     const users =
                                       flipFace === "likes"
@@ -1389,12 +1387,22 @@ export default function AgentProfilePage() {
                                     const hasUsers = users.length > 0;
                                     return (
                                       <>
+                                        <div className="flex shrink-0 flex-col border-b border-[#2C2C2C]/10 px-4 pb-3 pt-3">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setListingFlipById((prev) => ({ ...prev, [p.id]: "front" }))
+                                            }
+                                            className="self-start text-sm font-semibold text-[#6B9E6E] hover:underline"
+                                          >
+                                            ← Back
+                                          </button>
+                                          <h2 className="mt-2 font-serif text-lg font-bold text-[#2C2C2C]">
+                                            {flipFace === "likes" ? "❤️ Liked by" : "📌 Pinned by"}
+                                          </h2>
+                                        </div>
                                         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                                           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-3">
-                                            <h2 className="font-serif text-lg font-bold text-[#2C2C2C]">
-                                              {flipFace === "likes" ? "❤️ Liked by" : "📌 Pinned by"}
-                                            </h2>
-                                            <div className="mt-2 border-b border-[#2C2C2C]/10" />
                                             {!hasUsers ? (
                                               <div className="flex flex-col items-center justify-center px-2 py-10 text-center">
                                                 <span className="text-5xl leading-none" aria-hidden>
@@ -1420,7 +1428,7 @@ export default function AgentProfilePage() {
                                                 </button>
                                               </div>
                                             ) : (
-                                              <ul className="mt-4 space-y-4">
+                                              <ul className="space-y-5">
                                                 {users.map((u) => {
                                                   const href = profileHrefForEngagement(
                                                     u,
@@ -1429,225 +1437,260 @@ export default function AgentProfilePage() {
                                                   const label = u.full_name?.trim() || "User";
                                                   const leadKey = `${p.id}:${u.id}`;
                                                   const leadAdded = engagementLeadAdded[leadKey];
+                                                  const lastAct = engagementLastActivityAt(u);
+                                                  const locBudget =
+                                                    engagementHasPrefs(u) ? (
+                                                      <>
+                                                        📍 {preferredLocationsLabel(u.preferred_locations)} · 💰{" "}
+                                                        {formatBudgetRangePhp(u.budget_min, u.budget_max)}
+                                                      </>
+                                                    ) : (
+                                                      <span className="text-[#2C2C2C]/45">No preferences set yet</span>
+                                                    );
                                                   return (
-                                                    <li
-                                                      key={u.id}
-                                                      className="border-b border-[#2C2C2C]/8 pb-4 last:border-0 last:pb-0"
-                                                    >
-                                                      <div className="flex items-start gap-2">
-                                                        <div className="flex min-w-0 flex-1 gap-3">
-                                                          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-2 ring-[#6B9E6E]">
+                                                    <li key={u.id} className="border-b border-[#2C2C2C]/8 pb-5 last:border-0 last:pb-0">
+                                                      <div className="flex gap-3">
+                                                        <div className="relative shrink-0">
+                                                          <div className="relative h-16 w-16 overflow-hidden rounded-full bg-[#FAF8F4] ring-2 ring-[#6B9E6E]">
                                                             {u.avatar_url?.trim() ? (
                                                               <SupabasePublicImage
                                                                 src={u.avatar_url}
                                                                 alt=""
                                                                 fill
-                                                                sizes="48px"
+                                                                sizes="64px"
                                                                 className="object-cover"
                                                               />
                                                             ) : (
-                                                              <span className="flex h-full w-full items-center justify-center text-xs font-bold text-[#2C2C2C]/55">
+                                                              <span className="flex h-full w-full items-center justify-center text-sm font-bold text-[#2C2C2C]/55">
                                                                 {agentAvatarInitials(label)}
                                                               </span>
                                                             )}
                                                           </div>
-                                                          <div className="min-w-0 flex-1">
-                                                            <p className="font-semibold text-sm text-[#2C2C2C]">
-                                                              {label}
-                                                            </p>
-                                                            <span className="mt-0.5 inline-flex rounded-full bg-[#6B9E6E]/12 px-2 py-0.5 text-[10px] font-semibold text-[#6B9E6E]">
-                                                              {engagementRoleBadgeLabel(u.role)}
+                                                          {u.role === "client" ? (
+                                                            <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm ring-2 ring-white">
+                                                              <BadgeCheck
+                                                                className="h-4 w-4 text-[#6B9E6E]"
+                                                                aria-label="Verified"
+                                                              />
                                                             </span>
-                                                            <p className="mt-1 min-w-0 truncate text-xs text-gray-500">
-                                                              {engagementHasPrefs(u) ? (
-                                                                <>
-                                                                  📍 {preferredLocationsLabel(u.preferred_locations)} ·
-                                                                  💰{" "}
-                                                                  {formatBudgetRangePhp(
-                                                                    u.budget_min,
-                                                                    u.budget_max,
-                                                                  )}{" "}
-                                                                  · 🏠 {lookingToLabel(u.looking_to)}
-                                                                </>
-                                                              ) : (
-                                                                <span className="text-[#2C2C2C]/45">
-                                                                  No preferences set yet
-                                                                </span>
-                                                              )}
-                                                            </p>
-                                                            {u.likedAt ? (
-                                                              <p className="mt-1 text-xs text-gray-400">
-                                                                ❤️ Liked this listing ·{" "}
-                                                                {formatDistanceToNow(
-                                                                  new Date(u.likedAt),
-                                                                  { addSuffix: true },
-                                                                )}
-                                                              </p>
-                                                            ) : null}
-                                                            {u.savedAt ? (
-                                                              <p className="mt-1 text-xs text-gray-400">
-                                                                📌 Saved this listing ·{" "}
-                                                                {formatDistanceToNow(
-                                                                  new Date(u.savedAt),
-                                                                  { addSuffix: true },
-                                                                )}
-                                                              </p>
+                                                          ) : null}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                          <div className="flex items-start justify-between gap-2">
+                                                            <div className="min-w-0">
+                                                              <p className="font-bold text-base text-[#2C2C2C]">{label}</p>
+                                                              <span className="mt-1 inline-flex rounded-full bg-[#6B9E6E]/12 px-2.5 py-0.5 text-xs font-semibold text-[#6B9E6E]">
+                                                                {engagementRoleBadgeLabel(u.role)}
+                                                              </span>
+                                                              <p className="mt-1 text-xs text-gray-500">{locBudget}</p>
+                                                            </div>
+                                                            {href ? (
+                                                              <Link
+                                                                href={href}
+                                                                className="shrink-0 text-sm font-semibold text-[#6B9E6E] hover:underline"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                              >
+                                                                View Profile →
+                                                              </Link>
                                                             ) : null}
                                                           </div>
-                                                        </div>
-                                                        {href ? (
-                                                          <Link
-                                                            href={href}
-                                                            className="shrink-0 text-xs font-semibold text-[#6B9E6E] hover:underline"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                          >
-                                                            View Profile →
-                                                          </Link>
-                                                        ) : null}
-                                                      </div>
-                                                      {isOwnProfile ? (
-                                                        <div className="mt-3 flex min-w-0 flex-col gap-2">
-                                                          <div className="flex flex-row flex-wrap items-center gap-2">
-                                                            <button
-                                                              type="button"
-                                                              disabled={leadAdded}
-                                                              onClick={() => {
-                                                                void (async () => {
-                                                                  if (!agent) return;
-                                                                  const { error } = await supabase
-                                                                    .from("leads")
-                                                                    .insert({
-                                                                      name: label,
-                                                                      email: u.email?.trim() || "",
-                                                                      agent_id: agent.user_id,
-                                                                      client_id: u.id,
-                                                                      property_id: p.id,
-                                                                      source: "engagement",
-                                                                      stage: "new",
-                                                                      property_interest: title,
-                                                                    });
-                                                                  if (error) {
-                                                                    if (error.code === "23505") {
+                                                          <div className="mt-3 flex flex-wrap items-center gap-0.5 rounded-full bg-gray-50 px-2 py-2">
+                                                            <span className="rounded-full px-3 py-1.5 text-xs text-[#2C2C2C]/80">
+                                                              ● Active{" "}
+                                                              {lastAct
+                                                                ? formatDistanceToNow(lastAct, { addSuffix: true })
+                                                                : "recently"}
+                                                            </span>
+                                                            <span className="mx-0.5 h-4 w-px shrink-0 bg-gray-200" />
+                                                            <span
+                                                              className={cn(
+                                                                "rounded-full px-3 py-1.5 text-xs",
+                                                                u.likedAt ? "text-[#2C2C2C]/80" : "text-gray-400",
+                                                              )}
+                                                            >
+                                                              ❤️ Liked
+                                                            </span>
+                                                            <span className="mx-0.5 h-4 w-px shrink-0 bg-gray-200" />
+                                                            <span
+                                                              className={cn(
+                                                                "rounded-full px-3 py-1.5 text-xs",
+                                                                u.savedAt ? "text-[#2C2C2C]/80" : "text-gray-400",
+                                                              )}
+                                                            >
+                                                              🔖 Saved
+                                                            </span>
+                                                          </div>
+                                                          {isOwnProfile ? (
+                                                            <div className="mt-4 space-y-3">
+                                                              <div className="grid grid-cols-2 gap-2">
+                                                                <button
+                                                                  type="button"
+                                                                  disabled={leadAdded}
+                                                                  onClick={() => {
+                                                                    void (async () => {
+                                                                      if (!agent) return;
+                                                                      const { error } = await supabase
+                                                                        .from("leads")
+                                                                        .insert({
+                                                                          name: label,
+                                                                          email: u.email?.trim() || "",
+                                                                          agent_id: agent.user_id,
+                                                                          client_id: u.id,
+                                                                          property_id: p.id,
+                                                                          source: "engagement",
+                                                                          stage: "new",
+                                                                          property_interest: title,
+                                                                        });
+                                                                      if (error) {
+                                                                        if (error.code === "23505") {
+                                                                          setEngagementLeadAdded((prev) => ({
+                                                                            ...prev,
+                                                                            [leadKey]: true,
+                                                                          }));
+                                                                          toast.success("Lead added!");
+                                                                        } else {
+                                                                          toast.error(error.message);
+                                                                        }
+                                                                        return;
+                                                                      }
                                                                       setEngagementLeadAdded((prev) => ({
                                                                         ...prev,
                                                                         [leadKey]: true,
                                                                       }));
                                                                       toast.success("Lead added!");
-                                                                    } else {
-                                                                      toast.error(error.message);
-                                                                    }
-                                                                    return;
-                                                                  }
-                                                                  setEngagementLeadAdded((prev) => ({
-                                                                    ...prev,
-                                                                    [leadKey]: true,
-                                                                  }));
-                                                                  toast.success("Lead added!");
-                                                                })();
-                                                              }}
-                                                              className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
-                                                            >
-                                                              {leadAdded ? "✓ Lead Added" : "+ Add as Lead"}
-                                                            </button>
-                                                            <DropdownMenu>
-                                                              <DropdownMenuTrigger asChild>
-                                                                <button
-                                                                  type="button"
-                                                                  className="rounded-full border border-[#6B9E6E] bg-white px-3 py-1.5 text-xs font-semibold text-[#6B9E6E]"
+                                                                    })();
+                                                                  }}
+                                                                  className="flex h-12 items-center justify-center rounded-xl border-2 border-[#6B9E6E] bg-white text-sm font-semibold text-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-70"
                                                                 >
-                                                                  💬 Message
+                                                                  {leadAdded ? "✓ Lead Added" : "+ Add as Lead"}
                                                                 </button>
-                                                              </DropdownMenuTrigger>
-                                                              <DropdownMenuContent
-                                                                align="start"
-                                                                className="max-w-[280px]"
-                                                              >
-                                                                {ENGAGEMENT_MESSAGE_PRESETS.map((msg) => (
-                                                                  <DropdownMenuItem
-                                                                    key={msg}
-                                                                    className="whitespace-normal text-xs"
-                                                                    onSelect={() => {
-                                                                      setEngagementMessageDraft((prev) => ({
-                                                                        ...prev,
-                                                                        [leadKey]: msg,
-                                                                      }));
-                                                                    }}
+                                                                <Popover>
+                                                                  <PopoverTrigger asChild>
+                                                                    <button
+                                                                      type="button"
+                                                                      className="inline-flex h-12 w-full items-center justify-center gap-1 rounded-xl bg-[#6B9E6E] px-2 text-sm font-semibold text-white"
+                                                                    >
+                                                                      💬 Message
+                                                                      <ChevronDown className="h-4 w-4 shrink-0 opacity-90" />
+                                                                    </button>
+                                                                  </PopoverTrigger>
+                                                                  <PopoverContent
+                                                                    align="end"
+                                                                    side="bottom"
+                                                                    className="w-[min(calc(100vw-2rem),18rem)] p-3"
                                                                   >
-                                                                    {msg}
-                                                                  </DropdownMenuItem>
-                                                                ))}
-                                                              </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                          </div>
-                                                          {engagementMessageDraft[leadKey] ? (
-                                                            <p className="text-xs leading-snug text-[#2C2C2C]/75">
-                                                              {engagementMessageDraft[leadKey]}
-                                                            </p>
-                                                          ) : null}
-                                                          {engagementMessageSentBanner[leadKey] ? (
-                                                            <div className="rounded-lg border border-green-200 bg-green-50 p-2 text-xs text-green-700">
-                                                              ✅ Message sent to {label}!
+                                                                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                                                                      Quick messages
+                                                                    </p>
+                                                                    <div className="mt-2 space-y-1">
+                                                                      {ENGAGEMENT_MESSAGE_PRESETS.map((msg) => (
+                                                                        <button
+                                                                          key={msg}
+                                                                          type="button"
+                                                                          onClick={() => {
+                                                                            setEngagementMessageDraft((prev) => ({
+                                                                              ...prev,
+                                                                              [leadKey]: msg,
+                                                                            }));
+                                                                          }}
+                                                                          className="w-full rounded-lg border border-[#2C2C2C]/10 bg-[#FAF8F4] px-2 py-2 text-left text-xs font-medium text-[#2C2C2C]/85 hover:bg-[#6B9E6E]/10"
+                                                                        >
+                                                                          {msg}
+                                                                        </button>
+                                                                      ))}
+                                                                    </div>
+                                                                    <div className="mt-3 border-t border-[#2C2C2C]/10 pt-3">
+                                                                      <div className="flex items-center gap-2">
+                                                                        <input
+                                                                          type="text"
+                                                                          value={engagementMessageDraft[leadKey] ?? ""}
+                                                                          onChange={(e) =>
+                                                                            setEngagementMessageDraft((prev) => ({
+                                                                              ...prev,
+                                                                              [leadKey]: e.target.value,
+                                                                            }))
+                                                                          }
+                                                                          placeholder="Write your own message…"
+                                                                          className="min-w-0 flex-1 rounded-lg border border-[#2C2C2C]/15 bg-white px-2 py-2 text-xs text-[#2C2C2C]"
+                                                                        />
+                                                                        <button
+                                                                          type="button"
+                                                                          className="shrink-0 rounded-lg p-2 text-[#6B9E6E] hover:bg-[#6B9E6E]/10"
+                                                                          aria-label="Edit message"
+                                                                        >
+                                                                          <Pencil className="h-4 w-4" />
+                                                                        </button>
+                                                                      </div>
+                                                                      <button
+                                                                        type="button"
+                                                                        disabled={!engagementMessageDraft[leadKey]?.trim()}
+                                                                        onClick={() => {
+                                                                          void (async () => {
+                                                                            if (!agent) return;
+                                                                            const msg = engagementMessageDraft[leadKey];
+                                                                            if (!msg?.trim()) return;
+                                                                            const res = await fetch(
+                                                                              "/api/agent/engagement-notify-client",
+                                                                              {
+                                                                                method: "POST",
+                                                                                headers: {
+                                                                                  "Content-Type": "application/json",
+                                                                                },
+                                                                                body: JSON.stringify({
+                                                                                  propertyId: p.id,
+                                                                                  recipientUserId: u.id,
+                                                                                  message: msg,
+                                                                                  agentFullName: agent.name,
+                                                                                }),
+                                                                              },
+                                                                            );
+                                                                            const data = (await res
+                                                                              .json()
+                                                                              .catch(() => null)) as {
+                                                                              success?: boolean;
+                                                                              error?: { message?: string };
+                                                                            } | null;
+                                                                            if (!res.ok || !data?.success) {
+                                                                              toast.error(
+                                                                                data?.error?.message ??
+                                                                                  "Could not send message.",
+                                                                              );
+                                                                              return;
+                                                                            }
+                                                                            setEngagementMessageSentBanner((prev) => ({
+                                                                              ...prev,
+                                                                              [leadKey]: true,
+                                                                            }));
+                                                                            setEngagementMessageDraft((prev) => {
+                                                                              const next = { ...prev };
+                                                                              delete next[leadKey];
+                                                                              return next;
+                                                                            });
+                                                                            window.setTimeout(() => {
+                                                                              setEngagementMessageSentBanner((prev) => ({
+                                                                                ...prev,
+                                                                                [leadKey]: false,
+                                                                              }));
+                                                                            }, 3000);
+                                                                          })();
+                                                                        }}
+                                                                        className="mt-3 w-full rounded-xl bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white disabled:pointer-events-none disabled:opacity-50"
+                                                                      >
+                                                                        Send Message
+                                                                      </button>
+                                                                    </div>
+                                                                  </PopoverContent>
+                                                                </Popover>
+                                                              </div>
+                                                              {engagementMessageSentBanner[leadKey] ? (
+                                                                <div className="rounded-lg border border-green-200 bg-green-50 p-2 text-xs text-green-700">
+                                                                  ✅ Message sent to {label}!
+                                                                </div>
+                                                              ) : null}
                                                             </div>
                                                           ) : null}
-                                                          <button
-                                                            type="button"
-                                                            disabled={!engagementMessageDraft[leadKey]}
-                                                            onClick={() => {
-                                                              void (async () => {
-                                                                if (!agent) return;
-                                                                const msg = engagementMessageDraft[leadKey];
-                                                                if (!msg) return;
-                                                                const res = await fetch(
-                                                                  "/api/agent/engagement-notify-client",
-                                                                  {
-                                                                    method: "POST",
-                                                                    headers: {
-                                                                      "Content-Type": "application/json",
-                                                                    },
-                                                                    body: JSON.stringify({
-                                                                      propertyId: p.id,
-                                                                      recipientUserId: u.id,
-                                                                      message: msg,
-                                                                      agentFullName: agent.name,
-                                                                    }),
-                                                                  },
-                                                                );
-                                                                const data = (await res
-                                                                  .json()
-                                                                  .catch(() => null)) as {
-                                                                  success?: boolean;
-                                                                  error?: { message?: string };
-                                                                } | null;
-                                                                if (!res.ok || !data?.success) {
-                                                                  toast.error(
-                                                                    data?.error?.message ??
-                                                                      "Could not send message.",
-                                                                  );
-                                                                  return;
-                                                                }
-                                                                setEngagementMessageSentBanner((prev) => ({
-                                                                  ...prev,
-                                                                  [leadKey]: true,
-                                                                }));
-                                                                setEngagementMessageDraft((prev) => {
-                                                                  const next = { ...prev };
-                                                                  delete next[leadKey];
-                                                                  return next;
-                                                                });
-                                                                window.setTimeout(() => {
-                                                                  setEngagementMessageSentBanner((prev) => ({
-                                                                    ...prev,
-                                                                    [leadKey]: false,
-                                                                  }));
-                                                                }, 3000);
-                                                              })();
-                                                            }}
-                                                            className="mt-2 w-full rounded-full bg-[#6B9E6E] py-2 text-sm font-semibold text-white disabled:pointer-events-none disabled:opacity-50"
-                                                          >
-                                                            Send Message
-                                                          </button>
                                                         </div>
-                                                      ) : null}
+                                                      </div>
                                                     </li>
                                                   );
                                                 })}
@@ -1656,7 +1699,7 @@ export default function AgentProfilePage() {
                                           </div>
                                           <div className="shrink-0 border-t border-[#2C2C2C]/10 px-4 py-3">
                                             <p className="text-center text-xs text-gray-400">
-                                              👁️ {likeN} likes · 📌 {pinN} saves · 🏠 {listed}
+                                              👁 {likeN} likes · 📌 {pinN} saves · 🏠 {listed}
                                             </p>
                                           </div>
                                         </div>
