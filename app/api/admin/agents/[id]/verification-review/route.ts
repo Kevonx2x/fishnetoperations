@@ -59,10 +59,41 @@ export async function GET(_request: NextRequest, ctx: Ctx) {
   }
 }
 
-const patchSchema = z.object({
-  decision: z.enum(["approve", "reject"]),
-  reason: z.string().max(2000).optional(),
-});
+const patchSchema = z.discriminatedUnion("decision", [
+  z.object({ decision: z.literal("approve") }),
+  z.object({
+    decision: z.literal("reject"),
+    reason: z.string().min(1).max(2000),
+  }),
+  z.object({
+    decision: z.literal("suspend"),
+    reason: z.string().min(1).max(2000),
+  }),
+]);
+
+function notificationPayload(
+  decision: "approve" | "reject" | "suspend",
+  reason: string | undefined,
+): { title: string; body: string } {
+  if (decision === "approve") {
+    return {
+      title: "You're now a Verified Agent! 🎉",
+      body: "Your PRC license has been verified. You now have full access to post listings and manage deals.",
+    };
+  }
+  if (decision === "reject") {
+    const r = reason?.trim() ?? "";
+    return {
+      title: "Verification unsuccessful",
+      body: `Your documents could not be verified. Reason: ${r}. Please resubmit in Settings → Verification.`,
+    };
+  }
+  const r = reason?.trim() ?? "";
+  return {
+    title: "Account suspended",
+    body: `Your account has been suspended. Reason: ${r}. Contact support at support@bahaygo.com`,
+  };
+}
 
 export async function PATCH(request: NextRequest, ctx: Ctx) {
   const denied = await requireAdminSession();
@@ -78,7 +109,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     const sb = createSupabaseAdmin();
     const { data: existing, error: fetchErr } = await sb
       .from("agents")
-      .select("id, user_id, status")
+      .select("id, user_id, status, verification_status")
       .eq("id", id)
       .maybeSingle();
 
@@ -96,43 +127,72 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
       );
     }
 
+    const prevVerificationStatus = existing.verification_status;
+
+    const d = parsed.data;
     const verification_status =
-      parsed.data.decision === "approve" ? "verified" : "rejected";
+      d.decision === "approve"
+        ? "verified"
+        : d.decision === "reject"
+          ? "rejected"
+          : "suspended";
 
     const { data: updated, error: upErr } = await sb
       .from("agents")
       .update({ verification_status })
       .eq("id", id)
-      .select()
+      .select("id, user_id")
       .maybeSingle();
 
     if (upErr) {
       return fail("DATABASE_ERROR", upErr.message, 500);
     }
-    if (!updated) {
-      return fail("NOT_FOUND", "Agent not found", 404);
+    if (!updated?.user_id) {
+      return fail("INTERNAL_ERROR", "Agent row missing user_id", 500);
     }
 
     const userId = updated.user_id as string;
-    const isApprove = parsed.data.decision === "approve";
-    const { error: notifErr } = await sb.from("notifications").insert({
+    const reasonText =
+      d.decision === "approve" ? undefined : d.reason.trim();
+    const { title, body: notifBody } = notificationPayload(
+      d.decision,
+      reasonText,
+    );
+
+    const insertRow = {
       user_id: userId,
-      type: "verification",
-      title: isApprove
-        ? "You're now a Verified Agent! 🎉"
-        : "Verification unsuccessful",
-      body: isApprove
-        ? "Your PRC license has been verified. You now have full access to post listings and manage deals."
-        : "Your documents could not be verified. Please resubmit in Settings → Verification.",
+      type: "verification" as const,
+      title,
+      body: notifBody,
       metadata: {
         agent_id: updated.id,
-        entity: "agent",
-        identity_decision: parsed.data.decision,
-        reason: parsed.data.reason?.trim() || null,
+        entity: "agent" as const,
+        identity_decision: d.decision,
+        reason: reasonText ?? null,
       },
-    });
+    };
+
+    const { error: notifErr } = await sb.from("notifications").insert(insertRow);
+
     if (notifErr) {
-      console.error("[verification-review] notification insert:", notifErr);
+      console.error("[verification-review] notification insert failed:", {
+        message: notifErr.message,
+        code: notifErr.code,
+        details: notifErr.details,
+        hint: notifErr.hint,
+      });
+      const { error: revertErr } = await sb
+        .from("agents")
+        .update({ verification_status: prevVerificationStatus })
+        .eq("id", id);
+      if (revertErr) {
+        console.error("[verification-review] revert failed:", revertErr);
+      }
+      return fail(
+        "NOTIFICATION_ERROR",
+        `Could not create notification: ${notifErr.message}`,
+        500,
+      );
     }
 
     return ok(updated);

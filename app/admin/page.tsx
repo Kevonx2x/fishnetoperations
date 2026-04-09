@@ -135,6 +135,7 @@ function verificationColumnLabel(v: string | null | undefined): string {
   if (v === "verified") return "Verified";
   if (v === "pending") return "Pending Docs";
   if (v === "rejected") return "Rejected";
+  if (v === "suspended") return "Suspended";
   return "Unverified";
 }
 
@@ -142,6 +143,7 @@ function verificationColumnClass(v: string | null | undefined): string {
   if (v === "verified") return "text-emerald-700";
   if (v === "pending") return "text-amber-700";
   if (v === "rejected") return "text-red-700";
+  if (v === "suspended") return "text-red-800";
   return "text-gray-500";
 }
 
@@ -150,6 +152,22 @@ function docQueueBadgeClass(v: string | null | undefined): string {
   if (v === "rejected") return "rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-900";
   return "rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700";
 }
+
+const DOC_REJECT_REASONS = [
+  "Documents unclear or unreadable",
+  "PRC number doesn't match uploaded ID",
+  "Selfie does not match ID photo",
+  "Expired license",
+  "Other",
+] as const;
+
+const DOC_SUSPEND_REASONS = [
+  "Fraudulent listing reported",
+  "Multiple client complaints",
+  "Impersonation suspected",
+  "Platform policy violation",
+  "Other",
+] as const;
 
 function formatVerificationErrorDetails(
   status: number,
@@ -205,7 +223,10 @@ export default function AdminPage() {
     has_documents: boolean;
   } | null>(null);
   const [docReviewLoading, setDocReviewLoading] = useState(false);
-  const [docRejectReason, setDocRejectReason] = useState("");
+  const [docRejectReasonKey, setDocRejectReasonKey] = useState("");
+  const [docRejectOtherText, setDocRejectOtherText] = useState("");
+  const [docSuspendReasonKey, setDocSuspendReasonKey] = useState("");
+  const [docSuspendOtherText, setDocSuspendOtherText] = useState("");
   const [docActionSaving, setDocActionSaving] = useState(false);
 
   const [adminUsers, setAdminUsers] = useState<AdminUserRow[]>([]);
@@ -607,7 +628,10 @@ export default function AdminPage() {
   const openDocReviewModal = async (agent: AllAgentRow) => {
     setDocReviewAgent(agent);
     setDocReviewUrls(null);
-    setDocRejectReason("");
+    setDocRejectReasonKey("");
+    setDocRejectOtherText("");
+    setDocSuspendReasonKey("");
+    setDocSuspendOtherText("");
     setDocReviewLoading(true);
     try {
       const res = await fetch(`/api/admin/agents/${agent.id}/verification-review`, {
@@ -640,31 +664,63 @@ export default function AdminPage() {
   const closeDocReviewModal = () => {
     setDocReviewAgent(null);
     setDocReviewUrls(null);
-    setDocRejectReason("");
+    setDocRejectReasonKey("");
+    setDocRejectOtherText("");
+    setDocSuspendReasonKey("");
+    setDocSuspendOtherText("");
     setDocActionSaving(false);
   };
 
-  const submitDocReviewDecision = async (decision: "approve" | "reject") => {
+  const submitDocReviewDecision = async (decision: "approve" | "reject" | "suspend") => {
     if (!docReviewAgent) return;
+    let payload: { decision: "approve" } | { decision: "reject"; reason: string } | { decision: "suspend"; reason: string };
+    if (decision === "approve") {
+      payload = { decision: "approve" };
+    } else if (decision === "reject") {
+      if (!docRejectReasonKey) {
+        toast.error("Select a rejection reason.");
+        return;
+      }
+      if (docRejectReasonKey === "Other" && !docRejectOtherText.trim()) {
+        toast.error("Enter a custom rejection reason.");
+        return;
+      }
+      const reason =
+        docRejectReasonKey === "Other" ? docRejectOtherText.trim() : docRejectReasonKey;
+      payload = { decision: "reject", reason };
+    } else {
+      if (!docSuspendReasonKey) {
+        toast.error("Select a suspension reason.");
+        return;
+      }
+      if (docSuspendReasonKey === "Other" && !docSuspendOtherText.trim()) {
+        toast.error("Enter a custom suspension reason.");
+        return;
+      }
+      const reason =
+        docSuspendReasonKey === "Other" ? docSuspendOtherText.trim() : docSuspendReasonKey;
+      payload = { decision: "suspend", reason };
+    }
     setDocActionSaving(true);
     try {
       const res = await fetch(`/api/admin/agents/${docReviewAgent.id}/verification-review`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          decision,
-          ...(decision === "reject" && docRejectReason.trim()
-            ? { reason: docRejectReason.trim() }
-            : {}),
-        }),
+        body: JSON.stringify(payload),
       });
       const json = (await res.json()) as { success?: boolean; error?: { message?: string } };
       if (!res.ok || !json.success) {
         toast.error(json.error?.message ?? "Update failed");
         return;
       }
-      toast.success(decision === "approve" ? "Identity verification updated." : "Verification rejected.");
+      toast.success(
+        decision === "approve"
+          ? "Identity verification updated."
+          : decision === "reject"
+            ? "Verification rejected."
+            : "Account suspended.",
+      );
       closeDocReviewModal();
       void fetchAllAgents();
       void fetchVerification();
@@ -2293,17 +2349,59 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                    Rejection reason (optional, stored with decision)
-                  </label>
-                  <textarea
-                    value={docRejectReason}
-                    onChange={(e) => setDocRejectReason(e.target.value)}
-                    rows={3}
-                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm text-[#2C2C2C]"
-                    placeholder="Shown in admin metadata only"
-                  />
+                <div className="grid gap-4 border-t border-gray-100 pt-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                      Rejection reason
+                    </label>
+                    <select
+                      value={docRejectReasonKey}
+                      onChange={(e) => setDocRejectReasonKey(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm text-[#2C2C2C]"
+                    >
+                      <option value="">Select rejection reason…</option>
+                      {DOC_REJECT_REASONS.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                    {docRejectReasonKey === "Other" ? (
+                      <input
+                        type="text"
+                        value={docRejectOtherText}
+                        onChange={(e) => setDocRejectOtherText(e.target.value)}
+                        placeholder="Custom reason"
+                        className="mt-2 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm text-[#2C2C2C]"
+                      />
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                      Suspension reason
+                    </label>
+                    <select
+                      value={docSuspendReasonKey}
+                      onChange={(e) => setDocSuspendReasonKey(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm text-[#2C2C2C]"
+                    >
+                      <option value="">Select suspension reason…</option>
+                      {DOC_SUSPEND_REASONS.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                    {docSuspendReasonKey === "Other" ? (
+                      <input
+                        type="text"
+                        value={docSuspendOtherText}
+                        onChange={(e) => setDocSuspendOtherText(e.target.value)}
+                        placeholder="Custom reason"
+                        className="mt-2 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm text-[#2C2C2C]"
+                      />
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-2">
@@ -2322,6 +2420,14 @@ export default function AdminPage() {
                     className="rounded-full border-2 border-red-300 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-800 hover:bg-red-100 disabled:opacity-50"
                   >
                     {docActionSaving ? "Saving…" : "Reject"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={docActionSaving}
+                    onClick={() => void submitDocReviewDecision("suspend")}
+                    className="rounded-full border-2 border-red-600 bg-white px-5 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {docActionSaving ? "Saving…" : "Suspend"}
                   </button>
                 </div>
               </div>

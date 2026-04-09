@@ -57,7 +57,7 @@ type AgentRow = {
   user_id: string;
   verified?: boolean;
   status?: string;
-  verification_status?: "pending" | "verified" | "rejected" | null;
+  verification_status?: "pending" | "verified" | "rejected" | "suspended" | null;
   specialties?: string | null;
   service_areas?: string | null;
   brokers?: { id: string; company_name: string; logo_url: string | null } | null;
@@ -140,6 +140,13 @@ function verificationStatusBadge(agent: AgentRow): { label: string; className: s
       label: "Verification Failed - Resubmit in Settings",
       className:
         "max-w-[280px] rounded-full border border-red-300 bg-red-50 px-4 py-2 text-center text-xs font-bold leading-snug text-red-700 sm:max-w-none sm:text-sm",
+    };
+  }
+  if (v === "suspended") {
+    return {
+      label: "Account Suspended",
+      className:
+        "max-w-[280px] rounded-full border border-red-400 bg-red-100 px-4 py-2 text-center text-xs font-bold leading-snug text-red-800 sm:max-w-none sm:text-sm",
     };
   }
   return {
@@ -779,24 +786,28 @@ export default function AgentProfilePage() {
                             </div>
 
                             <div className="flex flex-col gap-2 px-4 pb-4 sm:flex-row sm:flex-wrap sm:items-center">
-                              <button
-                                type="button"
-                                onClick={() => openContactForListing(p)}
-                                disabled={authLoading}
-                                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-[#2C2C2C] px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#2C2C2C]/90 disabled:opacity-50 sm:w-auto"
-                              >
-                                <Mail className="h-3.5 w-3.5" />
-                                Contact Agent
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openScheduleForListing(p)}
-                                disabled={authLoading}
-                                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:opacity-50 sm:w-auto"
-                              >
-                                <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" />
-                                Schedule View
-                              </button>
+                              {!isOwnProfile ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => openContactForListing(p)}
+                                    disabled={authLoading}
+                                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-[#2C2C2C] px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#2C2C2C]/90 disabled:opacity-50 sm:w-auto"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" />
+                                    Contact Agent
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openScheduleForListing(p)}
+                                    disabled={authLoading}
+                                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:opacity-50 sm:w-auto"
+                                  >
+                                    <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" />
+                                    Schedule View
+                                  </button>
+                                </>
+                              ) : null}
                               <Link
                                 href={`/properties/${encodeURIComponent(p.id)}`}
                                 className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-[#D4A843]/60 bg-[#FAF8F4] px-3 py-2.5 text-sm font-bold text-[#8a6d32] hover:bg-[#D4A843]/15 sm:w-auto"
