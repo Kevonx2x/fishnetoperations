@@ -146,6 +146,10 @@ type PropertyRow = {
   description: string | null;
   property_type: string | null;
   listing_status: "active" | "under_offer" | "sold" | "off_market";
+  is_presale?: boolean;
+  developer_name?: string | null;
+  turnover_date?: string | null;
+  unit_types?: string[] | null;
   /** True when connected via property_agents but not the listing owner. */
   isCoHost?: boolean;
 };
@@ -159,7 +163,10 @@ const EDIT_PROPERTY_TYPES = [
   "Villa",
   "Townhouse",
   "Land",
+  "Presale",
 ] as const;
+
+const PRESALE_UNIT_TYPE_OPTIONS = ["Studio", "1BR", "2BR", "3BR", "4BR+"] as const;
 
 const EDIT_LISTING_STATUSES = ["active", "under_offer", "sold", "off_market"] as const;
 
@@ -205,6 +212,9 @@ type EditListingForm = {
   listing_type: "sale" | "rent";
   listing_status: "active" | "under_offer" | "sold" | "off_market";
   description: string;
+  developer_name: string;
+  turnover_date: string;
+  unit_types: string[];
 };
 
 /** UI labels → DB lead stages (existing check constraint). */
@@ -329,6 +339,9 @@ export function AgentDashboard() {
     listing_type: "sale",
     listing_status: "active",
     description: "",
+    developer_name: "",
+    turnover_date: "",
+    unit_types: [],
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editListingImages, setEditListingImages] = useState<string[]>([]);
@@ -343,6 +356,9 @@ export function AgentDashboard() {
     listingImageUrls: [] as string[],
     property_type: "Condo",
     listing_type: "sale" as "sale" | "rent",
+    developer_name: "",
+    turnover_date: "",
+    unit_types: [] as string[],
   });
   const [listingFormErrors, setListingFormErrors] = useState<Record<string, string>>({});
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
@@ -366,7 +382,7 @@ export function AgentDashboard() {
         supabase
           .from("properties")
           .select(
-            "id, name, location, price, image_url, status, beds, baths, sqft, description, property_type, listing_status",
+            "id, name, location, price, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types",
           )
           .eq("listed_by", user.id)
           .order("created_at", { ascending: false }),
@@ -394,6 +410,10 @@ export function AgentDashboard() {
           description: (p.description as string | null) ?? null,
           property_type: (p.property_type as string | null) ?? null,
           listing_status: (p.listing_status as PropertyRow["listing_status"]) ?? "active",
+          is_presale: Boolean(p.is_presale),
+          developer_name: (p.developer_name as string | null) ?? null,
+          turnover_date: p.turnover_date != null ? String(p.turnover_date).slice(0, 10) : null,
+          unit_types: Array.isArray(p.unit_types) ? (p.unit_types as string[]) : [],
           isCoHost: false as const,
         };
       });
@@ -407,7 +427,7 @@ export function AgentDashboard() {
         const { data: co } = await supabase
           .from("properties")
           .select(
-            "id, name, location, price, image_url, status, beds, baths, sqft, description, property_type, listing_status",
+            "id, name, location, price, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types",
           )
           .in("id", coIds)
           .order("created_at", { ascending: false });
@@ -426,6 +446,10 @@ export function AgentDashboard() {
             description: (p.description as string | null) ?? null,
             property_type: (p.property_type as string | null) ?? null,
             listing_status: (p.listing_status as PropertyRow["listing_status"]) ?? "active",
+            is_presale: Boolean(p.is_presale),
+            developer_name: (p.developer_name as string | null) ?? null,
+            turnover_date: p.turnover_date != null ? String(p.turnover_date).slice(0, 10) : null,
+            unit_types: Array.isArray(p.unit_types) ? (p.unit_types as string[]) : [],
             isCoHost: true as const,
           };
         });
@@ -717,6 +741,9 @@ export function AgentDashboard() {
           listing_type: p.status === "for_rent" ? "rent" : "sale",
           listing_status: normalizeEditListingStatus(p.listing_status),
           description: p.description ?? "",
+          developer_name: p.developer_name?.trim() ?? "",
+          turnover_date: p.turnover_date ? String(p.turnover_date).slice(0, 10) : "",
+          unit_types: Array.isArray(p.unit_types) ? [...p.unit_types] : [],
         });
         setEditListingImages(imageUrls);
         setEditFormOpen(true);
@@ -764,6 +791,11 @@ export function AgentDashboard() {
       if (be) errs.beds = be;
       const ba = validateBedsBaths(editForm.baths, "Baths");
       if (ba) errs.baths = ba;
+      if (editForm.property_type === "Presale") {
+        if (!editForm.developer_name.trim()) errs.developer_name = "Developer name is required.";
+        if (!editForm.turnover_date.trim()) errs.turnover_date = "Expected turnover date is required.";
+        if (editForm.unit_types.length === 0) errs.unit_types = "Select at least one unit type.";
+      }
       if (Object.keys(errs).length > 0) {
         setEditFormErrors(errs);
         return;
@@ -774,6 +806,7 @@ export function AgentDashboard() {
         const baths = Number(editForm.baths.replace(/\D/g, "")) || 0;
         const imageUrls =
           editListingImages.length > 0 ? editListingImages : [DEFAULT_LISTING_IMAGE];
+        const isPs = editForm.property_type === "Presale";
         const res = await fetch("/api/agent/update-listing", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -787,10 +820,14 @@ export function AgentDashboard() {
             baths,
             sqft: editForm.sqft.replace(/\D/g, ""),
             property_type: editForm.property_type,
-            status: editForm.listing_type === "sale" ? "for_sale" : "for_rent",
+            status: isPs ? "for_sale" : editForm.listing_type === "sale" ? "for_sale" : "for_rent",
             listing_status: editForm.listing_status,
             description: editForm.description.trim() || null,
             imageUrls,
+            is_presale: isPs,
+            developer_name: isPs ? editForm.developer_name.trim() : null,
+            turnover_date: isPs ? editForm.turnover_date.trim() : null,
+            unit_types: isPs ? editForm.unit_types : [],
           }),
         });
         const json = (await res.json().catch(() => null)) as {
@@ -834,6 +871,11 @@ export function AgentDashboard() {
     if (be) errs.beds = be;
     const ba = validateBedsBaths(listingForm.baths, "Baths");
     if (ba) errs.baths = ba;
+    if (listingForm.property_type === "Presale") {
+      if (!listingForm.developer_name.trim()) errs.developer_name = "Developer name is required.";
+      if (!listingForm.turnover_date.trim()) errs.turnover_date = "Expected turnover date is required.";
+      if (listingForm.unit_types.length === 0) errs.unit_types = "Select at least one unit type.";
+    }
     if (Object.keys(errs).length > 0) {
       setListingFormErrors(errs);
       return;
@@ -844,6 +886,7 @@ export function AgentDashboard() {
     const beds = Number(listingForm.beds.replace(/\D/g, "")) || 0;
     const baths = Number(listingForm.baths.replace(/\D/g, "")) || 0;
     const mainImageUrl = listingForm.listingImageUrls[0]?.trim() || DEFAULT_LISTING_IMAGE;
+    const isPs = listingForm.property_type === "Presale";
     const { data: newProperty, error } = await supabase
       .from("properties")
       .insert({
@@ -854,10 +897,14 @@ export function AgentDashboard() {
         beds,
         baths,
         image_url: mainImageUrl,
-        status: listingForm.listing_type === "sale" ? "for_sale" : "for_rent",
+        status: isPs ? "for_sale" : listingForm.listing_type === "sale" ? "for_sale" : "for_rent",
         listed_by: user.id,
         property_type: listingForm.property_type,
         description: listingForm.description.trim() || null,
+        is_presale: isPs,
+        developer_name: isPs ? listingForm.developer_name.trim() : null,
+        turnover_date: isPs ? listingForm.turnover_date.trim() : null,
+        unit_types: isPs ? listingForm.unit_types : [],
       })
       .select("id")
       .single();
@@ -904,6 +951,9 @@ export function AgentDashboard() {
       listingImageUrls: [],
       property_type: "Condo",
       listing_type: "sale",
+      developer_name: "",
+      turnover_date: "",
+      unit_types: [],
     });
     setListingFormErrors({});
     await loadData();
@@ -1349,7 +1399,14 @@ export function AgentDashboard() {
                   Property type
                   <select
                     value={editForm.property_type}
-                    onChange={(e) => setEditForm((f) => ({ ...f, property_type: e.target.value }))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setEditForm((f) => ({
+                        ...f,
+                        property_type: v,
+                        listing_type: v === "Presale" ? "sale" : f.listing_type,
+                      }));
+                    }}
                     className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                   >
                     {EDIT_PROPERTY_TYPES.map((t) => (
@@ -1359,11 +1416,71 @@ export function AgentDashboard() {
                     ))}
                   </select>
                 </label>
-                <div className="rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2">
+                {editForm.property_type === "Presale" ? (
+                  <div className="space-y-3 rounded-xl border border-[#D4A843]/25 bg-[#FAF8F4]/80 p-3">
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                      Developer name
+                      <input
+                        value={editForm.developer_name}
+                        onChange={(e) => setEditForm((f) => ({ ...f, developer_name: e.target.value }))}
+                        className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                        required
+                      />
+                    </label>
+                    {editFormErrors.developer_name ? (
+                      <p className="text-sm font-semibold text-red-600">{editFormErrors.developer_name}</p>
+                    ) : null}
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                      Expected turnover date
+                      <input
+                        type="date"
+                        value={editForm.turnover_date}
+                        onChange={(e) => setEditForm((f) => ({ ...f, turnover_date: e.target.value }))}
+                        className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                        required
+                      />
+                    </label>
+                    {editFormErrors.turnover_date ? (
+                      <p className="text-sm font-semibold text-red-600">{editFormErrors.turnover_date}</p>
+                    ) : null}
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Unit types</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {PRESALE_UNIT_TYPE_OPTIONS.map((u) => (
+                          <label key={u} className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-[#2C2C2C]">
+                            <input
+                              type="checkbox"
+                              checked={editForm.unit_types.includes(u)}
+                              onChange={() =>
+                                setEditForm((f) => ({
+                                  ...f,
+                                  unit_types: f.unit_types.includes(u)
+                                    ? f.unit_types.filter((x) => x !== u)
+                                    : [...f.unit_types, u],
+                                }))
+                              }
+                              className="rounded border-[#2C2C2C]/20"
+                            />
+                            {u}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    {editFormErrors.unit_types ? (
+                      <p className="text-sm font-semibold text-red-600">{editFormErrors.unit_types}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+                <div
+                  className={`rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2 ${
+                    editForm.property_type === "Presale" ? "opacity-50" : ""
+                  }`}
+                >
                   <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">For Sale / For Rent</p>
                   <div className="mt-2 flex gap-2">
                     <button
                       type="button"
+                      disabled={editForm.property_type === "Presale"}
                       onClick={() => setEditForm((f) => ({ ...f, listing_type: "sale" }))}
                       className={`flex-1 rounded-full py-2 text-xs font-bold ${
                         editForm.listing_type === "sale"
@@ -1375,6 +1492,7 @@ export function AgentDashboard() {
                     </button>
                     <button
                       type="button"
+                      disabled={editForm.property_type === "Presale"}
                       onClick={() => setEditForm((f) => ({ ...f, listing_type: "rent" }))}
                       className={`flex-1 rounded-full py-2 text-xs font-bold ${
                         editForm.listing_type === "rent"
@@ -1796,6 +1914,9 @@ function ListingsTab({
     listingImageUrls: string[];
     property_type: string;
     listing_type: "sale" | "rent";
+    developer_name: string;
+    turnover_date: string;
+    unit_types: string[];
   };
   setListingForm: React.Dispatch<React.SetStateAction<typeof listingForm>>;
   listingFormErrors: Record<string, string>;
@@ -1814,6 +1935,14 @@ function ListingsTab({
 }) {
   const ownedCap = Number.isFinite(listingLimit) ? String(listingLimit) : "∞";
   const coCap = Number.isFinite(coListLimit) ? String(coListLimit) : "∞";
+  const [listingKindFilter, setListingKindFilter] = useState<"all" | "sale" | "rent" | "presale">("all");
+  const visibleProperties = useMemo(() => {
+    if (listingKindFilter === "presale") return properties.filter((p) => p.is_presale);
+    if (listingKindFilter === "sale")
+      return properties.filter((p) => p.status === "for_sale" && !p.is_presale);
+    if (listingKindFilter === "rent") return properties.filter((p) => p.status === "for_rent");
+    return properties;
+  }, [properties, listingKindFilter]);
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -1822,6 +1951,29 @@ function ListingsTab({
           <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
             Owned {ownedListingCount}/{ownedCap} · Co-lists {coListedCount}/{coCap}
           </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {(
+              [
+                { id: "all" as const, label: "All" },
+                { id: "sale" as const, label: "For Sale" },
+                { id: "rent" as const, label: "For Rent" },
+                { id: "presale" as const, label: "Presale" },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setListingKindFilter(t.id)}
+                className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
+                  listingKindFilter === t.id
+                    ? "bg-[#6B9E6E] text-white"
+                    : "bg-[#FAF8F4] text-[#2C2C2C]/55 ring-1 ring-black/10 hover:bg-white"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
         {canAddListing ? (
           <button
@@ -1841,7 +1993,7 @@ function ListingsTab({
         )}
       </div>
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {properties.map((p) => (
+        {visibleProperties.map((p) => (
           <div
             key={p.id}
             className="relative overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm transition hover:shadow-md"
@@ -1849,8 +2001,12 @@ function ListingsTab({
             <Link href={`/properties/${encodeURIComponent(p.id)}`} className="block">
               <div className="relative h-40 w-full bg-black/5">
                 <Image src={p.image_url} alt="" fill className="object-cover" sizes="400px" />
-                <span className="absolute left-2 top-2 rounded-full bg-[#6B9E6E] px-2 py-1 text-[10px] font-bold text-white">
-                  {p.status === "for_rent" ? "For Rent" : "For Sale"}
+                <span
+                  className={`absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-bold shadow-sm ${
+                    p.is_presale ? "bg-[#D4A843] text-[#2C2C2C]" : "bg-[#6B9E6E] text-white"
+                  }`}
+                >
+                  {p.is_presale ? "Presale" : p.status === "for_rent" ? "For Rent" : "For Sale"}
                 </span>
                 {p.isCoHost ? (
                   <span className="absolute bottom-2 left-2 rounded-full bg-[#D4A843] px-2 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
@@ -2039,20 +2195,85 @@ function ListingsTab({
                   Property type
                   <select
                     value={listingForm.property_type}
-                    onChange={(e) => setListingForm((f) => ({ ...f, property_type: e.target.value }))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setListingForm((f) => ({
+                        ...f,
+                        property_type: v,
+                        listing_type: v === "Presale" ? "sale" : f.listing_type,
+                      }));
+                    }}
                     className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
                   >
-                    {["House", "Condo", "Villa", "Townhouse", "Land", "Studio"].map((t) => (
+                    {EDIT_PROPERTY_TYPES.map((t) => (
                       <option key={t} value={t}>
                         {t}
                       </option>
                     ))}
                   </select>
                 </label>
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                {listingForm.property_type === "Presale" ? (
+                  <div className="space-y-3 rounded-xl border border-[#D4A843]/25 bg-[#FAF8F4]/80 p-3">
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                      Developer name
+                      <input
+                        value={listingForm.developer_name}
+                        onChange={(e) => setListingForm((f) => ({ ...f, developer_name: e.target.value }))}
+                        className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
+                      />
+                    </label>
+                    {listingFormErrors.developer_name ? (
+                      <p className="text-sm font-semibold text-red-600">{listingFormErrors.developer_name}</p>
+                    ) : null}
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                      Expected turnover date
+                      <input
+                        type="date"
+                        value={listingForm.turnover_date}
+                        onChange={(e) => setListingForm((f) => ({ ...f, turnover_date: e.target.value }))}
+                        className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
+                      />
+                    </label>
+                    {listingFormErrors.turnover_date ? (
+                      <p className="text-sm font-semibold text-red-600">{listingFormErrors.turnover_date}</p>
+                    ) : null}
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Unit types</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {PRESALE_UNIT_TYPE_OPTIONS.map((u) => (
+                          <label key={u} className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-[#2C2C2C]">
+                            <input
+                              type="checkbox"
+                              checked={listingForm.unit_types.includes(u)}
+                              onChange={() =>
+                                setListingForm((f) => ({
+                                  ...f,
+                                  unit_types: f.unit_types.includes(u)
+                                    ? f.unit_types.filter((x) => x !== u)
+                                    : [...f.unit_types, u],
+                                }))
+                              }
+                              className="rounded border-[#2C2C2C]/20"
+                            />
+                            {u}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    {listingFormErrors.unit_types ? (
+                      <p className="text-sm font-semibold text-red-600">{listingFormErrors.unit_types}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+                <label
+                  className={`text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45 ${
+                    listingForm.property_type === "Presale" ? "opacity-50" : ""
+                  }`}
+                >
                   Listing type
                   <select
                     value={listingForm.listing_type}
+                    disabled={listingForm.property_type === "Presale"}
                     onChange={(e) =>
                       setListingForm((f) => ({
                         ...f,

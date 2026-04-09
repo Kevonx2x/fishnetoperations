@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BadgeCheck, ChevronLeft, ChevronRight, Heart, MapPin, Pin, X } from "lucide-react";
@@ -295,7 +296,19 @@ function PropertyDetailsSection({
         <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
         <span>{property.location}</span>
       </p>
-      <span className="mt-3 inline-flex rounded-full bg-[#6B9E6E]/15 px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/85">
+      {property.is_presale && property.developer_name?.trim() ? (
+        <p className="mt-2 text-xs font-semibold text-[#2C2C2C]/75">{property.developer_name.trim()}</p>
+      ) : null}
+      {property.is_presale && property.turnover_date ? (
+        <p className="mt-1 text-xs font-medium text-[#2C2C2C]/50">
+          Turnover: {new Date(`${property.turnover_date}T12:00:00`).getFullYear()}
+        </p>
+      ) : null}
+      <span
+        className={`mt-3 inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${
+          property.is_presale ? "bg-[#D4A843]/25 text-[#8a6d32]" : "bg-[#6B9E6E]/15 text-[#2C2C2C]/85"
+        }`}
+      >
         {statusLabel}
       </span>
       <div className="my-5 border-t border-[#2C2C2C]/10" />
@@ -322,14 +335,18 @@ function BottomActions({
   engagement,
   propertyId,
   onRequestViewing,
+  onRegisterInterest,
   authLoading,
   requestDisabled,
+  isPresale,
 }: {
   engagement: PropertyEngagement;
   propertyId: string;
   onRequestViewing: () => void;
+  onRegisterInterest: () => void;
   authLoading: boolean;
   requestDisabled: boolean;
+  isPresale: boolean;
 }) {
   const isLiked = engagement.isLiked(propertyId);
   const isPinned = engagement.isPinned(propertyId);
@@ -338,11 +355,15 @@ function BottomActions({
     <div className="shrink-0 space-y-2 border-t border-gray-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <button
         type="button"
-        onClick={onRequestViewing}
+        onClick={isPresale ? onRegisterInterest : onRequestViewing}
         disabled={requestDisabled}
-        className="flex w-full cursor-pointer items-center justify-center rounded-xl bg-[#2C2C2C] py-3 text-sm font-bold text-white transition hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-60"
+        className={
+          isPresale
+            ? "flex w-full cursor-pointer items-center justify-center rounded-xl bg-[#6B9E6E] py-3 text-sm font-bold text-white transition hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-60"
+            : "flex w-full cursor-pointer items-center justify-center rounded-xl bg-[#2C2C2C] py-3 text-sm font-bold text-white transition hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-60"
+        }
       >
-        {authLoading ? "Loading…" : "Request Viewing"}
+        {authLoading ? "Loading…" : isPresale ? "Register Interest" : "Request Viewing"}
       </button>
       {showEngagementControls ? (
         <div className="grid grid-cols-2 gap-2">
@@ -395,6 +416,7 @@ function BottomActions({
 }
 
 export function PropertyZoomModal({ property, agents, onClose, engagement }: Props) {
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [viewerAgentId, setViewerAgentId] = useState<string | null>(null);
@@ -458,6 +480,18 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
     setShowAgentPicker(true);
   };
 
+  const onRegisterInterest = () => {
+    if (authLoading) return;
+    if (!user) {
+      setSignInPromptOpen(true);
+      return;
+    }
+    onClose();
+    router.push(`/properties/${encodeURIComponent(property.id)}#presale-interest`);
+  };
+
+  const isPresale = Boolean(property.is_presale);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -492,7 +526,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
     else go(-1);
   };
 
-  const statusLabel = property.status === "for_rent" ? "For Rent" : "For Sale";
+  const statusLabel = property.is_presale ? "Presale" : property.status === "for_rent" ? "For Rent" : "For Sale";
   const desc = property.description?.trim();
 
   const modalAgents = agents;
@@ -581,8 +615,10 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
             engagement={engagement}
             propertyId={property.id}
             onRequestViewing={onRequestViewing}
+            onRegisterInterest={onRegisterInterest}
             authLoading={authLoading}
-            requestDisabled={authLoading || agents.length === 0}
+            requestDisabled={authLoading || (!isPresale && agents.length === 0)}
+            isPresale={isPresale}
           />
         </div>
 
@@ -621,8 +657,10 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
               engagement={engagement}
               propertyId={property.id}
               onRequestViewing={onRequestViewing}
+              onRegisterInterest={onRegisterInterest}
               authLoading={authLoading}
-              requestDisabled={authLoading || agents.length === 0}
+              requestDisabled={authLoading || (!isPresale && agents.length === 0)}
+              isPresale={isPresale}
             />
           </div>
         </div>

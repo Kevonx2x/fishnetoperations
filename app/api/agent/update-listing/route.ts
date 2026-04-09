@@ -5,7 +5,17 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { logActivity } from "@/lib/activity-log";
 
-const PROPERTY_TYPES = ["House", "Condo", "Apartment", "Studio", "Commercial"] as const;
+const PROPERTY_TYPES = [
+  "House",
+  "Condo",
+  "Apartment",
+  "Studio",
+  "Commercial",
+  "Villa",
+  "Townhouse",
+  "Land",
+  "Presale",
+] as const;
 const LISTING_STATUSES = ["active", "under_offer", "sold", "off_market"] as const;
 
 const bodySchema = z.object({
@@ -22,6 +32,10 @@ const bodySchema = z.object({
   description: z.string().max(20000).nullable().optional(),
   /** Ordered gallery: [0] = main `image_url`; rest → `property_photos`. Max 10. */
   imageUrls: z.array(z.string().min(1).max(2000)).max(10).optional(),
+  is_presale: z.boolean().optional(),
+  developer_name: z.string().max(300).nullable().optional(),
+  turnover_date: z.string().max(32).nullable().optional(),
+  unit_types: z.array(z.string().min(1).max(32)).max(20).optional(),
 });
 
 export async function POST(req: Request) {
@@ -62,6 +76,11 @@ export async function POST(req: Request) {
         ? imageUrls[0]
         : undefined;
 
+    const isPresale = parsed.data.property_type === "Presale" || parsed.data.is_presale === true;
+    const dev = parsed.data.developer_name?.trim() || null;
+    const turn = parsed.data.turnover_date?.trim() || null;
+    const units = parsed.data.unit_types?.length ? parsed.data.unit_types : null;
+
     const { error: updErr } = await sb
       .from("properties")
       .update({
@@ -75,6 +94,10 @@ export async function POST(req: Request) {
         status: parsed.data.status,
         listing_status: parsed.data.listing_status,
         description: parsed.data.description?.trim() || null,
+        is_presale: isPresale,
+        developer_name: isPresale ? dev : null,
+        turnover_date: isPresale && turn ? turn : null,
+        unit_types: isPresale && units && units.length ? units : isPresale ? [] : [],
         ...(primaryImage ? { image_url: primaryImage } : {}),
       })
       .eq("id", parsed.data.propertyId)

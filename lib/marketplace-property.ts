@@ -15,6 +15,13 @@ export type DbProperty = {
   status: "for_sale" | "for_rent";
   listed_by?: string | null;
   description?: string | null;
+  property_type?: string | null;
+  /** Presale development overlay (see `is_presale`). */
+  is_presale?: boolean;
+  developer_name?: string | null;
+  /** ISO date string `YYYY-MM-DD` from DB. */
+  turnover_date?: string | null;
+  unit_types?: string[] | null;
   property_photos?: { url: string; sort_order: number }[];
   property_agents?: { agent: unknown }[];
 };

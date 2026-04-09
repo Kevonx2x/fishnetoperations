@@ -248,10 +248,11 @@ type FiltersState = {
   maxPrice: number;
   beds: "any" | 1 | 2 | 3 | 4;
   baths: "any" | 1 | 2 | 3;
-  propertyType: "any" | "House" | "Condo" | "Villa" | "Land" | "Studio";
+  propertyType: "any" | "House" | "Condo" | "Villa" | "Land" | "Studio" | "Presale";
 };
 
 function inferredType(p: DbProperty): FiltersState["propertyType"] {
+  if (p.is_presale) return "Presale";
   const loc = `${p.name ?? ""} ${p.location}`.toLowerCase();
   if (p.beds === 0) return "Studio";
   if (loc.includes("penthouse") || loc.includes("condo") || loc.includes("loft") || loc.includes("studio")) return "Condo";
@@ -322,7 +323,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       .from("properties")
       .select(
         `
-          id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by, description,
+          id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by, description, property_type,
+          is_presale, developer_name, turnover_date, unit_types,
           property_photos (url, sort_order),
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
         `,
@@ -428,7 +430,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         } else if (p.baths !== filters.baths) return false;
       }
       if (filters.propertyType !== "any") {
-        if (inferredType(p) !== filters.propertyType) return false;
+        if (filters.propertyType === "Presale") {
+          if (!p.is_presale) return false;
+        } else if (inferredType(p) !== filters.propertyType) return false;
       }
       return true;
     });
@@ -463,6 +467,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     list.sort((a, b) => (propertyTrustScoreById.get(b.id) ?? 0) - (propertyTrustScoreById.get(a.id) ?? 0));
     return list.slice(0, 12);
   }, [sortedAllRows, propertyTrustScoreById]);
+
+  const presaleDevelopments = useMemo(
+    () => sortedAllRows.filter((p) => p.is_presale),
+    [sortedAllRows],
+  );
 
   const newlyListed = useMemo(() => {
     const list = [...sortedAllRows];
@@ -946,6 +955,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             <option value="Villa">Villa</option>
                             <option value="Land">Land</option>
                             <option value="Studio">Studio</option>
+                            <option value="Presale">Presale</option>
                           </select>
                         </div>
                       </div>
@@ -1059,6 +1069,12 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       <PropertyRows
                         rows={[
                           { key: "buy-featured", title: "Featured Picks", subtitle: "Recommended for you", items: featuredPicks, featured: true },
+                          {
+                            key: "buy-presale",
+                            title: "🏗️ Presale Developments",
+                            subtitle: "New projects & pre-selling inventory",
+                            items: presaleDevelopments,
+                          },
                           { key: "buy-new", title: "Newly Listed", subtitle: "Ordered by newest", items: newlyListed },
                           { key: "buy-lux", title: "Luxury Homes ₱50M+", subtitle: "Premium listings above ₱50M", items: luxury50m },
                           { key: "buy-schools", title: "Near Schools & Parks", subtitle: "Nearby family-friendly areas", items: nearSchoolsParks },
@@ -1241,7 +1257,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       <span className="rounded-full bg-[#D4A843]/18 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#8a6d32]">
                         Featured
                       </span>
-                      {featured.status === "for_rent" ? (
+                      {featured.is_presale ? (
+                        <span className="rounded-full bg-[#D4A843]/25 px-3 py-1 text-[11px] font-bold text-[#8a6d32]">
+                          Presale
+                        </span>
+                      ) : featured.status === "for_rent" ? (
                         <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/70">
                           For Rent
                         </span>
@@ -1465,7 +1485,7 @@ export function NewlyListedCard({
   verifiedListingAgent?: boolean;
 }) {
   const listedLabel = listingListedLabel(property.created_at);
-  const statusLabel = property.status === "for_rent" ? "For Rent" : "For Sale";
+  const statusLabel = property.is_presale ? "Presale" : property.status === "for_rent" ? "For Rent" : "For Sale";
   const img = roomUrls[roomIdx] ?? roomUrls[0] ?? property.image_url;
 
   const hiddenCount = Math.max(0, connectedAgents.length - 2);
@@ -1547,7 +1567,12 @@ export function NewlyListedCard({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-16 bg-gradient-to-t from-black/25 to-transparent" />
 
         <div className="absolute left-3 top-3 z-20">
-          <span className="rounded-full bg-[#6B9E6E] px-3 py-1 text-[11px] font-bold text-white shadow-sm">
+          <span
+            className={cn(
+              "rounded-full px-3 py-1 text-[11px] font-bold shadow-sm",
+              property.is_presale ? "bg-[#D4A843] text-[#2C2C2C]" : "bg-[#6B9E6E] text-white",
+            )}
+          >
             {statusLabel}
           </span>
         </div>
@@ -1645,6 +1670,16 @@ export function NewlyListedCard({
           <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8E8E8E]" aria-hidden />
           <span className="line-clamp-2 leading-snug">{property.location}</span>
         </p>
+        {property.is_presale && property.developer_name?.trim() ? (
+          <p className={`mt-1 text-[#2C2C2C]/80 ${compact ? "text-[11px]" : "text-xs"}`}>
+            {property.developer_name.trim()}
+          </p>
+        ) : null}
+        {property.is_presale && property.turnover_date ? (
+          <p className={`mt-0.5 text-[#2C2C2C]/50 ${compact ? "text-[10px]" : "text-[11px]"}`}>
+            Turnover: {new Date(`${property.turnover_date}T12:00:00`).getFullYear()}
+          </p>
+        ) : null}
       </div>
 
       <div

@@ -101,6 +101,9 @@ type ListingRow = {
   status: "for_sale" | "for_rent";
   listing_status: string | null;
   listed_by: string | null;
+  is_presale?: boolean;
+  developer_name?: string | null;
+  turnover_date?: string | null;
 };
 
 type ListingFilter = "active" | "sold" | "for_rent" | "for_sale";
@@ -328,6 +331,8 @@ export default function AgentProfilePage() {
   /** Own listing cards: which face is shown; `likes` / `pins` = back side with that list. */
   const [listingFlipById, setListingFlipById] = useState<Record<string, "front" | "likes" | "pins">>({});
   const [seenFlips, setSeenFlips] = useState<Record<string, boolean>>({});
+  const [engagementMessageDraft, setEngagementMessageDraft] = useState<Record<string, string>>({});
+  const [engagementMessageSentBanner, setEngagementMessageSentBanner] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -366,7 +371,7 @@ export default function AgentProfilePage() {
 
     let cancelled = false;
     const selectFields =
-      "id, created_at, name, location, price, beds, baths, sqft, image_url, status, listing_status, listed_by";
+      "id, created_at, name, location, price, beds, baths, sqft, image_url, status, listing_status, listed_by, is_presale, developer_name, turnover_date";
 
     void (async () => {
       const [ownedRes, linksRes] = await Promise.all([
@@ -910,7 +915,11 @@ export default function AgentProfilePage() {
                         const showEng = engagement.showEngagementCounts(p.id);
                         const likeN = engagement.likeCount(p.id);
                         const pinN = engagement.saveCount(p.id);
-                        const statusLabel = p.status === "for_rent" ? "For Rent" : "For Sale";
+                        const statusLabel = p.is_presale
+                          ? "Presale"
+                          : p.status === "for_rent"
+                            ? "For Rent"
+                            : "For Sale";
                         const canManagePost =
                           isOwnProfile &&
                           user?.id &&
@@ -1012,7 +1021,11 @@ export default function AgentProfilePage() {
                                   className="object-cover"
                                 />
                               </Link>
-                              <span className="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-[#6B9E6E] px-2.5 py-1 text-[11px] font-bold text-white shadow-md">
+                              <span
+                                className={`pointer-events-none absolute left-3 top-3 z-10 rounded-full px-2.5 py-1 text-[11px] font-bold shadow-md ${
+                                  p.is_presale ? "bg-[#D4A843] text-[#2C2C2C]" : "bg-[#6B9E6E] text-white"
+                                }`}
+                              >
                                 {statusLabel}
                               </span>
                               <div className="absolute right-3 top-3 z-10 flex items-start gap-1">
@@ -1152,6 +1165,14 @@ export default function AgentProfilePage() {
                                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
                                 <span>{p.location}</span>
                               </p>
+                              {p.is_presale && p.developer_name?.trim() ? (
+                                <p className="text-xs font-semibold text-[#2C2C2C]/75">{p.developer_name.trim()}</p>
+                              ) : null}
+                              {p.is_presale && p.turnover_date ? (
+                                <p className="text-xs text-[#2C2C2C]/45">
+                                  Turnover: {new Date(`${p.turnover_date}T12:00:00`).getFullYear()}
+                                </p>
+                              ) : null}
                               <p className="text-sm text-[#6B6B6B]">
                                 {p.sqft} sqft · {p.beds} beds · {p.baths} baths
                               </p>
@@ -1169,15 +1190,24 @@ export default function AgentProfilePage() {
                                     <Mail className="h-3.5 w-3.5" />
                                     Contact Agent
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => openScheduleForListing(p)}
-                                    disabled={authLoading}
-                                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:opacity-50 sm:w-auto"
-                                  >
-                                    <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" />
-                                    Schedule View
-                                  </button>
+                                  {p.is_presale ? (
+                                    <Link
+                                      href={`/properties/${encodeURIComponent(p.id)}#presale-interest`}
+                                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-[#6B9E6E] px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] sm:w-auto"
+                                    >
+                                      Register Interest
+                                    </Link>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => openScheduleForListing(p)}
+                                      disabled={authLoading}
+                                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:opacity-50 sm:w-auto"
+                                    >
+                                      <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" />
+                                      Schedule View
+                                    </button>
+                                  )}
                                 </>
                               ) : null}
                               <Link
@@ -1376,67 +1406,105 @@ export default function AgentProfilePage() {
                                                         >
                                                           {leadAdded ? "✓ Lead Added" : "+ Add as Lead"}
                                                         </button>
-                                                        <DropdownMenu>
-                                                          <DropdownMenuTrigger asChild>
-                                                            <button
-                                                              type="button"
-                                                              className="rounded-full border border-[#6B9E6E] px-3 py-1 text-xs text-[#6B9E6E]"
-                                                            >
-                                                              💬 Message
-                                                            </button>
-                                                          </DropdownMenuTrigger>
-                                                          <DropdownMenuContent
-                                                            align="start"
-                                                            className="max-w-[280px]"
-                                                          >
-                                                            {ENGAGEMENT_MESSAGE_PRESETS.map((msg) => (
-                                                              <DropdownMenuItem
-                                                                key={msg}
-                                                                className="whitespace-normal text-xs"
-                                                                onClick={() => {
-                                                                  void (async () => {
-                                                                    if (!agent) return;
-                                                                    const res = await fetch(
-                                                                      "/api/agent/engagement-notify-client",
-                                                                      {
-                                                                        method: "POST",
-                                                                        headers: {
-                                                                          "Content-Type":
-                                                                            "application/json",
-                                                                        },
-                                                                        body: JSON.stringify({
-                                                                          propertyId: p.id,
-                                                                          recipientUserId: u.id,
-                                                                          message: msg,
-                                                                          agentFullName: agent.name,
-                                                                        }),
-                                                                      },
-                                                                    );
-                                                                    const data = (await res
-                                                                      .json()
-                                                                      .catch(() => null)) as {
-                                                                      success?: boolean;
-                                                                      error?: { message?: string };
-                                                                    } | null;
-                                                                    if (
-                                                                      !res.ok ||
-                                                                      !data?.success
-                                                                    ) {
-                                                                      toast.error(
-                                                                        data?.error?.message ??
-                                                                          "Could not send message.",
-                                                                      );
-                                                                      return;
-                                                                    }
-                                                                    toast.success("Message sent!");
-                                                                  })();
-                                                                }}
+                                                        <div className="flex min-w-0 max-w-[min(100%,280px)] flex-col gap-2">
+                                                          <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                              <button
+                                                                type="button"
+                                                                className="w-full rounded-full border border-[#6B9E6E] px-3 py-1 text-left text-xs text-[#6B9E6E]"
                                                               >
-                                                                {msg}
-                                                              </DropdownMenuItem>
-                                                            ))}
-                                                          </DropdownMenuContent>
-                                                        </DropdownMenu>
+                                                                💬 Message
+                                                              </button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent
+                                                              align="start"
+                                                              className="max-w-[280px]"
+                                                            >
+                                                              {ENGAGEMENT_MESSAGE_PRESETS.map((msg) => (
+                                                                <DropdownMenuItem
+                                                                  key={msg}
+                                                                  className="whitespace-normal text-xs"
+                                                                  onSelect={() => {
+                                                                    setEngagementMessageDraft((prev) => ({
+                                                                      ...prev,
+                                                                      [leadKey]: msg,
+                                                                    }));
+                                                                  }}
+                                                                >
+                                                                  {msg}
+                                                                </DropdownMenuItem>
+                                                              ))}
+                                                            </DropdownMenuContent>
+                                                          </DropdownMenu>
+                                                          {engagementMessageDraft[leadKey] ? (
+                                                            <p className="text-xs leading-snug text-[#2C2C2C]/75">
+                                                              {engagementMessageDraft[leadKey]}
+                                                            </p>
+                                                          ) : null}
+                                                          {engagementMessageSentBanner[leadKey] ? (
+                                                            <div className="rounded-lg border border-green-200 bg-green-50 p-2 text-xs text-green-700">
+                                                              ✅ Message sent to {label}!
+                                                            </div>
+                                                          ) : null}
+                                                          <button
+                                                            type="button"
+                                                            disabled={!engagementMessageDraft[leadKey]}
+                                                            onClick={() => {
+                                                              void (async () => {
+                                                                if (!agent) return;
+                                                                const msg = engagementMessageDraft[leadKey];
+                                                                if (!msg) return;
+                                                                const res = await fetch(
+                                                                  "/api/agent/engagement-notify-client",
+                                                                  {
+                                                                    method: "POST",
+                                                                    headers: {
+                                                                      "Content-Type":
+                                                                        "application/json",
+                                                                    },
+                                                                    body: JSON.stringify({
+                                                                      propertyId: p.id,
+                                                                      recipientUserId: u.id,
+                                                                      message: msg,
+                                                                      agentFullName: agent.name,
+                                                                    }),
+                                                                  },
+                                                                );
+                                                                const data = (await res
+                                                                  .json()
+                                                                  .catch(() => null)) as {
+                                                                  success?: boolean;
+                                                                  error?: { message?: string };
+                                                                } | null;
+                                                                if (!res.ok || !data?.success) {
+                                                                  toast.error(
+                                                                    data?.error?.message ??
+                                                                      "Could not send message.",
+                                                                  );
+                                                                  return;
+                                                                }
+                                                                setEngagementMessageSentBanner((prev) => ({
+                                                                  ...prev,
+                                                                  [leadKey]: true,
+                                                                }));
+                                                                setEngagementMessageDraft((prev) => {
+                                                                  const next = { ...prev };
+                                                                  delete next[leadKey];
+                                                                  return next;
+                                                                });
+                                                                window.setTimeout(() => {
+                                                                  setEngagementMessageSentBanner((prev) => ({
+                                                                    ...prev,
+                                                                    [leadKey]: false,
+                                                                  }));
+                                                                }, 3000);
+                                                              })();
+                                                            }}
+                                                            className="w-full rounded-full bg-[#6B9E6E] py-2 text-sm text-white disabled:pointer-events-none disabled:opacity-50"
+                                                          >
+                                                            Send Message
+                                                          </button>
+                                                        </div>
                                                       </div>
                                                     </li>
                                                   );

@@ -87,7 +87,8 @@ function LandmarksContent() {
       .from("properties")
       .select(
         `
-          id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by, description,
+          id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by, description, property_type,
+          is_presale, developer_name, turnover_date, unit_types,
           property_photos (url, sort_order),
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
         `,

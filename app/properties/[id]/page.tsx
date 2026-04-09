@@ -46,10 +46,20 @@ type PropertyRow = {
   lat: number | null;
   lng: number | null;
   description: string | null;
+  is_presale?: boolean;
+  developer_name?: string | null;
+  turnover_date?: string | null;
+  unit_types?: string[] | null;
   listing_agent: ListingAgentProfile;
   property_agents?: { agent: unknown }[];
   property_photos?: { url: string; sort_order: number }[];
 };
+
+function formatPresaleTurnoverMonthYear(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
 
 function listingAgentUserId(property: PropertyRow, agents: MarketplaceAgent[]): string | null {
   if (property.listed_by) {
@@ -115,6 +125,12 @@ export default function PropertyPage() {
   } | null>(null);
   const [myCoListCount, setMyCoListCount] = useState(0);
   const [hasPendingCoRequest, setHasPendingCoRequest] = useState(false);
+  const [presaleName, setPresaleName] = useState("");
+  const [presaleEmail, setPresaleEmail] = useState("");
+  const [presalePhone, setPresalePhone] = useState("");
+  const [presaleUnit, setPresaleUnit] = useState("");
+  const [presaleBusy, setPresaleBusy] = useState(false);
+  const [presaleMsg, setPresaleMsg] = useState<string | null>(null);
 
   const { engagement } = usePropertyEngagementForProperties(property ? [property] : []);
 
@@ -134,6 +150,7 @@ export default function PropertyPage() {
         .select(
           `
           id, created_at, name, location, price, sqft, beds, baths, image_url, listed_by, property_type, lat, lng, description,
+          is_presale, developer_name, turnover_date, unit_types,
           property_photos (url, sort_order),
           listing_agent:profiles!listed_by (id, full_name, avatar_url),
           property_agents (
@@ -335,6 +352,56 @@ export default function PropertyPage() {
     setShowAgentPicker(true);
   };
 
+  useEffect(() => {
+    if (!property?.is_presale || typeof window === "undefined") return;
+    if (window.location.hash !== "#presale-interest") return;
+    window.requestAnimationFrame(() => {
+      document.getElementById("presale-interest")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [property?.id, property?.is_presale]);
+
+  const submitPresaleInterest = async () => {
+    if (!property?.listed_by) {
+      setPresaleMsg("Listing owner not available.");
+      return;
+    }
+    setPresaleMsg(null);
+    if (!presaleName.trim() || !presaleEmail.trim()) {
+      setPresaleMsg("Please enter your name and email.");
+      return;
+    }
+    if (!presaleUnit.trim()) {
+      setPresaleMsg("Please select a preferred unit type.");
+      return;
+    }
+    setPresaleBusy(true);
+    try {
+      const { error } = await supabase.from("leads").insert({
+        name: presaleName.trim(),
+        email: presaleEmail.trim(),
+        phone: presalePhone.trim() ? presalePhone.trim() : null,
+        property_id: property.id,
+        agent_id: property.listed_by,
+        property_interest: property.name?.trim() || property.location,
+        message: `Preferred unit type: ${presaleUnit.trim()}`,
+        source: "presale_interest",
+        stage: "new",
+        client_id: null,
+        broker_id: null,
+      });
+      if (error) throw error;
+      setPresaleMsg("Thanks — we’ll be in touch shortly.");
+      setPresaleName("");
+      setPresaleEmail("");
+      setPresalePhone("");
+      setPresaleUnit("");
+    } catch (e) {
+      setPresaleMsg(e instanceof Error ? e.message : "Could not submit.");
+    } finally {
+      setPresaleBusy(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white pb-12">
       <MaddenTopNav />
@@ -528,6 +595,30 @@ export default function PropertyPage() {
                 </div>
               ) : null}
 
+              {property.is_presale ? (
+                <div className="rounded-2xl border border-[#D4A843]/25 bg-[#FFF9F0] p-5 shadow-sm">
+                  <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Presale Development</h2>
+                  {property.developer_name?.trim() ? (
+                    <p className="mt-3 text-sm font-semibold text-[#2C2C2C]">
+                      <span className="text-[#2C2C2C]/55">Developer: </span>
+                      {property.developer_name.trim()}
+                    </p>
+                  ) : null}
+                  {property.turnover_date ? (
+                    <p className="mt-2 text-sm font-semibold text-[#2C2C2C]">
+                      <span className="text-[#2C2C2C]/55">Expected Turnover: </span>
+                      {formatPresaleTurnoverMonthYear(property.turnover_date)}
+                    </p>
+                  ) : null}
+                  {property.unit_types && property.unit_types.length > 0 ? (
+                    <p className="mt-2 text-sm font-semibold text-[#2C2C2C]">
+                      <span className="text-[#2C2C2C]/55">Available Units: </span>
+                      {property.unit_types.join(", ")}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
             </section>
 
             <aside className="lg:sticky lg:top-24 lg:col-span-1 lg:self-start">
@@ -622,41 +713,118 @@ export default function PropertyPage() {
                   </div>
                 ) : null}
 
-                <div className="mt-6 border-t border-[#2C2C2C]/10 pt-4">
-                  <p className="font-serif text-base font-bold text-[#2C2C2C]">Request a viewing</p>
-                  <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
-                    Pick a date and time. We’ll notify the listing agent by SMS and email.
-                  </p>
-                  {listingAgent ? (
-                    <div className="mt-3 rounded-xl bg-neutral-50 p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <Link
-                          href={`/agents/${encodeURIComponent(listingAgent.id)}`}
-                          className="cursor-pointer text-sm font-semibold text-[#2C2C2C] hover:underline"
-                        >
-                          {listingAgent.name}
-                        </Link>
-                        <VerifiedAgentBadge show />
-                      </div>
-                      <p className="mt-0.5 text-xs font-semibold text-[#2C2C2C]/60">
-                        {listingAgent.company || listingAgent.brokerName}
+                <div id="presale-interest" className="mt-6 border-t border-[#2C2C2C]/10 pt-4">
+                  {property.is_presale ? (
+                    <>
+                      <p className="font-serif text-base font-bold text-[#2C2C2C]">Register interest</p>
+                      <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
+                        Leave your details and preferred unit. The listing agent will follow up.
                       </p>
-                      <div className="mt-2">
-                        <AgentAvailabilityBadge
-                          availability={listingAgent.availability}
-                          updatedAt={listingAgent.updatedAt}
-                        />
+                      <div className="mt-3 space-y-2">
+                        <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                          Name
+                          <input
+                            value={presaleName}
+                            onChange={(e) => setPresaleName(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                            autoComplete="name"
+                          />
+                        </label>
+                        <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                          Email
+                          <input
+                            type="email"
+                            value={presaleEmail}
+                            onChange={(e) => setPresaleEmail(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                            autoComplete="email"
+                          />
+                        </label>
+                        <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                          Phone
+                          <input
+                            type="tel"
+                            value={presalePhone}
+                            onChange={(e) => setPresalePhone(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                            autoComplete="tel"
+                          />
+                        </label>
+                        <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                          Preferred unit type
+                          <select
+                            value={presaleUnit}
+                            onChange={(e) => setPresaleUnit(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                          >
+                            <option value="">Select…</option>
+                            {(property.unit_types && property.unit_types.length > 0
+                              ? property.unit_types
+                              : ["Studio", "1BR", "2BR", "3BR", "4BR+"]
+                            ).map((u) => (
+                              <option key={u} value={u}>
+                                {u}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                       </div>
-                    </div>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={onRequestViewing}
-                    disabled={authLoading || connectedAgents.length === 0}
-                    className="mt-4 w-full rounded-full bg-[#2C2C2C] px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#6B9E6E] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {authLoading ? "Loading…" : "Request viewing"}
-                  </button>
+                      {presaleMsg ? (
+                        <p
+                          className={`mt-2 text-xs font-semibold ${
+                            presaleMsg.startsWith("Thanks") ? "text-[#6B9E6E]" : "text-red-700"
+                          }`}
+                        >
+                          {presaleMsg}
+                        </p>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => void submitPresaleInterest()}
+                        disabled={presaleBusy || !property.listed_by}
+                        className="mt-4 w-full rounded-full bg-[#6B9E6E] px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#5d8a60] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {presaleBusy ? "Sending…" : "Register Interest"}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-serif text-base font-bold text-[#2C2C2C]">Request a viewing</p>
+                      <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
+                        Pick a date and time. We’ll notify the listing agent by SMS and email.
+                      </p>
+                      {listingAgent ? (
+                        <div className="mt-3 rounded-xl bg-neutral-50 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <Link
+                              href={`/agents/${encodeURIComponent(listingAgent.id)}`}
+                              className="cursor-pointer text-sm font-semibold text-[#2C2C2C] hover:underline"
+                            >
+                              {listingAgent.name}
+                            </Link>
+                            <VerifiedAgentBadge show />
+                          </div>
+                          <p className="mt-0.5 text-xs font-semibold text-[#2C2C2C]/60">
+                            {listingAgent.company || listingAgent.brokerName}
+                          </p>
+                          <div className="mt-2">
+                            <AgentAvailabilityBadge
+                              availability={listingAgent.availability}
+                              updatedAt={listingAgent.updatedAt}
+                            />
+                          </div>
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={onRequestViewing}
+                        disabled={authLoading || connectedAgents.length === 0}
+                        className="mt-4 w-full rounded-full bg-[#2C2C2C] px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#6B9E6E] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {authLoading ? "Loading…" : "Request viewing"}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </aside>
