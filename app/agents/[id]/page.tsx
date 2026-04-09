@@ -49,6 +49,8 @@ import {
 } from "@/lib/client-profile-preferences";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { shouldPulseEngagement, writeSeenEngagementCount } from "@/lib/engagement-seen-storage";
+import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagement";
 import {
   DropdownMenu,
@@ -86,6 +88,7 @@ type AgentRow = {
   service_areas?: string | null;
   brokers?: { id: string; company_name: string; logo_url: string | null } | null;
   profiles?: { email?: string | null; phone?: string | null } | null;
+  listing_tier?: string | null;
 };
 
 type ListingRow = {
@@ -98,20 +101,22 @@ type ListingRow = {
   baths: number;
   sqft: string;
   image_url: string;
-  status: "for_sale" | "for_rent";
+  status: "for_sale" | "for_rent" | "sold" | "rented";
   listing_status: string | null;
   listed_by: string | null;
   is_presale?: boolean;
   developer_name?: string | null;
   turnover_date?: string | null;
+  rented_at?: string | null;
 };
 
-type ListingFilter = "active" | "sold" | "for_rent" | "for_sale";
+type ListingFilter = "active" | "sold" | "rented" | "for_rent" | "for_sale";
 type ListingSort = "newest" | "price_high" | "most_saved";
 
 const FILTER_TABS: { id: ListingFilter; label: string }[] = [
   { id: "active", label: "Active" },
   { id: "sold", label: "Sold" },
+  { id: "rented", label: "Rented" },
   { id: "for_rent", label: "For Rent" },
   { id: "for_sale", label: "For Sale" },
 ];
@@ -136,9 +141,17 @@ function passesListingFilter(p: ListingRow, mode: ListingFilter): boolean {
   const ls = (p.listing_status ?? "active").toLowerCase();
   if (mode === "active") return ls === "active" || ls === "under_offer";
   if (mode === "sold") return ls === "sold";
-  if (mode === "for_rent") return p.status === "for_rent";
+  if (mode === "rented") return ls === "rented";
+  if (mode === "for_rent") return p.status === "for_rent" && ls !== "rented";
   if (mode === "for_sale") return p.status === "for_sale";
   return true;
+}
+
+function isRecentlyRentedBadge(p: ListingRow): boolean {
+  if ((p.listing_status ?? "").toLowerCase() !== "rented" || !p.rented_at) return false;
+  const t = new Date(p.rented_at).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t < 30 * 24 * 60 * 60 * 1000;
 }
 
 const MASKED_PUBLIC_PRC = "PRC-AG-202*-*****";
@@ -322,6 +335,29 @@ export default function AgentProfilePage() {
 
   const isOwnProfile = Boolean(user?.id && agent?.user_id && user.id === agent.user_id);
 
+  const [viewerBrokerTier, setViewerBrokerTier] = useState(false);
+  useEffect(() => {
+    if (!user?.id) {
+      setViewerBrokerTier(false);
+      return;
+    }
+    let cancelled = false;
+    void supabase
+      .from("agents")
+      .select("listing_tier")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setViewerBrokerTier((data as { listing_tier?: string | null } | null)?.listing_tier === "broker");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const flipEligible = isOwnProfile || viewerBrokerTier;
+
   const [engagementMap, setEngagementMap] = useState<
     Record<string, { likers: EngagementEngager[]; pinners: EngagementEngager[] }>
   >({});
@@ -330,7 +366,7 @@ export default function AgentProfilePage() {
   const [engagementAgentIdByUserId, setEngagementAgentIdByUserId] = useState<Record<string, string>>({});
   /** Own listing cards: which face is shown; `likes` / `pins` = back side with that list. */
   const [listingFlipById, setListingFlipById] = useState<Record<string, "front" | "likes" | "pins">>({});
-  const [seenFlips, setSeenFlips] = useState<Record<string, boolean>>({});
+  const [markingStatus, setMarkingStatus] = useState(false);
   const [engagementMessageDraft, setEngagementMessageDraft] = useState<Record<string, string>>({});
   const [engagementMessageSentBanner, setEngagementMessageSentBanner] = useState<Record<string, boolean>>({});
 
@@ -371,7 +407,7 @@ export default function AgentProfilePage() {
 
     let cancelled = false;
     const selectFields =
-      "id, created_at, name, location, price, beds, baths, sqft, image_url, status, listing_status, listed_by, is_presale, developer_name, turnover_date";
+      "id, created_at, name, location, price, beds, baths, sqft, image_url, status, listing_status, listed_by, is_presale, developer_name, turnover_date, rented_at";
 
     void (async () => {
       const [ownedRes, linksRes] = await Promise.all([
@@ -433,7 +469,7 @@ export default function AgentProfilePage() {
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
   useEffect(() => {
-    if (!isOwnProfile || !listings || listings.length === 0) return;
+    if (!flipEligible || !listings || listings.length === 0) return;
 
     const fetchEngagement = async () => {
       const ids = listings.map((l: any) => l.id);
@@ -538,7 +574,7 @@ export default function AgentProfilePage() {
     };
 
     fetchEngagement();
-  }, [isOwnProfile, listings]);
+  }, [flipEligible, listings]);
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
   const filteredAndSortedListings = useMemo(() => {
@@ -557,6 +593,59 @@ export default function AgentProfilePage() {
     }
     return list;
   }, [listings, listingFilter, listingSort, engagement]);
+
+  const markPropertySold = useCallback(
+    async (propertyId: string) => {
+      if (!user?.id) return;
+      setMarkingStatus(true);
+      const { error } = await supabase
+        .from("properties")
+        .update({ listing_status: "sold", status: "sold" })
+        .eq("id", propertyId)
+        .eq("listed_by", user.id);
+      setMarkingStatus(false);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      setListings((prev) =>
+        prev.map((x) =>
+          x.id === propertyId ? { ...x, listing_status: "sold", status: "sold" } : x,
+        ),
+      );
+      toast.success("Listing marked as sold");
+      setListingFilter("sold");
+    },
+    [user?.id],
+  );
+
+  const markPropertyRented = useCallback(
+    async (propertyId: string) => {
+      if (!user?.id) return;
+      setMarkingStatus(true);
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from("properties")
+        .update({ listing_status: "rented", status: "rented", rented_at: now })
+        .eq("id", propertyId)
+        .eq("listed_by", user.id);
+      setMarkingStatus(false);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      setListings((prev) =>
+        prev.map((x) =>
+          x.id === propertyId
+            ? { ...x, listing_status: "rented", status: "rented", rented_at: now }
+            : x,
+        ),
+      );
+      toast.success("Listing marked as rented");
+      setListingFilter("rented");
+    },
+    [user?.id],
+  );
 
   const deleteListing = useCallback(
     async (propertyId: string) => {
@@ -925,7 +1014,7 @@ export default function AgentProfilePage() {
                           user?.id &&
                           p.listed_by === agent.user_id;
                         const flipFace = listingFlipById[p.id] ?? "front";
-                        const showBack = isOwnProfile && flipFace !== "front";
+                        const showBack = flipEligible && flipFace !== "front";
                         const engagementChipBase =
                           "inline-flex flex-row items-center gap-1 rounded-full bg-white p-1.5 shadow-sm";
                         const visitorLiked = engagement.isLiked(p.id);
@@ -934,12 +1023,12 @@ export default function AgentProfilePage() {
                           <div
                             key={p.id}
                             className="w-full"
-                            style={isOwnProfile ? { perspective: "1000px" } : undefined}
+                            style={flipEligible ? { perspective: "1000px" } : undefined}
                           >
                             <div
                               className="relative w-full"
                               style={
-                                isOwnProfile
+                                flipEligible
                                   ? {
                                       transformStyle: "preserve-3d",
                                       transition: "transform 0.5s",
@@ -951,7 +1040,7 @@ export default function AgentProfilePage() {
                               <article
                                 className="relative overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm"
                                 style={
-                                  isOwnProfile
+                                  flipEligible
                                     ? {
                                         backfaceVisibility: "hidden",
                                         WebkitBackfaceVisibility: "hidden",
@@ -978,7 +1067,7 @@ export default function AgentProfilePage() {
                                       <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
                                     ) : null}
                                   </div>
-                                  <p className="text-xs font-medium text-[#2C2C2C]/50">{listed}</p>
+                                  <p className="text-xs font-medium text-gray-400">{listed}</p>
                                 </div>
                               </div>
                               {canManagePost ? (
@@ -1021,26 +1110,33 @@ export default function AgentProfilePage() {
                                   className="object-cover"
                                 />
                               </Link>
-                              <span
-                                className={`pointer-events-none absolute left-3 top-3 z-10 rounded-full px-2.5 py-1 text-[11px] font-bold shadow-md ${
-                                  p.is_presale ? "bg-[#D4A843] text-[#2C2C2C]" : "bg-[#6B9E6E] text-white"
-                                }`}
-                              >
-                                {statusLabel}
-                              </span>
+                              <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-1">
+                                <span
+                                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold shadow-md ${
+                                    p.is_presale ? "bg-[#D4A843] text-[#2C2C2C]" : "bg-[#6B9E6E] text-white"
+                                  }`}
+                                >
+                                  {statusLabel}
+                                </span>
+                                {isRecentlyRentedBadge(p) ? (
+                                  <span className="rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-[10px] font-bold text-[#8a6d32] shadow-sm">
+                                    Recently Rented
+                                  </span>
+                                ) : null}
+                              </div>
                               <div className="absolute right-3 top-3 z-10 flex items-start gap-1">
-                                {isOwnProfile ? (
+                                {flipEligible ? (
                                   <>
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        setSeenFlips((prev) => ({ ...prev, [p.id]: true }));
+                                        writeSeenEngagementCount(p.id, "likes", likeN);
                                         setListingFlipById((prev) => ({ ...prev, [p.id]: "likes" }));
                                       }}
                                       className={`${engagementChipBase} ${
-                                        !seenFlips[p.id] && likeN > 0
+                                        shouldPulseEngagement(p.id, "likes", likeN)
                                           ? "ring-2 ring-red-400 animate-pulse"
                                           : ""
                                       }`}
@@ -1061,11 +1157,11 @@ export default function AgentProfilePage() {
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        setSeenFlips((prev) => ({ ...prev, [p.id]: true }));
+                                        writeSeenEngagementCount(p.id, "pins", pinN);
                                         setListingFlipById((prev) => ({ ...prev, [p.id]: "pins" }));
                                       }}
                                       className={`${engagementChipBase} ${
-                                        !seenFlips[p.id] && pinN > 0
+                                        shouldPulseEngagement(p.id, "pins", pinN)
                                           ? "ring-2 ring-[#D4A843] animate-pulse"
                                           : ""
                                       }`}
@@ -1106,7 +1202,7 @@ export default function AgentProfilePage() {
                                           "h-3.5 w-3.5 shrink-0",
                                           visitorLiked
                                             ? "fill-red-500 text-red-500"
-                                            : "text-red-400",
+                                            : "fill-none text-red-400",
                                         )}
                                         aria-hidden
                                       />
@@ -1143,7 +1239,7 @@ export default function AgentProfilePage() {
                                           "h-3.5 w-3.5 shrink-0",
                                           viewerPinned
                                             ? "fill-[#D4A843] text-[#D4A843]"
-                                            : "text-[#D4A843]",
+                                            : "fill-none text-[#D4A843]",
                                         )}
                                         aria-hidden
                                       />
@@ -1159,7 +1255,9 @@ export default function AgentProfilePage() {
                             </div>
 
                             <div className="space-y-1 px-4 pb-3 pt-3">
-                              <p className="font-serif text-2xl font-bold text-[#D4A843]">{p.price}</p>
+                              <p className="font-serif text-2xl font-bold text-[#D4A843]">
+                                {formatPropertyPriceDisplay(p.price, p.status)}
+                              </p>
                               <p className="font-serif text-lg font-bold text-[#2C2C2C]">{title}</p>
                               <p className="flex items-start gap-1.5 text-sm text-[#2C2C2C]/55">
                                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
@@ -1210,6 +1308,38 @@ export default function AgentProfilePage() {
                                   )}
                                 </>
                               ) : null}
+                              {isOwnProfile &&
+                              canManagePost &&
+                              (p.listing_status === "active" || p.listing_status === "under_offer") ? (
+                                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                                  {p.status === "for_sale" && !p.is_presale ? (
+                                    <button
+                                      type="button"
+                                      disabled={markingStatus}
+                                      onClick={() => {
+                                        if (!confirm("Mark this property as sold?")) return;
+                                        void markPropertySold(p.id);
+                                      }}
+                                      className="rounded-full border border-red-400 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                    >
+                                      Mark as Sold
+                                    </button>
+                                  ) : null}
+                                  {p.status === "for_rent" ? (
+                                    <button
+                                      type="button"
+                                      disabled={markingStatus}
+                                      onClick={() => {
+                                        if (!confirm("Mark this property as rented?")) return;
+                                        void markPropertyRented(p.id);
+                                      }}
+                                      className="rounded-full border border-[#D4A843] bg-white px-3 py-1.5 text-xs font-semibold text-[#8a6d32] hover:bg-[#D4A843]/10 disabled:opacity-50"
+                                    >
+                                      Mark as Rented
+                                    </button>
+                                  ) : null}
+                                </div>
+                              ) : null}
                               <Link
                                 href={`/properties/${encodeURIComponent(p.id)}`}
                                 className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-[#D4A843]/60 bg-[#FAF8F4] px-3 py-2.5 text-sm font-bold text-[#8a6d32] hover:bg-[#D4A843]/15 sm:w-auto"
@@ -1220,7 +1350,7 @@ export default function AgentProfilePage() {
                             </div>
                               </article>
 
-                              {isOwnProfile ? (
+                              {flipEligible ? (
                                 <div
                                   className="absolute inset-0 flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm"
                                   style={{
@@ -1364,78 +1494,80 @@ export default function AgentProfilePage() {
                                                           </Link>
                                                         ) : null}
                                                       </div>
-                                                      <div className="mt-2 flex flex-wrap gap-2">
-                                                        <button
-                                                          type="button"
-                                                          disabled={leadAdded}
-                                                          onClick={() => {
-                                                            void (async () => {
-                                                              if (!agent) return;
-                                                              const { error } = await supabase
-                                                                .from("leads")
-                                                                .insert({
-                                                                  name: label,
-                                                                  email: u.email?.trim() || "",
-                                                                  agent_id: agent.user_id,
-                                                                  client_id: u.id,
-                                                                  property_id: p.id,
-                                                                  source: "engagement",
-                                                                  stage: "new",
-                                                                  property_interest: title,
-                                                                });
-                                                              if (error) {
-                                                                if (error.code === "23505") {
+                                                      {isOwnProfile ? (
+                                                        <div className="mt-3 flex min-w-0 flex-col gap-2">
+                                                          <div className="flex flex-row flex-wrap items-center gap-2">
+                                                            <button
+                                                              type="button"
+                                                              disabled={leadAdded}
+                                                              onClick={() => {
+                                                                void (async () => {
+                                                                  if (!agent) return;
+                                                                  const { error } = await supabase
+                                                                    .from("leads")
+                                                                    .insert({
+                                                                      name: label,
+                                                                      email: u.email?.trim() || "",
+                                                                      agent_id: agent.user_id,
+                                                                      client_id: u.id,
+                                                                      property_id: p.id,
+                                                                      source: "engagement",
+                                                                      stage: "new",
+                                                                      property_interest: title,
+                                                                    });
+                                                                  if (error) {
+                                                                    if (error.code === "23505") {
+                                                                      setEngagementLeadAdded((prev) => ({
+                                                                        ...prev,
+                                                                        [leadKey]: true,
+                                                                      }));
+                                                                      toast.success("Lead added!");
+                                                                    } else {
+                                                                      toast.error(error.message);
+                                                                    }
+                                                                    return;
+                                                                  }
                                                                   setEngagementLeadAdded((prev) => ({
                                                                     ...prev,
                                                                     [leadKey]: true,
                                                                   }));
                                                                   toast.success("Lead added!");
-                                                                } else {
-                                                                  toast.error(error.message);
-                                                                }
-                                                                return;
-                                                              }
-                                                              setEngagementLeadAdded((prev) => ({
-                                                                ...prev,
-                                                                [leadKey]: true,
-                                                              }));
-                                                              toast.success("Lead added!");
-                                                            })();
-                                                          }}
-                                                          className="rounded-full bg-[#6B9E6E] px-3 py-1 text-xs text-white disabled:cursor-not-allowed disabled:opacity-70"
-                                                        >
-                                                          {leadAdded ? "✓ Lead Added" : "+ Add as Lead"}
-                                                        </button>
-                                                        <div className="flex min-w-0 max-w-[min(100%,280px)] flex-col gap-2">
-                                                          <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                              <button
-                                                                type="button"
-                                                                className="w-full rounded-full border border-[#6B9E6E] px-3 py-1 text-left text-xs text-[#6B9E6E]"
-                                                              >
-                                                                💬 Message
-                                                              </button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent
-                                                              align="start"
-                                                              className="max-w-[280px]"
+                                                                })();
+                                                              }}
+                                                              className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
                                                             >
-                                                              {ENGAGEMENT_MESSAGE_PRESETS.map((msg) => (
-                                                                <DropdownMenuItem
-                                                                  key={msg}
-                                                                  className="whitespace-normal text-xs"
-                                                                  onSelect={() => {
-                                                                    setEngagementMessageDraft((prev) => ({
-                                                                      ...prev,
-                                                                      [leadKey]: msg,
-                                                                    }));
-                                                                  }}
+                                                              {leadAdded ? "✓ Lead Added" : "+ Add as Lead"}
+                                                            </button>
+                                                            <DropdownMenu>
+                                                              <DropdownMenuTrigger asChild>
+                                                                <button
+                                                                  type="button"
+                                                                  className="rounded-full border border-[#6B9E6E] bg-white px-3 py-1.5 text-xs font-semibold text-[#6B9E6E]"
                                                                 >
-                                                                  {msg}
-                                                                </DropdownMenuItem>
-                                                              ))}
-                                                            </DropdownMenuContent>
-                                                          </DropdownMenu>
+                                                                  💬 Message
+                                                                </button>
+                                                              </DropdownMenuTrigger>
+                                                              <DropdownMenuContent
+                                                                align="start"
+                                                                className="max-w-[280px]"
+                                                              >
+                                                                {ENGAGEMENT_MESSAGE_PRESETS.map((msg) => (
+                                                                  <DropdownMenuItem
+                                                                    key={msg}
+                                                                    className="whitespace-normal text-xs"
+                                                                    onSelect={() => {
+                                                                      setEngagementMessageDraft((prev) => ({
+                                                                        ...prev,
+                                                                        [leadKey]: msg,
+                                                                      }));
+                                                                    }}
+                                                                  >
+                                                                    {msg}
+                                                                  </DropdownMenuItem>
+                                                                ))}
+                                                              </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                          </div>
                                                           {engagementMessageDraft[leadKey] ? (
                                                             <p className="text-xs leading-snug text-[#2C2C2C]/75">
                                                               {engagementMessageDraft[leadKey]}
@@ -1459,8 +1591,7 @@ export default function AgentProfilePage() {
                                                                   {
                                                                     method: "POST",
                                                                     headers: {
-                                                                      "Content-Type":
-                                                                        "application/json",
+                                                                      "Content-Type": "application/json",
                                                                     },
                                                                     body: JSON.stringify({
                                                                       propertyId: p.id,
@@ -1500,12 +1631,12 @@ export default function AgentProfilePage() {
                                                                 }, 3000);
                                                               })();
                                                             }}
-                                                            className="w-full rounded-full bg-[#6B9E6E] py-2 text-sm text-white disabled:pointer-events-none disabled:opacity-50"
+                                                            className="mt-2 w-full rounded-full bg-[#6B9E6E] py-2 text-sm font-semibold text-white disabled:pointer-events-none disabled:opacity-50"
                                                           >
                                                             Send Message
                                                           </button>
                                                         </div>
-                                                      </div>
+                                                      ) : null}
                                                     </li>
                                                   );
                                                 })}

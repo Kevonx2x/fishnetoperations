@@ -12,7 +12,7 @@ export type DbProperty = {
   beds: number;
   baths: number;
   image_url: string;
-  status: "for_sale" | "for_rent";
+  status: "for_sale" | "for_rent" | "sold" | "rented";
   listed_by?: string | null;
   description?: string | null;
   property_type?: string | null;

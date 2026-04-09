@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { formatAgentScore } from "@/lib/format-agent-score";
+import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 
 // Types
 interface Agent {
@@ -534,7 +535,9 @@ function PropertyCard({ property }: { property: Property }) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
         <div className="absolute bottom-2 left-2 right-2">
-          <p className="text-sm font-bold text-cream">{property.price}</p>
+          <p className="text-sm font-bold text-cream">
+            {formatPropertyPriceDisplay(property.price, "for_sale")}
+          </p>
         </div>
       </div>
     </div>

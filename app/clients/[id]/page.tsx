@@ -26,6 +26,7 @@ import {
   type ClientPreferenceFields,
 } from "@/lib/client-profile-preferences";
 import { cn } from "@/lib/utils";
+import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 
 type PropertyRow = {
   id: string;
@@ -1232,7 +1233,12 @@ export default function ClientPublicProfilePage() {
                             </div>
 
                             <div className="space-y-1 px-4 pb-3 pt-3">
-                              <p className="font-serif text-2xl font-bold text-[#D4A843]">{p.price}</p>
+                              <p className="font-serif text-2xl font-bold text-[#D4A843]">
+                                {formatPropertyPriceDisplay(
+                                  p.price,
+                                  p.status as "for_sale" | "for_rent" | "sold" | "rented",
+                                )}
+                              </p>
                               <p className="font-serif text-lg font-bold text-[#2C2C2C]">{title}</p>
                               <p className="flex items-start gap-1.5 text-sm text-[#2C2C2C]/55">
                                 <MapPin

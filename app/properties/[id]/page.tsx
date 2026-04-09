@@ -21,6 +21,7 @@ import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact
 import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
 import { useAuth } from "@/contexts/auth-context";
+import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { coListLimitForTier, listingLimitForTier } from "@/lib/agent-listing-limits";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ type PropertyRow = {
   name: string | null;
   location: string;
   price: string;
+  status: "for_sale" | "for_rent" | "sold" | "rented";
   sqft: string;
   beds: number;
   baths: number;
@@ -134,6 +136,17 @@ export default function PropertyPage() {
 
   const { engagement } = usePropertyEngagementForProperties(property ? [property] : []);
 
+  const agentEngagementLocked = profile?.role === "agent";
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !property) return;
+    if (window.location.hash !== "#agents-section") return;
+    const t = window.setTimeout(() => {
+      document.getElementById("agents-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 2000);
+    return () => window.clearTimeout(t);
+  }, [property?.id]);
+
   const isLoggedIn = !authLoading && !!user;
   const ownedListingLimit = listingLimitForTier(myAgent?.listing_tier);
   const coListLimit = coListLimitForTier(myAgent?.listing_tier);
@@ -149,7 +162,7 @@ export default function PropertyPage() {
         .from("properties")
         .select(
           `
-          id, created_at, name, location, price, sqft, beds, baths, image_url, listed_by, property_type, lat, lng, description,
+          id, created_at, name, location, price, status, sqft, beds, baths, image_url, listed_by, property_type, lat, lng, description,
           is_presale, developer_name, turnover_date, unit_types,
           property_photos (url, sort_order),
           listing_agent:profiles!listed_by (id, full_name, avatar_url),
@@ -297,12 +310,13 @@ export default function PropertyPage() {
 
   const showCoAgentRequestButton = useMemo(() => {
     if (!isLoggedIn || profile?.role !== "agent" || !myAgent) return false;
+    if (property?.listed_by && user?.id === property.listed_by) return false;
     if (myAgent.status !== "approved" || !myAgent.verified) return false;
     if (!myAgent.license_number?.trim()) return false;
     if (isConnectedAsAgent) return false;
     if (hasPendingCoRequest) return false;
     return true;
-  }, [isLoggedIn, profile?.role, myAgent, isConnectedAsAgent, hasPendingCoRequest]);
+  }, [isLoggedIn, profile?.role, myAgent, isConnectedAsAgent, hasPendingCoRequest, property?.listed_by, user?.id]);
 
   const requestCoAgentJoin = async () => {
     if (!property?.id || !myAgent?.id) return;
@@ -446,27 +460,34 @@ export default function PropertyPage() {
                     ) : (
                       <div className="h-full w-full bg-neutral-200" />
                     )}
-                    <div className="absolute right-3 top-3 z-10 flex items-start gap-1.5">
+                    <div
+                      className="absolute right-3 top-3 z-10 flex items-start gap-1.5"
+                      title={
+                        agentEngagementLocked ? "Only clients can like and pin properties" : undefined
+                      }
+                    >
                       <div
                         className={cn(
                           "flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 shadow-sm",
                           engagement.isLiked(property.id)
                             ? "border border-red-200 bg-white"
                             : "border border-gray-200 bg-white/80",
+                          agentEngagementLocked && "pointer-events-none opacity-50",
                         )}
                       >
                         <button
                           type="button"
-                          onClick={() => engagement.toggleLike(property.id)}
+                          onClick={agentEngagementLocked ? undefined : () => engagement.toggleLike(property.id)}
                           className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
                           aria-label={engagement.isLiked(property.id) ? "Unlike" : "Like"}
+                          disabled={agentEngagementLocked}
                         >
                           <Heart
                             className={cn(
                               "h-4 w-4",
                               engagement.isLiked(property.id)
                                 ? "fill-red-500 text-red-500"
-                                : "text-red-400",
+                                : "fill-none text-red-400",
                             )}
                           />
                         </button>
@@ -482,22 +503,24 @@ export default function PropertyPage() {
                           engagement.isPinned(property.id)
                             ? "border border-[#D4A843]/40 bg-white"
                             : "border border-gray-200 bg-white/80",
+                          agentEngagementLocked && "pointer-events-none opacity-50",
                         )}
                       >
                         <button
                           type="button"
-                          onClick={() => engagement.togglePin(property.id)}
+                          onClick={agentEngagementLocked ? undefined : () => engagement.togglePin(property.id)}
                           className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
                           aria-label={
                             engagement.isPinned(property.id) ? "Unpin from profile" : "Pin to profile"
                           }
+                          disabled={agentEngagementLocked}
                         >
                           <Pin
                             className={cn(
                               "h-4 w-4",
                               engagement.isPinned(property.id)
                                 ? "fill-[#D4A843] text-[#D4A843]"
-                                : "text-[#D4A843]",
+                                : "fill-none text-[#D4A843]",
                             )}
                           />
                         </button>
@@ -571,7 +594,7 @@ export default function PropertyPage() {
                     {property.location}
                   </h1>
                   <p className="mt-1 font-serif text-2xl font-bold text-[#2C2C2C]">
-                    {property.price}
+                    {formatPropertyPriceDisplay(property.price, property.status)}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold text-[#2C2C2C]/70">
                     <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{property.beds} beds</span>
@@ -622,7 +645,7 @@ export default function PropertyPage() {
             </section>
 
             <aside className="lg:sticky lg:top-24 lg:col-span-1 lg:self-start">
-              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
+              <div id="agents-section" className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
                 <h2 className="font-serif text-lg font-bold text-[#2C2C2C]">Connected Agents</h2>
                 {connectedAgents.length === 0 ? (
                   <div className="mt-4">

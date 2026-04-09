@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 
 interface Lead {
   /** bigint from PostgREST is often JSON-serialized as number */
@@ -26,6 +27,7 @@ interface Property {
   created_at: string;
   location: string;
   price: string;
+  status?: string;
   sqft: string;
   beds: number;
   baths: number;
@@ -1564,7 +1566,10 @@ export default function AdminPage() {
                           {p.location}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                          {p.price}
+                          {formatPropertyPriceDisplay(
+                            p.price,
+                            p.status as "for_sale" | "for_rent" | "sold" | "rented" | undefined,
+                          )}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
                           {p.sqft}

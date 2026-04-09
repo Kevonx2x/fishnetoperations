@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAgentLiveAvailabilityFromPropertyRows } from "@/hooks/use-agent-live-availability";
 import Image from "next/image";
 import Link from "next/link";
@@ -37,11 +38,11 @@ import { useAuth } from "@/contexts/auth-context";
 import { PropertyZoomModal } from "@/components/marketplace/property-zoom-modal";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { listingListedLabel } from "@/lib/listing-listed-time";
-import { AgentSlotPlaceholder } from "@/components/marketplace/agent-slot-placeholder";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { cn } from "@/lib/utils";
 import { formatAgentScore } from "@/lib/format-agent-score";
+import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { roomUrlsFor } from "@/lib/marketplace-property";
@@ -1175,7 +1176,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         <AgentDirectoryCard
                           key={a.id}
                           agent={a}
-                          className="w-[180px] shrink-0 lg:w-[300px]"
+                          homepageCarousel
+                          className="min-w-[160px] shrink-0 lg:min-w-0 lg:w-[300px]"
                         />
                       ))}
                       {topAgents.length < 4 ? <MoreAgentsComingSoonCard /> : null}
@@ -1274,7 +1276,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     <h2 className="mt-3 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">
                       {featured.name ?? featured.location}
                     </h2>
-                    <p className="mt-2 font-serif text-2xl font-bold text-[#2C2C2C]">{featured.price}</p>
+                    <p className="mt-2 font-serif text-2xl font-bold text-[#2C2C2C]">
+                      {formatPropertyPriceDisplay(featured.price, featured.status)}
+                    </p>
                     <p className="mt-3 text-sm font-semibold text-[#2C2C2C]/60">
                       {featured.beds ? `${featured.beds} beds` : "Studio"} · {featured.baths} baths · {featured.sqft} sqft
                     </p>
@@ -1488,20 +1492,13 @@ export function NewlyListedCard({
   const statusLabel = property.is_presale ? "Presale" : property.status === "for_rent" ? "For Rent" : "For Sale";
   const img = roomUrls[roomIdx] ?? roomUrls[0] ?? property.image_url;
 
-  const hiddenCount = Math.max(0, connectedAgents.length - 2);
-  type AgentRow =
-    | { kind: "agent"; agent: MarketplaceAgent }
-    | { kind: "placeholder" };
-  const agentRows: AgentRow[] = (() => {
-    const n = connectedAgents.length;
-    if (n === 0) {
-      return [{ kind: "placeholder" }, { kind: "placeholder" }];
-    }
-    if (n === 1) {
-      return [{ kind: "agent", agent: connectedAgents[0]! }, { kind: "placeholder" }];
-    }
-    return connectedAgents.slice(0, 2).map((a) => ({ kind: "agent" as const, agent: a }));
-  })();
+  const { profile } = useAuth();
+  const router = useRouter();
+  const agentEngagementLocked = profile?.role === "agent";
+
+  const firstAgent = connectedAgents[0] ?? null;
+  const moreAgentCount = Math.max(0, connectedAgents.length - 1);
+
   const showYourListingBadge =
     !!viewerUserId &&
     connectedAgents.some((a) => a.userId === viewerUserId);
@@ -1509,6 +1506,7 @@ export function NewlyListedCard({
   const showEng = engagement.showEngagementCounts(property.id);
   const isLiked = engagement.isLiked(property.id);
   const isPinned = engagement.isPinned(property.id);
+  const showEngagementRow = showEng || agentEngagementLocked;
 
   const imgH = compact ? "h-44 sm:h-48" : "h-52 sm:h-56";
   const titleLine = property.name?.trim() || property.location;
@@ -1577,73 +1575,84 @@ export function NewlyListedCard({
           </span>
         </div>
 
-        {showEng ? (
-          <div className="absolute right-3 top-3 z-20 flex items-center gap-1">
+        {showEngagementRow ? (
+          <div
+            className="absolute right-3 top-3 z-20 flex items-center gap-1"
+            title={agentEngagementLocked ? "Only clients can like and pin properties" : undefined}
+          >
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                engagement.toggleLike(property.id);
+                if (!agentEngagementLocked) void engagement.toggleLike(property.id);
               }}
+              disabled={agentEngagementLocked}
               className={cn(
                 "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
                 isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
+                agentEngagementLocked && "pointer-events-none opacity-50",
               )}
               aria-label={`${engagement.likeCount(property.id)} likes`}
             >
               <Heart
                 className={cn(
                   "h-3.5 w-3.5 shrink-0",
-                  isLiked ? "fill-red-500 text-red-500" : "text-red-400",
+                  isLiked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
                 )}
               />
-              <span
-                className={cn(
-                  "text-xs font-medium tabular-nums",
-                  isLiked ? "text-red-500" : "text-red-400",
-                )}
-              >
-                {engagement.likeCount(property.id)}
-              </span>
+              {showEng || agentEngagementLocked ? (
+                <span
+                  className={cn(
+                    "text-xs font-medium tabular-nums",
+                    isLiked ? "text-red-500" : "text-red-400",
+                  )}
+                >
+                  {engagement.likeCount(property.id)}
+                </span>
+              ) : null}
             </button>
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                engagement.togglePin(property.id);
+                if (!agentEngagementLocked) void engagement.togglePin(property.id);
               }}
+              disabled={agentEngagementLocked}
               className={cn(
                 "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
                 isPinned ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
+                agentEngagementLocked && "pointer-events-none opacity-50",
               )}
               aria-label={`${engagement.saveCount(property.id)} saved`}
             >
               <Pin
                 className={cn(
                   "h-3.5 w-3.5 shrink-0",
-                  isPinned ? "fill-[#D4A843] text-[#D4A843]" : "text-[#D4A843]",
+                  isPinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
                 )}
               />
-              <span
-                className={cn(
-                  "text-xs font-medium tabular-nums",
-                  isPinned ? "text-[#D4A843]" : "text-[#D4A843]",
-                )}
-              >
-                {engagement.saveCount(property.id)}
-              </span>
+              {showEng || agentEngagementLocked ? (
+                <span
+                  className={cn(
+                    "text-xs font-medium tabular-nums",
+                    isPinned ? "text-[#D4A843]" : "text-[#D4A843]",
+                  )}
+                >
+                  {engagement.saveCount(property.id)}
+                </span>
+              ) : null}
             </button>
           </div>
         ) : null}
 
         <div className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-5rem)] flex-col items-start gap-1.5">
-          <span className="rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-sm ring-1 ring-black/5">
+          <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-gray-400 shadow-sm ring-1 ring-black/5">
             {listedLabel}
           </span>
           {showYourListingBadge ? (
             <Link
               href="/dashboard/agent"
-              className="pointer-events-auto rounded-full bg-[#D4A843]/95 px-2.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm ring-1 ring-[#8a6d32]/30 hover:bg-[#D4A843]"
+              className="pointer-events-auto rounded-full bg-[#D4A843]/95 px-2.5 py-1 text-xs font-bold text-gray-400 shadow-sm ring-1 ring-[#8a6d32]/30 hover:bg-[#D4A843]"
               onClick={(e) => e.stopPropagation()}
             >
               This is your listing
@@ -1656,7 +1665,7 @@ export function NewlyListedCard({
         <p
           className={`font-serif font-bold tracking-tight text-[#D4A843] ${compact ? "text-base" : "text-lg sm:text-xl"}`}
         >
-          {property.price}
+          {formatPropertyPriceDisplay(property.price, property.status)}
         </p>
         <p className={`mt-1 line-clamp-2 text-[#2C2C2C] ${compact ? "text-sm font-bold" : "text-base font-bold"}`}>
           {titleLine}
@@ -1682,71 +1691,42 @@ export function NewlyListedCard({
         ) : null}
       </div>
 
-      <div
-        className="relative z-10 flex flex-col gap-0 border-t border-gray-100 bg-white pt-2"
-        style={{ minHeight: compact ? "108px" : "124px" }}
-      >
-        <div className="flex flex-1 flex-col justify-between px-4 pb-0 pt-2">
-          <div>
-            <div className="space-y-2">
-              {agentRows.map((row, idx) =>
-                row.kind === "agent" ? (
-                  <Link
-                    key={row.agent.id}
-                    href={`/agents/${encodeURIComponent(row.agent.id)}`}
-                    title={row.agent.name}
-                    onClick={(e) => e.stopPropagation()}
-                    className="group flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-0.5 -mx-1 transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
-                  >
-                    <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
-                      <AgentAvatarFill name={row.agent.name} imageUrl={row.agent.image} sizes="28px" />
-                    </div>
-                    <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#2C2C2C]/75 transition-colors duration-150 ease-out group-hover:text-[#2C2C2C]">
-                      {row.agent.name.length > 12 ? `${row.agent.name.slice(0, 12)}…` : row.agent.name}
-                    </span>
-                    <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
-                    <span className="shrink-0 text-xs font-bold text-[#2C2C2C]/80 transition-colors duration-150 ease-out group-hover:text-[#2C2C2C]">
-                      {formatAgentScore(row.agent.score)}
-                    </span>
-                    <ChevronRight
-                      className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E] opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100"
-                      aria-hidden
-                    />
-                  </Link>
-                ) : (
-                  <div key={`placeholder-${idx}`} className="flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] ring-1 ring-black/10">
-                      <span className="text-sm font-bold text-white">?</span>
-                    </div>
-                    <AgentSlotPlaceholder
-                      onLinkClick={(e) => e.stopPropagation()}
-                      propertyId={property.id}
-                      verifiedListingAgent={verifiedListingAgent}
-                    />
-                  </div>
-                ),
-              )}
-            </div>
-
-            {hiddenCount > 0 ? (
-              <p
-                className="mt-2 cursor-pointer text-center text-xs font-semibold text-[#2C2C2C]/55 hover:text-[#2C2C2C]"
-                onClick={onOpenPropertyZoom}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onOpenPropertyZoom();
-                  }
-                }}
+      <div className="relative z-10 flex min-h-[60px] max-h-[60px] flex-col justify-center overflow-hidden border-t border-gray-100 bg-white px-3 py-2">
+        {connectedAgents.length === 0 ? (
+          <p className="text-center text-xs text-gray-400">No agent assigned</p>
+        ) : (
+          <div className="flex min-h-0 flex-col justify-center gap-1.5">
+            {firstAgent ? (
+              <Link
+                href={`/agents/${encodeURIComponent(firstAgent.id)}`}
+                title={firstAgent.name}
+                onClick={(e) => e.stopPropagation()}
+                className="group flex min-w-0 cursor-pointer items-center gap-2 rounded-lg py-0.5 transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
               >
-                Show More
-              </p>
+                <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+                  <AgentAvatarFill name={firstAgent.name} imageUrl={firstAgent.image} sizes="28px" />
+                </div>
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#2C2C2C]/85">
+                  {firstAgent.name}
+                </span>
+                <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
+              </Link>
+            ) : null}
+            {moreAgentCount > 0 ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/properties/${encodeURIComponent(property.id)}#agents-section`);
+                }}
+                className="w-full rounded-full border border-[#6B9E6E] bg-white px-2 py-1 text-center text-xs font-semibold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/10"
+              >
+                See {moreAgentCount} more agent{moreAgentCount === 1 ? "" : "s"} →
+              </button>
             ) : null}
           </div>
-        </div>
-        <div className="flex justify-center py-2">
+        )}
+        <div className="flex justify-center pt-1">
           <button
             type="button"
             onClick={onOpenPropertyZoom}

@@ -18,7 +18,8 @@ import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewi
 import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
 import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
 import { useAuth } from "@/contexts/auth-context";
-import type { PropertyEngagement } from "@/hooks/use-property-engagement";
+import { ONLY_CLIENTS_CAN_LIKE_OR_PIN, type PropertyEngagement } from "@/hooks/use-property-engagement";
+import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { cn } from "@/lib/utils";
 
@@ -146,6 +147,7 @@ function AgentsList({
   viewerAgentId,
   viewerUserId,
   propertyId,
+  listedByUserId,
   verifiedListingAgent,
 }: {
   modalAgents: MarketplaceAgent[];
@@ -157,6 +159,7 @@ function AgentsList({
   viewerAgentId: string | null;
   viewerUserId: string | null;
   propertyId: string;
+  listedByUserId: string | null;
   verifiedListingAgent: boolean;
 }) {
   return (
@@ -229,6 +232,8 @@ function AgentsList({
               onLinkClick={onClose}
               propertyId={propertyId}
               verifiedListingAgent={verifiedListingAgent}
+              listedByUserId={listedByUserId}
+              viewerUserId={viewerUserId}
             />
           </div>
         </li>
@@ -288,7 +293,9 @@ function PropertyDetailsSection({
       >
         {property.name ?? property.location}
       </h2>
-      <p className="mt-2 font-serif text-2xl font-bold text-[#D4A843]">{property.price}</p>
+      <p className="mt-2 font-serif text-2xl font-bold text-[#D4A843]">
+        {formatPropertyPriceDisplay(property.price, property.status)}
+      </p>
       <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/70">
         {property.beds ? `${property.beds} beds` : "Studio"} · {property.baths} baths · {property.sqft} sqft
       </p>
@@ -339,6 +346,7 @@ function BottomActions({
   authLoading,
   requestDisabled,
   isPresale,
+  agentEngagementLocked,
 }: {
   engagement: PropertyEngagement;
   propertyId: string;
@@ -347,10 +355,12 @@ function BottomActions({
   authLoading: boolean;
   requestDisabled: boolean;
   isPresale: boolean;
+  agentEngagementLocked: boolean;
 }) {
   const isLiked = engagement.isLiked(propertyId);
   const isPinned = engagement.isPinned(propertyId);
   const showEngagementControls = engagement.showEngagementCounts(propertyId);
+  const showEngagementRow = showEngagementControls || agentEngagementLocked;
   return (
     <div className="shrink-0 space-y-2 border-t border-gray-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <button
@@ -365,21 +375,28 @@ function BottomActions({
       >
         {authLoading ? "Loading…" : isPresale ? "Register Interest" : "Request Viewing"}
       </button>
-      {showEngagementControls ? (
-        <div className="grid grid-cols-2 gap-2">
+      {showEngagementRow ? (
+        <div
+          className="grid grid-cols-2 gap-2"
+          title={agentEngagementLocked ? ONLY_CLIENTS_CAN_LIKE_OR_PIN : undefined}
+        >
           <button
             type="button"
-            onClick={() => engagement.toggleLike(propertyId)}
+            onClick={() => {
+              if (!agentEngagementLocked) void engagement.toggleLike(propertyId);
+            }}
+            disabled={agentEngagementLocked}
             className={cn(
               "flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-2.5 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]",
               isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
+              agentEngagementLocked && "pointer-events-none opacity-50",
             )}
           >
             <span className="inline-flex items-center gap-1.5">
               <Heart
                 className={cn(
                   "h-4 w-4",
-                  isLiked ? "fill-red-500 text-red-500" : "text-red-400",
+                  isLiked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
                 )}
               />
               Like
@@ -390,17 +407,21 @@ function BottomActions({
           </button>
           <button
             type="button"
-            onClick={() => engagement.togglePin(propertyId)}
+            onClick={() => {
+              if (!agentEngagementLocked) void engagement.togglePin(propertyId);
+            }}
+            disabled={agentEngagementLocked}
             className={cn(
               "flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-2.5 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]",
               isPinned ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
+              agentEngagementLocked && "pointer-events-none opacity-50",
             )}
           >
             <span className="inline-flex items-center gap-1.5">
               <Pin
                 className={cn(
                   "h-4 w-4",
-                  isPinned ? "fill-[#D4A843] text-[#D4A843]" : "text-[#D4A843]",
+                  isPinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
                 )}
               />
               Pin
@@ -417,7 +438,7 @@ function BottomActions({
 
 export function PropertyZoomModal({ property, agents, onClose, engagement }: Props) {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [viewerAgentId, setViewerAgentId] = useState<string | null>(null);
   const [viewerAgentVerified, setViewerAgentVerified] = useState<{
@@ -464,6 +485,8 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
 
   const verifiedListingAgent =
     Boolean(viewerAgentVerified?.verified && viewerAgentVerified?.status === "approved");
+
+  const agentEngagementLocked = profile?.role === "agent";
 
   const onRequestViewing = () => {
     if (authLoading) return;
@@ -603,6 +626,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
                 viewerAgentId={viewerAgentId}
                 viewerUserId={user?.id ?? null}
                 propertyId={property.id}
+                listedByUserId={property.listed_by ?? null}
                 verifiedListingAgent={verifiedListingAgent}
                 onContactAgent={(a) => {
                   setContactModalAgent(a);
@@ -619,6 +643,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
             authLoading={authLoading}
             requestDisabled={authLoading || (!isPresale && agents.length === 0)}
             isPresale={isPresale}
+            agentEngagementLocked={agentEngagementLocked}
           />
         </div>
 
@@ -645,6 +670,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
                   viewerAgentId={viewerAgentId}
                   viewerUserId={user?.id ?? null}
                   propertyId={property.id}
+                  listedByUserId={property.listed_by ?? null}
                   verifiedListingAgent={verifiedListingAgent}
                   onContactAgent={(a) => {
                     setContactModalAgent(a);
@@ -661,6 +687,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
               authLoading={authLoading}
               requestDisabled={authLoading || (!isPresale && agents.length === 0)}
               isPresale={isPresale}
+              agentEngagementLocked={agentEngagementLocked}
             />
           </div>
         </div>

@@ -9,6 +9,7 @@ import {
   isLicenseExpiringWithinDays,
 } from "@/lib/license-expiry";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 
 type BrokerRow = {
   id: string;
@@ -48,6 +49,7 @@ type PropertyRow = {
   id: string;
   location: string;
   price: string;
+  status: string;
   beds: number;
   baths: number;
   listed_by: string | null;
@@ -428,7 +430,11 @@ export default function BrokerDashboardPage() {
                       <div>
                         <p className="text-sm font-medium text-gray-900">{p.location}</p>
                         <p className="text-xs text-gray-500">
-                          {p.price} · {p.beds} bd / {p.baths} ba
+                          {formatPropertyPriceDisplay(
+                            p.price,
+                            p.status as "for_sale" | "for_rent" | "sold" | "rented",
+                          )}{" "}
+                          · {p.beds} bd / {p.baths} ba
                         </p>
                       </div>
                     </li>

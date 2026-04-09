@@ -8,11 +8,13 @@ import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { useAuth } from "@/contexts/auth-context";
 import { usePinnedPropertyIds } from "@/hooks/use-property-engagement";
+import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 
 type PropertyCard = {
   id: string;
   location: string;
   price: string;
+  status: string;
   beds: number;
   baths: number;
   sqft: string;
@@ -45,7 +47,7 @@ export default function SavedPage() {
       setError(null);
       const { data, error: fetchErr } = await supabase
         .from("properties")
-        .select("id, location, price, beds, baths, sqft, image_url")
+        .select("id, location, price, status, beds, baths, sqft, image_url")
         .in("id", ids);
       if (cancelled) return;
       if (fetchErr) {
@@ -117,7 +119,12 @@ export default function SavedPage() {
                 <Pin className="h-5 w-5 fill-[#D4A843] text-[#D4A843]" />
               </button>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent p-3">
-                <p className="font-serif text-xl font-bold text-white">{p.price}</p>
+                <p className="font-serif text-xl font-bold text-white">
+                  {formatPropertyPriceDisplay(
+                    p.price,
+                    p.status as "for_sale" | "for_rent" | "sold" | "rented",
+                  )}
+                </p>
               </div>
             </div>
             <div className="p-4">

@@ -49,3 +49,25 @@ export function formatListingPricePhp(
   return status === "for_rent" ? `${base}/mo` : base;
 }
 
+/** Display any property price with ₱ + comma grouping (en-PH). Preserves non-numeric strings with optional ₱ prefix. */
+export function formatPropertyPriceDisplay(
+  priceRaw: string | number | bigint | null | undefined,
+  status?: "for_sale" | "for_rent" | "sold" | "rented",
+): string {
+  const n = parsePriceToNumber(priceRaw);
+  if (n === null) {
+    const t = String(priceRaw ?? "").trim();
+    if (!t) return "—";
+    return t.startsWith("₱") ? t : `₱${t}`;
+  }
+  const rounded = Math.round(n);
+  const formatted = new Intl.NumberFormat("en-PH", {
+    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+    useGrouping: true,
+  }).format(rounded);
+  const base = `₱${formatted}`;
+  if (status === "for_rent" || status === "rented") return `${base}/mo`;
+  return base;
+}
+

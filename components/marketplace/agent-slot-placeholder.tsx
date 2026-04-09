@@ -15,6 +15,9 @@ type AgentSlotPlaceholderProps = {
   propertyId?: string;
   /** Approved + verified agent: show co-list CTA (homepage cards). */
   verifiedListingAgent?: boolean;
+  /** Hide co-list CTA when viewing agent is the listing owner. */
+  listedByUserId?: string | null;
+  viewerUserId?: string | null;
 };
 
 /** Two-line placeholder for property cards and zoom modal agent lists (sage ? circle is separate). */
@@ -22,8 +25,20 @@ export function AgentSlotPlaceholder({
   onLinkClick,
   propertyId,
   verifiedListingAgent,
+  listedByUserId,
+  viewerUserId,
 }: AgentSlotPlaceholderProps) {
   const showLink = useShowListingAgentPlaceholderLink();
+
+  if (
+    verifiedListingAgent &&
+    propertyId &&
+    listedByUserId &&
+    viewerUserId &&
+    listedByUserId === viewerUserId
+  ) {
+    return <div className="min-w-0 flex-1" aria-hidden />;
+  }
 
   if (verifiedListingAgent && propertyId) {
     return (
@@ -72,8 +87,20 @@ export function AgentSlotPlaceholderModal({
   onLinkClick,
   propertyId,
   verifiedListingAgent,
+  listedByUserId,
+  viewerUserId,
 }: AgentSlotPlaceholderModalProps) {
   const showLink = useShowListingAgentPlaceholderLink();
+
+  if (
+    verifiedListingAgent &&
+    propertyId &&
+    listedByUserId &&
+    viewerUserId &&
+    listedByUserId === viewerUserId
+  ) {
+    return <div className="min-w-0 flex-1" aria-hidden />;
+  }
 
   if (verifiedListingAgent && propertyId) {
     return (

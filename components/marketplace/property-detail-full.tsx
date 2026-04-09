@@ -17,12 +17,14 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 
 export type DetailProperty = {
   id: string;
   created_at: string;
   location: string;
   price: string;
+  status?: "for_sale" | "for_rent" | "sold" | "rented";
   sqft: string;
   beds: number;
   baths: number;
@@ -256,6 +258,7 @@ export function PropertyDetailFull({
                           id: property.id,
                           location: property.location,
                           price: property.price,
+                          status: property.status,
                           lat: property.lat,
                           lng: property.lng,
                         },
@@ -286,7 +289,9 @@ export function PropertyDetailFull({
                           <div className="relative aspect-[4/3] w-full bg-black/5">
                             <Image src={p.image_url} alt="" fill sizes="224px" className="object-cover" />
                             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent p-3">
-                              <p className="font-serif text-lg font-bold text-white">{p.price}</p>
+                              <p className="font-serif text-lg font-bold text-white">
+                                {formatPropertyPriceDisplay(p.price, p.status)}
+                              </p>
                             </div>
                           </div>
                           <div className="p-3">

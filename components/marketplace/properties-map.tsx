@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 
 export function PropertiesMap({
   properties,
@@ -13,6 +14,7 @@ export function PropertiesMap({
     id: string;
     location: string;
     price: string;
+    status?: "for_sale" | "for_rent" | "sold" | "rented";
     lat: number | null;
     lng: number | null;
   }>;
@@ -30,6 +32,7 @@ export function PropertiesMap({
         id: string;
         location: string;
         price: string;
+        status?: "for_sale" | "for_rent" | "sold" | "rented";
         lat: number;
         lng: number;
       }>,
@@ -90,7 +93,9 @@ export function PropertiesMap({
             >
               <Popup>
                 <div className="min-w-[180px]">
-                  <div className="font-serif text-base font-bold">{p.price}</div>
+                  <div className="font-serif text-base font-bold">
+                    {formatPropertyPriceDisplay(p.price, p.status)}
+                  </div>
                   <div className="mt-1 text-sm">{p.location}</div>
                   <button
                     type="button"
