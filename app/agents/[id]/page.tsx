@@ -10,9 +10,11 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import { motion } from "framer-motion";
+import { createPortal } from "react-dom";
 import {
   ArrowRight,
   BadgeCheck,
@@ -284,7 +286,7 @@ function OwnListingEngagementButton({
   kind,
   count,
   showCount,
-  preview,
+  topUsers,
   isOwnProfile,
   icon,
   ariaLabel,
@@ -293,20 +295,150 @@ function OwnListingEngagementButton({
   kind: "like" | "pin";
   count: number;
   showCount: boolean;
-  preview: EngagementPreview | undefined;
+  topUsers: EngagementPreview | undefined;
   isOwnProfile: boolean;
   icon: ReactNode;
   ariaLabel: string;
+  /** Used only when viewing someone else’s profile (clients can like/pin). Own profile: ignored. */
   onToggle: () => void | Promise<void>;
 }) {
-  const [popoverOpen, setPopoverOpen] = useState(false);
-  const showPopover =
-    isOwnProfile && count > 0 && Boolean(preview?.users.length);
+  const [showPopover, setShowPopover] = useState(false);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties | null>(null);
 
-  const buttonClass =
-    "inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10";
+  const canOpenPopover =
+    isOwnProfile && count > 0 && Boolean(topUsers?.users.length);
 
-  const button = (
+  const triggerClass =
+    "relative inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10";
+
+  const iconAndCount = (
+    <>
+      {icon}
+      {showCount ? <span>{count}</span> : null}
+    </>
+  );
+
+  const clearLeaveTimer = () => {
+    if (leaveTimerRef.current) {
+      clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = null;
+    }
+  };
+
+  const scheduleClose = () => {
+    clearLeaveTimer();
+    leaveTimerRef.current = setTimeout(() => {
+      setShowPopover(false);
+      setPopoverStyle(null);
+    }, 200);
+  };
+
+  const openPopover = () => {
+    console.log("hover triggered");
+    console.log("topUsers", topUsers);
+    if (!canOpenPopover) return;
+    clearLeaveTimer();
+    setShowPopover(true);
+    if (typeof window === "undefined" || !anchorRef.current) return;
+    const r = anchorRef.current.getBoundingClientRect();
+    setPopoverStyle({
+      position: "fixed",
+      right: window.innerWidth - r.right,
+      bottom: window.innerHeight - r.top + 8,
+      zIndex: 50,
+      minWidth: 160,
+    });
+  };
+
+  /** Own listing on your agent profile: counts are read-only; hover opens popover only (no like/pin toggle). */
+  if (isOwnProfile) {
+    if (!canOpenPopover) {
+      return (
+        <div className={triggerClass} aria-label={ariaLabel} role="group">
+          {iconAndCount}
+        </div>
+      );
+    }
+
+    const others = Math.max(0, count - 3);
+
+    const popoverContent = (
+      <div
+        className="min-w-[160px] rounded-xl bg-white p-2 shadow-lg"
+        style={popoverStyle ?? undefined}
+        role="tooltip"
+        onMouseEnter={() => {
+          clearLeaveTimer();
+          setShowPopover(true);
+        }}
+        onMouseLeave={scheduleClose}
+      >
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+          {kind === "like" ? "Liked by" : "Pinned by"}
+        </p>
+        <ul className="space-y-2">
+          {topUsers!.users.map((u) => {
+            const href = profileHrefForEngagement(u, topUsers!.agentIdByUserId);
+            const label = u.full_name?.trim() || "User";
+            const inner = (
+              <>
+                <div className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
+                  {u.avatar_url?.trim() ? (
+                    <SupabasePublicImage src={u.avatar_url} alt="" fill sizes="24px" className="object-cover" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-[9px] font-bold text-[#2C2C2C]/55">
+                      {agentAvatarInitials(label)}
+                    </span>
+                  )}
+                </div>
+                <span className="min-w-0 truncate text-xs font-semibold text-[#2C2C2C]">{label}</span>
+              </>
+            );
+            return (
+              <li key={`${kind}-${u.id}`}>
+                {href ? (
+                  <Link
+                    href={href}
+                    className="flex items-center gap-2 hover:opacity-90"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div className="flex items-center gap-2">{inner}</div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        {others > 0 ? (
+          <p className="mt-2 text-xs font-medium text-[#2C2C2C]/45">and {others} others</p>
+        ) : null}
+      </div>
+    );
+
+    return (
+      <>
+        <div
+          ref={anchorRef}
+          className={triggerClass}
+          onMouseEnter={openPopover}
+          onMouseLeave={scheduleClose}
+          aria-label={ariaLabel}
+          role="group"
+        >
+          {iconAndCount}
+        </div>
+        {showPopover && popoverStyle && typeof document !== "undefined"
+          ? createPortal(popoverContent, document.body)
+          : null}
+      </>
+    );
+  }
+
+  return (
     <button
       type="button"
       onClick={(e) => {
@@ -314,76 +446,11 @@ function OwnListingEngagementButton({
         e.stopPropagation();
         void onToggle();
       }}
-      className={buttonClass}
+      className={triggerClass}
       aria-label={ariaLabel}
     >
-      {icon}
-      {showCount ? <span>{count}</span> : null}
+      {iconAndCount}
     </button>
-  );
-
-  if (!showPopover) {
-    return button;
-  }
-
-  const others = Math.max(0, count - 3);
-
-  return (
-    <div
-      className="relative flex"
-      onMouseEnter={() => setPopoverOpen(true)}
-      onMouseLeave={() => setPopoverOpen(false)}
-    >
-      {button}
-      {popoverOpen ? (
-        <div
-          className="absolute bottom-full right-0 z-50 mb-2 min-w-[12rem] rounded-xl bg-white p-3 shadow-md ring-1 ring-black/5"
-          role="tooltip"
-        >
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-            {kind === "like" ? "Liked by" : "Pinned by"}
-          </p>
-          <ul className="space-y-2">
-            {preview!.users.map((u) => {
-              const href = profileHrefForEngagement(u, preview!.agentIdByUserId);
-              const label = u.full_name?.trim() || "User";
-              const inner = (
-                <>
-                  <div className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
-                    {u.avatar_url?.trim() ? (
-                      <SupabasePublicImage src={u.avatar_url} alt="" fill sizes="24px" className="object-cover" />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center text-[9px] font-bold text-[#2C2C2C]/55">
-                        {agentAvatarInitials(label)}
-                      </span>
-                    )}
-                  </div>
-                  <span className="min-w-0 truncate text-xs font-semibold text-[#2C2C2C]">{label}</span>
-                </>
-              );
-              return (
-                <li key={`${kind}-${u.id}`}>
-                  {href ? (
-                    <Link
-                      href={href}
-                      className="flex items-center gap-2 hover:opacity-90"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {inner}
-                    </Link>
-                  ) : (
-                    <div className="flex items-center gap-2">{inner}</div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          {others > 0 ? (
-            <p className="mt-2 text-xs font-medium text-[#2C2C2C]/45">and {others} others</p>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
   );
 }
 
@@ -1074,7 +1141,7 @@ export default function AgentProfilePage() {
                                   kind="like"
                                   count={likeN}
                                   showCount={showEng}
-                                  preview={likePreviewByProperty[p.id]}
+                                  topUsers={likePreviewByProperty[p.id]}
                                   isOwnProfile={isOwnProfile}
                                   ariaLabel={showEng ? `${likeN} likes` : "Like"}
                                   onToggle={() => engagement.toggleLike(p.id)}
@@ -1089,7 +1156,7 @@ export default function AgentProfilePage() {
                                   kind="pin"
                                   count={pinN}
                                   showCount={showEng}
-                                  preview={pinPreviewByProperty[p.id]}
+                                  topUsers={pinPreviewByProperty[p.id]}
                                   isOwnProfile={isOwnProfile}
                                   ariaLabel={showEng ? `${pinN} pins` : "Pin"}
                                   onToggle={() => engagement.togglePin(p.id)}
