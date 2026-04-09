@@ -11,6 +11,7 @@ import {
   Calendar,
   Check,
   CreditCard,
+  GitBranch,
   Home,
   LayoutDashboard,
   Loader2,
@@ -25,6 +26,7 @@ import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
 import { AgentLeadTemplatesSection } from "@/components/dashboard/agent-lead-templates";
 import { AgentViewingsTab } from "@/components/dashboard/agent-viewings-tab";
+import { AgentPipelineTab, type PipelineStageId } from "@/components/dashboard/agent-pipeline-tab";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
@@ -71,6 +73,7 @@ import {
 type Tab =
   | "overview"
   | "leads"
+  | "pipeline"
   | "viewings"
   | "listings"
   | "profile"
@@ -113,6 +116,8 @@ type LeadRow = {
   property_interest: string | null;
   message: string | null;
   stage: string;
+  pipeline_stage?: string | null;
+  property_id?: string | null;
   created_at: string;
   updated_at?: string;
   client_id: string | null;
@@ -264,6 +269,7 @@ export function AgentDashboard() {
     const allowed: Tab[] = [
       "overview",
       "leads",
+      "pipeline",
       "viewings",
       "listings",
       "profile",
@@ -375,7 +381,7 @@ export function AgentDashboard() {
         supabase
           .from("leads")
           .select(
-            "id, name, email, phone, property_interest, message, stage, created_at, updated_at, client_id",
+            "id, name, email, phone, property_interest, message, stage, pipeline_stage, property_id, created_at, updated_at, client_id",
           )
           .eq("agent_id", user.id)
           .order("created_at", { ascending: false }),
@@ -550,6 +556,15 @@ export function AgentDashboard() {
   }, [agent, properties.length]);
 
   const newLeadsCount = useMemo(() => leads.filter((l) => l.stage === "new").length, [leads]);
+
+  const pipelinePropertyLabel = useCallback(
+    (propertyId: string | null) => {
+      if (!propertyId) return "General inquiry";
+      const p = properties.find((x) => x.id === propertyId);
+      return (p?.name?.trim() || p?.location || "Property").trim() || "Property";
+    },
+    [properties],
+  );
 
   const mockProfileViews = useMemo(() => 120 + (agent?.id ? agent.id.charCodeAt(0) % 380 : 0), [agent?.id]);
   const mockResponseRate = useMemo(() => 85 + (agent?.id ? agent.id.charCodeAt(1) % 14 : 0), [agent?.id]);
@@ -996,6 +1011,7 @@ export function AgentDashboard() {
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "overview", label: "Overview", icon: <LayoutDashboard className="h-5 w-5" /> },
     { id: "leads", label: "Leads", icon: <Users className="h-5 w-5" /> },
+    { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-5 w-5" /> },
     { id: "viewings", label: "Viewings", icon: <Calendar className="h-5 w-5" /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" /> },
     { id: "listings", label: "Listings", icon: <Home className="h-5 w-5" /> },
@@ -1103,6 +1119,24 @@ export function AgentDashboard() {
               )}
               {tab === "leads" && !approved && (
                 <p className="text-sm font-semibold text-[#2C2C2C]/55">Leads unlock when your profile is verified.</p>
+              )}
+              {tab === "pipeline" && approved && (
+                <AgentPipelineTab
+                  leads={leads.map((l) => ({
+                    id: l.id,
+                    name: l.name,
+                    email: l.email,
+                    pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,
+                    property_id: l.property_id ?? null,
+                    created_at: l.created_at,
+                  }))}
+                  propertyLabel={pipelinePropertyLabel}
+                  supabase={supabase}
+                  onRefresh={loadData}
+                />
+              )}
+              {tab === "pipeline" && !approved && (
+                <p className="text-sm font-semibold text-[#2C2C2C]/55">Pipeline unlocks when your profile is verified.</p>
               )}
               {tab === "viewings" && approved && (
                 <AgentViewingsTab
