@@ -1315,6 +1315,17 @@ export function AgentDashboard() {
                   );
                 })}
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setMoreDrawerOpen(false);
+                  router.push("/");
+                }}
+                className="mt-2 flex w-full items-center gap-2 border-t border-gray-100 px-4 py-3 text-left text-sm text-gray-500"
+              >
+                <span aria-hidden>🏠</span>
+                Homepage
+              </button>
             </motion.div>
           </motion.div>
         ) : null}
