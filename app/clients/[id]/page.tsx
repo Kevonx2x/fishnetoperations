@@ -1053,8 +1053,8 @@ export default function ClientPublicProfilePage() {
                         const overlay = overlayLabel(p);
                         const likeTotal = likeCounts[p.id] ?? 0;
                         const pinSaveN = saveCounts[p.id] ?? 0;
-                        const wishlistEngagementPill =
-                          "inline-flex flex-row items-center gap-1 rounded-full bg-white/95 px-1.5 py-1 text-[10px] font-bold shadow-md ring-1 ring-black/10";
+                        const engagementChipBase =
+                          "inline-flex flex-row items-center gap-1 rounded-full bg-white p-1.5 shadow-sm";
                         const pinnedIso = pinnedAtByPropertyId[p.id];
                         const pinnedLine = pinnedIso
                           ? pinnedRelativeLabel(pinnedIso)
@@ -1136,26 +1136,19 @@ export default function ClientPublicProfilePage() {
                                     e.stopPropagation();
                                     void likes.toggle(p.id);
                                   }}
-                                  className={wishlistEngagementPill}
+                                  className={engagementChipBase}
                                   aria-label={likeTotal > 0 ? `${likeTotal} likes` : "Like"}
                                 >
                                   <Heart
-                                    className={`h-3.5 w-3.5 shrink-0 text-red-500 ${likes.has(p.id) ? "fill-red-500" : ""}`}
+                                    className="h-3.5 w-3.5 shrink-0 fill-red-500 text-red-500"
                                     aria-hidden
                                   />
                                   {likeTotal > 0 ? (
-                                    <span className="tabular-nums text-red-500">{likeTotal}</span>
+                                    <span className="text-xs font-medium tabular-nums text-red-500">
+                                      {likeTotal}
+                                    </span>
                                   ) : null}
                                 </button>
-                                <span
-                                  className={`${wishlistEngagementPill} pointer-events-none`}
-                                  aria-label={pinSaveN > 0 ? `${pinSaveN} saves` : "Saves"}
-                                >
-                                  <Pin className="h-3.5 w-3.5 shrink-0 text-[#D4A843]" aria-hidden />
-                                  {pinSaveN > 0 ? (
-                                    <span className="tabular-nums text-[#D4A843]">{pinSaveN}</span>
-                                  ) : null}
-                                </span>
                                 {isOwn ? (
                                   <button
                                     type="button"
@@ -1165,16 +1158,40 @@ export default function ClientPublicProfilePage() {
                                       e.stopPropagation();
                                       void removeFromWishlist(p.id);
                                     }}
-                                    className={`${wishlistEngagementPill} disabled:opacity-50`}
+                                    className={`${engagementChipBase} disabled:opacity-50`}
                                     title="Remove from wishlist"
-                                    aria-label="Unpin from wishlist"
+                                    aria-label={
+                                      pinSaveN > 0
+                                        ? `${pinSaveN} saves — remove from wishlist`
+                                        : "Unpin from wishlist"
+                                    }
                                   >
                                     <Pin
-                                      className={`h-3.5 w-3.5 shrink-0 ${removingId === p.id ? "text-[#2C2C2C]/35" : "text-[#D4A843]"}`}
+                                      className={`h-3.5 w-3.5 shrink-0 fill-[#D4A843] text-[#D4A843] ${removingId === p.id ? "opacity-35" : ""}`}
                                       aria-hidden
                                     />
+                                    {pinSaveN > 0 ? (
+                                      <span className="text-xs font-medium tabular-nums text-[#D4A843]">
+                                        {pinSaveN}
+                                      </span>
+                                    ) : null}
                                   </button>
-                                ) : null}
+                                ) : (
+                                  <span
+                                    className={`${engagementChipBase} pointer-events-none`}
+                                    aria-label={pinSaveN > 0 ? `${pinSaveN} saves` : "Saves"}
+                                  >
+                                    <Pin
+                                      className="h-3.5 w-3.5 shrink-0 fill-[#D4A843] text-[#D4A843]"
+                                      aria-hidden
+                                    />
+                                    {pinSaveN > 0 ? (
+                                      <span className="text-xs font-medium tabular-nums text-[#D4A843]">
+                                        {pinSaveN}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                )}
                               </div>
                             </div>
 

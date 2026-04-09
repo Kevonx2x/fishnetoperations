@@ -1679,20 +1679,20 @@ function LeadsTab({
   deletingLeadId: number | null;
 }) {
   return (
-    <div>
+    <div className="w-full px-6 py-6">
       <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Leads</h1>
       <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Manage pipeline and follow-ups.</p>
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
-        <table className="w-full min-w-[800px] text-left text-sm">
+      <div className="mt-6 w-full overflow-x-auto rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+        <table className="min-w-full text-left text-sm">
           <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
             <tr>
-              <th className="px-4 py-3 font-bold text-[#2C2C2C]">Client</th>
-              <th className="px-4 py-3 font-bold text-[#2C2C2C]">Email</th>
-              <th className="px-4 py-3 font-bold text-[#2C2C2C]">Phone</th>
-              <th className="px-4 py-3 font-bold text-[#2C2C2C]">Interest</th>
-              <th className="px-4 py-3 font-bold text-[#2C2C2C]">Date</th>
-              <th className="px-4 py-3 font-bold text-[#2C2C2C]">Status</th>
-              <th className="px-4 py-3 text-right font-bold text-[#2C2C2C]">Actions</th>
+              <th className="min-w-[140px] px-4 py-3 font-bold text-[#2C2C2C]">Client</th>
+              <th className="min-w-[180px] px-4 py-3 font-bold text-[#2C2C2C]">Email</th>
+              <th className="min-w-[140px] px-4 py-3 font-bold text-[#2C2C2C]">Phone</th>
+              <th className="min-w-[200px] px-4 py-3 font-bold text-[#2C2C2C]">Interest</th>
+              <th className="min-w-[100px] px-4 py-3 font-bold text-[#2C2C2C]">Date</th>
+              <th className="min-w-[120px] px-4 py-3 font-bold text-[#2C2C2C]">Status</th>
+              <th className="min-w-[100px] px-4 py-3 text-right font-bold text-[#2C2C2C]">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -1702,7 +1702,7 @@ function LeadsTab({
                 className="cursor-pointer border-b border-[#2C2C2C]/5 hover:bg-[#FAF8F4]/80"
                 onClick={() => onSelect(l)}
               >
-                <td className="px-4 py-3 font-semibold text-[#2C2C2C]">
+                <td className="min-w-[140px] px-4 py-3 font-semibold text-[#2C2C2C]">
                   {l.client_id ? (
                     <Link
                       href={`/clients/${encodeURIComponent(l.client_id)}`}
@@ -1715,13 +1715,15 @@ function LeadsTab({
                     l.name
                   )}
                 </td>
-                <td className="px-4 py-3 text-[#2C2C2C]/70">{l.email}</td>
-                <td className="px-4 py-3 text-[#2C2C2C]/70">{l.phone ?? "—"}</td>
-                <td className="max-w-[200px] truncate px-4 py-3 text-[#2C2C2C]/70">{l.property_interest ?? "—"}</td>
-                <td className="px-4 py-3 text-xs text-[#2C2C2C]/55">
+                <td className="min-w-[180px] px-4 py-3 text-[#2C2C2C]/70">{l.email}</td>
+                <td className="min-w-[140px] px-4 py-3 text-[#2C2C2C]/70">{l.phone ?? "—"}</td>
+                <td className="min-w-[200px] max-w-[200px] truncate px-4 py-3 text-[#2C2C2C]/70">
+                  {l.property_interest ?? "—"}
+                </td>
+                <td className="min-w-[100px] px-4 py-3 text-xs text-[#2C2C2C]/55">
                   {new Date(l.created_at).toLocaleDateString()}
                 </td>
-                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                <td className="min-w-[120px] px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <select
                     value={l.stage}
                     onChange={(e) => onStageChange(l.id, e.target.value)}
@@ -1734,7 +1736,7 @@ function LeadsTab({
                     ))}
                   </select>
                 </td>
-                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                <td className="min-w-[100px] px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
                     disabled={deletingLeadId === l.id}

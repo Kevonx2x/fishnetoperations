@@ -1486,8 +1486,6 @@ export function NewlyListedCard({
     !!viewerUserId &&
     connectedAgents.some((a) => a.userId === viewerUserId);
 
-  const isLiked = engagement.isLiked(property.id);
-  const isPinned = engagement.isPinned(property.id);
   const showEng = engagement.showEngagementCounts(property.id);
 
   const imgH = compact ? "h-44 sm:h-48" : "h-52 sm:h-56";
@@ -1553,20 +1551,20 @@ export function NewlyListedCard({
         </div>
 
         {showEng ? (
-          <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5">
+          <div className="absolute right-3 top-3 z-20 flex items-center gap-1">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 engagement.toggleLike(property.id);
               }}
-              className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10 transition hover:bg-[#FAF8F4]"
+              className="inline-flex flex-row items-center gap-1 rounded-full bg-white p-1.5 shadow-sm transition hover:bg-[#FAF8F4]"
               aria-label={`${engagement.likeCount(property.id)} likes`}
             >
-              <Heart
-                className={`h-4 w-4 ${isLiked ? "fill-red-500 text-red-500" : "text-[#2C2C2C]"}`}
-              />
-              <span>{engagement.likeCount(property.id)}</span>
+              <Heart className="h-3.5 w-3.5 shrink-0 fill-red-500 text-red-500" />
+              <span className="text-xs font-medium tabular-nums text-red-500">
+                {engagement.likeCount(property.id)}
+              </span>
             </button>
             <button
               type="button"
@@ -1574,13 +1572,13 @@ export function NewlyListedCard({
                 e.stopPropagation();
                 engagement.togglePin(property.id);
               }}
-              className="inline-flex flex-col items-center gap-0.5 rounded-lg bg-white/95 px-1.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10 transition hover:bg-[#FAF8F4]"
+              className="inline-flex flex-row items-center gap-1 rounded-full bg-white p-1.5 shadow-sm transition hover:bg-[#FAF8F4]"
               aria-label={`${engagement.saveCount(property.id)} saved`}
             >
-              <Pin
-                className={`h-4 w-4 ${isPinned ? "fill-[#D4A843] text-[#D4A843]" : "text-[#2C2C2C]"}`}
-              />
-              <span>{engagement.saveCount(property.id)}</span>
+              <Pin className="h-3.5 w-3.5 shrink-0 fill-[#D4A843] text-[#D4A843]" />
+              <span className="text-xs font-medium tabular-nums text-[#D4A843]">
+                {engagement.saveCount(property.id)}
+              </span>
             </button>
           </div>
         ) : null}

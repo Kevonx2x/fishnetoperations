@@ -916,8 +916,8 @@ export default function AgentProfilePage() {
                           p.listed_by === agent.user_id;
                         const flipFace = listingFlipById[p.id] ?? "front";
                         const showBack = isOwnProfile && flipFace !== "front";
-                        const engagementPillBase =
-                          "inline-flex flex-row items-center gap-1 rounded-full bg-white/95 px-1.5 py-1 text-[10px] font-bold shadow-md";
+                        const engagementChipBase =
+                          "inline-flex flex-row items-center gap-1 rounded-full bg-white p-1.5 shadow-sm";
                         return (
                           <div
                             key={p.id}
@@ -1023,16 +1023,21 @@ export default function AgentProfilePage() {
                                         setSeenFlips((prev) => ({ ...prev, [p.id]: true }));
                                         setListingFlipById((prev) => ({ ...prev, [p.id]: "likes" }));
                                       }}
-                                      className={`${engagementPillBase} ${
+                                      className={`${engagementChipBase} ${
                                         !seenFlips[p.id] && likeN > 0
                                           ? "ring-2 ring-red-400 animate-pulse"
-                                          : "ring-1 ring-black/10"
+                                          : ""
                                       }`}
                                       aria-label={likeN > 0 ? `${likeN} likes` : "Like"}
                                     >
-                                      <Heart className="h-3.5 w-3.5 shrink-0 text-red-500" aria-hidden />
+                                      <Heart
+                                        className="h-3.5 w-3.5 shrink-0 fill-red-500 text-red-500"
+                                        aria-hidden
+                                      />
                                       {likeN > 0 ? (
-                                        <span className="tabular-nums text-red-500">{likeN}</span>
+                                        <span className="text-xs font-medium tabular-nums text-red-500">
+                                          {likeN}
+                                        </span>
                                       ) : null}
                                     </button>
                                     <button
@@ -1043,16 +1048,21 @@ export default function AgentProfilePage() {
                                         setSeenFlips((prev) => ({ ...prev, [p.id]: true }));
                                         setListingFlipById((prev) => ({ ...prev, [p.id]: "pins" }));
                                       }}
-                                      className={`${engagementPillBase} ${
+                                      className={`${engagementChipBase} ${
                                         !seenFlips[p.id] && pinN > 0
                                           ? "ring-2 ring-[#D4A843] animate-pulse"
-                                          : "ring-1 ring-black/10"
+                                          : ""
                                       }`}
                                       aria-label={pinN > 0 ? `${pinN} pins` : "Pin"}
                                     >
-                                      <Pin className="h-3.5 w-3.5 shrink-0 text-[#D4A843]" aria-hidden />
+                                      <Pin
+                                        className="h-3.5 w-3.5 shrink-0 fill-[#D4A843] text-[#D4A843]"
+                                        aria-hidden
+                                      />
                                       {pinN > 0 ? (
-                                        <span className="tabular-nums text-[#D4A843]">{pinN}</span>
+                                        <span className="text-xs font-medium tabular-nums text-[#D4A843]">
+                                          {pinN}
+                                        </span>
                                       ) : null}
                                     </button>
                                   </>
@@ -1065,17 +1075,19 @@ export default function AgentProfilePage() {
                                         e.stopPropagation();
                                         void engagement.toggleLike(p.id);
                                       }}
-                                      className={`${engagementPillBase} ring-1 ring-black/10`}
+                                      className={engagementChipBase}
                                       aria-label={
                                         showEng && likeN > 0 ? `${likeN} likes` : "Like"
                                       }
                                     >
                                       <Heart
-                                        className={`h-3.5 w-3.5 shrink-0 text-red-500 ${engagement.isLiked(p.id) ? "fill-red-500" : ""}`}
+                                        className="h-3.5 w-3.5 shrink-0 fill-red-500 text-red-500"
                                         aria-hidden
                                       />
                                       {showEng && likeN > 0 ? (
-                                        <span className="tabular-nums text-red-500">{likeN}</span>
+                                        <span className="text-xs font-medium tabular-nums text-red-500">
+                                          {likeN}
+                                        </span>
                                       ) : null}
                                     </button>
                                     <button
@@ -1085,17 +1097,19 @@ export default function AgentProfilePage() {
                                         e.stopPropagation();
                                         void engagement.togglePin(p.id);
                                       }}
-                                      className={`${engagementPillBase} ring-1 ring-black/10`}
+                                      className={engagementChipBase}
                                       aria-label={
                                         showEng && pinN > 0 ? `${pinN} pins` : "Pin"
                                       }
                                     >
                                       <Pin
-                                        className={`h-3.5 w-3.5 shrink-0 text-[#D4A843] ${engagement.isPinned(p.id) ? "fill-[#D4A843]" : ""}`}
+                                        className="h-3.5 w-3.5 shrink-0 fill-[#D4A843] text-[#D4A843]"
                                         aria-hidden
                                       />
                                       {showEng && pinN > 0 ? (
-                                        <span className="tabular-nums text-[#D4A843]">{pinN}</span>
+                                        <span className="text-xs font-medium tabular-nums text-[#D4A843]">
+                                          {pinN}
+                                        </span>
                                       ) : null}
                                     </button>
                                   </>

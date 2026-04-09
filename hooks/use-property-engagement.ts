@@ -111,27 +111,36 @@ export function usePropertyLikes() {
       }
 
       if (dbIds.includes(propertyId)) {
-        const { error } = await supabase
+        const { data: existing } = await supabase
           .from("property_likes")
-          .delete()
+          .select("user_id")
           .eq("user_id", user.id)
-          .eq("property_id", propertyId);
-        if (error) {
-          toast.error(error.message);
-          return false;
+          .eq("property_id", propertyId)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from("property_likes")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("property_id", propertyId);
+          if (error) {
+            toast.error(error.message);
+            return false;
+          }
         }
         setDbIds((prev) => prev.filter((x) => x !== propertyId));
         return true;
       }
-      const { error } = await supabase.from("property_likes").insert({
-        user_id: user.id,
-        property_id: propertyId,
-      });
+      const { error } = await supabase.from("property_likes").upsert(
+        { user_id: user.id, property_id: propertyId },
+        { onConflict: "user_id,property_id", ignoreDuplicates: true },
+      );
       if (error) {
         toast.error(error.message);
         return false;
       }
-      setDbIds((prev) => [propertyId, ...prev]);
+      setDbIds((prev) => (prev.includes(propertyId) ? prev : [propertyId, ...prev]));
       notifyPropertyEngagement({
         propertyId,
         type: "like",
@@ -190,27 +199,36 @@ export function usePinnedPropertyIds() {
       }
 
       if (ids.includes(propertyId)) {
-        const { error } = await supabase
+        const { data: existing } = await supabase
           .from("saved_properties")
-          .delete()
+          .select("user_id")
           .eq("user_id", user.id)
-          .eq("property_id", propertyId);
-        if (error) {
-          toast.error(error.message);
-          return false;
+          .eq("property_id", propertyId)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from("saved_properties")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("property_id", propertyId);
+          if (error) {
+            toast.error(error.message);
+            return false;
+          }
         }
         setIds((prev) => prev.filter((x) => x !== propertyId));
         return true;
       }
-      const { error } = await supabase.from("saved_properties").insert({
-        user_id: user.id,
-        property_id: propertyId,
-      });
+      const { error } = await supabase.from("saved_properties").upsert(
+        { user_id: user.id, property_id: propertyId },
+        { onConflict: "user_id,property_id", ignoreDuplicates: true },
+      );
       if (error) {
         toast.error(error.message);
         return false;
       }
-      setIds((prev) => [propertyId, ...prev]);
+      setIds((prev) => (prev.includes(propertyId) ? prev : [propertyId, ...prev]));
       notifyPropertyEngagement({
         propertyId,
         type: "pin",
