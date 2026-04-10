@@ -891,18 +891,6 @@ export function AgentDashboard() {
     await loadData();
   };
 
-  const deleteLeadById = async (leadId: number) => {
-    if (!user?.id) return;
-    const { error } = await supabase.from("leads").delete().eq("id", leadId).eq("agent_id", user.id);
-    if (error) {
-      setMsg(error.message);
-      return;
-    }
-    setLeads((prev) => prev.filter((l) => l.id !== leadId));
-    setSelectedLead((s) => (s?.id === leadId ? null : s));
-    setMsg("Lead removed.");
-  };
-
   const openEditFormFromProperty = useCallback(
     async (p: PropertyRow) => {
       try {
@@ -1319,7 +1307,6 @@ export function AgentDashboard() {
                     const row = leads.find((x) => x.id === leadId);
                     if (row) setSelectedLead(row);
                   }}
-                  onDeleteLead={(leadId) => void deleteLeadById(leadId)}
                 />
               )}
               {tab === "analytics" && (
@@ -3330,7 +3317,8 @@ function AgentNotificationsTab({
       const { error } = await supabase
         .from("notifications")
         .update({ read_at: new Date().toISOString() })
-        .eq("id", n.id);
+        .eq("id", n.id)
+        .eq("user_id", userId);
       if (error) return;
       setRows((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)));
     }

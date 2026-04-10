@@ -193,7 +193,7 @@ function SortableDealCard({
   onOpenLeadDetails,
   onRequestNotes,
   onRequestDocuments,
-  onDeleteLead,
+  onRequestDecline,
   onMoveToStage,
   moveBusyId,
 }: {
@@ -210,7 +210,7 @@ function SortableDealCard({
   onOpenLeadDetails: (leadId: number) => void;
   onRequestNotes: (lead: PipelineLeadRow) => void;
   onRequestDocuments: (lead: PipelineLeadRow) => void;
-  onDeleteLead: (leadId: number) => void;
+  onRequestDecline: (lead: PipelineLeadRow) => void;
   onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveBusyId: number | null;
 }) {
@@ -319,17 +319,12 @@ function SortableDealCard({
                       type="button"
                       className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
                       onClick={() => {
-                        toast("Delete this deal?", {
-                          description: "This cannot be undone.",
-                          action: {
-                            label: "Delete",
-                            onClick: () => void onDeleteLead(deal.id),
-                          },
-                        });
+                        onRequestDecline(deal);
                         setMenuOpenId(null);
+                        setMenuMoveOpen(false);
                       }}
                     >
-                      Delete Deal
+                      Decline & Archive
                     </button>
                     <div className="relative">
                       <button
@@ -429,29 +424,39 @@ function SortableDealCard({
   );
 }
 
+const DECLINE_REASON_OPTIONS = [
+  { key: "unavailable", label: "Property is no longer available" },
+  { key: "mismatch", label: "Client requirements don't match" },
+  { key: "no_response", label: "No response from client" },
+  { key: "other", label: "Other" },
+] as const;
+
 export function AgentPipelineTab({
   leads,
   propertyLabel,
   supabase,
   onRefresh,
   onOpenLeadDetails,
-  onDeleteLead,
 }: {
   leads: PipelineLeadRow[];
   propertyLabel: (propertyId: string | null) => string;
   supabase: SupabaseClient;
   onRefresh: () => void;
   onOpenLeadDetails: (leadId: number) => void;
-  onDeleteLead: (leadId: number) => void | Promise<void>;
 }) {
-  const deals = useMemo(
-    () =>
-      leads.map((l) => ({
+  const [declineDeal, setDeclineDeal] = useState<PipelineLeadRow | null>(null);
+  const [declineReasonKey, setDeclineReasonKey] =
+    useState<(typeof DECLINE_REASON_OPTIONS)[number]["key"]>("unavailable");
+  const [declineBusy, setDeclineBusy] = useState(false);
+
+  const deals = useMemo(() => {
+    return leads
+      .filter((l) => String(l.pipeline_stage ?? "").toLowerCase() !== "declined")
+      .map((l) => ({
         ...l,
         pipeline_stage: normalizeStage(l.pipeline_stage as string),
-      })),
-    [leads],
-  );
+      }));
+  }, [leads]);
 
   const [filterStage, setFilterStage] = useState<PipelineStageId>("lead");
   const [docsLead, setDocsLead] = useState<PipelineLeadRow | null>(null);
@@ -485,10 +490,16 @@ export function AgentPipelineTab({
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
+      activationConstraint: {
+        delay: 2000,
+        tolerance: 5,
+      },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 250, tolerance: 5 },
+      activationConstraint: {
+        delay: 2000,
+        tolerance: 5,
+      },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -507,6 +518,29 @@ export function AgentPipelineTab({
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpenId]);
+
+  const submitDecline = useCallback(async () => {
+    if (!declineDeal) return;
+    setDeclineBusy(true);
+    try {
+      const res = await fetch("/api/agent/decline-deal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ lead_id: declineDeal.id, reason_key: declineReasonKey }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not archive this deal");
+        return;
+      }
+      toast.success("Deal archived");
+      setDeclineDeal(null);
+      await onRefresh();
+    } finally {
+      setDeclineBusy(false);
+    }
+  }, [declineDeal, declineReasonKey, onRefresh]);
 
   const counts = useMemo(() => {
     const c: Record<PipelineStageId, number> = {
@@ -1025,7 +1059,7 @@ export function AgentPipelineTab({
                       other: false,
                     });
                   }}
-                  onDeleteLead={onDeleteLead}
+                  onRequestDecline={(d) => setDeclineDeal(d)}
                   onMoveToStage={moveDealToStage}
                   moveBusyId={moveToStageBusyId}
                 />
@@ -1411,6 +1445,69 @@ export function AgentPipelineTab({
                 )}
               </div>
             </motion.aside>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {declineDeal ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 p-4 sm:items-center"
+            onClick={() => !declineBusy && setDeclineDeal(null)}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-xl"
+            >
+              <p className="font-serif text-lg font-bold text-[#2C2C2C]">Decline this deal?</p>
+              <p className="mt-2 text-sm text-[#2C2C2C]/70">
+                This will notify{" "}
+                <span className="font-semibold text-[#2C2C2C]">
+                  {declineDeal.name.trim() || "the client"}
+                </span>{" "}
+                that you are no longer pursuing this inquiry.
+              </p>
+              <label className="mt-4 block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                Reason
+                <select
+                  value={declineReasonKey}
+                  onChange={(e) =>
+                    setDeclineReasonKey(e.target.value as (typeof DECLINE_REASON_OPTIONS)[number]["key"])
+                  }
+                  className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                >
+                  {DECLINE_REASON_OPTIONS.map((o) => (
+                    <option key={o.key} value={o.key}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={declineBusy}
+                  onClick={() => void submitDecline()}
+                  className="flex-1 rounded-full bg-[#2C2C2C] py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
+                >
+                  {declineBusy ? "…" : "Send Decline & Archive"}
+                </button>
+                <button
+                  type="button"
+                  disabled={declineBusy}
+                  onClick={() => setDeclineDeal(null)}
+                  className="flex-1 rounded-full border border-[#2C2C2C]/15 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         ) : null}
       </AnimatePresence>

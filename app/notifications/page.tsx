@@ -70,11 +70,13 @@ export default function NotificationsPage() {
   }, [rows]);
 
   const markRead = async (n: NotificationListItem, navigateTo?: string | null) => {
+    if (!user?.id) return;
     if (!n.read_at) {
       const { error } = await supabase
         .from("notifications")
         .update({ read_at: new Date().toISOString() })
-        .eq("id", n.id);
+        .eq("id", n.id)
+        .eq("user_id", user.id);
       if (!error) {
         setRows((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)));
       }
@@ -92,7 +94,11 @@ export default function NotificationsPage() {
       return;
     }
     const now = new Date().toISOString();
-    const { error } = await supabase.from("notifications").update({ read_at: now }).eq("user_id", user.id).is("read_at", null);
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read_at: now })
+      .eq("user_id", user.id)
+      .is("read_at", null);
     if (!error) {
       setRows((prev) => prev.map((x) => (x.read_at ? x : { ...x, read_at: now })));
     }

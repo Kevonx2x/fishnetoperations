@@ -1,5 +1,6 @@
 "use client";
 
+import type { KeyboardEvent } from "react";
 import {
   Bell,
   BadgeCheck,
@@ -54,6 +55,23 @@ export function resolveNotificationLink(metadata: Record<string, unknown> | null
   return null;
 }
 
+/** Action destinations for notification types (agent dashboard / settings). */
+export function getNotificationClickHref(type: string): string | null {
+  const t = type.toLowerCase();
+  const map: Record<string, string> = {
+    viewing_request: "/dashboard/agent?tab=pipeline",
+    viewing_confirmed: "/dashboard/agent?tab=pipeline",
+    viewing_declined: "/dashboard/agent?tab=pipeline",
+    deal_pipeline: "/dashboard/agent?tab=pipeline",
+    document_request: "/settings?tab=documents",
+    document_shared: "/dashboard/agent?tab=pipeline",
+    co_agent_request: "/dashboard/agent?tab=listings",
+    verification: "/settings?tab=verification",
+    listing_expiry: "/dashboard/agent?tab=listings",
+  };
+  return map[t] ?? null;
+}
+
 type NotificationCardProps = {
   n: NotificationListItem;
   onMarkRead: (n: NotificationListItem, navigateTo?: string | null) => void | Promise<void>;
@@ -61,35 +79,51 @@ type NotificationCardProps = {
 
 export function NotificationCard({ n, onMarkRead }: NotificationCardProps) {
   const meta = n.metadata ?? null;
-  const href = resolveNotificationLink(meta);
+  const clickHref = getNotificationClickHref(n.type);
+  const clickable = Boolean(clickHref);
   const { Icon, className: iconClass } = notificationTypeIcon(n.type);
   const unread = !n.read_at;
   const documentSharedUrl =
     n.type === "document_shared" && meta && typeof meta.signed_url === "string" ? meta.signed_url : null;
 
+  const onCardActivate = () => {
+    if (!clickable || !clickHref) return;
+    void onMarkRead(n, clickHref);
+  };
+
   return (
     <div
       className={cn(
-        "flex w-full gap-3 rounded-2xl bg-white px-4 py-4 shadow-sm transition hover:bg-[#FAF8F4]",
+        "flex w-full gap-3 rounded-2xl bg-white px-4 py-4 shadow-sm transition",
+        clickable ? "cursor-pointer hover:bg-gray-50" : "hover:bg-[#FAF8F4]",
         unread
           ? "border border-[#2C2C2C]/10 border-l-[3px] border-l-[#6B9E6E]"
           : "border border-[#2C2C2C]/10 opacity-[0.92]",
       )}
+      {...(clickable
+        ? {
+            role: "button" as const,
+            tabIndex: 0,
+            onClick: onCardActivate,
+            onKeyDown: (e: KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onCardActivate();
+              }
+            },
+          }
+        : {})}
     >
       <span className="mt-0.5 shrink-0">
         <Icon className={cn("h-5 w-5", iconClass)} aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
-        <button
-          type="button"
-          className="w-full text-left"
-          onClick={() => void onMarkRead(n, href)}
-        >
+        <div className="w-full text-left">
           <span className="block font-bold text-[#2C2C2C]">{n.title}</span>
           {n.body ? (
             <span className="mt-1 line-clamp-3 block text-sm font-normal text-[#2C2C2C]/65">{n.body}</span>
           ) : null}
-        </button>
+        </div>
         {documentSharedUrl ? (
           <button
             type="button"
@@ -104,9 +138,16 @@ export function NotificationCard({ n, onMarkRead }: NotificationCardProps) {
           </button>
         ) : null}
       </div>
-      <span className="shrink-0 self-start text-xs font-semibold tabular-nums text-[#2C2C2C]/45">
-        {formatNotificationTimeAgo(n.created_at)}
-      </span>
+      <div className="flex shrink-0 flex-col items-end gap-0.5 self-start">
+        <span className="text-xs font-semibold tabular-nums text-[#2C2C2C]/45">
+          {formatNotificationTimeAgo(n.created_at)}
+        </span>
+        {clickable ? (
+          <span className="text-sm font-semibold text-[#2C2C2C]/45" aria-hidden>
+            →
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }

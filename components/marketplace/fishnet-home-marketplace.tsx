@@ -1969,16 +1969,6 @@ export function NewlyListedCard({
             )}
           </div>
         )}
-        <div className="mt-0 flex shrink-0 justify-center">
-          <button
-            type="button"
-            onClick={onOpenPropertyZoom}
-            className="rounded-full p-0.5 text-gray-300 transition hover:bg-neutral-50 hover:text-[#2C2C2C]/60"
-            aria-label="Open property details"
-          >
-            <ChevronDown className="h-3 w-3 text-gray-300" strokeWidth={2} />
-          </button>
-        </div>
       </div>
     </div>
   );
