@@ -79,9 +79,14 @@ export async function POST(request: NextRequest) {
     const note =
       typeof body.note === "string" && body.note.trim() ? body.note.trim().slice(0, 2000) : null;
 
+    const nowIso = new Date().toISOString();
     const { error: updErr } = await sb
       .from("leads")
-      .update({ pipeline_stage: next, updated_at: new Date().toISOString() })
+      .update({
+        pipeline_stage: next,
+        updated_at: nowIso,
+        ...(next === "closed" ? { closed_date: nowIso } : {}),
+      })
       .eq("id", leadId);
     if (updErr) return fail("DATABASE_ERROR", updErr.message, 500);
 

@@ -118,6 +118,7 @@ export async function POST(request: NextRequest) {
         pipeline_stage: targetStage,
         pipeline_position: nextPos,
         updated_at: now,
+        ...(targetStage === "closed" ? { closed_date: now } : {}),
       })
       .eq("id", leadId);
     if (updErr) return fail("DATABASE_ERROR", updErr.message, 500);

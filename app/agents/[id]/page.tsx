@@ -407,6 +407,31 @@ export default function AgentProfilePage() {
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!agent?.user_id) return;
+    const uid = agent.user_id;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/v1/agent/recalculate-score", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: uid }),
+        });
+        const json = (await res.json()) as { success?: boolean; data?: { score: number } };
+        if (cancelled) return;
+        if (json.success && json.data && typeof json.data.score === "number") {
+          setAgent((prev) => (prev ? { ...prev, score: json.data!.score } : null));
+        }
+      } catch {
+        /* score recalc is best-effort */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agent?.user_id]);
+
   const agentUserId = agent?.user_id ?? null;
   const agentRecordId = agent?.id ?? null;
 

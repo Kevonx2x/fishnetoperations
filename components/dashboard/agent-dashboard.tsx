@@ -15,9 +15,10 @@ import {
   Home,
   LayoutDashboard,
   Loader2,
+  ChevronRight,
   MoreHorizontal,
   Settings,
-  Sparkles,
+    Sparkles,
   Users,
   X,
 } from "lucide-react";
@@ -80,6 +81,7 @@ type Tab =
 
 type AgentRow = {
   id: string;
+  user_id: string;
   name: string;
   email: string;
   phone: string | null;
@@ -98,6 +100,7 @@ type AgentRow = {
   languages_spoken?: string | null;
   response_time?: string | null;
   closings?: number | null;
+  score?: number | null;
   listing_tier?: string | null;
   availability_schedule?: unknown;
   availability?: string | null;
@@ -373,7 +376,7 @@ export function AgentDashboard() {
     const { data: a } = await supabase
       .from("agents")
       .select(
-        "id, user_id, name, email, phone, bio, license_number, license_expiry, image_url, status, verified, broker_id, specialties, service_areas, social_links, age, years_experience, languages_spoken, response_time, closings, listing_tier, availability_schedule, availability, updated_at, verification_status",
+        "id, user_id, name, email, phone, bio, license_number, license_expiry, image_url, status, verified, broker_id, specialties, service_areas, social_links, age, years_experience, languages_spoken, response_time, closings, score, listing_tier, availability_schedule, availability, updated_at, verification_status",
       )
       .eq("user_id", user.id)
       .maybeSingle();
@@ -493,6 +496,26 @@ export function AgentDashboard() {
       void loadData();
     }
   }, [paymentBannerTier, loadData]);
+
+  useEffect(() => {
+    if (!agent?.user_id) return;
+    const uid = agent.user_id;
+    void (async () => {
+      try {
+        const res = await fetch("/api/v1/agent/recalculate-score", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: uid }),
+        });
+        const json = (await res.json()) as { success?: boolean; data?: { score: number } };
+        if (json.success && json.data && typeof json.data.score === "number") {
+          setAgent((prev) => (prev ? { ...prev, score: json.data!.score } : null));
+        }
+      } catch {
+        /* score recalc is best-effort */
+      }
+    })();
+  }, [agent?.user_id]);
 
   useEffect(() => {
     if (!agent) return;
@@ -1702,6 +1725,7 @@ function OverviewTab({
   atListingLimit: boolean;
   atCoListLimit: boolean;
 }) {
+  const [scoreInfoOpen, setScoreInfoOpen] = useState(false);
   const recent = leads.slice(0, 5);
   const incomplete = profileComplete.pct < 100;
   const totalRepresented = properties.length;
@@ -1740,6 +1764,53 @@ function OverviewTab({
         <StatCard label="Owned listings" value={String(ownedCount)} />
         <StatCard label="Profile Views" value={String(mockProfileViews)} hint="mock" />
         <StatCard label="Response Rate" value={`${mockResponseRate}%`} hint="mock" />
+      </div>
+
+      <div className="w-full overflow-hidden rounded-xl border border-gray-200">
+        <button
+          type="button"
+          onClick={() => setScoreInfoOpen((o) => !o)}
+          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-[#2C2C2C] transition hover:bg-gray-50"
+        >
+          <span>⭐ How is your score calculated?</span>
+          <ChevronRight
+            className={`h-4 w-4 shrink-0 transition-transform duration-200 ${scoreInfoOpen ? "rotate-90" : ""}`}
+            aria-hidden
+          />
+        </button>
+        <AnimatePresence initial={false}>
+          {scoreInfoOpen ? (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden border-t border-gray-200"
+            >
+              <div className="space-y-3 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                <p>
+                  Your BahayGo score is calculated out of 10.0 and updates automatically based on your performance.
+                </p>
+                <p>
+                  🏠 Closings (50%) — Verified deals you&apos;ve closed. Uses a logarithmic scale so early closings
+                  matter most. Max score requires 50+ closings.
+                </p>
+                <p>
+                  ⚡ Response Time (20%) — How quickly you respond to new leads. Faster responses = higher score.
+                  Responding within 1 hour scores maximum points.
+                </p>
+                <p>
+                  👤 Profile (15%) — Complete your profile photo, bio, phone number, and add at least one listing to
+                  earn full points.
+                </p>
+                <p>
+                  ✅ Verification (15%) — Verified agents with an approved PRC license receive full points here.
+                </p>
+                <p>Tip: The fastest way to boost your score is to close more deals and respond to leads quickly.</p>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </div>
 
       {identityVerified ? (
