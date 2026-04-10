@@ -15,7 +15,7 @@ export function useAgentLiveAvailabilityFromPropertyRows(
   extraAgentIds: readonly string[] = [],
 ) {
   const [liveAgentAvailabilityById, setLiveAgentAvailabilityById] = useState<
-    Record<string, { availability: string; updatedAt: string }>
+    Record<string, { availability: string; updatedAt: string; score: number }>
   >({});
 
   const idKey = useMemo(() => {
@@ -41,15 +41,27 @@ export function useAgentLiveAvailabilityFromPropertyRows(
     let cancelled = false;
     void supabase
       .from("agents")
-      .select("id, availability, updated_at")
+      .select("id, availability, updated_at, score")
       .in("id", ids)
       .then(({ data, error }) => {
         if (cancelled || error || !data) return;
-        const next: Record<string, { availability: string; updatedAt: string }> = {};
-        for (const row of data as { id: string; availability?: string | null; updated_at?: string | null }[]) {
+        const next: Record<string, { availability: string; updatedAt: string; score: number }> = {};
+        for (const row of data as {
+          id: string;
+          availability?: string | null;
+          updated_at?: string | null;
+          score?: number | string | null;
+        }[]) {
+          const sc =
+            typeof row.score === "number"
+              ? row.score
+              : typeof row.score === "string"
+                ? Number(row.score)
+                : NaN;
           next[row.id] = {
             availability: row.availability == null ? "" : String(row.availability),
             updatedAt: row.updated_at == null ? "" : String(row.updated_at),
+            score: Number.isFinite(sc) ? sc : 0,
           };
         }
         setLiveAgentAvailabilityById(next);
@@ -63,7 +75,12 @@ export function useAgentLiveAvailabilityFromPropertyRows(
     (a: MarketplaceAgent): MarketplaceAgent => {
       const live = liveAgentAvailabilityById[a.id];
       if (!live) return a;
-      return { ...a, availability: live.availability, updatedAt: live.updatedAt };
+      return {
+        ...a,
+        availability: live.availability,
+        updatedAt: live.updatedAt,
+        score: live.score,
+      };
     },
     [liveAgentAvailabilityById],
   );

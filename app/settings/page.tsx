@@ -424,7 +424,7 @@ function SettingsPageInner() {
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [bio, setBio] = useState("");
+  const [bio, setBio] = useState(profile?.bio ?? "");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [baselineProfileJson, setBaselineProfileJson] = useState<string | null>(null);
@@ -467,6 +467,13 @@ function SettingsPageInner() {
   const tabParam = searchParams.get("tab");
 
   useEffect(() => {
+    if (loaded) return;
+    if (profile?.bio != null && profile.bio !== "") {
+      setBio((prev) => (prev === "" ? profile.bio! : prev));
+    }
+  }, [loaded, profile?.bio]);
+
+  useEffect(() => {
     if (authLoading) return;
     void (async () => {
       const {
@@ -482,7 +489,9 @@ function SettingsPageInner() {
 
       const { data, error: profileErr } = await supabase
         .from("profiles")
-        .select("*")
+        .select(
+          "id, role, full_name, phone, bio, avatar_url, notify_email, notify_sms, country_of_origin, visa_type, visa_expiry, budget_min, budget_max, preferred_property_type, preferred_locations, looking_to, occupant_count, has_pets, move_in_timeline, agent_notes, onboarding_completed",
+        )
         .eq("id", uid)
         .maybeSingle();
 

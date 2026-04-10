@@ -21,8 +21,9 @@ const viewingSchema = z.object({
 
 const bodySchema = z.discriminatedUnion("source", [contactSchema, viewingSchema]);
 
-/** New leads always enter the pipeline as `new` (not `viewing`). */
+/** New leads from contact flow enter as `new`. Viewing requests use pipeline `viewing`. */
 const NEW_LEAD_STAGE = "new" as const;
+const VIEWING_PIPELINE_STAGE = "viewing" as const;
 
 function esc(s: string): string {
   return s
@@ -192,6 +193,33 @@ export async function POST(req: Request) {
         smsSuffix: ` Viewing: ${slot.combined}.`,
       };
 
+      const existingLeadId = await findExistingLeadIdForViewingDedupe(
+        admin,
+        session.userId,
+        agentUserId,
+        propertyId,
+      );
+
+      if (existingLeadId != null) {
+        const { error: updErr } = await admin
+          .from("leads")
+          .update({
+            pipeline_stage: VIEWING_PIPELINE_STAGE,
+            viewing_request_id: viewingRequestId,
+            stage: VIEWING_PIPELINE_STAGE,
+          })
+          .eq("id", existingLeadId);
+        if (updErr) {
+          console.error("[create-lead] viewing_request: lead update failed", updErr);
+          return fail("DATABASE_ERROR", updErr.message, 500);
+        }
+        await notifyAgentNewLead(admin, {
+          ...notifyArgs,
+          leadId: existingLeadId,
+        });
+        return ok({ created: false, updated: true, duplicate: true, leadId: existingLeadId });
+      }
+
       const { data: inserted, error: insErr } = await admin
         .from("leads")
         .insert({
@@ -203,7 +231,9 @@ export async function POST(req: Request) {
           agent_id: agentUserId,
           client_id: session.userId,
           source: "viewing_request",
-          stage: NEW_LEAD_STAGE,
+          stage: VIEWING_PIPELINE_STAGE,
+          pipeline_stage: VIEWING_PIPELINE_STAGE,
+          viewing_request_id: viewingRequestId,
           property_id: propertyId,
         })
         .select("id")
@@ -216,18 +246,31 @@ export async function POST(req: Request) {
           details: insErr.details,
         });
         if (insErr.code === "23505") {
-          const existingLeadId = await findExistingLeadIdForViewingDedupe(
+          const raceLeadId = await findExistingLeadIdForViewingDedupe(
             admin,
             session.userId,
             agentUserId,
             propertyId,
           );
-          const leadIdForNotify = existingLeadId ?? 0;
-          console.log("[create-lead] viewing_request: duplicate lead — still notifying agent", {
-            agent_user_id_to_notify: agentUserId,
-            leadIdForNotify,
-            viewingRequestId,
-          });
+          if (raceLeadId != null) {
+            const { error: raceUpd } = await admin
+              .from("leads")
+              .update({
+                pipeline_stage: VIEWING_PIPELINE_STAGE,
+                viewing_request_id: viewingRequestId,
+                stage: VIEWING_PIPELINE_STAGE,
+              })
+              .eq("id", raceLeadId);
+            if (raceUpd) {
+              console.error("[create-lead] viewing_request: race update failed", raceUpd);
+            }
+            await notifyAgentNewLead(admin, {
+              ...notifyArgs,
+              leadId: raceLeadId,
+            });
+            return ok({ created: false, updated: true, duplicate: true, leadId: raceLeadId });
+          }
+          const leadIdForNotify = 0;
           await notifyAgentNewLead(admin, {
             ...notifyArgs,
             leadId: leadIdForNotify,
@@ -240,13 +283,13 @@ export async function POST(req: Request) {
       const leadId = inserted?.id;
       if (leadId === undefined || leadId === null) {
         console.warn("[create-lead] viewing_request: lead insert returned no id (treating as duplicate)");
-        const existingLeadId = await findExistingLeadIdForViewingDedupe(
+        const fallbackLeadId = await findExistingLeadIdForViewingDedupe(
           admin,
           session.userId,
           agentUserId,
           propertyId,
         );
-        const leadIdForNotify = existingLeadId ?? 0;
+        const leadIdForNotify = fallbackLeadId ?? 0;
         await notifyAgentNewLead(admin, {
           ...notifyArgs,
           leadId: leadIdForNotify,

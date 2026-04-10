@@ -1877,11 +1877,18 @@ export function NewlyListedCard({
                     <AgentAvatarFill name={firstAgent.name} imageUrl={firstAgent.image} sizes="28px" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-1.5">
-                      <span className="min-w-0 flex-1 truncate text-xs font-medium text-[#2C2C2C]/85">
-                        {firstAgent.name}
-                      </span>
-                      <BadgeCheck className="h-3 w-3 shrink-0 text-[#D4A843]" aria-label="Verified" />
+                    <div className="flex w-full items-center justify-between gap-1">
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                        <span className="truncate text-xs font-medium text-[#2C2C2C]/85">
+                          {firstAgent.name}
+                        </span>
+                        <BadgeCheck className="h-3 w-3 shrink-0 text-[#D4A843]" aria-label="Verified" />
+                      </div>
+                      {firstAgent.score > 0 ? (
+                        <span className="ml-1 flex shrink-0 items-center gap-0.5 text-xs text-gray-400">
+                          ★ {Number(firstAgent.score).toFixed(1)}
+                        </span>
+                      ) : null}
                     </div>
                     <p className="truncate text-[10px] text-gray-400">
                       {listingCardBrokerageSubtitle(firstAgent)}
