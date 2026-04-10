@@ -63,7 +63,6 @@ export function getNotificationClickHref(type: string): string | null {
     viewing_confirmed: "/dashboard/agent?tab=pipeline",
     viewing_declined: "/dashboard/agent?tab=pipeline",
     deal_pipeline: "/dashboard/agent?tab=pipeline",
-    document_request: "/settings?tab=documents",
     document_shared: "/dashboard/agent?tab=pipeline",
     co_agent_request: "/dashboard/agent?tab=listings",
     verification: "/settings?tab=verification",
@@ -79,7 +78,9 @@ type NotificationCardProps = {
 
 export function NotificationCard({ n, onMarkRead }: NotificationCardProps) {
   const meta = n.metadata ?? null;
-  const clickHref = getNotificationClickHref(n.type);
+  const metaLink =
+    meta && typeof meta.link === "string" && meta.link.startsWith("/") ? meta.link : null;
+  const clickHref = metaLink ?? getNotificationClickHref(n.type);
   const clickable = Boolean(clickHref);
   const { Icon, className: iconClass } = notificationTypeIcon(n.type);
   const unread = !n.read_at;

@@ -103,7 +103,7 @@ export async function POST(req: Request) {
   const labels = documentTypes.map((t) => labelForClientDocType(t)).join(", ");
   const typesParam = encodeURIComponent(documentTypes.join(","));
   const nameParam = encodeURIComponent(agentName);
-  const link = `/settings?tab=documents&reqAgent=${encodeURIComponent(targetAgentUserId)}&reqTypes=${typesParam}&reqAgentName=${nameParam}`;
+  const link = `/clients/${clientId}?reqAgent=${encodeURIComponent(targetAgentUserId)}&reqTypes=${typesParam}&reqAgentName=${nameParam}`;
 
   const title = `Document request from ${agentName}`;
   const bodyText = `Your agent has requested: ${labels}. Go to Settings → Documents to share them.`;

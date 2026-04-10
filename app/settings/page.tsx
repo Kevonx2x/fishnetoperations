@@ -7,10 +7,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { SettingsAvatarUpload } from "@/components/settings/avatar-upload";
-import {
-  ClientDocumentsPanel,
-  parseClientDocRequestParams,
-} from "@/components/settings/client-documents-panel";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
 import type { ProfileRole } from "@/lib/auth-roles";
@@ -171,19 +167,17 @@ const ROLE_OPTIONS: {
   },
 ];
 
-type SettingsTabId = "profile" | "account" | "notifications" | "documents" | "verification";
+type SettingsTabId = "profile" | "account" | "notifications" | "verification";
 
 const TAB_LABEL: Record<SettingsTabId, string> = {
   profile: "Profile",
   account: "Account",
   notifications: "Notifications",
-  documents: "Documents",
   verification: "Verification",
 };
 
 function visibleTabsForRole(role: ProfileRole): SettingsTabId[] {
   const base: SettingsTabId[] = ["profile", "account", "notifications"];
-  if (role === "client") return [...base, "documents"];
   if (role === "agent" || role === "broker") return [...base, "verification"];
   return base;
 }
@@ -716,15 +710,6 @@ function SettingsPageInner() {
     },
     [router],
   );
-
-  const docRequestParams = useMemo(
-    () => parseClientDocRequestParams(searchParams),
-    [searchParams],
-  );
-
-  const clearDocRequestParams = useCallback(() => {
-    router.replace("/settings?tab=documents", { scroll: false });
-  }, [router]);
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1754,17 +1739,6 @@ function SettingsPageInner() {
               {savingNotif ? "Saving…" : "Save notification settings"}
             </button>
           </div>
-        ) : null}
-
-        {activeTab === "documents" && currentRole === "client" && user?.id ? (
-          <ClientDocumentsPanel
-            userId={user.id}
-            supabase={supabase}
-            requestAgentId={docRequestParams.requestAgentId}
-            requestAgentName={docRequestParams.requestAgentName}
-            requestedTypes={docRequestParams.requestedTypes}
-            onClearRequestParams={clearDocRequestParams}
-          />
         ) : null}
 
         {activeTab === "verification" && (currentRole === "agent" || currentRole === "broker") ? (

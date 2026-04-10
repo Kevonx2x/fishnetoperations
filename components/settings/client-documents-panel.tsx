@@ -19,6 +19,7 @@ export type ClientDocRow = {
   file_name: string | null;
   shared_with: string[] | null;
   status: string;
+  created_at?: string;
 };
 
 type ProfileNameRow = { id: string; full_name: string | null };
