@@ -85,6 +85,32 @@ export default function TermsOfServicePage() {
       </section>
 
       <section className="space-y-4">
+        <h2>Platform as facilitator</h2>
+        <p>
+          BahayGo is a real estate technology platform only. We are not a licensed real estate broker,
+          agent, or brokerage. We do not represent any party in any transaction. All listings are
+          posted by independent PRC-licensed professionals who are solely responsible for accuracy.
+        </p>
+      </section>
+
+      <section className="space-y-4">
+        <h2>Document accuracy</h2>
+        <p>
+          Users who upload documents to BahayGo are solely responsible for the legality, accuracy, and
+          authenticity of those documents. BahayGo assumes no liability for fraudulent or inaccurate
+          documents.
+        </p>
+      </section>
+
+      <section className="space-y-4">
+        <h2>PRC verification disclaimer</h2>
+        <p>
+          Agent verification is based on public PRC records at the time of registration. BahayGo does
+          not guarantee the future conduct of any verified agent.
+        </p>
+      </section>
+
+      <section className="space-y-4">
         <h2>No brokerage or legal advice</h2>
         <p>
           BahayGo is a technology platform. We are not a party to sales, leases, or other agreements

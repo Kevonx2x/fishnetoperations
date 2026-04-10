@@ -24,6 +24,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Loader2, MoreHorizontal, X } from "lucide-react";
 import { toast } from "sonner";
+import { useDataConsentGate } from "@/components/legal/data-consent-modal";
 
 export const PIPELINE_STAGES = [
   { id: "lead", label: "Lead" },
@@ -479,6 +480,7 @@ export function AgentPipelineTab({
   const [requestDocsBusy, setRequestDocsBusy] = useState(false);
   const [sendDealDocBusyId, setSendDealDocBusyId] = useState<string | null>(null);
   const [viewDealDocBusyId, setViewDealDocBusyId] = useState<string | null>(null);
+  const { ensureConsent, dataConsentModal } = useDataConsentGate();
   const menuWrapRef = useRef<HTMLDivElement | null>(null);
 
   const sensors = useSensors(
@@ -648,7 +650,7 @@ export function AgentPipelineTab({
     }
   };
 
-  const replaceDealDocument = async (
+  const replaceDealDocumentAfterConsent = async (
     lead: PipelineLeadRow,
     docKey: string,
     file: File,
@@ -692,6 +694,15 @@ export function AgentPipelineTab({
     }
   };
 
+  const replaceDealDocument = (
+    lead: PipelineLeadRow,
+    docKey: string,
+    file: File,
+    storagePath: string,
+  ) => {
+    ensureConsent(() => void replaceDealDocumentAfterConsent(lead, docKey, file, storagePath));
+  };
+
   const sendDealDocumentToClient = async (doc: DealDocumentRow) => {
     if (!docsLead) return;
     if (!docsLead.client_id) {
@@ -718,7 +729,7 @@ export function AgentPipelineTab({
     }
   };
 
-  const uploadDoc = async (lead: PipelineLeadRow, docKey: string, file: File) => {
+  const uploadDocAfterConsent = async (lead: PipelineLeadRow, docKey: string, file: File) => {
     setUploadingKey(docKey);
     try {
       const {
@@ -754,6 +765,10 @@ export function AgentPipelineTab({
     } finally {
       setUploadingKey(null);
     }
+  };
+
+  const uploadDoc = (lead: PipelineLeadRow, docKey: string, file: File) => {
+    ensureConsent(() => void uploadDocAfterConsent(lead, docKey, file));
   };
 
   const approveDoc = async (lead: PipelineLeadRow, docKey: string) => {
@@ -899,6 +914,7 @@ export function AgentPipelineTab({
 
   return (
     <div className="space-y-6">
+      {dataConsentModal}
       <div>
         <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">Pipeline</h1>
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">

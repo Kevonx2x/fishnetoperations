@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { formatPriceInputDigits, parseListingPricePesos } from "@/lib/validation/listing-form";
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
 import { ServiceAreasMultiInput } from "@/components/ui/service-areas-multi-input";
+import { useDataConsentGate } from "@/components/legal/data-consent-modal";
 import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
 
 const COUNTRY_OPTIONS = [
@@ -459,6 +460,7 @@ function SettingsPageInner() {
   const [verifyPrcFile, setVerifyPrcFile] = useState<File | null>(null);
   const [verifySelfieFile, setVerifySelfieFile] = useState<File | null>(null);
   const [verifySubmitBusy, setVerifySubmitBusy] = useState(false);
+  const { ensureConsent, dataConsentModal } = useDataConsentGate();
   const [verifyFieldErrors, setVerifyFieldErrors] = useState<{
     prc?: string;
     selfie?: string;
@@ -981,21 +983,8 @@ function SettingsPageInner() {
     setSavingNotif(false);
   };
 
-  const submitVerificationDocuments = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const runVerificationUpload = async () => {
     if (!user?.id || !agent) return;
-    const err: { prc?: string; selfie?: string } = {};
-    if (!verifyPrcFile) err.prc = "PRC license photo is required.";
-    else if (verifyPrcFile.size > MAX_VERIFICATION_BYTES) err.prc = "PRC file must be 5MB or less.";
-    else if (!verifyPrcFile.type.startsWith("image/") && verifyPrcFile.type !== "application/pdf") {
-      err.prc = "Upload an image or PDF.";
-    }
-    if (!verifySelfieFile) err.selfie = "Selfie photo is required.";
-    else if (verifySelfieFile.size > MAX_VERIFICATION_BYTES) err.selfie = "Selfie must be 5MB or less.";
-    else if (!verifySelfieFile.type.startsWith("image/")) err.selfie = "Upload an image only.";
-    setVerifyFieldErrors(err);
-    if (Object.keys(err).length > 0) return;
-
     setVerifySubmitBusy(true);
     try {
       const paths = await uploadVerificationPairSettings(supabase, user.id, verifyPrcFile!, verifySelfieFile!);
@@ -1041,6 +1030,24 @@ function SettingsPageInner() {
       toast.error(err instanceof Error ? err.message : "Could not upload documents");
     }
     setVerifySubmitBusy(false);
+  };
+
+  const submitVerificationDocuments = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.id || !agent) return;
+    const err: { prc?: string; selfie?: string } = {};
+    if (!verifyPrcFile) err.prc = "PRC license photo is required.";
+    else if (verifyPrcFile.size > MAX_VERIFICATION_BYTES) err.prc = "PRC file must be 5MB or less.";
+    else if (!verifyPrcFile.type.startsWith("image/") && verifyPrcFile.type !== "application/pdf") {
+      err.prc = "Upload an image or PDF.";
+    }
+    if (!verifySelfieFile) err.selfie = "Selfie photo is required.";
+    else if (verifySelfieFile.size > MAX_VERIFICATION_BYTES) err.selfie = "Selfie must be 5MB or less.";
+    else if (!verifySelfieFile.type.startsWith("image/")) err.selfie = "Upload an image only.";
+    setVerifyFieldErrors(err);
+    if (Object.keys(err).length > 0) return;
+
+    ensureConsent(() => void runVerificationUpload());
   };
 
   const saveRole = async () => {
@@ -1129,6 +1136,7 @@ function SettingsPageInner() {
 
   return (
     <div className="min-h-screen bg-white">
+      {dataConsentModal}
       <MaddenTopNav />
       <div className="mx-auto max-w-2xl px-4 py-8 sm:py-10">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">

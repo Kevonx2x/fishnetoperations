@@ -10,6 +10,7 @@ import {
   labelForClientDocType,
 } from "@/lib/client-documents";
 import { cn } from "@/lib/utils";
+import { useDataConsentGate } from "@/components/legal/data-consent-modal";
 
 export type ClientDocRow = {
   id: string;
@@ -42,6 +43,7 @@ export function ClientDocumentsPanel({
   const [loading, setLoading] = useState(true);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [sharingKey, setSharingKey] = useState<string | null>(null);
+  const { ensureConsent, dataConsentModal } = useDataConsentGate();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,7 +98,7 @@ export function ClientDocumentsPanel({
     return m;
   }, [rows]);
 
-  const uploadFile = async (documentType: ClientDocumentTypeKey, file: File) => {
+  const uploadFileAfterConsent = async (documentType: ClientDocumentTypeKey, file: File) => {
     if (file.size > 10 * 1024 * 1024) {
       toast.error("File must be 10MB or smaller.");
       return;
@@ -121,6 +123,10 @@ export function ClientDocumentsPanel({
     } finally {
       setUploadingKey(null);
     }
+  };
+
+  const uploadFile = (documentType: ClientDocumentTypeKey, file: File) => {
+    ensureConsent(() => void uploadFileAfterConsent(documentType, file));
   };
 
   const shareWithAgent = async (documentType: ClientDocumentTypeKey) => {
@@ -152,7 +158,9 @@ export function ClientDocumentsPanel({
     Boolean(requestAgentId && requestAgentName && requestedTypes && requestedTypes.length > 0);
 
   return (
-    <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+    <>
+      {dataConsentModal}
+      <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
       <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">My Documents</h2>
       <p className="mt-1 text-sm text-[#2C2C2C]/55">
         Upload documents to share with agents when requested
@@ -280,6 +288,7 @@ export function ClientDocumentsPanel({
         </div>
       )}
     </div>
+    </>
   );
 }
 

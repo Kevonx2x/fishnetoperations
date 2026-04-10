@@ -525,10 +525,30 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     [sortedAllRows],
   );
 
-  const newlyListed = useMemo(() => {
+  /** Non-presale for-sale listings (maps to listing_type sale / status for_sale). */
+  const forSaleListings = useMemo(
+    () =>
+      [...sortedAllRows]
+        .filter((p) => !p.is_presale)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    [sortedAllRows],
+  );
+
+  const newlyListedRentals = useMemo(() => {
     const list = [...sortedAllRows];
     list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return list;
+  }, [sortedAllRows]);
+
+  const bgcListings = useMemo(() => {
+    return sortedAllRows.filter((p) => {
+      const l = p.location.toLowerCase();
+      return l.includes("bgc") || l.includes("taguig");
+    });
+  }, [sortedAllRows]);
+
+  const makatiListings = useMemo(() => {
+    return sortedAllRows.filter((p) => p.location.toLowerCase().includes("makati"));
   }, [sortedAllRows]);
 
   const luxury50m = useMemo(() => sortedAllRows.filter((p) => parsePesoToNumber(p.price) > 50_000_000), [sortedAllRows]);
@@ -1164,7 +1184,24 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             subtitle: "New projects & pre-selling inventory",
                             items: presaleDevelopments,
                           },
-                          { key: "buy-new", title: "Newly Listed", subtitle: "Ordered by newest", items: newlyListed },
+                          {
+                            key: "buy-for-sale",
+                            title: "For Sale",
+                            subtitle: "Sale listings (non-presale), newest first",
+                            items: forSaleListings,
+                          },
+                          {
+                            key: "buy-bgc",
+                            title: "BGC listings",
+                            subtitle: "BGC & Taguig",
+                            items: bgcListings,
+                          },
+                          {
+                            key: "buy-makati",
+                            title: "Makati listings",
+                            subtitle: "Makati City & CBD",
+                            items: makatiListings,
+                          },
                           { key: "buy-lux", title: "Luxury Homes ₱50M+", subtitle: "Premium listings above ₱50M", items: luxury50m },
                           { key: "buy-schools", title: "Near Schools & Parks", subtitle: "Nearby family-friendly areas", items: nearSchoolsParks },
                           { key: "buy-pet", title: "Pet Friendly", subtitle: "Mock badge selection", items: petFriendly },
@@ -1188,7 +1225,24 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       <PropertyRows
                         rows={[
                           { key: "rent-featured", title: "Featured Picks", subtitle: "Recommended for you", items: featuredPicks, featured: true },
-                          { key: "rent-new", title: "Newly Listed Rentals", subtitle: "Newest rentals first", items: newlyListed },
+                          {
+                            key: "rent-new",
+                            title: "Newly Listed Rentals",
+                            subtitle: "Newest rentals first",
+                            items: newlyListedRentals,
+                          },
+                          {
+                            key: "rent-bgc",
+                            title: "BGC listings",
+                            subtitle: "BGC & Taguig",
+                            items: bgcListings,
+                          },
+                          {
+                            key: "rent-makati",
+                            title: "Makati listings",
+                            subtitle: "Makati City & CBD",
+                            items: makatiListings,
+                          },
                           { key: "rent-pet", title: "Pet Friendly Rentals", subtitle: "Mock badge selection", items: rentPetFriendly },
                           { key: "rent-furnished", title: "Furnished & Move-in Ready", subtitle: "Mock badge selection", items: furnished },
                           { key: "rent-bd", title: "Near Business Districts", subtitle: "BGC · Makati · Ortigas", items: nearBD },

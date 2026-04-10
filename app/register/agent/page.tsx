@@ -6,6 +6,7 @@ import { FileText } from "lucide-react";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
+import { BAHAYGO_DATA_CONSENT_KEY } from "@/components/legal/data-consent-modal";
 import {
   formatPrcLicenseInput,
   validateAgentName,
@@ -248,6 +249,7 @@ export default function RegisterAgentPage() {
   const [done, setDone] = useState(false);
   const [prcFile, setPrcFile] = useState<File | null>(null);
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
+  const [dpaConsent, setDpaConsent] = useState(false);
 
   const refreshSession = async () => {
     const {
@@ -367,6 +369,13 @@ export default function RegisterAgentPage() {
     setAuthFieldErrors({});
     setDetailErrors({});
     if (!validateGuestCombinedForm()) return;
+    if (!dpaConsent) {
+      setSubmitError("Please agree to the data privacy terms");
+      return;
+    }
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(BAHAYGO_DATA_CONSENT_KEY, "true");
+    }
     setSubmitBusy(true);
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -606,9 +615,25 @@ export default function RegisterAgentPage() {
                 <p className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700">{authNotice}</p>
               ) : null}
               {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
+              <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={dpaConsent}
+                  onChange={(e) => setDpaConsent(e.target.checked)}
+                  className="mt-1 rounded border-gray-300 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                />
+                <span>
+                  I consent to BahayGo collecting and storing my PRC license and identity documents for verification
+                  purposes under the Data Privacy Act of 2012 (RA 10173).{" "}
+                  <Link href="/privacy" className="font-semibold text-[#6B9E6E] underline">
+                    View Privacy Policy
+                  </Link>
+                </span>
+              </label>
               <button
                 type="submit"
-                disabled={submitBusy}
+                disabled={submitBusy || !dpaConsent}
+                title={!dpaConsent ? "Please agree to the data privacy terms" : undefined}
                 className="w-full rounded-xl bg-gray-900 py-3 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
               >
                 {submitBusy ? "Submitting…" : "Register as Agent"}
@@ -743,9 +768,25 @@ export default function RegisterAgentPage() {
                 />
               </label>
               {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+              <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={dpaConsent}
+                  onChange={(e) => setDpaConsent(e.target.checked)}
+                  className="mt-1 rounded border-gray-300 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                />
+                <span>
+                  I consent to BahayGo collecting and storing my PRC license and identity documents for verification
+                  purposes under the Data Privacy Act of 2012 (RA 10173).{" "}
+                  <Link href="/privacy" className="font-semibold text-[#6B9E6E] underline">
+                    View Privacy Policy
+                  </Link>
+                </span>
+              </label>
               <button
                 type="submit"
-                disabled={submitBusy}
+                disabled={submitBusy || !dpaConsent}
+                title={!dpaConsent ? "Please agree to the data privacy terms" : undefined}
                 className="w-full rounded-xl bg-gray-900 py-3 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
               >
                 {submitBusy ? "Submitting…" : "Submit for review"}

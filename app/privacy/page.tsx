@@ -107,6 +107,15 @@ export default function PrivacyPolicyPage() {
       </section>
 
       <section className="space-y-4">
+        <h2>Document storage</h2>
+        <p>
+          Identity documents, PRC licenses, and financial documents are stored in private encrypted
+          storage and are never publicly accessible. Access is controlled via secure time-limited URLs.
+          Documents are retained only as long as the account is active.
+        </p>
+      </section>
+
+      <section className="space-y-4">
         <h2>Your rights as a data subject</h2>
         <p>
           Under the Data Privacy Act, you may have the right to be informed, to access, to rectify,

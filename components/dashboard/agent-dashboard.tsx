@@ -180,6 +180,131 @@ const EDIT_LISTING_STATUSES = ["active", "under_offer", "sold", "off_market"] as
 const DEFAULT_LISTING_IMAGE =
   "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&h=800&fit=crop";
 
+function computeListingCompleteness(
+  form: {
+    location: string;
+    name: string;
+    price: string;
+    beds: string;
+    baths: string;
+    sqft: string;
+    description: string;
+    property_type: string;
+  },
+  imageUrls: string[],
+) {
+  const photosOk = imageUrls.filter((u) => u?.trim()).length >= 1;
+  const priceOk = !validateListingPriceDisplay(form.price);
+  const locationOk = form.location.trim().length > 0;
+  const typeOk = Boolean(form.property_type?.trim());
+  const bedsBathsOk =
+    !validateBedsBaths(form.beds, "Beds") && !validateBedsBaths(form.baths, "Baths");
+  const requiredCount = [photosOk, priceOk, locationOk, typeOk, bedsBathsOk].filter(Boolean).length;
+  const descWords = form.description.trim().split(/\s+/).filter(Boolean).length;
+  const descRec = descWords >= 50;
+  const titleRec = form.name.trim().length > 0;
+  const sqftRec = !validateSqft(form.sqft);
+  return {
+    photosOk,
+    priceOk,
+    locationOk,
+    typeOk,
+    bedsBathsOk,
+    requiredCount,
+    requiredComplete: requiredCount === 5,
+    descRec,
+    titleRec,
+    sqftRec,
+  };
+}
+
+function ListingCompletenessAside({
+  completeness,
+}: {
+  completeness: ReturnType<typeof computeListingCompleteness>;
+}) {
+  const c = completeness;
+  return (
+    <aside className="w-full shrink-0 lg:sticky lg:top-0 lg:w-52">
+      <div className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">Publishing checklist</p>
+        <div className="mt-2">
+          <div className="flex items-center justify-between text-[10px] font-bold text-[#2C2C2C]/55">
+            <span>Required</span>
+            <span>
+              {c.requiredCount}/5 required fields
+            </span>
+          </div>
+          <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-black/10">
+            <div
+              className="h-full rounded-full bg-[#6B9E6E] transition-all"
+              style={{ width: `${(c.requiredCount / 5) * 100}%` }}
+            />
+          </div>
+        </div>
+        <p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">Required</p>
+        <ul className="mt-1 space-y-1.5">
+          <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/85">
+            {c.photosOk ? (
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+            ) : (
+              <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" aria-hidden />
+            )}
+            <span>At least 1 photo</span>
+          </li>
+          <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/85">
+            {c.priceOk ? (
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+            ) : (
+              <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" aria-hidden />
+            )}
+            <span>Price</span>
+          </li>
+          <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/85">
+            {c.locationOk ? (
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+            ) : (
+              <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" aria-hidden />
+            )}
+            <span>Location</span>
+          </li>
+          <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/85">
+            {c.typeOk ? (
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+            ) : (
+              <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" aria-hidden />
+            )}
+            <span>Property type</span>
+          </li>
+          <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/85">
+            {c.bedsBathsOk ? (
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+            ) : (
+              <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" aria-hidden />
+            )}
+            <span>Beds & baths</span>
+          </li>
+        </ul>
+        <p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">Recommended</p>
+        <ul className="mt-1 space-y-1.5">
+          <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/80">
+            <span className="mt-0.5 shrink-0">{c.descRec ? "✅" : "⚠️"}</span>
+            <span>Description (at least 50 words)</span>
+          </li>
+          <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/80">
+            <span className="mt-0.5 shrink-0">{c.titleRec ? "✅" : "⚠️"}</span>
+            <span>Property name / title</span>
+          </li>
+          <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/80">
+            <span className="mt-0.5 shrink-0">{c.sqftRec ? "✅" : "⚠️"}</span>
+            <span>Square footage</span>
+          </li>
+        </ul>
+      </div>
+    </aside>
+  );
+}
+
 const LANGUAGE_OPTIONS = ["English", "Filipino", "Mandarin", "Hokkien", "Spanish", "Bisaya", "Ilocano"] as const;
 const SPECIALTY_OPTIONS = ["Luxury", "Condo", "House & Lot", "Commercial", "Rental", "Farm"] as const;
 
@@ -370,6 +495,10 @@ export function AgentDashboard() {
   });
   const [listingFormErrors, setListingFormErrors] = useState<Record<string, string>>({});
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
+  const editListingCompleteness = useMemo(
+    () => computeListingCompleteness(editForm, editListingImages),
+    [editForm, editListingImages],
+  );
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
@@ -847,6 +976,10 @@ export function AgentDashboard() {
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!editPropertyId) return;
+      if (!computeListingCompleteness(editForm, editListingImages).requiredComplete) {
+        toast.error("Complete required fields to publish");
+        return;
+      }
       setEditFormErrors({});
       const errs: Record<string, string> = {};
       const perr = validateListingPriceDisplay(editForm.price);
@@ -921,6 +1054,10 @@ export function AgentDashboard() {
   const createListing = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id) return;
+    if (!computeListingCompleteness(listingForm, listingForm.listingImageUrls).requiredComplete) {
+      toast.error("Complete required fields to publish");
+      return;
+    }
     if (ownedListingCount >= listingLimit) {
       setListingOpen(false);
       setListingLimitModalKind("owned");
@@ -1442,7 +1579,7 @@ export function AgentDashboard() {
               exit={{ y: 40, opacity: 0 }}
               onSubmit={saveEditListing}
               onClick={(e) => e.stopPropagation()}
-              className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-6 shadow-2xl"
+              className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-6 shadow-2xl"
             >
               <div className="flex items-center justify-between gap-2">
                 <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Edit listing</h2>
@@ -1459,7 +1596,8 @@ export function AgentDashboard() {
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="mt-4 grid gap-3">
+              <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
+                <div className="min-w-0 flex-1 space-y-3">
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Property name
                   <input
@@ -1690,11 +1828,18 @@ export function AgentDashboard() {
                     <option value="off_market">Off Market</option>
                   </select>
                 </label>
+                </div>
+                <ListingCompletenessAside completeness={editListingCompleteness} />
               </div>
               <button
                 type="submit"
-                disabled={savingEdit}
-                className="mt-6 w-full rounded-full bg-[#2C2C2C] py-3 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
+                disabled={savingEdit || !editListingCompleteness.requiredComplete}
+                title={
+                  !editListingCompleteness.requiredComplete
+                    ? "Complete required fields to publish"
+                    : undefined
+                }
+                className="mt-6 w-full rounded-full bg-[#2C2C2C] py-3 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {savingEdit ? "Saving…" : "Save changes"}
               </button>
@@ -2071,6 +2216,11 @@ function ListingsTab({
     return properties;
   }, [properties, listingKindFilter]);
 
+  const listingCompleteness = useMemo(
+    () => computeListingCompleteness(listingForm, listingForm.listingImageUrls),
+    [listingForm],
+  );
+
   useEffect(() => {
     if (listingOpen) {
       setShowAnalyzeBanner(false);
@@ -2355,7 +2505,7 @@ function ListingsTab({
               exit={{ y: 40, opacity: 0 }}
               onSubmit={onSubmit}
               onClick={(e) => e.stopPropagation()}
-              className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-[#FAF8F4] p-6 shadow-2xl"
+              className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-[#FAF8F4] p-6 shadow-2xl"
             >
               <div className="flex items-center justify-between">
                 <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">New listing</h2>
@@ -2412,7 +2562,11 @@ function ListingsTab({
                   ✅ Listing analyzed! Review the details below and add your photos.
                 </div>
               ) : null}
-              <div ref={listingFormFieldsRef} className="mt-4 grid gap-3">
+              <div
+                ref={listingFormFieldsRef}
+                className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start"
+              >
+                <div className="min-w-0 flex-1 space-y-3">
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Location
                   <PhLocationInput
@@ -2609,11 +2763,16 @@ function ListingsTab({
                     className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
                   />
                 </label>
+                </div>
+                <ListingCompletenessAside completeness={listingCompleteness} />
               </div>
               <button
                 type="submit"
-                disabled={saving}
-                className="mt-6 w-full rounded-full bg-[#2C2C2C] py-3 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
+                disabled={saving || !listingCompleteness.requiredComplete}
+                title={
+                  !listingCompleteness.requiredComplete ? "Complete required fields to publish" : undefined
+                }
+                className="mt-6 w-full rounded-full bg-[#2C2C2C] py-3 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? "Saving…" : "Save listing"}
               </button>

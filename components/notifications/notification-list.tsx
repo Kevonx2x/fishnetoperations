@@ -95,6 +95,7 @@ export function NotificationCard({ n, onMarkRead }: NotificationCardProps) {
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              void onMarkRead(n, "");
               window.open(documentSharedUrl, "_blank", "noopener,noreferrer");
             }}
             className="mt-2 rounded-full border border-[#6B9E6E] px-3 py-1 text-xs font-semibold text-[#6B9E6E] hover:bg-[#6B9E6E]/10"

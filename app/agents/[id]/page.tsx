@@ -974,6 +974,10 @@ export default function AgentProfilePage() {
                     ) : null}
                   </div>
                 </div>
+                <p className="text-[10px] text-gray-400 text-center mt-2 px-2">
+                  Verification is based on public PRC records at time of registration. BahayGo is not a
+                  licensed broker or legal counsel.
+                </p>
               </aside>
 
               {/* RIGHT FEED */}

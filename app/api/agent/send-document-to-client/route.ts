@@ -122,6 +122,17 @@ export async function POST(req: Request) {
 
   const signedUrl = signed.signedUrl;
 
+  let agentDisplayName = "Your agent";
+  if (agentId) {
+    const { data: agentRow } = await admin
+      .from("agents")
+      .select("name")
+      .eq("user_id", agentId)
+      .maybeSingle();
+    const n = (agentRow as { name?: string | null } | null)?.name?.trim();
+    if (n) agentDisplayName = n;
+  }
+
   const { error: nErr } = await admin.from("notifications").insert({
     user_id: clientId,
     type: "document_shared",
@@ -133,6 +144,7 @@ export async function POST(req: Request) {
       file_name: row.file_name ?? null,
       lead_id: leadId,
       deal_document_id: dealDocumentId,
+      agent_name: agentDisplayName,
     },
   });
 

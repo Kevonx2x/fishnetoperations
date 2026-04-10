@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
   const { data: doc, error: qErr } = await admin
     .from("client_documents")
-    .select("id")
+    .select("id, document_type, file_name")
     .eq("file_url", file_url)
     .contains("shared_with", [session.userId])
     .maybeSingle();
@@ -52,6 +52,21 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
+
+  const cdoc = doc as { id: string; document_type: string; file_name: string | null };
+  const accessedAt = new Date().toISOString();
+  await admin.from("activity_log").insert({
+    actor_id: session.userId,
+    action: "document_viewed",
+    entity_type: "client_document",
+    entity_id: cdoc.id,
+    metadata: {
+      document_type: cdoc.document_type,
+      lead_id: null,
+      file_name: cdoc.file_name ?? null,
+      accessed_at: accessedAt,
+    },
+  });
 
   return Response.json({ signedUrl: signed.signedUrl });
 }

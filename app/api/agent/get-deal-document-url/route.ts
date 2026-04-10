@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 
   const { data: doc, error: docErr } = await admin
     .from("deal_documents")
-    .select("lead_id")
+    .select("id, lead_id, document_type, file_name")
     .eq("file_url", file_url)
     .maybeSingle();
 
@@ -39,7 +39,13 @@ export async function POST(req: Request) {
     return Response.json({ error: "Document not found" }, { status: 404 });
   }
 
-  const leadId = (doc as { lead_id: number }).lead_id;
+  const docRow = doc as {
+    id: string;
+    lead_id: number;
+    document_type: string;
+    file_name: string | null;
+  };
+  const leadId = docRow.lead_id;
 
   const { data: lead, error: leadErr } = await admin
     .from("leads")
@@ -73,6 +79,21 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
+
+  const accessedAt = new Date().toISOString();
+  await admin.from("activity_log").insert({
+    actor_id: session.userId,
+    action: "document_viewed",
+    entity_type: "deal_document",
+    entity_id: String(leadId),
+    metadata: {
+      document_type: docRow.document_type,
+      lead_id: leadId,
+      file_name: docRow.file_name ?? null,
+      deal_document_id: docRow.id,
+      accessed_at: accessedAt,
+    },
+  });
 
   return Response.json({ signedUrl: signed.signedUrl });
 }
