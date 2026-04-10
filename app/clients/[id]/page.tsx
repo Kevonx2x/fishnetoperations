@@ -28,6 +28,7 @@ import {
 import { CLIENT_DOCUMENT_TYPES } from "@/lib/client-documents";
 import { cn } from "@/lib/utils";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
+import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 
 type PropertyRow = {
   id: string;
@@ -534,7 +535,8 @@ export default function ClientPublicProfilePage() {
             )
           `,
           )
-          .in("id", ids);
+          .in("id", ids)
+          .or(publicListingExpiryOrFilter());
 
         if (cancelled) return;
 

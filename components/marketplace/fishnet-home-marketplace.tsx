@@ -43,6 +43,7 @@ import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-car
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { cn } from "@/lib/utils";
 import { formatAgentScore } from "@/lib/format-agent-score";
+import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
@@ -379,6 +380,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
         `,
       )
+      .or(publicListingExpiryOrFilter())
       .order("created_at", { ascending: false });
 
     if (fetchErr) {

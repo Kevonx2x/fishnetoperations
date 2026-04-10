@@ -8,6 +8,7 @@ import { propertyMatchesFilters, scorePropertyMatch } from "@/lib/property-match
 import type { PropertyRow } from "@/lib/property-match";
 import { logActivity } from "@/lib/activity-log";
 import { createSupabaseUserClient } from "@/lib/supabase-route";
+import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 
 /**
  * Evaluates saved searches against all properties and inserts property_matches + notifications (DB trigger).
@@ -39,7 +40,8 @@ export async function POST(request: NextRequest) {
 
     const { data: properties, error: pErr } = await supabase
       .from("properties")
-      .select("id, location, price, sqft, beds, baths, image_url");
+      .select("id, location, price, sqft, beds, baths, image_url")
+      .or(publicListingExpiryOrFilter());
 
     if (pErr) return fail("DATABASE_ERROR", pErr.message, 500);
 

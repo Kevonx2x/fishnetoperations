@@ -25,6 +25,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { coListLimitForTier, listingLimitForTier } from "@/lib/agent-listing-limits";
 import { formatAgentScore } from "@/lib/format-agent-score";
+import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { cn } from "@/lib/utils";
 
 type ListingAgentProfile = {
@@ -186,6 +187,7 @@ export default function PropertyPage() {
         `,
         )
         .eq("id", id)
+        .or(publicListingExpiryOrFilter())
         .maybeSingle();
 
       if (cancelled) return;
@@ -453,6 +455,21 @@ export default function PropertyPage() {
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6">
             <p className="font-semibold text-[#2C2C2C]">Couldn’t load property</p>
             <p className="mt-1 text-sm text-[#2C2C2C]/60">{error}</p>
+          </div>
+        )}
+
+        {!loading && !error && !property && (
+          <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center">
+            <p className="font-serif text-lg font-bold text-[#2C2C2C]">Listing unavailable</p>
+            <p className="mt-2 text-sm text-[#2C2C2C]/60">
+              This property is no longer listed or may have expired.
+            </p>
+            <Link
+              href="/"
+              className="mt-6 inline-flex rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#5d8a60]"
+            >
+              Back to home
+            </Link>
           </div>
         )}
 

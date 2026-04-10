@@ -13,6 +13,7 @@ import {
   Store,
   Train,
 } from "lucide-react";
+import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { NewlyListedCard } from "@/components/marketplace/fishnet-home-marketplace";
@@ -93,6 +94,7 @@ function LandmarksContent() {
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
         `,
       )
+      .or(publicListingExpiryOrFilter())
       .order("created_at", { ascending: false });
     if (fetchErr) {
       setError(fetchErr.message);

@@ -158,6 +158,7 @@ type PropertyRow = {
   unit_types?: string[] | null;
   /** True when connected via property_agents but not the listing owner. */
   isCoHost?: boolean;
+  expires_at?: string | null;
 };
 
 const EDIT_PROPERTY_TYPES = [
@@ -395,7 +396,7 @@ export function AgentDashboard() {
         supabase
           .from("properties")
           .select(
-            "id, name, location, price, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types",
+            "id, name, location, price, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at",
           )
           .eq("listed_by", user.id)
           .order("created_at", { ascending: false }),
@@ -428,6 +429,12 @@ export function AgentDashboard() {
           turnover_date: p.turnover_date != null ? String(p.turnover_date).slice(0, 10) : null,
           unit_types: Array.isArray(p.unit_types) ? (p.unit_types as string[]) : [],
           isCoHost: false as const,
+          expires_at:
+            p.expires_at != null && typeof p.expires_at === "string"
+              ? p.expires_at
+              : p.expires_at != null
+                ? String(p.expires_at)
+                : null,
         };
       });
       const ownedIds = new Set(ownedList.map((p) => p.id));
@@ -440,7 +447,7 @@ export function AgentDashboard() {
         const { data: co } = await supabase
           .from("properties")
           .select(
-            "id, name, location, price, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types",
+            "id, name, location, price, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at",
           )
           .in("id", coIds)
           .order("created_at", { ascending: false });
@@ -464,6 +471,12 @@ export function AgentDashboard() {
             turnover_date: p.turnover_date != null ? String(p.turnover_date).slice(0, 10) : null,
             unit_types: Array.isArray(p.unit_types) ? (p.unit_types as string[]) : [],
             isCoHost: true as const,
+            expires_at:
+              p.expires_at != null && typeof p.expires_at === "string"
+                ? p.expires_at
+                : p.expires_at != null
+                  ? String(p.expires_at)
+                  : null,
           };
         });
       }
@@ -575,6 +588,14 @@ export function AgentDashboard() {
     setListingFormErrors({});
     setListingOpen(true);
   };
+
+  useEffect(() => {
+    if (authLoading || !user?.id || !agent?.id) return;
+    void fetch("/api/agent/check-listing-expiry-notifications", {
+      method: "POST",
+      credentials: "include",
+    });
+  }, [authLoading, user?.id, agent?.id]);
 
   const profileComplete = useMemo(() => {
     if (!agent) return { pct: 0, checks: [] as { ok: boolean; label: string }[] };
@@ -933,6 +954,7 @@ export function AgentDashboard() {
     const baths = Number(listingForm.baths.replace(/\D/g, "")) || 0;
     const mainImageUrl = listingForm.listingImageUrls[0]?.trim() || DEFAULT_LISTING_IMAGE;
     const isPs = listingForm.property_type === "Presale";
+    const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
     const { data: newProperty, error } = await supabase
       .from("properties")
       .insert({
@@ -951,6 +973,8 @@ export function AgentDashboard() {
         developer_name: isPs ? listingForm.developer_name.trim() : null,
         turnover_date: isPs ? listingForm.turnover_date.trim() : null,
         unit_types: isPs ? listingForm.unit_types : [],
+        expires_at: expiresAt,
+        expiry_notified_at: null,
       })
       .select("id")
       .single();
@@ -1189,6 +1213,7 @@ export function AgentDashboard() {
                   onEditListing={beginEditListing}
                   userId={user.id}
                   canAddListing={agent?.verification_status === "verified"}
+                  onListingRefresh={loadData}
                 />
               )}
               {tab === "notifications" && user && (
@@ -1925,6 +1950,51 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint?:
   );
 }
 
+function propertyExpiryBadgeInfo(expiresAt: string | null | undefined): {
+  label: string;
+  className: string;
+  showRenew: boolean;
+} | null {
+  if (expiresAt == null || String(expiresAt).trim() === "") return null;
+  const end = new Date(expiresAt).getTime();
+  if (!Number.isFinite(end)) return null;
+  const now = Date.now();
+  const daysLeft = Math.ceil((end - now) / (24 * 60 * 60 * 1000));
+  if (end < now) {
+    return { label: "Expired - Renew now", className: "bg-red-100 text-red-900", showRenew: true };
+  }
+  if (daysLeft <= 6) {
+    const d = Math.max(1, daysLeft);
+    return {
+      label: `Expires in ${d} days ⚠️`,
+      className: "bg-red-100 text-red-900",
+      showRenew: true,
+    };
+  }
+  if (daysLeft <= 14) {
+    return { label: "Expiring soon", className: "bg-amber-100 text-amber-900", showRenew: true };
+  }
+  return { label: `Expires in ${daysLeft} days`, className: "bg-emerald-100 text-emerald-900", showRenew: false };
+}
+
+function mapAiPropertyTypeToForm(raw: unknown): string {
+  const k = String(raw ?? "condo")
+    .toLowerCase()
+    .trim();
+  const map: Record<string, string> = {
+    condo: "Condo",
+    house: "House",
+    apartment: "Apartment",
+    townhouse: "Townhouse",
+    commercial: "Commercial",
+    land: "Land",
+    presale: "Presale",
+    villa: "Villa",
+    studio: "Studio",
+  };
+  return map[k] ?? "Condo";
+}
+
 function ListingsTab({
   properties,
   ownedListingCount,
@@ -1946,6 +2016,7 @@ function ListingsTab({
   onEditListing,
   userId,
   canAddListing,
+  onListingRefresh,
 }: {
   properties: PropertyRow[];
   ownedListingCount: number;
@@ -1981,10 +2052,17 @@ function ListingsTab({
   onEditListing: (p: PropertyRow) => void | Promise<void>;
   userId: string;
   canAddListing: boolean;
+  onListingRefresh: () => void | Promise<void>;
 }) {
   const ownedCap = Number.isFinite(listingLimit) ? String(listingLimit) : "∞";
   const coCap = Number.isFinite(coListLimit) ? String(coListLimit) : "∞";
   const [listingKindFilter, setListingKindFilter] = useState<"all" | "sale" | "rent" | "presale">("all");
+  const [listingEntryMode, setListingEntryMode] = useState<"quick" | "manual">("quick");
+  const [quickPasteText, setQuickPasteText] = useState("");
+  const [analyzingListing, setAnalyzingListing] = useState(false);
+  const [showAnalyzeBanner, setShowAnalyzeBanner] = useState(false);
+  const listingFormFieldsRef = useRef<HTMLDivElement | null>(null);
+  const [renewingId, setRenewingId] = useState<string | null>(null);
   const visibleProperties = useMemo(() => {
     if (listingKindFilter === "presale") return properties.filter((p) => p.is_presale);
     if (listingKindFilter === "sale")
@@ -1992,6 +2070,112 @@ function ListingsTab({
     if (listingKindFilter === "rent") return properties.filter((p) => p.status === "for_rent");
     return properties;
   }, [properties, listingKindFilter]);
+
+  useEffect(() => {
+    if (listingOpen) {
+      setShowAnalyzeBanner(false);
+      setQuickPasteText("");
+    }
+  }, [listingOpen]);
+
+  const renewListing = async (propertyId: string) => {
+    setRenewingId(propertyId);
+    try {
+      const res = await fetch("/api/agent/renew-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ property_id: propertyId }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not renew");
+        return;
+      }
+      toast.success("Listing renewed for 60 days!");
+      await onListingRefresh();
+    } finally {
+      setRenewingId(null);
+    }
+  };
+
+  const analyzeListing = async () => {
+    const text = quickPasteText.trim();
+    if (!text) {
+      toast.error("Paste listing details first.");
+      return;
+    }
+    setAnalyzingListing(true);
+    setShowAnalyzeBanner(false);
+    try {
+      const res = await fetch("/api/agent/analyze-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ text }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        data?: Record<string, unknown>;
+      };
+      if (!res.ok) {
+        toast.error(json.error ?? "Analysis failed");
+        return;
+      }
+      const d = json.data ?? {};
+      const priceNum =
+        typeof d.price === "number" && Number.isFinite(d.price)
+          ? Math.round(d.price)
+          : Number.parseInt(String(d.price ?? "").replace(/\D/g, ""), 10);
+      const bedsN =
+        typeof d.beds === "number" && Number.isFinite(d.beds)
+          ? Math.min(20, Math.max(0, Math.round(d.beds)))
+          : 2;
+      const bathsN =
+        typeof d.baths === "number" && Number.isFinite(d.baths)
+          ? Math.min(20, Math.max(0, Math.round(d.baths)))
+          : 2;
+      const sqftN =
+        typeof d.sqft === "number" && Number.isFinite(d.sqft)
+          ? Math.round(d.sqft)
+          : 1000;
+      const listingType =
+        String(d.listing_type ?? "sale").toLowerCase().trim() === "rent" ? "rent" : "sale";
+      const isPs = Boolean(d.is_presale);
+      const propType = isPs ? "Presale" : mapAiPropertyTypeToForm(d.property_type);
+
+      setListingForm((f) => ({
+        ...f,
+        name: typeof d.name === "string" ? d.name : f.name,
+        location: typeof d.location === "string" ? d.location : f.location,
+        price:
+          Number.isFinite(priceNum) && priceNum > 0
+            ? formatPriceInputDigits(String(priceNum))
+            : f.price,
+        beds: String(bedsN),
+        baths: String(bathsN),
+        sqft: String(sqftN),
+        description: typeof d.description === "string" ? d.description : f.description,
+        property_type: propType,
+        listing_type: propType === "Presale" ? "sale" : listingType,
+        developer_name:
+          typeof d.developer_name === "string" && d.developer_name.trim()
+            ? d.developer_name.trim()
+            : f.developer_name,
+        turnover_date:
+          typeof d.turnover_date === "string" && d.turnover_date.trim()
+            ? d.turnover_date.trim().slice(0, 10)
+            : f.turnover_date,
+      }));
+      setShowAnalyzeBanner(true);
+      requestAnimationFrame(() => {
+        listingFormFieldsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    } finally {
+      setAnalyzingListing(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -2057,6 +2241,16 @@ function ListingsTab({
                 >
                   {p.is_presale ? "Presale" : p.status === "for_rent" ? "For Rent" : "For Sale"}
                 </span>
+                {(() => {
+                  const exp = propertyExpiryBadgeInfo(p.expires_at);
+                  return exp ? (
+                    <span
+                      className={`absolute left-2 top-10 max-w-[calc(100%-1rem)] truncate rounded-full px-2 py-0.5 text-[9px] font-bold shadow-sm ${exp.className}`}
+                    >
+                      {exp.label}
+                    </span>
+                  ) : null;
+                })()}
                 {p.isCoHost ? (
                   <span className="absolute bottom-2 left-2 rounded-full bg-[#D4A843] px-2 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
                     Co-Agent
@@ -2070,6 +2264,22 @@ function ListingsTab({
                 </p>
               </div>
             </Link>
+            {!p.isCoHost && propertyExpiryBadgeInfo(p.expires_at)?.showRenew ? (
+              <div className="px-4 pb-2">
+                <button
+                  type="button"
+                  disabled={renewingId === p.id || !canAddListing}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void renewListing(p.id);
+                  }}
+                  className="w-full rounded-full bg-[#6B9E6E] py-2 text-xs font-bold text-white shadow-sm hover:bg-[#5a8a5d] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {renewingId === p.id ? "Renewing…" : "Renew"}
+                </button>
+              </div>
+            ) : null}
             {!p.isCoHost ? (
               <div className="absolute right-2 top-2 z-10 flex flex-col gap-1.5 sm:flex-row sm:items-center">
                 <div
@@ -2153,7 +2363,56 @@ function ListingsTab({
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="mt-4 grid gap-3">
+              <div className="mt-4 flex rounded-xl border border-[#2C2C2C]/15 bg-white p-1">
+                <button
+                  type="button"
+                  onClick={() => setListingEntryMode("quick")}
+                  className={`flex-1 rounded-lg py-2 text-xs font-bold transition ${
+                    listingEntryMode === "quick" ? "bg-[#6B9E6E] text-white shadow-sm" : "text-[#2C2C2C]/55"
+                  }`}
+                >
+                  Quick Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListingEntryMode("manual")}
+                  className={`flex-1 rounded-lg py-2 text-xs font-bold transition ${
+                    listingEntryMode === "manual" ? "bg-[#6B9E6E] text-white shadow-sm" : "text-[#2C2C2C]/55"
+                  }`}
+                >
+                  Manual
+                </button>
+              </div>
+              {listingEntryMode === "quick" ? (
+                <div className="mt-4 space-y-3">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    Paste details
+                    <textarea
+                      value={quickPasteText}
+                      onChange={(e) => setQuickPasteText(e.target.value)}
+                      rows={6}
+                      placeholder={
+                        "Paste your listing details here…\ne.g. 2BR condo BGC Taguig 45k/month fully furnished 2 bath 65sqm near mercato"
+                      }
+                      className="mt-1 w-full resize-y rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={analyzingListing}
+                    onClick={() => void analyzeListing()}
+                    className="w-full rounded-xl bg-[#6B9E6E] py-3 text-sm font-bold text-white shadow-sm hover:bg-[#5a8a5d] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {analyzingListing ? "Analyzing…" : "Analyze Listing"}
+                  </button>
+                </div>
+              ) : null}
+              {showAnalyzeBanner ? (
+                <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-900">
+                  ✅ Listing analyzed! Review the details below and add your photos.
+                </div>
+              ) : null}
+              <div ref={listingFormFieldsRef} className="mt-4 grid gap-3">
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Location
                   <PhLocationInput

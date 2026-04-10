@@ -9,6 +9,7 @@ import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { useAuth } from "@/contexts/auth-context";
 import { usePinnedPropertyIds } from "@/hooks/use-property-engagement";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
+import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 
 type PropertyCard = {
   id: string;
@@ -48,7 +49,8 @@ export default function SavedPage() {
       const { data, error: fetchErr } = await supabase
         .from("properties")
         .select("id, location, price, status, beds, baths, sqft, image_url")
-        .in("id", ids);
+        .in("id", ids)
+        .or(publicListingExpiryOrFilter());
       if (cancelled) return;
       if (fetchErr) {
         setError(fetchErr.message);

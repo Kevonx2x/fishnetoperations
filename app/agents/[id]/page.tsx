@@ -41,6 +41,7 @@ import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availabil
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { useAuth } from "@/contexts/auth-context";
 import { formatAgentScore } from "@/lib/format-agent-score";
+import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { cn } from "@/lib/utils";
 import { fetchSimilarAgents } from "@/lib/similar-agents";
 import { listingListedLabel } from "@/lib/listing-listed-time";
@@ -447,7 +448,11 @@ export default function AgentProfilePage() {
 
     void (async () => {
       const [ownedRes, linksRes] = await Promise.all([
-        supabase.from("properties").select(selectFields).eq("listed_by", agentUserId),
+        supabase
+          .from("properties")
+          .select(selectFields)
+          .eq("listed_by", agentUserId)
+          .or(publicListingExpiryOrFilter()),
         supabase.from("property_agents").select("property_id").eq("agent_id", agentRecordId),
       ]);
 
@@ -458,7 +463,11 @@ export default function AgentProfilePage() {
 
       let linked: ListingRow[] = [];
       if (linkIds.length > 0) {
-        const { data: linkedRows } = await supabase.from("properties").select(selectFields).in("id", linkIds);
+        const { data: linkedRows } = await supabase
+          .from("properties")
+          .select(selectFields)
+          .in("id", linkIds)
+          .or(publicListingExpiryOrFilter());
         if (cancelled) return;
         linked = (linkedRows ?? []) as unknown as ListingRow[];
       }
