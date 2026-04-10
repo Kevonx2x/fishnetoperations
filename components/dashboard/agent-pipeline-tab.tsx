@@ -245,7 +245,7 @@ function SortableDealCard({
                         setMenuOpenId(null);
                       }}
                     >
-                      📋 View Details
+                      View Details
                     </button>
                     <button
                       type="button"
@@ -255,7 +255,7 @@ function SortableDealCard({
                         setMenuOpenId(null);
                       }}
                     >
-                      ✏️ Edit Notes
+                      Edit Notes
                     </button>
                     <button
                       type="button"
@@ -271,7 +271,7 @@ function SortableDealCard({
                         setMenuOpenId(null);
                       }}
                     >
-                      🗑️ Delete Deal
+                      Delete Deal
                     </button>
                     <div className="relative">
                       <button
@@ -279,7 +279,7 @@ function SortableDealCard({
                         className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
                         onClick={() => setMenuMoveOpen(true)}
                       >
-                        📤 Move to…
+                        Move to…
                       </button>
                     </div>
                   </>

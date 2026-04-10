@@ -533,7 +533,7 @@ function SlideRolePicker({
       <img
         src="/bahaygologo.png"
         alt=""
-        className="mx-auto mb-4 h-20 w-auto object-contain"
+        className="mx-auto mb-2 h-24 w-auto object-contain"
       />
       <h2 className="text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">
         Welcome to BahayGo

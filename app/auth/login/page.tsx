@@ -66,6 +66,7 @@ function LoginForm() {
       title="Sign in"
       subtitle="Use your email and password to access your account."
       largeLogo
+      staticBahayGoLogo
     >
       <form onSubmit={submit} className="space-y-4">
         <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -116,7 +117,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<AuthShell title="Sign in" subtitle="Loading…"><div /></AuthShell>}>
+    <Suspense
+      fallback={
+        <AuthShell title="Sign in" subtitle="Loading…" staticBahayGoLogo>
+          <div />
+        </AuthShell>
+      }
+    >
       <LoginForm />
     </Suspense>
   );
