@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BadgeCheck,
@@ -563,6 +564,7 @@ function SlideRolePicker({
 
 export function WelcomeOnboarding() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(1);
@@ -572,24 +574,35 @@ export function WelcomeOnboarding() {
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || authLoading) return;
     try {
-      if (typeof window !== "undefined") {
-        const sp = new URLSearchParams(window.location.search);
-        if (sp.get("onboarding") === "true") {
-          setOpen(true);
-          sp.delete("onboarding");
-          const qs = sp.toString();
-          window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
-          return;
-        }
-        if (!localStorage.getItem(STORAGE_KEY)) {
-          setOpen(true);
-        }
+      if (typeof window === "undefined") return;
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("welcome") === "true") {
+        setOpen(false);
+        return;
+      }
+      if (user && localStorage.getItem(STORAGE_KEY)) {
+        setOpen(false);
+        return;
+      }
+      if (sp.get("onboarding") === "true") {
+        setOpen(true);
+        sp.delete("onboarding");
+        const qs = sp.toString();
+        window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+        return;
+      }
+      if (!localStorage.getItem(STORAGE_KEY)) {
+        setOpen(true);
       }
     } catch {
       setOpen(true);
     }
-  }, []);
+  }, [mounted, authLoading, user]);
 
   const finish = useCallback(() => {
     try {

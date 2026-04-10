@@ -23,6 +23,7 @@ import {
   Star,
   UserPlus,
   Flame,
+  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
@@ -264,8 +265,12 @@ function inferredType(p: DbProperty): FiltersState["propertyType"] {
 
 export type { PropertyEngagement } from "@/hooks/use-property-engagement";
 
+const WELCOME_BANNER_DISMISSED_KEY = "welcome_banner_dismissed";
+
 export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" }) {
+  const router = useRouter();
   const { user } = useAuth();
+  const [welcomeBannerVisible, setWelcomeBannerVisible] = useState(false);
   const [viewerVerifiedListingAgent, setViewerVerifiedListingAgent] = useState(false);
 
   useEffect(() => {
@@ -288,6 +293,19 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       cancelled = true;
     };
   }, [user?.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (localStorage.getItem(WELCOME_BANNER_DISMISSED_KEY) === "true") return;
+    } catch {
+      return;
+    }
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("welcome") !== "true" || !user) return;
+    setWelcomeBannerVisible(true);
+    router.replace("/");
+  }, [user, router]);
 
   const mode = listingMode;
   const [search, setSearch] = useState("");
@@ -662,9 +680,46 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     </>
   );
 
+  const dismissWelcomeBanner = () => {
+    try {
+      localStorage.setItem(WELCOME_BANNER_DISMISSED_KEY, "true");
+    } catch {
+      /* ignore */
+    }
+    setWelcomeBannerVisible(false);
+  };
+
   return (
     <div className="min-h-screen bg-[#FAF8F4]">
       <MaddenTopNav />
+
+      {welcomeBannerVisible && user ? (
+        <div
+          className="flex items-center justify-between border-b border-[#6B9E6E]/20 bg-[#6B9E6E]/10 px-4 py-3"
+          role="region"
+          aria-label="Welcome"
+        >
+          <p className="pr-4 text-sm text-[#2C2C2C]">
+            👋 Welcome to BahayGo! Complete your profile to get the most out of the platform.
+          </p>
+          <div className="flex shrink-0 items-center gap-3">
+            <Link
+              href="/settings"
+              className="text-sm font-medium text-[#6B9E6E] hover:underline"
+            >
+              Complete Profile →
+            </Link>
+            <button
+              type="button"
+              onClick={dismissWelcomeBanner}
+              className="rounded-lg p-1 text-[#2C2C2C]/55 hover:bg-[#6B9E6E]/20 hover:text-[#2C2C2C]"
+              aria-label="Dismiss welcome message"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <section className="relative border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:py-10 lg:py-14">

@@ -43,15 +43,20 @@ function LoginForm() {
           router.replace("/");
         }
         router.refresh();
+      } else if (next && next.startsWith("/") && !next.startsWith("//")) {
+        router.replace(next);
+        router.refresh();
       } else {
-        const dest =
-          next && next.startsWith("/") && !next.startsWith("//")
-            ? next
-            : pathForRole(
-                role === "admin" || role === "broker" || role === "agent" || role === "client"
-                  ? role
-                  : "client",
-              );
+        let dest: string;
+        if (role === "agent") {
+          dest = "/dashboard/agent";
+        } else if (role === "client") {
+          dest = "/";
+        } else if (role === "admin" || role === "broker") {
+          dest = pathForRole(role);
+        } else {
+          dest = "/?welcome=true";
+        }
         router.replace(dest);
         router.refresh();
       }
