@@ -2,14 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { notifyAdminNewClientFromSession } from "@/lib/admin-notify-sms";
-import { getPublicSupabaseEnv } from "@/lib/supabase/public-env";
 
 /**
  * OAuth / email-confirmation redirect target. Configure in Supabase Auth → URL config:
  * Redirect URLs must include `${SITE_URL}/auth/callback`
- *
- * Session cookies must be set on the redirect `NextResponse` (not only `cookies()`),
- * otherwise the browser may not receive auth cookies after redirect.
  */
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -19,12 +15,13 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/auth/login?error=auth", requestUrl.origin));
   }
 
-  const cookieStore = await cookies();
-  const { url, anonKey } = getPublicSupabaseEnv();
-  const successRedirect = NextResponse.redirect(
-    new URL("/?welcome=true", requestUrl.origin),
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url?.trim() || !anonKey?.trim()) {
+    return NextResponse.redirect(new URL("/auth/login?error=auth", requestUrl.origin));
+  }
 
+  const cookieStore = await cookies();
   const supabase = createServerClient(url, anonKey, {
     cookies: {
       getAll() {
@@ -32,7 +29,7 @@ export async function GET(request: Request) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value, options }) => {
-          successRedirect.cookies.set(name, value, options);
+          cookieStore.set(name, value, options);
         });
       },
     },
@@ -53,5 +50,5 @@ export async function GET(request: Request) {
     console.error("[auth/callback] admin new-client SMS", e);
   }
 
-  return successRedirect;
+  return NextResponse.redirect(new URL("/?welcome=true", request.url));
 }
