@@ -1055,13 +1055,20 @@ function SettingsPageInner() {
   const showExpiryWarn = (exp: string | null | undefined) =>
     isLicenseExpiringWithinDays(exp, 30);
 
-  const onAvatarUploaded = useCallback(
-    async (publicUrl: string) => {
-      setAvatarUrl(publicUrl);
-      await refreshProfile();
-    },
-    [refreshProfile],
-  );
+  const onAvatarUploaded = useCallback((publicUrl: string) => {
+    setAvatarUrl(publicUrl);
+    toast.success("Photo updated!");
+    setBaselineProfileJson((prev) => {
+      if (prev === null) return prev;
+      try {
+        const o = JSON.parse(prev) as Record<string, unknown>;
+        o.avatarUrl = publicUrl;
+        return JSON.stringify(o);
+      } catch {
+        return prev;
+      }
+    });
+  }, []);
 
   const hasPhone = Boolean(phone.trim());
 

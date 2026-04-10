@@ -21,7 +21,10 @@ function isDuplicateSignupError(err: unknown): boolean {
   const lower = msg.toLowerCase();
   return (
     code === "user_already_exists" ||
-    lower.includes("already registered")
+    lower.includes("user_already_exists") ||
+    lower.includes("already registered") ||
+    lower.includes("already exists") ||
+    lower.includes("email address is already")
   );
 }
 
@@ -120,6 +123,11 @@ export default function SignupPage() {
       router.refresh();
     } catch (err) {
       console.error("[signup] signUp failed:", err);
+      if (isDuplicateSignupError(err)) {
+        setDuplicateEmail(true);
+        setBusy(false);
+        return;
+      }
       const message =
         err instanceof Error
           ? err.message
@@ -177,14 +185,9 @@ export default function SignupPage() {
           />
         </label>
         {duplicateEmail && (
-          <div className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            <p>
-              An account with this email already exists. Please sign in instead.
-            </p>
-            <Link
-              href="/auth/login"
-              className="mt-2 inline-block font-medium text-gray-900 underline"
-            >
+          <div className="mt-2 text-sm text-red-500">
+            <p>An account with this email already exists. Please sign in instead.</p>
+            <Link href="/auth/login" className="mt-1 inline-block font-medium underline">
               Sign in →
             </Link>
           </div>

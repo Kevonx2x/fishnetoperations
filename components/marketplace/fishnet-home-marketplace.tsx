@@ -1226,7 +1226,12 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   ) : (
                     <div className="mt-6 flex flex-wrap justify-center gap-4 md:justify-start">
                       {agentsForCityFilter.map((a) => (
-                        <AgentDirectoryCard key={`city-agent-${a.id}`} agent={a} className="w-full sm:w-[300px]" />
+                        <AgentDirectoryCard
+                          key={`city-agent-${a.id}`}
+                          agent={a}
+                          className="w-full sm:w-[300px]"
+                          scoreBesideName
+                        />
                       ))}
                     </div>
                   )}
@@ -1263,6 +1268,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           key={a.id}
                           agent={a}
                           homepageCarousel
+                          scoreBesideName
                           className="min-w-[160px] shrink-0 lg:min-w-0 lg:w-[300px]"
                         />
                       ))}

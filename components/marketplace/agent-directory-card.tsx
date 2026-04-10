@@ -7,6 +7,15 @@ import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { cn } from "@/lib/utils";
 
+/** 10.0 scale; returns null when 0, null, or invalid (no right-side score). */
+function scoreDecimalOnTen(score: number | null | undefined): string | null {
+  if (score == null || !Number.isFinite(Number(score))) return null;
+  const n = Number(score);
+  const onTen = n > 10 ? n / 10 : n;
+  if (onTen <= 0) return null;
+  return onTen.toFixed(1);
+}
+
 function VerifiedBadge({ className }: { className?: string }) {
   return (
     <span
@@ -25,13 +34,17 @@ export function AgentDirectoryCard({
   agent,
   className,
   homepageCarousel,
+  scoreBesideName,
 }: {
   agent: MarketplaceAgent;
   className?: string;
   /** Homepage “Top Verified Agents” horizontal scroll: taller mobile cards. */
   homepageCarousel?: boolean;
+  /** Homepage marketplace: name + ⭐ score on one row; hide duplicate score chips. */
+  scoreBesideName?: boolean;
 }) {
   const companyLine = agent.company || agent.brokerName;
+  const scoreRight = scoreBesideName ? scoreDecimalOnTen(agent.score) : null;
 
   return (
     <Link
@@ -62,14 +75,29 @@ export function AgentDirectoryCard({
               textClassName="text-base"
             />
           </div>
-          <p className="mt-2 line-clamp-2 w-full text-center text-sm font-semibold text-[#2C2C2C]">{agent.name}</p>
+          {scoreBesideName ? (
+            <div className="mt-2 flex w-full items-center justify-between gap-2 px-0.5">
+              <p className="line-clamp-2 min-w-0 flex-1 text-left text-sm font-semibold text-[#2C2C2C]">{agent.name}</p>
+              {scoreRight ? (
+                <span className="flex shrink-0 items-center gap-0.5 text-xs text-gray-500">
+                  ⭐ {scoreRight}
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-2 line-clamp-2 w-full text-center text-sm font-semibold text-[#2C2C2C]">{agent.name}</p>
+          )}
           {agent.verified ? (
             <span className="mt-1 inline-flex shrink-0 items-center rounded-full bg-[#6B9E6E] px-2 py-0.5 text-[10px] font-semibold text-white">
               Verified
             </span>
           ) : null}
-          <p className="mt-2 text-xs text-center text-gray-500">Score {formatAgentScore(agent.score)}</p>
-          <p className="mt-0.5 text-xs text-center text-gray-500">{agent.closings} closings</p>
+          {!scoreBesideName ? (
+            <p className="mt-2 text-xs text-center text-gray-500">Score {formatAgentScore(agent.score)}</p>
+          ) : null}
+          <p className={cn("text-xs text-center text-gray-500", scoreBesideName ? "mt-2" : "mt-0.5")}>
+            {agent.closings} closings
+          </p>
         </div>
       ) : (
         <div className="flex min-w-0 items-center gap-2.5 lg:hidden">
@@ -87,9 +115,15 @@ export function AgentDirectoryCard({
           {agent.verified ? (
             <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
           ) : null}
-          <span className="shrink-0 text-xs font-bold text-[#2C2C2C]/80 transition-colors duration-150 ease-out group-hover:text-[#2C2C2C]">
-            {formatAgentScore(agent.score)}
-          </span>
+          {scoreBesideName && scoreRight ? (
+            <span className="flex shrink-0 items-center gap-0.5 text-xs text-gray-500">
+              ⭐ {scoreRight}
+            </span>
+          ) : !scoreBesideName ? (
+            <span className="shrink-0 text-xs font-bold text-[#2C2C2C]/80 transition-colors duration-150 ease-out group-hover:text-[#2C2C2C]">
+              {formatAgentScore(agent.score)}
+            </span>
+          ) : null}
           <ChevronRight
             className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E] opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100"
             aria-hidden
@@ -108,7 +142,18 @@ export function AgentDirectoryCard({
               textClassName="text-lg"
             />
           </div>
-          <p className="w-full max-w-full truncate px-1 text-base font-bold text-[#2C2C2C]">{agent.name}</p>
+          {scoreBesideName ? (
+            <div className="flex w-full max-w-full items-center justify-between gap-2 px-1">
+              <p className="line-clamp-1 min-w-0 flex-1 text-left text-base font-bold text-[#2C2C2C]">{agent.name}</p>
+              {scoreRight ? (
+                <span className="flex shrink-0 items-center gap-0.5 text-xs text-gray-500">
+                  ⭐ {scoreRight}
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <p className="w-full max-w-full truncate px-1 text-base font-bold text-[#2C2C2C]">{agent.name}</p>
+          )}
           <div className="flex h-[26px] w-full shrink-0 items-center justify-center">
             {agent.verified ? <VerifiedBadge /> : null}
           </div>
@@ -119,9 +164,11 @@ export function AgentDirectoryCard({
             <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/60 whitespace-nowrap">
               {agent.closings} closings
             </span>
-            <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/60 whitespace-nowrap">
-              Score {formatAgentScore(agent.score)}
-            </span>
+            {!scoreBesideName ? (
+              <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/60 whitespace-nowrap">
+                Score {formatAgentScore(agent.score)}
+              </span>
+            ) : null}
           </div>
         </div>
         <span className="mt-auto inline-flex w-full shrink-0 justify-center rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-semibold text-white transition-colors group-hover:bg-[#6B9E6E]">
