@@ -106,7 +106,7 @@ function LoginForm() {
       </p>
       <p className="mt-3 text-center text-sm text-gray-500">
         No account?{" "}
-        <Link href="/auth/signup" className="font-medium text-gray-900 underline">
+        <Link href="/?onboarding=true" className="font-medium text-gray-900 underline">
           Create one
         </Link>
       </p>

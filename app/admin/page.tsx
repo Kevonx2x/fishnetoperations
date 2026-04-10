@@ -1045,6 +1045,12 @@ export default function AdminPage() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
+            <Link
+              href="/"
+              className="mb-2 inline-flex items-center gap-1 text-sm text-[#6B9E6E] hover:underline"
+            >
+              ← Home
+            </Link>
             <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">Admin Dashboard</h1>
             <p className="text-sm text-[#2C2C2C]/55">BahayGo — Lead &amp; property management</p>
             <p className="mt-1 text-xs text-[#2C2C2C]/40">{user?.email}</p>

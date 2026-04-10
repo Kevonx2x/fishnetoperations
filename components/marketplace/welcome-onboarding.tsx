@@ -221,18 +221,18 @@ function AgentSlideVerified() {
       </motion.div>
       <div className="w-full max-w-sm space-y-2 rounded-2xl border border-[#2C2C2C]/10 bg-white/90 p-3 shadow-sm">
         <p className="text-center text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">Score breakdown</p>
-        <div className="flex flex-col gap-1.5 text-xs font-semibold text-[#2C2C2C]/85">
+          <div className="flex flex-col gap-1.5 text-xs font-semibold text-[#2C2C2C]/85">
           <div className="flex items-center gap-2">
             <Star className="h-3.5 w-3.5 fill-[#D4A843] text-[#D4A843]" aria-hidden />
-            <span>90–100 = Elite</span>
+            <span>9.0–10.0 = Elite</span>
           </div>
           <div className="flex items-center gap-2">
             <Star className="h-3.5 w-3.5 fill-[#D4A843]/70 text-[#D4A843]" aria-hidden />
-            <span>70–89 = Experienced</span>
+            <span>7.0–8.9 = Experienced</span>
           </div>
           <div className="flex items-center gap-2">
             <Star className="h-3.5 w-3.5 fill-[#D4A843]/45 text-[#D4A843]" aria-hidden />
-            <span>50–69 = Growing</span>
+            <span>5.0–6.9 = Growing</span>
           </div>
         </div>
       </div>
@@ -530,7 +530,14 @@ function SlideRolePicker({
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-1">
-      <h2 className="text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">Welcome to BahayGo 🏠</h2>
+      <img
+        src="/bahaygologo.png"
+        alt=""
+        className="mx-auto mb-4 h-20 w-auto object-contain"
+      />
+      <h2 className="text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">
+        Welcome to BahayGo
+      </h2>
       <p className="mt-3 text-center text-base font-medium text-[#2C2C2C]/60">What brings you here today?</p>
       <div className="mt-8 grid w-full max-w-lg grid-cols-2 gap-3 sm:gap-4">
         <RoleCard
@@ -566,8 +573,18 @@ export function WelcomeOnboarding() {
   useEffect(() => {
     setMounted(true);
     try {
-      if (typeof window !== "undefined" && !localStorage.getItem(STORAGE_KEY)) {
-        setOpen(true);
+      if (typeof window !== "undefined") {
+        const sp = new URLSearchParams(window.location.search);
+        if (sp.get("onboarding") === "true") {
+          setOpen(true);
+          sp.delete("onboarding");
+          const qs = sp.toString();
+          window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+          return;
+        }
+        if (!localStorage.getItem(STORAGE_KEY)) {
+          setOpen(true);
+        }
       }
     } catch {
       setOpen(true);

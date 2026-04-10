@@ -1969,19 +1969,19 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
             <li className="flex gap-1.5">
               <Star className="mt-0.5 h-3 w-3 shrink-0 text-[#D4A843]" aria-hidden />
               <span>
-                <strong className="text-[#2C2C2C]">90–100:</strong> Elite
+                <strong className="text-[#2C2C2C]">9.0–10.0:</strong> Elite
               </span>
             </li>
             <li className="flex gap-1.5">
               <Star className="mt-0.5 h-3 w-3 shrink-0 text-[#D4A843]" aria-hidden />
               <span>
-                <strong className="text-[#2C2C2C]">70–89:</strong> Experienced
+                <strong className="text-[#2C2C2C]">7.0–8.9:</strong> Experienced
               </span>
             </li>
             <li className="flex gap-1.5">
               <Star className="mt-0.5 h-3 w-3 shrink-0 text-[#D4A843]" aria-hidden />
               <span>
-                <strong className="text-[#2C2C2C]">50–69:</strong> Growing
+                <strong className="text-[#2C2C2C]">5.0–6.9:</strong> Growing
               </span>
             </li>
           </ul>
@@ -2024,19 +2024,19 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
           <li className="flex">
             <Star className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-[#D4A843]" aria-hidden />
             <span>
-              <strong className="text-[#2C2C2C]">90–100:</strong> Elite Agent
+              <strong className="text-[#2C2C2C]">9.0–10.0:</strong> Elite Agent
             </span>
           </li>
           <li className="flex">
             <Star className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-[#D4A843]" aria-hidden />
             <span>
-              <strong className="text-[#2C2C2C]">70–89:</strong> Experienced
+              <strong className="text-[#2C2C2C]">7.0–8.9:</strong> Experienced
             </span>
           </li>
           <li className="flex">
             <Star className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-[#D4A843]" aria-hidden />
             <span>
-              <strong className="text-[#2C2C2C]">50–69:</strong> Growing
+              <strong className="text-[#2C2C2C]">5.0–6.9:</strong> Growing
             </span>
           </li>
         </ul>

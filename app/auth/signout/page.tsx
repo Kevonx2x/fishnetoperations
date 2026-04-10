@@ -15,7 +15,7 @@ export default function SignOutPage() {
   useEffect(() => {
     const t = window.setTimeout(() => {
       router.replace("/");
-    }, 3000);
+    }, 2000);
     return () => window.clearTimeout(t);
   }, [router]);
 

@@ -402,6 +402,9 @@ function SettingsPageInner() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPw, setSavingPw] = useState(false);
   const [pwMsg, setPwMsg] = useState("");
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteAccountBusy, setDeleteAccountBusy] = useState(false);
 
   const [broker, setBroker] = useState<BrokerRow | null>(null);
   const [agent, setAgent] = useState<AgentRow | null>(null);
@@ -862,6 +865,34 @@ function SettingsPageInner() {
       setPwMsg(err instanceof Error ? err.message : "Could not update password");
     }
     setSavingPw(false);
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (deleteConfirmText !== "DELETE") return;
+    setDeleteAccountBusy(true);
+    try {
+      const res = await fetch("/api/user/delete-account", {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        toast.error(json?.error?.message ?? "Could not delete account");
+        return;
+      }
+      await supabase.auth.signOut();
+      router.replace("/");
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete account");
+    } finally {
+      setDeleteAccountBusy(false);
+      setDeleteAccountOpen(false);
+      setDeleteConfirmText("");
+    }
   };
 
   const saveNotifications = async () => {
@@ -1515,6 +1546,70 @@ function SettingsPageInner() {
                 {savingPw ? "Updating…" : "Update password"}
               </button>
             </form>
+
+            <div className="rounded-2xl border-2 border-red-200 bg-red-50/50 p-6 shadow-sm">
+              <h2 className="font-serif text-xl font-semibold text-red-900">Delete Account</h2>
+              <p className="mt-2 text-sm font-medium text-red-900/90">
+                Permanently delete your account and all data. This cannot be undone.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteConfirmText("");
+                  setDeleteAccountOpen(true);
+                }}
+                className="mt-4 rounded-full border-2 border-red-600 bg-white px-6 py-2.5 text-sm font-semibold text-red-700 shadow-sm hover:bg-red-50"
+              >
+                Delete My Account
+              </button>
+            </div>
+
+            {deleteAccountOpen ? (
+              <div
+                className="fixed inset-0 z-[300] flex items-end justify-center bg-black/50 p-4 sm:items-center"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="delete-account-title"
+              >
+                <div className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-xl">
+                  <h3 id="delete-account-title" className="font-serif text-lg font-bold text-[#2C2C2C]">
+                    Delete account?
+                  </h3>
+                  <p className="mt-2 text-sm text-[#2C2C2C]/70">
+                    Type <span className="font-mono font-bold">DELETE</span> to confirm permanent deletion.
+                  </p>
+                  <input
+                    type="text"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    autoComplete="off"
+                    className="mt-4 w-full rounded-xl border border-[#2C2C2C]/15 px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-red-400 focus:ring-2 focus:ring-red-200"
+                    placeholder="DELETE"
+                  />
+                  <div className="mt-4 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      disabled={deleteAccountBusy}
+                      onClick={() => {
+                        setDeleteAccountOpen(false);
+                        setDeleteConfirmText("");
+                      }}
+                      className="rounded-full px-4 py-2 text-sm font-semibold text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deleteAccountBusy || deleteConfirmText !== "DELETE"}
+                      onClick={() => void confirmDeleteAccount()}
+                      className="rounded-full border-2 border-red-600 bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {deleteAccountBusy ? "Deleting…" : "Confirm delete"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
