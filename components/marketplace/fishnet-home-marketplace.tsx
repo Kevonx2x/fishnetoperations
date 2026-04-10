@@ -267,10 +267,39 @@ export type { PropertyEngagement } from "@/hooks/use-property-engagement";
 
 const WELCOME_BANNER_DISMISSED_KEY = "welcome_banner_dismissed";
 
+const HOMEPAGE_FAQ_ITEMS = [
+  {
+    question: "How is the BahayGo agent score calculated?",
+    answer:
+      "Agent scores are calculated out of 10.0 based on four factors: verified closings (50%), response time to leads (20%), profile completeness (15%), and PRC license verification (15%). Scores update automatically as agents close more deals and improve their response time.",
+  },
+  {
+    question: "How are agents verified on BahayGo?",
+    answer:
+      "Every agent on BahayGo must submit their PRC (Professional Regulation Commission) license number, a photo of their license ID, and a selfie for identity matching. Our team manually reviews each submission within 24 hours. Only approved agents receive the Verified Agent badge and can post listings.",
+  },
+  {
+    question: "Is BahayGo free for buyers and renters?",
+    answer:
+      "Yes. BahayGo is completely free for clients looking to buy, rent, or inquire about properties. You can search listings, contact verified agents, save properties to your wishlist, and request viewings at no cost. Agents and brokers pay for listing plans.",
+  },
+  {
+    question: "How does BahayGo prevent scams?",
+    answer:
+      "BahayGo only allows PRC-licensed and manually verified agents to post listings. All listings are tied to a verified agent account. Clients can report suspicious listings directly from the property page. Our admin team reviews all reports and can suspend agents immediately. We maintain a zero-scam policy.",
+  },
+  {
+    question: "Legal Disclosure",
+    answer:
+      "BahayGo is a real estate technology platform and is not a licensed real estate broker, agent, or brokerage. We do not represent buyers, sellers, landlords, or tenants in any transaction. All property listings are posted by independent licensed real estate professionals who are solely responsible for the accuracy of their listings. BahayGo does not guarantee the availability, accuracy, or legality of any listing. Users are advised to conduct their own due diligence before entering into any real estate transaction. For any legal concerns, please contact support@bahaygo.com.",
+  },
+] as const;
+
 export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" }) {
   const router = useRouter();
   const { user } = useAuth();
   const [welcomeBannerVisible, setWelcomeBannerVisible] = useState(false);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [viewerVerifiedListingAgent, setViewerVerifiedListingAgent] = useState(false);
 
   useEffect(() => {
@@ -1364,6 +1393,50 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           </>
         ) : null}
       </main>
+
+      <section className="max-w-3xl mx-auto px-4 py-16" aria-labelledby="homepage-faq-heading">
+        <h2 id="homepage-faq-heading" className="text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
+          Frequently Asked Questions
+        </h2>
+        <p className="mt-2 text-center text-sm text-[#2C2C2C]/70">Everything you need to know about BahayGo</p>
+        <div className="mt-8">
+          {HOMEPAGE_FAQ_ITEMS.map((item, index) => {
+            const isOpen = openFaqIndex === index;
+            return (
+              <div key={item.question} className="border-b border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setOpenFaqIndex((prev) => (prev === index ? null : index))}
+                  className="flex w-full cursor-pointer items-center justify-between gap-4 py-4 text-left font-medium text-base text-[#2C2C2C]"
+                  aria-expanded={isOpen}
+                >
+                  <span>{item.question}</span>
+                  <ChevronDown
+                    className={cn(
+                      "h-5 w-5 shrink-0 text-[#2C2C2C] transition-transform duration-200",
+                      isOpen && "rotate-180",
+                    )}
+                    aria-hidden
+                  />
+                </button>
+                <AnimatePresence initial={false}>
+                  {isOpen ? (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <p className="pb-4 text-sm leading-relaxed text-gray-500">{item.answer}</p>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       <AnimatePresence>
         {zoomProperty ? (

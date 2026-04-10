@@ -15,7 +15,6 @@ import {
   Home,
   LayoutDashboard,
   Loader2,
-  ChevronRight,
   MoreHorizontal,
   Settings,
     Sparkles,
@@ -1725,7 +1724,6 @@ function OverviewTab({
   atListingLimit: boolean;
   atCoListLimit: boolean;
 }) {
-  const [scoreInfoOpen, setScoreInfoOpen] = useState(false);
   const recent = leads.slice(0, 5);
   const incomplete = profileComplete.pct < 100;
   const totalRepresented = properties.length;
@@ -1764,53 +1762,6 @@ function OverviewTab({
         <StatCard label="Owned listings" value={String(ownedCount)} />
         <StatCard label="Profile Views" value={String(mockProfileViews)} hint="mock" />
         <StatCard label="Response Rate" value={`${mockResponseRate}%`} hint="mock" />
-      </div>
-
-      <div className="w-full overflow-hidden rounded-xl border border-gray-200">
-        <button
-          type="button"
-          onClick={() => setScoreInfoOpen((o) => !o)}
-          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-[#2C2C2C] transition hover:bg-gray-50"
-        >
-          <span>⭐ How is your score calculated?</span>
-          <ChevronRight
-            className={`h-4 w-4 shrink-0 transition-transform duration-200 ${scoreInfoOpen ? "rotate-90" : ""}`}
-            aria-hidden
-          />
-        </button>
-        <AnimatePresence initial={false}>
-          {scoreInfoOpen ? (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden border-t border-gray-200"
-            >
-              <div className="space-y-3 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                <p>
-                  Your BahayGo score is calculated out of 10.0 and updates automatically based on your performance.
-                </p>
-                <p>
-                  🏠 Closings (50%) — Verified deals you&apos;ve closed. Uses a logarithmic scale so early closings
-                  matter most. Max score requires 50+ closings.
-                </p>
-                <p>
-                  ⚡ Response Time (20%) — How quickly you respond to new leads. Faster responses = higher score.
-                  Responding within 1 hour scores maximum points.
-                </p>
-                <p>
-                  👤 Profile (15%) — Complete your profile photo, bio, phone number, and add at least one listing to
-                  earn full points.
-                </p>
-                <p>
-                  ✅ Verification (15%) — Verified agents with an approved PRC license receive full points here.
-                </p>
-                <p>Tip: The fastest way to boost your score is to close more deals and respond to leads quickly.</p>
-              </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
       </div>
 
       {identityVerified ? (
