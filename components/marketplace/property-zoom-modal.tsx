@@ -449,7 +449,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
     status: string;
     verification_status: string | null;
   } | null>(null);
-  const [coListVerificationOpen, setCoListVerificationOpen] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [showViewingModal, setShowViewingModal] = useState(false);
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [selectedViewingAgentUserId, setSelectedViewingAgentUserId] = useState<string | null>(null);
@@ -459,6 +459,12 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
   const photos = roomUrlsFor(property);
   const [idx, setIdx] = useState(0);
   const touchStartX = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (showVerificationModal) {
+      console.log("Modal should be open");
+    }
+  }, [showVerificationModal]);
 
   const agentUserId = listingAgentUserId(property, agents);
   const propertyTitle = property.name ?? property.location;
@@ -643,7 +649,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
                 propertyId={property.id}
                 listedByUserId={property.listed_by ?? null}
                 verifiedListingAgent={verifiedListingAgent}
-                onVerificationRequired={() => setCoListVerificationOpen(true)}
+                onVerificationRequired={() => setShowVerificationModal(true)}
                 onContactAgent={(a) => {
                   setContactModalAgent(a);
                   setShowContactModal(true);
@@ -688,7 +694,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
                   propertyId={property.id}
                   listedByUserId={property.listed_by ?? null}
                   verifiedListingAgent={verifiedListingAgent}
-                  onVerificationRequired={() => setCoListVerificationOpen(true)}
+                  onVerificationRequired={() => setShowVerificationModal(true)}
                   onContactAgent={(a) => {
                     setContactModalAgent(a);
                     setShowContactModal(true);
@@ -741,7 +747,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
       propertyId={property.id}
       propertyTitle={propertyTitle}
     />
-    <CoListVerificationRequiredModal open={coListVerificationOpen} onClose={() => setCoListVerificationOpen(false)} />
+    <CoListVerificationRequiredModal open={showVerificationModal} onClose={() => setShowVerificationModal(false)} />
     </>
   );
 }

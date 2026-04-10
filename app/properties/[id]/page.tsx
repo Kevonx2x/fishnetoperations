@@ -119,7 +119,7 @@ export default function PropertyPage() {
   const [coAgentMsg, setCoAgentMsg] = useState<string | null>(null);
   const [coAgentSubmitting, setCoAgentSubmitting] = useState(false);
   const [coAgentConfirmOpen, setCoAgentConfirmOpen] = useState(false);
-  const [coListVerificationOpen, setCoListVerificationOpen] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [myAgent, setMyAgent] = useState<{
     id: string;
     listing_tier: string | null;
@@ -136,6 +136,12 @@ export default function PropertyPage() {
   const [presaleUnit, setPresaleUnit] = useState("");
   const [presaleBusy, setPresaleBusy] = useState(false);
   const [presaleMsg, setPresaleMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (showVerificationModal) {
+      console.log("Modal should be open");
+    }
+  }, [showVerificationModal]);
 
   const { engagement } = usePropertyEngagementForProperties(property ? [property] : []);
 
@@ -664,7 +670,7 @@ export default function PropertyPage() {
                 <h2 className="font-serif text-lg font-bold text-[#2C2C2C]">Connected Agents</h2>
                 {connectedAgents.length === 0 ? (
                   <div className="mt-4">
-                    <PropertyPageEmptyAgents onVerificationRequired={() => setCoListVerificationOpen(true)} />
+                    <PropertyPageEmptyAgents onVerificationRequired={() => setShowVerificationModal(true)} />
                   </div>
                 ) : (
                   <ul className="mt-4 list-none space-y-4 p-0">
@@ -736,7 +742,11 @@ export default function PropertyPage() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => setCoListVerificationOpen(true)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setShowVerificationModal(true);
+                      }}
                       className="mt-2 w-full rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
                     >
                       Verification required
@@ -935,8 +945,8 @@ export default function PropertyPage() {
               />
             ) : null}
             <CoListVerificationRequiredModal
-              open={coListVerificationOpen}
-              onClose={() => setCoListVerificationOpen(false)}
+              open={showVerificationModal}
+              onClose={() => setShowVerificationModal(false)}
             />
             {coAgentConfirmOpen ? (
               <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" role="presentation">

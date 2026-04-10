@@ -201,12 +201,53 @@ type AgentRow = {
   license_number: string;
   email: string;
   broker_id: string | null;
-  verification_status?: "pending" | "verified" | "rejected" | null;
+  verification_status?: "pending" | "verified" | "rejected" | "suspended" | null;
   prc_document_url?: string | null;
   selfie_url?: string | null;
 };
 
 const MAX_VERIFICATION_BYTES = 5 * 1024 * 1024;
+
+function AgentVerificationStatusBadge({
+  verificationStatus,
+}: {
+  verificationStatus: AgentRow["verification_status"];
+}) {
+  const s = verificationStatus;
+  if (s === "verified") {
+    return (
+      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-900">
+        Verified
+      </span>
+    );
+  }
+  if (s === "pending") {
+    return (
+      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-950">
+        Pending Review
+      </span>
+    );
+  }
+  if (s === "rejected") {
+    return (
+      <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-900">
+        Rejected
+      </span>
+    );
+  }
+  if (s === "suspended") {
+    return (
+      <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-900">
+        Suspended
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+      Unverified
+    </span>
+  );
+}
 
 function extForVerification(kind: "license" | "selfie", file: File): string {
   const fromName = file.name.split(".").pop()?.toLowerCase();
@@ -1718,15 +1759,7 @@ function SettingsPageInner() {
                 <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold text-[#2C2C2C]">Agent</h3>
-                    {agent.verified && agent.status === "approved" ? (
-                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-900">
-                        Verified
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-[#FAF8F4] px-2.5 py-0.5 text-xs font-medium capitalize text-[#2C2C2C]/70">
-                        {agent.status}
-                      </span>
-                    )}
+                    <AgentVerificationStatusBadge verificationStatus={agent.verification_status} />
                     <LicenseExpiryBadge licenseExpiry={agent.license_expiry} />
                   </div>
                   <p className="mt-2 text-sm text-[#2C2C2C]/85">{agent.name}</p>

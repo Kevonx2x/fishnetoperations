@@ -66,8 +66,9 @@ export function AgentSlotPlaceholder({
             type="button"
             className="text-[10px] font-medium text-[#6B9E6E] hover:underline"
             onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
               onVerificationRequired();
-              onLinkClick?.(e);
             }}
           >
             Complete verification →
@@ -134,8 +135,9 @@ export function AgentSlotPlaceholderModal({
           <button
             type="button"
             onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
               onVerificationRequired();
-              onLinkClick?.(e);
             }}
             className="mt-1 inline-block text-xs font-semibold text-[#6B9E6E] hover:underline"
           >
@@ -164,7 +166,11 @@ export function PropertyPageEmptyAgents({ onVerificationRequired }: { onVerifica
         {onVerificationRequired ? (
           <button
             type="button"
-            onClick={onVerificationRequired}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onVerificationRequired();
+            }}
             className="mt-3 inline-block text-sm font-semibold text-[#6B9E6E] hover:underline"
           >
             Complete verification →

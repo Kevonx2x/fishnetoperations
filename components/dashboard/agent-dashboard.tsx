@@ -370,12 +370,18 @@ export function AgentDashboard() {
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
-    const { data: a } = await supabase.from("agents").select("*").eq("user_id", user.id).maybeSingle();
+    const { data: a } = await supabase
+      .from("agents")
+      .select(
+        "id, user_id, name, email, phone, bio, license_number, license_expiry, image_url, status, verified, broker_id, specialties, service_areas, social_links, age, years_experience, languages_spoken, response_time, closings, listing_tier, availability_schedule, availability, updated_at, verification_status",
+      )
+      .eq("user_id", user.id)
+      .maybeSingle();
     setAgent((a as AgentRow | null) ?? null);
     setLoaded(true);
     if (!a) return;
 
-    if (a.status === "approved" && a.verified) {
+    if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
       const [{ data: ld }, { data: owned }, { data: paRows }, vwRes] = await Promise.all([
         supabase
           .from("leads")
@@ -490,6 +496,13 @@ export function AgentDashboard() {
 
   useEffect(() => {
     if (!agent) return;
+    if (agent.verification_status !== "verified" && (tab === "pipeline" || tab === "listings")) {
+      setTab("overview");
+    }
+  }, [agent, tab]);
+
+  useEffect(() => {
+    if (!agent) return;
     const sl = (agent.social_links ?? {}) as Record<string, string>;
     const spec = splitCsv(agent.specialties);
     const langs = splitCsv(agent.languages_spoken);
@@ -511,7 +524,7 @@ export function AgentDashboard() {
     });
   }, [agent]);
 
-  const approved = agent?.status === "approved" && agent?.verified;
+  const identityVerified = agent?.verification_status === "verified";
 
   const ownedListingCount = useMemo(
     () => properties.filter((p) => !p.isCoHost).length,
@@ -525,11 +538,11 @@ export function AgentDashboard() {
     [properties],
   );
   const atListingLimit =
-    approved &&
+    identityVerified &&
     !isUnlimitedOwned(agent?.listing_tier) &&
     ownedListingCount >= listingLimit;
   const atCoListLimit =
-    approved && !isUnlimitedCoList(agent?.listing_tier) && coListedCount >= coListLimit;
+    identityVerified && !isUnlimitedCoList(agent?.listing_tier) && coListedCount >= coListLimit;
 
   const openNewListingFlow = () => {
     if (atListingLimit) {
@@ -1004,7 +1017,7 @@ export function AgentDashboard() {
     );
   }
 
-  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  const allTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "overview", label: "Overview", icon: <LayoutDashboard className="h-5 w-5" /> },
     { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-5 w-5" /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" /> },
@@ -1013,8 +1026,11 @@ export function AgentDashboard() {
     { id: "notifications", label: "Notifications", icon: <Bell className="h-5 w-5" /> },
     { id: "profile", label: "Profile", icon: <Settings className="h-5 w-5" /> },
   ];
+  const tabs = identityVerified
+    ? allTabs
+    : allTabs.filter((t) => t.id !== "pipeline" && t.id !== "listings");
 
-  const mobilePrimaryTabIds: Tab[] = ["overview", "pipeline", "listings"];
+  const mobilePrimaryTabIds: Tab[] = identityVerified ? ["overview", "pipeline", "listings"] : ["overview"];
   const mobileMoreTabIds: Tab[] = ["analytics", "billing", "profile"];
 
   return (
@@ -1034,7 +1050,7 @@ export function AgentDashboard() {
             </div>
             <div className="min-w-0">
               <p className="truncate font-semibold text-[#2C2C2C]">{agent.name}</p>
-              <VerifiedAgentBadge show={agent.verified} />
+              <VerifiedAgentBadge show={agent.verification_status === "verified"} />
             </div>
           </div>
           <nav className="flex flex-1 flex-col gap-1">
@@ -1085,7 +1101,8 @@ export function AgentDashboard() {
               {tab === "overview" && (
                 <OverviewTab
                   agent={agent}
-                  approved={!!approved}
+                  accountApproved={agent.status === "approved"}
+                  identityVerified={agent.verification_status === "verified"}
                   leads={leads}
                   properties={properties}
                   ownedListingCount={ownedListingCount}
@@ -1099,7 +1116,7 @@ export function AgentDashboard() {
                   atCoListLimit={atCoListLimit}
                 />
               )}
-              {tab === "pipeline" && approved && (
+              {tab === "pipeline" && identityVerified && (
                 <AgentPipelineTab
                   leads={leads.map((l) => ({
                     id: l.id,
@@ -1121,16 +1138,10 @@ export function AgentDashboard() {
                   onDeleteLead={(leadId) => void deleteLeadById(leadId)}
                 />
               )}
-              {tab === "pipeline" && !approved && (
-                <p className="text-sm font-semibold text-[#2C2C2C]/55">Pipeline unlocks when your profile is verified.</p>
-              )}
-              {tab === "analytics" && approved && (
+              {tab === "analytics" && (
                 <AgentAnalyticsTab leads={leads} viewings={viewings} agent={agent} />
               )}
-              {tab === "analytics" && !approved && (
-                <p className="text-sm font-semibold text-[#2C2C2C]/55">Analytics unlock when verified.</p>
-              )}
-              {tab === "listings" && approved && (
+              {tab === "listings" && identityVerified && (
                 <ListingsTab
                   properties={properties}
                   ownedListingCount={ownedListingCount}
@@ -1156,9 +1167,6 @@ export function AgentDashboard() {
                   userId={user.id}
                   canAddListing={agent?.verification_status === "verified"}
                 />
-              )}
-              {tab === "listings" && !approved && (
-                <p className="text-sm font-semibold text-[#2C2C2C]/55">Listings unlock when verified.</p>
               )}
               {tab === "notifications" && user && (
                 <AgentNotificationsTab userId={user.id} supabase={supabase} />
@@ -1665,7 +1673,8 @@ export function AgentDashboard() {
 
 function OverviewTab({
   agent,
-  approved,
+  accountApproved,
+  identityVerified,
   leads,
   properties,
   ownedListingCount,
@@ -1679,7 +1688,8 @@ function OverviewTab({
   atCoListLimit,
 }: {
   agent: AgentRow;
-  approved: boolean;
+  accountApproved: boolean;
+  identityVerified: boolean;
   leads: LeadRow[];
   properties: PropertyRow[];
   ownedListingCount: number;
@@ -1704,10 +1714,24 @@ function OverviewTab({
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Welcome back, {agent.name.split(" ")[0]}.</p>
       </div>
 
-      {!approved ? (
+      {!accountApproved ? (
         <div className="rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4 text-sm font-semibold text-amber-950">
           Your agent application is {agent.status === "pending" ? "pending review" : agent.status}. Dashboard tools
           unlock once you are verified.
+        </div>
+      ) : null}
+
+      {accountApproved && !identityVerified ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-950">
+            ⚠️ Your account is not verified. Upload your documents to unlock all features.
+          </p>
+          <Link
+            href="/settings?tab=verification"
+            className="mt-3 inline-flex rounded-full bg-[#2C2C2C] px-4 py-2 text-sm font-bold text-white hover:bg-[#6B9E6E]"
+          >
+            Complete Verification →
+          </Link>
         </div>
       ) : null}
 
@@ -1718,14 +1742,14 @@ function OverviewTab({
         <StatCard label="Response Rate" value={`${mockResponseRate}%`} hint="mock" />
       </div>
 
-      {approved ? (
+      {identityVerified ? (
         <p className="text-sm font-semibold text-[#2C2C2C]/75">
           You represent {totalRepresented} propert{totalRepresented === 1 ? "y" : "ies"} total ({ownedCount} owned,{" "}
           {coListedCount} co-listed).
         </p>
       ) : null}
 
-      {approved ? (
+      {identityVerified ? (
         <div
           className={`rounded-2xl border bg-white p-5 shadow-sm ${
             atListingLimit || atCoListLimit ? "border-[#D4A843]/50 ring-1 ring-[#D4A843]/25" : "border-[#2C2C2C]/10"
@@ -1832,14 +1856,14 @@ function OverviewTab({
             </li>
           ))}
         </ul>
-        {incomplete && approved ? (
+        {incomplete && identityVerified ? (
           <p className="mt-4 rounded-xl bg-[#D4A843]/12 px-4 py-3 text-sm font-semibold text-[#8a6d32]">
             Complete your profile to get more leads — add a photo, bio, specialties, and your first listing.
           </p>
         ) : null}
       </div>
 
-      {approved ? (
+      {identityVerified ? (
         <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <p className="font-serif text-lg font-bold text-[#2C2C2C]">Recent leads</p>

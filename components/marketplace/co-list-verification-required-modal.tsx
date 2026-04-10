@@ -12,8 +12,20 @@ export function CoListVerificationRequiredModal({
   const router = useRouter();
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" role="presentation">
-      <button type="button" className="absolute inset-0 bg-black/50" aria-label="Close" onClick={onClose} />
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      role="presentation"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/50"
+        aria-label="Close"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+      />
       <div
         role="dialog"
         aria-modal="true"
