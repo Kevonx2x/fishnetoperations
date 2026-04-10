@@ -1144,6 +1144,7 @@ export function AgentDashboard() {
                     id: l.id,
                     name: l.name,
                     email: l.email,
+                    client_id: l.client_id ?? null,
                     pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,
                     property_id: l.property_id ?? null,
                     created_at: l.created_at,

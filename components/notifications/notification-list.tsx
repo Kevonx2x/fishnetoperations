@@ -3,6 +3,7 @@
 import {
   Bell,
   BadgeCheck,
+  FileText,
   Heart,
   Home,
   Pin,
@@ -37,6 +38,8 @@ function notificationTypeIcon(type: string): { Icon: LucideIcon; className: stri
   if (t.includes("pin") || t.includes("save")) return { Icon: Pin, className: "text-[#D4A843]" };
   if (t === "property_match") return { Icon: Home, className: "text-[#6B9E6E]" };
   if (t === "lead_created" || t === "new_lead") return { Icon: Sparkles, className: "text-[#D4A843]" };
+  if (t === "document_request" || t === "document_shared")
+    return { Icon: FileText, className: "text-[#6B9E6E]" };
   return { Icon: Bell, className: "text-[#2C2C2C]/50" };
 }
 

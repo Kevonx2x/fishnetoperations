@@ -25,6 +25,7 @@ import {
   preferredLocationsLabel,
   type ClientPreferenceFields,
 } from "@/lib/client-profile-preferences";
+import { CLIENT_DOCUMENT_TYPES } from "@/lib/client-documents";
 import { cn } from "@/lib/utils";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 
@@ -176,6 +177,15 @@ export default function ClientPublicProfilePage() {
   const [selectedViewingProperty, setSelectedViewingProperty] = useState<PropertyRow | null>(null);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const [freeAgentWishlistPreview, setFreeAgentWishlistPreview] = useState(false);
+  const [ownDocRows, setOwnDocRows] = useState<
+    {
+      document_type: string;
+      file_name: string | null;
+      status: string;
+      shared_with: string[] | null;
+    }[]
+  >([]);
+  const [sharedAgentNames, setSharedAgentNames] = useState<Record<string, string>>({});
 
   const clientId = rawId;
   const isOwn = Boolean(user?.id && user.id === clientId);
@@ -222,6 +232,48 @@ export default function ClientPublicProfilePage() {
       ? moveInFromRequests
       : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
   }, [moveInFromRequests]);
+
+  useEffect(() => {
+    if (!isOwn || !UUID_RE.test(clientId)) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("client_documents")
+        .select("document_type, file_name, status, shared_with")
+        .eq("client_id", clientId);
+      if (cancelled) return;
+      const rows = (data ?? []) as {
+        document_type: string;
+        file_name: string | null;
+        status: string;
+        shared_with: string[] | null;
+      }[];
+      setOwnDocRows(rows);
+      const ids = new Set<string>();
+      for (const r of rows) {
+        for (const u of r.shared_with ?? []) {
+          if (u) ids.add(u);
+        }
+      }
+      if (ids.size === 0) {
+        setSharedAgentNames({});
+        return;
+      }
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", [...ids]);
+      if (cancelled) return;
+      const map: Record<string, string> = {};
+      for (const p of (profs ?? []) as { id: string; full_name: string | null }[]) {
+        map[p.id] = p.full_name?.trim() || "Agent";
+      }
+      setSharedAgentNames(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwn, clientId, supabase]);
 
   useEffect(() => {
     if (!UUID_RE.test(clientId)) {
@@ -967,6 +1019,45 @@ export default function ClientPublicProfilePage() {
             </aside>
 
             <main className="min-w-0 flex-1 lg:w-[70%]">
+              {isOwn ? (
+                <section className="mb-8 rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
+                  <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">Documents</h2>
+                  <p className="mt-1 text-sm text-[#2C2C2C]/55">
+                    Your uploaded documents and who can access them.
+                  </p>
+                  <ul className="mt-4 space-y-2 text-sm">
+                    {CLIENT_DOCUMENT_TYPES.map(({ key, label }) => {
+                      const row = ownDocRows.find((r) => r.document_type === key);
+                      const sharedLabels = (row?.shared_with ?? [])
+                        .map((id) => sharedAgentNames[id] ?? id.slice(0, 8))
+                        .filter(Boolean);
+                      return (
+                        <li
+                          key={key}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#2C2C2C]/10 bg-[#FAF8F4]/50 px-3 py-2"
+                        >
+                          <span className="font-semibold text-[#2C2C2C]">{label}</span>
+                          {row ? (
+                            <span className="text-xs text-[#2C2C2C]/65">
+                              {row.status === "shared" ? "Shared" : "Private"}
+                              {sharedLabels.length > 0 ? ` · ${sharedLabels.join(", ")}` : ""}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-[#2C2C2C]/45">Not uploaded</span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <Link
+                    href="/settings?tab=documents"
+                    className="mt-4 inline-flex rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#5d8a60]"
+                  >
+                    Manage Documents
+                  </Link>
+                </section>
+              ) : null}
+
               <h2 className="font-serif text-3xl font-semibold text-[#2C2C2C]">
                 My Home Wishlist
               </h2>

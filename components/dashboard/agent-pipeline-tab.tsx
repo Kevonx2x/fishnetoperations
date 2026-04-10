@@ -39,6 +39,8 @@ export type PipelineLeadRow = {
   id: number;
   name: string;
   email: string;
+  /** Linked client profile id (for document requests). */
+  client_id?: string | null;
   pipeline_stage: PipelineStageId;
   property_id: string | null;
   created_at: string;
@@ -91,6 +93,13 @@ const MOVE_TO_LABEL: Record<PipelineStageId, string | null> = {
   reservation: "Move to Closed",
   closed: null,
 };
+
+const CLIENT_DOC_REQUEST_OPTIONS = [
+  { key: "valid_id" as const, label: "Valid ID" },
+  { key: "proof_of_funds" as const, label: "Proof of Funds" },
+  { key: "visa" as const, label: "Visa Document" },
+  { key: "other" as const, label: "Other" },
+];
 
 function clientInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -146,6 +155,7 @@ function SortableDealCard({
   menuWrapRef,
   onOpenLeadDetails,
   onRequestNotes,
+  onRequestDocuments,
   onDeleteLead,
   onMoveToStage,
   moveBusyId,
@@ -162,6 +172,7 @@ function SortableDealCard({
   menuWrapRef: React.RefObject<HTMLDivElement | null>;
   onOpenLeadDetails: (leadId: number) => void;
   onRequestNotes: (lead: PipelineLeadRow) => void;
+  onRequestDocuments: (lead: PipelineLeadRow) => void;
   onDeleteLead: (leadId: number) => void;
   onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveBusyId: number | null;
@@ -256,6 +267,16 @@ function SortableDealCard({
                       }}
                     >
                       Edit Notes
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                      onClick={() => {
+                        onRequestDocuments(deal);
+                        setMenuOpenId(null);
+                      }}
+                    >
+                      Request Documents
                     </button>
                     <button
                       type="button"
@@ -412,6 +433,14 @@ export function AgentPipelineTab({
   const [notesDraft, setNotesDraft] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
   const [moveToStageBusyId, setMoveToStageBusyId] = useState<number | null>(null);
+  const [requestDocsLead, setRequestDocsLead] = useState<PipelineLeadRow | null>(null);
+  const [reqDocSelections, setReqDocSelections] = useState({
+    valid_id: false,
+    proof_of_funds: false,
+    visa: false,
+    other: false,
+  });
+  const [requestDocsBusy, setRequestDocsBusy] = useState(false);
   const menuWrapRef = useRef<HTMLDivElement | null>(null);
 
   const sensors = useSensors(
@@ -651,6 +680,35 @@ export function AgentPipelineTab({
     }
   };
 
+  const sendClientDocumentRequest = async () => {
+    if (!requestDocsLead) return;
+    const document_types = CLIENT_DOC_REQUEST_OPTIONS.filter((o) => reqDocSelections[o.key]).map(
+      (o) => o.key,
+    );
+    if (document_types.length === 0) {
+      toast.error("Select at least one document type.");
+      return;
+    }
+    setRequestDocsBusy(true);
+    try {
+      const res = await fetch("/api/agent/request-client-documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ lead_id: requestDocsLead.id, document_types }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not send request");
+        return;
+      }
+      toast.success("Document request sent!");
+      setRequestDocsLead(null);
+    } finally {
+      setRequestDocsBusy(false);
+    }
+  };
+
   const checklistForLead = docsLead ? PIPELINE_DOC_CHECKLIST[docsLead.pipeline_stage] : [];
 
   const sortableIds = useMemo(() => displayDeals.map((d) => String(d.id)), [displayDeals]);
@@ -753,6 +811,19 @@ export function AgentPipelineTab({
                   onRequestNotes={(d) => {
                     setNotesLead(d);
                     setNotesDraft(d.closing_notes ?? "");
+                  }}
+                  onRequestDocuments={(d) => {
+                    if (!d.client_id) {
+                      toast.error("This lead is not linked to a client account yet.");
+                      return;
+                    }
+                    setRequestDocsLead(d);
+                    setReqDocSelections({
+                      valid_id: false,
+                      proof_of_funds: false,
+                      visa: false,
+                      other: false,
+                    });
                   }}
                   onDeleteLead={onDeleteLead}
                   onMoveToStage={moveDealToStage}
@@ -860,6 +931,67 @@ export function AgentPipelineTab({
                   onClick={() => setNotesLead(null)}
                 >
                   Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {requestDocsLead ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[73] flex items-end justify-center bg-black/45 p-4 sm:items-center"
+            onClick={() => !requestDocsBusy && setRequestDocsLead(null)}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-xl"
+            >
+              <p className="font-serif text-lg font-bold text-[#2C2C2C]">
+                Request documents from {requestDocsLead.name}
+              </p>
+              <div className="mt-4 space-y-3">
+                {CLIENT_DOC_REQUEST_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.key}
+                    className="flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#2C2C2C]"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={reqDocSelections[opt.key]}
+                      onChange={(e) =>
+                        setReqDocSelections((s) => ({ ...s, [opt.key]: e.target.checked }))
+                      }
+                      className="h-4 w-4 rounded border-gray-300 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={requestDocsBusy}
+                  onClick={() => setRequestDocsLead(null)}
+                  className="rounded-full px-4 py-2 text-sm font-semibold text-[#2C2C2C]/60 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={requestDocsBusy}
+                  onClick={() => void sendClientDocumentRequest()}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#5a8a5d] disabled:opacity-50"
+                >
+                  {requestDocsBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Send Request
                 </button>
               </div>
             </motion.div>
