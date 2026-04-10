@@ -1,7 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { AnimatePresence, motion } from "framer-motion";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Loader2, MoreHorizontal, X } from "lucide-react";
@@ -24,8 +42,8 @@ export type PipelineLeadRow = {
   pipeline_stage: PipelineStageId;
   property_id: string | null;
   created_at: string;
-  /** When `0`, UI may show a “hot lead” indicator (optional; set when provided by API). */
   pipeline_position?: number | null;
+  closing_notes?: string | null;
 };
 
 type DocDef = { key: string; label: string };
@@ -108,16 +126,265 @@ function normalizeStage(raw: string | null | undefined): PipelineStageId {
   return "lead";
 }
 
+function sortDealsInStage(a: PipelineLeadRow, b: PipelineLeadRow): number {
+  const pa = a.pipeline_position ?? 0;
+  const pb = b.pipeline_position ?? 0;
+  if (pa !== pb) return pa - pb;
+  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+}
+
+function SortableDealCard({
+  deal,
+  indexInStage,
+  propertyLabel,
+  onOpenDocs,
+  onOpenMoveModal,
+  menuOpenId,
+  setMenuOpenId,
+  menuMoveOpen,
+  setMenuMoveOpen,
+  menuWrapRef,
+  onOpenLeadDetails,
+  onRequestNotes,
+  onDeleteLead,
+  onMoveToStage,
+  moveBusyId,
+}: {
+  deal: PipelineLeadRow;
+  indexInStage: number;
+  propertyLabel: (propertyId: string | null) => string;
+  onOpenDocs: (lead: PipelineLeadRow) => void;
+  onOpenMoveModal: (lead: PipelineLeadRow) => void;
+  menuOpenId: number | null;
+  setMenuOpenId: (id: number | null) => void;
+  menuMoveOpen: boolean;
+  setMenuMoveOpen: (v: boolean) => void;
+  menuWrapRef: React.RefObject<HTMLDivElement | null>;
+  onOpenLeadDetails: (leadId: number) => void;
+  onRequestNotes: (lead: PipelineLeadRow) => void;
+  onDeleteLead: (leadId: number) => void;
+  onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
+  moveBusyId: number | null;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: String(deal.id),
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  const next = nextStage(deal.pipeline_stage);
+  const propLine = propertyLabel(deal.property_id);
+  const moveLabel = MOVE_TO_LABEL[deal.pipeline_stage];
+  const isHot = indexInStage === 0;
+  const menuOpen = menuOpenId === deal.id;
+
+  const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`relative rounded-2xl border border-gray-100 border-l-4 border-l-[#6B9E6E] bg-white p-4 shadow-sm ${
+        isDragging ? "scale-105 shadow-xl" : ""
+      }`}
+    >
+      <div
+        className="touch-none"
+        {...attributes}
+        {...listeners}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/20 text-sm font-semibold text-[#6B9E6E]">
+              {clientInitials(deal.name)}
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-[#2C2C2C]">{deal.name}</p>
+              <p className="truncate text-xs text-gray-400">{deal.email}</p>
+            </div>
+          </div>
+          <div
+            ref={menuOpen ? menuWrapRef : undefined}
+            className="pointer-events-auto relative shrink-0"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2">
+              {isHot ? (
+                <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-500">
+                  🔥 Hot
+                </span>
+              ) : null}
+              <button
+                type="button"
+                aria-label="More options"
+                aria-expanded={menuOpen}
+                onClick={() => {
+                  setMenuMoveOpen(false);
+                  setMenuOpenId(menuOpen ? null : deal.id);
+                }}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <MoreHorizontal className="h-5 w-5" />
+              </button>
+            </div>
+
+            {menuOpen ? (
+              <div
+                className="absolute right-0 top-8 z-50 w-48 rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
+              >
+                {!menuMoveOpen ? (
+                  <>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                      onClick={() => {
+                        onOpenLeadDetails(deal.id);
+                        setMenuOpenId(null);
+                      }}
+                    >
+                      📋 View Details
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                      onClick={() => {
+                        onRequestNotes(deal);
+                        setMenuOpenId(null);
+                      }}
+                    >
+                      ✏️ Edit Notes
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                      onClick={() => {
+                        toast("Delete this deal?", {
+                          description: "This cannot be undone.",
+                          action: {
+                            label: "Delete",
+                            onClick: () => void onDeleteLead(deal.id),
+                          },
+                        });
+                        setMenuOpenId(null);
+                      }}
+                    >
+                      🗑️ Delete Deal
+                    </button>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => setMenuMoveOpen(true)}
+                      >
+                        📤 Move to…
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="max-h-56 overflow-y-auto py-1">
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-gray-500 hover:bg-gray-50"
+                      onClick={() => setMenuMoveOpen(false)}
+                    >
+                      ← Back
+                    </button>
+                    {otherStages.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        disabled={moveBusyId === deal.id}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
+                        onClick={() => {
+                          void onMoveToStage(deal, s.id);
+                          setMenuOpenId(null);
+                          setMenuMoveOpen(false);
+                        }}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-3">
+          {deal.property_id ? (
+            <Link
+              href={`/properties/${deal.property_id}`}
+              className="font-medium text-[#6B9E6E] underline-offset-2 hover:underline"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {propLine}
+            </Link>
+          ) : (
+            <p className="font-medium text-[#6B9E6E]">{propLine}</p>
+          )}
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${stageBadgeClass(deal.pipeline_stage)}`}
+          >
+            {PIPELINE_STAGES.find((x) => x.id === deal.pipeline_stage)?.label ?? deal.pipeline_stage}
+          </span>
+          <span className="text-xs text-gray-400">
+            Created {new Date(deal.created_at).toLocaleDateString(undefined, { dateStyle: "medium" })}
+          </span>
+        </div>
+      </div>
+
+      <div
+        className="mt-4 flex gap-2"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {next && moveLabel ? (
+          <button
+            type="button"
+            onClick={() => {
+              onOpenMoveModal(deal);
+            }}
+            className="flex flex-1 items-center justify-center rounded-xl bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
+          >
+            → {moveLabel}
+          </button>
+        ) : (
+          <div className="flex flex-1 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 py-2.5 text-sm font-semibold text-[#6B9E6E]">
+            ✓ Closed
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => onOpenDocs(deal)}
+          className="flex flex-1 items-center justify-center rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-gray-50"
+        >
+          📄 View Documents
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AgentPipelineTab({
   leads,
   propertyLabel,
   supabase,
   onRefresh,
+  onOpenLeadDetails,
+  onDeleteLead,
 }: {
   leads: PipelineLeadRow[];
   propertyLabel: (propertyId: string | null) => string;
   supabase: SupabaseClient;
   onRefresh: () => void;
+  onOpenLeadDetails: (leadId: number) => void;
+  onDeleteLead: (leadId: number) => void | Promise<void>;
 }) {
   const deals = useMemo(
     () =>
@@ -138,6 +405,39 @@ export function AgentPipelineTab({
   const [moveNote, setMoveNote] = useState("");
   const [moveBusy, setMoveBusy] = useState(false);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const [optimisticOrderIds, setOptimisticOrderIds] = useState<number[] | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
+  const [menuMoveOpen, setMenuMoveOpen] = useState(false);
+  const [notesLead, setNotesLead] = useState<PipelineLeadRow | null>(null);
+  const [notesDraft, setNotesDraft] = useState("");
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [moveToStageBusyId, setMoveToStageBusyId] = useState<number | null>(null);
+  const menuWrapRef = useRef<HTMLDivElement | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  useEffect(() => {
+    if (menuOpenId == null) return;
+    const onDoc = (e: MouseEvent) => {
+      const el = menuWrapRef.current;
+      if (el && !el.contains(e.target as Node)) {
+        setMenuOpenId(null);
+        setMenuMoveOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpenId]);
 
   const counts = useMemo(() => {
     const c: Record<PipelineStageId, number> = {
@@ -153,10 +453,27 @@ export function AgentPipelineTab({
     return c;
   }, [deals]);
 
-  const filtered = useMemo(
-    () => deals.filter((d) => d.pipeline_stage === filterStage),
-    [deals, filterStage],
-  );
+  const baseSorted = useMemo(() => {
+    return deals.filter((d) => d.pipeline_stage === filterStage).sort(sortDealsInStage);
+  }, [deals, filterStage]);
+
+  const displayDeals = useMemo(() => {
+    if (!optimisticOrderIds) return baseSorted;
+    const set = new Set(baseSorted.map((d) => d.id));
+    if (
+      optimisticOrderIds.length !== baseSorted.length ||
+      !optimisticOrderIds.every((id) => set.has(id))
+    ) {
+      return baseSorted;
+    }
+    return optimisticOrderIds
+      .map((id) => baseSorted.find((d) => d.id === id))
+      .filter((d): d is PipelineLeadRow => d != null);
+  }, [baseSorted, optimisticOrderIds]);
+
+  useEffect(() => {
+    setOptimisticOrderIds(null);
+  }, [filterStage]);
 
   const loadDocs = useCallback(
     async (lead: PipelineLeadRow) => {
@@ -265,7 +582,78 @@ export function AgentPipelineTab({
     }
   };
 
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = displayDeals.map((d) => d.id);
+    const oldIndex = ids.findIndex((id) => String(id) === String(active.id));
+    const newIndex = ids.findIndex((id) => String(id) === String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    const newOrder = arrayMove(ids, oldIndex, newIndex);
+    setOptimisticOrderIds(newOrder);
+    try {
+      const res = await fetch("/api/agent/pipeline-reorder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ pipeline_stage: filterStage, lead_ids: newOrder }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+      if (!res.ok) {
+        toast.error(json?.error?.message ?? "Could not save order");
+        setOptimisticOrderIds(null);
+        return;
+      }
+      onRefresh();
+    } finally {
+      setOptimisticOrderIds(null);
+    }
+  };
+
+  const saveClosingNotesOnBlur = async () => {
+    if (!notesLead) return;
+    setNotesSaving(true);
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .update({ closing_notes: notesDraft.trim() || null, updated_at: new Date().toISOString() })
+        .eq("id", notesLead.id);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success("Notes saved");
+      setNotesLead(null);
+      onRefresh();
+    } finally {
+      setNotesSaving(false);
+    }
+  };
+
+  const moveDealToStage = async (lead: PipelineLeadRow, stage: PipelineStageId) => {
+    setMoveToStageBusyId(lead.id);
+    try {
+      const res = await fetch("/api/agent/pipeline-set-stage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ leadId: lead.id, pipeline_stage: stage }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+      if (!res.ok) {
+        toast.error(json?.error?.message ?? "Could not move deal");
+        return;
+      }
+      toast.success("Deal moved");
+      onRefresh();
+    } finally {
+      setMoveToStageBusyId(null);
+    }
+  };
+
   const checklistForLead = docsLead ? PIPELINE_DOC_CHECKLIST[docsLead.pipeline_stage] : [];
+
+  const sortableIds = useMemo(() => displayDeals.map((d) => String(d.id)), [displayDeals]);
 
   return (
     <div className="space-y-6">
@@ -276,7 +664,6 @@ export function AgentPipelineTab({
         </p>
       </div>
 
-      {/* Pipeline overview */}
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">Pipeline overview</p>
         <div className="-mx-1 overflow-x-auto pb-1 scrollbar-hide">
@@ -289,9 +676,7 @@ export function AgentPipelineTab({
                   <div className="flex w-full min-w-[56px] flex-col items-center gap-1.5">
                     <div
                       className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 bg-white text-sm font-bold shadow-sm ${
-                        hasCount
-                          ? "border-[#6B9E6E] text-[#6B9E6E]"
-                          : "border-gray-300 text-gray-400"
+                        hasCount ? "border-[#6B9E6E] text-[#6B9E6E]" : "border-gray-300 text-gray-400"
                       }`}
                     >
                       {n}
@@ -305,10 +690,7 @@ export function AgentPipelineTab({
                     </span>
                   </div>
                   {idx < PIPELINE_STAGES.length - 1 ? (
-                    <div
-                      className="mx-0.5 h-0.5 min-w-[8px] flex-1 bg-gray-200 sm:min-w-[12px]"
-                      aria-hidden
-                    />
+                    <div className="mx-0.5 h-0.5 min-w-[8px] flex-1 bg-gray-200 sm:min-w-[12px]" aria-hidden />
                   ) : null}
                 </div>
               );
@@ -320,7 +702,6 @@ export function AgentPipelineTab({
         </p>
       </div>
 
-      {/* Filter pills */}
       <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 scrollbar-hide">
         {PIPELINE_STAGES.map((s) => {
           const active = filterStage === s.id;
@@ -344,108 +725,45 @@ export function AgentPipelineTab({
         })}
       </div>
 
-      {/* Deals list */}
       <div className="space-y-3">
-        {filtered.length === 0 ? (
+        {displayDeals.length === 0 ? (
           <p className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center text-sm font-semibold text-[#2C2C2C]/45">
             No deals at this stage.
           </p>
         ) : (
-          filtered.map((deal) => {
-            const next = nextStage(deal.pipeline_stage);
-            const propLine = propertyLabel(deal.property_id);
-            const moveLabel = MOVE_TO_LABEL[deal.pipeline_stage];
-            const isHot = deal.pipeline_position === 0;
-            return (
-              <div
-                key={deal.id}
-                className="relative rounded-2xl border border-gray-100 border-l-4 border-l-[#6B9E6E] bg-white p-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 flex-1 gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/20 text-sm font-semibold text-[#6B9E6E]">
-                      {clientInitials(deal.name)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-[#2C2C2C]">{deal.name}</p>
-                      <p className="truncate text-xs text-gray-400">{deal.email}</p>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {isHot ? (
-                      <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-500">
-                        🔥 Hot
-                      </span>
-                    ) : null}
-                    <button
-                      type="button"
-                      aria-label="More options"
-                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                    >
-                      <MoreHorizontal className="h-5 w-5" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-3">
-                  {deal.property_id ? (
-                    <Link
-                      href={`/properties/${deal.property_id}`}
-                      className="font-medium text-[#6B9E6E] underline-offset-2 hover:underline"
-                    >
-                      {propLine}
-                    </Link>
-                  ) : (
-                    <p className="font-medium text-[#6B9E6E]">{propLine}</p>
-                  )}
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span
-                    className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${stageBadgeClass(deal.pipeline_stage)}`}
-                  >
-                    {
-                      PIPELINE_STAGES.find((x) => x.id === deal.pipeline_stage)?.label ??
-                      deal.pipeline_stage
-                    }
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    Created {new Date(deal.created_at).toLocaleDateString(undefined, { dateStyle: "medium" })}
-                  </span>
-                </div>
-
-                <div className="mt-4 flex gap-2">
-                  {next && moveLabel ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMoveLead(deal);
-                        setMoveNote("");
-                      }}
-                      className="flex flex-1 items-center justify-center rounded-xl bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
-                    >
-                      → {moveLabel}
-                    </button>
-                  ) : (
-                    <div className="flex flex-1 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 py-2.5 text-sm font-semibold text-[#6B9E6E]">
-                      ✓ Closed
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => openDocs(deal)}
-                    className="flex flex-1 items-center justify-center rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-gray-50"
-                  >
-                    📄 View Documents
-                  </button>
-                </div>
-              </div>
-            );
-          })
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
+            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+              {displayDeals.map((deal, idx) => (
+                <SortableDealCard
+                  key={deal.id}
+                  deal={deal}
+                  indexInStage={idx}
+                  propertyLabel={propertyLabel}
+                  onOpenDocs={openDocs}
+                  onOpenMoveModal={(d) => {
+                    setMoveLead(d);
+                    setMoveNote("");
+                  }}
+                  menuOpenId={menuOpenId}
+                  setMenuOpenId={setMenuOpenId}
+                  menuMoveOpen={menuMoveOpen}
+                  setMenuMoveOpen={setMenuMoveOpen}
+                  menuWrapRef={menuWrapRef}
+                  onOpenLeadDetails={onOpenLeadDetails}
+                  onRequestNotes={(d) => {
+                    setNotesLead(d);
+                    setNotesDraft(d.closing_notes ?? "");
+                  }}
+                  onDeleteLead={onDeleteLead}
+                  onMoveToStage={moveDealToStage}
+                  moveBusyId={moveToStageBusyId}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 
-      {/* Move modal */}
       <AnimatePresence>
         {moveLead ? (
           <motion.div
@@ -508,7 +826,47 @@ export function AgentPipelineTab({
         ) : null}
       </AnimatePresence>
 
-      {/* Documents panel */}
+      <AnimatePresence>
+        {notesLead ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[72] flex items-end justify-center bg-black/45 p-4 sm:items-center"
+            onClick={() => !notesSaving && setNotesLead(null)}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-5 shadow-xl"
+            >
+              <p className="font-serif text-lg font-bold text-[#2C2C2C]">Closing notes</p>
+              <p className="mt-1 text-xs text-gray-500">{notesLead.name}</p>
+              <textarea
+                value={notesDraft}
+                onChange={(e) => setNotesDraft(e.target.value)}
+                onBlur={() => void saveClosingNotesOnBlur()}
+                rows={5}
+                className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/20"
+                placeholder="Notes saved to this lead on blur…"
+                disabled={notesSaving}
+              />
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="rounded-full px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                  onClick={() => setNotesLead(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
       <AnimatePresence>
         {docsLead ? (
           <motion.div

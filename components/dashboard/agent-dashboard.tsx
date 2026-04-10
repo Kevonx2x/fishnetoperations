@@ -8,7 +8,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   BarChart3,
   Bell,
-  Calendar,
   Check,
   CreditCard,
   GitBranch,
@@ -26,8 +25,6 @@ import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { AgentBillingTab } from "@/components/dashboard/agent-billing-tab";
 import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
-import { AgentLeadTemplatesSection } from "@/components/dashboard/agent-lead-templates";
-import { AgentViewingsTab } from "@/components/dashboard/agent-viewings-tab";
 import { AgentPipelineTab, type PipelineStageId } from "@/components/dashboard/agent-pipeline-tab";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
@@ -74,9 +71,7 @@ import {
 
 type Tab =
   | "overview"
-  | "leads"
   | "pipeline"
-  | "viewings"
   | "listings"
   | "profile"
   | "analytics"
@@ -119,6 +114,8 @@ type LeadRow = {
   message: string | null;
   stage: string;
   pipeline_stage?: string | null;
+  pipeline_position?: number | null;
+  closing_notes?: string | null;
   property_id?: string | null;
   created_at: string;
   updated_at?: string;
@@ -271,16 +268,16 @@ export function AgentDashboard() {
     const raw = sp.get("tab");
     const allowed: Tab[] = [
       "overview",
-      "leads",
       "pipeline",
-      "viewings",
       "listings",
       "profile",
       "analytics",
       "notifications",
       "billing",
     ];
-    if (raw && allowed.includes(raw as Tab)) setTab(raw as Tab);
+    if (raw === "leads" || raw === "viewings") {
+      setTab("pipeline");
+    } else if (raw && allowed.includes(raw as Tab)) setTab(raw as Tab);
 
     if (sp.get("payment") === "success") {
       const tier = sp.get("tier");
@@ -312,7 +309,6 @@ export function AgentDashboard() {
   const [msg, setMsg] = useState("");
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null);
   const [leavingPropertyId, setLeavingPropertyId] = useState<string | null>(null);
-  const [deletingLeadId, setDeletingLeadId] = useState<number | null>(null);
 
   const [profileForm, setProfileForm] = useState({
     name: "",
@@ -384,7 +380,7 @@ export function AgentDashboard() {
         supabase
           .from("leads")
           .select(
-            "id, name, email, phone, property_interest, message, stage, pipeline_stage, property_id, created_at, updated_at, client_id",
+            "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, closing_notes, property_id, created_at, updated_at, client_id",
           )
           .eq("agent_id", user.id)
           .order("created_at", { ascending: false }),
@@ -710,12 +706,9 @@ export function AgentDashboard() {
     await loadData();
   };
 
-  const deleteLead = async (leadId: number) => {
+  const deleteLeadById = async (leadId: number) => {
     if (!user?.id) return;
-    if (!confirm("Are you sure? This cannot be undone.")) return;
-    setDeletingLeadId(leadId);
     const { error } = await supabase.from("leads").delete().eq("id", leadId).eq("agent_id", user.id);
-    setDeletingLeadId(null);
     if (error) {
       setMsg(error.message);
       return;
@@ -1013,9 +1006,7 @@ export function AgentDashboard() {
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "overview", label: "Overview", icon: <LayoutDashboard className="h-5 w-5" /> },
-    { id: "leads", label: "Leads", icon: <Users className="h-5 w-5" /> },
     { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-5 w-5" /> },
-    { id: "viewings", label: "Viewings", icon: <Calendar className="h-5 w-5" /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" /> },
     { id: "listings", label: "Listings", icon: <Home className="h-5 w-5" /> },
     { id: "billing", label: "Billing", icon: <CreditCard className="h-5 w-5" /> },
@@ -1023,8 +1014,8 @@ export function AgentDashboard() {
     { id: "profile", label: "Profile", icon: <Settings className="h-5 w-5" /> },
   ];
 
-  const mobilePrimaryTabIds: Tab[] = ["overview", "leads", "listings"];
-  const mobileMoreTabIds: Tab[] = ["pipeline", "viewings", "analytics", "billing", "profile"];
+  const mobilePrimaryTabIds: Tab[] = ["overview", "pipeline", "listings"];
+  const mobileMoreTabIds: Tab[] = ["analytics", "billing", "profile"];
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
@@ -1060,7 +1051,7 @@ export function AgentDashboard() {
               >
                 <span className="text-[#6B9E6E]">{t.icon}</span>
                 {t.label}
-                {t.id === "leads" && newLeadsCount > 0 ? (
+                {t.id === "pipeline" && newLeadsCount > 0 ? (
                   <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
                     {newLeadsCount}
                   </span>
@@ -1108,24 +1099,6 @@ export function AgentDashboard() {
                   atCoListLimit={atCoListLimit}
                 />
               )}
-              {tab === "leads" && approved && (
-                <>
-                  <LeadsTab
-                    leads={leads}
-                    onSelect={setSelectedLead}
-                    onStageChange={updateLeadStage}
-                    onDeleteLead={deleteLead}
-                    deletingLeadId={deletingLeadId}
-                  />
-                  <AgentLeadTemplatesSection
-                    leadEmail={selectedLead?.email}
-                    leadName={selectedLead?.name}
-                  />
-                </>
-              )}
-              {tab === "leads" && !approved && (
-                <p className="text-sm font-semibold text-[#2C2C2C]/55">Leads unlock when your profile is verified.</p>
-              )}
               {tab === "pipeline" && approved && (
                 <AgentPipelineTab
                   leads={leads.map((l) => ({
@@ -1135,25 +1108,21 @@ export function AgentDashboard() {
                     pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,
                     property_id: l.property_id ?? null,
                     created_at: l.created_at,
+                    pipeline_position: l.pipeline_position ?? null,
+                    closing_notes: l.closing_notes ?? null,
                   }))}
                   propertyLabel={pipelinePropertyLabel}
                   supabase={supabase}
                   onRefresh={loadData}
+                  onOpenLeadDetails={(leadId) => {
+                    const row = leads.find((x) => x.id === leadId);
+                    if (row) setSelectedLead(row);
+                  }}
+                  onDeleteLead={(leadId) => void deleteLeadById(leadId)}
                 />
               )}
               {tab === "pipeline" && !approved && (
                 <p className="text-sm font-semibold text-[#2C2C2C]/55">Pipeline unlocks when your profile is verified.</p>
-              )}
-              {tab === "viewings" && approved && (
-                <AgentViewingsTab
-                  viewings={viewings}
-                  properties={properties}
-                  saving={saving}
-                  onAfterAction={loadData}
-                />
-              )}
-              {tab === "viewings" && !approved && (
-                <p className="text-sm font-semibold text-[#2C2C2C]/55">Viewings unlock when verified.</p>
               )}
               {tab === "analytics" && approved && (
                 <AgentAnalyticsTab leads={leads} viewings={viewings} agent={agent} />
@@ -1228,7 +1197,7 @@ export function AgentDashboard() {
         </main>
       </div>
 
-      {/* Mobile bottom bar — Home, Overview, Leads, Listings, More */}
+      {/* Mobile bottom bar — Home, Overview, Pipeline, Listings, More */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-stretch justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-1 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur md:hidden">
         <button
           type="button"
@@ -1259,7 +1228,7 @@ export function AgentDashboard() {
             >
               <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>{t.icon}</span>
               {t.label}
-              {t.id === "leads" && newLeadsCount > 0 ? (
+              {t.id === "pipeline" && newLeadsCount > 0 ? (
                 <span className="absolute right-1 top-0.5 h-2 w-2 rounded-full bg-[#D4A843]" />
               ) : null}
             </button>
@@ -1905,99 +1874,6 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint?:
       <p className="text-[11px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">{label}</p>
       <p className="mt-2 font-serif text-2xl font-bold text-[#2C2C2C]">{value}</p>
       {hint ? <p className="mt-1 text-[10px] font-semibold text-[#D4A843]">{hint}</p> : null}
-    </div>
-  );
-}
-
-function LeadsTab({
-  leads,
-  onSelect,
-  onStageChange,
-  onDeleteLead,
-  deletingLeadId,
-}: {
-  leads: LeadRow[];
-  onSelect: (l: LeadRow) => void;
-  onStageChange: (id: number, stage: string) => void;
-  onDeleteLead: (id: number) => void | Promise<void>;
-  deletingLeadId: number | null;
-}) {
-  return (
-    <div className="w-full px-6 py-6">
-      <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Leads</h1>
-      <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Manage pipeline and follow-ups.</p>
-      <div className="mt-6 w-full overflow-x-auto rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
-        <table className="min-w-full text-left text-sm">
-          <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
-            <tr>
-              <th className="min-w-[140px] px-4 py-3 font-bold text-[#2C2C2C]">Client</th>
-              <th className="min-w-[180px] px-4 py-3 font-bold text-[#2C2C2C]">Email</th>
-              <th className="min-w-[140px] px-4 py-3 font-bold text-[#2C2C2C]">Phone</th>
-              <th className="min-w-[200px] px-4 py-3 font-bold text-[#2C2C2C]">Interest</th>
-              <th className="min-w-[100px] px-4 py-3 font-bold text-[#2C2C2C]">Date</th>
-              <th className="min-w-[120px] px-4 py-3 font-bold text-[#2C2C2C]">Status</th>
-              <th className="min-w-[100px] px-4 py-3 text-right font-bold text-[#2C2C2C]">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leads.map((l) => (
-              <tr
-                key={l.id}
-                className="cursor-pointer border-b border-[#2C2C2C]/5 hover:bg-[#FAF8F4]/80"
-                onClick={() => onSelect(l)}
-              >
-                <td className="min-w-[140px] px-4 py-3 font-semibold text-[#2C2C2C]">
-                  {l.client_id ? (
-                    <Link
-                      href={`/clients/${encodeURIComponent(l.client_id)}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="cursor-pointer hover:underline"
-                    >
-                      {l.name}
-                    </Link>
-                  ) : (
-                    l.name
-                  )}
-                </td>
-                <td className="min-w-[180px] px-4 py-3 text-[#2C2C2C]/70">{l.email}</td>
-                <td className="min-w-[140px] px-4 py-3 text-[#2C2C2C]/70">{l.phone ?? "—"}</td>
-                <td className="min-w-[200px] max-w-[200px] truncate px-4 py-3 text-[#2C2C2C]/70">
-                  {l.property_interest ?? "—"}
-                </td>
-                <td className="min-w-[100px] px-4 py-3 text-xs text-[#2C2C2C]/55">
-                  {new Date(l.created_at).toLocaleDateString()}
-                </td>
-                <td className="min-w-[120px] px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                  <select
-                    value={l.stage}
-                    onChange={(e) => onStageChange(l.id, e.target.value)}
-                    className="rounded-lg border border-black/10 bg-white px-2 py-1.5 text-xs font-semibold"
-                  >
-                    {LEAD_STAGE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="min-w-[100px] px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    disabled={deletingLeadId === l.id}
-                    onClick={() => void onDeleteLead(l.id)}
-                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-800 hover:bg-red-100 disabled:opacity-50"
-                  >
-                    {deletingLeadId === l.id ? "Deleting…" : "Delete"}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {leads.length === 0 ? (
-          <p className="p-8 text-center text-sm font-semibold text-[#2C2C2C]/45">No leads assigned.</p>
-        ) : null}
-      </div>
     </div>
   );
 }
