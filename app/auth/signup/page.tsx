@@ -1,10 +1,29 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+
+function isDuplicateSignupError(err: unknown): boolean {
+  const code =
+    typeof err === "object" && err !== null && "code" in err
+      ? String((err as { code?: string }).code ?? "")
+      : "";
+  const msg =
+    err instanceof Error
+      ? err.message
+      : typeof err === "string"
+        ? err
+        : "";
+  const lower = msg.toLowerCase();
+  return (
+    code === "user_already_exists" ||
+    lower.includes("already registered")
+  );
+}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -16,11 +35,38 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [duplicateEmail, setDuplicateEmail] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = window.setInterval(() => {
+      setResendCooldown((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => window.clearInterval(t);
+  }, [resendCooldown]);
+
+  const handleResend = async () => {
+    const trimmed = email.trim();
+    if (!trimmed || resendCooldown > 0) return;
+    setResendCooldown(60);
+    const { error: resendErr } = await supabase.auth.resend({
+      type: "signup",
+      email: trimmed,
+    });
+    if (resendErr) {
+      toast.error(resendErr.message);
+      setResendCooldown(0);
+      return;
+    }
+    toast.success("Email resent! Check your inbox and spam.");
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setNotice("");
+    setDuplicateEmail(false);
     setBusy(true);
     try {
       // Helpful, explicit client-side config validation (avoids vague "Failed to fetch").
@@ -41,7 +87,14 @@ export default function SignupPage() {
           },
         },
       });
-      if (err) throw err;
+      if (err) {
+        if (isDuplicateSignupError(err)) {
+          setDuplicateEmail(true);
+          setBusy(false);
+          return;
+        }
+        throw err;
+      }
       if (data.user && !data.session) {
         setNotice(
           "Check your email to confirm your account, then sign in.",
@@ -109,8 +162,40 @@ export default function SignupPage() {
             className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
           />
         </label>
+        {duplicateEmail && (
+          <div className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <p>
+              An account with this email already exists. Please sign in instead.
+            </p>
+            <Link
+              href="/auth/login"
+              className="mt-2 inline-block font-medium text-gray-900 underline"
+            >
+              Sign in →
+            </Link>
+          </div>
+        )}
         {notice && (
-          <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-800">{notice}</p>
+          <div className="space-y-3 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-800">
+            <p>{notice}</p>
+            <p className="text-blue-900/90">
+              Didn&apos;t receive it? Check your spam folder or{" "}
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendCooldown > 0}
+                className="font-medium text-blue-900 underline underline-offset-2 hover:text-blue-950 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                resend the email
+              </button>
+              {resendCooldown > 0 ? (
+                <span className="text-blue-800/90">
+                  {" "}
+                  Resend again in {resendCooldown}s…
+                </span>
+              ) : null}
+            </p>
+          </div>
         )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
