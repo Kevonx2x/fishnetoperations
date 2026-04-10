@@ -491,13 +491,13 @@ export function AgentPipelineTab({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        delay: 2000,
+        delay: 1200,
         tolerance: 5,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 2000,
+        delay: 1200,
         tolerance: 5,
       },
     }),
