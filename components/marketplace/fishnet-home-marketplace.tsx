@@ -1777,33 +1777,37 @@ export function NewlyListedCard({
         ) : null}
       </div>
 
-      <div className="relative z-10 flex h-[64px] shrink-0 flex-col justify-center overflow-hidden bg-white px-3 py-2">
+      <div className="relative z-10 flex min-h-[64px] max-h-[80px] shrink-0 flex-col justify-start overflow-hidden bg-white px-3 py-2">
         {connectedAgents.length === 0 ? (
-          <p className="text-center text-xs text-gray-400">No agent assigned</p>
+          <div className="flex min-h-[40px] flex-1 items-center justify-center">
+            <p className="text-center text-xs text-gray-400">No agent assigned</p>
+          </div>
         ) : (
-          <div className="flex min-h-0 flex-col justify-center gap-1">
+          <div className="flex shrink-0 flex-col items-stretch justify-start gap-0">
             {firstAgent ? (
-              <Link
-                href={`/agents/${encodeURIComponent(firstAgent.id)}`}
-                title={firstAgent.name}
-                onClick={(e) => e.stopPropagation()}
-                className="group flex min-w-0 cursor-pointer items-start gap-2 rounded-lg transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
-              >
-                <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
-                  <AgentAvatarFill name={firstAgent.name} imageUrl={firstAgent.image} sizes="28px" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-center gap-1.5">
-                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-[#2C2C2C]/85">
-                      {firstAgent.name}
-                    </span>
-                    <BadgeCheck className="h-3 w-3 shrink-0 text-[#D4A843]" aria-label="Verified" />
+              <div className="shrink-0">
+                <Link
+                  href={`/agents/${encodeURIComponent(firstAgent.id)}`}
+                  title={firstAgent.name}
+                  onClick={(e) => e.stopPropagation()}
+                  className="group flex min-w-0 cursor-pointer items-start gap-2 rounded-lg transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
+                >
+                  <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+                    <AgentAvatarFill name={firstAgent.name} imageUrl={firstAgent.image} sizes="28px" />
                   </div>
-                  <p className="truncate text-[10px] text-gray-400">
-                    {listingCardBrokerageSubtitle(firstAgent)}
-                  </p>
-                </div>
-              </Link>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium text-[#2C2C2C]/85">
+                        {firstAgent.name}
+                      </span>
+                      <BadgeCheck className="h-3 w-3 shrink-0 text-[#D4A843]" aria-label="Verified" />
+                    </div>
+                    <p className="truncate text-[10px] text-gray-400">
+                      {listingCardBrokerageSubtitle(firstAgent)}
+                    </p>
+                  </div>
+                </Link>
+              </div>
             ) : null}
             {moreAgentCount > 0 ? (
               <button
@@ -1812,14 +1816,18 @@ export function NewlyListedCard({
                   e.stopPropagation();
                   router.push(`/properties/${encodeURIComponent(property.id)}#agents-section`);
                 }}
-                className="w-full rounded-full border border-[#6B9E6E] bg-white px-2 py-1 text-center text-xs font-semibold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/10"
+                className="mt-1 w-full shrink-0 rounded-full border border-[#6B9E6E] px-3 py-1 text-center text-xs text-[#6B9E6E]"
               >
                 See {moreAgentCount} more agent{moreAgentCount === 1 ? "" : "s"} →
               </button>
-            ) : null}
+            ) : (
+              <p className="mt-1 w-full shrink-0 rounded-full border border-gray-100 py-1.5 text-center text-xs text-gray-300">
+                No other agents on this listing
+              </p>
+            )}
           </div>
         )}
-        <div className="mt-0 flex justify-center">
+        <div className="mt-0 flex shrink-0 justify-center">
           <button
             type="button"
             onClick={onOpenPropertyZoom}
