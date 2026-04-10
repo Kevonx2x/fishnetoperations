@@ -997,6 +997,21 @@ function SettingsPageInner() {
       setVerifyPrcFile(null);
       setVerifySelfieFile(null);
       setVerifyFieldErrors({});
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        if (sess.session?.access_token) {
+          await fetch("/api/v1/notify/admin-verification-submitted", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${sess.session.access_token}`,
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+          });
+        }
+      } catch {
+        /* admin SMS is best-effort */
+      }
       toast.success("Documents submitted — pending admin review");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not upload documents");

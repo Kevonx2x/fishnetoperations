@@ -102,6 +102,20 @@ export default function SignupPage() {
         setBusy(false);
         return;
       }
+      if (data.session?.access_token) {
+        try {
+          await fetch("/api/v1/notify/admin-new-client", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${data.session.access_token}`,
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+          });
+        } catch {
+          /* admin SMS is best-effort */
+        }
+      }
       router.replace("/");
       router.refresh();
     } catch (err) {

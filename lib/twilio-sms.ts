@@ -41,3 +41,26 @@ export async function sendSmsTo(to: string, body: string): Promise<{ ok: true } 
     return { ok: false, error: msg };
   }
 }
+
+/**
+ * SMS to TWILIO_ADMIN_PHONE (admin alerts). Uses the same Twilio client as sendSmsTo.
+ * Does not throw; logs on failure so callers never block main flows.
+ */
+export async function sendAdminSms(body: string): Promise<void> {
+  const to = process.env.TWILIO_ADMIN_PHONE?.trim();
+  const from = process.env.TWILIO_PHONE_NUMBER;
+  const client = getTwilioClient();
+  if (!to || !from || !client) {
+    console.warn("[twilio-sms] admin SMS skipped: missing TWILIO_ADMIN_PHONE or Twilio config");
+    return;
+  }
+  try {
+    await client.messages.create({
+      body: body.slice(0, 1600),
+      from,
+      to,
+    });
+  } catch (e) {
+    console.error("[twilio-sms] admin SMS failed:", e instanceof Error ? e.message : e);
+  }
+}

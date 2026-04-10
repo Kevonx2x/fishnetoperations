@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { notifyAdminNewClientFromSession } from "@/lib/admin-notify-sms";
 import { getPublicSupabaseEnv } from "@/lib/supabase/public-env";
 
 /**
@@ -44,6 +45,12 @@ export async function GET(request: Request) {
 
   if (error || !session) {
     return NextResponse.redirect(new URL("/auth/login?error=auth", requestUrl.origin));
+  }
+
+  try {
+    await notifyAdminNewClientFromSession(session);
+  } catch (e) {
+    console.error("[auth/callback] admin new-client SMS", e);
   }
 
   return successRedirect;

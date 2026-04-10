@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { notifyAdminNewAgentRegistered } from "@/lib/admin-notify-sms";
 import { registerAgentSchema } from "@/lib/api/schemas/phase1-batch2";
 import { fail, fromZodError, ok } from "@/lib/api/response";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -96,6 +97,17 @@ export async function POST(request: NextRequest) {
     if (error) {
       return fail("DATABASE_ERROR", error.message, 500);
     }
+
+    try {
+      await notifyAdminNewAgentRegistered({
+        name: nameTrim,
+        email: emailTrim,
+        license: parsed.data.license_number,
+      });
+    } catch (e) {
+      console.error("[register/agent] admin SMS", e);
+    }
+
     return ok(data);
   } catch (e) {
     return fail(

@@ -37,6 +37,7 @@ import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-car
 import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
 import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
+import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { useAuth } from "@/contexts/auth-context";
 import { formatAgentScore } from "@/lib/format-agent-score";
@@ -91,6 +92,7 @@ type AgentRow = {
   brokers?: { id: string; company_name: string; logo_url: string | null } | null;
   profiles?: { email?: string | null; phone?: string | null } | null;
   listing_tier?: string | null;
+  updated_at?: string | null;
 };
 
 type ListingRow = {
@@ -839,6 +841,12 @@ export default function AgentProfilePage() {
                       <span>License unknown</span>
                     )}
                   </p>
+
+                  {isOwnProfile ? (
+                    <div className="mt-4 flex justify-center">
+                      <AgentAvailabilityBadge availability={agent.availability} updatedAt={agent.updated_at} />
+                    </div>
+                  ) : null}
 
                   <div className="mt-5 flex flex-wrap justify-center gap-2">
                     <span className="inline-flex items-center gap-1 rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-bold text-[#2C2C2C]/85">
