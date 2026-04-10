@@ -71,9 +71,22 @@ export async function POST(req: Request) {
     return Response.json({ error: msg }, { status: 500 });
   }
 
+  const filePathRaw = formData.get("file_path");
+  const fixedPath =
+    typeof filePathRaw === "string" && filePathRaw.trim()
+      ? filePathRaw.trim()
+      : null;
+
   const ext =
     file.name.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8) || "pdf";
-  const path = `${leadId}/${documentType}.${ext}`;
+  const defaultPath = `${leadId}/${documentType}.${ext}`;
+
+  if (fixedPath != null && !fixedPath.startsWith(`${leadId}/`)) {
+    return Response.json({ error: "Invalid file_path for this lead" }, { status: 400 });
+  }
+
+  const path = fixedPath ?? defaultPath;
+  const isReplace = Boolean(fixedPath);
 
   const body = Buffer.from(await file.arrayBuffer());
   const { error: uploadError } = await admin.storage.from("deals").upload(path, body, {
@@ -85,15 +98,24 @@ export async function POST(req: Request) {
     return Response.json({ error: uploadError.message }, { status: 500 });
   }
 
-  const { error: dbError } = await admin.from("deal_documents").upsert(
-    {
-      lead_id: leadId,
-      document_type: documentType,
-      file_url: path,
-      status: "uploaded",
-    },
-    { onConflict: "lead_id,document_type" },
-  );
+  const fileName = file.name?.trim() || null;
+
+  const upsertRow: Record<string, unknown> = {
+    lead_id: leadId,
+    document_type: documentType,
+    file_url: path,
+    file_name: fileName,
+    status: "uploaded",
+  };
+
+  if (isReplace) {
+    upsertRow.sent_to_client = false;
+    upsertRow.sent_at = null;
+  }
+
+  const { error: dbError } = await admin.from("deal_documents").upsert(upsertRow, {
+    onConflict: "lead_id,document_type",
+  });
 
   if (dbError) {
     return Response.json({ error: dbError.message }, { status: 500 });

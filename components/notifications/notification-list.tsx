@@ -60,16 +60,17 @@ type NotificationCardProps = {
 };
 
 export function NotificationCard({ n, onMarkRead }: NotificationCardProps) {
-  const href = resolveNotificationLink(n.metadata ?? null);
+  const meta = n.metadata ?? null;
+  const href = resolveNotificationLink(meta);
   const { Icon, className: iconClass } = notificationTypeIcon(n.type);
   const unread = !n.read_at;
+  const documentSharedUrl =
+    n.type === "document_shared" && meta && typeof meta.signed_url === "string" ? meta.signed_url : null;
 
   return (
-    <button
-      type="button"
-      onClick={() => void onMarkRead(n, href)}
+    <div
       className={cn(
-        "flex w-full gap-3 rounded-2xl bg-white px-4 py-4 text-left shadow-sm transition hover:bg-[#FAF8F4]",
+        "flex w-full gap-3 rounded-2xl bg-white px-4 py-4 shadow-sm transition hover:bg-[#FAF8F4]",
         unread
           ? "border border-[#2C2C2C]/10 border-l-[3px] border-l-[#6B9E6E]"
           : "border border-[#2C2C2C]/10 opacity-[0.92]",
@@ -78,15 +79,33 @@ export function NotificationCard({ n, onMarkRead }: NotificationCardProps) {
       <span className="mt-0.5 shrink-0">
         <Icon className={cn("h-5 w-5", iconClass)} aria-hidden />
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-bold text-[#2C2C2C]">{n.title}</span>
-        {n.body ? (
-          <span className="mt-1 line-clamp-3 block text-sm font-normal text-[#2C2C2C]/65">{n.body}</span>
+      <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          className="w-full text-left"
+          onClick={() => void onMarkRead(n, href)}
+        >
+          <span className="block font-bold text-[#2C2C2C]">{n.title}</span>
+          {n.body ? (
+            <span className="mt-1 line-clamp-3 block text-sm font-normal text-[#2C2C2C]/65">{n.body}</span>
+          ) : null}
+        </button>
+        {documentSharedUrl ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open(documentSharedUrl, "_blank", "noopener,noreferrer");
+            }}
+            className="mt-2 rounded-full border border-[#6B9E6E] px-3 py-1 text-xs font-semibold text-[#6B9E6E] hover:bg-[#6B9E6E]/10"
+          >
+            View Document
+          </button>
         ) : null}
-      </span>
-      <span className="shrink-0 text-xs font-semibold tabular-nums text-[#2C2C2C]/45">
+      </div>
+      <span className="shrink-0 self-start text-xs font-semibold tabular-nums text-[#2C2C2C]/45">
         {formatNotificationTimeAgo(n.created_at)}
       </span>
-    </button>
+    </div>
   );
 }

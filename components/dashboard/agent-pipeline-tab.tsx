@@ -101,6 +101,42 @@ const CLIENT_DOC_REQUEST_OPTIONS = [
   { key: "other" as const, label: "Other" },
 ];
 
+/** Labels for shared client_documents rows in the pipeline panel */
+const CLIENT_SHARED_DOC_TYPE_LABEL: Record<string, string> = {
+  valid_id: "Valid ID",
+  proof_of_funds: "Proof of Funds",
+  visa: "Visa",
+  other: "Other",
+};
+
+function labelSharedClientDocType(documentType: string): string {
+  return CLIENT_SHARED_DOC_TYPE_LABEL[documentType] ?? documentType;
+}
+
+type ClientDocRow = {
+  id: string;
+  document_type: string;
+  file_url: string;
+  file_name: string | null;
+  created_at: string;
+  status: string;
+};
+
+/** Matches deal_documents columns used in the pipeline panel (no updated_at). */
+type DealDocumentRow = {
+  id: string;
+  lead_id: number;
+  agent_id: string | null;
+  document_type: string;
+  file_url: string;
+  file_name: string | null;
+  status: string;
+  pipeline_stage: string | null;
+  notes: string | null;
+  sent_to_client?: boolean | null;
+  sent_at?: string | null;
+};
+
 function clientInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2) {
@@ -418,10 +454,10 @@ export function AgentPipelineTab({
 
   const [filterStage, setFilterStage] = useState<PipelineStageId>("lead");
   const [docsLead, setDocsLead] = useState<PipelineLeadRow | null>(null);
-  const [docRows, setDocRows] = useState<
-    { document_type: string; status: string; file_url: string }[]
-  >([]);
+  const [docRows, setDocRows] = useState<DealDocumentRow[]>([]);
+  const [clientDocRows, setClientDocRows] = useState<ClientDocRow[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
+  const [clientDocOpeningId, setClientDocOpeningId] = useState<string | null>(null);
   const [moveLead, setMoveLead] = useState<PipelineLeadRow | null>(null);
   const [moveNote, setMoveNote] = useState("");
   const [moveBusy, setMoveBusy] = useState(false);
@@ -441,6 +477,8 @@ export function AgentPipelineTab({
     other: false,
   });
   const [requestDocsBusy, setRequestDocsBusy] = useState(false);
+  const [sendDealDocBusyId, setSendDealDocBusyId] = useState<string | null>(null);
+  const [viewDealDocBusyId, setViewDealDocBusyId] = useState<string | null>(null);
   const menuWrapRef = useRef<HTMLDivElement | null>(null);
 
   const sensors = useSensors(
@@ -507,16 +545,47 @@ export function AgentPipelineTab({
   const loadDocs = useCallback(
     async (lead: PipelineLeadRow) => {
       setDocsLoading(true);
-      const { data, error } = await supabase
-        .from("deal_documents")
-        .select("document_type, status, file_url")
-        .eq("lead_id", lead.id);
-      setDocsLoading(false);
-      if (error) {
-        toast.error(error.message);
-        return;
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const agentUserId = user?.id;
+
+        const { data: dealData, error: dealErr } = await supabase
+          .from("deal_documents")
+          .select(
+            "id, lead_id, agent_id, document_type, file_url, file_name, status, pipeline_stage, notes, sent_to_client, sent_at",
+          )
+          .eq("lead_id", lead.id);
+
+        if (dealErr) {
+          toast.error(dealErr.message);
+          setDocRows([]);
+          setClientDocRows([]);
+          return;
+        }
+        setDocRows((dealData ?? []) as DealDocumentRow[]);
+
+        if (!lead.client_id || !agentUserId) {
+          setClientDocRows([]);
+          return;
+        }
+
+        const { data: clientData, error: clientErr } = await supabase
+          .from("client_documents")
+          .select("id, document_type, file_url, file_name, created_at, status")
+          .eq("client_id", lead.client_id)
+          .contains("shared_with", [agentUserId]);
+
+        if (clientErr) {
+          toast.error(clientErr.message);
+          setClientDocRows([]);
+          return;
+        }
+        setClientDocRows((clientData ?? []) as ClientDocRow[]);
+      } finally {
+        setDocsLoading(false);
       }
-      setDocRows((data ?? []) as { document_type: string; status: string; file_url: string }[]);
     },
     [supabase],
   );
@@ -524,7 +593,30 @@ export function AgentPipelineTab({
   const openDocs = (lead: PipelineLeadRow) => {
     setDocsLead(lead);
     setDocRows([]);
+    setClientDocRows([]);
     void loadDocs(lead);
+  };
+
+  const openClientDocumentUrl = async (doc: ClientDocRow) => {
+    setClientDocOpeningId(doc.id);
+    try {
+      const res = await fetch("/api/client/get-document-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ file_url: doc.file_url }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { signedUrl?: string; error?: string };
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not open document");
+        return;
+      }
+      if (json.signedUrl) {
+        window.open(json.signedUrl, "_blank", "noopener,noreferrer");
+      }
+    } finally {
+      setClientDocOpeningId(null);
+    }
   };
 
   const docStatusFor = (key: string): "missing" | "uploaded" | "approved" => {
@@ -532,6 +624,98 @@ export function AgentPipelineTab({
     if (!row) return "missing";
     if (row.status === "approved") return "approved";
     return "uploaded";
+  };
+
+  const viewDealDocument = async (doc: DealDocumentRow) => {
+    setViewDealDocBusyId(doc.id);
+    try {
+      const res = await fetch("/api/agent/get-deal-document-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ file_url: doc.file_url }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { signedUrl?: string; error?: string };
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not open document");
+        return;
+      }
+      if (json.signedUrl) {
+        window.open(json.signedUrl, "_blank", "noopener,noreferrer");
+      }
+    } finally {
+      setViewDealDocBusyId(null);
+    }
+  };
+
+  const replaceDealDocument = async (
+    lead: PipelineLeadRow,
+    docKey: string,
+    file: File,
+    storagePath: string,
+  ) => {
+    setUploadingKey(docKey);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.id) {
+        toast.error("Sign in required");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("lead_id", String(lead.id));
+      formData.append("document_type", docKey);
+      formData.append("agent_id", user.id);
+      formData.append("file_path", storagePath);
+
+      const res = await fetch("/api/agent/upload-deal-document", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: string };
+        throw new Error(err.error ?? "Replace failed");
+      }
+
+      toast.success("Document replaced successfully");
+      await loadDocs(lead);
+      onRefresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Replace failed");
+    } finally {
+      setUploadingKey(null);
+    }
+  };
+
+  const sendDealDocumentToClient = async (doc: DealDocumentRow) => {
+    if (!docsLead) return;
+    if (!docsLead.client_id) {
+      toast.error("This lead is not linked to a client account yet.");
+      return;
+    }
+    setSendDealDocBusyId(doc.id);
+    try {
+      const res = await fetch("/api/agent/send-document-to-client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ deal_document_id: doc.id, lead_id: docsLead.id }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string; success?: boolean };
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not send document");
+        return;
+      }
+      toast.success("Document sent to client");
+      await loadDocs(docsLead);
+    } finally {
+      setSendDealDocBusyId(null);
+    }
   };
 
   const uploadDoc = async (lead: PipelineLeadRow, docKey: string, file: File) => {
@@ -575,7 +759,7 @@ export function AgentPipelineTab({
   const approveDoc = async (lead: PipelineLeadRow, docKey: string) => {
     const { error } = await supabase
       .from("deal_documents")
-      .update({ status: "approved", updated_at: new Date().toISOString() })
+      .update({ status: "approved" })
       .eq("lead_id", lead.id)
       .eq("document_type", docKey);
     if (error) {
@@ -1039,61 +1223,175 @@ export function AgentPipelineTab({
                     <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" />
                   </div>
                 ) : (
-                  <ul className="space-y-3">
-                    {checklistForLead.map((doc) => {
-                      const st = docStatusFor(doc.key);
-                      return (
-                        <li
-                          key={doc.key}
-                          className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-semibold text-[#2C2C2C]">{doc.label}</p>
-                            <span
-                              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                st === "missing"
-                                  ? "bg-red-100 text-red-800"
-                                  : st === "uploaded"
-                                    ? "bg-amber-100 text-amber-900"
-                                    : "bg-emerald-100 text-emerald-900"
-                              }`}
-                            >
-                              {st === "missing" ? "Missing" : st === "uploaded" ? "Uploaded" : "Approved"}
-                            </span>
-                          </div>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {st === "missing" ? (
-                              <label className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-[#6B9E6E] px-3 py-1 text-[11px] font-bold text-white hover:bg-[#5a8a5d]">
-                                {uploadingKey === doc.key ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : null}
-                                Upload
-                                <input
-                                  type="file"
-                                  className="hidden"
-                                  accept=".pdf,.jpg,.jpeg,.png,.webp"
-                                  onChange={(e) => {
-                                    const f = e.target.files?.[0];
-                                    e.target.value = "";
-                                    if (f) void uploadDoc(docsLead, doc.key, f);
-                                  }}
-                                />
-                              </label>
+                  <>
+                    <ul className="space-y-3">
+                      {checklistForLead.map((doc) => {
+                        const st = docStatusFor(doc.key);
+                        const row = docRows.find((r) => r.document_type === doc.key);
+                        const showSendToClient =
+                          row &&
+                          (row.status === "uploaded" || row.status === "approved") &&
+                          (st === "uploaded" || st === "approved");
+                        return (
+                          <li
+                            key={doc.key}
+                            className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-semibold text-[#2C2C2C]">{doc.label}</p>
+                              <span
+                                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                  st === "missing"
+                                    ? "bg-red-100 text-red-800"
+                                    : st === "uploaded"
+                                      ? "bg-amber-100 text-amber-900"
+                                      : "bg-emerald-100 text-emerald-900"
+                                }`}
+                              >
+                                {st === "missing" ? "Missing" : st === "uploaded" ? "Uploaded" : "Approved"}
+                              </span>
+                            </div>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              {st === "missing" ? (
+                                <label className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-[#6B9E6E] px-3 py-1 text-[11px] font-bold text-white hover:bg-[#5a8a5d]">
+                                  {uploadingKey === doc.key ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : null}
+                                  Upload
+                                  <input
+                                    type="file"
+                                    className="hidden"
+                                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      e.target.value = "";
+                                      if (f) void uploadDoc(docsLead, doc.key, f);
+                                    }}
+                                  />
+                                </label>
+                              ) : null}
+                              {st !== "missing" &&
+                              row &&
+                              (row.status === "uploaded" || row.status === "approved") ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={viewDealDocBusyId === row.id}
+                                    onClick={() => void viewDealDocument(row)}
+                                    className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80 hover:bg-gray-50 disabled:opacity-50"
+                                  >
+                                    {viewDealDocBusyId === row.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : null}
+                                    View
+                                  </button>
+                                  <label className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-400 hover:bg-red-50">
+                                    {uploadingKey === doc.key ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : null}
+                                    Replace
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        e.target.value = "";
+                                        if (f && row.file_url) {
+                                          void replaceDealDocument(docsLead, doc.key, f, row.file_url);
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                </>
+                              ) : null}
+                              {st === "uploaded" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void approveDoc(docsLead, doc.key)}
+                                  className="rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
+                                >
+                                  Mark approved
+                                </button>
+                              ) : null}
+                              {showSendToClient && row ? (
+                                row.sent_to_client !== true ? (
+                                  <button
+                                    type="button"
+                                    disabled={sendDealDocBusyId === row.id}
+                                    onClick={() => void sendDealDocumentToClient(row)}
+                                    className="inline-flex items-center gap-1 rounded-full border border-[#6B9E6E] px-3 py-1 text-xs font-semibold text-[#6B9E6E] hover:bg-[#6B9E6E]/10 disabled:opacity-50"
+                                  >
+                                    {sendDealDocBusyId === row.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : null}
+                                    Send to Client
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-gray-400">✓ Sent to client</span>
+                                )
+                              ) : null}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+
+                    <p className="mb-3 mt-8 text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                      Client Documents
+                    </p>
+                    {!docsLead.client_id ? (
+                      <p className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm">
+                        No client account linked to this deal
+                      </p>
+                    ) : clientDocRows.length === 0 ? (
+                      <p className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 text-sm font-semibold text-[#2C2C2C]/65 shadow-sm">
+                        No documents shared yet. Use Request Documents to ask the client.
+                      </p>
+                    ) : (
+                      <ul className="space-y-3">
+                        {clientDocRows.map((cd) => (
+                          <li
+                            key={cd.id}
+                            className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-semibold text-[#2C2C2C]">
+                                {labelSharedClientDocType(cd.document_type)}
+                              </p>
+                              <span
+                                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                  cd.status === "shared"
+                                    ? "bg-emerald-100 text-emerald-900"
+                                    : "bg-gray-100 text-gray-700"
+                                }`}
+                              >
+                                {cd.status === "shared" ? "Shared" : cd.status}
+                              </span>
+                            </div>
+                            {cd.file_name ? (
+                              <p className="mt-1 truncate text-xs font-medium text-[#2C2C2C]/60">
+                                {cd.file_name}
+                              </p>
                             ) : null}
-                            {st === "uploaded" ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
                               <button
                                 type="button"
-                                onClick={() => void approveDoc(docsLead, doc.key)}
-                                className="rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
+                                disabled={clientDocOpeningId === cd.id}
+                                onClick={() => void openClientDocumentUrl(cd)}
+                                className="inline-flex items-center gap-1 rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4] disabled:opacity-50"
                               >
-                                Mark approved
+                                {clientDocOpeningId === cd.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : null}
+                                View
                               </button>
-                            ) : null}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
                 )}
               </div>
             </motion.aside>
