@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BahayGoLogoLink } from "@/components/marketplace/bahaygo-logo";
+import { BahayGoWordmark } from "@/components/marketplace/bahaygo-wordmark";
 
 type Props = {
   title: string;
@@ -26,11 +27,7 @@ export function AuthShell({ title, subtitle, children, largeLogo, staticBahayGoL
         <div className="w-full max-w-md rounded-2xl border border-black/8 bg-white p-8 shadow-sm">
           <div className="flex justify-center">
             {staticBahayGoLogo ? (
-              <img
-                src="/bahaygologo.png"
-                alt=""
-                className="mx-auto mb-4 h-16 w-auto object-contain"
-              />
+              <BahayGoWordmark size="login" className="mb-4 h-16 w-auto" />
             ) : (
               <BahayGoLogoLink priority width={logoWidth} />
             )}

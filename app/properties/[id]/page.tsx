@@ -14,6 +14,7 @@ import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagem
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { recordRecentlyViewedPropertyId } from "@/lib/recently-viewed";
 import { PropertyPageEmptyAgents } from "@/components/marketplace/agent-slot-placeholder";
+import { CoListVerificationRequiredModal } from "@/components/marketplace/co-list-verification-required-modal";
 import { ViewingAgentPickerModal } from "@/components/marketplace/viewing-agent-picker-modal";
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
 import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
@@ -118,12 +119,14 @@ export default function PropertyPage() {
   const [coAgentMsg, setCoAgentMsg] = useState<string | null>(null);
   const [coAgentSubmitting, setCoAgentSubmitting] = useState(false);
   const [coAgentConfirmOpen, setCoAgentConfirmOpen] = useState(false);
+  const [coListVerificationOpen, setCoListVerificationOpen] = useState(false);
   const [myAgent, setMyAgent] = useState<{
     id: string;
     listing_tier: string | null;
     status: string;
     verified: boolean | null;
     license_number: string | null;
+    verification_status: string | null;
   } | null>(null);
   const [myCoListCount, setMyCoListCount] = useState(0);
   const [hasPendingCoRequest, setHasPendingCoRequest] = useState(false);
@@ -205,7 +208,7 @@ export default function PropertyPage() {
     void (async () => {
       const { data } = await supabase
         .from("agents")
-        .select("id, listing_tier, status, verified, license_number")
+        .select("id, listing_tier, status, verified, license_number, verification_status")
         .eq("user_id", user.id)
         .maybeSingle();
       if (!cancelled) {
@@ -217,6 +220,7 @@ export default function PropertyPage() {
                 status: string;
                 verified: boolean | null;
                 license_number: string | null;
+                verification_status: string | null;
               })
             : null,
         );
@@ -311,8 +315,18 @@ export default function PropertyPage() {
   const showCoAgentRequestButton = useMemo(() => {
     if (!isLoggedIn || profile?.role !== "agent" || !myAgent) return false;
     if (property?.listed_by && user?.id === property.listed_by) return false;
-    if (myAgent.status !== "approved" || !myAgent.verified) return false;
-    if (!myAgent.license_number?.trim()) return false;
+    if (myAgent.status !== "approved" || !myAgent.license_number?.trim()) return false;
+    if (myAgent.verification_status !== "verified") return false;
+    if (isConnectedAsAgent) return false;
+    if (hasPendingCoRequest) return false;
+    return true;
+  }, [isLoggedIn, profile?.role, myAgent, isConnectedAsAgent, hasPendingCoRequest, property?.listed_by, user?.id]);
+
+  const showCoListNeedsVerificationPanel = useMemo(() => {
+    if (!isLoggedIn || profile?.role !== "agent" || !myAgent) return false;
+    if (property?.listed_by && user?.id === property.listed_by) return false;
+    if (myAgent.status !== "approved" || !myAgent.license_number?.trim()) return false;
+    if (myAgent.verification_status === "verified") return false;
     if (isConnectedAsAgent) return false;
     if (hasPendingCoRequest) return false;
     return true;
@@ -320,6 +334,7 @@ export default function PropertyPage() {
 
   const requestCoAgentJoin = async () => {
     if (!property?.id || !myAgent?.id) return;
+    if (myAgent.verification_status !== "verified") return;
     setCoAgentMsg(null);
     if (atCoListLimit) {
       setCoAgentConfirmOpen(false);
@@ -649,7 +664,7 @@ export default function PropertyPage() {
                 <h2 className="font-serif text-lg font-bold text-[#2C2C2C]">Connected Agents</h2>
                 {connectedAgents.length === 0 ? (
                   <div className="mt-4">
-                    <PropertyPageEmptyAgents />
+                    <PropertyPageEmptyAgents onVerificationRequired={() => setCoListVerificationOpen(true)} />
                   </div>
                 ) : (
                   <ul className="mt-4 list-none space-y-4 p-0">
@@ -712,6 +727,20 @@ export default function PropertyPage() {
                     <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/65">
                       BahayGo admin will review your credentials. You’ll be notified when it’s approved or declined.
                     </p>
+                  </div>
+                ) : null}
+                {showCoListNeedsVerificationPanel ? (
+                  <div className="mt-4 rounded-xl border border-[#D4A843]/25 bg-[#FAF8F4] p-3">
+                    <p className="text-xs font-semibold text-[#2C2C2C]/70">
+                      Want to co-list this property? Complete identity verification first.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setCoListVerificationOpen(true)}
+                      className="mt-2 w-full rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                    >
+                      Verification required
+                    </button>
                   </div>
                 ) : null}
                 {showCoAgentRequestButton ? (
@@ -905,6 +934,10 @@ export default function PropertyPage() {
                 coListLimit={coListLimit}
               />
             ) : null}
+            <CoListVerificationRequiredModal
+              open={coListVerificationOpen}
+              onClose={() => setCoListVerificationOpen(false)}
+            />
             {coAgentConfirmOpen ? (
               <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" role="presentation">
                 <button

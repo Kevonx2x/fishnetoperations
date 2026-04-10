@@ -18,6 +18,8 @@ type AgentSlotPlaceholderProps = {
   /** Hide co-list CTA when viewing agent is the listing owner. */
   listedByUserId?: string | null;
   viewerUserId?: string | null;
+  /** Logged-in agent without verification_status === &apos;verified&apos;: open instead of registration. */
+  onVerificationRequired?: () => void;
 };
 
 /** Two-line placeholder for property cards and zoom modal agent lists (sage ? circle is separate). */
@@ -27,6 +29,7 @@ export function AgentSlotPlaceholder({
   verifiedListingAgent,
   listedByUserId,
   viewerUserId,
+  onVerificationRequired,
 }: AgentSlotPlaceholderProps) {
   const showLink = useShowListingAgentPlaceholderLink();
 
@@ -58,13 +61,18 @@ export function AgentSlotPlaceholder({
     return (
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-semibold text-[#2C2C2C]">Agent Slot Available</p>
-        <Link
-          href="/register/agent"
-          className="text-[10px] font-medium text-[#6B9E6E] hover:underline"
-          onClick={onLinkClick}
-        >
-          Become a listing agent →
-        </Link>
+        {onVerificationRequired ? (
+          <button
+            type="button"
+            className="text-[10px] font-medium text-[#6B9E6E] hover:underline"
+            onClick={(e) => {
+              onVerificationRequired();
+              onLinkClick?.(e);
+            }}
+          >
+            Complete verification →
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -89,6 +97,7 @@ export function AgentSlotPlaceholderModal({
   verifiedListingAgent,
   listedByUserId,
   viewerUserId,
+  onVerificationRequired,
 }: AgentSlotPlaceholderModalProps) {
   const showLink = useShowListingAgentPlaceholderLink();
 
@@ -121,13 +130,18 @@ export function AgentSlotPlaceholderModal({
     return (
       <div className="min-w-0 flex-1">
         <p className="font-semibold text-[#2C2C2C]/70">Agent Slot Available</p>
-        <Link
-          href="/register/agent"
-          onClick={onLinkClick}
-          className="mt-1 inline-block text-xs font-semibold text-[#6B9E6E] hover:underline"
-        >
-          Become a listing agent →
-        </Link>
+        {onVerificationRequired ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              onVerificationRequired();
+              onLinkClick?.(e);
+            }}
+            className="mt-1 inline-block text-xs font-semibold text-[#6B9E6E] hover:underline"
+          >
+            Complete verification →
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -140,16 +154,22 @@ export function AgentSlotPlaceholderModal({
 }
 
 /** Empty connected-agents section on /properties/[id] */
-export function PropertyPageEmptyAgents() {
+export function PropertyPageEmptyAgents({ onVerificationRequired }: { onVerificationRequired?: () => void }) {
   const showLink = useShowListingAgentPlaceholderLink();
 
   if (showLink) {
     return (
       <div className="mt-4 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 text-center shadow-sm">
         <p className="text-sm font-semibold text-[#2C2C2C]/70">No agents currently listed for this property.</p>
-        <Link href="/register/agent" className="mt-3 inline-block text-sm font-semibold text-[#6B9E6E] hover:underline">
-          Become a listing agent →
-        </Link>
+        {onVerificationRequired ? (
+          <button
+            type="button"
+            onClick={onVerificationRequired}
+            className="mt-3 inline-block text-sm font-semibold text-[#6B9E6E] hover:underline"
+          >
+            Complete verification →
+          </button>
+        ) : null}
       </div>
     );
   }

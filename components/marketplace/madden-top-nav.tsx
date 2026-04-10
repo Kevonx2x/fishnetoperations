@@ -45,6 +45,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
+import { BahayGoWordmark } from "@/components/marketplace/bahaygo-wordmark";
 import {
   AGENT_AVAILABILITY_NOW,
   AGENT_AVAILABILITY_OFFLINE,
@@ -54,32 +55,6 @@ type NavLinkItem = { kind: "link"; label: string; href: string; icon: ReactNode 
 type NavDividerItem = { kind: "divider"; label: string };
 type NavPendingItem = { kind: "pending"; label: string; icon: ReactNode };
 type NavDropdownEntry = NavLinkItem | NavDividerItem | NavPendingItem;
-
-/** Geometric gold house + bahay (charcoal) / go (sage) wordmark — inline SVG, no asset file */
-function BahayGoWordmark({ className }: { className?: string }) {
-  return (
-    <span className={`inline-flex items-center gap-2 ${className ?? ""}`}>
-      <svg
-        width={40}
-        height={36}
-        viewBox="0 0 40 36"
-        className="shrink-0"
-        aria-hidden
-      >
-        {/* Gold pentagon house with door cutout (cream = nav bg) */}
-        <path
-          fill="#D4A843"
-          d="M20 2 L36 14 L36 32 L4 32 L4 14 Z"
-        />
-        <rect x="16" y="22" width="8" height="10" rx="1" fill="#FAF8F4" />
-      </svg>
-      <span className="hidden items-baseline gap-0 font-serif text-[1.35rem] font-bold leading-none tracking-tight sm:inline-flex">
-        <span className="text-[#2C2C2C]">bahay</span>
-        <span className="text-[#6B9E6E]">go</span>
-      </span>
-    </span>
-  );
-}
 
 function MobileNavSection({
   title,

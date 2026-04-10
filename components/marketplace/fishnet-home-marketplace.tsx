@@ -281,13 +281,15 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     let cancelled = false;
     void supabase
       .from("agents")
-      .select("verified, status")
+      .select("status, verification_status")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (cancelled) return;
-        const row = data as { verified?: boolean | null; status?: string | null } | null;
-        setViewerVerifiedListingAgent(Boolean(row?.verified && row?.status === "approved"));
+        const row = data as { status?: string | null; verification_status?: string | null } | null;
+        setViewerVerifiedListingAgent(
+          Boolean(row?.status === "approved" && row?.verification_status === "verified"),
+        );
       });
     return () => {
       cancelled = true;
@@ -1509,6 +1511,15 @@ function Trust({ icon, title, body }: { icon: React.ReactNode; title: string; bo
   );
 }
 
+/** Brokerage line on homepage listing cards (uses `brokers` join on agent). */
+function listingCardBrokerageSubtitle(agent: MarketplaceAgent): string {
+  if (agent.brokerId) {
+    const n = (agent.brokerName || agent.company).trim();
+    if (n) return n;
+  }
+  return "Independent Agent";
+}
+
 export function NewlyListedCard({
   property,
   roomUrls,
@@ -1724,24 +1735,36 @@ export function NewlyListedCard({
         </div>
       </div>
 
-      <div className={`border-t border-[#2C2C2C]/10 bg-white ${compact ? "px-3 py-2.5" : "px-3 py-3 sm:px-4"}`}>
-        <p
-          className={`font-serif font-bold tracking-tight text-[#D4A843] ${compact ? "text-base" : "text-lg sm:text-xl"}`}
-        >
-          {formatPropertyPriceDisplay(property.price, property.status)}
-        </p>
-        <p className={`mt-1 line-clamp-2 text-[#2C2C2C] ${compact ? "text-sm font-bold" : "text-base font-bold"}`}>
-          {titleLine}
-        </p>
-        <p className={`mt-1 text-[#6B6B6B] ${compact ? "text-[11px]" : "text-xs"}`}>
-          {property.beds ? `${property.beds} beds` : "Studio"} · {property.baths} baths · {property.sqft} sqft
-        </p>
-        <p
-          className={`mt-1.5 flex items-start gap-1 text-[#6B6B6B] ${compact ? "text-[11px]" : "text-xs"}`}
-        >
-          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8E8E8E]" aria-hidden />
-          <span className="line-clamp-2 leading-snug">{property.location}</span>
-        </p>
+      <div
+        className={`flex flex-col gap-0 border-t border-[#2C2C2C]/10 bg-white ${compact ? "px-3 py-2.5" : "px-3 py-3 sm:px-4"}`}
+      >
+        <div className="h-[28px] shrink-0 overflow-hidden">
+          <p
+            className={`truncate font-serif font-bold tracking-tight text-[#D4A843] ${compact ? "text-base" : "text-lg sm:text-xl"}`}
+          >
+            {formatPropertyPriceDisplay(property.price, property.status)}
+          </p>
+        </div>
+        <div className="h-[48px] shrink-0 overflow-hidden">
+          <p
+            className={`line-clamp-2 text-[#2C2C2C] ${compact ? "text-sm font-bold" : "text-base font-bold"}`}
+          >
+            {titleLine}
+          </p>
+        </div>
+        <div className="h-[24px] shrink-0 overflow-hidden">
+          <p className={`truncate text-[#6B6B6B] ${compact ? "text-[11px]" : "text-xs"}`}>
+            {property.beds ? `${property.beds} beds` : "Studio"} · {property.baths} baths · {property.sqft} sqft
+          </p>
+        </div>
+        <div className="h-[24px] shrink-0 overflow-hidden">
+          <p
+            className={`flex items-start gap-1 text-[#6B6B6B] ${compact ? "text-[11px]" : "text-xs"}`}
+          >
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8E8E8E]" aria-hidden />
+            <span className="min-w-0 flex-1 truncate leading-snug">{property.location}</span>
+          </p>
+        </div>
         {property.is_presale && property.developer_name?.trim() ? (
           <p className={`mt-1 text-[#2C2C2C]/80 ${compact ? "text-[11px]" : "text-xs"}`}>
             {property.developer_name.trim()}
@@ -1754,25 +1777,32 @@ export function NewlyListedCard({
         ) : null}
       </div>
 
-      <div className="relative z-10 flex min-h-[60px] max-h-[60px] flex-col justify-center overflow-hidden border-t border-gray-100 bg-white px-3 py-2">
+      <div className="relative z-10 flex h-[64px] shrink-0 flex-col justify-center overflow-hidden bg-white px-3 py-2">
         {connectedAgents.length === 0 ? (
           <p className="text-center text-xs text-gray-400">No agent assigned</p>
         ) : (
-          <div className="flex min-h-0 flex-col justify-center gap-1.5">
+          <div className="flex min-h-0 flex-col justify-center gap-1">
             {firstAgent ? (
               <Link
                 href={`/agents/${encodeURIComponent(firstAgent.id)}`}
                 title={firstAgent.name}
                 onClick={(e) => e.stopPropagation()}
-                className="group flex min-w-0 cursor-pointer items-center gap-2 rounded-lg py-0.5 transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
+                className="group flex min-w-0 cursor-pointer items-start gap-2 rounded-lg transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
               >
                 <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
                   <AgentAvatarFill name={firstAgent.name} imageUrl={firstAgent.image} sizes="28px" />
                 </div>
-                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#2C2C2C]/85">
-                  {firstAgent.name}
-                </span>
-                <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-[#2C2C2C]/85">
+                      {firstAgent.name}
+                    </span>
+                    <BadgeCheck className="h-3 w-3 shrink-0 text-[#D4A843]" aria-label="Verified" />
+                  </div>
+                  <p className="truncate text-[10px] text-gray-400">
+                    {listingCardBrokerageSubtitle(firstAgent)}
+                  </p>
+                </div>
               </Link>
             ) : null}
             {moreAgentCount > 0 ? (
@@ -1789,14 +1819,14 @@ export function NewlyListedCard({
             ) : null}
           </div>
         )}
-        <div className="flex justify-center pt-1">
+        <div className="mt-0 flex justify-center">
           <button
             type="button"
             onClick={onOpenPropertyZoom}
-            className="rounded-full p-1 text-[#2C2C2C]/40 transition hover:bg-neutral-50 hover:text-[#2C2C2C]/60"
+            className="rounded-full p-0.5 text-gray-300 transition hover:bg-neutral-50 hover:text-[#2C2C2C]/60"
             aria-label="Open property details"
           >
-            <ChevronDown className="h-4 w-4" strokeWidth={2} />
+            <ChevronDown className="h-3 w-3 text-gray-300" strokeWidth={2} />
           </button>
         </div>
       </div>

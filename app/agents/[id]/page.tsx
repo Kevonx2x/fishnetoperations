@@ -1024,8 +1024,6 @@ export default function AgentProfilePage() {
                           p.listed_by === agent.user_id;
                         const flipFace = listingFlipById[p.id] ?? "front";
                         const showBack = flipEligible && flipFace !== "front";
-                        const engagementChipBase =
-                          "inline-flex flex-row items-center gap-1 rounded-full bg-white p-1.5 shadow-sm";
                         const visitorLiked = engagement.isLiked(p.id);
                         const viewerPinned = engagement.isPinned(p.id);
                         return (
@@ -1144,19 +1142,35 @@ export default function AgentProfilePage() {
                                         writeSeenEngagementCount(p.id, "likes", likeN);
                                         setListingFlipById((prev) => ({ ...prev, [p.id]: "likes" }));
                                       }}
-                                      className={`${engagementChipBase} ${
+                                      className={cn(
+                                        "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+                                        visitorLiked
+                                          ? "border border-red-200 bg-white"
+                                          : "border border-gray-200 bg-white/80",
                                         shouldPulseEngagement(p.id, "likes", likeN)
                                           ? "ring-2 ring-red-400 animate-pulse"
-                                          : ""
-                                      }`}
-                                      aria-label={likeN > 0 ? `${likeN} likes` : "Like"}
+                                          : "",
+                                      )}
+                                      aria-label={
+                                        showEng && likeN > 0 ? `${likeN} likes` : "Like"
+                                      }
                                     >
                                       <Heart
-                                        className="h-3.5 w-3.5 shrink-0 fill-red-500 text-red-500"
+                                        className={cn(
+                                          "h-3.5 w-3.5 shrink-0",
+                                          visitorLiked
+                                            ? "fill-red-500 text-red-500"
+                                            : "fill-none text-red-400",
+                                        )}
                                         aria-hidden
                                       />
-                                      {likeN > 0 ? (
-                                        <span className="text-xs font-medium tabular-nums text-red-500">
+                                      {showEng && likeN > 0 ? (
+                                        <span
+                                          className={cn(
+                                            "text-xs font-medium tabular-nums",
+                                            visitorLiked ? "text-red-500" : "text-red-400",
+                                          )}
+                                        >
                                           {likeN}
                                         </span>
                                       ) : null}
@@ -1169,18 +1183,29 @@ export default function AgentProfilePage() {
                                         writeSeenEngagementCount(p.id, "pins", pinN);
                                         setListingFlipById((prev) => ({ ...prev, [p.id]: "pins" }));
                                       }}
-                                      className={`${engagementChipBase} ${
+                                      className={cn(
+                                        "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+                                        viewerPinned
+                                          ? "border border-[#D4A843]/40 bg-white"
+                                          : "border border-gray-200 bg-white/80",
                                         shouldPulseEngagement(p.id, "pins", pinN)
                                           ? "ring-2 ring-[#D4A843] animate-pulse"
-                                          : ""
-                                      }`}
-                                      aria-label={pinN > 0 ? `${pinN} pins` : "Pin"}
+                                          : "",
+                                      )}
+                                      aria-label={
+                                        showEng && pinN > 0 ? `${pinN} pins` : "Pin"
+                                      }
                                     >
                                       <Pin
-                                        className="h-3.5 w-3.5 shrink-0 fill-[#D4A843] text-[#D4A843]"
+                                        className={cn(
+                                          "h-3.5 w-3.5 shrink-0",
+                                          viewerPinned
+                                            ? "fill-[#D4A843] text-[#D4A843]"
+                                            : "fill-none text-[#D4A843]",
+                                        )}
                                         aria-hidden
                                       />
-                                      {pinN > 0 ? (
+                                      {showEng && pinN > 0 ? (
                                         <span className="text-xs font-medium tabular-nums text-[#D4A843]">
                                           {pinN}
                                         </span>

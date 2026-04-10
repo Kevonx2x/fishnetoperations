@@ -3,7 +3,9 @@
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BahayGoWordmark } from "@/components/marketplace/bahaygo-wordmark";
 import { useAuth } from "@/contexts/auth-context";
+import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BadgeCheck,
@@ -82,14 +84,12 @@ function ChangeRoleLink({ onClick }: { onClick: () => void }) {
 function RoleCard({
   title,
   description,
-  emoji,
   disabled,
   selected,
   onClick,
 }: {
   title: string;
   description: string;
-  emoji: string;
   disabled?: boolean;
   selected?: boolean;
   onClick?: () => void;
@@ -107,11 +107,15 @@ function RoleCard({
             : "border-[#2C2C2C]/12 bg-white shadow-sm hover:border-[#6B9E6E]/50 hover:bg-[#6B9E6E]/5 hover:shadow-md"
       }`}
     >
-      <span className="text-2xl sm:text-3xl" aria-hidden>
-        {emoji}
-      </span>
       <span className="font-serif text-base font-bold text-[#2C2C2C] sm:text-lg">{title}</span>
-      <span className="line-clamp-2 text-xs text-[#2C2C2C]/55 sm:text-sm">{description}</span>
+      <span
+        className={cn(
+          "text-xs text-[#2C2C2C]/55 sm:text-sm",
+          !disabled && "line-clamp-2",
+        )}
+      >
+        {description}
+      </span>
       {disabled ? (
         <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">
           Coming Soon
@@ -531,32 +535,26 @@ function SlideRolePicker({
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-1">
-      <img
-        src="/bahaygologo.png"
-        alt=""
-        className="mx-auto mb-2 h-24 w-auto object-contain"
-      />
+      <BahayGoWordmark size="onboarding" className="mb-2 h-20 w-auto" />
       <h2 className="text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">
         Welcome to BahayGo
       </h2>
       <p className="mt-3 text-center text-base font-medium text-[#2C2C2C]/60">What brings you here today?</p>
       <div className="mt-8 grid w-full max-w-lg grid-cols-2 gap-3 sm:gap-4">
         <RoleCard
-          emoji="🏠"
           title="Client"
           description="Find your perfect home"
           selected={selectedPreview === "client"}
           onClick={() => onPick("client")}
         />
         <RoleCard
-          emoji="🏆"
           title="Agent"
           description="List and grow your business"
           selected={selectedPreview === "agent"}
           onClick={() => onPick("agent")}
         />
-        <RoleCard emoji="🏗️" title="Seller" description="List your property" disabled />
-        <RoleCard emoji="🏢" title="Broker" description="Manage your team" disabled />
+        <RoleCard title="Seller" description="List your property" disabled />
+        <RoleCard title="Broker" description="Manage your team" disabled />
       </div>
     </div>
   );

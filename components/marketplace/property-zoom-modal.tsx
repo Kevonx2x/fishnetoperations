@@ -12,6 +12,7 @@ import { roomUrlsFor } from "@/lib/marketplace-property";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { AgentSlotPlaceholderModal } from "@/components/marketplace/agent-slot-placeholder";
+import { CoListVerificationRequiredModal } from "@/components/marketplace/co-list-verification-required-modal";
 import { ViewingAgentPickerModal } from "@/components/marketplace/viewing-agent-picker-modal";
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
 import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
@@ -149,6 +150,7 @@ function AgentsList({
   propertyId,
   listedByUserId,
   verifiedListingAgent,
+  onVerificationRequired,
 }: {
   modalAgents: MarketplaceAgent[];
   placeholderSlots: number;
@@ -161,6 +163,7 @@ function AgentsList({
   propertyId: string;
   listedByUserId: string | null;
   verifiedListingAgent: boolean;
+  onVerificationRequired?: () => void;
 }) {
   return (
     <ul className="space-y-3">
@@ -234,6 +237,7 @@ function AgentsList({
               verifiedListingAgent={verifiedListingAgent}
               listedByUserId={listedByUserId}
               viewerUserId={viewerUserId}
+              onVerificationRequired={onVerificationRequired}
             />
           </div>
         </li>
@@ -441,10 +445,11 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
   const { user, profile, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [viewerAgentId, setViewerAgentId] = useState<string | null>(null);
-  const [viewerAgentVerified, setViewerAgentVerified] = useState<{
-    verified: boolean | null;
+  const [viewerAgentMeta, setViewerAgentMeta] = useState<{
     status: string;
+    verification_status: string | null;
   } | null>(null);
+  const [coListVerificationOpen, setCoListVerificationOpen] = useState(false);
   const [showViewingModal, setShowViewingModal] = useState(false);
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [selectedViewingAgentUserId, setSelectedViewingAgentUserId] = useState<string | null>(null);
@@ -461,21 +466,30 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
   useEffect(() => {
     if (!user?.id) {
       setViewerAgentId(null);
-      setViewerAgentVerified(null);
+      setViewerAgentMeta(null);
       return;
     }
     let cancelled = false;
     void supabase
       .from("agents")
-      .select("id, verified, status")
+      .select("id, status, verification_status")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (cancelled) return;
-        const row = data as { id?: string; verified?: boolean | null; status?: string | null } | null;
+        const row = data as {
+          id?: string;
+          status?: string | null;
+          verification_status?: string | null;
+        } | null;
         setViewerAgentId(row?.id ?? null);
-        setViewerAgentVerified(
-          row ? { verified: row.verified ?? null, status: row.status ?? "" } : null,
+        setViewerAgentMeta(
+          row
+            ? {
+                status: row.status ?? "",
+                verification_status: row.verification_status ?? null,
+              }
+            : null,
         );
       });
     return () => {
@@ -483,8 +497,9 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
     };
   }, [user?.id, supabase]);
 
-  const verifiedListingAgent =
-    Boolean(viewerAgentVerified?.verified && viewerAgentVerified?.status === "approved");
+  const verifiedListingAgent = Boolean(
+    viewerAgentMeta?.status === "approved" && viewerAgentMeta?.verification_status === "verified",
+  );
 
   const agentEngagementLocked = profile?.role === "agent";
 
@@ -628,6 +643,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
                 propertyId={property.id}
                 listedByUserId={property.listed_by ?? null}
                 verifiedListingAgent={verifiedListingAgent}
+                onVerificationRequired={() => setCoListVerificationOpen(true)}
                 onContactAgent={(a) => {
                   setContactModalAgent(a);
                   setShowContactModal(true);
@@ -672,6 +688,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
                   propertyId={property.id}
                   listedByUserId={property.listed_by ?? null}
                   verifiedListingAgent={verifiedListingAgent}
+                  onVerificationRequired={() => setCoListVerificationOpen(true)}
                   onContactAgent={(a) => {
                     setContactModalAgent(a);
                     setShowContactModal(true);
@@ -724,6 +741,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
       propertyId={property.id}
       propertyTitle={propertyTitle}
     />
+    <CoListVerificationRequiredModal open={coListVerificationOpen} onClose={() => setCoListVerificationOpen(false)} />
     </>
   );
 }
