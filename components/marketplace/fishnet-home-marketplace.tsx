@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAgentLiveAvailabilityFromPropertyRows } from "@/hooks/use-agent-live-availability";
 import Image from "next/image";
@@ -226,7 +227,7 @@ function HeroFloatingPropertyCards() {
               cfg.scale,
             )}
           >
-            <div className="relative h-[128px] w-full sm:h-[136px]">
+            <div className="relative aspect-video w-full">
               <Image
                 src={card.image_url}
                 alt=""
@@ -304,6 +305,133 @@ const HOMEPAGE_FAQ_ITEMS = [
       "BahayGo is a real estate technology platform and is not a licensed real estate broker, agent, or brokerage. We do not represent buyers, sellers, landlords, or tenants in any transaction. All property listings are posted by independent licensed real estate professionals who are solely responsible for the accuracy of their listings. BahayGo does not guarantee the availability, accuracy, or legality of any listing. Users are advised to conduct their own due diligence before entering into any real estate transaction. For any legal concerns, please contact support@bahaygo.com.",
   },
 ] as const;
+
+function HomepageFaqSection({
+  openFaqIndex,
+  setOpenFaqIndex,
+}: {
+  openFaqIndex: number | null;
+  setOpenFaqIndex: React.Dispatch<React.SetStateAction<number | null>>;
+}) {
+  return (
+    <section className="mx-auto max-w-3xl px-4 py-16" aria-labelledby="homepage-faq-heading">
+      <h2 id="homepage-faq-heading" className="text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
+        Frequently Asked Questions
+      </h2>
+      <p className="mt-2 text-center text-sm text-[#2C2C2C]/70">Everything you need to know about BahayGo</p>
+      <div className="mt-8">
+        {HOMEPAGE_FAQ_ITEMS.map((item, index) => {
+          const isOpen = openFaqIndex === index;
+          return (
+            <div key={item.question} className="border-b border-gray-200">
+              <button
+                type="button"
+                onClick={() => setOpenFaqIndex((prev) => (prev === index ? null : index))}
+                className="flex w-full cursor-pointer items-center justify-between gap-4 py-4 text-left text-base font-medium text-[#2C2C2C]"
+                aria-expanded={isOpen}
+              >
+                <span>{item.question}</span>
+                <ChevronDown
+                  className={cn(
+                    "h-5 w-5 shrink-0 text-[#2C2C2C] transition-transform duration-200",
+                    isOpen && "rotate-180",
+                  )}
+                  aria-hidden
+                />
+              </button>
+              <AnimatePresence initial={false}>
+                {isOpen ? (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <p className="pb-4 text-sm leading-relaxed text-gray-500">{item.answer}</p>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+const DynamicHomepageFaq = dynamic(() => Promise.resolve({ default: HomepageFaqSection }), {
+  ssr: false,
+  loading: () => null,
+});
+
+function HomepageTopVerifiedAgentsSection({
+  topAgents,
+  topAgentsRef,
+  scrollRow,
+}: {
+  topAgents: MarketplaceAgent[];
+  topAgentsRef: React.RefObject<HTMLDivElement | null>;
+  scrollRow: (ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") => void;
+}) {
+  return (
+    <section className="mt-12">
+      <div>
+        <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Top Verified Agents This Week</h2>
+        <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">High scores, fast responses, proven closings</p>
+      </div>
+      <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-4">
+        <div className="flex min-w-0 flex-1 items-stretch gap-1 sm:gap-2">
+          <button
+            type="button"
+            onClick={() => scrollRow(topAgentsRef, "prev")}
+            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
+            aria-label="Scroll left"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div
+            ref={topAgentsRef}
+            className="min-w-0 flex-1 overflow-x-auto px-4 pb-2 scrollbar-hide"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
+            <div className="flex w-max flex-nowrap gap-4 md:gap-4">
+              {topAgents.map((a) => (
+                <AgentDirectoryCard
+                  key={a.id}
+                  agent={a}
+                  homepageCarousel
+                  scoreBesideName
+                  className="min-w-[160px] shrink-0 lg:min-w-0 lg:w-[300px]"
+                />
+              ))}
+              {topAgents.length < 4 ? <MoreAgentsComingSoonCard /> : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => scrollRow(topAgentsRef, "next")}
+            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
+            aria-label="Scroll right"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="hidden w-full max-w-[320px] shrink-0 lg:block">
+          <AgentScoreTutorialCard />
+        </div>
+      </div>
+      <div className="mt-4 lg:hidden">
+        <AgentScoreTutorialCard compact />
+      </div>
+    </section>
+  );
+}
+
+const DynamicHomepageTopAgents = dynamic(
+  () => Promise.resolve({ default: HomepageTopVerifiedAgentsSection }),
+  { ssr: false, loading: () => null },
+);
 
 export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" }) {
   const router = useRouter();
@@ -863,29 +991,30 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     key={c.key}
                     type="button"
                     onClick={() => selectCityFilter(c.key)}
-                    className={`group relative h-[100px] w-[130px] shrink-0 overflow-hidden rounded-2xl border text-left shadow-md transition hover:scale-[1.02] lg:h-[120px] lg:w-[160px] ${
+                    className={`group relative flex w-[130px] shrink-0 flex-col overflow-hidden rounded-2xl border text-left shadow-md transition hover:scale-[1.02] lg:w-[160px] ${
                       active
                         ? "border-[#D4A843] ring-2 ring-[#D4A843]/45"
                         : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
                     }`}
                   >
-                    <Image
-                      src={c.imageUrl}
-                      alt=""
-                      width={300}
-                      height={200}
-                      className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                      sizes="(min-width: 1024px) 160px, 130px"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-2 lg:p-2.5">
-                      <p className="text-xs font-bold text-white drop-shadow-sm lg:font-serif lg:text-base lg:font-bold lg:drop-shadow-sm">
-                        {c.label}
-                      </p>
-                      <p className="mt-0.5 text-[10px] font-semibold text-white/90 lg:text-[11px]">
-                        {count} {count === 1 ? "listing" : "listings"}
-                      </p>
+                    <div className="relative aspect-video w-full shrink-0 overflow-hidden">
+                      <Image
+                        src={c.imageUrl}
+                        alt=""
+                        fill
+                        className="object-cover transition duration-500 group-hover:scale-105"
+                        sizes="(min-width: 1024px) 160px, 130px"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-2 lg:p-2.5">
+                        <p className="text-xs font-bold text-white drop-shadow-sm lg:font-serif lg:text-base lg:font-bold lg:drop-shadow-sm">
+                          {c.label}
+                        </p>
+                        <p className="mt-0.5 text-[10px] font-semibold text-white/90 lg:text-[11px]">
+                          {count} {count === 1 ? "listing" : "listings"}
+                        </p>
+                      </div>
                     </div>
                   </button>
                 );
@@ -899,7 +1028,22 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
       <main className="mx-auto max-w-7xl px-4 pb-28 pt-10 sm:px-5 md:pb-16">
         {/* Loading / error */}
-        {loading ? <div className="h-40 rounded-2xl animate-pulse bg-black/5" /> : null}
+        {loading ? (
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={`listing-skeleton-${i}`}
+                className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md"
+              >
+                <div className="relative aspect-video w-full animate-pulse bg-neutral-200/90" />
+                <div className="space-y-2 p-3">
+                  <div className="h-4 w-3/4 animate-pulse rounded bg-neutral-200/90" />
+                  <div className="h-4 w-1/2 animate-pulse rounded bg-neutral-200/90" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {!loading && error ? (
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6">
             <p className="font-semibold text-[#2C2C2C]">Couldn’t load listings</p>
@@ -1308,57 +1452,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
             <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
 
-            {/* 6. TOP VERIFIED AGENTS THIS WEEK */}
-            <section className="mt-12">
-              <div>
-                <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Top Verified Agents This Week</h2>
-                <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">High scores, fast responses, proven closings</p>
-              </div>
-              <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-4">
-                <div className="flex min-w-0 flex-1 items-stretch gap-1 sm:gap-2">
-                  <button
-                    type="button"
-                    onClick={() => scrollRow(topAgentsRef, "prev")}
-                    className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
-                    aria-label="Scroll left"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <div
-                    ref={topAgentsRef}
-                    className="min-w-0 flex-1 overflow-x-auto px-4 pb-2 scrollbar-hide"
-                    style={{ WebkitOverflowScrolling: "touch" }}
-                  >
-                    <div className="flex w-max flex-nowrap gap-4 md:gap-4">
-                      {topAgents.map((a) => (
-                        <AgentDirectoryCard
-                          key={a.id}
-                          agent={a}
-                          homepageCarousel
-                          scoreBesideName
-                          className="min-w-[160px] shrink-0 lg:min-w-0 lg:w-[300px]"
-                        />
-                      ))}
-                      {topAgents.length < 4 ? <MoreAgentsComingSoonCard /> : null}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => scrollRow(topAgentsRef, "next")}
-                    className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
-                    aria-label="Scroll right"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="hidden w-full max-w-[320px] shrink-0 lg:block">
-                  <AgentScoreTutorialCard />
-                </div>
-              </div>
-              <div className="mt-4 lg:hidden">
-                <AgentScoreTutorialCard compact />
-              </div>
-            </section>
+            {/* 6. TOP VERIFIED AGENTS THIS WEEK (deferred client load) */}
+            <DynamicHomepageTopAgents topAgents={topAgents} topAgentsRef={topAgentsRef} scrollRow={scrollRow} />
 
             <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
 
@@ -1392,28 +1487,29 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               <section className="mt-12">
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                   <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
-                    <div className="relative h-[400px] w-full bg-black/5">
+                    <div className="relative aspect-video w-full bg-black/5">
                       <Image
                         src={featuredPhotos[0] ?? featured.image_url}
                         alt={featured.name ?? featured.location}
-                        width={1200}
-                        height={800}
+                        fill
                         quality={95}
-                        className="absolute inset-0 h-full w-full object-cover"
+                        className="object-cover"
                         sizes="(min-width: 1024px) 600px, 100vw"
                         loading="lazy"
                       />
                       <div className="absolute inset-x-0 bottom-0 bg-black/35 px-3 py-3 backdrop-blur-sm">
                         <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:overflow-x-auto sm:scrollbar-hide">
                           {featuredPhotos.slice(0, 4).map((u) => (
-                            <div key={u} className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-white/30">
+                            <div
+                              key={u}
+                              className="relative aspect-video w-20 shrink-0 overflow-hidden rounded-lg border border-white/30"
+                            >
                               <Image
                                 src={u}
                                 alt=""
-                                width={80}
-                                height={56}
+                                fill
                                 sizes="80px"
-                                className="absolute inset-0 h-full w-full object-cover"
+                                className="object-cover"
                                 loading="lazy"
                               />
                             </div>
@@ -1477,49 +1573,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         ) : null}
       </main>
 
-      <section className="max-w-3xl mx-auto px-4 py-16" aria-labelledby="homepage-faq-heading">
-        <h2 id="homepage-faq-heading" className="text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
-          Frequently Asked Questions
-        </h2>
-        <p className="mt-2 text-center text-sm text-[#2C2C2C]/70">Everything you need to know about BahayGo</p>
-        <div className="mt-8">
-          {HOMEPAGE_FAQ_ITEMS.map((item, index) => {
-            const isOpen = openFaqIndex === index;
-            return (
-              <div key={item.question} className="border-b border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setOpenFaqIndex((prev) => (prev === index ? null : index))}
-                  className="flex w-full cursor-pointer items-center justify-between gap-4 py-4 text-left font-medium text-base text-[#2C2C2C]"
-                  aria-expanded={isOpen}
-                >
-                  <span>{item.question}</span>
-                  <ChevronDown
-                    className={cn(
-                      "h-5 w-5 shrink-0 text-[#2C2C2C] transition-transform duration-200",
-                      isOpen && "rotate-180",
-                    )}
-                    aria-hidden
-                  />
-                </button>
-                <AnimatePresence initial={false}>
-                  {isOpen ? (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2, ease: "easeInOut" }}
-                      className="overflow-hidden"
-                    >
-                      <p className="pb-4 text-sm leading-relaxed text-gray-500">{item.answer}</p>
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      <DynamicHomepageFaq openFaqIndex={openFaqIndex} setOpenFaqIndex={setOpenFaqIndex} />
 
       <AnimatePresence>
         {zoomProperty ? (
@@ -1730,7 +1784,6 @@ export function NewlyListedCard({
   const isPinned = engagement.isPinned(property.id);
   const showEngagementRow = showEng || agentEngagementLocked;
 
-  const imgH = compact ? "h-44 sm:h-48" : "h-52 sm:h-56";
   const titleLine = property.name?.trim() || property.location;
   return (
     <div
@@ -1741,7 +1794,7 @@ export function NewlyListedCard({
           : cn(cardWidthClass ?? "w-[240px]", "shrink-0"),
       )}
     >
-      <div className={`relative w-full overflow-hidden bg-neutral-900 ${imgH}`}>
+      <div className="relative aspect-video w-full overflow-hidden bg-neutral-900">
         <Image
           src={img}
           alt={property.name ?? property.location}
@@ -1949,7 +2002,7 @@ export function NewlyListedCard({
                   onClick={(e) => e.stopPropagation()}
                   className="group flex min-w-0 cursor-pointer items-start gap-2 rounded-lg transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
                 >
-                  <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+                  <div className="relative aspect-square h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
                     <AgentAvatarFill name={firstAgent.name} imageUrl={firstAgent.image} sizes="28px" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -2192,7 +2245,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
         </p>
         <div className="mt-2 rounded-xl border border-[#2C2C2C]/10 bg-white p-2.5 shadow-sm">
           <div className="flex gap-2.5">
-            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+            <div className="relative aspect-square h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
               <Image
                 src={mariaAvatar}
                 alt=""
@@ -2255,7 +2308,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
       </p>
       <div className="mt-3 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
         <div className="flex gap-3">
-          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+          <div className="relative aspect-square h-14 w-14 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
             <Image
               src={mariaAvatar}
               alt=""
