@@ -438,7 +438,7 @@ export function MobileClientDashboard() {
   const pathname = usePathname();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const [mainTab, setMainTab] = useState<MainTab>("all");
+  const [mainTab, setMainTab] = useState<MainTab>("profile");
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);

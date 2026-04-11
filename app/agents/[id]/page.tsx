@@ -11,7 +11,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { motion } from "framer-motion";
 import {
   ArrowRight,
   BadgeCheck,
@@ -201,68 +200,50 @@ function verificationStatusBadge(agent: AgentRow): { label: string; className: s
   };
 }
 
-const BIO_WORD_LIMIT = 40;
-
 function AgentBioBlock({ bio }: { bio: string }) {
   const [expanded, setExpanded] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [animHeight, setAnimHeight] = useState(0);
-  const words = useMemo(() => bio.trim().split(/\s+/).filter(Boolean), [bio]);
-  const needsTruncate = words.length > BIO_WORD_LIMIT;
-  const truncatedText = useMemo(
-    () => `${words.slice(0, BIO_WORD_LIMIT).join(" ")}...`,
-    [words],
-  );
+  const textRef = useRef<HTMLParagraphElement>(null);
+  const [hasOverflow, setHasOverflow] = useState(false);
+
+  const text = bio.trim();
 
   useLayoutEffect(() => {
-    if (!contentRef.current) return;
-    setAnimHeight(contentRef.current.scrollHeight);
-  }, [expanded, bio, needsTruncate]);
+    const el = textRef.current;
+    if (!el) return;
+    if (expanded) return;
+    setHasOverflow(el.scrollHeight > el.clientHeight);
+  }, [expanded, text]);
 
-  if (!needsTruncate) {
-    return (
-      <p className="mt-2 whitespace-pre-wrap text-center text-sm font-medium leading-relaxed text-[#2C2C2C]/75">
-        {bio.trim()}
-      </p>
-    );
-  }
+  const showGradient = !expanded && hasOverflow;
+  const showButton = expanded || hasOverflow;
 
   return (
     <div className="mt-2">
-      <motion.div
-        className="overflow-hidden"
-        initial={false}
-        animate={{ height: animHeight }}
-        transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
-      >
-        <div ref={contentRef}>
-          {!expanded ? (
-            <p className="text-center text-sm font-medium leading-relaxed text-[#2C2C2C]/75">
-              {truncatedText}{" "}
-              <button
-                type="button"
-                onClick={() => setExpanded(true)}
-                className="font-semibold text-[#6B9E6E] hover:underline"
-              >
-                Read more
-              </button>
-            </p>
-          ) : (
-            <div className="text-center">
-              <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-[#2C2C2C]/75">
-                {bio.trim()}
-              </p>
-              <button
-                type="button"
-                onClick={() => setExpanded(false)}
-                className="mt-2 font-semibold text-[#6B9E6E] hover:underline"
-              >
-                Read less
-              </button>
-            </div>
-          )}
-        </div>
-      </motion.div>
+      <div className="relative overflow-hidden">
+        <p
+          ref={textRef}
+          className={`text-center text-sm font-medium leading-relaxed text-[#2C2C2C]/75 whitespace-pre-wrap ${
+            expanded ? "" : "line-clamp-3"
+          }`}
+        >
+          {text}
+        </p>
+        {showGradient ? (
+          <div
+            className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-b from-transparent to-[#FAF8F4]"
+            aria-hidden
+          />
+        ) : null}
+      </div>
+      {showButton ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="mt-1 w-full text-center font-medium text-[#6B9E6E]"
+        >
+          {expanded ? "Show less" : "Read more"}
+        </button>
+      ) : null}
     </div>
   );
 }
