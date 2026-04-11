@@ -205,10 +205,10 @@ function HomeTopAgentCard({
         <div className="relative mx-auto h-14 w-14 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
           <AgentAvatarFill name={agent.name} imageUrl={agent.image} sizes="56px" textClassName="text-base" />
         </div>
-        <div className="mt-2 flex w-full items-center justify-between gap-2 px-0.5">
-          <p className="line-clamp-2 min-w-0 flex-1 text-left text-sm font-semibold text-[#2C2C2C]">{agent.name}</p>
+        <div className="mt-2 flex w-full flex-col items-center px-0.5 text-center">
+          <p className="line-clamp-2 w-full text-sm font-bold text-[#2C2C2C]">{agent.name}</p>
           {scoreRight ? (
-            <span className="flex shrink-0 items-center gap-0.5 text-xs text-gray-500">⭐ {scoreRight}</span>
+            <span className="mt-0.5 text-xs text-gray-500">⭐ {scoreRight}</span>
           ) : null}
         </div>
         {agent.verified ? (
@@ -394,7 +394,7 @@ function HomepageFaqSection({
   setOpenFaqIndex: React.Dispatch<React.SetStateAction<number | null>>;
 }) {
   return (
-    <section className="mx-auto max-w-3xl px-4 py-16" aria-labelledby="homepage-faq-heading">
+    <section className="mx-auto mt-12 max-w-3xl px-4 pb-16" aria-labelledby="homepage-faq-heading">
       <h2 id="homepage-faq-heading" className="text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
         Frequently Asked Questions
       </h2>
@@ -1683,9 +1683,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         ) : null}
       </main>
 
-      <div className="min-h-[200px]">
-        <DynamicHomepageFaq openFaqIndex={openFaqIndex} setOpenFaqIndex={setOpenFaqIndex} />
-      </div>
+      <DynamicHomepageFaq openFaqIndex={openFaqIndex} setOpenFaqIndex={setOpenFaqIndex} />
 
       <AnimatePresence>
         {zoomProperty ? (

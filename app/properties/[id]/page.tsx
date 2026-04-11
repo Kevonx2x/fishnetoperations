@@ -297,22 +297,35 @@ export default function PropertyPage() {
   }, [property?.id, myAgent?.id]);
 
   const allPhotos = useMemo(() => (property ? buildAllPhotos(property) : []), [property]);
-  const [heroPhotoIndex, setHeroPhotoIndex] = useState(0);
+  /** URL of the hero image; thumbnails call setActivePhotoUrl(url). */
+  const [activePhotoUrl, setActivePhotoUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    setHeroPhotoIndex(0);
-  }, [property?.id]);
+    if (allPhotos.length === 0) {
+      setActivePhotoUrl(null);
+      return;
+    }
+    setActivePhotoUrl((prev) => {
+      const norm = (s: string) => String(s).trim();
+      if (prev && allPhotos.some((u) => norm(String(u)) === norm(prev))) return prev;
+      return norm(String(allPhotos[0]));
+    });
+  }, [property?.id, allPhotos]);
 
-  useEffect(() => {
-    if (allPhotos.length === 0) return;
-    setHeroPhotoIndex((i) => Math.min(i, allPhotos.length - 1));
-  }, [allPhotos]);
+  const heroIndex = useMemo(() => {
+    if (allPhotos.length === 0 || !activePhotoUrl) return 0;
+    const idx = allPhotos.findIndex((u) => String(u).trim() === String(activePhotoUrl).trim());
+    return idx >= 0 ? idx : 0;
+  }, [allPhotos, activePhotoUrl]);
 
-  const heroIndex = Math.min(heroPhotoIndex, Math.max(0, allPhotos.length - 1));
   const heroDisplaySrc = useMemo(() => {
-    const raw = allPhotos[heroIndex] ?? "";
+    if (allPhotos.length === 0) return "";
+    const raw =
+      activePhotoUrl && allPhotos.some((u) => String(u).trim() === String(activePhotoUrl).trim())
+        ? activePhotoUrl
+        : allPhotos[0];
     return cloudinaryTransformUrl(String(raw).trim(), "c_fill,w_1600,h_900,q_auto,f_auto");
-  }, [allPhotos, heroIndex]);
+  }, [allPhotos, activePhotoUrl]);
 
   const openLightbox = (index: number) => {
     if (allPhotos.length === 0) return;
@@ -623,7 +636,7 @@ export default function PropertyPage() {
                               <button
                                 key={`${i}-${url}`}
                                 type="button"
-                                onClick={() => setHeroPhotoIndex(i)}
+                                onClick={() => setActivePhotoUrl(String(url).trim())}
                                 className={cn(
                                   "relative h-[80px] w-[120px] flex-shrink-0 cursor-pointer overflow-hidden rounded-xl",
                                   i === heroIndex ? "border-2 border-[#D4A843]" : "border-2 border-transparent",

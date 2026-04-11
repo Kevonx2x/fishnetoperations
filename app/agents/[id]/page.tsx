@@ -15,7 +15,6 @@ import {
   ArrowRight,
   BadgeCheck,
   Calendar,
-  Clock,
   Heart,
   Pin,
   LayoutGrid,
@@ -36,7 +35,6 @@ import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-car
 import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
 import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
-import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { useAuth } from "@/contexts/auth-context";
 import { formatAgentScore } from "@/lib/format-agent-score";
@@ -158,46 +156,8 @@ function isRecentlyRentedBadge(p: ListingRow): boolean {
   return Date.now() - t < 30 * 24 * 60 * 60 * 1000;
 }
 
-const MASKED_PUBLIC_PRC = "PRC-AG-202*-*****";
-
 function isAgentIdentityVerified(agent: AgentRow): boolean {
   return agent.verification_status === "verified";
-}
-
-function verificationStatusBadge(agent: AgentRow): { label: string; className: string } {
-  const v = agent.verification_status;
-  if (v === "verified") {
-    return {
-      label: "Verified Agent",
-      className: "rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-bold text-white shadow-sm",
-    };
-  }
-  if (v === "pending") {
-    return {
-      label: "Verification Pending",
-      className:
-        "rounded-full border border-[#2C2C2C]/15 bg-[#FAF8F4] px-5 py-2 text-sm font-bold text-[#2C2C2C]/70",
-    };
-  }
-  if (v === "rejected") {
-    return {
-      label: "Verification Failed - Resubmit in Settings",
-      className:
-        "max-w-[280px] rounded-full border border-red-300 bg-red-50 px-4 py-2 text-center text-xs font-bold leading-snug text-red-700 sm:max-w-none sm:text-sm",
-    };
-  }
-  if (v === "suspended") {
-    return {
-      label: "Account Suspended",
-      className:
-        "max-w-[280px] rounded-full border border-red-400 bg-red-100 px-4 py-2 text-center text-xs font-bold leading-snug text-red-800 sm:max-w-none sm:text-sm",
-    };
-  }
-  return {
-    label: "Unverified",
-    className:
-      "rounded-full border border-[#2C2C2C]/15 bg-[#FAF8F4] px-5 py-2 text-sm font-bold text-[#2C2C2C]/55",
-  };
 }
 
 function AgentBioBlock({ bio }: { bio: string }) {
@@ -755,18 +715,6 @@ export default function AgentProfilePage() {
     }
   };
 
-  const identityBadge = agent ? verificationStatusBadge(agent) : null;
-
-  const brokerageDisplay = (a: AgentRow) => {
-    const n = a.brokers?.company_name?.trim();
-    return n ? n : "Independent Agent";
-  };
-
-  const licenseDisplay = (a: AgentRow) => {
-    const n = String(a.license_number ?? "").trim();
-    return n ? MASKED_PUBLIC_PRC : null;
-  };
-
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#2C2C2C]">
       {!loading && !error && agent && isOwnProfile && agent.verification_status !== "verified" ? (
@@ -815,62 +763,42 @@ export default function AgentProfilePage() {
 
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,30%)_minmax(0,70%)] lg:items-start lg:gap-10">
               {/* LEFT SIDEBAR */}
-              <aside className="lg:sticky lg:top-24">
-                <div className="rounded-2xl border border-[#2C2C2C]/8 bg-white p-6 shadow-md">
-                  <div className="relative mx-auto h-[100px] w-[100px]">
+              <aside className="self-start lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:scrollbar-hide">
+                <div className="rounded-2xl border border-[#2C2C2C]/8 bg-white p-4 shadow-md">
+                  <div className="relative mx-auto h-20 w-20">
                     <div className="relative h-full w-full overflow-hidden rounded-full bg-[#FAF8F4] ring-2 ring-white">
                       {agent.image_url ? (
                         <SupabasePublicImage
                           src={agent.image_url}
                           alt={agent.name}
                           fill
-                          sizes="100px"
+                          sizes="80px"
                           className="object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center font-serif text-3xl font-bold text-[#2C2C2C]/25">
+                        <div className="flex h-full w-full items-center justify-center font-serif text-2xl font-bold text-[#2C2C2C]/25">
                           {agent.name.slice(0, 1)}
                         </div>
                       )}
                     </div>
                     {isAgentIdentityVerified(agent) ? (
                       <span
-                        className="absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#D4A843] shadow-md ring-2 ring-white"
+                        className="absolute -right-1 -top-1 flex h-7 w-7 items-center justify-center rounded-full bg-[#D4A843] shadow-md ring-2 ring-white"
                         title="Verified"
                       >
-                        <BadgeCheck className="h-4 w-4 text-white" aria-hidden />
+                        <BadgeCheck className="h-3.5 w-3.5 text-white" aria-hidden />
                       </span>
                     ) : null}
                   </div>
 
-                  <h1 className="mt-5 text-center font-serif text-xl font-bold tracking-tight text-[#2C2C2C]">
+                  <h1 className="mt-4 text-center font-serif text-lg font-bold tracking-tight text-[#2C2C2C]">
                     {agent.name}
                   </h1>
 
-                  <p className="mt-2 text-center text-sm italic text-[#2C2C2C]/55">{brokerageDisplay(agent)}</p>
-
-                  <p className="mt-1 text-center text-xs italic text-[#2C2C2C]/45">
-                    {licenseDisplay(agent) ? (
-                      <>License {licenseDisplay(agent)}</>
-                    ) : (
-                      <span>License unknown</span>
-                    )}
-                  </p>
-
-                  {isOwnProfile ? (
-                    <div className="mt-4 flex justify-center">
-                      <AgentAvailabilityBadge availability={agent.availability} updatedAt={agent.updated_at} />
-                    </div>
-                  ) : null}
-
-                  <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
                     <span className="inline-flex items-center gap-1 rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-bold text-[#2C2C2C]/85">
                       <Trophy className="h-3 w-3 text-[#6B9E6E]" />
                       {agent.closings} closings
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-bold text-[#2C2C2C]/85">
-                      <Clock className="h-3 w-3 text-[#6B9E6E]" />
-                      {agent.response_time ?? "—"}
                     </span>
                     <span className="inline-flex items-center gap-1 rounded-full border border-[#D4A843]/35 bg-[#D4A843]/10 px-2.5 py-1 text-[11px] font-bold text-[#8a6d32]">
                       <Star className="h-3 w-3 text-[#D4A843]" />
@@ -878,13 +806,7 @@ export default function AgentProfilePage() {
                     </span>
                   </div>
 
-                  <div className="mt-5 flex justify-center">
-                    {identityBadge ? (
-                      <span className={identityBadge.className}>{identityBadge.label}</span>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-6 border-t border-[#2C2C2C]/10 pt-5">
+                  <div className="mt-5 border-t border-[#2C2C2C]/10 pt-4">
                     <p className="text-center font-serif text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
                       About
                     </p>
@@ -907,7 +829,7 @@ export default function AgentProfilePage() {
                     )}
                   </div>
 
-                  <div className="mt-5 space-y-2 border-t border-[#2C2C2C]/10 pt-5">
+                  <div className="mt-4 space-y-2 border-t border-[#2C2C2C]/10 pt-4">
                     <p className="text-center text-xs font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
                       Contact
                     </p>
@@ -926,7 +848,7 @@ export default function AgentProfilePage() {
                     )}
                   </div>
 
-                  <div className="mt-6 space-y-2">
+                  <div className="mt-4 space-y-2">
                     <button
                       type="button"
                       onClick={openContactHeader}
@@ -936,29 +858,8 @@ export default function AgentProfilePage() {
                       <Mail className="h-4 w-4" />
                       Contact
                     </button>
-                    <button
-                      type="button"
-                      onClick={openScheduleHeader}
-                      disabled={authLoading}
-                      className="flex w-full items-center justify-center gap-2 rounded-full border-2 border-[#6B9E6E] bg-white py-3 text-sm font-semibold text-[#2C2C2C] transition hover:bg-[#6B9E6E]/10 disabled:opacity-50"
-                    >
-                      <Calendar className="h-4 w-4 text-[#6B9E6E]" />
-                      Schedule
-                    </button>
-                    {isOwnProfile ? (
-                      <Link
-                        href="/dashboard/agent?tab=profile"
-                        className="flex w-full items-center justify-center rounded-full border border-[#D4A843]/50 bg-[#FAF8F4] py-3 text-sm font-bold text-[#8a6d32] transition hover:bg-[#D4A843]/15"
-                      >
-                        Edit Profile
-                      </Link>
-                    ) : null}
                   </div>
                 </div>
-                <p className="text-[10px] text-gray-400 text-center mt-2 px-2">
-                  Verification is based on public PRC records at time of registration. BahayGo is not a
-                  licensed broker or legal counsel.
-                </p>
               </aside>
 
               {/* RIGHT FEED */}
