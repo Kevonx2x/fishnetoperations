@@ -30,6 +30,11 @@ import { labelForClientDocType } from "@/lib/client-documents";
 import { formatNotificationTimeAgo } from "@/components/notifications/notification-list";
 import { cn } from "@/lib/utils";
 
+const FEED_CARD_CLASS =
+  "rounded-2xl border border-gray-100 bg-white shadow-md transition-transform duration-150 active:scale-95 md:hover:shadow-lg";
+const FEED_CARD_PAD_SM = "p-3";
+const FEED_CARD_PAD_MD = "p-4";
+
 type MainTab = "all" | "profile" | "saved" | "pins" | "documents";
 
 type PropertyPhoto = { url: string; sort_order: number | null };
@@ -353,11 +358,13 @@ function PinSaveFeedCardHeader({
   createdAt,
   agent,
   locationLine,
+  headerBadgeKind,
 }: {
   beforePostedBy: string;
   createdAt: string;
   agent: { agentId: string | null; agentName: string; agentAvatarUrl: string | null } | null;
   locationLine: string;
+  headerBadgeKind: "pin" | "heart" | "both";
 }) {
   const a =
     agent &&
@@ -368,19 +375,39 @@ function PinSaveFeedCardHeader({
   return (
     <div className="flex gap-3">
       {a ? (
-        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#E5E5E5]/60">
-          {a.agentAvatarUrl ? (
-            <Image src={a.agentAvatarUrl} alt="" fill className="object-cover" sizes="40px" unoptimized />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/40 text-sm font-bold text-white">
-              {(a.agentName || "A").slice(0, 1).toUpperCase()}
+        <div className="relative h-10 w-10 shrink-0">
+          <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[#E5E5E5]/60">
+            {a.agentAvatarUrl ? (
+              <Image src={a.agentAvatarUrl} alt="" fill className="object-cover" sizes="40px" unoptimized />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/40 text-sm font-bold text-white">
+                {(a.agentName || "A").slice(0, 1).toUpperCase()}
+              </div>
+            )}
+          </div>
+          {headerBadgeKind === "both" ? (
+            <div className="absolute -bottom-0.5 -right-0.5 flex items-end" aria-hidden>
+              <span className="relative z-[1] flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md">
+                <Heart className="h-4 w-4 text-red-500" strokeWidth={2.25} fill="currentColor" />
+              </span>
+              <span className="relative z-[2] -ml-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md">
+                <Pin className="h-4 w-4 text-[#D4A843]" strokeWidth={2.25} />
+              </span>
             </div>
-          )}
+          ) : headerBadgeKind === "pin" ? (
+            <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md" aria-hidden>
+              <Pin className="h-4 w-4 text-[#D4A843]" strokeWidth={2.25} />
+            </span>
+          ) : headerBadgeKind === "heart" ? (
+            <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md" aria-hidden>
+              <Heart className="h-4 w-4 text-red-500" strokeWidth={2.25} fill="currentColor" />
+            </span>
+          ) : null}
         </div>
       ) : null}
       <div className="min-w-0 flex-1">
-        <p className="text-sm leading-snug text-[#2C2C2C]">
-          {beforePostedBy}
+        <p className="text-sm leading-snug">
+          <span className="font-bold text-[#2C2C2C]">{beforePostedBy}</span>
           {a ? (
             <>
               {" posted by "}
@@ -394,10 +421,10 @@ function PinSaveFeedCardHeader({
             </>
           ) : null}
         </p>
-        <p className="mt-0.5 text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(createdAt)}</p>
+        <p className="mt-0.5 text-xs text-gray-400">{formatNotificationTimeAgo(createdAt)}</p>
         {locationLine.trim() ? (
-          <p className="mt-1 flex items-center gap-1 text-xs text-[#6B6B6B]">
-            <MapPin className="h-2 w-2 shrink-0" strokeWidth={2.5} aria-hidden />
+          <p className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+            <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
             <span className="min-w-0">{locationLine.trim()}</span>
           </p>
         ) : null}
@@ -975,7 +1002,7 @@ export function MobileClientDashboard() {
         </div>
       </header>
 
-      <main className="mt-4 px-5">
+      <main className="mt-4 px-4">
         {loading ? (
           <div className="space-y-4 animate-pulse">
             <div className="h-48 w-full rounded-2xl bg-[#E5E5E5]" />
@@ -1066,7 +1093,7 @@ function AllFeedTab({
       {grouped.map(({ label, items }) => (
         <section key={label}>
           <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B6B6B]">{label}</h3>
-          <ul className="space-y-0">
+          <ul className="flex flex-col gap-3">
             {items.map((item) => (
               <li
                 key={`${item.kind}-${item.sortAt}-${
@@ -1128,7 +1155,7 @@ function AgentActivityCard({
   const HeaderIcon = item.showSavedPill ? Heart : Calendar;
 
   return (
-    <article className="mb-3 rounded-2xl bg-white p-4 transition-all duration-200">
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD)}>
       {propertyHrefId ? <FeedAgentRow propertyId={propertyHrefId} feedAgentMeta={feedAgentMeta} /> : null}
       <div className="flex gap-3">
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
@@ -1168,7 +1195,7 @@ function AgentActivityCard({
 function PriceDropCompactActivityCard({ item }: { item: Extract<FeedUnion, { kind: "price_drop_al" }> }) {
   const newPriceDisplay = formatPropertyPriceDisplay(item.newPrice);
   return (
-    <article className="mb-3 flex items-center gap-3 rounded-xl bg-white p-3 transition-all duration-200">
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_SM, "flex items-center gap-3")}>
       <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
         <Tag className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
       </div>
@@ -1177,7 +1204,7 @@ function PriceDropCompactActivityCard({ item }: { item: Extract<FeedUnion, { kin
         <p className="mt-0.5 text-sm">
           <span className="text-[#6B6B6B] line-through">{formatPropertyPriceDisplay(item.oldPrice)}</span>
           <span className="mx-1.5 text-[#6B6B6B]">→</span>
-          <span className="font-bold text-[#6B9E6E]">{newPriceDisplay}</span>
+          <span className="text-base font-bold text-[#6B9E6E]">{newPriceDisplay}</span>
         </p>
       </div>
       <span className="shrink-0 self-start text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(item.sortAt)}</span>
@@ -1205,12 +1232,12 @@ function BadgeCompactCard({
   const desc = metaStr(m, "badge_description").trim() || (n.body ?? "").trim() || "You earned a new badge.";
 
   return (
-    <article className="mb-3 flex items-start gap-3 rounded-xl bg-white p-3 transition-all duration-200">
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_SM, "flex items-start gap-3")}>
       <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#D4A843]">
         <Star className="h-4 w-4 text-white" fill="currentColor" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-bold text-[#2C2C2C]">{badgeName}</p>
+        <p className="font-semibold text-[#2C2C2C]">{badgeName}</p>
         <p className="mt-0.5 line-clamp-3 text-sm text-[#6B6B6B]">{desc}</p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
@@ -1253,12 +1280,13 @@ function PinActivityCard({
     : null;
 
   return (
-    <article className="mb-3 rounded-2xl bg-white p-4 transition-all duration-200">
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD)}>
       <PinSaveFeedCardHeader
         beforePostedBy="You pinned this listing"
         createdAt={createdAt}
         agent={agent}
         locationLine={property.location ?? ""}
+        headerBadgeKind="pin"
       />
       {img && pid ? (
         <FeedPhotoOverlay
@@ -1270,7 +1298,19 @@ function PinActivityCard({
           pins={pins}
         />
       ) : null}
-      <p className={cn("text-sm text-[#2C2C2C]", img && pid ? "mt-2" : "mt-3")}>{title}</p>
+      {pid ? (
+        <Link
+          href={`/properties/${pid}`}
+          className={cn(
+            "block text-sm font-semibold text-gray-800 transition-transform duration-150 active:scale-[0.98]",
+            img ? "mt-2" : "mt-3",
+          )}
+        >
+          {title}
+        </Link>
+      ) : (
+        <p className={cn("text-sm font-semibold text-gray-800", img ? "mt-2" : "mt-3")}>{title}</p>
+      )}
     </article>
   );
 }
@@ -1364,7 +1404,7 @@ function ProfileTab({
           subtitle="Start exploring listings and save your favorites."
         />
       ) : (
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-3">
           {gridItems.map(({ property: p, saved, liked, sortKey }) => {
             const meta = agentMeta[p.id] ?? {
               agentName: "Agent",
@@ -1423,13 +1463,17 @@ function ProfilePropertyFeedCard({
     agentAvatarUrl: meta.agentAvatarUrl,
   };
 
+  const headerBadgeKind: "pin" | "heart" | "both" =
+    saved && liked ? "both" : saved ? "heart" : "pin";
+
   return (
-    <article className="mb-3 rounded-2xl bg-white p-4 transition-all duration-200">
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD)}>
       <PinSaveFeedCardHeader
         beforePostedBy={beforePostedBy}
         createdAt={headerTimeIso}
         agent={agent}
         locationLine={p.location ?? ""}
+        headerBadgeKind={headerBadgeKind}
       />
       {img ? (
         <FeedPhotoOverlay
@@ -1441,7 +1485,15 @@ function ProfilePropertyFeedCard({
           pins={pins}
         />
       ) : null}
-      <p className={cn("text-sm text-[#2C2C2C]", img ? "mt-2" : "mt-3")}>{title}</p>
+      <Link
+        href={`/properties/${p.id}`}
+        className={cn(
+          "block text-sm font-semibold text-gray-800 transition-transform duration-150 active:scale-[0.98]",
+          img ? "mt-2" : "mt-3",
+        )}
+      >
+        {title}
+      </Link>
     </article>
   );
 }
