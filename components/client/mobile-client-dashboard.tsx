@@ -8,13 +8,13 @@ import {
   Bell,
   Bookmark,
   Calendar,
+  CheckCircle,
   CheckCircle2,
   Crown,
   FileText,
   Folder,
   Heart,
   Home,
-  House,
   Key,
   LayoutGrid,
   Lock,
@@ -125,6 +125,31 @@ const BADGE_UNLOCK_PILL: Record<BadgeSlug, string> = {
   "social-saver": "Save 10 or more properties",
 };
 
+/** Accent hex for Badges tab glass cards (feed still uses BADGE_META.theme). */
+const BADGE_GLASS_HEX: Record<BadgeSlug, string> = {
+  "first-save": "#F97316",
+  "smart-shopper": "#D4A843",
+  "active-hunter": "#4A90D9",
+  "early-adopter": "#9B59B6",
+  "document-ready": "#6B9E6E",
+  "welcome-home": "#6B9E6E",
+  "neighborhood-scout": "#00897B",
+  committed: "#3B82F6",
+  "in-the-pipeline": "#E67E22",
+  "signed-and-sealed": "#D4A843",
+  "document-pro": "#9B59B6",
+  "social-saver": "#E91E8C",
+};
+
+const HEX_CLIP =
+  "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)";
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  if (!m) return null;
+  return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
+}
+
 const BADGE_META: Record<
   BadgeSlug,
   {
@@ -161,7 +186,7 @@ const BADGE_META: Record<
   "active-hunter": {
     label: "Serious Buyer",
     description: "Actions speak louder than wishlists.",
-    Icon: Calendar,
+    Icon: CheckCircle,
     theme: {
       borderLeftClass: "border-l-[#4A90D9]",
       earnedTintClass: "bg-[#4A90D9]/10",
@@ -191,7 +216,7 @@ const BADGE_META: Record<
   "welcome-home": {
     label: "Welcome Home",
     description: "You are officially on the map",
-    Icon: House,
+    Icon: Home,
     theme: {
       borderLeftClass: "border-l-[#6B9E6E]",
       earnedTintClass: "bg-[#6B9E6E]/10",
@@ -211,7 +236,7 @@ const BADGE_META: Record<
   committed: {
     label: "Committed",
     description: "You are not playing around",
-    Icon: CheckCircle2,
+    Icon: Star,
     theme: {
       borderLeftClass: "border-l-[#4A90D9]",
       earnedTintClass: "bg-[#4A90D9]/10",
@@ -1809,70 +1834,100 @@ function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_at: str
   }, [badges]);
 
   return (
-    <div className="flex flex-col gap-3">
-      {BADGE_ORDER.map((slug) => {
-        const meta = BADGE_META[slug];
-        const earnedAt = earnedMap.get(slug);
-        const earned = Boolean(earnedAt);
+    <div className="bg-[#FAF8F4]">
+      <div className="grid grid-cols-2 gap-3 [grid-auto-rows:1fr]">
+        {BADGE_ORDER.map((slug) => {
+          const meta = BADGE_META[slug];
+          const earnedAt = earnedMap.get(slug);
+          const earned = Boolean(earnedAt);
+          const accentHex = BADGE_GLASS_HEX[slug];
+          const rgb = hexToRgb(accentHex);
 
-        if (earned) {
-          const Icon = meta.Icon;
+          if (earned && earnedAt) {
+            const Icon = meta.Icon;
+            const glassStyle =
+              rgb != null
+                ? {
+                    backgroundColor: `rgba(${rgb.r},${rgb.g},${rgb.b},0.2)`,
+                    borderColor: `rgba(${rgb.r},${rgb.g},${rgb.b},0.4)`,
+                    boxShadow: `inset 0 0 8px rgba(${rgb.r},${rgb.g},${rgb.b},0.15)`,
+                  }
+                : undefined;
+            const watermarkStyle =
+              rgb != null
+                ? { color: `rgba(${rgb.r},${rgb.g},${rgb.b},0.08)` }
+                : { color: "rgba(255,255,255,0.08)" };
+
+            return (
+              <article
+                key={slug}
+                className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border p-3"
+                style={glassStyle}
+              >
+                <div
+                  className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                  aria-hidden
+                >
+                  <Icon className="h-16 w-16" strokeWidth={1.5} style={watermarkStyle} />
+                </div>
+
+                <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
+                  <div className="flex items-start justify-between gap-2">
+                    <div
+                      className="relative flex h-12 w-12 shrink-0 items-center justify-center"
+                      style={{ clipPath: HEX_CLIP }}
+                    >
+                      <div
+                        className="absolute inset-0 flex items-center justify-center"
+                        style={{ backgroundColor: accentHex }}
+                      >
+                        <Icon className="relative z-[1] h-5 w-5 text-white" strokeWidth={2} aria-hidden />
+                      </div>
+                    </div>
+                    <span
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/25"
+                      aria-hidden
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 text-[#6B9E6E]" strokeWidth={2.5} />
+                    </span>
+                  </div>
+
+                  <p className="mt-3 text-sm font-bold text-white">{meta.label}</p>
+                  <p className="mt-1 text-xs leading-snug text-gray-400">{meta.description}</p>
+
+                  <div className="mt-3 flex items-end justify-between gap-2">
+                    <p className="text-xs font-medium text-[#6B9E6E]">
+                      Earned {formatNotificationTimeAgo(earnedAt)}
+                    </p>
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.25} aria-hidden />
+                  </div>
+                </div>
+              </article>
+            );
+          }
+
           return (
             <article
               key={slug}
-              className={cn(
-                "relative rounded-2xl border border-gray-100 border-l-[3px] border-solid p-4 shadow-sm",
-                meta.theme.borderLeftClass,
-                meta.theme.earnedTintClass,
-              )}
+              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#1a1f2e] p-3"
             >
-              <div className="flex gap-4">
+              <div className="flex items-start justify-between gap-2">
                 <div
-                  className={cn(
-                    "grid h-12 w-12 shrink-0 place-items-center rounded-full text-white",
-                    meta.theme.iconCircleClass,
-                  )}
+                  className="relative flex h-12 w-12 shrink-0 items-center justify-center bg-[#12161f]"
+                  style={{ clipPath: HEX_CLIP }}
                 >
-                  <Icon className="h-6 w-6" strokeWidth={2} aria-hidden />
-                </div>
-                <div className="min-w-0 flex-1 pr-2">
-                  <p className="font-bold text-[#2C2C2C]">{meta.label}</p>
-                  <p className="mt-1 text-sm text-[#6B6B6B]">{meta.description}</p>
+                  <Lock className="h-5 w-5 text-gray-500" strokeWidth={2} aria-hidden />
                 </div>
               </div>
-              <p className="mt-3 text-right text-xs font-medium text-[#6B9E6E]">
-                {earnedAt
-                  ? new Date(earnedAt).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
-                  : ""}
-              </p>
+
+              <p className="mt-3 text-sm font-bold text-gray-500">{meta.label}</p>
+              <p className="mt-1 text-xs leading-snug text-gray-500">{meta.description}</p>
+
+              <p className="mt-auto pt-3 text-xs text-gray-500">{BADGE_UNLOCK_PILL[slug]}</p>
             </article>
           );
-        }
-
-        return (
-          <article
-            key={slug}
-            className="relative rounded-2xl border border-gray-100 border-l-[3px] border-l-gray-400 bg-white p-4 shadow-sm [border-left-style:dashed]"
-          >
-            <div className="flex gap-4">
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gray-200/80">
-                <Lock className="h-5 w-5 text-gray-500" aria-hidden />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-gray-500">{meta.label}</p>
-                <p className="mt-1 text-sm italic text-gray-500">{meta.description}</p>
-                <span className="mt-3 inline-block rounded-full bg-[#6B9E6E]/15 px-3 py-1 text-xs font-semibold text-[#6B9E6E]">
-                  {BADGE_UNLOCK_PILL[slug]}
-                </span>
-              </div>
-            </div>
-          </article>
-        );
-      })}
+        })}
+      </div>
     </div>
   );
 }
