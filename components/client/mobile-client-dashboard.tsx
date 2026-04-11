@@ -8,6 +8,7 @@ import {
   Bell,
   Bookmark,
   Calendar,
+  Crown,
   FileText,
   Heart,
   Home,
@@ -15,12 +16,12 @@ import {
   Lock,
   MapPin,
   Pin,
-  Rocket,
+  Search,
   Shield,
-  ShoppingBag,
   Star,
   Tag,
   User,
+  type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePinnedPropertyIds, usePropertyLikes } from "@/hooks/use-property-engagement";
@@ -95,34 +96,75 @@ const BADGE_UNLOCK_PILL: Record<BadgeSlug, string> = {
 
 const BADGE_META: Record<
   BadgeSlug,
-  { label: string; description: string; Icon: typeof Bookmark }
+  {
+    label: string;
+    description: string;
+    Icon: LucideIcon;
+    theme: {
+      borderLeftClass: string;
+      earnedTintClass: string;
+      iconCircleClass: string;
+    };
+  }
 > = {
   "first-save": {
     label: "First Step",
     description: "The journey to your dream home starts here.",
     Icon: Bookmark,
+    theme: {
+      borderLeftClass: "border-l-[#6B9E6E]",
+      earnedTintClass: "bg-[#6B9E6E]/10",
+      iconCircleClass: "bg-[#6B9E6E]",
+    },
   },
   "smart-shopper": {
     label: "Sharp Eye",
     description: "You know exactly what you are looking for.",
-    Icon: ShoppingBag,
+    Icon: Search,
+    theme: {
+      borderLeftClass: "border-l-[#D4A843]",
+      earnedTintClass: "bg-[#D4A843]/10",
+      iconCircleClass: "bg-[#D4A843]",
+    },
   },
   "active-hunter": {
     label: "Serious Buyer",
     description: "Actions speak louder than wishlists.",
     Icon: Calendar,
+    theme: {
+      borderLeftClass: "border-l-[#4A90D9]",
+      earnedTintClass: "bg-[#4A90D9]/10",
+      iconCircleClass: "bg-[#4A90D9]",
+    },
   },
   "early-adopter": {
     label: "OG Member",
     description: "You believed before everyone else did.",
-    Icon: Rocket,
+    Icon: Crown,
+    theme: {
+      borderLeftClass: "border-l-[#9B59B6]",
+      earnedTintClass: "bg-[#9B59B6]/10",
+      iconCircleClass: "bg-[#9B59B6]",
+    },
   },
   "document-ready": {
     label: "Deal Ready",
     description: "Prepared. Professional. Unstoppable.",
     Icon: Shield,
+    theme: {
+      borderLeftClass: "border-l-[#E67E22]",
+      earnedTintClass: "bg-[#E67E22]/10",
+      iconCircleClass: "bg-[#E67E22]",
+    },
   },
 };
+
+const KNOWN_BADGE_SLUGS = new Set<string>(BADGE_ORDER);
+
+function normalizeBadgeSlug(raw: string | null | undefined): BadgeSlug | null {
+  const t = (raw ?? "").trim();
+  return KNOWN_BADGE_SLUGS.has(t) ? (t as BadgeSlug) : null;
+}
 
 type FeedNotificationRow = {
   id: string;
@@ -168,6 +210,13 @@ type FeedUnion =
       notification: FeedNotificationRow;
     }
   | {
+      kind: "badge_earned";
+      sortAt: string;
+      badge_slug: BadgeSlug;
+      earned_at: string;
+      feedKey: string;
+    }
+  | {
       kind: "viewing_confirmed";
       sortAt: string;
       notification: FeedNotificationRow;
@@ -206,6 +255,7 @@ function filterFeedByPrefs(items: FeedUnion[], prefs: NotifPrefs): FeedUnion[] {
     if (item.kind === "saved_property") return true;
     if (item.kind === "price_drop_al") return prefs.price_drop;
     if (item.kind === "badge") return prefs.badge_earned;
+    if (item.kind === "badge_earned") return prefs.badge_earned;
     if (item.kind === "agent") return prefs.viewing_request_confirmed;
     if (item.kind === "viewing_confirmed") return prefs.viewing_request_confirmed;
     return true;
@@ -477,7 +527,19 @@ export function MobileClientDashboard() {
       return;
     }
     setLoading(true);
-    const uid = user.id;
+
+    const { data: authData, error: authErr } = await supabase.auth.getUser();
+    if (authErr) {
+      console.warn("[mobile-client-dashboard] auth.getUser() error", authErr);
+    }
+    const authUid = authData.user?.id ?? null;
+    const uid = authUid ?? user.id;
+    if (authUid && user.id && authUid !== user.id) {
+      console.warn("[mobile-client-dashboard] auth user id does not match context user.id; using auth session id for queries", {
+        authUserId: authUid,
+        contextUserId: user.id,
+      });
+    }
 
     const [
       profileRes,
@@ -491,7 +553,7 @@ export function MobileClientDashboard() {
       feedNotifRes,
     ] = await Promise.all([
       supabase.from("profiles").select("full_name, avatar_url, created_at, notification_preferences").eq("id", uid).maybeSingle(),
-      supabase.from("client_badges").select("badge_slug, earned_at").eq("client_id", uid),
+      supabase.from("client_badges").select("badge_slug, earned_at").eq("client_id", uid).order("earned_at", { ascending: false }),
       supabase.from("client_documents").select("id", { count: "exact", head: true }).eq("client_id", uid),
       supabase
         .from("saved_properties")
@@ -548,7 +610,7 @@ export function MobileClientDashboard() {
         .from("notifications")
         .select("id, created_at, type, title, body, metadata")
         .eq("user_id", uid)
-        .in("type", ["client_feed_price_drop", "client_feed_badge", "client_feed_viewing", "viewing_confirmed"])
+        .in("type", ["client_feed_price_drop", "client_feed_viewing", "viewing_confirmed"])
         .order("created_at", { ascending: false })
         .limit(120),
     ]);
@@ -565,10 +627,27 @@ export function MobileClientDashboard() {
       setMemberSinceIso(prow.created_at ?? null);
     }
 
-    const rawBadges = (badgesRes.data ?? []) as { badge_slug: string; earned_at: string }[];
-    setBadges(
-      rawBadges.filter((b): b is { badge_slug: BadgeSlug; earned_at: string } => b.badge_slug in BADGE_META),
-    );
+    if (badgesRes.error) {
+      console.error("[mobile-client-dashboard] client_badges query error", badgesRes.error);
+    }
+    const rawBadgeRows = (badgesRes.data ?? []) as { badge_slug: string; earned_at: string }[];
+    const normalizedBadges: { badge_slug: BadgeSlug; earned_at: string }[] = [];
+    for (const row of rawBadgeRows) {
+      const slug = normalizeBadgeSlug(row.badge_slug);
+      if (!slug) {
+        if ((row.badge_slug ?? "").trim()) {
+          console.warn("[mobile-client-dashboard] client_badges row ignored — unknown badge_slug", row.badge_slug);
+        }
+        continue;
+      }
+      normalizedBadges.push({ badge_slug: slug, earned_at: row.earned_at });
+    }
+    console.log("[mobile-client-dashboard] client_badges", {
+      clientId: uid,
+      rowCount: normalizedBadges.length,
+      rows: normalizedBadges,
+    });
+    setBadges(normalizedBadges);
 
     setDocCount(docsCountRes.count ?? 0);
 
@@ -699,9 +778,17 @@ export function MobileClientDashboard() {
           newPrice: metaStr(m, "new_price"),
           thumbUrl: thumb,
         });
-      } else if (n.type === "client_feed_badge") {
-        built.push({ kind: "badge", sortAt: n.created_at, notification: n });
       }
+    }
+
+    for (const b of normalizedBadges) {
+      built.push({
+        kind: "badge_earned",
+        sortAt: b.earned_at,
+        badge_slug: b.badge_slug,
+        earned_at: b.earned_at,
+        feedKey: `${b.badge_slug}-${b.earned_at}`,
+      });
     }
 
     const savedDataForFeed = (savedRes.data ?? []) as SavedJoinRow[];
@@ -1049,7 +1136,6 @@ export function MobileClientDashboard() {
             avatarUrl={avatarUrl}
             memberSinceIso={memberSinceIso}
             verified={docCount >= 1}
-            badges={badges}
             gridItems={profileGridItems}
             agentMeta={profileAgentMeta}
             likes={likes}
@@ -1123,13 +1209,15 @@ function AllFeedTab({
                 key={`${item.kind}-${item.sortAt}-${
                   item.kind === "saved_property"
                     ? item.saveKey
-                    : item.kind === "price_drop_al"
-                      ? item.id
-                      : item.kind === "viewing_confirmed"
-                        ? item.notification.id
-                        : "notification" in item
+                    : item.kind === "badge_earned"
+                      ? item.feedKey
+                      : item.kind === "price_drop_al"
+                        ? item.id
+                        : item.kind === "viewing_confirmed"
                           ? item.notification.id
-                          : item.likeKey
+                          : "notification" in item
+                            ? item.notification.id
+                            : item.likeKey
                 }`}
               >
                 {item.kind === "saved_property" ? (
@@ -1144,6 +1232,12 @@ function AllFeedTab({
                   <ViewingRequestMediumCard item={item} feedAgentMeta={feedAgentMeta} />
                 ) : item.kind === "price_drop_al" ? (
                   <PriceDropMediumCard item={item} />
+                ) : item.kind === "badge_earned" ? (
+                  <BadgeEarnedFeedCard
+                    badge_slug={item.badge_slug}
+                    earned_at={item.earned_at}
+                    onViewBadges={onViewBadges}
+                  />
                 ) : item.kind === "badge" ? (
                   <BadgeMediumCard n={item.notification} onViewBadges={onViewBadges} />
                 ) : item.kind === "viewing_confirmed" ? (
@@ -1322,11 +1416,27 @@ function BadgeMediumCard({
   const m = n.metadata ?? {};
   const badgeName = metaStr(m, "badge_name").trim() || n.title || "Badge";
   const desc = metaStr(m, "badge_description").trim() || (n.body ?? "").trim() || "You earned a new badge.";
+  const slug = normalizeBadgeSlug(metaStr(m, "badge_slug"));
+  const themed = slug ? BADGE_META[slug] : null;
+  const Icon = themed?.Icon ?? Star;
+  const theme = themed?.theme ?? {
+    borderLeftClass: "border-l-[#D4A843]",
+    earnedTintClass: "bg-[#D4A843]/10",
+    iconCircleClass: "bg-[#D4A843]",
+  };
 
   return (
-    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-center gap-3")}>
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#D4A843]">
-        <Star className="h-5 w-5 text-white" fill="currentColor" aria-hidden />
+    <article
+      className={cn(
+        FEED_CARD_CLASS,
+        FEED_CARD_PAD_MD,
+        "flex w-full items-center gap-3 border-l-[3px] border-solid",
+        theme.borderLeftClass,
+        theme.earnedTintClass,
+      )}
+    >
+      <div className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full text-white", theme.iconCircleClass)}>
+        <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-bold text-[#2C2C2C]">{badgeName}</p>
@@ -1334,6 +1444,55 @@ function BadgeMediumCard({
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <span className="text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(n.created_at)}</span>
+        <button
+          type="button"
+          onClick={onViewBadges}
+          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#E5E5E5] transition-all duration-200"
+        >
+          View badges
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function BadgeEarnedFeedCard({
+  badge_slug,
+  earned_at,
+  onViewBadges,
+}: {
+  badge_slug: BadgeSlug;
+  earned_at: string;
+  onViewBadges: () => void;
+}) {
+  const meta = BADGE_META[badge_slug];
+  const { Icon, theme } = meta;
+  const dateLabel = new Date(earned_at).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  return (
+    <article
+      className={cn(
+        FEED_CARD_CLASS,
+        FEED_CARD_PAD_MD,
+        "flex w-full items-center gap-3 border-l-[3px] border-solid",
+        theme.borderLeftClass,
+        theme.earnedTintClass,
+      )}
+    >
+      <div className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full text-white", theme.iconCircleClass)}>
+        <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-[#2C2C2C]">{meta.label}</p>
+        <p className="mt-0.5 text-sm text-[#6B6B6B]">{meta.description}</p>
+        <p className="mt-1 text-xs font-medium text-[#6B9E6E]">{dateLabel}</p>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <span className="text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(earned_at)}</span>
         <button
           type="button"
           onClick={onViewBadges}
@@ -1398,7 +1557,6 @@ function ProfileTab({
   avatarUrl,
   memberSinceIso,
   verified,
-  badges,
   gridItems,
   agentMeta,
   likes,
@@ -1408,7 +1566,6 @@ function ProfileTab({
   avatarUrl: string | null;
   memberSinceIso: string | null;
   verified: boolean;
-  badges: { badge_slug: BadgeSlug; earned_at: string }[];
   gridItems: { property: PropertyRow; saved: boolean; liked: boolean; sortKey: number }[];
   agentMeta: Record<
     string,
@@ -1418,7 +1575,6 @@ function ProfileTab({
   pins: LikePinApi;
 }) {
   const initial = fullName.trim().slice(0, 1).toUpperCase() || "?";
-  const [tipBadge, setTipBadge] = useState<BadgeSlug | null>(null);
 
   return (
     <div className="space-y-8">
@@ -1440,37 +1596,6 @@ function ProfileTab({
         <h2 className="mt-4 font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">{fullName.trim() || "Your profile"}</h2>
         {memberSinceIso ? (
           <p className="mt-1 text-xs font-medium text-[#6B6B6B]">{memberSince(memberSinceIso)}</p>
-        ) : null}
-
-        {badges.length > 0 ? (
-          <div className="relative mt-4 flex flex-wrap justify-center gap-2">
-            {badges.map((b) => {
-              const meta = BADGE_META[b.badge_slug];
-              if (!meta) return null;
-              const Icon = meta.Icon;
-              const open = tipBadge === b.badge_slug;
-              return (
-                <div key={b.badge_slug} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setTipBadge(open ? null : b.badge_slug)}
-                    className="relative grid h-9 w-9 place-items-center rounded-full bg-[#D4A843] text-white shadow-sm transition-all duration-200 active:scale-95"
-                    aria-label={meta.label}
-                  >
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={2.25} />
-                  </button>
-                  {open ? (
-                    <div
-                      role="tooltip"
-                      className="absolute left-1/2 top-full z-20 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#E5E5E5] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#2C2C2C] shadow-lg"
-                    >
-                      {meta.label}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
         ) : null}
       </div>
 
@@ -1590,14 +1715,24 @@ function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_at: str
         const earned = Boolean(earnedAt);
 
         if (earned) {
+          const Icon = meta.Icon;
           return (
             <article
               key={slug}
-              className="relative rounded-2xl border border-gray-100 border-l-[3px] border-solid border-l-[#D4A843] bg-[#D4A843]/50 p-4 shadow-sm"
+              className={cn(
+                "relative rounded-2xl border border-gray-100 border-l-[3px] border-solid p-4 shadow-sm",
+                meta.theme.borderLeftClass,
+                meta.theme.earnedTintClass,
+              )}
             >
               <div className="flex gap-4">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#D4A843]">
-                  <Star className="h-6 w-6 text-white" fill="currentColor" aria-hidden />
+                <div
+                  className={cn(
+                    "grid h-12 w-12 shrink-0 place-items-center rounded-full text-white",
+                    meta.theme.iconCircleClass,
+                  )}
+                >
+                  <Icon className="h-6 w-6" strokeWidth={2} aria-hidden />
                 </div>
                 <div className="min-w-0 flex-1 pr-2">
                   <p className="font-bold text-[#2C2C2C]">{meta.label}</p>
