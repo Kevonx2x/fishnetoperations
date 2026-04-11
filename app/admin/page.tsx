@@ -104,6 +104,17 @@ interface CoAgentRequestRow {
   agentName: string;
 }
 
+interface ApplicantRow {
+  id: string;
+  created_at: string;
+  first_name: string;
+  last_name: string;
+  age: number;
+  email: string;
+  notes: string | null;
+  status: string;
+}
+
 interface PropertyConnectedAgent {
   id: string;
   name: string;
@@ -171,6 +182,16 @@ const DOC_SUSPEND_REASONS = [
   "Other",
 ] as const;
 
+const APPLICANT_STATUSES = ["New", "Interviewed", "Hired", "Rejected"] as const;
+
+function applicantStatusPillClass(status: string): string {
+  if (status === "New") return "bg-gray-200 text-gray-800";
+  if (status === "Interviewed") return "bg-[#6B9E6E] text-white";
+  if (status === "Hired") return "bg-[#D4A843] text-white";
+  if (status === "Rejected") return "bg-red-600 text-white";
+  return "bg-gray-200 text-gray-800";
+}
+
 function formatVerificationErrorDetails(
   status: number,
   statusText: string,
@@ -196,7 +217,13 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
   const [adminSection, setAdminSection] = useState<
-    "leads" | "properties" | "verification" | "agents" | "users" | "coagent"
+    | "leads"
+    | "properties"
+    | "verification"
+    | "agents"
+    | "users"
+    | "coagent"
+    | "hiring"
   >("leads");
 
   const [properties, setProperties] = useState<Property[]>([]);
@@ -254,6 +281,26 @@ export default function AdminPage() {
   const [coAgentLoading, setCoAgentLoading] = useState(false);
   const [coAgentError, setCoAgentError] = useState("");
 
+  const [applicants, setApplicants] = useState<ApplicantRow[]>([]);
+  const [applicantsLoading, setApplicantsLoading] = useState(false);
+  const [applicantsError, setApplicantsError] = useState("");
+  const [addApplicantOpen, setAddApplicantOpen] = useState(false);
+  const [newApplicantForm, setNewApplicantForm] = useState({
+    first_name: "",
+    last_name: "",
+    age: "",
+    email: "",
+    notes: "",
+    status: "New",
+  });
+  const [addApplicantSaving, setAddApplicantSaving] = useState(false);
+  const [editingApplicantId, setEditingApplicantId] = useState<string | null>(null);
+  const [editApplicantDraft, setEditApplicantDraft] = useState({
+    status: "New",
+    notes: "",
+  });
+  const [editApplicantSaving, setEditApplicantSaving] = useState(false);
+
   const [manageAgentsProperty, setManageAgentsProperty] = useState<Property | null>(null);
   const [manageAgentsConnected, setManageAgentsConnected] = useState<PropertyConnectedAgent[]>([]);
   const [manageAgentsAvailable, setManageAgentsAvailable] = useState<PropertyAgentOption[]>([]);
@@ -269,6 +316,13 @@ export default function AdminPage() {
         (a.verification_status === "pending" || a.verification_status === "rejected"),
     );
   }, [allAgentsList]);
+
+  const hiringStats = useMemo(() => {
+    const total = applicants.length;
+    const interviewed = applicants.filter((a) => a.status === "Interviewed").length;
+    const hired = applicants.filter((a) => a.status === "Hired").length;
+    return { total, interviewed, hired };
+  }, [applicants]);
 
   const [resetPasswordAgent, setResetPasswordAgent] = useState<AllAgentRow | null>(null);
   const [resetPasswordValue, setResetPasswordValue] = useState("");
@@ -450,6 +504,126 @@ export default function AdminPage() {
       setCoAgentRequests([]);
     }
     setCoAgentLoading(false);
+  };
+
+  const fetchApplicants = async () => {
+    setApplicantsLoading(true);
+    setApplicantsError("");
+    try {
+      const res = await fetch("/api/admin/applicants", { credentials: "include" });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: ApplicantRow[];
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        setApplicantsError(json?.error?.message ?? `HTTP ${res.status}`);
+        setApplicants([]);
+        return;
+      }
+      if (json.success && Array.isArray(json.data)) setApplicants(json.data);
+      else setApplicants([]);
+    } catch (e) {
+      setApplicantsError(e instanceof Error ? e.message : "Failed to load applicants");
+      setApplicants([]);
+    }
+    setApplicantsLoading(false);
+  };
+
+  const submitNewApplicant = async () => {
+    const age = Number.parseInt(String(newApplicantForm.age).trim(), 10);
+    if (!newApplicantForm.first_name.trim() || !newApplicantForm.last_name.trim()) {
+      toast.error("First and last name are required");
+      return;
+    }
+    if (!Number.isFinite(age) || age < 0 || age > 120) {
+      toast.error("Enter a valid age (0–120)");
+      return;
+    }
+    const email = newApplicantForm.email.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Enter a valid email");
+      return;
+    }
+    setAddApplicantSaving(true);
+    try {
+      const res = await fetch("/api/admin/applicants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          first_name: newApplicantForm.first_name.trim(),
+          last_name: newApplicantForm.last_name.trim(),
+          age,
+          email,
+          notes: newApplicantForm.notes.trim() || null,
+          status: newApplicantForm.status,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        toast.error(json.error?.message ?? "Could not add applicant");
+        return;
+      }
+      toast.success("Applicant added");
+      setAddApplicantOpen(false);
+      setNewApplicantForm({
+        first_name: "",
+        last_name: "",
+        age: "",
+        email: "",
+        notes: "",
+        status: "New",
+      });
+      void fetchApplicants();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not add applicant");
+    } finally {
+      setAddApplicantSaving(false);
+    }
+  };
+
+  const startEditApplicant = (a: ApplicantRow) => {
+    setEditingApplicantId(a.id);
+    setEditApplicantDraft({ status: a.status, notes: a.notes ?? "" });
+  };
+
+  const cancelEditApplicant = () => {
+    setEditingApplicantId(null);
+  };
+
+  const saveEditApplicant = async () => {
+    if (!editingApplicantId) return;
+    setEditApplicantSaving(true);
+    try {
+      const res = await fetch(`/api/admin/applicants/${editingApplicantId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          status: editApplicantDraft.status,
+          notes: editApplicantDraft.notes.trim() ? editApplicantDraft.notes.trim() : null,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        toast.error(json.error?.message ?? "Update failed");
+        return;
+      }
+      toast.success("Applicant updated");
+      setEditingApplicantId(null);
+      void fetchApplicants();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setEditApplicantSaving(false);
+    }
   };
 
   const decideCoAgentRequest = async (id: string, decision: "approve" | "reject") => {
@@ -760,6 +934,7 @@ export default function AdminPage() {
         void fetchVerification();
         void fetchAllAgents();
         void fetchCoAgentRequests();
+        void fetchApplicants();
       });
     }
   }, [user?.id, profile?.role]);
@@ -779,6 +954,12 @@ export default function AdminPage() {
   useEffect(() => {
     if (user?.id && profile?.role === "admin" && adminSection === "agents") {
       void fetchAllAgents();
+    }
+  }, [user?.id, profile?.role, adminSection]);
+
+  useEffect(() => {
+    if (user?.id && profile?.role === "admin" && adminSection === "hiring") {
+      void fetchApplicants();
     }
   }, [user?.id, profile?.role, adminSection]);
 
@@ -1143,6 +1324,20 @@ export default function AdminPage() {
                 Co-Agent Requests
                 <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
                   {coAgentRequests.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminSection("hiring")}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                  adminSection === "hiring"
+                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+                }`}
+              >
+                Hiring
+                <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
+                  {applicants.length}
                 </span>
               </button>
             </div>
@@ -2164,7 +2359,288 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {adminSection === "hiring" && (
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-3 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Total Applied
+                  </p>
+                  <p className="mt-1 font-serif text-2xl font-bold text-[#2C2C2C]">{hiringStats.total}</p>
+                </div>
+                <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-3 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Interviewed
+                  </p>
+                  <p className="mt-1 font-serif text-2xl font-bold text-[#6B9E6E]">{hiringStats.interviewed}</p>
+                </div>
+                <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-3 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Hired</p>
+                  <p className="mt-1 font-serif text-2xl font-bold text-[#D4A843]">{hiringStats.hired}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAddApplicantOpen(true)}
+                  className="rounded-full bg-[#2C2C2C] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#6B9E6E]"
+                >
+                  Add Applicant
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void fetchApplicants()}
+                  className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] shadow-sm hover:bg-[#FAF8F4]"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            {applicantsError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {applicantsError}
+              </div>
+            ) : null}
+
+            <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+              {applicantsLoading ? (
+                <div className="p-10 text-center text-sm text-[#2C2C2C]/45">Loading applicants…</div>
+              ) : applicants.length === 0 ? (
+                <div className="p-10 text-center text-sm text-[#2C2C2C]/45">No applicants yet.</div>
+              ) : (
+                <table className="w-full">
+                  <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                    <tr className="text-left text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                      <th className="px-4 py-3">Name</th>
+                      <th className="px-4 py-3">Age</th>
+                      <th className="px-4 py-3">Email</th>
+                      <th className="px-4 py-3">Date Applied</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Notes</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2C2C2C]/5">
+                    {applicants.map((a) => {
+                      const isEditing = editingApplicantId === a.id;
+                      return (
+                        <tr key={a.id} className="align-top hover:bg-[#FAF8F4]/80">
+                          <td className="px-4 py-3 text-sm font-semibold text-[#2C2C2C]">
+                            {a.first_name} {a.last_name}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-[#2C2C2C]/80">{a.age}</td>
+                          <td className="px-4 py-3 text-sm text-[#2C2C2C]/75">{a.email}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-xs text-[#2C2C2C]/55">
+                            {new Date(a.created_at).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3">
+                            {isEditing ? (
+                              <select
+                                value={editApplicantDraft.status}
+                                onChange={(e) =>
+                                  setEditApplicantDraft((d) => ({ ...d, status: e.target.value }))
+                                }
+                                className="w-full min-w-[9rem] rounded-lg border border-[#2C2C2C]/10 bg-white px-2 py-1.5 text-xs font-semibold text-[#2C2C2C]"
+                              >
+                                {APPLICANT_STATUSES.map((s) => (
+                                  <option key={s} value={s}>
+                                    {s}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span
+                                className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${applicantStatusPillClass(a.status)}`}
+                              >
+                                {a.status}
+                              </span>
+                            )}
+                          </td>
+                          <td className="max-w-xs px-4 py-3 text-sm text-[#2C2C2C]/75">
+                            {isEditing ? (
+                              <textarea
+                                value={editApplicantDraft.notes}
+                                onChange={(e) =>
+                                  setEditApplicantDraft((d) => ({ ...d, notes: e.target.value }))
+                                }
+                                rows={3}
+                                className="w-full rounded-lg border border-[#2C2C2C]/10 px-2 py-1.5 text-xs text-[#2C2C2C]"
+                                placeholder="Notes"
+                              />
+                            ) : (
+                              <span className="line-clamp-3 whitespace-pre-wrap">
+                                {a.notes?.trim() ? a.notes : "—"}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {isEditing ? (
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  disabled={editApplicantSaving}
+                                  onClick={() => void saveEditApplicant()}
+                                  className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#5d8a60] disabled:opacity-50"
+                                >
+                                  {editApplicantSaving ? "Saving…" : "Save"}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={editApplicantSaving}
+                                  onClick={cancelEditApplicant}
+                                  className="rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] hover:bg-[#FAF8F4] disabled:opacity-50"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => startEditApplicant(a)}
+                                className="rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] hover:bg-[#FAF8F4]"
+                              >
+                                Edit
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {addApplicantOpen ? (
+        <div className="fixed inset-0 z-[105] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close"
+            onClick={() => !addApplicantSaving && setAddApplicantOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-add-applicant-title"
+            className="relative z-[106] max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2 id="admin-add-applicant-title" className="font-serif text-xl font-bold text-[#2C2C2C]">
+                Add applicant
+              </h2>
+              <button
+                type="button"
+                disabled={addApplicantSaving}
+                onClick={() => setAddApplicantOpen(false)}
+                className="rounded-full p-2 text-[#2C2C2C]/55 hover:bg-[#2C2C2C]/10 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  First name
+                  <input
+                    type="text"
+                    value={newApplicantForm.first_name}
+                    onChange={(e) =>
+                      setNewApplicantForm((f) => ({ ...f, first_name: e.target.value }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm text-[#2C2C2C]"
+                    autoComplete="given-name"
+                  />
+                </label>
+                <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Last name
+                  <input
+                    type="text"
+                    value={newApplicantForm.last_name}
+                    onChange={(e) =>
+                      setNewApplicantForm((f) => ({ ...f, last_name: e.target.value }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm text-[#2C2C2C]"
+                    autoComplete="family-name"
+                  />
+                </label>
+              </div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Age
+                <input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={newApplicantForm.age}
+                  onChange={(e) => setNewApplicantForm((f) => ({ ...f, age: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm text-[#2C2C2C]"
+                />
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Email
+                <input
+                  type="email"
+                  value={newApplicantForm.email}
+                  onChange={(e) => setNewApplicantForm((f) => ({ ...f, email: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm text-[#2C2C2C]"
+                  autoComplete="email"
+                />
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Notes
+                <textarea
+                  value={newApplicantForm.notes}
+                  onChange={(e) => setNewApplicantForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={3}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm text-[#2C2C2C]"
+                />
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Status
+                <select
+                  value={newApplicantForm.status}
+                  onChange={(e) =>
+                    setNewApplicantForm((f) => ({ ...f, status: e.target.value }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                >
+                  {APPLICANT_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={addApplicantSaving}
+                onClick={() => void submitNewApplicant()}
+                className="rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#5d8a60] disabled:opacity-50"
+              >
+                {addApplicantSaving ? "Saving…" : "Submit"}
+              </button>
+              <button
+                type="button"
+                disabled={addApplicantSaving}
+                onClick={() => setAddApplicantOpen(false)}
+                className="rounded-full border border-[#2C2C2C]/15 bg-white px-5 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#FAF8F4] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {manageAgentsProperty ? (
         <div className="fixed inset-0 z-[105] flex items-center justify-center p-4">
