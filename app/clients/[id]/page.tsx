@@ -26,7 +26,9 @@ import {
   type ClientPreferenceFields,
 } from "@/lib/client-profile-preferences";
 import { ClientMyDocumentsSidePanel } from "@/components/clients/client-my-documents-side-panel";
+import { MobileClientDashboard } from "@/components/client/mobile-client-dashboard";
 import { parseClientDocRequestParams } from "@/components/settings/client-documents-panel";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
@@ -185,6 +187,7 @@ export default function ClientPublicProfilePage() {
   const clientId = rawId;
   const isOwn = Boolean(user?.id && user.id === clientId);
   const isAdmin = profile?.role === "admin";
+  const isMobile = useIsMobile();
 
   const likes = usePropertyLikes();
   const pins = usePinnedPropertyIds();
@@ -737,6 +740,15 @@ export default function ClientPublicProfilePage() {
 
   if (!profileLoading && !clientProfile) {
     notFound();
+  }
+
+  if (
+    clientProfile &&
+    isOwn &&
+    profile?.role === "client" &&
+    isMobile
+  ) {
+    return <MobileClientDashboard />;
   }
 
   const displayName = clientProfile?.full_name?.trim() || "Member";
