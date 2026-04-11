@@ -12,8 +12,8 @@ import {
   Heart,
   Home,
   LayoutGrid,
+  Lock,
   MapPin,
-  MessageCircle,
   Pin,
   Rocket,
   Shield,
@@ -35,7 +35,7 @@ const FEED_CARD_CLASS =
 const FEED_CARD_PAD_SM = "p-3";
 const FEED_CARD_PAD_MD = "p-4";
 
-type MainTab = "all" | "profile" | "saved" | "pins" | "documents";
+type MainTab = "all" | "profile" | "saved" | "badges" | "documents";
 
 type PropertyPhoto = { url: string; sort_order: number | null };
 
@@ -77,33 +77,49 @@ type SharedDocRow = {
 
 type BadgeSlug = "first-save" | "smart-shopper" | "active-hunter" | "early-adopter" | "document-ready";
 
+const BADGE_ORDER: BadgeSlug[] = [
+  "first-save",
+  "smart-shopper",
+  "active-hunter",
+  "early-adopter",
+  "document-ready",
+];
+
+const BADGE_UNLOCK_PILL: Record<BadgeSlug, string> = {
+  "first-save": "Save 1 property",
+  "smart-shopper": "Save 5 properties",
+  "active-hunter": "Request 3 viewings",
+  "early-adopter": "Join before 2027",
+  "document-ready": "Upload 3 documents",
+};
+
 const BADGE_META: Record<
   BadgeSlug,
   { label: string; description: string; Icon: typeof Bookmark }
 > = {
   "first-save": {
-    label: "First Save",
-    description: "You saved your first property.",
+    label: "First Step",
+    description: "The journey to your dream home starts here.",
     Icon: Bookmark,
   },
   "smart-shopper": {
-    label: "Smart Shopper",
-    description: "You saved 5 or more listings.",
+    label: "Sharp Eye",
+    description: "You know exactly what you are looking for.",
     Icon: ShoppingBag,
   },
   "active-hunter": {
-    label: "Active Hunter",
-    description: "You booked 3 viewing requests.",
+    label: "Serious Buyer",
+    description: "Actions speak louder than wishlists.",
     Icon: Calendar,
   },
   "early-adopter": {
-    label: "Early Adopter",
-    description: "Thanks for joining BahayGo early.",
+    label: "OG Member",
+    description: "You believed before everyone else did.",
     Icon: Rocket,
   },
   "document-ready": {
-    label: "Document Ready",
-    description: "You uploaded 3 documents.",
+    label: "Deal Ready",
+    description: "Prepared. Professional. Unstoppable.",
     Icon: Shield,
   },
 };
@@ -118,6 +134,13 @@ type FeedNotificationRow = {
 };
 
 type FeedUnion =
+  | {
+      kind: "saved_property";
+      sortAt: string;
+      property: PropertyRow;
+      created_at: string;
+      saveKey: string;
+    }
   | {
       kind: "agent";
       sortAt: string;
@@ -141,6 +164,11 @@ type FeedUnion =
     }
   | {
       kind: "badge";
+      sortAt: string;
+      notification: FeedNotificationRow;
+    }
+  | {
+      kind: "viewing_confirmed";
       sortAt: string;
       notification: FeedNotificationRow;
     }
@@ -175,9 +203,11 @@ function parseNotifPrefs(raw: unknown): NotifPrefs {
 
 function filterFeedByPrefs(items: FeedUnion[], prefs: NotifPrefs): FeedUnion[] {
   return items.filter((item) => {
+    if (item.kind === "saved_property") return true;
     if (item.kind === "price_drop_al") return prefs.price_drop;
     if (item.kind === "badge") return prefs.badge_earned;
     if (item.kind === "agent") return prefs.viewing_request_confirmed;
+    if (item.kind === "viewing_confirmed") return prefs.viewing_request_confirmed;
     return true;
   });
 }
@@ -253,34 +283,6 @@ type LikePinApi = {
   toggle: (id: string) => Promise<boolean>;
 };
 
-function FeedAgentRow({
-  propertyId,
-  feedAgentMeta,
-}: {
-  propertyId: string;
-  feedAgentMeta: Record<
-    string,
-    { agentName: string; agentAvatarUrl: string | null; agentId?: string | null }
-  >;
-}) {
-  const a = feedAgentMeta[propertyId];
-  if (!a) return null;
-  return (
-    <div className="mb-3 flex items-center gap-2">
-      <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[#E5E5E5]/60">
-        {a.agentAvatarUrl ? (
-          <Image src={a.agentAvatarUrl} alt="" fill className="object-cover" sizes="28px" unoptimized />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/40 text-[10px] font-bold text-white">
-            {a.agentName.slice(0, 1).toUpperCase()}
-          </div>
-        )}
-      </div>
-      <span className="text-sm font-medium text-[#2C2C2C]">{a.agentName}</span>
-    </div>
-  );
-}
-
 function FeedPhotoOverlay({
   propertyId,
   href,
@@ -288,6 +290,7 @@ function FeedPhotoOverlay({
   priceDisplay,
   likes,
   pins,
+  showPinButton = true,
 }: {
   propertyId: string;
   href: string;
@@ -295,6 +298,7 @@ function FeedPhotoOverlay({
   priceDisplay: string;
   likes: LikePinApi;
   pins: LikePinApi;
+  showPinButton?: boolean;
 }) {
   const isLiked = likes.has(propertyId);
   const isPinned = pins.has(propertyId);
@@ -327,26 +331,28 @@ function FeedPhotoOverlay({
               )}
             />
           </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              void pins.toggle(propertyId);
-            }}
-            className={cn(
-              "inline-flex rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
-              isPinned ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
-            )}
-            aria-label="Save"
-          >
-            <Pin
+          {showPinButton ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void pins.toggle(propertyId);
+              }}
               className={cn(
-                "h-3.5 w-3.5 shrink-0",
-                isPinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
+                "inline-flex rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+                isPinned ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
               )}
-            />
-          </button>
+              aria-label="Save"
+            >
+              <Pin
+                className={cn(
+                  "h-3.5 w-3.5 shrink-0",
+                  isPinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
+                )}
+              />
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
@@ -444,8 +450,7 @@ export function MobileClientDashboard() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [memberSinceIso, setMemberSinceIso] = useState<string | null>(null);
   const [docCount, setDocCount] = useState(0);
-  const [badges, setBadges] = useState<{ badge_slug: BadgeSlug }[]>([]);
-  const [openBadge, setOpenBadge] = useState<BadgeSlug | null>(null);
+  const [badges, setBadges] = useState<{ badge_slug: BadgeSlug; earned_at: string }[]>([]);
   const [savedRows, setSavedRows] = useState<SavedJoinRow[]>([]);
   const [likeRows, setLikeRows] = useState<LikeJoinRow[]>([]);
   const [ownDocs, setOwnDocs] = useState<ClientDocRow[]>([]);
@@ -486,7 +491,7 @@ export function MobileClientDashboard() {
       feedNotifRes,
     ] = await Promise.all([
       supabase.from("profiles").select("full_name, avatar_url, created_at, notification_preferences").eq("id", uid).maybeSingle(),
-      supabase.from("client_badges").select("badge_slug").eq("client_id", uid),
+      supabase.from("client_badges").select("badge_slug, earned_at").eq("client_id", uid),
       supabase.from("client_documents").select("id", { count: "exact", head: true }).eq("client_id", uid),
       supabase
         .from("saved_properties")
@@ -543,7 +548,7 @@ export function MobileClientDashboard() {
         .from("notifications")
         .select("id, created_at, type, title, body, metadata")
         .eq("user_id", uid)
-        .in("type", ["client_feed_price_drop", "client_feed_badge", "client_feed_viewing"])
+        .in("type", ["client_feed_price_drop", "client_feed_badge", "client_feed_viewing", "viewing_confirmed"])
         .order("created_at", { ascending: false })
         .limit(120),
     ]);
@@ -560,9 +565,9 @@ export function MobileClientDashboard() {
       setMemberSinceIso(prow.created_at ?? null);
     }
 
-    const rawBadges = (badgesRes.data ?? []) as { badge_slug: string }[];
+    const rawBadges = (badgesRes.data ?? []) as { badge_slug: string; earned_at: string }[];
     setBadges(
-      rawBadges.filter((b): b is { badge_slug: BadgeSlug } => b.badge_slug in BADGE_META),
+      rawBadges.filter((b): b is { badge_slug: BadgeSlug; earned_at: string } => b.badge_slug in BADGE_META),
     );
 
     setDocCount(docsCountRes.count ?? 0);
@@ -647,6 +652,10 @@ export function MobileClientDashboard() {
     const built: FeedUnion[] = [];
 
     for (const n of feedRows) {
+      if (n.type === "viewing_confirmed") {
+        built.push({ kind: "viewing_confirmed", sortAt: n.created_at, notification: n });
+        continue;
+      }
       const m = n.metadata ?? {};
       if (n.type === "client_feed_viewing") {
         const aid = typeof m.agent_user_id === "string" ? m.agent_user_id : "";
@@ -693,6 +702,19 @@ export function MobileClientDashboard() {
       } else if (n.type === "client_feed_badge") {
         built.push({ kind: "badge", sortAt: n.created_at, notification: n });
       }
+    }
+
+    const savedDataForFeed = (savedRes.data ?? []) as SavedJoinRow[];
+    for (const r of savedDataForFeed) {
+      const p = oneProperty(r.properties);
+      if (!p?.id) continue;
+      built.push({
+        kind: "saved_property",
+        sortAt: r.created_at,
+        property: p,
+        created_at: r.created_at,
+        saveKey: `${p.id}-${r.created_at}`,
+      });
     }
 
     const likeData = (likesRes.data ?? []) as {
@@ -760,6 +782,8 @@ export function MobileClientDashboard() {
         if (item.propertyId) feedPropIds.add(item.propertyId);
       } else if (item.kind === "price_drop_al") {
         feedPropIds.add(item.propertyId);
+      } else if (item.kind === "saved_property") {
+        feedPropIds.add(item.property.id);
       } else if (item.kind === "pin_activity") {
         feedPropIds.add(item.property.id);
       }
@@ -860,10 +884,6 @@ export function MobileClientDashboard() {
     void loadAll();
   }, [loadAll]);
 
-  useEffect(() => {
-    setOpenBadge(null);
-  }, [mainTab]);
-
   const profileGridItems = useMemo(() => {
     const map = new Map<
       string,
@@ -913,7 +933,13 @@ export function MobileClientDashboard() {
     for (const item of feedItems) {
       groups[bucketForDate(item.sortAt)].push(item);
     }
-    return order.filter((k) => groups[k].length > 0).map((k) => ({ bucket: k, label: BUCKET_LABEL[k], items: groups[k] }));
+    return order
+      .filter((k) => groups[k].length > 0)
+      .map((k) => ({
+        bucket: k,
+        label: BUCKET_LABEL[k],
+        items: [...groups[k]].sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime()),
+      }));
   }, [feedItems]);
 
   const openOwnDocument = async (file_url: string) => {
@@ -980,7 +1006,7 @@ export function MobileClientDashboard() {
               ["all", "All", LayoutGrid],
               ["profile", "Profile", User],
               ["saved", "Saved", Heart],
-              ["pins", "Pins", Pin],
+              ["badges", "Badges", Star],
               ["documents", "Documents", FileText],
             ] as const
           ).map(([id, label, Icon]) => (
@@ -1015,7 +1041,7 @@ export function MobileClientDashboard() {
             feedAgentMeta={feedAgentMeta}
             likes={likes}
             pins={pins}
-            onViewBadges={() => setMainTab("profile")}
+            onViewBadges={() => setMainTab("badges")}
           />
         ) : mainTab === "profile" ? (
           <ProfileTab
@@ -1024,17 +1050,15 @@ export function MobileClientDashboard() {
             memberSinceIso={memberSinceIso}
             verified={docCount >= 1}
             badges={badges}
-            openBadge={openBadge}
-            setOpenBadge={setOpenBadge}
             gridItems={profileGridItems}
             agentMeta={profileAgentMeta}
             likes={likes}
             pins={pins}
           />
         ) : mainTab === "saved" ? (
-          <SavedPinsTab mode="saved" savedRows={savedRows} likeRows={likeRows} />
-        ) : mainTab === "pins" ? (
-          <SavedPinsTab mode="pins" savedRows={savedRows} likeRows={likeRows} />
+          <SavedPinsTab savedRows={savedRows} />
+        ) : mainTab === "badges" ? (
+          <BadgesTab badges={badges} />
         ) : (
           <DocumentsTab
             ownDocs={ownDocs}
@@ -1097,26 +1121,38 @@ function AllFeedTab({
             {items.map((item) => (
               <li
                 key={`${item.kind}-${item.sortAt}-${
-                  item.kind === "price_drop_al"
-                    ? item.id
-                    : "notification" in item
-                      ? item.notification.id
-                      : item.likeKey
+                  item.kind === "saved_property"
+                    ? item.saveKey
+                    : item.kind === "price_drop_al"
+                      ? item.id
+                      : item.kind === "viewing_confirmed"
+                        ? item.notification.id
+                        : "notification" in item
+                          ? item.notification.id
+                          : item.likeKey
                 }`}
               >
-                {item.kind === "agent" ? (
-                  <AgentActivityCard item={item} feedAgentMeta={feedAgentMeta} likes={likes} pins={pins} />
-                ) : item.kind === "price_drop_al" ? (
-                  <PriceDropCompactActivityCard item={item} />
-                ) : item.kind === "badge" ? (
-                  <BadgeCompactCard n={item.notification} onViewBadges={onViewBadges} />
-                ) : (
-                  <PinActivityCard
+                {item.kind === "saved_property" ? (
+                  <SavedPropertyBigCard
                     property={item.property}
                     createdAt={item.created_at}
                     feedAgentMeta={feedAgentMeta}
                     likes={likes}
                     pins={pins}
+                  />
+                ) : item.kind === "agent" ? (
+                  <ViewingRequestMediumCard item={item} feedAgentMeta={feedAgentMeta} />
+                ) : item.kind === "price_drop_al" ? (
+                  <PriceDropMediumCard item={item} />
+                ) : item.kind === "badge" ? (
+                  <BadgeMediumCard n={item.notification} onViewBadges={onViewBadges} />
+                ) : item.kind === "viewing_confirmed" ? (
+                  <ViewingConfirmedSmallCard n={item.notification} />
+                ) : (
+                  <ListingLikeSmallCard
+                    property={item.property}
+                    createdAt={item.created_at}
+                    feedAgentMeta={feedAgentMeta}
                   />
                 )}
               </li>
@@ -1128,133 +1164,7 @@ function AllFeedTab({
   );
 }
 
-function AgentActivityCard({
-  item,
-  feedAgentMeta,
-  likes,
-  pins,
-}: {
-  item: Extract<FeedUnion, { kind: "agent" }>;
-  feedAgentMeta: Record<
-    string,
-    { agentName: string; agentAvatarUrl: string | null; agentId?: string | null }
-  >;
-  likes: LikePinApi;
-  pins: LikePinApi;
-}) {
-  const n = item.notification;
-  const m = n.metadata ?? {};
-  const propName =
-    metaStr(m, "property_name").trim() ||
-    item.property?.name?.trim() ||
-    item.property?.location ||
-    "Property";
-  const actionText = (n.title ?? n.body ?? "Viewing activity").trim();
-  const waHref = item.agentPhone ? `https://wa.me/${item.agentPhone}` : null;
-  const propertyHrefId = metaStr(m, "property_id").trim() || item.property?.id || "";
-  const HeaderIcon = item.showSavedPill ? Heart : Calendar;
-
-  return (
-    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD)}>
-      {propertyHrefId ? <FeedAgentRow propertyId={propertyHrefId} feedAgentMeta={feedAgentMeta} /> : null}
-      <div className="flex gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
-          <HeaderIcon className="h-5 w-5 text-[#6B9E6E]" aria-hidden />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="font-bold text-[#2C2C2C]">{actionText}</p>
-          <p className="text-sm text-[#6B6B6B]">{propName}</p>
-        </div>
-        <span className="shrink-0 self-start text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(n.created_at)}</span>
-      </div>
-      {waHref ? (
-        <a
-          href={waHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#25D366]"
-        >
-          <MessageCircle className="h-4 w-4" aria-hidden />
-          WhatsApp
-        </a>
-      ) : null}
-      {item.imageUrl && propertyHrefId ? (
-        <FeedPhotoOverlay
-          propertyId={propertyHrefId}
-          href={`/properties/${propertyHrefId}`}
-          imageSrc={item.imageUrl}
-          priceDisplay={item.priceDisplay}
-          likes={likes}
-          pins={pins}
-        />
-      ) : null}
-    </article>
-  );
-}
-
-function PriceDropCompactActivityCard({ item }: { item: Extract<FeedUnion, { kind: "price_drop_al" }> }) {
-  const newPriceDisplay = formatPropertyPriceDisplay(item.newPrice);
-  return (
-    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_SM, "flex items-center gap-3")}>
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
-        <Tag className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="font-bold text-[#2C2C2C]">{item.propertyName}</p>
-        <p className="mt-0.5 text-sm">
-          <span className="text-[#6B6B6B] line-through">{formatPropertyPriceDisplay(item.oldPrice)}</span>
-          <span className="mx-1.5 text-[#6B6B6B]">→</span>
-          <span className="text-base font-bold text-[#6B9E6E]">{newPriceDisplay}</span>
-        </p>
-      </div>
-      <span className="shrink-0 self-start text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(item.sortAt)}</span>
-      {item.thumbUrl ? (
-        <Link
-          href={`/properties/${item.propertyId}`}
-          className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[#E5E5E5]/40"
-        >
-          <Image src={item.thumbUrl} alt="" fill className="object-cover" sizes="56px" unoptimized />
-        </Link>
-      ) : null}
-    </article>
-  );
-}
-
-function BadgeCompactCard({
-  n,
-  onViewBadges,
-}: {
-  n: FeedNotificationRow;
-  onViewBadges: () => void;
-}) {
-  const m = n.metadata ?? {};
-  const badgeName = metaStr(m, "badge_name").trim() || n.title || "Badge";
-  const desc = metaStr(m, "badge_description").trim() || (n.body ?? "").trim() || "You earned a new badge.";
-
-  return (
-    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_SM, "flex items-start gap-3")}>
-      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#D4A843]">
-        <Star className="h-4 w-4 text-white" fill="currentColor" aria-hidden />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold text-[#2C2C2C]">{badgeName}</p>
-        <p className="mt-0.5 line-clamp-3 text-sm text-[#6B6B6B]">{desc}</p>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(n.created_at)}</span>
-        <button
-          type="button"
-          onClick={onViewBadges}
-          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#E5E5E5] transition-all duration-200"
-        >
-          View badges
-        </button>
-      </div>
-    </article>
-  );
-}
-
-function PinActivityCard({
+function SavedPropertyBigCard({
   property,
   createdAt,
   feedAgentMeta,
@@ -1282,11 +1192,11 @@ function PinActivityCard({
   return (
     <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD)}>
       <PinSaveFeedCardHeader
-        beforePostedBy="You pinned this listing"
+        beforePostedBy="You saved this listing"
         createdAt={createdAt}
         agent={agent}
         locationLine={property.location ?? ""}
-        headerBadgeKind="pin"
+        headerBadgeKind="heart"
       />
       {img && pid ? (
         <FeedPhotoOverlay
@@ -1296,6 +1206,7 @@ function PinActivityCard({
           priceDisplay={price}
           likes={likes}
           pins={pins}
+          showPinButton={false}
         />
       ) : null}
       {pid ? (
@@ -1315,14 +1226,179 @@ function PinActivityCard({
   );
 }
 
+function ViewingRequestMediumCard({
+  item,
+  feedAgentMeta,
+}: {
+  item: Extract<FeedUnion, { kind: "agent" }>;
+  feedAgentMeta: Record<
+    string,
+    { agentName: string; agentAvatarUrl: string | null; agentId?: string | null }
+  >;
+}) {
+  const n = item.notification;
+  const m = n.metadata ?? {};
+  const propName =
+    metaStr(m, "property_name").trim() ||
+    item.property?.name?.trim() ||
+    item.property?.location ||
+    "Property";
+  const actionText = (n.title ?? n.body ?? "Viewing activity").trim();
+  const propertyHrefId = metaStr(m, "property_id").trim() || item.property?.id || "";
+  const agentLine = propertyHrefId ? feedAgentMeta[propertyHrefId]?.agentName?.trim() : "";
+  const waHref = item.agentPhone ? `https://wa.me/${item.agentPhone}` : null;
+
+  return (
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-start gap-3")}>
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
+        <Calendar className="h-5 w-5 text-[#6B9E6E]" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold leading-snug text-[#2C2C2C]">{actionText}</p>
+        <p className="mt-0.5 text-sm text-[#6B6B6B]">{propName}</p>
+        {agentLine ? <p className="mt-1 text-xs font-medium text-[#6B6B6B]">{agentLine}</p> : null}
+        {waHref ? (
+          <a
+            href={waHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#25D366]"
+          >
+            WhatsApp
+          </a>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <span className="text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(n.created_at)}</span>
+        {propertyHrefId ? (
+          <Link
+            href={`/properties/${propertyHrefId}`}
+            className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#E5E5E5]"
+          >
+            View
+          </Link>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function PriceDropMediumCard({ item }: { item: Extract<FeedUnion, { kind: "price_drop_al" }> }) {
+  const newPriceDisplay = formatPropertyPriceDisplay(item.newPrice);
+  return (
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-center gap-3")}>
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
+        <Tag className="h-5 w-5 text-[#6B9E6E]" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-[#2C2C2C]">Price drop</p>
+        <p className="mt-0.5 font-semibold text-[#2C2C2C]">{item.propertyName}</p>
+        <p className="mt-1 text-sm text-[#6B6B6B]">
+          <span className="line-through">{formatPropertyPriceDisplay(item.oldPrice)}</span>
+          <span className="mx-1.5">→</span>
+          <span className="font-bold text-[#6B9E6E]">{newPriceDisplay}</span>
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <span className="text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(item.sortAt)}</span>
+        <Link
+          href={`/properties/${item.propertyId}`}
+          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#E5E5E5] transition-all duration-200"
+        >
+          View
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function BadgeMediumCard({
+  n,
+  onViewBadges,
+}: {
+  n: FeedNotificationRow;
+  onViewBadges: () => void;
+}) {
+  const m = n.metadata ?? {};
+  const badgeName = metaStr(m, "badge_name").trim() || n.title || "Badge";
+  const desc = metaStr(m, "badge_description").trim() || (n.body ?? "").trim() || "You earned a new badge.";
+
+  return (
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-center gap-3")}>
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#D4A843]">
+        <Star className="h-5 w-5 text-white" fill="currentColor" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-[#2C2C2C]">{badgeName}</p>
+        <p className="mt-0.5 text-sm text-[#6B6B6B]">{desc}</p>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <span className="text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(n.created_at)}</span>
+        <button
+          type="button"
+          onClick={onViewBadges}
+          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#E5E5E5] transition-all duration-200"
+        >
+          View badges
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function ViewingConfirmedSmallCard({ n }: { n: FeedNotificationRow }) {
+  const title = (n.title ?? "Viewing confirmed").trim();
+  const body = (n.body ?? "").trim();
+  return (
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_SM, "flex items-start gap-3")}>
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/15">
+        <Calendar className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-[#2C2C2C]">{title}</p>
+        {body ? <p className="mt-0.5 text-sm text-[#6B6B6B]">{body}</p> : null}
+      </div>
+      <span className="shrink-0 text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(n.created_at)}</span>
+    </article>
+  );
+}
+
+function ListingLikeSmallCard({
+  property,
+  createdAt,
+  feedAgentMeta,
+}: {
+  property: PropertyRow;
+  createdAt: string;
+  feedAgentMeta: Record<
+    string,
+    { agentName: string; agentAvatarUrl: string | null; agentId: string | null }
+  >;
+}) {
+  const title = property.name?.trim() || property.location || "Listing";
+  const ag = feedAgentMeta[property.id];
+
+  return (
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_SM, "flex items-center gap-3")}>
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#E5E5E5]/80">
+        <Home className="h-4 w-4 text-[#6B6B6B]" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold text-[#2C2C2C]">Listing updated</p>
+        <p className="text-sm text-[#6B6B6B]">{title}</p>
+        {ag?.agentName ? <p className="mt-0.5 text-xs text-[#6B6B6B]">{ag.agentName}</p> : null}
+      </div>
+      <span className="shrink-0 text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(createdAt)}</span>
+    </article>
+  );
+}
+
 function ProfileTab({
   fullName,
   avatarUrl,
   memberSinceIso,
   verified,
   badges,
-  openBadge,
-  setOpenBadge,
   gridItems,
   agentMeta,
   likes,
@@ -1332,9 +1408,7 @@ function ProfileTab({
   avatarUrl: string | null;
   memberSinceIso: string | null;
   verified: boolean;
-  badges: { badge_slug: BadgeSlug }[];
-  openBadge: BadgeSlug | null;
-  setOpenBadge: (s: BadgeSlug | null) => void;
+  badges: { badge_slug: BadgeSlug; earned_at: string }[];
   gridItems: { property: PropertyRow; saved: boolean; liked: boolean; sortKey: number }[];
   agentMeta: Record<
     string,
@@ -1344,6 +1418,7 @@ function ProfileTab({
   pins: LikePinApi;
 }) {
   const initial = fullName.trim().slice(0, 1).toUpperCase() || "?";
+  const [tipBadge, setTipBadge] = useState<BadgeSlug | null>(null);
 
   return (
     <div className="space-y-8">
@@ -1368,26 +1443,28 @@ function ProfileTab({
         ) : null}
 
         {badges.length > 0 ? (
-          <div className="relative mt-5 flex flex-wrap justify-center gap-3">
+          <div className="relative mt-4 flex flex-wrap justify-center gap-2">
             {badges.map((b) => {
               const meta = BADGE_META[b.badge_slug];
               if (!meta) return null;
               const Icon = meta.Icon;
-              const open = openBadge === b.badge_slug;
+              const open = tipBadge === b.badge_slug;
               return (
                 <div key={b.badge_slug} className="relative">
                   <button
                     type="button"
-                    onClick={() => setOpenBadge(open ? null : b.badge_slug)}
-                    className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-[#D4A843] to-[#b8922e] text-white shadow-lg ring-2 ring-[#D4A843]/40 transition-all duration-200 active:scale-95"
+                    onClick={() => setTipBadge(open ? null : b.badge_slug)}
+                    className="relative grid h-9 w-9 place-items-center rounded-full bg-[#D4A843] text-white shadow-sm transition-all duration-200 active:scale-95"
                     aria-label={meta.label}
                   >
-                    <Icon className="h-5 w-5" strokeWidth={2} />
+                    <Icon className="h-[18px] w-[18px]" strokeWidth={2.25} />
                   </button>
                   {open ? (
-                    <div className="absolute left-1/2 top-full z-20 mt-2 w-56 -translate-x-1/2 rounded-xl border border-[#E5E5E5] bg-white p-3 text-left shadow-xl">
-                      <p className="font-semibold text-[#2C2C2C]">{meta.label}</p>
-                      <p className="mt-1 text-xs text-[#6B6B6B]">{meta.description}</p>
+                    <div
+                      role="tooltip"
+                      className="absolute left-1/2 top-full z-20 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#E5E5E5] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#2C2C2C] shadow-lg"
+                    >
+                      {meta.label}
                     </div>
                   ) : null}
                 </div>
@@ -1498,39 +1575,92 @@ function ProfilePropertyFeedCard({
   );
 }
 
-function SavedPinsTab({
-  mode,
-  savedRows,
-  likeRows,
-}: {
-  mode: "saved" | "pins";
-  savedRows: SavedJoinRow[];
-  likeRows: LikeJoinRow[];
-}) {
-  const rows = mode === "saved" ? savedRows : likeRows;
-  const empty =
-    mode === "saved" ? "No saved listings yet." : "No liked listings yet. Heart properties you love.";
-  const Icon = mode === "saved" ? Bookmark : Heart;
+function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_at: string }[] }) {
+  const earnedMap = useMemo(() => {
+    const m = new Map<BadgeSlug, string>();
+    for (const b of badges) m.set(b.badge_slug, b.earned_at);
+    return m;
+  }, [badges]);
 
-  if (rows.length === 0) {
+  return (
+    <div className="flex flex-col gap-3">
+      {BADGE_ORDER.map((slug) => {
+        const meta = BADGE_META[slug];
+        const earnedAt = earnedMap.get(slug);
+        const earned = Boolean(earnedAt);
+
+        if (earned) {
+          return (
+            <article
+              key={slug}
+              className="relative rounded-2xl border border-gray-100 border-l-[3px] border-solid border-l-[#D4A843] bg-[#D4A843]/50 p-4 shadow-sm"
+            >
+              <div className="flex gap-4">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#D4A843]">
+                  <Star className="h-6 w-6 text-white" fill="currentColor" aria-hidden />
+                </div>
+                <div className="min-w-0 flex-1 pr-2">
+                  <p className="font-bold text-[#2C2C2C]">{meta.label}</p>
+                  <p className="mt-1 text-sm text-[#6B6B6B]">{meta.description}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-right text-xs font-medium text-[#6B9E6E]">
+                {earnedAt
+                  ? new Date(earnedAt).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })
+                  : ""}
+              </p>
+            </article>
+          );
+        }
+
+        return (
+          <article
+            key={slug}
+            className="relative rounded-2xl border border-gray-100 border-l-[3px] border-l-gray-400 bg-white p-4 shadow-sm [border-left-style:dashed]"
+          >
+            <div className="flex gap-4">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gray-200/80">
+                <Lock className="h-5 w-5 text-gray-500" aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-gray-500">{meta.label}</p>
+                <p className="mt-1 text-sm italic text-gray-500">{meta.description}</p>
+                <span className="mt-3 inline-block rounded-full bg-[#6B9E6E]/15 px-3 py-1 text-xs font-semibold text-[#6B9E6E]">
+                  {BADGE_UNLOCK_PILL[slug]}
+                </span>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function SavedPinsTab({ savedRows }: { savedRows: SavedJoinRow[] }) {
+  if (savedRows.length === 0) {
     return (
       <EmptyState
-        icon={Icon}
-        title={mode === "saved" ? "No saved properties yet" : "No pins yet"}
-        subtitle={empty}
+        icon={Bookmark}
+        title="No saved properties yet"
+        subtitle="No saved listings yet."
       />
     );
   }
 
   return (
     <div className="space-y-4">
-      {rows.map((r) => {
+      {savedRows.map((r) => {
         const p = oneProperty(r.properties);
         if (!p) return null;
         const img = pickPropertyImage(p);
         return (
           <Link
-            key={`${mode}-${r.created_at}-${p.id}`}
+            key={`saved-${r.created_at}-${p.id}`}
             href={`/properties/${p.id}`}
             className="relative block overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-[#E5E5E5] transition-all duration-200"
           >
@@ -1539,11 +1669,7 @@ function SavedPinsTab({
                 <Image src={img} alt="" fill className="object-cover" sizes="100vw" unoptimized />
               ) : null}
               <div className="absolute right-3 top-3">
-                {mode === "saved" ? (
-                  <Bookmark className="h-7 w-7 fill-[#D4A843] text-[#D4A843]" aria-hidden />
-                ) : (
-                  <Heart className="h-7 w-7 fill-[#6B9E6E] text-[#6B9E6E]" aria-hidden />
-                )}
+                <Bookmark className="h-7 w-7 fill-[#D4A843] text-[#D4A843]" aria-hidden />
               </div>
             </div>
             <div className="p-4">

@@ -203,7 +203,6 @@ export function MaddenTopNav() {
   const accountRef = useRef<HTMLDivElement | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifUnread, setNotifUnread] = useState(0);
-  const [clientDocUnread, setClientDocUnread] = useState(0);
 
   useEffect(() => {
     if (!user?.id) {
@@ -239,7 +238,6 @@ export function MaddenTopNav() {
   const refreshNotificationCounts = useCallback(async () => {
     if (!user?.id) {
       setNotifUnread(0);
-      setClientDocUnread(0);
       return;
     }
     const { count } = await supabase
@@ -248,24 +246,7 @@ export function MaddenTopNav() {
       .eq("user_id", user.id)
       .is("read_at", null);
     setNotifUnread(count ?? 0);
-
-    if (role !== "client") {
-      setClientDocUnread(0);
-      return;
-    }
-    const { data } = await supabase
-      .from("notifications")
-      .select("id, metadata")
-      .eq("user_id", user.id)
-      .eq("type", "document_shared")
-      .is("read_at", null)
-      .limit(200);
-    const n = (data ?? []).filter((row) => {
-      const m = row.metadata as Record<string, unknown> | null;
-      return m && typeof m.signed_url === "string" && m.signed_url.trim().length > 0;
-    }).length;
-    setClientDocUnread(n);
-  }, [user?.id, role, supabase]);
+  }, [user?.id, supabase]);
 
   useEffect(() => {
     void refreshNotificationCounts();
@@ -573,20 +554,6 @@ export function MaddenTopNav() {
                         <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
                         My Profile
                       </Link>
-                      {role === "client" && user?.id ? (
-                        <Link
-                          href="/my-documents"
-                          className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                          onClick={() => setAccountOpen(false)}
-                        >
-                          <span className="flex-1 text-left">📄 My Documents</span>
-                          {clientDocUnread > 0 ? (
-                            <span className="rounded-full bg-[#D4A843] px-2 py-0.5 text-[10px] font-bold text-[#2C2C2C]">
-                              {clientDocUnread > 99 ? "99+" : clientDocUnread}
-                            </span>
-                          ) : null}
-                        </Link>
-                      ) : null}
                       <Link
                         href="/likes"
                         className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
@@ -727,20 +694,6 @@ export function MaddenTopNav() {
                 >
                   <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
                   My Profile
-                </Link>
-              ) : null}
-              {user && role === "client" && user.id ? (
-                <Link
-                  href="/my-documents"
-                  onClick={closeMobileNav}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
-                >
-                  📄 My Documents
-                  {clientDocUnread > 0 ? (
-                    <span className="rounded-full bg-[#D4A843] px-2 py-0.5 text-[10px] font-bold text-[#2C2C2C]">
-                      {clientDocUnread > 99 ? "99+" : clientDocUnread}
-                    </span>
-                  ) : null}
                 </Link>
               ) : null}
               {user && role === "agent" && agentNav ? (
