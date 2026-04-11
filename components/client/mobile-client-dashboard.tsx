@@ -12,10 +12,10 @@ import {
   Heart,
   Home,
   LayoutGrid,
+  MapPin,
   MessageCircle,
   Pin,
   Rocket,
-  Search,
   Shield,
   ShoppingBag,
   Star,
@@ -23,6 +23,7 @@ import {
   User,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { usePinnedPropertyIds, usePropertyLikes } from "@/hooks/use-property-engagement";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { labelForClientDocType } from "@/lib/client-documents";
@@ -118,14 +119,19 @@ type FeedUnion =
       notification: FeedNotificationRow;
       agentPhone: string | null;
       property?: PropertyRow | null;
+      propertyId: string;
       imageUrl: string;
       priceDisplay: string;
       showSavedPill: boolean;
     }
   | {
-      kind: "price_drop";
+      kind: "price_drop_al";
       sortAt: string;
-      notification: FeedNotificationRow;
+      id: string;
+      propertyId: string;
+      propertyName: string;
+      oldPrice: string;
+      newPrice: string;
       thumbUrl: string;
     }
   | {
@@ -140,6 +146,36 @@ type FeedUnion =
       property: PropertyRow;
       created_at: string;
     };
+
+type NotifPrefs = {
+  price_drop: boolean;
+  new_listing_followed_agent: boolean;
+  badge_earned: boolean;
+  document_request: boolean;
+  pipeline_stage: boolean;
+  viewing_request_confirmed: boolean;
+};
+
+function parseNotifPrefs(raw: unknown): NotifPrefs {
+  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return {
+    price_drop: o.price_drop !== false,
+    new_listing_followed_agent: o.new_listing_followed_agent !== false,
+    badge_earned: o.badge_earned !== false,
+    document_request: o.document_request !== false,
+    pipeline_stage: o.pipeline_stage !== false,
+    viewing_request_confirmed: o.viewing_request_confirmed !== false,
+  };
+}
+
+function filterFeedByPrefs(items: FeedUnion[], prefs: NotifPrefs): FeedUnion[] {
+  return items.filter((item) => {
+    if (item.kind === "price_drop_al") return prefs.price_drop;
+    if (item.kind === "badge") return prefs.badge_earned;
+    if (item.kind === "agent") return prefs.viewing_request_confirmed;
+    return true;
+  });
+}
 
 function greetingForHour(): string {
   const h = new Date().getHours();
@@ -207,6 +243,169 @@ function metaStr(m: Record<string, unknown> | null | undefined, key: string): st
   return typeof v === "string" ? v : "";
 }
 
+type LikePinApi = {
+  has: (id: string) => boolean;
+  toggle: (id: string) => Promise<boolean>;
+};
+
+function FeedAgentRow({
+  propertyId,
+  feedAgentMeta,
+}: {
+  propertyId: string;
+  feedAgentMeta: Record<
+    string,
+    { agentName: string; agentAvatarUrl: string | null; agentId?: string | null }
+  >;
+}) {
+  const a = feedAgentMeta[propertyId];
+  if (!a) return null;
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[#E5E5E5]/60">
+        {a.agentAvatarUrl ? (
+          <Image src={a.agentAvatarUrl} alt="" fill className="object-cover" sizes="28px" unoptimized />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/40 text-[10px] font-bold text-white">
+            {a.agentName.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+      </div>
+      <span className="text-sm font-medium text-[#2C2C2C]">{a.agentName}</span>
+    </div>
+  );
+}
+
+function FeedPhotoOverlay({
+  propertyId,
+  href,
+  imageSrc,
+  priceDisplay,
+  likes,
+  pins,
+}: {
+  propertyId: string;
+  href: string;
+  imageSrc: string;
+  priceDisplay: string;
+  likes: LikePinApi;
+  pins: LikePinApi;
+}) {
+  const isLiked = likes.has(propertyId);
+  const isPinned = pins.has(propertyId);
+  return (
+    <div className="relative mt-3 h-[160px] w-full overflow-hidden rounded-xl bg-[#E5E5E5]/40">
+      <Link href={href} className="absolute inset-0 block">
+        <Image src={imageSrc} alt="" fill className="object-cover" sizes="100vw" unoptimized />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+        <div className="absolute bottom-2 right-2 text-sm font-bold text-white">{priceDisplay}</div>
+      </Link>
+      <div className="pointer-events-none absolute inset-0 z-20">
+        <div className="pointer-events-auto absolute right-2 top-2 flex gap-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void likes.toggle(propertyId);
+            }}
+            className={cn(
+              "inline-flex rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+              isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
+            )}
+            aria-label="Like"
+          >
+            <Heart
+              className={cn(
+                "h-3.5 w-3.5 shrink-0",
+                isLiked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
+              )}
+            />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void pins.toggle(propertyId);
+            }}
+            className={cn(
+              "inline-flex rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+              isPinned ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
+            )}
+            aria-label="Save"
+          >
+            <Pin
+              className={cn(
+                "h-3.5 w-3.5 shrink-0",
+                isPinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
+              )}
+            />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PinSaveFeedCardHeader({
+  beforePostedBy,
+  createdAt,
+  agent,
+  locationLine,
+}: {
+  beforePostedBy: string;
+  createdAt: string;
+  agent: { agentId: string | null; agentName: string; agentAvatarUrl: string | null } | null;
+  locationLine: string;
+}) {
+  const a =
+    agent &&
+    (Boolean(agent.agentId) ||
+      (Boolean(agent.agentName?.trim()) && agent.agentName.trim() !== "Agent"))
+      ? agent
+      : null;
+  return (
+    <div className="flex gap-3">
+      {a ? (
+        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#E5E5E5]/60">
+          {a.agentAvatarUrl ? (
+            <Image src={a.agentAvatarUrl} alt="" fill className="object-cover" sizes="40px" unoptimized />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/40 text-sm font-bold text-white">
+              {(a.agentName || "A").slice(0, 1).toUpperCase()}
+            </div>
+          )}
+        </div>
+      ) : null}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm leading-snug text-[#2C2C2C]">
+          {beforePostedBy}
+          {a ? (
+            <>
+              {" posted by "}
+              {a.agentId ? (
+                <Link href={`/agents/${a.agentId}`} className="font-medium text-[#6B9E6E] hover:underline">
+                  {a.agentName}
+                </Link>
+              ) : (
+                <span className="font-medium text-[#6B9E6E]">{a.agentName}</span>
+              )}
+            </>
+          ) : null}
+        </p>
+        <p className="mt-0.5 text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(createdAt)}</p>
+        {locationLine.trim() ? (
+          <p className="mt-1 flex items-center gap-1 text-xs text-[#6B6B6B]">
+            <MapPin className="h-2 w-2 shrink-0" strokeWidth={2.5} aria-hidden />
+            <span className="min-w-0">{locationLine.trim()}</span>
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function MobileClientDashboard() {
   const { user, loading: authLoading } = useAuth();
   const pathname = usePathname();
@@ -227,6 +426,18 @@ export function MobileClientDashboard() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [viewBusyUrl, setViewBusyUrl] = useState<string | null>(null);
   const [feedItems, setFeedItems] = useState<FeedUnion[]>([]);
+  const [feedAgentMeta, setFeedAgentMeta] = useState<
+    Record<string, { agentName: string; agentAvatarUrl: string | null; agentId: string | null }>
+  >({});
+  const [profileAgentMeta, setProfileAgentMeta] = useState<
+    Record<
+      string,
+      { agentName: string; agentAvatarUrl: string | null; listedAt: string; agentId: string | null }
+    >
+  >({});
+
+  const likes = usePropertyLikes();
+  const pins = usePinnedPropertyIds();
 
   const loadAll = useCallback(async () => {
     if (!user?.id) {
@@ -247,7 +458,7 @@ export function MobileClientDashboard() {
       notifRes,
       feedNotifRes,
     ] = await Promise.all([
-      supabase.from("profiles").select("full_name, avatar_url, created_at").eq("id", uid).maybeSingle(),
+      supabase.from("profiles").select("full_name, avatar_url, created_at, notification_preferences").eq("id", uid).maybeSingle(),
       supabase.from("client_badges").select("badge_slug").eq("client_id", uid),
       supabase.from("client_documents").select("id", { count: "exact", head: true }).eq("client_id", uid),
       supabase
@@ -314,6 +525,7 @@ export function MobileClientDashboard() {
       full_name?: string | null;
       avatar_url?: string | null;
       created_at?: string;
+      notification_preferences?: unknown;
     } | null;
     if (prow) {
       setFullName(prow.full_name?.trim() ?? "");
@@ -352,7 +564,17 @@ export function MobileClientDashboard() {
       if (p?.id) savedIdSet.add(p.id);
     }
 
-    const propertyIds = new Set<string>();
+    const profileIdSetEarly = new Set<string>();
+    for (const r of (savedRes.data ?? []) as SavedJoinRow[]) {
+      const p = oneProperty(r.properties);
+      if (p?.id) profileIdSetEarly.add(p.id);
+    }
+    for (const r of (likesRes.data ?? []) as LikeJoinRow[]) {
+      const p = oneProperty(r.properties);
+      if (p?.id) profileIdSetEarly.add(p.id);
+    }
+
+    const propertyIds = new Set<string>(profileIdSetEarly);
     const agentIds = new Set<string>();
     for (const n of feedRows) {
       const m = n.metadata ?? {};
@@ -416,6 +638,7 @@ export function MobileClientDashboard() {
           notification: n,
           agentPhone: phone,
           property: prop,
+          propertyId: pid,
           imageUrl: img,
           priceDisplay,
           showSavedPill,
@@ -425,10 +648,19 @@ export function MobileClientDashboard() {
         const propDrop = pidDrop ? propMap.get(pidDrop) : undefined;
         const thumb =
           metaStr(m, "property_image_url") || (propDrop ? pickPropertyImage(propDrop) : "") || "";
+        const pName =
+          metaStr(m, "property_name")?.trim() ||
+          propDrop?.name?.trim() ||
+          propDrop?.location?.trim() ||
+          "Listing";
         built.push({
-          kind: "price_drop",
+          kind: "price_drop_al",
           sortAt: n.created_at,
-          notification: n,
+          id: `notif-${n.id}`,
+          propertyId: pidDrop,
+          propertyName: pName,
+          oldPrice: metaStr(m, "old_price"),
+          newPrice: metaStr(m, "new_price"),
           thumbUrl: thumb,
         });
       } else if (n.type === "client_feed_badge") {
@@ -453,8 +685,146 @@ export function MobileClientDashboard() {
       });
     }
 
+    const pidListForActivity = [...profileIdSetEarly];
+    if (pidListForActivity.length > 0) {
+      const { data: alRows } = await supabase
+        .from("activity_log")
+        .select("id, created_at, entity_id, metadata")
+        .eq("entity_type", "price_drop")
+        .in("entity_id", pidListForActivity);
+      for (const raw of alRows ?? []) {
+        const row = raw as {
+          id: string;
+          created_at: string;
+          entity_id: string;
+          metadata: Record<string, unknown> | null;
+        };
+        const meta = row.metadata ?? {};
+        const oldP = metaStr(meta, "old_price");
+        const newP = metaStr(meta, "new_price");
+        const propRow = propMap.get(row.entity_id);
+        const thumb =
+          propRow ? pickPropertyImage(propRow) : metaStr(meta, "property_image_url") || "";
+        const pName =
+          propRow?.name?.trim() || propRow?.location?.trim() || "Listing";
+        built.push({
+          kind: "price_drop_al",
+          sortAt: row.created_at,
+          id: row.id,
+          propertyId: row.entity_id,
+          propertyName: pName,
+          oldPrice: oldP,
+          newPrice: newP,
+          thumbUrl: thumb,
+        });
+      }
+    }
+
     built.sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime());
-    setFeedItems(built);
+
+    const prefs = parseNotifPrefs(
+      (profileRes.data as { notification_preferences?: unknown } | null)?.notification_preferences,
+    );
+    setFeedItems(filterFeedByPrefs(built, prefs));
+
+    const feedPropIds = new Set<string>();
+    for (const item of built) {
+      if (item.kind === "agent") {
+        if (item.propertyId) feedPropIds.add(item.propertyId);
+      } else if (item.kind === "price_drop_al") {
+        feedPropIds.add(item.propertyId);
+      } else if (item.kind === "pin_activity") {
+        feedPropIds.add(item.property.id);
+      }
+    }
+    if (feedPropIds.size > 0) {
+      const { data: feedPa } = await supabase
+        .from("property_agents")
+        .select(
+          `
+          property_id,
+          agent:agents (
+            id,
+            name,
+            image_url
+          )
+        `,
+        )
+        .in("property_id", [...feedPropIds]);
+      const fam: Record<string, { agentName: string; agentAvatarUrl: string | null; agentId: string | null }> = {};
+      const seen = new Set<string>();
+      for (const row of feedPa ?? []) {
+        const r = row as {
+          property_id: string;
+          agent: { id?: string | null; name?: string | null; image_url?: string | null } | null;
+        };
+        if (seen.has(r.property_id) || !r.agent) continue;
+        seen.add(r.property_id);
+        fam[r.property_id] = {
+          agentId: typeof r.agent.id === "string" && r.agent.id ? r.agent.id : null,
+          agentName: r.agent.name?.trim() || "Agent",
+          agentAvatarUrl: r.agent.image_url?.trim() || null,
+        };
+      }
+      setFeedAgentMeta(fam);
+    } else {
+      setFeedAgentMeta({});
+    }
+
+    const pidList = [...profileIdSetEarly];
+    if (pidList.length > 0) {
+      const [{ data: paRows }, { data: propMetaRows }] = await Promise.all([
+        supabase
+          .from("property_agents")
+          .select(
+            `
+            property_id,
+            agent:agents (
+              id,
+              name,
+              image_url
+            )
+          `,
+          )
+          .in("property_id", pidList),
+        supabase.from("properties").select("id, created_at").in("id", pidList),
+      ]);
+      const listedById = new Map<string, string>();
+      for (const row of propMetaRows ?? []) {
+        const r = row as { id: string; created_at: string };
+        listedById.set(r.id, r.created_at);
+      }
+      const meta: Record<
+        string,
+        { agentName: string; agentAvatarUrl: string | null; listedAt: string; agentId: string | null }
+      > = {};
+      for (const id of pidList) {
+        meta[id] = {
+          agentName: "Agent",
+          agentAvatarUrl: null,
+          listedAt: listedById.get(id) ?? "",
+          agentId: null,
+        };
+      }
+      const firstAgentPerProp = new Set<string>();
+      for (const row of paRows ?? []) {
+        const r = row as {
+          property_id: string;
+          agent: { id?: string | null; name?: string | null; image_url?: string | null } | null;
+        };
+        if (firstAgentPerProp.has(r.property_id) || !r.agent) continue;
+        firstAgentPerProp.add(r.property_id);
+        meta[r.property_id] = {
+          agentId: typeof r.agent.id === "string" && r.agent.id ? r.agent.id : null,
+          agentName: r.agent.name?.trim() || "Agent",
+          agentAvatarUrl: r.agent.image_url?.trim() || null,
+          listedAt: listedById.get(r.property_id) ?? "",
+        };
+      }
+      setProfileAgentMeta(meta);
+    } else {
+      setProfileAgentMeta({});
+    }
 
     setLoading(false);
   }, [supabase, user?.id]);
@@ -542,33 +912,33 @@ export function MobileClientDashboard() {
 
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A]">
+      <div className="min-h-screen bg-[#FAF8F4]">
         <div className="animate-pulse px-5 pt-4">
-          <div className="h-8 w-56 rounded-lg bg-white/10" />
-          <div className="mt-4 h-12 w-full rounded-2xl bg-white/10" />
-          <div className="mt-6 h-40 w-full rounded-2xl bg-white/10" />
+          <div className="h-8 w-56 rounded-lg bg-[#E5E5E5]" />
+          <div className="mt-4 h-12 w-full rounded-2xl bg-[#E5E5E5]" />
+          <div className="mt-6 h-40 w-full rounded-2xl bg-[#E5E5E5]" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] pb-28 font-sans text-white transition-all duration-200">
+    <div className="min-h-screen bg-[#FAF8F4] pb-28 font-sans text-[#2C2C2C] transition-all duration-200">
       <header className="px-5 pt-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-normal text-white/90">
+            <p className="text-sm font-normal text-[#2C2C2C]">
               {greetingForHour()},{" "}
-              <span className="font-serif text-2xl font-bold text-white">{first}</span>
+              <span className="font-serif text-2xl font-bold text-[#2C2C2C]">{first}</span>
             </p>
-            <p className="mt-1 text-sm text-white/45">Here&apos;s what&apos;s happening with your properties.</p>
+            <p className="mt-1 text-sm text-[#6B6B6B]">Here&apos;s what&apos;s happening with your properties.</p>
           </div>
           <Link
             href="/notifications"
             className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full transition-all duration-200 active:opacity-80"
             aria-label="Notifications"
           >
-            <Bell className="h-6 w-6 text-white" />
+            <Bell className="h-6 w-6 text-[#2C2C2C]" />
             {unreadCount > 0 ? (
               <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                 {unreadCount > 99 ? "99+" : unreadCount}
@@ -594,8 +964,8 @@ export function MobileClientDashboard() {
               className={cn(
                 "flex shrink-0 flex-col items-center gap-1.5 rounded-full px-4 py-2.5 transition-all duration-200",
                 mainTab === id
-                  ? "border-l-[3px] border-[#6B9E6E] bg-[#1A1A1A] pl-3 text-white"
-                  : "border-l-[3px] border-transparent text-white/45",
+                  ? "border-l-[3px] border-[#6B9E6E] bg-white pl-3 text-[#2C2C2C] shadow-sm ring-1 ring-[#E5E5E5]"
+                  : "border-l-[3px] border-transparent text-[#6B6B6B]",
               )}
             >
               <Icon className="h-5 w-5" strokeWidth={mainTab === id ? 2.25 : 1.75} />
@@ -608,13 +978,16 @@ export function MobileClientDashboard() {
       <main className="mt-4 px-5">
         {loading ? (
           <div className="space-y-4 animate-pulse">
-            <div className="h-48 w-full rounded-2xl bg-white/10" />
-            <div className="h-28 w-full rounded-2xl bg-white/10" />
-            <div className="h-28 w-full rounded-2xl bg-white/10" />
+            <div className="h-48 w-full rounded-2xl bg-[#E5E5E5]" />
+            <div className="h-28 w-full rounded-2xl bg-[#E5E5E5]" />
+            <div className="h-28 w-full rounded-2xl bg-[#E5E5E5]" />
           </div>
         ) : mainTab === "all" ? (
           <AllFeedTab
             grouped={feedGrouped}
+            feedAgentMeta={feedAgentMeta}
+            likes={likes}
+            pins={pins}
             onViewBadges={() => setMainTab("profile")}
           />
         ) : mainTab === "profile" ? (
@@ -627,6 +1000,9 @@ export function MobileClientDashboard() {
             openBadge={openBadge}
             setOpenBadge={setOpenBadge}
             gridItems={profileGridItems}
+            agentMeta={profileAgentMeta}
+            likes={likes}
+            pins={pins}
           />
         ) : mainTab === "saved" ? (
           <SavedPinsTab mode="saved" savedRows={savedRows} likeRows={likeRows} />
@@ -655,9 +1031,18 @@ export function MobileClientDashboard() {
 
 function AllFeedTab({
   grouped,
+  feedAgentMeta,
+  likes,
+  pins,
   onViewBadges,
 }: {
   grouped: { bucket: TimeBucket; label: string; items: FeedUnion[] }[];
+  feedAgentMeta: Record<
+    string,
+    { agentName: string; agentAvatarUrl: string | null; agentId: string | null }
+  >;
+  likes: LikePinApi;
+  pins: LikePinApi;
   onViewBadges: () => void;
 }) {
   const empty = grouped.length === 0 || grouped.every((g) => g.items.length === 0);
@@ -668,8 +1053,8 @@ function AllFeedTab({
         <div className="grid h-16 w-16 place-items-center rounded-full bg-[#6B9E6E]/20 text-[#6B9E6E]">
           <LayoutGrid className="h-8 w-8" strokeWidth={1.5} />
         </div>
-        <p className="mt-4 text-base font-semibold text-white">Nothing new yet</p>
-        <p className="mt-2 max-w-xs text-sm text-white/50">
+        <p className="mt-4 text-base font-semibold text-[#2C2C2C]">Nothing new yet</p>
+        <p className="mt-2 max-w-xs text-sm text-[#6B6B6B]">
           Save listings, book viewings, and we&apos;ll show updates here.
         </p>
       </div>
@@ -680,18 +1065,32 @@ function AllFeedTab({
     <div className="space-y-8">
       {grouped.map(({ label, items }) => (
         <section key={label}>
-          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">{label}</h3>
-          <ul className="space-y-4">
+          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B6B6B]">{label}</h3>
+          <ul className="space-y-0">
             {items.map((item) => (
-              <li key={`${item.kind}-${item.sortAt}-${"notification" in item ? item.notification.id : item.likeKey}`}>
+              <li
+                key={`${item.kind}-${item.sortAt}-${
+                  item.kind === "price_drop_al"
+                    ? item.id
+                    : "notification" in item
+                      ? item.notification.id
+                      : item.likeKey
+                }`}
+              >
                 {item.kind === "agent" ? (
-                  <AgentActivityCard item={item} />
-                ) : item.kind === "price_drop" ? (
-                  <PriceDropCard n={item.notification} thumbUrl={item.thumbUrl} />
+                  <AgentActivityCard item={item} feedAgentMeta={feedAgentMeta} likes={likes} pins={pins} />
+                ) : item.kind === "price_drop_al" ? (
+                  <PriceDropCompactActivityCard item={item} />
                 ) : item.kind === "badge" ? (
-                  <BadgeFeedCard n={item.notification} onViewBadges={onViewBadges} />
+                  <BadgeCompactCard n={item.notification} onViewBadges={onViewBadges} />
                 ) : (
-                  <PinActivityCard property={item.property} createdAt={item.created_at} />
+                  <PinActivityCard
+                    property={item.property}
+                    createdAt={item.created_at}
+                    feedAgentMeta={feedAgentMeta}
+                    likes={likes}
+                    pins={pins}
+                  />
                 )}
               </li>
             ))}
@@ -704,117 +1103,97 @@ function AllFeedTab({
 
 function AgentActivityCard({
   item,
+  feedAgentMeta,
+  likes,
+  pins,
 }: {
   item: Extract<FeedUnion, { kind: "agent" }>;
+  feedAgentMeta: Record<
+    string,
+    { agentName: string; agentAvatarUrl: string | null; agentId?: string | null }
+  >;
+  likes: LikePinApi;
+  pins: LikePinApi;
 }) {
   const n = item.notification;
   const m = n.metadata ?? {};
-  const agentName = metaStr(m, "agent_name").trim() || "Agent";
-  const agentAvatar = metaStr(m, "agent_avatar_url");
   const propName =
     metaStr(m, "property_name").trim() ||
     item.property?.name?.trim() ||
     item.property?.location ||
     "Property";
-  const actionText = (n.body ?? "Viewing activity").trim();
+  const actionText = (n.title ?? n.body ?? "Viewing activity").trim();
   const waHref = item.agentPhone ? `https://wa.me/${item.agentPhone}` : null;
   const propertyHrefId = metaStr(m, "property_id").trim() || item.property?.id || "";
+  const HeaderIcon = item.showSavedPill ? Heart : Calendar;
 
   return (
-    <article className="overflow-hidden rounded-2xl bg-[#1A1A1A] shadow-lg transition-all duration-200">
-      <div className="relative p-4">
-        {waHref ? (
-          <a
-            href={waHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-[#0A0A0A] px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/10 transition-all duration-200 active:opacity-90"
-          >
-            <MessageCircle className="h-4 w-4 text-[#25D366]" aria-hidden />
-            WhatsApp
-          </a>
-        ) : null}
-        <div className={cn("flex gap-3", waHref ? "pr-28" : "")}>
-          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/10">
-            {agentAvatar ? (
-              <Image src={agentAvatar} alt="" fill className="object-cover" sizes="40px" unoptimized />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-sm font-bold text-white/60">
-                {agentName.slice(0, 1).toUpperCase()}
-              </div>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-white">{agentName}</p>
-            <p className="mt-0.5 text-sm text-white/50">{actionText}</p>
-            <p className="mt-1 text-sm text-white/40">{propName}</p>
-            <p className="mt-2 text-xs text-white/35">{formatNotificationTimeAgo(n.created_at)}</p>
-          </div>
+    <article className="mb-3 rounded-2xl bg-white p-4 transition-all duration-200">
+      {propertyHrefId ? <FeedAgentRow propertyId={propertyHrefId} feedAgentMeta={feedAgentMeta} /> : null}
+      <div className="flex gap-3">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
+          <HeaderIcon className="h-5 w-5 text-[#6B9E6E]" aria-hidden />
         </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-[#2C2C2C]">{actionText}</p>
+          <p className="text-sm text-[#6B6B6B]">{propName}</p>
+        </div>
+        <span className="shrink-0 self-start text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(n.created_at)}</span>
       </div>
+      {waHref ? (
+        <a
+          href={waHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#25D366]"
+        >
+          <MessageCircle className="h-4 w-4" aria-hidden />
+          WhatsApp
+        </a>
+      ) : null}
       {item.imageUrl && propertyHrefId ? (
-        <Link href={`/properties/${propertyHrefId}`} className="relative block h-[180px] w-full">
-          <Image src={item.imageUrl} alt="" fill className="object-cover" sizes="100vw" unoptimized />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-3">
-            {item.showSavedPill ? (
-              <span className="rounded-full bg-[#6B9E6E] px-2.5 py-1 text-[11px] font-bold text-white">Saved</span>
-            ) : (
-              <span />
-            )}
-            <span className="text-sm font-bold text-white">{item.priceDisplay}</span>
-          </div>
-        </Link>
-      ) : item.imageUrl ? (
-        <div className="relative block h-[180px] w-full">
-          <Image src={item.imageUrl} alt="" fill className="object-cover" sizes="100vw" unoptimized />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-3">
-            {item.showSavedPill ? (
-              <span className="rounded-full bg-[#6B9E6E] px-2.5 py-1 text-[11px] font-bold text-white">Saved</span>
-            ) : (
-              <span />
-            )}
-            <span className="text-sm font-bold text-white">{item.priceDisplay}</span>
-          </div>
-        </div>
+        <FeedPhotoOverlay
+          propertyId={propertyHrefId}
+          href={`/properties/${propertyHrefId}`}
+          imageSrc={item.imageUrl}
+          priceDisplay={item.priceDisplay}
+          likes={likes}
+          pins={pins}
+        />
       ) : null}
     </article>
   );
 }
 
-function PriceDropCard({ n, thumbUrl }: { n: FeedNotificationRow; thumbUrl: string }) {
-  const m = n.metadata ?? {};
-  const propName = metaStr(m, "property_name").trim() || "Listing";
-  const oldP = metaStr(m, "old_price");
-  const newP = metaStr(m, "new_price");
-  const pid = typeof m.property_id === "string" ? m.property_id : "";
-
+function PriceDropCompactActivityCard({ item }: { item: Extract<FeedUnion, { kind: "price_drop_al" }> }) {
+  const newPriceDisplay = formatPropertyPriceDisplay(item.newPrice);
   return (
-    <article className="flex items-center gap-3 rounded-2xl bg-[#1A1A1A] p-4 shadow-lg transition-all duration-200">
-      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#0A0A0A]">
-        <Tag className="h-6 w-6 text-[#6B9E6E]" aria-hidden />
+    <article className="mb-3 flex items-center gap-3 rounded-xl bg-white p-3 transition-all duration-200">
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
+        <Tag className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-bold text-white">Price dropped!</p>
-        <p className="mt-0.5 text-sm text-white/50">{propName}</p>
-        <p className="mt-1 text-sm">
-          <span className="text-white/40 line-through">{formatPropertyPriceDisplay(oldP)}</span>
-          <span className="mx-2 text-white/30">→</span>
-          <span className="font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(newP)}</span>
+        <p className="font-bold text-[#2C2C2C]">{item.propertyName}</p>
+        <p className="mt-0.5 text-sm">
+          <span className="text-[#6B6B6B] line-through">{formatPropertyPriceDisplay(item.oldPrice)}</span>
+          <span className="mx-1.5 text-[#6B6B6B]">→</span>
+          <span className="font-bold text-[#6B9E6E]">{newPriceDisplay}</span>
         </p>
-        <p className="mt-1 text-xs text-white/35">{formatNotificationTimeAgo(n.created_at)}</p>
       </div>
-      {thumbUrl && pid ? (
-        <Link href={`/properties/${pid}`} className="relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-xl bg-white/5">
-          <Image src={thumbUrl} alt="" fill className="object-cover" sizes="60px" unoptimized />
+      <span className="shrink-0 self-start text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(item.sortAt)}</span>
+      {item.thumbUrl ? (
+        <Link
+          href={`/properties/${item.propertyId}`}
+          className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[#E5E5E5]/40"
+        >
+          <Image src={item.thumbUrl} alt="" fill className="object-cover" sizes="56px" unoptimized />
         </Link>
       ) : null}
     </article>
   );
 }
 
-function BadgeFeedCard({
+function BadgeCompactCard({
   n,
   onViewBadges,
 }: {
@@ -826,46 +1205,72 @@ function BadgeFeedCard({
   const desc = metaStr(m, "badge_description").trim() || (n.body ?? "").trim() || "You earned a new badge.";
 
   return (
-    <article className="flex items-center gap-3 rounded-2xl bg-[#1A1A1A] p-4 shadow-lg transition-all duration-200">
-      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#D4A843]">
-        <Star className="h-6 w-6 text-white" fill="currentColor" aria-hidden />
+    <article className="mb-3 flex items-start gap-3 rounded-xl bg-white p-3 transition-all duration-200">
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#D4A843]">
+        <Star className="h-4 w-4 text-white" fill="currentColor" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-bold text-white">New badge earned!</p>
-        <p className="mt-0.5 text-sm font-semibold text-white">{badgeName}</p>
-        <p className="mt-1 line-clamp-3 text-sm text-white/45">{desc}</p>
-        <p className="mt-1 text-xs text-white/35">{formatNotificationTimeAgo(n.created_at)}</p>
+        <p className="font-bold text-[#2C2C2C]">{badgeName}</p>
+        <p className="mt-0.5 line-clamp-3 text-sm text-[#6B6B6B]">{desc}</p>
       </div>
-      <button
-        type="button"
-        onClick={onViewBadges}
-        className="shrink-0 rounded-full bg-[#0A0A0A] px-3 py-2 text-xs font-semibold text-white ring-1 ring-white/10 transition-all duration-200"
-      >
-        View badges
-      </button>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <span className="text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(n.created_at)}</span>
+        <button
+          type="button"
+          onClick={onViewBadges}
+          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#E5E5E5] transition-all duration-200"
+        >
+          View badges
+        </button>
+      </div>
     </article>
   );
 }
 
-function PinActivityCard({ property, createdAt }: { property: PropertyRow; createdAt: string }) {
+function PinActivityCard({
+  property,
+  createdAt,
+  feedAgentMeta,
+  likes,
+  pins,
+}: {
+  property: PropertyRow;
+  createdAt: string;
+  feedAgentMeta: Record<
+    string,
+    { agentName: string; agentAvatarUrl: string | null; agentId: string | null }
+  >;
+  likes: LikePinApi;
+  pins: LikePinApi;
+}) {
   const img = pickPropertyImage(property);
   const pid = property.id;
+  const title = property.name?.trim() || property.location || "Listing";
+  const price = formatPropertyPriceDisplay(property.price, property.status);
+  const ag = feedAgentMeta[pid];
+  const agent = ag
+    ? { agentId: ag.agentId, agentName: ag.agentName, agentAvatarUrl: ag.agentAvatarUrl }
+    : null;
 
   return (
-    <article className="flex items-center gap-3 rounded-2xl bg-[#1A1A1A] p-4 shadow-lg transition-all duration-200">
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#0A0A0A]">
-        <Pin className="h-5 w-5 text-[#6B9E6E]" aria-hidden />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold text-white">{property.name?.trim() || property.location}</p>
-        <p className="mt-0.5 text-sm text-white/50">You pinned this listing</p>
-        <p className="mt-1 text-xs text-white/35">{formatNotificationTimeAgo(createdAt)}</p>
-      </div>
+    <article className="mb-3 rounded-2xl bg-white p-4 transition-all duration-200">
+      <PinSaveFeedCardHeader
+        beforePostedBy="You pinned this listing"
+        createdAt={createdAt}
+        agent={agent}
+        locationLine={property.location ?? ""}
+      />
       {img && pid ? (
-        <Link href={`/properties/${pid}`} className="relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-xl bg-white/5">
-          <Image src={img} alt="" fill className="object-cover" sizes="60px" unoptimized />
-        </Link>
+        <FeedPhotoOverlay
+          propertyId={pid}
+          href={`/properties/${pid}`}
+          imageSrc={img}
+          priceDisplay={price}
+          likes={likes}
+          pins={pins}
+        />
       ) : null}
+      <p className={cn("text-sm text-[#2C2C2C]", img && pid ? "mt-2" : "mt-3")}>{title}</p>
     </article>
   );
 }
@@ -879,6 +1284,9 @@ function ProfileTab({
   openBadge,
   setOpenBadge,
   gridItems,
+  agentMeta,
+  likes,
+  pins,
 }: {
   fullName: string;
   avatarUrl: string | null;
@@ -887,7 +1295,13 @@ function ProfileTab({
   badges: { badge_slug: BadgeSlug }[];
   openBadge: BadgeSlug | null;
   setOpenBadge: (s: BadgeSlug | null) => void;
-  gridItems: { property: PropertyRow; saved: boolean; liked: boolean }[];
+  gridItems: { property: PropertyRow; saved: boolean; liked: boolean; sortKey: number }[];
+  agentMeta: Record<
+    string,
+    { agentName: string; agentAvatarUrl: string | null; listedAt: string; agentId: string | null }
+  >;
+  likes: LikePinApi;
+  pins: LikePinApi;
 }) {
   const initial = fullName.trim().slice(0, 1).toUpperCase() || "?";
 
@@ -896,8 +1310,8 @@ function ProfileTab({
       <div className="flex flex-col items-center text-center">
         <div
           className={cn(
-            "relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-white/5",
-            verified ? "ring-4 ring-[#D4A843] ring-offset-2 ring-offset-[#0A0A0A]" : "ring-2 ring-white/10",
+            "relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-[#E5E5E5]/40",
+            verified ? "ring-4 ring-[#D4A843] ring-offset-2 ring-offset-[#FAF8F4]" : "ring-2 ring-[#E5E5E5]",
           )}
         >
           {avatarUrl ? (
@@ -908,9 +1322,9 @@ function ProfileTab({
             </div>
           )}
         </div>
-        <h2 className="mt-4 font-serif text-2xl font-bold tracking-tight text-white">{fullName.trim() || "Your profile"}</h2>
+        <h2 className="mt-4 font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">{fullName.trim() || "Your profile"}</h2>
         {memberSinceIso ? (
-          <p className="mt-1 text-xs font-medium text-white/45">{memberSince(memberSinceIso)}</p>
+          <p className="mt-1 text-xs font-medium text-[#6B6B6B]">{memberSince(memberSinceIso)}</p>
         ) : null}
 
         {badges.length > 0 ? (
@@ -931,9 +1345,9 @@ function ProfileTab({
                     <Icon className="h-5 w-5" strokeWidth={2} />
                   </button>
                   {open ? (
-                    <div className="absolute left-1/2 top-full z-20 mt-2 w-56 -translate-x-1/2 rounded-xl border border-white/10 bg-[#1A1A1A] p-3 text-left shadow-xl">
-                      <p className="font-semibold text-white">{meta.label}</p>
-                      <p className="mt-1 text-xs text-white/55">{meta.description}</p>
+                    <div className="absolute left-1/2 top-full z-20 mt-2 w-56 -translate-x-1/2 rounded-xl border border-[#E5E5E5] bg-white p-3 text-left shadow-xl">
+                      <p className="font-semibold text-[#2C2C2C]">{meta.label}</p>
+                      <p className="mt-1 text-xs text-[#6B6B6B]">{meta.description}</p>
                     </div>
                   ) : null}
                 </div>
@@ -950,37 +1364,85 @@ function ProfileTab({
           subtitle="Start exploring listings and save your favorites."
         />
       ) : (
-        <div className="grid grid-cols-2 gap-3">
-          {gridItems.map(({ property: p }) => (
-            <Link
-              key={p.id}
-              href={`/properties/${p.id}`}
-              className="group relative aspect-[4/5] overflow-hidden rounded-2xl bg-[#1A1A1A] shadow-lg ring-1 ring-white/5 transition-all duration-200"
-            >
-              {pickPropertyImage(p) ? (
-                <Image
-                  src={pickPropertyImage(p)}
-                  alt=""
-                  fill
-                  className="object-cover transition-transform duration-200 group-active:scale-[1.02]"
-                  sizes="(max-width:768px) 45vw, 300px"
-                  unoptimized
-                />
-              ) : null}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-3">
-                <p className="line-clamp-2 font-serif text-sm font-bold leading-tight text-white drop-shadow">
-                  {p.name?.trim() || p.location}
-                </p>
-                <p className="mt-1 text-xs font-semibold text-white/95 drop-shadow">
-                  {formatPropertyPriceDisplay(p.price, p.status)}
-                </p>
-              </div>
-            </Link>
-          ))}
+        <div className="flex flex-col">
+          {gridItems.map(({ property: p, saved, liked, sortKey }) => {
+            const meta = agentMeta[p.id] ?? {
+              agentName: "Agent",
+              agentAvatarUrl: null,
+              listedAt: "",
+              agentId: null,
+            };
+            return (
+              <ProfilePropertyFeedCard
+                key={p.id}
+                property={p}
+                saved={saved}
+                liked={liked}
+                meta={meta}
+                headerTimeIso={new Date(sortKey).toISOString()}
+                likes={likes}
+                pins={pins}
+              />
+            );
+          })}
         </div>
       )}
     </div>
+  );
+}
+
+function ProfilePropertyFeedCard({
+  property: p,
+  saved,
+  liked,
+  meta,
+  headerTimeIso,
+  likes,
+  pins,
+}: {
+  property: PropertyRow;
+  saved: boolean;
+  liked: boolean;
+  meta: { agentName: string; agentAvatarUrl: string | null; listedAt: string; agentId: string | null };
+  headerTimeIso: string;
+  likes: LikePinApi;
+  pins: LikePinApi;
+}) {
+  const img = pickPropertyImage(p);
+  const price = formatPropertyPriceDisplay(p.price, p.status);
+  const title = p.name?.trim() || p.location || "Listing";
+  const beforePostedBy =
+    saved && liked
+      ? "You saved & pinned this listing"
+      : saved
+        ? "You saved this listing"
+        : "You pinned this listing";
+  const agent = {
+    agentId: meta.agentId,
+    agentName: meta.agentName,
+    agentAvatarUrl: meta.agentAvatarUrl,
+  };
+
+  return (
+    <article className="mb-3 rounded-2xl bg-white p-4 transition-all duration-200">
+      <PinSaveFeedCardHeader
+        beforePostedBy={beforePostedBy}
+        createdAt={headerTimeIso}
+        agent={agent}
+        locationLine={p.location ?? ""}
+      />
+      {img ? (
+        <FeedPhotoOverlay
+          propertyId={p.id}
+          href={`/properties/${p.id}`}
+          imageSrc={img}
+          priceDisplay={price}
+          likes={likes}
+          pins={pins}
+        />
+      ) : null}
+      <p className={cn("text-sm text-[#2C2C2C]", img ? "mt-2" : "mt-3")}>{title}</p>
+    </article>
   );
 }
 
@@ -1018,9 +1480,9 @@ function SavedPinsTab({
           <Link
             key={`${mode}-${r.created_at}-${p.id}`}
             href={`/properties/${p.id}`}
-            className="relative block overflow-hidden rounded-2xl bg-[#1A1A1A] shadow-lg ring-1 ring-white/5 transition-all duration-200"
+            className="relative block overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-[#E5E5E5] transition-all duration-200"
           >
-            <div className="relative h-[200px] w-full bg-white/5">
+            <div className="relative h-[200px] w-full bg-[#E5E5E5]/40">
               {img ? (
                 <Image src={img} alt="" fill className="object-cover" sizes="100vw" unoptimized />
               ) : null}
@@ -1033,8 +1495,8 @@ function SavedPinsTab({
               </div>
             </div>
             <div className="p-4">
-              <p className="font-semibold text-white">{p.name?.trim() || "Listing"}</p>
-              <p className="mt-1 text-sm text-white/50">{p.location}</p>
+              <p className="font-semibold text-[#2C2C2C]">{p.name?.trim() || "Listing"}</p>
+              <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
               <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
             </div>
           </Link>
@@ -1058,21 +1520,21 @@ function DocumentsTab({
   return (
     <div className="space-y-10">
       <section>
-        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-white/40">Your uploads</h3>
+        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-[#6B6B6B]">Your uploads</h3>
         {ownDocs.length === 0 ? (
-          <p className="mt-3 text-sm text-white/50">No documents uploaded yet.</p>
+          <p className="mt-3 text-sm text-[#6B6B6B]">No documents uploaded yet.</p>
         ) : (
           <ul className="mt-4 space-y-3">
             {ownDocs.map((d) => (
-              <li key={d.id} className="rounded-2xl bg-[#1A1A1A] p-4 shadow-lg ring-1 ring-white/5">
+              <li key={d.id} className="rounded-2xl bg-white p-4 shadow-lg ring-1 ring-[#E5E5E5]">
                 <div className="flex gap-3">
                   <FileText className="mt-0.5 h-5 w-5 shrink-0 text-[#6B9E6E]" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold uppercase tracking-wider text-white/40">
+                    <p className="text-xs font-bold uppercase tracking-wider text-[#6B6B6B]">
                       {labelForClientDocType(d.document_type)}
                     </p>
-                    <p className="mt-1 font-semibold text-white">{d.file_name?.trim() || "Document"}</p>
-                    <p className="mt-1 text-xs text-white/45">{new Date(d.created_at).toLocaleDateString()}</p>
+                    <p className="mt-1 font-semibold text-[#2C2C2C]">{d.file_name?.trim() || "Document"}</p>
+                    <p className="mt-1 text-xs text-[#6B6B6B]">{new Date(d.created_at).toLocaleDateString()}</p>
                     <button
                       type="button"
                       disabled={viewBusyUrl === d.file_url}
@@ -1090,9 +1552,9 @@ function DocumentsTab({
       </section>
 
       <section>
-        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-white/40">From Your Agent</h3>
+        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-[#6B6B6B]">From Your Agent</h3>
         {sharedDocs.length === 0 ? (
-          <p className="mt-3 text-sm text-white/50">No shared documents yet.</p>
+          <p className="mt-3 text-sm text-[#6B6B6B]">No shared documents yet.</p>
         ) : (
           <ul className="mt-4 space-y-3">
             {sharedDocs.map((r) => {
@@ -1109,13 +1571,13 @@ function DocumentsTab({
                   ? meta.agent_name
                   : "Agent";
               return (
-                <li key={r.id} className="rounded-2xl bg-[#1A1A1A] p-4 shadow-lg ring-1 ring-white/5">
+                <li key={r.id} className="rounded-2xl bg-white p-4 shadow-lg ring-1 ring-[#E5E5E5]">
                   <div className="flex gap-3">
                     <FileText className="mt-0.5 h-5 w-5 shrink-0 text-[#6B9E6E]" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold uppercase tracking-wider text-white/40">{docType}</p>
-                      <p className="mt-1 font-semibold text-white">{fileName}</p>
-                      <p className="mt-1 text-sm text-white/50">
+                      <p className="text-xs font-bold uppercase tracking-wider text-[#6B6B6B]">{docType}</p>
+                      <p className="mt-1 font-semibold text-[#2C2C2C]">{fileName}</p>
+                      <p className="mt-1 text-sm text-[#6B6B6B]">
                         From {agentName} · {new Date(r.created_at).toLocaleDateString()}
                       </p>
                       <button
@@ -1125,7 +1587,7 @@ function DocumentsTab({
                       >
                         View
                       </button>
-                      <p className="mt-2 text-[11px] font-medium text-amber-200/80">
+                      <p className="mt-2 text-[11px] font-medium text-[#6B6B6B]">
                         Link may expire after ~1 hour. Request a new one from your agent if needed.
                       </p>
                     </div>
@@ -1154,8 +1616,8 @@ function EmptyState({
       <div className="grid h-16 w-16 place-items-center rounded-full bg-[#6B9E6E]/20 text-[#6B9E6E]">
         <Icon className="h-8 w-8" strokeWidth={1.5} />
       </div>
-      <p className="mt-4 font-serif text-lg font-bold text-white">{title}</p>
-      <p className="mt-2 max-w-xs text-sm text-white/50">{subtitle}</p>
+      <p className="mt-4 font-serif text-lg font-bold text-[#2C2C2C]">{title}</p>
+      <p className="mt-2 max-w-xs text-sm text-[#6B6B6B]">{subtitle}</p>
     </div>
   );
 }
@@ -1194,7 +1656,7 @@ function BottomNav({
       href={href}
       className={cn(
         "relative flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[10px] font-semibold transition-all duration-200",
-        active ? "text-[#6B9E6E]" : "text-white/40",
+        active ? "text-[#6B9E6E]" : "text-[#6B6B6B]",
       )}
     >
       {children ?? (Icon ? <Icon className="h-6 w-6" /> : null)}
@@ -1203,9 +1665,8 @@ function BottomNav({
   );
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-[#2A2A2A] bg-[#0A0A0A] px-1 py-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-[#E5E5E5] bg-white px-1 py-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       <Item href="/" label="Home" icon={Home} active={pathname === "/"} />
-      <Item href="/" label="Search" icon={Search} active={false} />
       <Item href="/notifications" label="Notifications" active={pathname.startsWith("/notifications")}>
         <span className="relative">
           <Bell className="h-6 w-6" />
@@ -1220,14 +1681,14 @@ function BottomNav({
         href={profileHref}
         className={cn(
           "relative flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[10px] font-semibold transition-all duration-200",
-          profileActive ? "text-[#6B9E6E]" : "text-white/40",
+          profileActive ? "text-[#6B9E6E]" : "text-[#6B6B6B]",
         )}
       >
-        <span className="relative h-7 w-7 overflow-hidden rounded-full bg-[#6B9E6E]/30 ring-2 ring-[#0A0A0A]">
+        <span className="relative h-7 w-7 overflow-hidden rounded-full bg-[#6B9E6E] ring-2 ring-[#E5E5E5]">
           {avatarUrl ? (
             <Image src={avatarUrl} alt="" fill className="object-cover" sizes="28px" unoptimized />
           ) : (
-            <span className="flex h-full w-full items-center justify-center text-[10px] font-bold text-[#6B9E6E]">
+            <span className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-white">
               {initial}
             </span>
           )}

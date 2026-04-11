@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { FileText, Moon, Sun } from "lucide-react";
+import { FileText } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
@@ -20,7 +20,6 @@ import { ServiceAreasMultiInput } from "@/components/ui/service-areas-multi-inpu
 import { useDataConsentGate } from "@/components/legal/data-consent-modal";
 import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
 import { applyBahayGoTheme, BAHAYGO_THEME_KEY } from "@/components/bahaygo-theme-provider";
-import { cn } from "@/lib/utils";
 
 const COUNTRY_OPTIONS = [
   "Philippines",
@@ -169,18 +168,17 @@ const ROLE_OPTIONS: {
   },
 ];
 
-type SettingsTabId = "profile" | "display" | "account" | "notifications" | "verification";
+type SettingsTabId = "profile" | "account" | "notifications" | "verification";
 
 const TAB_LABEL: Record<SettingsTabId, string> = {
   profile: "Profile",
-  display: "Display",
   account: "Account",
   notifications: "Notifications",
   verification: "Verification",
 };
 
 function visibleTabsForRole(role: ProfileRole): SettingsTabId[] {
-  const core: SettingsTabId[] = ["profile", "display", "account", "notifications"];
+  const core: SettingsTabId[] = ["profile", "account", "notifications"];
   if (role === "agent" || role === "broker") return [...core, "verification"];
   return core;
 }
@@ -413,6 +411,12 @@ function SettingsPageInner() {
 
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [notifySms, setNotifySms] = useState(false);
+  const [prefPriceDrop, setPrefPriceDrop] = useState(true);
+  const [prefNewListingFollowed, setPrefNewListingFollowed] = useState(true);
+  const [prefBadgeEarned, setPrefBadgeEarned] = useState(true);
+  const [prefDocRequest, setPrefDocRequest] = useState(true);
+  const [prefPipeline, setPrefPipeline] = useState(true);
+  const [prefViewingConfirmed, setPrefViewingConfirmed] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [savingNotif, setSavingNotif] = useState(false);
   const [roleSaving, setRoleSaving] = useState(false);
@@ -441,8 +445,6 @@ function SettingsPageInner() {
   const [hasPets, setHasPets] = useState(false);
   const [moveInTimeline, setMoveInTimeline] = useState("");
   const [agentNotes, setAgentNotes] = useState("");
-  const [displayTheme, setDisplayTheme] = useState<"dark" | "light">("dark");
-
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -490,7 +492,7 @@ function SettingsPageInner() {
       const { data, error: profileErr } = await supabase
         .from("profiles")
         .select(
-          "id, role, full_name, phone, bio, avatar_url, notify_email, notify_sms, country_of_origin, visa_type, visa_expiry, budget_min, budget_max, preferred_property_type, preferred_locations, looking_to, occupant_count, has_pets, move_in_timeline, agent_notes, onboarding_completed, display_theme",
+          "id, role, full_name, phone, bio, avatar_url, notify_email, notify_sms, notification_preferences, country_of_origin, visa_type, visa_expiry, budget_min, budget_max, preferred_property_type, preferred_locations, looking_to, occupant_count, has_pets, move_in_timeline, agent_notes, onboarding_completed, display_theme",
         )
         .eq("id", uid)
         .maybeSingle();
@@ -535,13 +537,18 @@ function SettingsPageInner() {
 
       if (typeof row?.notify_email === "boolean") setNotifyEmail(row.notify_email);
       if (typeof row?.notify_sms === "boolean") setNotifySms(row.notify_sms);
+      const np = (row as { notification_preferences?: unknown }).notification_preferences;
+      const npObj = np && typeof np === "object" ? (np as Record<string, unknown>) : {};
+      setPrefPriceDrop(npObj.price_drop !== false);
+      setPrefNewListingFollowed(npObj.new_listing_followed_agent !== false);
+      setPrefBadgeEarned(npObj.badge_earned !== false);
+      setPrefDocRequest(npObj.document_request !== false);
+      setPrefPipeline(npObj.pipeline_stage !== false);
+      setPrefViewingConfirmed(npObj.viewing_request_confirmed !== false);
       const dt = (row as { display_theme?: string | null })?.display_theme;
-      if (dt === "dark" || dt === "light") {
-        setDisplayTheme(dt);
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(BAHAYGO_THEME_KEY, dt);
-          applyBahayGoTheme(dt);
-        }
+      if ((dt === "dark" || dt === "light") && typeof window !== "undefined") {
+        window.localStorage.setItem(BAHAYGO_THEME_KEY, dt);
+        applyBahayGoTheme(dt);
       }
       setFullName(row?.full_name ?? "");
       setPhone(row?.phone ?? "");
@@ -721,25 +728,6 @@ function SettingsPageInner() {
       router.replace(`/settings?tab=${id}`, { scroll: false });
     },
     [router],
-  );
-
-  const persistDisplayTheme = useCallback(
-    async (mode: "dark" | "light") => {
-      if (!user?.id) return;
-      setDisplayTheme(mode);
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(BAHAYGO_THEME_KEY, mode);
-        applyBahayGoTheme(mode);
-        window.dispatchEvent(new Event("bahaygo-theme"));
-      }
-      const { error } = await supabase.from("profiles").update({ display_theme: mode }).eq("id", user.id);
-      if (error) {
-        toast.error(error.message || "Could not save display preference");
-        return;
-      }
-      toast.success("Display preference saved");
-    },
-    [supabase, user?.id],
   );
 
   const saveProfile = async (e: React.FormEvent) => {
@@ -988,6 +976,14 @@ function SettingsPageInner() {
         .update({
           notify_email: notifyEmail,
           notify_sms: phone.trim() ? notifySms : false,
+          notification_preferences: {
+            price_drop: prefPriceDrop,
+            new_listing_followed_agent: prefNewListingFollowed,
+            badge_earned: prefBadgeEarned,
+            document_request: prefDocRequest,
+            pipeline_stage: prefPipeline,
+            viewing_request_confirmed: prefViewingConfirmed,
+          },
         })
         .eq("id", user.id);
       if (error) throw error;
@@ -1520,49 +1516,6 @@ function SettingsPageInner() {
           </div>
         ) : null}
 
-        {activeTab === "display" ? (
-          <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#1A1A1A]">
-            <h2 className="font-serif text-xl font-semibold text-[#2C2C2C] dark:text-white">Display</h2>
-            <p className="mt-1 text-sm text-[#2C2C2C]/50 dark:text-white/55">
-              Choose light or dark mode for the whole BahayGo site. Preference syncs to your account.
-            </p>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => void persistDisplayTheme("dark")}
-                className={cn(
-                  "flex flex-col items-start gap-3 rounded-2xl border-2 p-5 text-left transition",
-                  displayTheme === "dark"
-                    ? "border-[#6B9E6E] bg-[#FAF8F4] dark:bg-[#252525]"
-                    : "border-[#2C2C2C]/10 bg-white hover:border-[#2C2C2C]/20 dark:border-white/10 dark:bg-[#1A1A1A] dark:hover:border-white/20",
-                )}
-              >
-                <Moon className="h-8 w-8 text-[#2C2C2C] dark:text-white" aria-hidden />
-                <span className="font-semibold text-[#2C2C2C] dark:text-white">Dark Mode</span>
-                <span className="text-sm text-[#2C2C2C]/55 dark:text-white/55">
-                  Deep background for low-light viewing.
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => void persistDisplayTheme("light")}
-                className={cn(
-                  "flex flex-col items-start gap-3 rounded-2xl border-2 p-5 text-left transition",
-                  displayTheme === "light"
-                    ? "border-[#6B9E6E] bg-[#FAF8F4] dark:bg-[#252525]"
-                    : "border-[#2C2C2C]/10 bg-white hover:border-[#2C2C2C]/20 dark:border-white/10 dark:bg-[#1A1A1A] dark:hover:border-white/20",
-                )}
-              >
-                <Sun className="h-8 w-8 text-[#D4A843]" aria-hidden />
-                <span className="font-semibold text-[#2C2C2C] dark:text-white">Light Mode</span>
-                <span className="text-sm text-[#2C2C2C]/55 dark:text-white/55">
-                  Warm paper tone for daytime use.
-                </span>
-              </button>
-            </div>
-          </div>
-        ) : null}
-
         {activeTab === "account" ? (
           <div className="space-y-8">
             <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
@@ -1803,6 +1756,34 @@ function SettingsPageInner() {
                 </span>
               </span>
             </label>
+            <div className="mt-8 border-t border-[#2C2C2C]/10 pt-6">
+              <p className="text-sm font-semibold text-[#2C2C2C]">Mobile feed &amp; alerts</p>
+              <p className="mt-1 text-xs text-[#2C2C2C]/50">
+                Choose what appears in your BahayGo mobile feed and related alerts.
+              </p>
+              <div className="mt-4 space-y-3">
+                {(
+                  [
+                    [prefPriceDrop, setPrefPriceDrop, "Price drop alerts"] as const,
+                    [prefNewListingFollowed, setPrefNewListingFollowed, "New listing from a followed agent"] as const,
+                    [prefBadgeEarned, setPrefBadgeEarned, "Badge earned"] as const,
+                    [prefDocRequest, setPrefDocRequest, "Document request from agent"] as const,
+                    [prefPipeline, setPrefPipeline, "Pipeline stage update"] as const,
+                    [prefViewingConfirmed, setPrefViewingConfirmed, "Viewing request confirmed"] as const,
+                  ] as const
+                ).map(([checked, setChecked, label]) => (
+                  <label key={label} className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => setChecked(e.target.checked)}
+                      className="h-4 w-4 rounded border-[#2C2C2C]/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                    />
+                    <span className="text-sm font-medium text-[#2C2C2C]">{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
             {notifMsg ? <p className="mt-4 text-sm text-[#6B9E6E]">{notifMsg}</p> : null}
             <button
               type="button"
