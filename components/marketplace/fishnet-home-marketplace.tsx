@@ -162,6 +162,86 @@ function shouldIncludeAgentDirectoryRow(row: unknown): boolean {
   return true;
 }
 
+type AgentHomeExtra = {
+  yearsExperience: number | null;
+  languagesSpoken: string | null;
+  serviceAreaPills: string[];
+};
+
+function parseServiceAreasForPills(raw: string | null | undefined): string[] {
+  if (!raw || typeof raw !== "string") return [];
+  return raw
+    .split(/[,;\n]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** 10.0 scale for score beside name (matches agent directory card). */
+function scoreDecimalOnTenHome(score: number | null | undefined): string | null {
+  if (score == null || !Number.isFinite(Number(score))) return null;
+  const n = Number(score);
+  const onTen = n > 10 ? n / 10 : n;
+  if (onTen <= 0) return null;
+  return onTen.toFixed(1);
+}
+
+function HomeTopAgentCard({
+  agent,
+  extra,
+}: {
+  agent: MarketplaceAgent;
+  extra?: AgentHomeExtra;
+}) {
+  const scoreRight = scoreDecimalOnTenHome(agent.score);
+  const yearsLine =
+    extra?.yearsExperience != null && Number.isFinite(extra.yearsExperience) && extra.yearsExperience >= 0
+      ? `${extra.yearsExperience} years experience`
+      : null;
+  const langsLine = extra?.languagesSpoken?.trim() ? extra.languagesSpoken.trim() : null;
+
+  return (
+    <div className="group flex min-h-0 w-full min-w-[160px] max-w-[300px] shrink-0 flex-col rounded-2xl border border-[#2C2C2C]/10 bg-white p-3 shadow-md transition-all duration-200 ease-in-out will-change-transform hover:-translate-y-1 hover:scale-[1.02] hover:border-[#2C2C2C]/15 hover:shadow-xl lg:w-[300px]">
+      <div className="flex min-h-0 flex-col items-center">
+        <div className="relative mx-auto h-14 w-14 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+          <AgentAvatarFill name={agent.name} imageUrl={agent.image} sizes="56px" textClassName="text-base" />
+        </div>
+        <div className="mt-2 flex w-full items-center justify-between gap-2 px-0.5">
+          <p className="line-clamp-2 min-w-0 flex-1 text-left text-sm font-semibold text-[#2C2C2C]">{agent.name}</p>
+          {scoreRight ? (
+            <span className="flex shrink-0 items-center gap-0.5 text-xs text-gray-500">⭐ {scoreRight}</span>
+          ) : null}
+        </div>
+        {agent.verified ? (
+          <span className="mt-1 inline-flex shrink-0 items-center rounded-full bg-[#6B9E6E] px-2 py-0.5 text-[10px] font-semibold text-white">
+            Verified
+          </span>
+        ) : null}
+        <p className="mt-2 text-xs text-center text-gray-500">{agent.closings} closings</p>
+        {yearsLine ? <p className="mt-1 text-center text-[11px] text-gray-500">{yearsLine}</p> : null}
+        {langsLine ? <p className="mt-0.5 text-center text-[11px] text-gray-500">{langsLine}</p> : null}
+        {extra?.serviceAreaPills && extra.serviceAreaPills.length > 0 ? (
+          <div className="mt-2 flex flex-wrap justify-center gap-1.5 px-1">
+            {extra.serviceAreaPills.map((area) => (
+              <span
+                key={area}
+                className="rounded-full bg-[#6B9E6E]/12 px-2 py-0.5 text-[10px] font-semibold text-[#6B9E6E]"
+              >
+                {area}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <Link
+        href={`/agents/${encodeURIComponent(agent.id)}`}
+        className="mt-3 inline-flex w-full items-center justify-center rounded-full border-2 border-[#6B9E6E] bg-white px-4 py-2 text-sm font-semibold text-[#6B9E6E] transition-colors hover:bg-[#6B9E6E]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A843] focus-visible:ring-offset-2"
+      >
+        View Profile
+      </Link>
+    </div>
+  );
+}
+
 /** Fixed hero showcase cards (always Unsplash; links to agent directory). */
 const HERO_FLOATING_CARDS = [
   {
@@ -369,10 +449,12 @@ function HomepageTopVerifiedAgentsSection({
   topAgents,
   topAgentsRef,
   scrollRow,
+  agentHomeExtrasById,
 }: {
   topAgents: MarketplaceAgent[];
   topAgentsRef: React.RefObject<HTMLDivElement | null>;
   scrollRow: (ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") => void;
+  agentHomeExtrasById: Record<string, AgentHomeExtra>;
 }) {
   return (
     <section className="mt-12">
@@ -397,13 +479,7 @@ function HomepageTopVerifiedAgentsSection({
           >
             <div className="flex w-max flex-nowrap gap-4 md:gap-4">
               {topAgents.map((a) => (
-                <AgentDirectoryCard
-                  key={a.id}
-                  agent={a}
-                  homepageCarousel
-                  scoreBesideName
-                  className="min-w-[160px] shrink-0 lg:min-w-0 lg:w-[300px]"
-                />
+                <HomeTopAgentCard key={a.id} agent={a} extra={agentHomeExtrasById[a.id]} />
               ))}
               {topAgents.length < 4 ? <MoreAgentsComingSoonCard /> : null}
             </div>
@@ -482,6 +558,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
   const [properties, setProperties] = useState<DbProperty[]>([]);
   const [agents, setAgents] = useState<MarketplaceAgent[]>([]);
+  const [agentHomeExtrasById, setAgentHomeExtrasById] = useState<Record<string, AgentHomeExtra>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -538,9 +615,35 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       .eq("profiles.role", "agent")
       .neq("name", "Ron Admin");
     if (!fetchErr) {
+      const filtered = (data ?? []).filter(shouldIncludeAgentDirectoryRow);
+      const extras: Record<string, AgentHomeExtra> = {};
+      for (const row of filtered) {
+        const r = row as {
+          id?: string | null;
+          years_experience?: number | string | null;
+          languages_spoken?: string | null;
+          service_areas?: string | null;
+        };
+        const id = String(r.id ?? "");
+        if (!id) continue;
+        const rawY = r.years_experience;
+        const yearsN =
+          typeof rawY === "number"
+            ? rawY
+            : rawY != null && String(rawY).trim() !== ""
+              ? Number(rawY)
+              : NaN;
+        const yearsExperience = Number.isFinite(yearsN) && yearsN >= 0 ? yearsN : null;
+        extras[id] = {
+          yearsExperience,
+          languagesSpoken:
+            typeof r.languages_spoken === "string" && r.languages_spoken.trim() ? r.languages_spoken.trim() : null,
+          serviceAreaPills: parseServiceAreasForPills(r.service_areas).slice(0, 2),
+        };
+      }
+      setAgentHomeExtrasById(extras);
       setAgents(
-        (data ?? [])
-          .filter(shouldIncludeAgentDirectoryRow)
+        filtered
           .map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]))
           .filter((a) => !isExcludedFromPublicAgentDirectory(a)),
       );
@@ -808,7 +911,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const heroSearchCard = (
     <>
       <div className="flex justify-center lg:justify-start">
-        <div className="inline-flex min-h-[56px] gap-2 rounded-full bg-[#EBE6DC]/90 p-1 ring-1 ring-[#D4A843]/35 backdrop-blur-sm">
+        <div className="inline-flex gap-2 rounded-full bg-[#EBE6DC]/90 p-1 ring-1 ring-[#D4A843]/35 backdrop-blur-sm">
           {mode === "rent" ? (
             <>
               <Link
@@ -836,7 +939,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           )}
         </div>
       </div>
-      <div className="mt-4 min-h-[60px] rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
+      <div className="mt-4 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
         <div className="relative z-20 flex w-full flex-col gap-3 sm:flex-row sm:items-center">
           <PhLocationInput
             value={search}
@@ -997,7 +1100,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
                     }`}
                   >
-                    <div className="relative aspect-video w-full shrink-0 overflow-hidden">
+                    <div className="relative h-[140px] w-full shrink-0 overflow-hidden lg:h-[160px]">
                       <Image
                         src={c.imageUrl}
                         alt=""
@@ -1035,7 +1138,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 key={`listing-skeleton-${i}`}
                 className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md"
               >
-                <div className="relative aspect-video w-full animate-pulse bg-neutral-200/90" />
+                <div className="relative h-44 w-full animate-pulse bg-neutral-200/90 lg:h-52" />
                 <div className="space-y-2 p-3">
                   <div className="h-4 w-3/4 animate-pulse rounded bg-neutral-200/90" />
                   <div className="h-4 w-1/2 animate-pulse rounded bg-neutral-200/90" />
@@ -1454,7 +1557,12 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
             {/* 6. TOP VERIFIED AGENTS THIS WEEK (deferred client load) */}
             <div className="min-h-[200px]">
-              <DynamicHomepageTopAgents topAgents={topAgents} topAgentsRef={topAgentsRef} scrollRow={scrollRow} />
+              <DynamicHomepageTopAgents
+                topAgents={topAgents}
+                topAgentsRef={topAgentsRef}
+                scrollRow={scrollRow}
+                agentHomeExtrasById={agentHomeExtrasById}
+              />
             </div>
 
             <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
@@ -1798,7 +1906,7 @@ export function NewlyListedCard({
           : cn(cardWidthClass ?? "w-[240px]", "shrink-0"),
       )}
     >
-      <div className="relative aspect-video w-full overflow-hidden bg-neutral-900">
+      <div className="relative h-44 w-full overflow-hidden bg-neutral-900 lg:h-52">
         <Image
           src={img}
           alt={property.name ?? property.location}
