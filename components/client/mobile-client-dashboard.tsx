@@ -11,18 +11,25 @@ import {
   FileText,
   Heart,
   Home,
+  LayoutGrid,
+  MessageCircle,
+  Pin,
   Rocket,
   Search,
   Shield,
   ShoppingBag,
+  Star,
+  Tag,
+  User,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { labelForClientDocType } from "@/lib/client-documents";
+import { formatNotificationTimeAgo } from "@/components/notifications/notification-list";
 import { cn } from "@/lib/utils";
 
-type MainTab = "profile" | "saved" | "pins" | "documents";
+type MainTab = "all" | "profile" | "saved" | "pins" | "documents";
 
 type PropertyPhoto = { url: string; sort_order: number | null };
 
@@ -37,7 +44,11 @@ type PropertyRow = {
 };
 
 type SavedJoinRow = { created_at: string; properties: PropertyRow | PropertyRow[] | null };
-type LikeJoinRow = { created_at: string; properties: PropertyRow | PropertyRow[] | null };
+type LikeJoinRow = {
+  property_id: string;
+  created_at: string;
+  properties: PropertyRow | PropertyRow[] | null;
+};
 
 function oneProperty(p: PropertyRow | PropertyRow[] | null | undefined): PropertyRow | null {
   if (!p) return null;
@@ -91,6 +102,45 @@ const BADGE_META: Record<
   },
 };
 
+type FeedNotificationRow = {
+  id: string;
+  created_at: string;
+  type: string;
+  title: string;
+  body: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
+type FeedUnion =
+  | {
+      kind: "agent";
+      sortAt: string;
+      notification: FeedNotificationRow;
+      agentPhone: string | null;
+      property?: PropertyRow | null;
+      imageUrl: string;
+      priceDisplay: string;
+      showSavedPill: boolean;
+    }
+  | {
+      kind: "price_drop";
+      sortAt: string;
+      notification: FeedNotificationRow;
+      thumbUrl: string;
+    }
+  | {
+      kind: "badge";
+      sortAt: string;
+      notification: FeedNotificationRow;
+    }
+  | {
+      kind: "pin_activity";
+      sortAt: string;
+      likeKey: string;
+      property: PropertyRow;
+      created_at: string;
+    };
+
 function greetingForHour(): string {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
@@ -120,12 +170,49 @@ function firstNameFromFull(full: string): string {
   return t.split(/\s+/)[0] ?? "there";
 }
 
+function stripPhoneDigits(raw: string | null | undefined): string | null {
+  if (!raw?.trim()) return null;
+  const d = raw.replace(/\D/g, "");
+  return d.length >= 10 ? d : null;
+}
+
+function startOfLocalDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+type TimeBucket = "today" | "yesterday" | "this_week" | "earlier";
+
+function bucketForDate(iso: string): TimeBucket {
+  const t = new Date(iso).getTime();
+  const now = new Date();
+  const sod = startOfLocalDay(now).getTime();
+  const dayMs = 86400000;
+  if (t >= sod) return "today";
+  if (t >= sod - dayMs) return "yesterday";
+  if (t >= sod - 7 * dayMs) return "this_week";
+  return "earlier";
+}
+
+const BUCKET_LABEL: Record<TimeBucket, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  this_week: "This Week",
+  earlier: "Earlier",
+};
+
+function metaStr(m: Record<string, unknown> | null | undefined, key: string): string {
+  const v = m?.[key];
+  return typeof v === "string" ? v : "";
+}
+
 export function MobileClientDashboard() {
   const { user, loading: authLoading } = useAuth();
   const pathname = usePathname();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const [mainTab, setMainTab] = useState<MainTab>("profile");
+  const [mainTab, setMainTab] = useState<MainTab>("all");
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -139,6 +226,7 @@ export function MobileClientDashboard() {
   const [sharedDocs, setSharedDocs] = useState<SharedDocRow[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [viewBusyUrl, setViewBusyUrl] = useState<string | null>(null);
+  const [feedItems, setFeedItems] = useState<FeedUnion[]>([]);
 
   const loadAll = useCallback(async () => {
     if (!user?.id) {
@@ -157,6 +245,7 @@ export function MobileClientDashboard() {
       ownDocsRes,
       sharedRes,
       notifRes,
+      feedNotifRes,
     ] = await Promise.all([
       supabase.from("profiles").select("full_name, avatar_url, created_at").eq("id", uid).maybeSingle(),
       supabase.from("client_badges").select("badge_slug").eq("client_id", uid),
@@ -183,6 +272,7 @@ export function MobileClientDashboard() {
         .from("property_likes")
         .select(
           `
+          property_id,
           created_at,
           properties (
             id,
@@ -196,7 +286,8 @@ export function MobileClientDashboard() {
         `,
         )
         .eq("user_id", uid)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(80),
       supabase
         .from("client_documents")
         .select("id, created_at, document_type, file_url, file_name")
@@ -210,6 +301,13 @@ export function MobileClientDashboard() {
         .order("created_at", { ascending: false })
         .limit(100),
       supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", uid).is("read_at", null),
+      supabase
+        .from("notifications")
+        .select("id, created_at, type, title, body, metadata")
+        .eq("user_id", uid)
+        .in("type", ["client_feed_price_drop", "client_feed_badge", "client_feed_viewing"])
+        .order("created_at", { ascending: false })
+        .limit(120),
     ]);
 
     const prow = profileRes.data as {
@@ -246,6 +344,118 @@ export function MobileClientDashboard() {
     }
 
     setUnreadCount(typeof notifRes.count === "number" ? notifRes.count : 0);
+
+    const feedRows = (feedNotifRes.data ?? []) as FeedNotificationRow[];
+    const savedIdSet = new Set<string>();
+    for (const r of (savedRes.data ?? []) as SavedJoinRow[]) {
+      const p = oneProperty(r.properties);
+      if (p?.id) savedIdSet.add(p.id);
+    }
+
+    const propertyIds = new Set<string>();
+    const agentIds = new Set<string>();
+    for (const n of feedRows) {
+      const m = n.metadata ?? {};
+      const pid = m.property_id;
+      if (typeof pid === "string" && pid) propertyIds.add(pid);
+      const aid = m.agent_user_id;
+      if (typeof aid === "string" && aid) agentIds.add(aid);
+    }
+
+    let propMap = new Map<string, PropertyRow>();
+    if (propertyIds.size > 0) {
+      const { data: props } = await supabase
+        .from("properties")
+        .select(
+          `
+          id,
+          name,
+          location,
+          price,
+          status,
+          image_url,
+          property_photos (url, sort_order)
+        `,
+        )
+        .in("id", [...propertyIds]);
+      for (const row of (props ?? []) as PropertyRow[]) {
+        propMap.set(row.id, row);
+      }
+    }
+
+    let phoneMap = new Map<string, string | null>();
+    if (agentIds.size > 0) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, phone")
+        .in("id", [...agentIds]);
+      for (const pr of profs ?? []) {
+        const r = pr as { id: string; phone: string | null };
+        phoneMap.set(r.id, r.phone);
+      }
+    }
+
+    const built: FeedUnion[] = [];
+
+    for (const n of feedRows) {
+      const m = n.metadata ?? {};
+      if (n.type === "client_feed_viewing") {
+        const aid = typeof m.agent_user_id === "string" ? m.agent_user_id : "";
+        const pid = typeof m.property_id === "string" ? m.property_id : "";
+        const prop = pid ? propMap.get(pid) ?? null : null;
+        const metaImg = metaStr(m, "property_image_url");
+        const img = metaImg || (prop ? pickPropertyImage(prop) : "") || "";
+        const priceRaw = prop?.price ?? "";
+        const status = prop?.status ?? "for_sale";
+        const priceDisplay = formatPropertyPriceDisplay(priceRaw, status);
+        const showSavedPill = pid ? savedIdSet.has(pid) : false;
+        const phone = aid ? stripPhoneDigits(phoneMap.get(aid) ?? null) : null;
+        built.push({
+          kind: "agent",
+          sortAt: n.created_at,
+          notification: n,
+          agentPhone: phone,
+          property: prop,
+          imageUrl: img,
+          priceDisplay,
+          showSavedPill,
+        });
+      } else if (n.type === "client_feed_price_drop") {
+        const pidDrop = typeof m.property_id === "string" ? m.property_id : "";
+        const propDrop = pidDrop ? propMap.get(pidDrop) : undefined;
+        const thumb =
+          metaStr(m, "property_image_url") || (propDrop ? pickPropertyImage(propDrop) : "") || "";
+        built.push({
+          kind: "price_drop",
+          sortAt: n.created_at,
+          notification: n,
+          thumbUrl: thumb,
+        });
+      } else if (n.type === "client_feed_badge") {
+        built.push({ kind: "badge", sortAt: n.created_at, notification: n });
+      }
+    }
+
+    const likeData = (likesRes.data ?? []) as {
+      property_id: string;
+      created_at: string;
+      properties: PropertyRow | PropertyRow[] | null;
+    }[];
+    for (const row of likeData) {
+      const p = oneProperty(row.properties);
+      if (!p?.id) continue;
+      built.push({
+        kind: "pin_activity",
+        sortAt: row.created_at,
+        likeKey: `${row.property_id}-${row.created_at}`,
+        property: p,
+        created_at: row.created_at,
+      });
+    }
+
+    built.sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime());
+    setFeedItems(built);
+
     setLoading(false);
   }, [supabase, user?.id]);
 
@@ -295,6 +505,20 @@ export function MobileClientDashboard() {
     return [...map.values()].sort((a, b) => b.sortKey - a.sortKey);
   }, [savedRows, likeRows]);
 
+  const feedGrouped = useMemo(() => {
+    const order: TimeBucket[] = ["today", "yesterday", "this_week", "earlier"];
+    const groups: Record<TimeBucket, FeedUnion[]> = {
+      today: [],
+      yesterday: [],
+      this_week: [],
+      earlier: [],
+    };
+    for (const item of feedItems) {
+      groups[bucketForDate(item.sortAt)].push(item);
+    }
+    return order.filter((k) => groups[k].length > 0).map((k) => ({ bucket: k, label: BUCKET_LABEL[k], items: groups[k] }));
+  }, [feedItems]);
+
   const openOwnDocument = async (file_url: string) => {
     setViewBusyUrl(file_url);
     try {
@@ -318,40 +542,33 @@ export function MobileClientDashboard() {
 
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-[#FAF8F4] transition-all duration-200 dark:bg-[#0A0A0A]">
-        <div className="animate-pulse px-4 pt-6">
-          <div className="h-8 w-48 rounded-lg bg-neutral-300/80 dark:bg-white/10" />
-          <div className="mt-4 h-10 w-full rounded-full bg-neutral-300/80 dark:bg-white/10" />
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <div className="aspect-[4/5] rounded-2xl bg-neutral-300/80 dark:bg-white/10" />
-            <div className="aspect-[4/5] rounded-2xl bg-neutral-300/80 dark:bg-white/10" />
-          </div>
+      <div className="min-h-screen bg-[#0A0A0A]">
+        <div className="animate-pulse px-5 pt-4">
+          <div className="h-8 w-56 rounded-lg bg-white/10" />
+          <div className="mt-4 h-12 w-full rounded-2xl bg-white/10" />
+          <div className="mt-6 h-40 w-full rounded-2xl bg-white/10" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4] pb-28 font-sans text-[#2C2C2C] transition-all duration-200 dark:bg-[#0A0A0A] dark:text-white">
-      <header className="relative px-4 pt-5">
+    <div className="min-h-screen bg-[#0A0A0A] pb-28 font-sans text-white transition-all duration-200">
+      <header className="px-5 pt-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-[#2C2C2C]/70 dark:text-white/70">
+            <p className="text-sm font-normal text-white/90">
               {greetingForHour()},{" "}
-              <span className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] dark:text-white">
-                {first}
-              </span>
+              <span className="font-serif text-2xl font-bold text-white">{first}</span>
             </p>
-            <p className="mt-1 font-serif text-sm font-medium text-[#2C2C2C]/60 dark:text-white/55">
-              Here&apos;s your BahayGo.
-            </p>
+            <p className="mt-1 text-sm text-white/45">Here&apos;s what&apos;s happening with your properties.</p>
           </div>
           <Link
             href="/notifications"
-            className="relative grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/80 shadow-sm ring-1 ring-black/5 transition-all duration-200 dark:bg-[#1A1A1A] dark:ring-white/10"
+            className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full transition-all duration-200 active:opacity-80"
             aria-label="Notifications"
           >
-            <Bell className="h-5 w-5 text-[#2C2C2C] dark:text-white" />
+            <Bell className="h-6 w-6 text-white" />
             {unreadCount > 0 ? (
               <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                 {unreadCount > 99 ? "99+" : unreadCount}
@@ -360,38 +577,46 @@ export function MobileClientDashboard() {
           </Link>
         </div>
 
-        <div className="mt-5 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="scrollbar-hide -mx-1 mt-4 flex gap-2 overflow-x-auto pb-1">
           {(
             [
-              ["profile", "Profile"],
-              ["saved", "Saved"],
-              ["pins", "Pins"],
-              ["documents", "Documents"],
+              ["all", "All", LayoutGrid],
+              ["profile", "Profile", User],
+              ["saved", "Saved", Heart],
+              ["pins", "Pins", Pin],
+              ["documents", "Documents", FileText],
             ] as const
-          ).map(([id, label]) => (
+          ).map(([id, label, Icon]) => (
             <button
               key={id}
               type="button"
               onClick={() => setMainTab(id)}
               className={cn(
-                "shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200",
+                "flex shrink-0 flex-col items-center gap-1.5 rounded-full px-4 py-2.5 transition-all duration-200",
                 mainTab === id
-                  ? "bg-[#6B9E6E] text-white shadow-md"
-                  : "bg-transparent text-[#2C2C2C]/50 dark:text-white/45",
+                  ? "border-l-[3px] border-[#6B9E6E] bg-[#1A1A1A] pl-3 text-white"
+                  : "border-l-[3px] border-transparent text-white/45",
               )}
             >
-              {label}
+              <Icon className="h-5 w-5" strokeWidth={mainTab === id ? 2.25 : 1.75} />
+              <span className="text-xs font-medium">{label}</span>
             </button>
           ))}
         </div>
       </header>
 
-      <main className="mt-4 px-4">
+      <main className="mt-4 px-5">
         {loading ? (
           <div className="space-y-4 animate-pulse">
-            <div className="h-40 w-full rounded-2xl bg-neutral-300/80 dark:bg-white/10" />
-            <div className="h-24 w-full rounded-2xl bg-neutral-300/80 dark:bg-white/10" />
+            <div className="h-48 w-full rounded-2xl bg-white/10" />
+            <div className="h-28 w-full rounded-2xl bg-white/10" />
+            <div className="h-28 w-full rounded-2xl bg-white/10" />
           </div>
+        ) : mainTab === "all" ? (
+          <AllFeedTab
+            grouped={feedGrouped}
+            onViewBadges={() => setMainTab("profile")}
+          />
         ) : mainTab === "profile" ? (
           <ProfileTab
             fullName={fullName}
@@ -404,11 +629,7 @@ export function MobileClientDashboard() {
             gridItems={profileGridItems}
           />
         ) : mainTab === "saved" ? (
-          <SavedPinsTab
-            mode="saved"
-            savedRows={savedRows}
-            likeRows={likeRows}
-          />
+          <SavedPinsTab mode="saved" savedRows={savedRows} likeRows={likeRows} />
         ) : mainTab === "pins" ? (
           <SavedPinsTab mode="pins" savedRows={savedRows} likeRows={likeRows} />
         ) : (
@@ -429,6 +650,223 @@ export function MobileClientDashboard() {
         unreadCount={unreadCount}
       />
     </div>
+  );
+}
+
+function AllFeedTab({
+  grouped,
+  onViewBadges,
+}: {
+  grouped: { bucket: TimeBucket; label: string; items: FeedUnion[] }[];
+  onViewBadges: () => void;
+}) {
+  const empty = grouped.length === 0 || grouped.every((g) => g.items.length === 0);
+
+  if (empty) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="grid h-16 w-16 place-items-center rounded-full bg-[#6B9E6E]/20 text-[#6B9E6E]">
+          <LayoutGrid className="h-8 w-8" strokeWidth={1.5} />
+        </div>
+        <p className="mt-4 text-base font-semibold text-white">Nothing new yet</p>
+        <p className="mt-2 max-w-xs text-sm text-white/50">
+          Save listings, book viewings, and we&apos;ll show updates here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {grouped.map(({ label, items }) => (
+        <section key={label}>
+          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">{label}</h3>
+          <ul className="space-y-4">
+            {items.map((item) => (
+              <li key={`${item.kind}-${item.sortAt}-${"notification" in item ? item.notification.id : item.likeKey}`}>
+                {item.kind === "agent" ? (
+                  <AgentActivityCard item={item} />
+                ) : item.kind === "price_drop" ? (
+                  <PriceDropCard n={item.notification} thumbUrl={item.thumbUrl} />
+                ) : item.kind === "badge" ? (
+                  <BadgeFeedCard n={item.notification} onViewBadges={onViewBadges} />
+                ) : (
+                  <PinActivityCard property={item.property} createdAt={item.created_at} />
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function AgentActivityCard({
+  item,
+}: {
+  item: Extract<FeedUnion, { kind: "agent" }>;
+}) {
+  const n = item.notification;
+  const m = n.metadata ?? {};
+  const agentName = metaStr(m, "agent_name").trim() || "Agent";
+  const agentAvatar = metaStr(m, "agent_avatar_url");
+  const propName =
+    metaStr(m, "property_name").trim() ||
+    item.property?.name?.trim() ||
+    item.property?.location ||
+    "Property";
+  const actionText = (n.body ?? "Viewing activity").trim();
+  const waHref = item.agentPhone ? `https://wa.me/${item.agentPhone}` : null;
+  const propertyHrefId = metaStr(m, "property_id").trim() || item.property?.id || "";
+
+  return (
+    <article className="overflow-hidden rounded-2xl bg-[#1A1A1A] shadow-lg transition-all duration-200">
+      <div className="relative p-4">
+        {waHref ? (
+          <a
+            href={waHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-[#0A0A0A] px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/10 transition-all duration-200 active:opacity-90"
+          >
+            <MessageCircle className="h-4 w-4 text-[#25D366]" aria-hidden />
+            WhatsApp
+          </a>
+        ) : null}
+        <div className={cn("flex gap-3", waHref ? "pr-28" : "")}>
+          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/10">
+            {agentAvatar ? (
+              <Image src={agentAvatar} alt="" fill className="object-cover" sizes="40px" unoptimized />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-sm font-bold text-white/60">
+                {agentName.slice(0, 1).toUpperCase()}
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-white">{agentName}</p>
+            <p className="mt-0.5 text-sm text-white/50">{actionText}</p>
+            <p className="mt-1 text-sm text-white/40">{propName}</p>
+            <p className="mt-2 text-xs text-white/35">{formatNotificationTimeAgo(n.created_at)}</p>
+          </div>
+        </div>
+      </div>
+      {item.imageUrl && propertyHrefId ? (
+        <Link href={`/properties/${propertyHrefId}`} className="relative block h-[180px] w-full">
+          <Image src={item.imageUrl} alt="" fill className="object-cover" sizes="100vw" unoptimized />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-3">
+            {item.showSavedPill ? (
+              <span className="rounded-full bg-[#6B9E6E] px-2.5 py-1 text-[11px] font-bold text-white">Saved</span>
+            ) : (
+              <span />
+            )}
+            <span className="text-sm font-bold text-white">{item.priceDisplay}</span>
+          </div>
+        </Link>
+      ) : item.imageUrl ? (
+        <div className="relative block h-[180px] w-full">
+          <Image src={item.imageUrl} alt="" fill className="object-cover" sizes="100vw" unoptimized />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-3">
+            {item.showSavedPill ? (
+              <span className="rounded-full bg-[#6B9E6E] px-2.5 py-1 text-[11px] font-bold text-white">Saved</span>
+            ) : (
+              <span />
+            )}
+            <span className="text-sm font-bold text-white">{item.priceDisplay}</span>
+          </div>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function PriceDropCard({ n, thumbUrl }: { n: FeedNotificationRow; thumbUrl: string }) {
+  const m = n.metadata ?? {};
+  const propName = metaStr(m, "property_name").trim() || "Listing";
+  const oldP = metaStr(m, "old_price");
+  const newP = metaStr(m, "new_price");
+  const pid = typeof m.property_id === "string" ? m.property_id : "";
+
+  return (
+    <article className="flex items-center gap-3 rounded-2xl bg-[#1A1A1A] p-4 shadow-lg transition-all duration-200">
+      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#0A0A0A]">
+        <Tag className="h-6 w-6 text-[#6B9E6E]" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-white">Price dropped!</p>
+        <p className="mt-0.5 text-sm text-white/50">{propName}</p>
+        <p className="mt-1 text-sm">
+          <span className="text-white/40 line-through">{formatPropertyPriceDisplay(oldP)}</span>
+          <span className="mx-2 text-white/30">→</span>
+          <span className="font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(newP)}</span>
+        </p>
+        <p className="mt-1 text-xs text-white/35">{formatNotificationTimeAgo(n.created_at)}</p>
+      </div>
+      {thumbUrl && pid ? (
+        <Link href={`/properties/${pid}`} className="relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-xl bg-white/5">
+          <Image src={thumbUrl} alt="" fill className="object-cover" sizes="60px" unoptimized />
+        </Link>
+      ) : null}
+    </article>
+  );
+}
+
+function BadgeFeedCard({
+  n,
+  onViewBadges,
+}: {
+  n: FeedNotificationRow;
+  onViewBadges: () => void;
+}) {
+  const m = n.metadata ?? {};
+  const badgeName = metaStr(m, "badge_name").trim() || n.title || "Badge";
+  const desc = metaStr(m, "badge_description").trim() || (n.body ?? "").trim() || "You earned a new badge.";
+
+  return (
+    <article className="flex items-center gap-3 rounded-2xl bg-[#1A1A1A] p-4 shadow-lg transition-all duration-200">
+      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#D4A843]">
+        <Star className="h-6 w-6 text-white" fill="currentColor" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-white">New badge earned!</p>
+        <p className="mt-0.5 text-sm font-semibold text-white">{badgeName}</p>
+        <p className="mt-1 line-clamp-3 text-sm text-white/45">{desc}</p>
+        <p className="mt-1 text-xs text-white/35">{formatNotificationTimeAgo(n.created_at)}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onViewBadges}
+        className="shrink-0 rounded-full bg-[#0A0A0A] px-3 py-2 text-xs font-semibold text-white ring-1 ring-white/10 transition-all duration-200"
+      >
+        View badges
+      </button>
+    </article>
+  );
+}
+
+function PinActivityCard({ property, createdAt }: { property: PropertyRow; createdAt: string }) {
+  const img = pickPropertyImage(property);
+  const pid = property.id;
+
+  return (
+    <article className="flex items-center gap-3 rounded-2xl bg-[#1A1A1A] p-4 shadow-lg transition-all duration-200">
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#0A0A0A]">
+        <Pin className="h-5 w-5 text-[#6B9E6E]" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold text-white">{property.name?.trim() || property.location}</p>
+        <p className="mt-0.5 text-sm text-white/50">You pinned this listing</p>
+        <p className="mt-1 text-xs text-white/35">{formatNotificationTimeAgo(createdAt)}</p>
+      </div>
+      {img && pid ? (
+        <Link href={`/properties/${pid}`} className="relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-xl bg-white/5">
+          <Image src={img} alt="" fill className="object-cover" sizes="60px" unoptimized />
+        </Link>
+      ) : null}
+    </article>
   );
 }
 
@@ -458,25 +896,21 @@ function ProfileTab({
       <div className="flex flex-col items-center text-center">
         <div
           className={cn(
-            "relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-[#6B9E6E]/20 ring-offset-2 transition-all duration-200 dark:bg-[#6B9E6E]/25 dark:ring-offset-[#0A0A0A]",
-            verified ? "ring-4 ring-[#D4A843]" : "ring-2 ring-black/5 dark:ring-white/10",
+            "relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-white/5",
+            verified ? "ring-4 ring-[#D4A843] ring-offset-2 ring-offset-[#0A0A0A]" : "ring-2 ring-white/10",
           )}
         >
           {avatarUrl ? (
             <Image src={avatarUrl} alt="" fill className="object-cover" sizes="96px" unoptimized />
           ) : (
-            <div className="flex h-full w-full items-center justify-center font-serif text-2xl font-bold text-[#6B9E6E]">
+            <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/30 font-serif text-2xl font-bold text-white">
               {initial}
             </div>
           )}
         </div>
-        <h2 className="mt-4 font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] dark:text-white">
-          {fullName.trim() || "Your profile"}
-        </h2>
+        <h2 className="mt-4 font-serif text-2xl font-bold tracking-tight text-white">{fullName.trim() || "Your profile"}</h2>
         {memberSinceIso ? (
-          <p className="mt-1 text-xs font-medium text-[#2C2C2C]/45 dark:text-white/45">
-            {memberSince(memberSinceIso)}
-          </p>
+          <p className="mt-1 text-xs font-medium text-white/45">{memberSince(memberSinceIso)}</p>
         ) : null}
 
         {badges.length > 0 ? (
@@ -497,9 +931,9 @@ function ProfileTab({
                     <Icon className="h-5 w-5" strokeWidth={2} />
                   </button>
                   {open ? (
-                    <div className="absolute left-1/2 top-full z-20 mt-2 w-56 -translate-x-1/2 rounded-xl border border-black/10 bg-white p-3 text-left shadow-xl dark:border-white/10 dark:bg-[#1A1A1A]">
-                      <p className="font-semibold text-[#2C2C2C] dark:text-white">{meta.label}</p>
-                      <p className="mt-1 text-xs text-[#2C2C2C]/65 dark:text-white/60">{meta.description}</p>
+                    <div className="absolute left-1/2 top-full z-20 mt-2 w-56 -translate-x-1/2 rounded-xl border border-white/10 bg-[#1A1A1A] p-3 text-left shadow-xl">
+                      <p className="font-semibold text-white">{meta.label}</p>
+                      <p className="mt-1 text-xs text-white/55">{meta.description}</p>
                     </div>
                   ) : null}
                 </div>
@@ -521,7 +955,7 @@ function ProfileTab({
             <Link
               key={p.id}
               href={`/properties/${p.id}`}
-              className="group relative aspect-[4/5] overflow-hidden rounded-2xl bg-neutral-200 shadow-lg ring-1 ring-black/5 transition-all duration-200 dark:bg-[#1A1A1A] dark:ring-white/10"
+              className="group relative aspect-[4/5] overflow-hidden rounded-2xl bg-[#1A1A1A] shadow-lg ring-1 ring-white/5 transition-all duration-200"
             >
               {pickPropertyImage(p) ? (
                 <Image
@@ -584,30 +1018,24 @@ function SavedPinsTab({
           <Link
             key={`${mode}-${r.created_at}-${p.id}`}
             href={`/properties/${p.id}`}
-            className="relative block overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-black/5 transition-all duration-200 dark:bg-[#1A1A1A] dark:ring-white/10"
+            className="relative block overflow-hidden rounded-2xl bg-[#1A1A1A] shadow-lg ring-1 ring-white/5 transition-all duration-200"
           >
-            <div className="relative aspect-[16/10] w-full bg-neutral-100 dark:bg-white/5">
+            <div className="relative h-[200px] w-full bg-white/5">
               {img ? (
                 <Image src={img} alt="" fill className="object-cover" sizes="100vw" unoptimized />
               ) : null}
-            </div>
-            <div className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="font-serif text-lg font-bold text-[#2C2C2C] dark:text-white">
-                    {p.name?.trim() || "Listing"}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-[#2C2C2C]/55 dark:text-white/55">{p.location}</p>
-                  <p className="mt-2 text-base font-bold text-[#2C2C2C] dark:text-white">
-                    {formatPropertyPriceDisplay(p.price, p.status)}
-                  </p>
-                </div>
+              <div className="absolute right-3 top-3">
                 {mode === "saved" ? (
-                  <Bookmark className="h-7 w-7 shrink-0 fill-[#D4A843] text-[#D4A843]" aria-hidden />
+                  <Bookmark className="h-7 w-7 fill-[#D4A843] text-[#D4A843]" aria-hidden />
                 ) : (
-                  <Heart className="h-7 w-7 shrink-0 fill-[#6B9E6E] text-[#6B9E6E]" aria-hidden />
+                  <Heart className="h-7 w-7 fill-[#6B9E6E] text-[#6B9E6E]" aria-hidden />
                 )}
               </div>
+            </div>
+            <div className="p-4">
+              <p className="font-semibold text-white">{p.name?.trim() || "Listing"}</p>
+              <p className="mt-1 text-sm text-white/50">{p.location}</p>
+              <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
             </div>
           </Link>
         );
@@ -630,32 +1058,21 @@ function DocumentsTab({
   return (
     <div className="space-y-10">
       <section>
-        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-[#2C2C2C]/45 dark:text-white/45">
-          Your uploads
-        </h3>
+        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-white/40">Your uploads</h3>
         {ownDocs.length === 0 ? (
-          <p className="mt-3 text-sm font-medium text-[#2C2C2C]/55 dark:text-white/50">
-            No documents uploaded yet.
-          </p>
+          <p className="mt-3 text-sm text-white/50">No documents uploaded yet.</p>
         ) : (
           <ul className="mt-4 space-y-3">
             {ownDocs.map((d) => (
-              <li
-                key={d.id}
-                className="rounded-2xl border border-black/5 bg-white p-4 shadow-md dark:border-white/10 dark:bg-[#1A1A1A]"
-              >
+              <li key={d.id} className="rounded-2xl bg-[#1A1A1A] p-4 shadow-lg ring-1 ring-white/5">
                 <div className="flex gap-3">
                   <FileText className="mt-0.5 h-5 w-5 shrink-0 text-[#6B9E6E]" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45 dark:text-white/45">
+                    <p className="text-xs font-bold uppercase tracking-wider text-white/40">
                       {labelForClientDocType(d.document_type)}
                     </p>
-                    <p className="mt-1 font-semibold text-[#2C2C2C] dark:text-white">
-                      {d.file_name?.trim() || "Document"}
-                    </p>
-                    <p className="mt-1 text-xs text-[#2C2C2C]/50 dark:text-white/50">
-                      {new Date(d.created_at).toLocaleDateString()}
-                    </p>
+                    <p className="mt-1 font-semibold text-white">{d.file_name?.trim() || "Document"}</p>
+                    <p className="mt-1 text-xs text-white/45">{new Date(d.created_at).toLocaleDateString()}</p>
                     <button
                       type="button"
                       disabled={viewBusyUrl === d.file_url}
@@ -673,13 +1090,9 @@ function DocumentsTab({
       </section>
 
       <section>
-        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-[#2C2C2C]/45 dark:text-white/45">
-          Shared by agents
-        </h3>
+        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-white/40">From Your Agent</h3>
         {sharedDocs.length === 0 ? (
-          <p className="mt-3 text-sm font-medium text-[#2C2C2C]/55 dark:text-white/50">
-            No shared documents yet.
-          </p>
+          <p className="mt-3 text-sm text-white/50">No shared documents yet.</p>
         ) : (
           <ul className="mt-4 space-y-3">
             {sharedDocs.map((r) => {
@@ -696,18 +1109,13 @@ function DocumentsTab({
                   ? meta.agent_name
                   : "Agent";
               return (
-                <li
-                  key={r.id}
-                  className="rounded-2xl border border-black/5 bg-white p-4 shadow-md dark:border-white/10 dark:bg-[#1A1A1A]"
-                >
+                <li key={r.id} className="rounded-2xl bg-[#1A1A1A] p-4 shadow-lg ring-1 ring-white/5">
                   <div className="flex gap-3">
                     <FileText className="mt-0.5 h-5 w-5 shrink-0 text-[#6B9E6E]" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45 dark:text-white/45">
-                        {docType}
-                      </p>
-                      <p className="mt-1 font-semibold text-[#2C2C2C] dark:text-white">{fileName}</p>
-                      <p className="mt-1 text-sm text-[#2C2C2C]/65 dark:text-white/60">
+                      <p className="text-xs font-bold uppercase tracking-wider text-white/40">{docType}</p>
+                      <p className="mt-1 font-semibold text-white">{fileName}</p>
+                      <p className="mt-1 text-sm text-white/50">
                         From {agentName} · {new Date(r.created_at).toLocaleDateString()}
                       </p>
                       <button
@@ -717,7 +1125,7 @@ function DocumentsTab({
                       >
                         View
                       </button>
-                      <p className="mt-2 text-[11px] font-semibold text-amber-800/90 dark:text-amber-200/90">
+                      <p className="mt-2 text-[11px] font-medium text-amber-200/80">
                         Link may expire after ~1 hour. Request a new one from your agent if needed.
                       </p>
                     </div>
@@ -743,11 +1151,11 @@ function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="grid h-16 w-16 place-items-center rounded-full bg-[#6B9E6E]/15 text-[#6B9E6E] dark:bg-[#6B9E6E]/25">
+      <div className="grid h-16 w-16 place-items-center rounded-full bg-[#6B9E6E]/20 text-[#6B9E6E]">
         <Icon className="h-8 w-8" strokeWidth={1.5} />
       </div>
-      <p className="mt-4 font-serif text-lg font-bold text-[#2C2C2C] dark:text-white">{title}</p>
-      <p className="mt-2 max-w-xs text-sm font-medium text-[#2C2C2C]/55 dark:text-white/55">{subtitle}</p>
+      <p className="mt-4 font-serif text-lg font-bold text-white">{title}</p>
+      <p className="mt-2 max-w-xs text-sm text-white/50">{subtitle}</p>
     </div>
   );
 }
@@ -786,7 +1194,7 @@ function BottomNav({
       href={href}
       className={cn(
         "relative flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[10px] font-semibold transition-all duration-200",
-        active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/40 dark:text-white/40",
+        active ? "text-[#6B9E6E]" : "text-white/40",
       )}
     >
       {children ?? (Icon ? <Icon className="h-6 w-6" /> : null)}
@@ -795,7 +1203,7 @@ function BottomNav({
   );
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-black/5 px-1 py-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md transition-all duration-200 dark:border-white/10 dark:bg-black/60 bg-white/80">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-[#2A2A2A] bg-[#0A0A0A] px-1 py-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       <Item href="/" label="Home" icon={Home} active={pathname === "/"} />
       <Item href="/" label="Search" icon={Search} active={false} />
       <Item href="/notifications" label="Notifications" active={pathname.startsWith("/notifications")}>
@@ -812,10 +1220,10 @@ function BottomNav({
         href={profileHref}
         className={cn(
           "relative flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[10px] font-semibold transition-all duration-200",
-          profileActive ? "text-[#6B9E6E]" : "text-[#2C2C2C]/40 dark:text-white/40",
+          profileActive ? "text-[#6B9E6E]" : "text-white/40",
         )}
       >
-        <span className="relative h-7 w-7 overflow-hidden rounded-full bg-[#6B9E6E]/25 ring-2 ring-offset-2 ring-offset-white dark:ring-offset-[#0A0A0A]">
+        <span className="relative h-7 w-7 overflow-hidden rounded-full bg-[#6B9E6E]/30 ring-2 ring-[#0A0A0A]">
           {avatarUrl ? (
             <Image src={avatarUrl} alt="" fill className="object-cover" sizes="28px" unoptimized />
           ) : (
