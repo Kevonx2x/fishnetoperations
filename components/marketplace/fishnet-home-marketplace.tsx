@@ -808,7 +808,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const heroSearchCard = (
     <>
       <div className="flex justify-center lg:justify-start">
-        <div className="inline-flex gap-2 rounded-full bg-[#EBE6DC]/90 p-1 ring-1 ring-[#D4A843]/35 backdrop-blur-sm">
+        <div className="inline-flex min-h-[56px] gap-2 rounded-full bg-[#EBE6DC]/90 p-1 ring-1 ring-[#D4A843]/35 backdrop-blur-sm">
           {mode === "rent" ? (
             <>
               <Link
@@ -836,7 +836,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           )}
         </div>
       </div>
-      <div className="mt-4 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
+      <div className="mt-4 min-h-[60px] rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
         <div className="relative z-20 flex w-full flex-col gap-3 sm:flex-row sm:items-center">
           <PhLocationInput
             value={search}
@@ -2430,9 +2430,10 @@ function RowCarousel({
     list.length === 0 ? 3 : list.length > 0 && list.length < 5 ? 5 - list.length : 0;
   const featuredClasses = featured ? "rounded-2xl border border-[#D4A843]/30 bg-[#D4A843]/5 px-3 pt-3" : "";
   const cardWidthClass = "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]";
+  const reserveBrowseSectionMinH = title === "Featured Picks" || title === "Newly Listed Rentals";
 
   return (
-    <div className={featuredClasses}>
+    <div className={cn(featuredClasses, reserveBrowseSectionMinH && "min-h-[400px]")}>
       <div className="mb-3">
         <div className="flex flex-wrap items-center gap-2">
           {featured ? <Star className="h-4 w-4 shrink-0 text-[#D4A843]" /> : null}

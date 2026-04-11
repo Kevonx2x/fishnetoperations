@@ -111,7 +111,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <Providers>
           {children}
-          <SiteFooter />
+          <div className="min-h-[300px]">
+            <SiteFooter />
+          </div>
         </Providers>
       </body>
     </html>
