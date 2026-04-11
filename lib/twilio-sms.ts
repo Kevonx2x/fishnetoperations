@@ -47,11 +47,14 @@ export async function sendSmsTo(to: string, body: string): Promise<{ ok: true } 
  * Does not throw; logs on failure so callers never block main flows.
  */
 export async function sendAdminSms(body: string): Promise<void> {
-  const to = process.env.TWILIO_ADMIN_PHONE?.trim();
+  const to =
+    process.env.ADMIN_PHONE_NUMBER?.trim() || process.env.TWILIO_ADMIN_PHONE?.trim();
   const from = process.env.TWILIO_PHONE_NUMBER;
   const client = getTwilioClient();
   if (!to || !from || !client) {
-    console.warn("[twilio-sms] admin SMS skipped: missing TWILIO_ADMIN_PHONE or Twilio config");
+    console.warn(
+      "[twilio-sms] admin SMS skipped: missing ADMIN_PHONE_NUMBER / TWILIO_ADMIN_PHONE or Twilio config",
+    );
     return;
   }
   try {

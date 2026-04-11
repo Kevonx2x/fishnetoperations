@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { Eye, EyeOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -115,6 +115,47 @@ interface ApplicantRow {
   status: string;
 }
 
+interface VaLeadRow {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  role: string | null;
+  phone: string | null;
+  email: string | null;
+  platform: string | null;
+  listing_link: string | null;
+  status: string;
+  follow_up_stage: string | null;
+  last_contacted_at: string | null;
+  assigned_to: string | null;
+  notes: string | null;
+  messages_sent: number;
+}
+
+interface VaDailyReportRow {
+  id: string;
+  created_at: string;
+  va_name: string;
+  report_date: string;
+  leads_found: number;
+  contacts_made: number;
+  replies: number;
+  meetings_booked: number;
+}
+
+interface AdminCredentialRow {
+  id: string;
+  created_at: string;
+  service_name: string;
+  username: string;
+  password_plain: string;
+  monthly_cost: number;
+  notes: string | null;
+}
+
+const CREDENTIALS_SUPER_ADMIN_EMAIL = "ron.business101@gmail.com";
+
 interface PropertyConnectedAgent {
   id: string;
   name: string;
@@ -192,6 +233,34 @@ function applicantStatusPillClass(status: string): string {
   return "bg-gray-200 text-gray-800";
 }
 
+const VA_LEAD_STATUSES = [
+  "not_contacted",
+  "contacted",
+  "replied",
+  "booked",
+  "no_response",
+] as const;
+
+function vaLeadStatusPillClass(status: string): string {
+  if (status === "not_contacted") return "bg-gray-200 text-gray-800";
+  if (status === "contacted") return "bg-blue-600 text-white";
+  if (status === "replied") return "bg-yellow-400 text-gray-900";
+  if (status === "booked") return "bg-green-600 text-white";
+  if (status === "no_response") return "bg-red-600 text-white";
+  return "bg-gray-200 text-gray-800";
+}
+
+function vaLeadNeedsFollowUp(row: VaLeadRow): boolean {
+  if (row.status === "booked" || row.status === "no_response") return false;
+  if (!row.last_contacted_at) return true;
+  const ms = Date.now() - new Date(row.last_contacted_at).getTime();
+  return ms > 2 * 24 * 60 * 60 * 1000;
+}
+
+function formatPesoMonthly(n: number): string {
+  return `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function formatVerificationErrorDetails(
   status: number,
   statusText: string,
@@ -224,6 +293,9 @@ export default function AdminPage() {
     | "users"
     | "coagent"
     | "hiring"
+    | "outreach"
+    | "vaReports"
+    | "credentials"
   >("leads");
 
   const [properties, setProperties] = useState<Property[]>([]);
@@ -300,6 +372,92 @@ export default function AdminPage() {
     notes: "",
   });
   const [editApplicantSaving, setEditApplicantSaving] = useState(false);
+
+  const [vaLeads, setVaLeads] = useState<VaLeadRow[]>([]);
+  const [vaLeadsStats, setVaLeadsStats] = useState({
+    totalLeads: 0,
+    contactedToday: 0,
+    repliesToday: 0,
+    meetingsBookedToday: 0,
+  });
+  const [vaLeadsAssignOptions, setVaLeadsAssignOptions] = useState<string[]>([]);
+  const [vaLeadsLoading, setVaLeadsLoading] = useState(false);
+  const [vaLeadsError, setVaLeadsError] = useState("");
+  const [outreachSearch, setOutreachSearch] = useState("");
+  const [outreachStatusFilter, setOutreachStatusFilter] = useState("");
+  const [outreachAssignedFilter, setOutreachAssignedFilter] = useState("");
+  const [outreachExpandedId, setOutreachExpandedId] = useState<string | null>(null);
+  const [outreachDraft, setOutreachDraft] = useState({
+    status: "not_contacted",
+    notes: "",
+    follow_up_stage: "",
+    messages_sent: 0,
+    assigned_to: "",
+  });
+  const [outreachSaving, setOutreachSaving] = useState(false);
+  const [newVaLeadOpen, setNewVaLeadOpen] = useState(false);
+  const [newVaLeadForm, setNewVaLeadForm] = useState({
+    name: "",
+    role: "",
+    phone: "",
+    email: "",
+    platform: "",
+    listing_link: "",
+    status: "not_contacted",
+    follow_up_stage: "",
+    notes: "",
+    assigned_to: "",
+    messages_sent: 0,
+  });
+  const [newVaLeadSaving, setNewVaLeadSaving] = useState(false);
+
+  const [vaReports, setVaReports] = useState<VaDailyReportRow[]>([]);
+  const [vaReportsWeekly, setVaReportsWeekly] = useState({
+    leadsFound: 0,
+    contactsMade: 0,
+    replies: 0,
+    meetingsBooked: 0,
+  });
+  const [vaReportsWeekRange, setVaReportsWeekRange] = useState({ start: "", end: "" });
+  const [vaReportsLoading, setVaReportsLoading] = useState(false);
+  const [vaReportsError, setVaReportsError] = useState("");
+  const [submitReportOpen, setSubmitReportOpen] = useState(false);
+  const [submitReportForm, setSubmitReportForm] = useState({
+    va_name: "",
+    report_date: new Date().toISOString().slice(0, 10),
+    leads_found: 0,
+    contacts_made: 0,
+    replies: 0,
+    meetings_booked: 0,
+  });
+  const [submitReportSaving, setSubmitReportSaving] = useState(false);
+
+  const [credentialsRows, setCredentialsRows] = useState<AdminCredentialRow[]>([]);
+  const [credentialsTotal, setCredentialsTotal] = useState(0);
+  const [credentialsLoading, setCredentialsLoading] = useState(false);
+  const [credentialsError, setCredentialsError] = useState("");
+  const [credentialPwdVisible, setCredentialPwdVisible] = useState<Record<string, boolean>>({});
+  const [newCredentialOpen, setNewCredentialOpen] = useState(false);
+  const [newCredentialForm, setNewCredentialForm] = useState({
+    service_name: "",
+    username: "",
+    password_plain: "",
+    monthly_cost: "",
+    notes: "",
+  });
+  const [newCredentialSaving, setNewCredentialSaving] = useState(false);
+  const [editCredentialId, setEditCredentialId] = useState<string | null>(null);
+  const [editCredentialForm, setEditCredentialForm] = useState({
+    service_name: "",
+    username: "",
+    password_plain: "",
+    monthly_cost: "",
+    notes: "",
+  });
+  const [credentialSaving, setCredentialSaving] = useState(false);
+
+  const canSeeCredentials =
+    (user?.email ?? "").toLowerCase() === CREDENTIALS_SUPER_ADMIN_EMAIL;
 
   const [manageAgentsProperty, setManageAgentsProperty] = useState<Property | null>(null);
   const [manageAgentsConnected, setManageAgentsConnected] = useState<PropertyConnectedAgent[]>([]);
@@ -623,6 +781,336 @@ export default function AdminPage() {
       toast.error(e instanceof Error ? e.message : "Update failed");
     } finally {
       setEditApplicantSaving(false);
+    }
+  };
+
+  const fetchVaLeads = async () => {
+    setVaLeadsLoading(true);
+    setVaLeadsError("");
+    try {
+      const params = new URLSearchParams();
+      if (outreachSearch.trim()) params.set("search", outreachSearch.trim());
+      if (outreachStatusFilter) params.set("status", outreachStatusFilter);
+      if (outreachAssignedFilter) params.set("assigned_to", outreachAssignedFilter);
+      const res = await fetch(`/api/admin/va-leads?${params.toString()}`, { credentials: "include" });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: {
+          stats: {
+            totalLeads: number;
+            contactedToday: number;
+            repliesToday: number;
+            meetingsBookedToday: number;
+          };
+          leads: VaLeadRow[];
+          assignOptions: string[];
+        };
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        setVaLeadsError(json.error?.message ?? `HTTP ${res.status}`);
+        setVaLeads([]);
+        return;
+      }
+      if (json.success && json.data) {
+        setVaLeadsStats(json.data.stats);
+        setVaLeads(json.data.leads);
+        setVaLeadsAssignOptions(json.data.assignOptions);
+      } else {
+        setVaLeads([]);
+      }
+    } catch (e) {
+      setVaLeadsError(e instanceof Error ? e.message : "Failed to load");
+      setVaLeads([]);
+    } finally {
+      setVaLeadsLoading(false);
+    }
+  };
+
+  const openOutreachEdit = (row: VaLeadRow) => {
+    setOutreachExpandedId(row.id);
+    setOutreachDraft({
+      status: row.status,
+      notes: row.notes ?? "",
+      follow_up_stage: row.follow_up_stage ?? "",
+      messages_sent: row.messages_sent ?? 0,
+      assigned_to: row.assigned_to ?? "",
+    });
+  };
+
+  const saveOutreachEdit = async (id: string) => {
+    setOutreachSaving(true);
+    try {
+      const res = await fetch(`/api/admin/va-leads/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          status: outreachDraft.status,
+          notes: outreachDraft.notes.trim() ? outreachDraft.notes.trim() : null,
+          follow_up_stage: outreachDraft.follow_up_stage.trim() || null,
+          messages_sent: outreachDraft.messages_sent,
+          assigned_to: outreachDraft.assigned_to.trim() || null,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        toast.error(json.error?.message ?? "Update failed");
+        return;
+      }
+      toast.success("Lead updated");
+      setOutreachExpandedId(null);
+      void fetchVaLeads();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setOutreachSaving(false);
+    }
+  };
+
+  const submitNewVaLead = async () => {
+    if (!newVaLeadForm.name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    setNewVaLeadSaving(true);
+    try {
+      const res = await fetch("/api/admin/va-leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: newVaLeadForm.name.trim(),
+          role: newVaLeadForm.role.trim() || null,
+          phone: newVaLeadForm.phone.trim() || null,
+          email: newVaLeadForm.email.trim() || null,
+          platform: newVaLeadForm.platform.trim() || null,
+          listing_link: newVaLeadForm.listing_link.trim() || null,
+          status: newVaLeadForm.status,
+          follow_up_stage: newVaLeadForm.follow_up_stage.trim() || null,
+          notes: newVaLeadForm.notes.trim() || null,
+          assigned_to: newVaLeadForm.assigned_to.trim() || null,
+          messages_sent: newVaLeadForm.messages_sent,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        toast.error(json.error?.message ?? "Could not add lead");
+        return;
+      }
+      toast.success("Lead added");
+      setNewVaLeadOpen(false);
+      setNewVaLeadForm({
+        name: "",
+        role: "",
+        phone: "",
+        email: "",
+        platform: "",
+        listing_link: "",
+        status: "not_contacted",
+        follow_up_stage: "",
+        notes: "",
+        assigned_to: "",
+        messages_sent: 0,
+      });
+      void fetchVaLeads();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not add lead");
+    } finally {
+      setNewVaLeadSaving(false);
+    }
+  };
+
+  const fetchVaReports = async () => {
+    setVaReportsLoading(true);
+    setVaReportsError("");
+    try {
+      const res = await fetch("/api/admin/va-reports", { credentials: "include" });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: {
+          weeklyTotals: {
+            leadsFound: number;
+            contactsMade: number;
+            replies: number;
+            meetingsBooked: number;
+          };
+          weekRange: { start: string; end: string };
+          reports: VaDailyReportRow[];
+        };
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        setVaReportsError(json.error?.message ?? `HTTP ${res.status}`);
+        setVaReports([]);
+        return;
+      }
+      if (json.success && json.data) {
+        setVaReportsWeekly(json.data.weeklyTotals);
+        setVaReportsWeekRange(json.data.weekRange);
+        setVaReports(json.data.reports);
+      }
+    } catch (e) {
+      setVaReportsError(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setVaReportsLoading(false);
+    }
+  };
+
+  const submitVaReport = async () => {
+    if (!submitReportForm.va_name.trim()) {
+      toast.error("VA name is required");
+      return;
+    }
+    setSubmitReportSaving(true);
+    try {
+      const res = await fetch("/api/admin/va-reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(submitReportForm),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        toast.error(json.error?.message ?? "Submit failed");
+        return;
+      }
+      toast.success("Report submitted");
+      setSubmitReportOpen(false);
+      void fetchVaReports();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Submit failed");
+    } finally {
+      setSubmitReportSaving(false);
+    }
+  };
+
+  const fetchCredentials = async () => {
+    if (!canSeeCredentials) return;
+    setCredentialsLoading(true);
+    setCredentialsError("");
+    try {
+      const res = await fetch("/api/admin/admin-credentials", { credentials: "include" });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: { rows: AdminCredentialRow[]; totalMonthly: number };
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        setCredentialsError(json.error?.message ?? `HTTP ${res.status}`);
+        setCredentialsRows([]);
+        return;
+      }
+      if (json.success && json.data) {
+        setCredentialsRows(json.data.rows);
+        setCredentialsTotal(json.data.totalMonthly);
+      }
+    } catch (e) {
+      setCredentialsError(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setCredentialsLoading(false);
+    }
+  };
+
+  const saveCredentialEdit = async () => {
+    if (!editCredentialId) return;
+    setCredentialSaving(true);
+    try {
+      const res = await fetch(`/api/admin/admin-credentials/${editCredentialId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          service_name: editCredentialForm.service_name.trim(),
+          username: editCredentialForm.username,
+          password_plain: editCredentialForm.password_plain,
+          monthly_cost: parseFloat(editCredentialForm.monthly_cost) || 0,
+          notes: editCredentialForm.notes.trim() || null,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        toast.error(json.error?.message ?? "Save failed");
+        return;
+      }
+      toast.success("Saved");
+      setEditCredentialId(null);
+      void fetchCredentials();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setCredentialSaving(false);
+    }
+  };
+
+  const deleteCredential = async (id: string) => {
+    if (!confirm("Delete this credential row?")) return;
+    const res = await fetch(`/api/admin/admin-credentials/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const j = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+      toast.error(j.error?.message ?? "Delete failed");
+      return;
+    }
+    toast.success("Deleted");
+    void fetchCredentials();
+  };
+
+  const submitNewCredential = async () => {
+    if (!newCredentialForm.service_name.trim()) {
+      toast.error("Service name is required");
+      return;
+    }
+    setNewCredentialSaving(true);
+    try {
+      const res = await fetch("/api/admin/admin-credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          service_name: newCredentialForm.service_name.trim(),
+          username: newCredentialForm.username,
+          password_plain: newCredentialForm.password_plain,
+          monthly_cost: parseFloat(newCredentialForm.monthly_cost) || 0,
+          notes: newCredentialForm.notes.trim() || null,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        toast.error(json.error?.message ?? "Could not add");
+        return;
+      }
+      toast.success("Credential added");
+      setNewCredentialOpen(false);
+      setNewCredentialForm({
+        service_name: "",
+        username: "",
+        password_plain: "",
+        monthly_cost: "",
+        notes: "",
+      });
+      void fetchCredentials();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not add");
+    } finally {
+      setNewCredentialSaving(false);
     }
   };
 
@@ -963,6 +1451,43 @@ export default function AdminPage() {
     }
   }, [user?.id, profile?.role, adminSection]);
 
+  useEffect(() => {
+    if (user?.id && profile?.role === "admin" && adminSection === "outreach") {
+      const t = setTimeout(() => void fetchVaLeads(), 350);
+      return () => clearTimeout(t);
+    }
+  }, [
+    user?.id,
+    profile?.role,
+    adminSection,
+    outreachSearch,
+    outreachStatusFilter,
+    outreachAssignedFilter,
+  ]);
+
+  useEffect(() => {
+    if (user?.id && profile?.role === "admin" && adminSection === "vaReports") {
+      void fetchVaReports();
+    }
+  }, [user?.id, profile?.role, adminSection]);
+
+  useEffect(() => {
+    if (
+      user?.id &&
+      profile?.role === "admin" &&
+      adminSection === "credentials" &&
+      canSeeCredentials
+    ) {
+      void fetchCredentials();
+    }
+  }, [user?.id, profile?.role, adminSection, canSeeCredentials]);
+
+  useEffect(() => {
+    if (adminSection === "credentials" && profile?.role === "admin" && user?.email && !canSeeCredentials) {
+      setAdminSection("leads");
+    }
+  }, [adminSection, canSeeCredentials, profile?.role, user?.email]);
+
   const filteredLeads =
     filter === "all"
       ? leads
@@ -1222,128 +1747,325 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4] p-6">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <Link
-              href="/"
-              className="mb-2 inline-flex items-center gap-1 text-sm text-[#6B9E6E] hover:underline"
-            >
-              ← Home
-            </Link>
-            <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">Admin Dashboard</h1>
-            <p className="text-sm text-[#2C2C2C]/55">BahayGo — Lead &amp; property management</p>
-            <p className="mt-1 text-xs text-[#2C2C2C]/40">{user?.email}</p>
-          </div>
-          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+    <div className="flex min-h-screen flex-col bg-[#eef1f6]">
+      <div className="border-b border-[#2C2C2C]/10 bg-white p-4 shadow-sm md:hidden">
+        <div className="mb-3 flex flex-col gap-2">
+          <Link
+            href="/"
+            className="inline-flex w-fit items-center gap-1 text-sm text-[#6B9E6E] hover:underline"
+          >
+            ← Home
+          </Link>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h1 className="font-serif text-xl font-bold text-[#2C2C2C]">Admin</h1>
+              <p className="text-xs text-[#2C2C2C]/45">{user?.email}</p>
+            </div>
             <button
               type="button"
               onClick={() => void signOutAdmin()}
-              className="self-end text-sm font-semibold text-[#2C2C2C]/55 underline hover:text-[#2C2C2C]"
+              className="text-sm font-semibold text-[#2C2C2C]/55 underline hover:text-[#2C2C2C]"
             >
               Sign out
             </button>
-            <div className="flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setAdminSection("leads")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
-                  adminSection === "leads"
-                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
-                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
-                }`}
-              >
-                Leads
-              </button>
-              <button
-                type="button"
-                onClick={() => setAdminSection("properties")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
-                  adminSection === "properties"
-                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
-                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
-                }`}
-              >
-                Properties
-                <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
-                  {properties.length}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setAdminSection("verification")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
-                  adminSection === "verification"
-                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
-                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
-                }`}
-              >
-                Verification
-                <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
-                  {pendingBrokers.length + pendingAgents.length}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setAdminSection("agents")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
-                  adminSection === "agents"
-                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
-                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
-                }`}
-              >
-                Agents
-                <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
-                  {allAgentsList.length}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setAdminSection("users")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
-                  adminSection === "users"
-                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
-                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
-                }`}
-              >
-                Users
-                <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
-                  {adminUsers.length}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setAdminSection("coagent")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
-                  adminSection === "coagent"
-                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
-                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
-                }`}
-              >
-                Co-Agent Requests
-                <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
-                  {coAgentRequests.length}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setAdminSection("hiring")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
-                  adminSection === "hiring"
-                    ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
-                    : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
-                }`}
-              >
-                Hiring
-                <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
-                  {applicants.length}
-                </span>
-              </button>
-            </div>
           </div>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setAdminSection("leads")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+              adminSection === "leads"
+                ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+            }`}
+          >
+            Leads
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminSection("properties")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+              adminSection === "properties"
+                ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+            }`}
+          >
+            Properties
+            <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
+              {properties.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminSection("verification")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+              adminSection === "verification"
+                ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+            }`}
+          >
+            Verification
+            <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
+              {pendingBrokers.length + pendingAgents.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminSection("agents")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+              adminSection === "agents"
+                ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+            }`}
+          >
+            Agents
+            <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
+              {allAgentsList.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminSection("users")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+              adminSection === "users"
+                ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+            }`}
+          >
+            Users
+            <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
+              {adminUsers.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminSection("coagent")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+              adminSection === "coagent"
+                ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+            }`}
+          >
+            Co-Agent Requests
+            <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
+              {coAgentRequests.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminSection("hiring")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+              adminSection === "hiring"
+                ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+            }`}
+          >
+            Hiring
+            <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
+              {applicants.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminSection("outreach")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+              adminSection === "outreach"
+                ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+            }`}
+          >
+            Outreach
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminSection("vaReports")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+              adminSection === "vaReports"
+                ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+            }`}
+          >
+            VA Reports
+          </button>
+          {canSeeCredentials ? (
+            <button
+              type="button"
+              onClick={() => setAdminSection("credentials")}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                adminSection === "credentials"
+                  ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                  : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+              }`}
+            >
+              Credentials
+            </button>
+          ) : null}
+        </div>
+      </div>
 
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <aside className="hidden w-64 shrink-0 flex-col border-r border-white/5 bg-[#1e2a3a] text-white md:flex">
+          <div className="border-b border-white/10 px-5 py-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/45">BahayGo</p>
+            <p className="font-serif text-lg font-bold leading-tight">Admin</p>
+            <p className="mt-1 text-xs text-white/40">Lead &amp; property</p>
+          </div>
+          <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
+            <button
+              type="button"
+              onClick={() => setAdminSection("leads")}
+              className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                adminSection === "leads"
+                  ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              Leads
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdminSection("properties")}
+              className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                adminSection === "properties"
+                  ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <span>Properties</span>
+              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold tabular-nums">
+                {properties.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdminSection("verification")}
+              className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                adminSection === "verification"
+                  ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <span>Verification</span>
+              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold tabular-nums">
+                {pendingBrokers.length + pendingAgents.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdminSection("agents")}
+              className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                adminSection === "agents"
+                  ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <span>Agents</span>
+              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold tabular-nums">
+                {allAgentsList.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdminSection("users")}
+              className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                adminSection === "users"
+                  ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <span>Users</span>
+              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold tabular-nums">
+                {adminUsers.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdminSection("coagent")}
+              className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                adminSection === "coagent"
+                  ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <span className="text-left leading-snug">Co-Agent</span>
+              <span className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold tabular-nums">
+                {coAgentRequests.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdminSection("hiring")}
+              className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                adminSection === "hiring"
+                  ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <span>Hiring</span>
+              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold tabular-nums">
+                {applicants.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdminSection("outreach")}
+              className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                adminSection === "outreach"
+                  ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              Outreach
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdminSection("vaReports")}
+              className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                adminSection === "vaReports"
+                  ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              VA Reports
+            </button>
+            {canSeeCredentials ? (
+              <button
+                type="button"
+                onClick={() => setAdminSection("credentials")}
+                className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                  adminSection === "credentials"
+                    ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                    : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                Credentials
+              </button>
+            ) : null}
+          </nav>
+          <div className="border-t border-white/10 px-4 py-3">
+            <Link href="/" className="text-sm text-[#6B9E6E] hover:underline">
+              ← Home
+            </Link>
+          </div>
+        </aside>
+
+        <div className="flex min-h-0 flex-1 flex-col">
+          <header className="hidden shrink-0 items-center justify-between border-b border-[#2C2C2C]/10 bg-white px-6 py-4 shadow-sm md:flex">
+            <div>
+              <h1 className="font-serif text-xl font-bold text-[#2C2C2C]">Admin Dashboard</h1>
+              <p className="text-xs text-[#2C2C2C]/45">{user?.email}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void signOutAdmin()}
+              className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-[#eef1f6]"
+            >
+              Sign out
+            </button>
+          </header>
+          <main className="flex-1 overflow-auto p-4 md:p-6">
+            <div className="mx-auto max-w-6xl">
         {adminSection === "users" && (
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2515,6 +3237,598 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {adminSection === "outreach" && (
+          <div className="space-y-6">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-3 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Total Leads
+                </p>
+                <p className="mt-1 font-serif text-2xl font-bold text-[#2C2C2C]">{vaLeadsStats.totalLeads}</p>
+              </div>
+              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-3 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Contacted Today
+                </p>
+                <p className="mt-1 font-serif text-2xl font-bold text-blue-700">
+                  {vaLeadsStats.contactedToday}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-3 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Replies Today
+                </p>
+                <p className="mt-1 font-serif text-2xl font-bold text-amber-600">
+                  {vaLeadsStats.repliesToday}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-3 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Meetings Booked Today
+                </p>
+                <p className="mt-1 font-serif text-2xl font-bold text-[#6B9E6E]">
+                  {vaLeadsStats.meetingsBookedToday}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
+              <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                <input
+                  type="search"
+                  value={outreachSearch}
+                  onChange={(e) => setOutreachSearch(e.target.value)}
+                  placeholder="Search name, email, phone…"
+                  className="w-full min-w-[200px] rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] sm:max-w-xs"
+                />
+                <select
+                  value={outreachStatusFilter}
+                  onChange={(e) => setOutreachStatusFilter(e.target.value)}
+                  className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]"
+                >
+                  <option value="">All statuses</option>
+                  {VA_LEAD_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={outreachAssignedFilter}
+                  onChange={(e) => setOutreachAssignedFilter(e.target.value)}
+                  className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]"
+                >
+                  <option value="">Assigned to (any)</option>
+                  {vaLeadsAssignOptions.map((a) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNewVaLeadOpen(true)}
+                  className="rounded-full bg-[#2C2C2C] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#6B9E6E]"
+                >
+                  New Lead
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void fetchVaLeads()}
+                  className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] shadow-sm hover:bg-[#FAF8F4]"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            {vaLeadsError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {vaLeadsError}
+              </div>
+            ) : null}
+
+            <div className="overflow-x-auto rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+              {vaLeadsLoading ? (
+                <div className="p-10 text-center text-sm text-[#2C2C2C]/45">Loading outreach…</div>
+              ) : vaLeads.length === 0 ? (
+                <div className="p-10 text-center text-sm text-[#2C2C2C]/45">No leads yet.</div>
+              ) : (
+                <table className="w-full min-w-[1100px]">
+                  <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                    <tr className="text-left text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                      <th className="px-3 py-3">Name</th>
+                      <th className="px-3 py-3">Role</th>
+                      <th className="px-3 py-3">Phone</th>
+                      <th className="px-3 py-3">Email</th>
+                      <th className="px-3 py-3">Platform</th>
+                      <th className="px-3 py-3">Listing Link</th>
+                      <th className="px-3 py-3">Status</th>
+                      <th className="px-3 py-3">Follow-up Stage</th>
+                      <th className="px-3 py-3">Last Contacted</th>
+                      <th className="px-3 py-3">Assigned To</th>
+                      <th className="px-3 py-3">Notes</th>
+                      <th className="px-3 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2C2C2C]/5">
+                    {vaLeads.map((row) => (
+                      <Fragment key={row.id}>
+                        <tr className="align-top hover:bg-[#FAF8F4]/80">
+                          <td className="px-3 py-3 text-sm font-semibold text-[#2C2C2C]">
+                            <span className="inline-flex flex-wrap items-center gap-1.5">
+                              {row.name}
+                              {vaLeadNeedsFollowUp(row) ? (
+                                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-800">
+                                  Needs Follow-Up
+                                </span>
+                              ) : null}
+                            </span>
+                          </td>
+                          <td className="max-w-[100px] px-3 py-3 text-xs text-[#2C2C2C]/75">{row.role ?? "—"}</td>
+                          <td className="px-3 py-3 text-xs text-[#2C2C2C]/75">{row.phone ?? "—"}</td>
+                          <td className="max-w-[140px] break-all px-3 py-3 text-xs text-[#2C2C2C]/75">
+                            {row.email ?? "—"}
+                          </td>
+                          <td className="px-3 py-3 text-xs text-[#2C2C2C]/75">{row.platform ?? "—"}</td>
+                          <td className="max-w-[120px] truncate px-3 py-3 text-xs">
+                            {row.listing_link ? (
+                              <a
+                                href={row.listing_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-semibold text-[#6B9E6E] underline"
+                              >
+                                Link
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="px-3 py-3">
+                            <span className="inline-flex flex-wrap items-center gap-1">
+                              <span
+                                className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${vaLeadStatusPillClass(row.status)}`}
+                              >
+                                {row.status}
+                              </span>
+                              {row.status === "replied" ? (
+                                <span className="rounded-full bg-red-100 px-2 py-0.5 text-[9px] font-bold text-red-800">
+                                  Hot Lead
+                                </span>
+                              ) : null}
+                            </span>
+                          </td>
+                          <td className="max-w-[100px] px-3 py-3 text-xs text-[#2C2C2C]/75">
+                            {row.follow_up_stage ?? "—"}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-[10px] text-[#2C2C2C]/55">
+                            {row.last_contacted_at
+                              ? new Date(row.last_contacted_at).toLocaleString()
+                              : "—"}
+                          </td>
+                          <td className="px-3 py-3 text-xs text-[#2C2C2C]/75">{row.assigned_to ?? "—"}</td>
+                          <td className="max-w-[140px] px-3 py-3 text-xs text-[#2C2C2C]/75">
+                            <span className="line-clamp-2 whitespace-pre-wrap">{row.notes ?? "—"}</span>
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (outreachExpandedId === row.id) {
+                                  setOutreachExpandedId(null);
+                                } else {
+                                  openOutreachEdit(row);
+                                }
+                              }}
+                              className="rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] hover:bg-[#FAF8F4]"
+                            >
+                              {outreachExpandedId === row.id ? "Close" : "Edit"}
+                            </button>
+                          </td>
+                        </tr>
+                        {outreachExpandedId === row.id ? (
+                          <tr className="bg-[#FAF8F4]/50">
+                            <td colSpan={12} className="px-4 py-4">
+                              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                                  Status
+                                  <select
+                                    value={outreachDraft.status}
+                                    onChange={(e) =>
+                                      setOutreachDraft((d) => ({ ...d, status: e.target.value }))
+                                    }
+                                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 bg-white px-2 py-2 text-sm"
+                                  >
+                                    {VA_LEAD_STATUSES.map((s) => (
+                                      <option key={s} value={s}>
+                                        {s}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                                  Follow-up stage
+                                  <input
+                                    type="text"
+                                    value={outreachDraft.follow_up_stage}
+                                    onChange={(e) =>
+                                      setOutreachDraft((d) => ({
+                                        ...d,
+                                        follow_up_stage: e.target.value,
+                                      }))
+                                    }
+                                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-2 py-2 text-sm"
+                                  />
+                                </label>
+                                <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                                  Messages sent
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={outreachDraft.messages_sent}
+                                    onChange={(e) =>
+                                      setOutreachDraft((d) => ({
+                                        ...d,
+                                        messages_sent: Number(e.target.value) || 0,
+                                      }))
+                                    }
+                                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-2 py-2 text-sm"
+                                  />
+                                </label>
+                                <label className="block text-xs font-bold text-[#2C2C2C]/45 sm:col-span-2">
+                                  Assigned to
+                                  <input
+                                    type="text"
+                                    value={outreachDraft.assigned_to}
+                                    onChange={(e) =>
+                                      setOutreachDraft((d) => ({
+                                        ...d,
+                                        assigned_to: e.target.value,
+                                      }))
+                                    }
+                                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-2 py-2 text-sm"
+                                  />
+                                </label>
+                                <label className="block text-xs font-bold text-[#2C2C2C]/45 sm:col-span-2 lg:col-span-3">
+                                  Notes
+                                  <textarea
+                                    value={outreachDraft.notes}
+                                    onChange={(e) =>
+                                      setOutreachDraft((d) => ({ ...d, notes: e.target.value }))
+                                    }
+                                    rows={3}
+                                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-2 py-2 text-sm"
+                                  />
+                                </label>
+                              </div>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={outreachSaving}
+                                  onClick={() => void saveOutreachEdit(row.id)}
+                                  className="rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                                >
+                                  {outreachSaving ? "Saving…" : "Save"}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={outreachSaving}
+                                  onClick={() => setOutreachExpandedId(null)}
+                                  className="rounded-full border border-[#2C2C2C]/15 bg-white px-4 py-2 text-xs font-semibold text-[#2C2C2C] disabled:opacity-50"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
+        {adminSection === "vaReports" && (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-4 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Week of {vaReportsWeekRange.start} – {vaReportsWeekRange.end} (all VAs)
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <p className="text-[11px] font-semibold text-[#2C2C2C]/50">Leads found</p>
+                  <p className="font-serif text-xl font-bold text-[#2C2C2C]">{vaReportsWeekly.leadsFound}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-[#2C2C2C]/50">Contacts made</p>
+                  <p className="font-serif text-xl font-bold text-[#2C2C2C]">{vaReportsWeekly.contactsMade}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-[#2C2C2C]/50">Replies</p>
+                  <p className="font-serif text-xl font-bold text-[#2C2C2C]">{vaReportsWeekly.replies}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-[#2C2C2C]/50">Meetings booked</p>
+                  <p className="font-serif text-xl font-bold text-[#2C2C2C]">{vaReportsWeekly.meetingsBooked}</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSubmitReportForm((s) => ({
+                    ...s,
+                    va_name: profile?.full_name?.trim() || "",
+                    report_date: new Date().toISOString().slice(0, 10),
+                  }));
+                  setSubmitReportOpen(true);
+                }}
+                className="rounded-full bg-[#2C2C2C] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#6B9E6E]"
+              >
+                Submit Report
+              </button>
+              <button
+                type="button"
+                onClick={() => void fetchVaReports()}
+                className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] shadow-sm hover:bg-[#FAF8F4]"
+              >
+                Refresh
+              </button>
+            </div>
+            {vaReportsError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {vaReportsError}
+              </div>
+            ) : null}
+            <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+              {vaReportsLoading ? (
+                <div className="p-10 text-center text-sm text-[#2C2C2C]/45">Loading reports…</div>
+              ) : vaReports.length === 0 ? (
+                <div className="p-10 text-center text-sm text-[#2C2C2C]/45">No daily reports yet.</div>
+              ) : (
+                <table className="w-full">
+                  <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                    <tr className="text-left text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                      <th className="px-4 py-3">VA Name</th>
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3">Leads Found</th>
+                      <th className="px-4 py-3">Contacts Made</th>
+                      <th className="px-4 py-3">Replies</th>
+                      <th className="px-4 py-3">Meetings Booked</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2C2C2C]/5">
+                    {vaReports.map((r) => (
+                      <tr key={r.id} className="hover:bg-[#FAF8F4]/80">
+                        <td className="px-4 py-3 text-sm font-semibold text-[#2C2C2C]">{r.va_name}</td>
+                        <td className="px-4 py-3 text-xs text-[#2C2C2C]/55">{r.report_date}</td>
+                        <td className="px-4 py-3 text-sm">{r.leads_found}</td>
+                        <td className="px-4 py-3 text-sm">{r.contacts_made}</td>
+                        <td className="px-4 py-3 text-sm">{r.replies}</td>
+                        <td className="px-4 py-3 text-sm">{r.meetings_booked}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
+        {adminSection === "credentials" && canSeeCredentials ? (
+          <div className="space-y-6">
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setNewCredentialOpen(true)}
+                className="rounded-full bg-[#2C2C2C] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#6B9E6E]"
+              >
+                New Credential
+              </button>
+              <button
+                type="button"
+                onClick={() => void fetchCredentials()}
+                className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] shadow-sm hover:bg-[#FAF8F4]"
+              >
+                Refresh
+              </button>
+            </div>
+            {credentialsError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {credentialsError}
+              </div>
+            ) : null}
+            <div className="overflow-x-auto rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+              {credentialsLoading ? (
+                <div className="p-10 text-center text-sm text-[#2C2C2C]/45">Loading…</div>
+              ) : (
+                <table className="w-full min-w-[640px]">
+                  <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                    <tr className="text-left text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                      <th className="px-4 py-3">Service Name</th>
+                      <th className="px-4 py-3">Username</th>
+                      <th className="px-4 py-3">Password</th>
+                      <th className="px-4 py-3">Monthly Cost</th>
+                      <th className="px-4 py-3">Notes</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2C2C2C]/5">
+                    {credentialsRows.map((c) => (
+                      <tr key={c.id} className="align-top hover:bg-[#FAF8F4]/80">
+                        <td className="px-4 py-3 text-sm font-semibold text-[#2C2C2C]">
+                          {editCredentialId === c.id ? (
+                            <input
+                              value={editCredentialForm.service_name}
+                              onChange={(e) =>
+                                setEditCredentialForm((f) => ({
+                                  ...f,
+                                  service_name: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded border border-[#2C2C2C]/10 px-2 py-1 text-sm"
+                            />
+                          ) : (
+                            c.service_name
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-[#2C2C2C]/75">
+                          {editCredentialId === c.id ? (
+                            <input
+                              value={editCredentialForm.username}
+                              onChange={(e) =>
+                                setEditCredentialForm((f) => ({ ...f, username: e.target.value }))
+                              }
+                              className="w-full rounded border border-[#2C2C2C]/10 px-2 py-1 text-sm"
+                            />
+                          ) : (
+                            c.username || "—"
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono">
+                              {editCredentialId === c.id
+                                ? editCredentialForm.password_plain
+                                : credentialPwdVisible[c.id]
+                                  ? c.password_plain
+                                  : "••••••••"}
+                            </span>
+                            {editCredentialId === c.id ? (
+                              <input
+                                type="text"
+                                value={editCredentialForm.password_plain}
+                                onChange={(e) =>
+                                  setEditCredentialForm((f) => ({
+                                    ...f,
+                                    password_plain: e.target.value,
+                                  }))
+                                }
+                                className="min-w-[120px] flex-1 rounded border border-[#2C2C2C]/10 px-2 py-1 text-sm"
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                className="rounded p-1 text-[#2C2C2C]/55 hover:bg-[#2C2C2C]/10"
+                                aria-label={credentialPwdVisible[c.id] ? "Hide password" : "Show password"}
+                                onClick={() =>
+                                  setCredentialPwdVisible((prev) => ({
+                                    ...prev,
+                                    [c.id]: !prev[c.id],
+                                  }))
+                                }
+                              >
+                                {credentialPwdVisible[c.id] ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {editCredentialId === c.id ? (
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editCredentialForm.monthly_cost}
+                              onChange={(e) =>
+                                setEditCredentialForm((f) => ({
+                                  ...f,
+                                  monthly_cost: e.target.value,
+                                }))
+                              }
+                              className="w-28 rounded border border-[#2C2C2C]/10 px-2 py-1 text-sm"
+                            />
+                          ) : (
+                            formatPesoMonthly(Number(c.monthly_cost ?? 0))
+                          )}
+                        </td>
+                        <td className="max-w-[200px] px-4 py-3 text-xs text-[#2C2C2C]/75">
+                          {editCredentialId === c.id ? (
+                            <textarea
+                              value={editCredentialForm.notes}
+                              onChange={(e) =>
+                                setEditCredentialForm((f) => ({ ...f, notes: e.target.value }))
+                              }
+                              rows={2}
+                              className="w-full rounded border border-[#2C2C2C]/10 px-2 py-1 text-sm"
+                            />
+                          ) : (
+                            c.notes ?? "—"
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {editCredentialId === c.id ? (
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <button
+                                type="button"
+                                disabled={credentialSaving}
+                                onClick={() => void saveCredentialEdit()}
+                                className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                disabled={credentialSaving}
+                                onClick={() => setEditCredentialId(null)}
+                                className="rounded-full border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditCredentialId(c.id);
+                                  setEditCredentialForm({
+                                    service_name: c.service_name,
+                                    username: c.username,
+                                    password_plain: c.password_plain,
+                                    monthly_cost: String(c.monthly_cost ?? 0),
+                                    notes: c.notes ?? "",
+                                  });
+                                }}
+                                className="rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1.5 text-xs font-semibold"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void deleteCredential(c.id)}
+                                className="rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-800"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="rounded-2xl border border-[#D4A843]/35 bg-[#FAF8F4] px-4 py-3 text-sm font-semibold text-[#2C2C2C]">
+              Total monthly cost: {formatPesoMonthly(credentialsTotal)}
+            </div>
+          </div>
+        ) : null}
+            </div>
+          </main>
+        </div>
       </div>
 
       {addApplicantOpen ? (
@@ -2634,6 +3948,372 @@ export default function AdminPage() {
                 disabled={addApplicantSaving}
                 onClick={() => setAddApplicantOpen(false)}
                 className="rounded-full border border-[#2C2C2C]/15 bg-white px-5 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#FAF8F4] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {newVaLeadOpen ? (
+        <div className="fixed inset-0 z-[105] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close"
+            onClick={() => !newVaLeadSaving && setNewVaLeadOpen(false)}
+          />
+          <div
+            role="dialog"
+            className="relative z-[106] max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">New outreach lead</h2>
+              <button
+                type="button"
+                disabled={newVaLeadSaving}
+                onClick={() => setNewVaLeadOpen(false)}
+                className="rounded-full p-2 text-[#2C2C2C]/55 hover:bg-[#2C2C2C]/10"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="block text-xs font-bold text-[#2C2C2C]/45 sm:col-span-2">
+                Name *
+                <input
+                  value={newVaLeadForm.name}
+                  onChange={(e) => setNewVaLeadForm((f) => ({ ...f, name: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                Role
+                <input
+                  value={newVaLeadForm.role}
+                  onChange={(e) => setNewVaLeadForm((f) => ({ ...f, role: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                Phone
+                <input
+                  value={newVaLeadForm.phone}
+                  onChange={(e) => setNewVaLeadForm((f) => ({ ...f, phone: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45 sm:col-span-2">
+                Email
+                <input
+                  type="email"
+                  value={newVaLeadForm.email}
+                  onChange={(e) => setNewVaLeadForm((f) => ({ ...f, email: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                Platform
+                <input
+                  value={newVaLeadForm.platform}
+                  onChange={(e) => setNewVaLeadForm((f) => ({ ...f, platform: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45 sm:col-span-2">
+                Listing link
+                <input
+                  value={newVaLeadForm.listing_link}
+                  onChange={(e) => setNewVaLeadForm((f) => ({ ...f, listing_link: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                Status
+                <select
+                  value={newVaLeadForm.status}
+                  onChange={(e) => setNewVaLeadForm((f) => ({ ...f, status: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm"
+                >
+                  {VA_LEAD_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                Follow-up stage
+                <input
+                  value={newVaLeadForm.follow_up_stage}
+                  onChange={(e) => setNewVaLeadForm((f) => ({ ...f, follow_up_stage: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                Messages sent
+                <input
+                  type="number"
+                  min={0}
+                  value={newVaLeadForm.messages_sent}
+                  onChange={(e) =>
+                    setNewVaLeadForm((f) => ({
+                      ...f,
+                      messages_sent: Number(e.target.value) || 0,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                Assigned to
+                <input
+                  value={newVaLeadForm.assigned_to}
+                  onChange={(e) => setNewVaLeadForm((f) => ({ ...f, assigned_to: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45 sm:col-span-2">
+                Notes
+                <textarea
+                  value={newVaLeadForm.notes}
+                  onChange={(e) => setNewVaLeadForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={3}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={newVaLeadSaving}
+                onClick={() => void submitNewVaLead()}
+                className="rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {newVaLeadSaving ? "Saving…" : "Save lead"}
+              </button>
+              <button
+                type="button"
+                disabled={newVaLeadSaving}
+                onClick={() => setNewVaLeadOpen(false)}
+                className="rounded-full border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {submitReportOpen ? (
+        <div className="fixed inset-0 z-[105] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close"
+            onClick={() => !submitReportSaving && setSubmitReportOpen(false)}
+          />
+          <div
+            role="dialog"
+            className="relative z-[106] w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Submit daily report</h2>
+              <button
+                type="button"
+                disabled={submitReportSaving}
+                onClick={() => setSubmitReportOpen(false)}
+                className="rounded-full p-2 text-[#2C2C2C]/55 hover:bg-[#2C2C2C]/10"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-4 grid gap-3">
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                VA name *
+                <input
+                  value={submitReportForm.va_name}
+                  onChange={(e) => setSubmitReportForm((f) => ({ ...f, va_name: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                Report date
+                <input
+                  type="date"
+                  value={submitReportForm.report_date}
+                  onChange={(e) => setSubmitReportForm((f) => ({ ...f, report_date: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs font-bold text-[#2C2C2C]/45">
+                  Leads found
+                  <input
+                    type="number"
+                    min={0}
+                    value={submitReportForm.leads_found}
+                    onChange={(e) =>
+                      setSubmitReportForm((f) => ({
+                        ...f,
+                        leads_found: Number(e.target.value) || 0,
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-2 py-2 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-bold text-[#2C2C2C]/45">
+                  Contacts made
+                  <input
+                    type="number"
+                    min={0}
+                    value={submitReportForm.contacts_made}
+                    onChange={(e) =>
+                      setSubmitReportForm((f) => ({
+                        ...f,
+                        contacts_made: Number(e.target.value) || 0,
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-2 py-2 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-bold text-[#2C2C2C]/45">
+                  Replies
+                  <input
+                    type="number"
+                    min={0}
+                    value={submitReportForm.replies}
+                    onChange={(e) =>
+                      setSubmitReportForm((f) => ({ ...f, replies: Number(e.target.value) || 0 }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-2 py-2 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-bold text-[#2C2C2C]/45">
+                  Meetings booked
+                  <input
+                    type="number"
+                    min={0}
+                    value={submitReportForm.meetings_booked}
+                    onChange={(e) =>
+                      setSubmitReportForm((f) => ({
+                        ...f,
+                        meetings_booked: Number(e.target.value) || 0,
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-2 py-2 text-sm"
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={submitReportSaving}
+                onClick={() => void submitVaReport()}
+                className="rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {submitReportSaving ? "Submitting…" : "Submit"}
+              </button>
+              <button
+                type="button"
+                disabled={submitReportSaving}
+                onClick={() => setSubmitReportOpen(false)}
+                className="rounded-full border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {newCredentialOpen && canSeeCredentials ? (
+        <div className="fixed inset-0 z-[105] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close"
+            onClick={() => !newCredentialSaving && setNewCredentialOpen(false)}
+          />
+          <div
+            role="dialog"
+            className="relative z-[106] w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">New credential</h2>
+            <div className="mt-4 grid gap-3">
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                Service name *
+                <input
+                  value={newCredentialForm.service_name}
+                  onChange={(e) =>
+                    setNewCredentialForm((f) => ({ ...f, service_name: e.target.value }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                Username
+                <input
+                  value={newCredentialForm.username}
+                  onChange={(e) =>
+                    setNewCredentialForm((f) => ({ ...f, username: e.target.value }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                Password
+                <input
+                  value={newCredentialForm.password_plain}
+                  onChange={(e) =>
+                    setNewCredentialForm((f) => ({ ...f, password_plain: e.target.value }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                Monthly cost (PHP)
+                <input
+                  type="number"
+                  step="0.01"
+                  value={newCredentialForm.monthly_cost}
+                  onChange={(e) =>
+                    setNewCredentialForm((f) => ({ ...f, monthly_cost: e.target.value }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-bold text-[#2C2C2C]/45">
+                Notes
+                <textarea
+                  value={newCredentialForm.notes}
+                  onChange={(e) => setNewCredentialForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={2}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={newCredentialSaving}
+                onClick={() => void submitNewCredential()}
+                className="rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {newCredentialSaving ? "Saving…" : "Add"}
+              </button>
+              <button
+                type="button"
+                disabled={newCredentialSaving}
+                onClick={() => setNewCredentialOpen(false)}
+                className="rounded-full border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
               >
                 Cancel
               </button>

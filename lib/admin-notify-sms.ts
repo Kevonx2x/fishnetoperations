@@ -4,7 +4,10 @@ import { sendAdminSms } from "@/lib/twilio-sms";
 
 const RECENT_MS = 5 * 60 * 1000;
 
-/** After email/OAuth callback: notify only for very new sessions (avoids spam on repeat logins). */
+/**
+ * After email/OAuth callback: notify only for very new sessions (avoids spam on repeat logins).
+ * Sends SMS + in-app notifications to all admins for any role.
+ */
 export async function notifyAdminNewClientFromSession(session: Session): Promise<void> {
   try {
     const u = session.user;
@@ -14,14 +17,16 @@ export async function notifyAdminNewClientFromSession(session: Session): Promise
     const recentUser =
       now - createdMs < RECENT_MS || (confirmedMs > 0 && now - confirmedMs < RECENT_MS);
     if (!recentUser) return;
-    await notifyAdminNewClientFromUser(u);
+    await notifyAdminSignupFromUser(u);
   } catch (e) {
-    console.error("[admin-notify-sms] new client from session", e);
+    console.error("[admin-notify-sms] signup from session", e);
   }
 }
 
-/** After signup with immediate session or POST /api/v1/notify/admin-new-client. */
-export async function notifyAdminNewClientFromUser(user: User): Promise<void> {
+/**
+ * SMS + notifications for new signups (all roles). Used after auth callback and POST notify.
+ */
+export async function notifyAdminSignupFromUser(user: User): Promise<void> {
   try {
     const sb = createSupabaseAdmin();
     const { data: p } = await sb
@@ -29,22 +34,47 @@ export async function notifyAdminNewClientFromUser(user: User): Promise<void> {
       .select("full_name, email, role")
       .eq("id", user.id)
       .maybeSingle();
-    if (!p || p.role !== "client") return;
 
-    const email = (p.email?.trim() || user.email || "").trim() || "—";
-    const name = (
-      p.full_name?.trim() ||
+    const role = (p?.role ?? "client") as string;
+    const email = (p?.email?.trim() || user.email || "").trim() || "—";
+    const fullName = (
+      p?.full_name?.trim() ||
       (typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : null) ||
       user.email ||
-      "Client"
+      "User"
     ).trim();
 
-    await sendAdminSms(
-      `👤 BahayGo: New client joined!\nName: ${name}\nEmail: ${email}\nView: bahaygo.com/admin → Users tab`,
-    );
+    const msg = `New ${role} signed up on BahayGo: ${fullName} (${email})`;
+
+    await sendAdminSms(msg);
+
+    const { data: admins } = await sb.from("profiles").select("id").eq("role", "admin");
+    if (!admins?.length) return;
+
+    for (const admin of admins) {
+      const { error } = await sb.from("notifications").insert({
+        user_id: admin.id as string,
+        type: "signup",
+        title: "New signup",
+        body: msg,
+        metadata: {
+          profile_id: user.id,
+          role,
+          email,
+        },
+      });
+      if (error) {
+        console.error("[admin-notify-sms] notification insert", error.message);
+      }
+    }
   } catch (e) {
-    console.error("[admin-notify-sms] new client", e);
+    console.error("[admin-notify-sms] signup", e);
   }
+}
+
+/** @deprecated use notifyAdminSignupFromUser */
+export async function notifyAdminNewClientFromUser(user: User): Promise<void> {
+  await notifyAdminSignupFromUser(user);
 }
 
 export async function notifyAdminNewAgentRegistered(params: {
