@@ -1,6 +1,6 @@
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { isClientDocumentType } from "@/lib/client-documents";
+import { isClientDocumentType, labelForClientDocType } from "@/lib/client-documents";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -75,8 +75,10 @@ export async function POST(req: Request) {
     return Response.json({ error: exErr.message }, { status: 500 });
   }
 
+  let docId: string;
   if (existing) {
     const shared = (existing as { shared_with?: string[] | null }).shared_with ?? [];
+    docId = (existing as { id: string }).id;
     const { error: upErr } = await admin
       .from("client_documents")
       .update({
@@ -84,22 +86,38 @@ export async function POST(req: Request) {
         file_name: fileName,
         status: shared.length > 0 ? "shared" : "private",
       })
-      .eq("id", (existing as { id: string }).id);
+      .eq("id", docId);
     if (upErr) {
       return Response.json({ error: upErr.message }, { status: 500 });
     }
   } else {
-    const { error: insErr } = await admin.from("client_documents").insert({
-      client_id: session.userId,
-      document_type: documentType,
-      file_url: path,
-      file_name: fileName,
-      status: "private",
-    });
+    const { data: ins, error: insErr } = await admin
+      .from("client_documents")
+      .insert({
+        client_id: session.userId,
+        document_type: documentType,
+        file_url: path,
+        file_name: fileName,
+        status: "private",
+      })
+      .select("id")
+      .single();
     if (insErr) {
       return Response.json({ error: insErr.message }, { status: 500 });
     }
+    docId = (ins as { id: string }).id;
   }
+
+  await admin.from("activity_log").insert({
+    actor_id: session.userId,
+    action: "client_document_uploaded",
+    entity_type: "client_document",
+    entity_id: docId,
+    metadata: {
+      document_type: documentType,
+      document_label: labelForClientDocType(documentType),
+    },
+  });
 
   return Response.json({ success: true, path, file_name: fileName });
 }

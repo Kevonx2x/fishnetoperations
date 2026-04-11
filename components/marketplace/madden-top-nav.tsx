@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Award,
@@ -236,48 +236,48 @@ export function MaddenTopNav() {
     };
   }, [user?.id, supabase]);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    let cancelled = false;
-    void (async () => {
-      const { count } = await supabase
-        .from("notifications")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .is("read_at", null);
-      if (cancelled) return;
-      setNotifUnread(count ?? 0);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, supabase]);
-
-  useEffect(() => {
-    if (!user?.id || role !== "client") {
+  const refreshNotificationCounts = useCallback(async () => {
+    if (!user?.id) {
+      setNotifUnread(0);
       setClientDocUnread(0);
       return;
     }
-    let cancelled = false;
-    void (async () => {
-      const { data } = await supabase
-        .from("notifications")
-        .select("id, metadata")
-        .eq("user_id", user.id)
-        .eq("type", "document_shared")
-        .is("read_at", null)
-        .limit(200);
-      if (cancelled) return;
-      const n = (data ?? []).filter((row) => {
-        const m = row.metadata as Record<string, unknown> | null;
-        return m && typeof m.signed_url === "string" && m.signed_url.trim().length > 0;
-      }).length;
-      setClientDocUnread(n);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    const { count } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .is("read_at", null);
+    setNotifUnread(count ?? 0);
+
+    if (role !== "client") {
+      setClientDocUnread(0);
+      return;
+    }
+    const { data } = await supabase
+      .from("notifications")
+      .select("id, metadata")
+      .eq("user_id", user.id)
+      .eq("type", "document_shared")
+      .is("read_at", null)
+      .limit(200);
+    const n = (data ?? []).filter((row) => {
+      const m = row.metadata as Record<string, unknown> | null;
+      return m && typeof m.signed_url === "string" && m.signed_url.trim().length > 0;
+    }).length;
+    setClientDocUnread(n);
   }, [user?.id, role, supabase]);
+
+  useEffect(() => {
+    void refreshNotificationCounts();
+  }, [refreshNotificationCounts]);
+
+  useEffect(() => {
+    const onRead = () => {
+      void refreshNotificationCounts();
+    };
+    window.addEventListener("bahaygo:notifications-read", onRead);
+    return () => window.removeEventListener("bahaygo:notifications-read", onRead);
+  }, [refreshNotificationCounts]);
 
   useEffect(() => {
     const close = (e: MouseEvent) => {

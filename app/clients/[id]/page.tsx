@@ -916,15 +916,6 @@ export default function ClientPublicProfilePage() {
                   </div>
                 ) : null}
               </div>
-              {isOwn ? (
-                <button
-                  type="button"
-                  onClick={() => setDocumentsPanelOpen(true)}
-                  className="mt-4 w-full rounded-xl border border-[#6B9E6E] py-2.5 text-sm font-medium text-[#6B9E6E]"
-                >
-                  My Documents
-                </button>
-              ) : null}
               {showClientPrefsCard && clientPrefs ? (
                 <div className="mt-6 w-full rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-5 text-left shadow-sm">
                   <h3 className="font-serif text-base font-semibold text-[#2C2C2C]">
@@ -990,6 +981,17 @@ export default function ClientPublicProfilePage() {
             </aside>
 
             <main className="min-w-0 flex-1 lg:w-[70%]">
+              {isOwn ? (
+                <div className="mb-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setDocumentsPanelOpen(true)}
+                    className="flex cursor-pointer items-center gap-1 text-sm font-medium text-[#6B9E6E]"
+                  >
+                    Documents <span aria-hidden>→</span>
+                  </button>
+                </div>
+              ) : null}
               <h2 className="font-serif text-3xl font-semibold text-[#2C2C2C]">
                 My Home Wishlist
               </h2>

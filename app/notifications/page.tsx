@@ -53,8 +53,25 @@ export default function NotificationsPage() {
   }, [user?.id, supabase]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!user?.id) return;
+    let cancelled = false;
+    void (async () => {
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from("notifications")
+        .update({ read_at: now })
+        .eq("user_id", user.id)
+        .is("read_at", null);
+      if (cancelled) return;
+      if (!error) {
+        window.dispatchEvent(new CustomEvent("bahaygo:notifications-read"));
+      }
+      await load();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, supabase, load]);
 
   const grouped = useMemo(() => {
     const buckets: Record<string, NotificationListItem[]> = {

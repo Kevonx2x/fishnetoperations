@@ -106,14 +106,19 @@ export async function POST(req: Request) {
   const link = `/clients/${clientId}?reqAgent=${encodeURIComponent(targetAgentUserId)}&reqTypes=${typesParam}&reqAgentName=${nameParam}`;
 
   const title = `Document request from ${agentName}`;
-  const bodyText = `Your agent has requested: ${labels}. Go to Settings → Documents to share them.`;
+  const bodyText = `Your agent has requested: ${labels}. Open your profile → Documents to share them.`;
 
   const { error: insErr } = await admin.from("notifications").insert({
     user_id: clientId,
     type: "document_request",
     title,
     body: bodyText,
-    metadata: { link, lead_id: leadId, agent_user_id: targetAgentUserId },
+    metadata: {
+      link,
+      lead_id: leadId,
+      agent_user_id: targetAgentUserId,
+      document_types: documentTypes,
+    },
   });
 
   if (insErr) {

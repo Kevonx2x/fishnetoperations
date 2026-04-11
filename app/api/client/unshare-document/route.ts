@@ -1,6 +1,6 @@
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { isClientDocumentType } from "@/lib/client-documents";
+import { isClientDocumentType, labelForClientDocType } from "@/lib/client-documents";
 
 export async function POST(req: Request) {
   const session = await getSessionProfile();
@@ -53,6 +53,15 @@ export async function POST(req: Request) {
   const prev = (row as { shared_with?: string[] | null }).shared_with ?? [];
   const next = prev.filter((id) => id !== agentUserId);
 
+  const { data: agentProf } = await admin
+    .from("profiles")
+    .select("full_name")
+    .eq("id", agentUserId)
+    .maybeSingle();
+
+  const agentDisplayName =
+    (agentProf as { full_name?: string | null } | null)?.full_name?.trim() || "Agent";
+
   const { error: upErr } = await admin
     .from("client_documents")
     .update({
@@ -64,6 +73,19 @@ export async function POST(req: Request) {
   if (upErr) {
     return Response.json({ error: upErr.message }, { status: 500 });
   }
+
+  await admin.from("activity_log").insert({
+    actor_id: clientId,
+    action: "client_document_unshared",
+    entity_type: "client_document",
+    entity_id: (row as { id: string }).id,
+    metadata: {
+      document_type: documentType,
+      document_label: labelForClientDocType(documentType),
+      agent_user_id: agentUserId,
+      agent_name: agentDisplayName,
+    },
+  });
 
   return Response.json({ success: true });
 }

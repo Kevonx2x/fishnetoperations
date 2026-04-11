@@ -165,5 +165,19 @@ export async function POST(req: Request) {
     return Response.json({ error: upErr.message }, { status: 500 });
   }
 
+  await admin.from("activity_log").insert({
+    actor_id: agentId ?? uid,
+    action: "agent_document_sent_to_client",
+    entity_type: "deal_document",
+    entity_id: dealDocumentId,
+    metadata: {
+      client_user_id: clientId,
+      agent_name: agentDisplayName,
+      file_name: row.file_name ?? null,
+      lead_id: leadId,
+      document_type: row.document_type,
+    },
+  });
+
   return Response.json({ success: true });
 }

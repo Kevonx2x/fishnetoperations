@@ -1,5 +1,6 @@
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { labelForClientDocType } from "@/lib/client-documents";
 
 /**
  * Signed URL for agents (or brokers/admins) to view a client-docs object
@@ -60,6 +61,7 @@ export async function POST(req: Request) {
       entity_id: cdoc.id,
       metadata: {
         document_type: cdoc.document_type,
+        document_label: labelForClientDocType(cdoc.document_type),
         lead_id: null,
         file_name: cdoc.file_name ?? null,
         accessed_at: accessedAt,
@@ -107,6 +109,7 @@ export async function POST(req: Request) {
     entity_id: cdoc.id,
     metadata: {
       document_type: cdoc.document_type,
+      document_label: labelForClientDocType(cdoc.document_type),
       lead_id: null,
       file_name: cdoc.file_name ?? null,
       accessed_at: accessedAt,

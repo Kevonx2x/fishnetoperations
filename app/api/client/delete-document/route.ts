@@ -1,6 +1,6 @@
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { isClientDocumentType } from "@/lib/client-documents";
+import { isClientDocumentType, labelForClientDocType } from "@/lib/client-documents";
 
 export async function POST(req: Request) {
   const session = await getSessionProfile();
@@ -42,6 +42,19 @@ export async function POST(req: Request) {
     return Response.json({ error: "Document not found" }, { status: 404 });
   }
 
+  const rowId = (row as { id: string }).id;
+
+  await admin.from("activity_log").insert({
+    actor_id: clientId,
+    action: "client_document_deleted",
+    entity_type: "client_document",
+    entity_id: rowId,
+    metadata: {
+      document_type: documentType,
+      document_label: labelForClientDocType(documentType),
+    },
+  });
+
   const path = (row as { file_url: string }).file_url.trim();
   if (path) {
     const { error: rmErr } = await admin.storage.from("client-docs").remove([path]);
@@ -50,7 +63,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const { error: delErr } = await admin.from("client_documents").delete().eq("id", (row as { id: string }).id);
+  const { error: delErr } = await admin.from("client_documents").delete().eq("id", rowId);
   if (delErr) {
     return Response.json({ error: delErr.message }, { status: 500 });
   }

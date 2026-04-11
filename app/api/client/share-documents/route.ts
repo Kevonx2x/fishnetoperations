@@ -87,6 +87,15 @@ export async function POST(req: Request) {
     }
   }
 
+  const { data: agentProf } = await admin
+    .from("profiles")
+    .select("full_name")
+    .eq("id", agentUserId)
+    .maybeSingle();
+
+  const agentDisplayName =
+    (agentProf as { full_name?: string | null } | null)?.full_name?.trim() || "your agent";
+
   const { error: nErr } = await admin.from("notifications").insert({
     user_id: agentUserId,
     type: "document_shared",
@@ -98,6 +107,18 @@ export async function POST(req: Request) {
   if (nErr) {
     return Response.json({ error: nErr.message }, { status: 500 });
   }
+
+  await admin.from("activity_log").insert({
+    actor_id: clientId,
+    action: "client_document_shared",
+    entity_type: "client_document",
+    entity_id: clientId,
+    metadata: {
+      document_types: documentTypes,
+      agent_user_id: agentUserId,
+      agent_name: agentDisplayName,
+    },
+  });
 
   return Response.json({ success: true });
 }
