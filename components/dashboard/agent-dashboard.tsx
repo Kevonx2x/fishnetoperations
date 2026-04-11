@@ -42,7 +42,7 @@ import {
   TIER_LABEL,
 } from "@/lib/agent-listing-limits";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
-import { PropertyListingImagesInput } from "@/components/dashboard/property-listing-images-input";
+import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
 import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
@@ -1780,14 +1780,12 @@ export function AgentDashboard() {
                     </button>
                   </div>
                 </div>
-                {user?.id ? (
-                  <PropertyListingImagesInput
-                    userId={user.id}
-                    value={editListingImages}
-                    onChange={setEditListingImages}
-                    disabled={savingEdit}
-                  />
-                ) : null}
+                <CloudinaryUpload
+                  value={editListingImages}
+                  onUpload={setEditListingImages}
+                  maxFiles={10}
+                  disabled={savingEdit}
+                />
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Description
                   <textarea
@@ -2735,10 +2733,10 @@ function ListingsTab({
                     <option value="rent">For rent</option>
                   </select>
                 </label>
-                <PropertyListingImagesInput
-                  userId={userId}
+                <CloudinaryUpload
                   value={listingForm.listingImageUrls}
-                  onChange={(urls) => setListingForm((f) => ({ ...f, listingImageUrls: urls }))}
+                  onUpload={(urls) => setListingForm((f) => ({ ...f, listingImageUrls: urls }))}
+                  maxFiles={10}
                   disabled={saving}
                 />
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
