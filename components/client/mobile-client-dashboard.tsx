@@ -8,10 +8,14 @@ import {
   Bell,
   Bookmark,
   Calendar,
+  CheckCircle2,
   Crown,
   FileText,
+  Folder,
   Heart,
   Home,
+  House,
+  Key,
   LayoutGrid,
   Lock,
   MapPin,
@@ -20,6 +24,7 @@ import {
   Shield,
   Star,
   Tag,
+  TrendingUp,
   User,
   type LucideIcon,
 } from "lucide-react";
@@ -76,7 +81,19 @@ type SharedDocRow = {
   metadata: Record<string, unknown> | null;
 };
 
-type BadgeSlug = "first-save" | "smart-shopper" | "active-hunter" | "early-adopter" | "document-ready";
+type BadgeSlug =
+  | "first-save"
+  | "smart-shopper"
+  | "active-hunter"
+  | "early-adopter"
+  | "document-ready"
+  | "welcome-home"
+  | "neighborhood-scout"
+  | "committed"
+  | "in-the-pipeline"
+  | "signed-and-sealed"
+  | "document-pro"
+  | "social-saver";
 
 const BADGE_ORDER: BadgeSlug[] = [
   "first-save",
@@ -84,6 +101,13 @@ const BADGE_ORDER: BadgeSlug[] = [
   "active-hunter",
   "early-adopter",
   "document-ready",
+  "welcome-home",
+  "neighborhood-scout",
+  "committed",
+  "in-the-pipeline",
+  "signed-and-sealed",
+  "document-pro",
+  "social-saver",
 ];
 
 const BADGE_UNLOCK_PILL: Record<BadgeSlug, string> = {
@@ -92,6 +116,13 @@ const BADGE_UNLOCK_PILL: Record<BadgeSlug, string> = {
   "active-hunter": "Request 3 viewings",
   "early-adopter": "Join before 2027",
   "document-ready": "Upload 3 documents",
+  "welcome-home": "Complete your profile with photo and preferences",
+  "neighborhood-scout": "View listings in 5 different locations",
+  "committed": "Request 5 or more viewings",
+  "in-the-pipeline": "Reach Offer stage in a deal",
+  "signed-and-sealed": "Close a deal",
+  "document-pro": "Upload 5 or more documents",
+  "social-saver": "Save 10 or more properties",
 };
 
 const BADGE_META: Record<
@@ -155,6 +186,76 @@ const BADGE_META: Record<
       borderLeftClass: "border-l-[#E67E22]",
       earnedTintClass: "bg-[#E67E22]/10",
       iconCircleClass: "bg-[#E67E22]",
+    },
+  },
+  "welcome-home": {
+    label: "Welcome Home",
+    description: "You are officially on the map",
+    Icon: House,
+    theme: {
+      borderLeftClass: "border-l-[#6B9E6E]",
+      earnedTintClass: "bg-[#6B9E6E]/10",
+      iconCircleClass: "bg-[#6B9E6E]",
+    },
+  },
+  "neighborhood-scout": {
+    label: "Neighborhood Scout",
+    description: "You have done your homework",
+    Icon: MapPin,
+    theme: {
+      borderLeftClass: "border-l-[#00897B]",
+      earnedTintClass: "bg-[#00897B]/10",
+      iconCircleClass: "bg-[#00897B]",
+    },
+  },
+  committed: {
+    label: "Committed",
+    description: "You are not playing around",
+    Icon: CheckCircle2,
+    theme: {
+      borderLeftClass: "border-l-[#4A90D9]",
+      earnedTintClass: "bg-[#4A90D9]/10",
+      iconCircleClass: "bg-[#4A90D9]",
+    },
+  },
+  "in-the-pipeline": {
+    label: "In The Pipeline",
+    description: "You are closer than you think",
+    Icon: TrendingUp,
+    theme: {
+      borderLeftClass: "border-l-[#E67E22]",
+      earnedTintClass: "bg-[#E67E22]/10",
+      iconCircleClass: "bg-[#E67E22]",
+    },
+  },
+  "signed-and-sealed": {
+    label: "Signed and Sealed",
+    description: "You did it. Welcome home",
+    Icon: Key,
+    theme: {
+      borderLeftClass: "border-l-[#D4A843]",
+      earnedTintClass: "bg-[#D4A843]/10",
+      iconCircleClass: "bg-[#D4A843]",
+    },
+  },
+  "document-pro": {
+    label: "Document Pro",
+    description: "Agents love working with you",
+    Icon: Folder,
+    theme: {
+      borderLeftClass: "border-l-[#9B59B6]",
+      earnedTintClass: "bg-[#9B59B6]/10",
+      iconCircleClass: "bg-[#9B59B6]",
+    },
+  },
+  "social-saver": {
+    label: "Social Saver",
+    description: "Your wishlist is getting serious",
+    Icon: Heart,
+    theme: {
+      borderLeftClass: "border-l-[#E91E8C]",
+      earnedTintClass: "bg-[#E91E8C]/10",
+      iconCircleClass: "bg-[#E91E8C]",
     },
   },
 };
