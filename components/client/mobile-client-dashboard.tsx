@@ -41,7 +41,7 @@ const FEED_CARD_CLASS =
 const FEED_CARD_PAD_SM = "p-3";
 const FEED_CARD_PAD_MD = "p-4";
 
-type MainTab = "all" | "profile" | "saved" | "badges" | "documents";
+type MainTab = "all" | "saves" | "likes" | "badges" | "documents";
 
 type PropertyPhoto = { url: string; sort_order: number | null };
 
@@ -620,7 +620,7 @@ export function MobileClientDashboard() {
   const pathname = usePathname();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const [mainTab, setMainTab] = useState<MainTab>("profile");
+  const [mainTab, setMainTab] = useState<MainTab>("saves");
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -1217,8 +1217,8 @@ export function MobileClientDashboard() {
           {(
             [
               ["all", "All", LayoutGrid],
-              ["profile", "Profile", User],
-              ["saved", "Saved", Heart],
+              ["saves", "Saves", User],
+              ["likes", "Likes", Heart],
               ["badges", "Badges", Star],
               ["documents", "Documents", FileText],
             ] as const
@@ -1256,7 +1256,7 @@ export function MobileClientDashboard() {
             pins={pins}
             onViewBadges={() => setMainTab("badges")}
           />
-        ) : mainTab === "profile" ? (
+        ) : mainTab === "saves" ? (
           <ProfileTab
             fullName={fullName}
             avatarUrl={avatarUrl}
@@ -1267,7 +1267,7 @@ export function MobileClientDashboard() {
             likes={likes}
             pins={pins}
           />
-        ) : mainTab === "saved" ? (
+        ) : mainTab === "likes" ? (
           <SavedPinsTab savedRows={savedRows} />
         ) : mainTab === "badges" ? (
           <BadgesTab badges={badges} />
