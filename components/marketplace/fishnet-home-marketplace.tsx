@@ -1029,7 +1029,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       <main className="mx-auto max-w-7xl px-4 pb-28 pt-10 sm:px-5 md:pb-16">
         {/* Loading / error */}
         {loading ? (
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-8 grid min-h-[400px] grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={`listing-skeleton-${i}`}
@@ -1054,7 +1054,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         {!loading && !error ? (
           <>
             {/* PROPERTY LISTING SECTION (controlled by Buy/Rent toggle) */}
-            <section id="listings">
+            <section id="listings" className="min-h-[400px]">
               {!neighborhoodFilter ? (
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -1453,7 +1453,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
             <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
 
             {/* 6. TOP VERIFIED AGENTS THIS WEEK (deferred client load) */}
-            <DynamicHomepageTopAgents topAgents={topAgents} topAgentsRef={topAgentsRef} scrollRow={scrollRow} />
+            <div className="min-h-[200px]">
+              <DynamicHomepageTopAgents topAgents={topAgents} topAgentsRef={topAgentsRef} scrollRow={scrollRow} />
+            </div>
 
             <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
 
@@ -1573,7 +1575,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         ) : null}
       </main>
 
-      <DynamicHomepageFaq openFaqIndex={openFaqIndex} setOpenFaqIndex={setOpenFaqIndex} />
+      <div className="min-h-[200px]">
+        <DynamicHomepageFaq openFaqIndex={openFaqIndex} setOpenFaqIndex={setOpenFaqIndex} />
+      </div>
 
       <AnimatePresence>
         {zoomProperty ? (
