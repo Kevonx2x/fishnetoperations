@@ -227,7 +227,16 @@ function HeroFloatingPropertyCards() {
             )}
           >
             <div className="relative h-[128px] w-full sm:h-[136px]">
-              <Image src={card.image_url} alt="" fill className="object-cover" sizes="300px" />
+              <Image
+                src={card.image_url}
+                alt=""
+                width={600}
+                height={400}
+                className="h-full w-full object-cover"
+                sizes="(max-width: 768px) 100vw, 292px"
+                priority={idx === 0}
+                loading={idx === 0 ? "eager" : "lazy"}
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/5 to-transparent" />
               <span className="absolute left-2.5 top-2.5 rounded-full bg-[#D4A843] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#2C2C2C] shadow-sm">
                 Verified
@@ -863,9 +872,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     <Image
                       src={c.imageUrl}
                       alt=""
-                      fill
-                      className="object-cover transition duration-500 group-hover:scale-105"
+                      width={300}
+                      height={200}
+                      className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
                       sizes="(min-width: 1024px) 160px, 130px"
+                      loading="lazy"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
                     <div className="absolute bottom-0 left-0 right-0 p-2 lg:p-2.5">
@@ -1385,16 +1396,26 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       <Image
                         src={featuredPhotos[0] ?? featured.image_url}
                         alt={featured.name ?? featured.location}
-                        fill
+                        width={1200}
+                        height={800}
                         quality={95}
-                        className="object-cover"
+                        className="absolute inset-0 h-full w-full object-cover"
                         sizes="(min-width: 1024px) 600px, 100vw"
+                        loading="lazy"
                       />
                       <div className="absolute inset-x-0 bottom-0 bg-black/35 px-3 py-3 backdrop-blur-sm">
                         <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:overflow-x-auto sm:scrollbar-hide">
                           {featuredPhotos.slice(0, 4).map((u) => (
                             <div key={u} className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-white/30">
-                              <Image src={u} alt="" fill sizes="80px" className="object-cover" />
+                              <Image
+                                src={u}
+                                alt=""
+                                width={80}
+                                height={56}
+                                sizes="80px"
+                                className="absolute inset-0 h-full w-full object-cover"
+                                loading="lazy"
+                              />
                             </div>
                           ))}
                         </div>
@@ -1727,7 +1748,8 @@ export function NewlyListedCard({
           fill
           quality={92}
           className="object-cover"
-          sizes={grid ? "(min-width: 1024px) 240px, (min-width: 640px) 232px, 220px" : compact ? "240px" : "360px"}
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          loading="lazy"
         />
         <button
           type="button"
@@ -2171,7 +2193,15 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
         <div className="mt-2 rounded-xl border border-[#2C2C2C]/10 bg-white p-2.5 shadow-sm">
           <div className="flex gap-2.5">
             <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
-              <Image src={mariaAvatar} alt="" width={40} height={40} className="object-cover" sizes="40px" />
+              <Image
+                src={mariaAvatar}
+                alt=""
+                width={40}
+                height={40}
+                className="object-cover"
+                sizes="40px"
+                loading="lazy"
+              />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">
@@ -2226,7 +2256,15 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
       <div className="mt-3 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
         <div className="flex gap-3">
           <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
-            <Image src={mariaAvatar} alt="" width={56} height={56} className="object-cover" sizes="56px" />
+            <Image
+              src={mariaAvatar}
+              alt=""
+              width={56}
+              height={56}
+              className="object-cover"
+              sizes="56px"
+              loading="lazy"
+            />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
