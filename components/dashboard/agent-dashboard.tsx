@@ -12,8 +12,8 @@ import {
   CreditCard,
   GitBranch,
   House,
-  Home,
   LayoutDashboard,
+  LayoutList,
   Loader2,
   MoreHorizontal,
   Settings,
@@ -1199,7 +1199,7 @@ export function AgentDashboard() {
     { id: "overview", label: "Overview", icon: <LayoutDashboard className="h-5 w-5" /> },
     { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-5 w-5" /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" /> },
-    { id: "listings", label: "Listings", icon: <Home className="h-5 w-5" /> },
+    { id: "listings", label: "Listings", icon: <LayoutList className="h-5 w-5" /> },
     { id: "billing", label: "Billing", icon: <CreditCard className="h-5 w-5" /> },
     { id: "notifications", label: "Notifications", icon: <Bell className="h-5 w-5" /> },
     { id: "profile", label: "Profile", icon: <Settings className="h-5 w-5" /> },
@@ -1413,7 +1413,13 @@ export function AgentDashboard() {
                 tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
               }`}
             >
-              <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>{t.icon}</span>
+              <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
+                {t.id === "pipeline" ? (
+                  <GitBranch className="h-7 w-7" aria-hidden />
+                ) : (
+                  t.icon
+                )}
+              </span>
               {t.label}
               {t.id === "pipeline" && newLeadsCount > 0 ? (
                 <span className="absolute right-1 top-0.5 h-2 w-2 rounded-full bg-[#D4A843]" />
