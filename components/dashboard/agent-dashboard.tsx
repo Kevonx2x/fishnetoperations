@@ -42,6 +42,7 @@ import {
   TIER_LABEL,
 } from "@/lib/agent-listing-limits";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
+import { ImportListingModal } from "@/components/dashboard/import-listing-modal";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
@@ -492,6 +493,8 @@ export function AgentDashboard() {
     developer_name: "",
     turnover_date: "",
     unit_types: [] as string[],
+    source_url: null as string | null,
+    source_hash: null as string | null,
   });
   const [listingFormErrors, setListingFormErrors] = useState<Record<string, string>>({});
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
@@ -1100,6 +1103,8 @@ export function AgentDashboard() {
         unit_types: isPs ? listingForm.unit_types : [],
         expires_at: expiresAt,
         expiry_notified_at: null,
+        source_url: listingForm.source_url?.trim() || null,
+        source_hash: listingForm.source_hash?.trim() || null,
       })
       .select("id")
       .single();
@@ -1149,6 +1154,8 @@ export function AgentDashboard() {
       developer_name: "",
       turnover_date: "",
       unit_types: [],
+      source_url: null,
+      source_hash: null,
     });
     setListingFormErrors({});
     await loadData();
@@ -2167,6 +2174,8 @@ function ListingsTab({
     developer_name: string;
     turnover_date: string;
     unit_types: string[];
+    source_url: string | null;
+    source_hash: string | null;
   };
   setListingForm: React.Dispatch<React.SetStateAction<typeof listingForm>>;
   listingFormErrors: Record<string, string>;
@@ -2193,6 +2202,7 @@ function ListingsTab({
   const [showAnalyzeBanner, setShowAnalyzeBanner] = useState(false);
   const listingFormFieldsRef = useRef<HTMLDivElement | null>(null);
   const [renewingId, setRenewingId] = useState<string | null>(null);
+  const [importListingOpen, setImportListingOpen] = useState(false);
   const visibleProperties = useMemo(() => {
     if (listingKindFilter === "presale") return properties.filter((p) => p.is_presale);
     if (listingKindFilter === "sale")
@@ -2492,12 +2502,26 @@ function ListingsTab({
               onClick={(e) => e.stopPropagation()}
               className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-[#FAF8F4] p-6 shadow-2xl"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">New listing</h2>
-                <button type="button" onClick={() => setListingOpen(false)} className="rounded-full p-2 hover:bg-white">
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setImportListingOpen(true)}
+                    className="rounded-full border border-[#6B9E6E]/35 bg-white px-3 py-1.5 text-xs font-bold text-[#6B9E6E] shadow-sm hover:bg-[#FAF8F4]"
+                  >
+                    Import Listing
+                  </button>
+                  <button type="button" onClick={() => setListingOpen(false)} className="rounded-full p-2 hover:bg-white">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
+              <ImportListingModal
+                open={importListingOpen}
+                onClose={() => setImportListingOpen(false)}
+                onApply={(patch) => setListingForm((f) => ({ ...f, ...patch }))}
+              />
               <div className="mt-4 flex rounded-xl border border-[#2C2C2C]/15 bg-white p-1">
                 <button
                   type="button"

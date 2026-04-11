@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Heart, Pin, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Heart, LayoutGrid, Pin, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
@@ -93,11 +93,26 @@ function buildAllPhotos(property: PropertyRow): string[] {
   return [primary, ...extras.slice(0, 4)];
 }
 
-function buildGridSlots(allPhotos: string[]): { main: string | null; small: (string | null)[] } {
-  return {
-    main: allPhotos[0] ?? null,
-    small: Array.from({ length: 4 }, (_, i) => allPhotos[i + 1] ?? null),
-  };
+/** Inserts Cloudinary transforms before the version segment (v123/…). Non-Cloudinary URLs unchanged. */
+function cloudinaryTransformUrl(url: string, transform: string): string {
+  if (!url || !/res\.cloudinary\.com/.test(url)) return url;
+  try {
+    const u = new URL(url);
+    const path = u.pathname;
+    let m = path.match(/^(.*\/image\/upload\/)(v\d+\/.+)$/);
+    if (m) {
+      u.pathname = `${m[1]}${transform}/${m[2]}`;
+      return u.toString();
+    }
+    m = path.match(/^(.*\/image\/upload\/)([^/]+\/)(v\d+\/.+)$/);
+    if (m) {
+      u.pathname = `${m[1]}${transform}/${m[3]}`;
+      return u.toString();
+    }
+  } catch {
+    /* keep original */
+  }
+  return url;
 }
 
 export default function PropertyPage() {
@@ -282,7 +297,22 @@ export default function PropertyPage() {
   }, [property?.id, myAgent?.id]);
 
   const allPhotos = useMemo(() => (property ? buildAllPhotos(property) : []), [property]);
-  const gridSlots = useMemo(() => buildGridSlots(allPhotos), [allPhotos]);
+  const [heroPhotoIndex, setHeroPhotoIndex] = useState(0);
+
+  useEffect(() => {
+    setHeroPhotoIndex(0);
+  }, [property?.id]);
+
+  useEffect(() => {
+    if (allPhotos.length === 0) return;
+    setHeroPhotoIndex((i) => Math.min(i, allPhotos.length - 1));
+  }, [allPhotos]);
+
+  const heroIndex = Math.min(heroPhotoIndex, Math.max(0, allPhotos.length - 1));
+  const heroDisplaySrc = useMemo(() => {
+    const raw = allPhotos[heroIndex] ?? "";
+    return cloudinaryTransformUrl(String(raw).trim(), "c_fill,w_1600,h_900,q_auto,f_auto");
+  }, [allPhotos, heroIndex]);
 
   const openLightbox = (index: number) => {
     if (allPhotos.length === 0) return;
@@ -477,151 +507,143 @@ export default function PropertyPage() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <section className="space-y-6 lg:col-span-2">
               <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
-                <div className="relative flex flex-col gap-2 p-2 md:h-[min(480px,52vh)] md:min-h-[320px] md:flex-row">
-                  <div className="relative h-[min(52vh,22rem)] w-full shrink-0 overflow-hidden rounded-xl bg-neutral-200 md:h-full md:w-[60%]">
-                    {gridSlots.main ? (
-                      <button
-                        type="button"
-                        onClick={() => openLightbox(0)}
-                        className="absolute inset-0 block"
-                        aria-label="Open photo 1"
-                      >
-                        <Image
-                          src={gridSlots.main}
-                          alt={property.location}
-                          fill
-                          sizes="(min-width: 768px) 60vw, 100vw"
-                          className="object-cover"
-                          priority
-                        />
-                      </button>
-                    ) : (
-                      <div className="h-full w-full bg-neutral-200" />
-                    )}
-                    <div
-                      className="absolute right-3 top-3 z-10 flex items-start gap-1.5"
-                      title={
-                        agentEngagementLocked ? "Only clients can like and pin properties" : undefined
-                      }
-                    >
-                      <div
-                        className={cn(
-                          "flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 shadow-sm",
-                          engagement.isLiked(property.id)
-                            ? "border border-red-200 bg-white"
-                            : "border border-gray-200 bg-white/80",
-                          agentEngagementLocked && "pointer-events-none opacity-50",
-                        )}
-                      >
-                        <button
-                          type="button"
-                          onClick={agentEngagementLocked ? undefined : () => engagement.toggleLike(property.id)}
-                          className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
-                          aria-label={engagement.isLiked(property.id) ? "Unlike" : "Like"}
-                          disabled={agentEngagementLocked}
-                        >
-                          <Heart
-                            className={cn(
-                              "h-4 w-4",
-                              engagement.isLiked(property.id)
-                                ? "fill-red-500 text-red-500"
-                                : "fill-none text-red-400",
-                            )}
-                          />
-                        </button>
-                        {engagement.showEngagementCounts(property.id) ? (
-                          <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
-                            {engagement.likeCount(property.id)}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div
-                        className={cn(
-                          "flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 shadow-sm",
-                          engagement.isPinned(property.id)
-                            ? "border border-[#D4A843]/40 bg-white"
-                            : "border border-gray-200 bg-white/80",
-                          agentEngagementLocked && "pointer-events-none opacity-50",
-                        )}
-                      >
-                        <button
-                          type="button"
-                          onClick={agentEngagementLocked ? undefined : () => engagement.togglePin(property.id)}
-                          className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
-                          aria-label={
-                            engagement.isPinned(property.id) ? "Unpin from profile" : "Pin to profile"
-                          }
-                          disabled={agentEngagementLocked}
-                        >
-                          <Pin
-                            className={cn(
-                              "h-4 w-4",
-                              engagement.isPinned(property.id)
-                                ? "fill-[#D4A843] text-[#D4A843]"
-                                : "fill-none text-[#D4A843]",
-                            )}
-                          />
-                        </button>
-                        {engagement.showEngagementCounts(property.id) ? (
-                          <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
-                            {engagement.saveCount(property.id)}
-                          </span>
-                        ) : null}
-                      </div>
+                <div className="p-2">
+                  {allPhotos.length === 0 ? (
+                    <div className="flex min-h-[200px] items-center justify-center rounded-2xl bg-gray-100">
+                      <p className="text-sm font-medium text-gray-500">No photos available</p>
                     </div>
-                  </div>
-
-                  {allPhotos.length > 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => openLightbox(0)}
-                      className="w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] py-3 text-sm font-bold text-[#2C2C2C] shadow-sm transition hover:bg-[#6B9E6E]/10 md:hidden"
-                    >
-                      Show all {allPhotos.length} photos
-                    </button>
-                  ) : null}
-
-                  <div className="hidden h-56 w-full shrink-0 grid-cols-2 grid-rows-2 gap-2 md:grid md:h-full md:w-[40%]">
-                    {gridSlots.small.map((url, i) => {
-                      const photoIndex = i + 1;
-                      const isShowAllCell = i === 3;
-                      return (
-                        <div
-                          key={i}
-                          className="relative min-h-0 overflow-hidden rounded-xl bg-neutral-200"
+                  ) : (
+                    <>
+                      <div className="relative w-full" style={{ aspectRatio: "16/9" }}>
+                        <button
+                          type="button"
+                          onClick={() => openLightbox(heroIndex)}
+                          className="absolute inset-0 block"
+                          aria-label={`Open photo ${heroIndex + 1}`}
                         >
-                          {url ? (
+                          <Image
+                            src={heroDisplaySrc}
+                            alt={property.location}
+                            fill
+                            sizes="100vw"
+                            loading="eager"
+                            className="absolute inset-0 h-full w-full object-cover rounded-2xl"
+                            priority
+                          />
+                        </button>
+                        <div
+                          className="absolute left-3 top-3 z-10 flex items-start gap-1.5"
+                          title={
+                            agentEngagementLocked ? "Only clients can like and pin properties" : undefined
+                          }
+                        >
+                          <div
+                            className={cn(
+                              "flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 shadow-sm",
+                              engagement.isLiked(property.id)
+                                ? "border border-red-200 bg-white"
+                                : "border border-gray-200 bg-white/80",
+                              agentEngagementLocked && "pointer-events-none opacity-50",
+                            )}
+                          >
                             <button
                               type="button"
-                              onClick={() => openLightbox(photoIndex)}
-                              className="absolute inset-0 block"
-                              aria-label={`Open photo ${photoIndex + 1}`}
+                              onClick={agentEngagementLocked ? undefined : () => engagement.toggleLike(property.id)}
+                              className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
+                              aria-label={engagement.isLiked(property.id) ? "Unlike" : "Like"}
+                              disabled={agentEngagementLocked}
                             >
-                              <Image
-                                src={url}
-                                alt=""
-                                fill
-                                sizes="(min-width: 768px) 20vw, 50vw"
-                                className="object-cover"
+                              <Heart
+                                className={cn(
+                                  "h-4 w-4",
+                                  engagement.isLiked(property.id)
+                                    ? "fill-red-500 text-red-500"
+                                    : "fill-none text-red-400",
+                                )}
                               />
                             </button>
-                          ) : null}
-                          {isShowAllCell ? (
+                            {engagement.showEngagementCounts(property.id) ? (
+                              <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
+                                {engagement.likeCount(property.id)}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div
+                            className={cn(
+                              "flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 shadow-sm",
+                              engagement.isPinned(property.id)
+                                ? "border border-[#D4A843]/40 bg-white"
+                                : "border border-gray-200 bg-white/80",
+                              agentEngagementLocked && "pointer-events-none opacity-50",
+                            )}
+                          >
                             <button
                               type="button"
-                              onClick={() => openLightbox(0)}
-                              className="absolute inset-0 z-[1] flex items-center justify-center bg-black/45 text-center transition hover:bg-black/55"
-                              aria-label="Show all photos"
+                              onClick={agentEngagementLocked ? undefined : () => engagement.togglePin(property.id)}
+                              className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
+                              aria-label={
+                                engagement.isPinned(property.id) ? "Unpin from profile" : "Pin to profile"
+                              }
+                              disabled={agentEngagementLocked}
                             >
-                              <span className="rounded-full bg-white px-4 py-2 text-xs font-bold text-[#2C2C2C] shadow-sm">
-                                Show all photos
-                              </span>
+                              <Pin
+                                className={cn(
+                                  "h-4 w-4",
+                                  engagement.isPinned(property.id)
+                                    ? "fill-[#D4A843] text-[#D4A843]"
+                                    : "fill-none text-[#D4A843]",
+                                )}
+                              />
                             </button>
-                          ) : null}
+                            {engagement.showEngagementCounts(property.id) ? (
+                              <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
+                                {engagement.saveCount(property.id)}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
+                        <button
+                          type="button"
+                          onClick={() => openLightbox(0)}
+                          className="absolute bottom-3 right-3 z-10 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-[#2C2C2C] shadow-md"
+                          aria-label="View all photos"
+                        >
+                          <LayoutGrid className="h-4 w-4 shrink-0" aria-hidden />
+                          View all photos
+                        </button>
+                      </div>
+                      {allPhotos.length > 1 ? (
+                        <div className="mt-3 flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                          {allPhotos.map((url, i) => {
+                            const thumbSrc = cloudinaryTransformUrl(
+                              String(url).trim(),
+                              "c_fill,w_240,h_160,q_auto,f_auto",
+                            );
+                            return (
+                              <button
+                                key={`${i}-${url}`}
+                                type="button"
+                                onClick={() => setHeroPhotoIndex(i)}
+                                className={cn(
+                                  "relative h-[80px] w-[120px] flex-shrink-0 cursor-pointer overflow-hidden rounded-xl",
+                                  i === heroIndex ? "border-2 border-[#D4A843]" : "border-2 border-transparent",
+                                )}
+                                aria-label={`Show photo ${i + 1}`}
+                              >
+                                <Image
+                                  src={thumbSrc}
+                                  alt=""
+                                  fill
+                                  sizes="120px"
+                                  className="h-full w-full object-cover"
+                                />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </>
+                  )}
                 </div>
 
                 <div className="p-4">
