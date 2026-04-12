@@ -95,19 +95,19 @@ const FEATURED_CITIES: {
   {
     key: "Pasig",
     label: "Pasig",
-    imageUrl: "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1444084316824-dc26d6657664?w=400",
     match: (loc) => /pasig/i.test(loc),
   },
   {
     key: "Mandaluyong",
     label: "Mandaluyong",
-    imageUrl: "https://images.unsplash.com/photo-1540959733332-eab4deabee0d?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1555899434-94d1368aa7af?w=400",
     match: (loc) => /mandaluyong/i.test(loc),
   },
   {
     key: "Quezon City",
     label: "Quezon City",
-    imageUrl: "https://images.unsplash.com/photo-1513581166391-887a96dde7d8?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=400",
     match: (loc) => {
       const l = loc.toLowerCase();
       return l.includes("quezon city") || /\bqc\b/.test(l);
@@ -116,49 +116,49 @@ const FEATURED_CITIES: {
   {
     key: "Alabang",
     label: "Alabang",
-    imageUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400",
     match: (loc) => /alabang|muntinlupa/i.test(loc),
   },
   {
     key: "Pasay",
     label: "Pasay",
-    imageUrl: "https://images.unsplash.com/photo-1580583707408-62c9d0742e0?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=400",
     match: (loc) => /pasay/i.test(loc),
   },
   {
     key: "Paranaque",
     label: "Parañaque",
-    imageUrl: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=400",
     match: (loc) => /parañaque|paranaque/i.test(loc),
   },
   {
     key: "Las Pinas",
     label: "Las Piñas",
-    imageUrl: "https://images.unsplash.com/photo-1600607687644-c7171b423c2c?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400",
     match: (loc) => /las\s*piñas|las\s*pinas|laspiñas/i.test(loc),
   },
   {
     key: "Antipolo",
     label: "Antipolo",
-    imageUrl: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=400",
     match: (loc) => /antipolo/i.test(loc),
   },
   {
     key: "Batangas",
     label: "Batangas",
-    imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400",
     match: (loc) => /batangas/i.test(loc),
   },
   {
     key: "Iloilo",
     label: "Iloilo",
-    imageUrl: "https://images.unsplash.com/photo-1568605117036-5fe5e7b7d2e9?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=400",
     match: (loc) => /iloilo/i.test(loc),
   },
   {
     key: "Bacolod",
     label: "Bacolod",
-    imageUrl: "https://images.unsplash.com/photo-1578490057216-f69104fbf402?w=300&h=200&fit=crop",
+    imageUrl: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400",
     match: (loc) => /bacolod/i.test(loc),
   },
 ];
