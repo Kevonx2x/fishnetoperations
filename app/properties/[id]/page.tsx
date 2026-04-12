@@ -297,15 +297,15 @@ export default function PropertyPage() {
   }, [property?.id, myAgent?.id]);
 
   const allPhotos = useMemo(() => (property ? buildAllPhotos(property) : []), [property]);
-  /** URL of the hero image; thumbnails call setActivePhotoUrl(url). */
-  const [activePhotoUrl, setActivePhotoUrl] = useState<string | null>(null);
+  /** Hero image URL; thumbnails call setActivePhoto(url). */
+  const [activePhoto, setActivePhoto] = useState<string | null>(null);
 
   useEffect(() => {
     if (allPhotos.length === 0) {
-      setActivePhotoUrl(null);
+      setActivePhoto(null);
       return;
     }
-    setActivePhotoUrl((prev) => {
+    setActivePhoto((prev) => {
       const norm = (s: string) => String(s).trim();
       if (prev && allPhotos.some((u) => norm(String(u)) === norm(prev))) return prev;
       return norm(String(allPhotos[0]));
@@ -313,19 +313,19 @@ export default function PropertyPage() {
   }, [property?.id, allPhotos]);
 
   const heroIndex = useMemo(() => {
-    if (allPhotos.length === 0 || !activePhotoUrl) return 0;
-    const idx = allPhotos.findIndex((u) => String(u).trim() === String(activePhotoUrl).trim());
+    if (allPhotos.length === 0 || !activePhoto) return 0;
+    const idx = allPhotos.findIndex((u) => String(u).trim() === String(activePhoto).trim());
     return idx >= 0 ? idx : 0;
-  }, [allPhotos, activePhotoUrl]);
+  }, [allPhotos, activePhoto]);
 
   const heroDisplaySrc = useMemo(() => {
     if (allPhotos.length === 0) return "";
     const raw =
-      activePhotoUrl && allPhotos.some((u) => String(u).trim() === String(activePhotoUrl).trim())
-        ? activePhotoUrl
+      activePhoto && allPhotos.some((u) => String(u).trim() === String(activePhoto).trim())
+        ? activePhoto
         : allPhotos[0];
     return cloudinaryTransformUrl(String(raw).trim(), "c_fill,w_1600,h_900,q_auto,f_auto");
-  }, [allPhotos, activePhotoUrl]);
+  }, [allPhotos, activePhoto]);
 
   const openLightbox = (index: number) => {
     if (allPhotos.length === 0) return;
@@ -527,7 +527,7 @@ export default function PropertyPage() {
                     </div>
                   ) : (
                     <>
-                      <div className="relative w-full" style={{ aspectRatio: "16/9" }}>
+                      <div className="relative h-72 w-full overflow-hidden rounded-2xl lg:h-96">
                         <button
                           type="button"
                           onClick={() => openLightbox(heroIndex)}
@@ -540,7 +540,7 @@ export default function PropertyPage() {
                             fill
                             sizes="100vw"
                             loading="eager"
-                            className="absolute inset-0 h-full w-full object-cover rounded-2xl"
+                            className="absolute inset-0 h-full w-full object-cover"
                             priority
                           />
                         </button>
@@ -636,10 +636,10 @@ export default function PropertyPage() {
                               <button
                                 key={`${i}-${url}`}
                                 type="button"
-                                onClick={() => setActivePhotoUrl(String(url).trim())}
+                                onClick={() => setActivePhoto(String(url).trim())}
                                 className={cn(
                                   "relative h-[60px] w-[90px] flex-shrink-0 cursor-pointer overflow-hidden rounded-lg",
-                                  i === heroIndex ? "border-2 border-[#D4A843]" : "border-2 border-transparent",
+                                  i === heroIndex ? "border-2 border-solid border-[#D4A843]" : "border-0",
                                 )}
                                 aria-label={`Show photo ${i + 1}`}
                               >
