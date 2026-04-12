@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, useParams, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Calendar, Heart, Home, Lock, MapPin, Pin, Pencil } from "lucide-react";
 import { ViewingAgentPickerModal } from "@/components/marketplace/viewing-agent-picker-modal";
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
@@ -190,7 +190,7 @@ function overlayLabel(p: PropertyRow): "SOLD" | "OFF MARKET" | null {
   return null;
 }
 
-export default function ClientPublicProfilePage() {
+function ClientPublicProfilePageInner() {
   const params = useParams();
   const searchParams = useSearchParams();
   const rawId = typeof params.id === "string" ? params.id : "";
@@ -1689,5 +1689,13 @@ export default function ClientPublicProfilePage() {
         />
       ) : null}
     </div>
+  );
+}
+
+export default function ClientPublicProfilePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ClientPublicProfilePageInner />
+    </Suspense>
   );
 }
