@@ -90,7 +90,7 @@ function buildAllPhotos(property: PropertyRow): string[] {
   if (fromDb.length) return fromDb;
   const primary = property.image_url;
   const extras = ROOM_IMAGES.filter((u) => u !== primary);
-  return [primary, ...extras.slice(0, 4)];
+  return [primary, ...extras];
 }
 
 /** Inserts Cloudinary transforms before the version segment (v123/…). Non-Cloudinary URLs unchanged. */
@@ -626,11 +626,11 @@ export default function PropertyPage() {
                         </button>
                       </div>
                       {allPhotos.length > 1 ? (
-                        <div className="mt-3 flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                        <div className="mt-3 flex w-full gap-3 overflow-x-auto pb-2 scrollbar-hide">
                           {allPhotos.map((url, i) => {
                             const thumbSrc = cloudinaryTransformUrl(
                               String(url).trim(),
-                              "c_fill,w_240,h_160,q_auto,f_auto",
+                              "c_fill,w_180,h_120,q_auto,f_auto",
                             );
                             return (
                               <button
@@ -638,7 +638,7 @@ export default function PropertyPage() {
                                 type="button"
                                 onClick={() => setActivePhotoUrl(String(url).trim())}
                                 className={cn(
-                                  "relative h-[80px] w-[120px] flex-shrink-0 cursor-pointer overflow-hidden rounded-xl",
+                                  "relative h-[60px] w-[90px] flex-shrink-0 cursor-pointer overflow-hidden rounded-lg",
                                   i === heroIndex ? "border-2 border-[#D4A843]" : "border-2 border-transparent",
                                 )}
                                 aria-label={`Show photo ${i + 1}`}
@@ -647,8 +647,8 @@ export default function PropertyPage() {
                                   src={thumbSrc}
                                   alt=""
                                   fill
-                                  sizes="120px"
-                                  className="h-full w-full object-cover"
+                                  sizes="90px"
+                                  className="object-cover"
                                 />
                               </button>
                             );
