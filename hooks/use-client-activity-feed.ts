@@ -159,6 +159,34 @@ export type FeedUnion =
       agent: { id: string; name: string; image_url: string | null };
     };
 
+/** YYYY-MM-DD in UTC for grouping feed dedupe keys. */
+function feedDayKeyUtc(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "unknown";
+  return new Date(t).toISOString().slice(0, 10);
+}
+
+/**
+ * One card per property per event type per calendar day (UTC): keep the most recent
+ * price_drop_al / listing_edited_al by sortAt.
+ */
+export function dedupeListingActivityFeedItems(items: FeedUnion[]): FeedUnion[] {
+  const map = new Map<string, FeedUnion>();
+  const rest: FeedUnion[] = [];
+  for (const item of items) {
+    if (item.kind !== "price_drop_al" && item.kind !== "listing_edited_al") {
+      rest.push(item);
+      continue;
+    }
+    const eventType = item.kind === "price_drop_al" ? "price_drop" : "listing_edited";
+    const key = `${item.propertyId}|${eventType}|${feedDayKeyUtc(item.sortAt)}`;
+    const prev = map.get(key);
+    if (!prev || Date.parse(item.sortAt) > Date.parse(prev.sortAt)) {
+      map.set(key, item);
+    }
+  }
+  return [...rest, ...map.values()].sort((a, b) => Date.parse(b.sortAt) - Date.parse(a.sortAt));
+}
 
 export type NotifPrefs = {
   price_drop: boolean;
@@ -832,14 +860,15 @@ export function useClientActivityFeed(userId: string | undefined) {
     setPropertyStatusById(statusRecord);
 
     built.sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime());
+    const dedupedFeed = dedupeListingActivityFeedItems(built);
 
     const prefs = parseNotifPrefs(
       (profileRes.data as { notification_preferences?: unknown } | null)?.notification_preferences,
     );
-    setFeedItems(filterFeedByPrefs(built, prefs));
+    setFeedItems(filterFeedByPrefs(dedupedFeed, prefs));
 
     const feedPropIds = new Set<string>();
-    for (const item of built) {
+    for (const item of dedupedFeed) {
       if (item.kind === "agent") {
         if (item.propertyId) feedPropIds.add(item.propertyId);
       } else if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") {

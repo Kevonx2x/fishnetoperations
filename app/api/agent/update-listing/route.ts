@@ -3,7 +3,7 @@ import { fail, fromZodError, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { logActivity } from "@/lib/activity-log";
+import { logActivity, upsertListingEditedActivity } from "@/lib/activity-log";
 
 const PROPERTY_TYPES = [
   "House",
@@ -171,23 +171,45 @@ export async function POST(req: Request) {
       (prop as { name?: string | null }).name?.trim() ||
       parsed.data.location.trim();
 
-    await logActivity(sb, {
-      actor_id: session.userId,
-      action: "listing_edited",
-      entity_type: "property",
-      entity_id: parsed.data.propertyId,
-      metadata: {
-        property_id: parsed.data.propertyId,
-        property_name: propertyName,
-        edited_by_name: editedByName,
-        source: "agent_listing_edit",
-      },
-    });
+    const listingEditedMeta = {
+      property_id: parsed.data.propertyId,
+      property_name: propertyName,
+      edited_by_name: editedByName,
+      source: "agent_listing_edit",
+    };
 
-    let admin;
+    let admin: ReturnType<typeof createSupabaseAdmin> | null = null;
     try {
       admin = createSupabaseAdmin();
     } catch {
+      admin = null;
+    }
+
+    const logListingEditedFallback = () =>
+      logActivity(sb, {
+        actor_id: session.userId,
+        action: "listing_edited",
+        entity_type: "property",
+        entity_id: parsed.data.propertyId,
+        metadata: listingEditedMeta,
+      });
+
+    if (admin) {
+      try {
+        await upsertListingEditedActivity(admin, {
+          actor_id: session.userId,
+          entity_id: parsed.data.propertyId,
+          metadata: listingEditedMeta,
+        });
+      } catch (e) {
+        console.error("[update-listing] upsert listing_edited activity failed", e);
+        await logListingEditedFallback();
+      }
+    } else {
+      await logListingEditedFallback();
+    }
+
+    if (!admin) {
       return ok({ success: true, coAgentsNotified: 0 });
     }
 
