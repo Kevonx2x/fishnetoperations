@@ -70,7 +70,7 @@ import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 
 const FEED_CARD_CLASS =
-  "rounded-2xl border border-gray-100 bg-white shadow-md transition-transform duration-150 active:scale-95 md:hover:shadow-lg";
+  "rounded-2xl border border-gray-100 bg-white text-gray-900 shadow-md transition-transform duration-150 active:scale-95 md:hover:shadow-lg";
 const FEED_CARD_PAD_SM = "p-3";
 const FEED_CARD_PAD_MD = "p-4";
 
@@ -466,7 +466,7 @@ export function MobileClientDashboard() {
   const { user, loading: authLoading } = useAuth();
   const pathname = usePathname();
 
-  const [mainTab, setMainTab] = useState<MainTab>("my_profile");
+  const [mainTab, setMainTab] = useState<MainTab>("all");
   const [listingMode, setListingMode] = useState<ListingMode>("rent");
   const [viewBusyUrl, setViewBusyUrl] = useState<string | null>(null);
 
@@ -568,7 +568,7 @@ export function MobileClientDashboard() {
           </Link>
         </div>
 
-        <div className="scrollbar-hide -mx-1 mt-4 flex flex-nowrap gap-2 overflow-x-auto pb-2 pr-8">
+        <div className="scrollbar-hide -mx-1 mt-4 flex flex-nowrap gap-3 overflow-x-auto pb-2 pr-10">
           {(
             [
               ["my_profile", "My Profile", User],
@@ -578,22 +578,28 @@ export function MobileClientDashboard() {
               ["badges", "Badges", Star],
               ["documents", "Documents", FileText],
             ] as const
-          ).map(([id, label, Icon]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setMainTab(id)}
-              className={cn(
-                "flex min-w-[42%] max-w-[220px] shrink-0 snap-start flex-col items-center gap-1.5 rounded-full px-4 py-2.5 transition-all duration-200 sm:min-w-0",
-                mainTab === id
-                  ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#6B9E6E]/40"
-                  : "bg-white/90 text-[#6B6B6B] ring-1 ring-[#E5E5E5]",
-              )}
-            >
-              <Icon className="h-5 w-5" strokeWidth={mainTab === id ? 2.25 : 1.75} />
-              <span className="text-xs font-medium">{label}</span>
-            </button>
-          ))}
+          ).map(([id, label, Icon]) => {
+            const active = mainTab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setMainTab(id)}
+                className={cn(
+                  "flex shrink-0 snap-start flex-col items-center gap-1 px-2 py-1.5 transition-colors duration-200",
+                  active ? "text-[#6B9E6E]" : "text-gray-500",
+                )}
+              >
+                <Icon
+                  className={cn("h-5 w-5", active ? "text-[#6B9E6E]" : "text-gray-400")}
+                  strokeWidth={active ? 2.25 : 1.75}
+                />
+                <span className={cn("text-xs font-medium", active ? "text-[#6B9E6E]" : "text-gray-500")}>
+                  {label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </header>
 
@@ -1071,7 +1077,12 @@ function BadgeMediumCard({
         theme.earnedTintClass,
       )}
     >
-      <div className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full text-white", theme.iconCircleClass)}>
+      <div
+        className={cn(
+          "grid h-10 w-10 shrink-0 place-items-center rounded-full text-gray-900 ring-1 ring-black/10",
+          theme.iconCircleClass,
+        )}
+      >
         <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
@@ -1119,7 +1130,12 @@ function BadgeEarnedFeedCard({
         theme.earnedTintClass,
       )}
     >
-      <div className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full text-white", theme.iconCircleClass)}>
+      <div
+        className={cn(
+          "grid h-10 w-10 shrink-0 place-items-center rounded-full text-gray-900 ring-1 ring-black/10",
+          theme.iconCircleClass,
+        )}
+      >
         <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
@@ -1174,14 +1190,22 @@ function ListingLikeSmallCard({
   const ag = feedAgentMeta[property.id];
 
   return (
-    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_SM, "flex items-center gap-3")}>
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#E5E5E5]/80">
-        <Home className="h-4 w-4 text-[#6B6B6B]" aria-hidden />
+    <article
+      className={cn(
+        FEED_CARD_CLASS,
+        FEED_CARD_PAD_SM,
+        "flex items-center gap-3 text-gray-900",
+      )}
+    >
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gray-100">
+        <Home className="h-4 w-4 text-gray-500" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-gray-900">You liked a listing</p>
         <p className="text-sm text-gray-500">{title}</p>
-        {ag?.agentName ? <p className="mt-0.5 text-xs font-medium text-[#6B9E6E]">{ag.agentName}</p> : null}
+        {ag?.agentName ? (
+          <p className="mt-0.5 text-xs font-medium text-[#6B9E6E]">{ag.agentName}</p>
+        ) : null}
       </div>
       <span className="shrink-0 text-xs text-gray-500">{formatNotificationTimeAgo(createdAt)}</span>
     </article>
