@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Heart, LayoutGrid, Pin, X } from "lucide-react";
+import { Heart, LayoutGrid, Pin, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
@@ -124,7 +124,6 @@ export default function PropertyPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [showViewingModal, setShowViewingModal] = useState(false);
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [selectedViewingAgentUserId, setSelectedViewingAgentUserId] = useState<string | null>(null);
@@ -214,7 +213,6 @@ export default function PropertyPage() {
         setProperty(next);
         if (next?.id) recordRecentlyViewedPropertyId(next.id);
       }
-      setLightboxIndex(0);
       setLoading(false);
     })();
     return () => {
@@ -327,9 +325,8 @@ export default function PropertyPage() {
     return cloudinaryTransformUrl(String(raw).trim(), "c_fill,w_1600,h_900,q_auto,f_auto");
   }, [allPhotos, activePhoto]);
 
-  const openLightbox = (index: number) => {
+  const openLightbox = () => {
     if (allPhotos.length === 0) return;
-    setLightboxIndex(Math.min(Math.max(0, index), allPhotos.length - 1));
     setLightboxOpen(true);
   };
   const connectedAgents = useMemo(() => {
@@ -492,7 +489,7 @@ export default function PropertyPage() {
           <span className="text-[#2C2C2C]">Property</span>
         </div>
 
-        {loading && <div className="h-72 rounded-2xl animate-pulse bg-black/5" />}
+        {loading && <div className="h-80 rounded-2xl animate-pulse bg-black/5 lg:h-[500px]" />}
 
         {!loading && error && (
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6">
@@ -527,10 +524,10 @@ export default function PropertyPage() {
                     </div>
                   ) : (
                     <>
-                      <div className="relative h-72 w-full overflow-hidden rounded-2xl lg:h-96">
+                      <div className="relative h-80 w-full overflow-hidden rounded-2xl lg:h-[500px]">
                         <button
                           type="button"
-                          onClick={() => openLightbox(heroIndex)}
+                          onClick={() => openLightbox()}
                           className="absolute inset-0 block"
                           aria-label={`Open photo ${heroIndex + 1}`}
                         >
@@ -617,11 +614,11 @@ export default function PropertyPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => openLightbox(0)}
-                          className="absolute bottom-3 right-3 z-10 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-[#2C2C2C] shadow-md"
+                          onClick={() => openLightbox()}
+                          className="absolute bottom-3 right-3 z-10 flex items-center gap-2 rounded-full bg-white px-5 py-3 text-base font-semibold text-[#2C2C2C] shadow-lg ring-1 ring-[#2C2C2C]/10"
                           aria-label="View all photos"
                         >
-                          <LayoutGrid className="h-4 w-4 shrink-0" aria-hidden />
+                          <LayoutGrid className="h-5 w-5 shrink-0" aria-hidden />
                           View all photos
                         </button>
                       </div>
@@ -630,7 +627,7 @@ export default function PropertyPage() {
                           {allPhotos.map((url, i) => {
                             const thumbSrc = cloudinaryTransformUrl(
                               String(url).trim(),
-                              "c_fill,w_180,h_120,q_auto,f_auto",
+                              "c_fill,w_240,h_160,q_auto,f_auto",
                             );
                             return (
                               <button
@@ -638,7 +635,7 @@ export default function PropertyPage() {
                                 type="button"
                                 onClick={() => setActivePhoto(String(url).trim())}
                                 className={cn(
-                                  "relative h-[60px] w-[90px] flex-shrink-0 cursor-pointer overflow-hidden rounded-lg",
+                                  "relative h-[80px] w-[120px] flex-shrink-0 cursor-pointer overflow-hidden rounded-xl",
                                   i === heroIndex ? "border-2 border-solid border-[#D4A843]" : "border-0",
                                 )}
                                 aria-label={`Show photo ${i + 1}`}
@@ -647,7 +644,7 @@ export default function PropertyPage() {
                                   src={thumbSrc}
                                   alt=""
                                   fill
-                                  sizes="90px"
+                                  sizes="120px"
                                   className="object-cover"
                                 />
                               </button>
@@ -970,10 +967,8 @@ export default function PropertyPage() {
             {lightboxOpen && allPhotos.length > 0 ? (
               <PropertyPhotoLightbox
                 photos={allPhotos}
-                index={lightboxIndex}
                 title={property.name?.trim() || property.location}
                 onClose={() => setLightboxOpen(false)}
-                onGoTo={(i) => setLightboxIndex(i)}
               />
             ) : null}
             <SignInViewingPromptModal open={signInPromptOpen} onOpenChange={setSignInPromptOpen} />
@@ -1062,16 +1057,12 @@ export default function PropertyPage() {
 
 function PropertyPhotoLightbox({
   photos,
-  index,
   title,
   onClose,
-  onGoTo,
 }: {
   photos: string[];
-  index: number;
   title: string;
   onClose: () => void;
-  onGoTo: (i: number) => void;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1088,46 +1079,46 @@ function PropertyPhotoLightbox({
 
   if (typeof document === "undefined") return null;
   const shell = (
-    <div className="fixed inset-0 z-[210] flex flex-col bg-black" role="presentation">
-      <div className="flex items-center justify-between gap-2 px-4 py-3 text-white">
-        <p className="min-w-0 truncate text-sm font-semibold">{title}</p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="shrink-0 rounded-full p-2 hover:bg-white/10"
-          aria-label="Close"
-        >
-          <X className="h-6 w-6" />
-        </button>
-      </div>
-      <div className="relative min-h-0 flex-1">
-        <div className="absolute inset-0">
-          <Image src={photos[index] ?? photos[0]} alt="" fill className="object-contain" sizes="100vw" priority />
+    <div className="fixed inset-0 z-[210] flex items-center justify-center p-4" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/60"
+        aria-label="Close"
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="property-photo-lightbox-title"
+        className="relative z-[211] flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#2C2C2C]/10 px-4 py-3">
+          <p id="property-photo-lightbox-title" className="min-w-0 truncate text-sm font-semibold text-[#2C2C2C]">
+            {title}
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-full p-2 text-[#2C2C2C] hover:bg-black/5"
+            aria-label="Close"
+          >
+            <X className="h-6 w-6" />
+          </button>
         </div>
-        {photos.length > 1 ? (
-          <>
-            <button
-              type="button"
-              onClick={() => onGoTo((index - 1 + photos.length) % photos.length)}
-              className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/45 p-3 text-white hover:bg-black/65"
-              aria-label="Previous photo"
-            >
-              <ChevronLeft className="h-6 w-6" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onGoTo((index + 1) % photos.length)}
-              className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/45 p-3 text-white hover:bg-black/65"
-              aria-label="Next photo"
-            >
-              <ChevronRight className="h-6 w-6" />
-            </button>
-          </>
-        ) : null}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            {photos.map((url, i) => {
+              const src = cloudinaryTransformUrl(String(url).trim(), "c_fill,w_800,h_800,q_auto,f_auto");
+              return (
+                <div key={`${i}-${url}`} className="relative aspect-square overflow-hidden rounded-xl">
+                  <Image src={src} alt="" fill className="object-cover" sizes="(max-width: 1024px) 50vw, 33vw" />
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
-      <p className="py-3 text-center text-xs font-semibold text-white/80">
-        {index + 1} / {photos.length}
-      </p>
     </div>
   );
   return createPortal(shell, document.body);
