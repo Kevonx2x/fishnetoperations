@@ -293,7 +293,9 @@ function FeedPhotoOverlay({
       <Link href={href} className="absolute inset-0 block">
         <Image src={imageSrc} alt="" fill className="object-cover" sizes="100vw" unoptimized />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-        <div className="absolute bottom-2 right-2 text-sm font-bold text-white">{priceDisplay}</div>
+        <div className="absolute bottom-2 right-2 rounded-full bg-white/95 px-2.5 py-1 shadow-md ring-1 ring-black/5">
+          <span className="text-sm font-bold text-gray-900">{priceDisplay}</span>
+        </div>
       </Link>
       <div className="pointer-events-none absolute inset-0 z-20">
         <div className="pointer-events-auto absolute right-2 top-2 flex gap-1">
@@ -372,7 +374,7 @@ function PinSaveFeedCardHeader({
             {a.agentAvatarUrl ? (
               <Image src={a.agentAvatarUrl} alt="" fill className="object-cover" sizes="40px" unoptimized />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/40 text-sm font-bold text-white">
+              <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/40 text-sm font-bold text-gray-900">
                 {(a.agentName || "A").slice(0, 1).toUpperCase()}
               </div>
             )}
@@ -399,7 +401,7 @@ function PinSaveFeedCardHeader({
       ) : null}
       <div className="min-w-0 flex-1">
         <p className="text-sm leading-snug">
-          <span className="font-bold text-[#2C2C2C]">{beforePostedBy}</span>
+          <span className="font-bold text-gray-900">{beforePostedBy}</span>
           {a ? (
             <>
               {" posted by "}
@@ -413,9 +415,9 @@ function PinSaveFeedCardHeader({
             </>
           ) : null}
         </p>
-        <p className="mt-0.5 text-xs text-gray-400">{formatNotificationTimeAgo(createdAt)}</p>
+        <p className="mt-0.5 text-xs text-gray-500">{formatNotificationTimeAgo(createdAt)}</p>
         {locationLine.trim() ? (
-          <p className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+          <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
             <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
             <span className="min-w-0">{locationLine.trim()}</span>
           </p>
@@ -798,8 +800,8 @@ export function AllFeedTab({
         <div className="grid h-16 w-16 place-items-center rounded-full bg-[#6B9E6E]/20 text-[#6B9E6E]">
           <LayoutGrid className="h-8 w-8" strokeWidth={1.5} />
         </div>
-        <p className="mt-4 text-base font-semibold text-[#2C2C2C]">Nothing new yet</p>
-        <p className="mt-2 max-w-xs text-sm text-[#6B6B6B]">
+        <p className="mt-4 text-base font-semibold text-gray-900">Nothing new yet</p>
+        <p className="mt-2 max-w-xs text-sm text-gray-500">
           Save listings, book viewings, and we&apos;ll show updates here.
         </p>
       </div>
@@ -810,7 +812,7 @@ export function AllFeedTab({
     <div className="space-y-8">
       {grouped.map(({ label, items }) => (
         <section key={label}>
-          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B6B6B]">{label}</h3>
+          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500">{label}</h3>
           <ul className="flex flex-col gap-3">
             {items.map((item) => (
               <li
@@ -917,14 +919,14 @@ function SavedPropertyBigCard({
         <Link
           href={`/properties/${pid}`}
           className={cn(
-            "block text-sm font-semibold text-gray-800 transition-transform duration-150 active:scale-[0.98]",
+            "block text-sm font-semibold text-gray-900 transition-transform duration-150 active:scale-[0.98]",
             img ? "mt-2" : "mt-3",
           )}
         >
           {title}
         </Link>
       ) : (
-        <p className={cn("text-sm font-semibold text-gray-800", img ? "mt-2" : "mt-3")}>{title}</p>
+        <p className={cn("text-sm font-semibold text-gray-900", img ? "mt-2" : "mt-3")}>{title}</p>
       )}
     </article>
   );
@@ -958,26 +960,26 @@ function ViewingRequestMediumCard({
         <Calendar className="h-5 w-5 text-[#6B9E6E]" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-bold leading-snug text-[#2C2C2C]">{actionText}</p>
-        <p className="mt-0.5 text-sm text-[#6B6B6B]">{propName}</p>
-        {agentLine ? <p className="mt-1 text-xs font-medium text-[#6B6B6B]">{agentLine}</p> : null}
+        <p className="font-bold leading-snug text-gray-900">{actionText}</p>
+        <p className="mt-0.5 text-sm text-gray-500">{propName}</p>
+        {agentLine ? <p className="mt-1 text-xs font-medium text-[#6B9E6E]">{agentLine}</p> : null}
         {waHref ? (
           <a
             href={waHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#25D366]"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-900"
           >
             WhatsApp
           </a>
         ) : null}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(n.created_at)}</span>
+        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
         {propertyHrefId ? (
           <Link
             href={`/properties/${propertyHrefId}`}
-            className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#E5E5E5]"
+            className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-gray-900 ring-1 ring-[#E5E5E5]"
           >
             View
           </Link>
@@ -995,19 +997,19 @@ function PriceDropMediumCard({ item }: { item: Extract<FeedUnion, { kind: "price
         <Tag className="h-5 w-5 text-[#6B9E6E]" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-bold text-[#2C2C2C]">Price drop</p>
-        <p className="mt-0.5 font-semibold text-[#2C2C2C]">{item.propertyName}</p>
-        <p className="mt-1 text-sm text-[#6B6B6B]">
+        <p className="font-bold text-gray-900">Price drop</p>
+        <p className="mt-0.5 font-semibold text-gray-900">{item.propertyName}</p>
+        <p className="mt-1 text-sm text-gray-500">
           <span className="line-through">{formatPropertyPriceDisplay(item.oldPrice)}</span>
           <span className="mx-1.5">→</span>
-          <span className="font-bold text-[#6B9E6E]">{newPriceDisplay}</span>
+          <span className="font-bold text-gray-900">{newPriceDisplay}</span>
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(item.sortAt)}</span>
+        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(item.sortAt)}</span>
         <Link
           href={`/properties/${item.propertyId}`}
-          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#E5E5E5] transition-all duration-200"
+          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-gray-900 ring-1 ring-[#E5E5E5] transition-all duration-200"
         >
           View
         </Link>
@@ -1023,15 +1025,15 @@ function ListingEditedActivityCard({ item }: { item: Extract<FeedUnion, { kind: 
         <Pencil className="h-5 w-5 text-[#8a6d32]" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-bold text-[#2C2C2C]">Listing updated</p>
-        <p className="mt-0.5 font-semibold text-[#2C2C2C]">{item.propertyName}</p>
-        <p className="mt-1 text-sm text-[#6B6B6B]">{item.editedByName} updated details</p>
+        <p className="font-bold text-gray-900">Listing updated</p>
+        <p className="mt-0.5 font-semibold text-gray-900">{item.propertyName}</p>
+        <p className="mt-1 text-sm text-gray-500">{item.editedByName} updated details</p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(item.sortAt)}</span>
+        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(item.sortAt)}</span>
         <Link
           href={`/properties/${item.propertyId}`}
-          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#E5E5E5] transition-all duration-200"
+          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-gray-900 ring-1 ring-[#E5E5E5] transition-all duration-200"
         >
           View
         </Link>
@@ -1073,15 +1075,15 @@ function BadgeMediumCard({
         <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-bold text-[#2C2C2C]">{badgeName}</p>
-        <p className="mt-0.5 text-sm text-[#6B6B6B]">{desc}</p>
+        <p className="font-bold text-gray-900">{badgeName}</p>
+        <p className="mt-0.5 text-sm text-gray-500">{desc}</p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(n.created_at)}</span>
+        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
         <button
           type="button"
           onClick={onViewBadges}
-          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#E5E5E5] transition-all duration-200"
+          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-gray-900 ring-1 ring-[#E5E5E5] transition-all duration-200"
         >
           View badges
         </button>
@@ -1121,16 +1123,16 @@ function BadgeEarnedFeedCard({
         <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-bold text-[#2C2C2C]">{meta.label}</p>
-        <p className="mt-0.5 text-sm text-[#6B6B6B]">{meta.description}</p>
-        <p className="mt-1 text-xs font-medium text-[#6B9E6E]">{dateLabel}</p>
+        <p className="font-bold text-gray-900">{meta.label}</p>
+        <p className="mt-0.5 text-sm text-gray-500">{meta.description}</p>
+        <p className="mt-1 text-xs font-medium text-gray-500">{dateLabel}</p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(earned_at)}</span>
+        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(earned_at)}</span>
         <button
           type="button"
           onClick={onViewBadges}
-          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#E5E5E5] transition-all duration-200"
+          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-gray-900 ring-1 ring-[#E5E5E5] transition-all duration-200"
         >
           View badges
         </button>
@@ -1148,10 +1150,10 @@ function ViewingConfirmedSmallCard({ n }: { n: FeedNotificationRow }) {
         <Calendar className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-bold text-[#2C2C2C]">{title}</p>
-        {body ? <p className="mt-0.5 text-sm text-[#6B6B6B]">{body}</p> : null}
+        <p className="font-bold text-gray-900">{title}</p>
+        {body ? <p className="mt-0.5 text-sm text-gray-500">{body}</p> : null}
       </div>
-      <span className="shrink-0 text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(n.created_at)}</span>
+      <span className="shrink-0 text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
     </article>
   );
 }
@@ -1177,11 +1179,11 @@ function ListingLikeSmallCard({
         <Home className="h-4 w-4 text-[#6B6B6B]" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-[#2C2C2C]">You liked a listing</p>
-        <p className="text-sm text-[#6B6B6B]">{title}</p>
-        {ag?.agentName ? <p className="mt-0.5 text-xs text-[#6B6B6B]">{ag.agentName}</p> : null}
+        <p className="text-sm font-bold text-gray-900">You liked a listing</p>
+        <p className="text-sm text-gray-500">{title}</p>
+        {ag?.agentName ? <p className="mt-0.5 text-xs font-medium text-[#6B9E6E]">{ag.agentName}</p> : null}
       </div>
-      <span className="shrink-0 text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(createdAt)}</span>
+      <span className="shrink-0 text-xs text-gray-500">{formatNotificationTimeAgo(createdAt)}</span>
     </article>
   );
 }
