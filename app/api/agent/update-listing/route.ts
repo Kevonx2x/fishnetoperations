@@ -27,7 +27,9 @@ const bodySchema = z.object({
   baths: z.number().int().min(0).max(99),
   sqft: z.string().max(80),
   property_type: z.enum(PROPERTY_TYPES),
-  status: z.enum(["for_sale", "for_rent"]),
+  status: z.enum(["for_sale", "for_rent", "both"]),
+  listing_type: z.enum(["sale", "rent", "both"]).optional(),
+  rent_price: z.union([z.string().max(100), z.number()]).nullable().optional(),
   listing_status: z.enum(LISTING_STATUSES),
   description: z.string().max(20000).nullable().optional(),
   /** Ordered gallery: [0] = main `image_url`; rest → `property_photos`. Max 10. */
@@ -70,6 +72,32 @@ export async function POST(req: Request) {
     const priceStr =
       typeof parsed.data.price === "number" ? String(parsed.data.price) : parsed.data.price.trim();
 
+    const listingType =
+      parsed.data.listing_type ??
+      (parsed.data.status === "both"
+        ? "both"
+        : parsed.data.status === "for_rent"
+          ? "rent"
+          : "sale");
+    const rentRaw = parsed.data.rent_price;
+    const rentStr =
+      rentRaw === null || rentRaw === undefined
+        ? null
+        : typeof rentRaw === "number"
+          ? String(rentRaw)
+          : rentRaw.trim();
+
+    const rentPriceForDb =
+      listingType === "both"
+        ? rentStr && rentStr.length > 0
+          ? rentStr
+          : null
+        : listingType === "rent"
+          ? rentStr && rentStr.length > 0
+            ? rentStr
+            : priceStr
+          : null;
+
     const imageUrls = parsed.data.imageUrls;
     const primaryImage =
       imageUrls && imageUrls.length > 0
@@ -87,6 +115,8 @@ export async function POST(req: Request) {
         name: parsed.data.name?.trim() || null,
         location: parsed.data.location.trim(),
         price: priceStr,
+        listing_type: listingType,
+        rent_price: rentPriceForDb,
         beds: parsed.data.beds,
         baths: parsed.data.baths,
         sqft: parsed.data.sqft.trim(),

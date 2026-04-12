@@ -4,6 +4,14 @@ import { useCallback, useId, useRef, useState } from "react";
 import { ImagePlus, Loader2, Trash2, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+function reorderUrls(urls: string[], from: number, to: number): string[] {
+  if (from === to || from < 0 || to < 0 || from >= urls.length || to >= urls.length) return urls;
+  const next = [...urls];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
 const ACCEPT_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_BYTES = 12 * 1024 * 1024;
 
@@ -27,6 +35,7 @@ export function CloudinaryUpload({
   const flightRef = useRef(0);
 
   const [dragOver, setDragOver] = useState(false);
+  const [dragPhotoIndex, setDragPhotoIndex] = useState<number | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<
     Array<{
@@ -131,6 +140,27 @@ export function CloudinaryUpload({
     onUpload(value.filter((_, i) => i !== index));
   };
 
+  const onThumbDragStart = (index: number) => (e: React.DragEvent) => {
+    setDragPhotoIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(index));
+  };
+
+  const onThumbDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const onThumbDrop = (toIndex: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    const from = dragPhotoIndex;
+    setDragPhotoIndex(null);
+    if (from === null) return;
+    onUpload(reorderUrls(value, from, toIndex));
+  };
+
+  const onThumbDragEnd = () => setDragPhotoIndex(null);
+
   return (
     <div className="space-y-2">
       <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
@@ -143,12 +173,21 @@ export function CloudinaryUpload({
           {value.map((url, i) => (
             <li
               key={`${url}-${i}`}
-              className="relative h-20 w-20 overflow-hidden rounded-lg border border-[#2C2C2C]/10 bg-[#FAF8F4]"
+              draggable={!disabled && uploading.length === 0}
+              onDragStart={onThumbDragStart(i)}
+              onDragOver={onThumbDragOver}
+              onDrop={onThumbDrop(i)}
+              onDragEnd={onThumbDragEnd}
+              className={cn(
+                "relative h-20 w-20 overflow-hidden rounded-lg border border-[#2C2C2C]/10 bg-[#FAF8F4]",
+                dragPhotoIndex === i && "ring-2 ring-[#6B9E6E]/80",
+                !disabled && uploading.length === 0 && "cursor-grab active:cursor-grabbing",
+              )}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
               {i === 0 ? (
-                <span className="absolute left-1 top-1 rounded bg-[#2C2C2C]/85 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <span className="absolute left-1 top-1 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
                   Main
                 </span>
               ) : null}

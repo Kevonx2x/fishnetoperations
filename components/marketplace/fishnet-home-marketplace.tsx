@@ -228,6 +228,14 @@ function parsePesoToNumber(price: string): number {
   return Number.isFinite(num) ? num : 0;
 }
 
+/** Buy vs rent search: dual listings use sale price in buy mode and monthly rent in rent mode. */
+function effectiveListingPriceForMode(p: DbProperty, mode: "buy" | "rent"): number {
+  if (p.status === "both" || p.listing_type === "both") {
+    return mode === "buy" ? parsePesoToNumber(p.price) : parsePesoToNumber(p.rent_price ?? "");
+  }
+  return parsePesoToNumber(p.price);
+}
+
 function formatPeso(n: number): string {
   if (!Number.isFinite(n)) return "₱0";
   if (n >= 1_000_000) return `₱${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
@@ -684,7 +692,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       .from("properties")
       .select(
         `
-          id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by, description, property_type,
+          id, created_at, name, location, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
           is_presale, developer_name, turnover_date, unit_types,
           property_photos (url, sort_order, created_at),
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
@@ -850,7 +858,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   }, [properties, mergeLiveAvailability]);
 
   const baseModeProperties = useMemo(() => {
-    const base = properties.filter((p) => (mode === "buy" ? p.status === "for_sale" : p.status === "for_rent"));
+    const base = properties.filter((p) =>
+      mode === "buy"
+        ? p.status === "for_sale" || p.status === "both"
+        : p.status === "for_rent" || p.status === "both",
+    );
     if (neighborhoodFilter) {
       const city = FEATURED_CITIES.find((c) => c.key === neighborhoodFilter);
       if (city) return base.filter((p) => city.match(p.location));
@@ -862,7 +874,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   }, [properties, mode, search, neighborhoodFilter]);
 
   const cityListingCounts = useMemo(() => {
-    const base = properties.filter((p) => (mode === "buy" ? p.status === "for_sale" : p.status === "for_rent"));
+    const base = properties.filter((p) =>
+      mode === "buy"
+        ? p.status === "for_sale" || p.status === "both"
+        : p.status === "for_rent" || p.status === "both",
+    );
     const m = new Map<string, number>();
     for (const c of FEATURED_CITIES) {
       m.set(c.key, base.filter((p) => c.match(p.location)).length);
@@ -872,7 +888,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
   const filteredAllRows = useMemo(() => {
     return baseModeProperties.filter((p) => {
-      const price = parsePesoToNumber(p.price);
+      const price = effectiveListingPriceForMode(p, mode);
       if (price < filters.minPrice || price > filters.maxPrice) return false;
       if (filters.beds !== "any") {
         if (filters.beds === 4) {
@@ -891,21 +907,21 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       }
       return true;
     });
-  }, [baseModeProperties, filters]);
+  }, [baseModeProperties, filters, mode]);
 
   const sortedAllRows = useMemo(() => {
     const list = [...filteredAllRows];
     list.sort((a, b) => {
       if (sortMode === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       if (sortMode === "most_beds") return (b.beds ?? 0) - (a.beds ?? 0);
-      const pa = parsePesoToNumber(a.price);
-      const pb = parsePesoToNumber(b.price);
+      const pa = effectiveListingPriceForMode(a, mode);
+      const pb = effectiveListingPriceForMode(b, mode);
       if (sortMode === "price_low") return pa - pb;
       if (sortMode === "price_high") return pb - pa;
       return 0;
     });
     return list;
-  }, [filteredAllRows, sortMode]);
+  }, [filteredAllRows, sortMode, mode]);
 
   const propertyTrustScoreById = useMemo(() => {
     const m = new Map<string, number>();
@@ -1781,9 +1797,20 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
                       {featured.name ?? featured.location}
                     </h2>
-                    <p className="mt-2 font-serif text-xl font-bold text-[#D4A843] md:text-2xl">
-                      {formatPropertyPriceDisplay(featured.price, featured.status)}
-                    </p>
+                    {featured.status === "both" || featured.listing_type === "both" ? (
+                      <div className="mt-2 space-y-1">
+                        <p className="font-serif text-xl font-bold text-[#D4A843] md:text-2xl">
+                          Sale {formatPropertyPriceDisplay(featured.price, "for_sale")}
+                        </p>
+                        <p className="font-serif text-lg font-bold text-[#2C2C2C]/90 md:text-xl">
+                          Rent {formatPropertyPriceDisplay(featured.rent_price, "for_rent")}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="mt-2 font-serif text-xl font-bold text-[#D4A843] md:text-2xl">
+                        {formatPropertyPriceDisplay(featured.price, featured.status)}
+                      </p>
+                    )}
                     <div className="mt-3 flex flex-wrap gap-2">
                       <span className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80">
                         {featured.beds ? `${featured.beds} beds` : "Studio"}
@@ -2004,7 +2031,15 @@ export function NewlyListedCard({
   verifiedListingAgent?: boolean;
 }) {
   const listedLabel = listingListedLabel(property.created_at);
-  const statusLabel = property.is_presale ? "Presale" : property.status === "for_rent" ? "For Rent" : "For Sale";
+  const isDualListing =
+    !property.is_presale && (property.status === "both" || property.listing_type === "both");
+  const statusLabel = property.is_presale
+    ? "Presale"
+    : property.status === "for_rent"
+      ? "For Rent"
+      : property.status === "both"
+        ? "Sale & Rent"
+        : "For Sale";
   const img = roomUrls[roomIdx] ?? roomUrls[0] ?? property.image_url;
 
   const { profile } = useAuth();
@@ -2079,15 +2114,26 @@ export function NewlyListedCard({
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-16 bg-gradient-to-t from-black/25 to-transparent" />
 
-        <div className="absolute left-3 top-3 z-20">
-          <span
-            className={cn(
-              "rounded-full px-3 py-1 text-[11px] font-bold shadow-sm",
-              property.is_presale ? "bg-[#D4A843] text-[#2C2C2C]" : "bg-[#6B9E6E] text-white",
-            )}
-          >
-            {statusLabel}
-          </span>
+        <div className="absolute left-3 top-3 z-20 flex flex-wrap gap-1">
+          {isDualListing ? (
+            <>
+              <span className="rounded-full bg-[#6B9E6E] px-2.5 py-1 text-[10px] font-bold text-white shadow-sm">
+                For Sale
+              </span>
+              <span className="rounded-full bg-[#3d6b78] px-2.5 py-1 text-[10px] font-bold text-white shadow-sm">
+                For Rent
+              </span>
+            </>
+          ) : (
+            <span
+              className={cn(
+                "rounded-full px-3 py-1 text-[11px] font-bold shadow-sm",
+                property.is_presale ? "bg-[#D4A843] text-[#2C2C2C]" : "bg-[#6B9E6E] text-white",
+              )}
+            >
+              {statusLabel}
+            </span>
+          )}
         </div>
 
         {showEngagementRow ? (
@@ -2187,12 +2233,27 @@ export function NewlyListedCard({
       <div
         className={`flex flex-col gap-0 border-t border-[#2C2C2C]/10 bg-white ${compact ? "px-3 py-2.5" : "px-3 py-3 sm:px-4"}`}
       >
-        <div className="h-[28px] shrink-0 overflow-hidden">
-          <p
-            className={`truncate font-serif font-bold tracking-tight text-[#D4A843] ${compact ? "text-base" : "text-lg sm:text-xl"}`}
-          >
-            {formatPropertyPriceDisplay(property.price, property.status)}
-          </p>
+        <div className={`min-h-[28px] shrink-0 overflow-hidden ${isDualListing ? "" : "h-[28px]"}`}>
+          {isDualListing ? (
+            <div className="space-y-0.5">
+              <p
+                className={`truncate font-serif font-bold tracking-tight text-[#D4A843] ${compact ? "text-sm" : "text-base sm:text-lg"}`}
+              >
+                Sale {formatPropertyPriceDisplay(property.price, "for_sale")}
+              </p>
+              <p
+                className={`truncate font-serif font-bold tracking-tight text-[#2C2C2C]/90 ${compact ? "text-xs" : "text-sm sm:text-base"}`}
+              >
+                Rent {formatPropertyPriceDisplay(property.rent_price, "for_rent")}
+              </p>
+            </div>
+          ) : (
+            <p
+              className={`truncate font-serif font-bold tracking-tight text-[#D4A843] ${compact ? "text-base" : "text-lg sm:text-xl"}`}
+            >
+              {formatPropertyPriceDisplay(property.price, property.status)}
+            </p>
+          )}
         </div>
         <div className="h-[48px] shrink-0 overflow-hidden">
           <p

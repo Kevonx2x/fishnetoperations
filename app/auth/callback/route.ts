@@ -3,6 +3,39 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { notifyAdminNewClientFromSession } from "@/lib/admin-notify-sms";
+import { pathForRole } from "@/lib/auth-roles";
+
+function redirectForAuthenticatedUser(requestUrl: URL, role: string | null | undefined) {
+  const dest = pathForRole(role ?? "client");
+  return NextResponse.redirect(new URL(dest, requestUrl));
+}
+
+async function finalizeSessionAndRedirect(
+  request: NextRequest,
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  session: NonNullable<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>,
+) {
+  await supabase.auth.setSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", session.user.id)
+    .maybeSingle();
+
+  const role = (profile as { role?: string } | null)?.role ?? null;
+
+  try {
+    await notifyAdminNewClientFromSession(session);
+  } catch {
+    /* admin SMS is best-effort */
+  }
+
+  return redirectForAuthenticatedUser(new URL(request.url), role);
+}
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -37,12 +70,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!error && session) {
-      try {
-        await notifyAdminNewClientFromSession(session);
-      } catch {
-        /* admin SMS is best-effort */
-      }
-      return NextResponse.redirect(new URL("/?welcome=true", request.url));
+      return finalizeSessionAndRedirect(request, supabase, session);
     }
   }
 
@@ -53,12 +81,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && session) {
-      try {
-        await notifyAdminNewClientFromSession(session);
-      } catch {
-        /* admin SMS is best-effort */
-      }
-      return NextResponse.redirect(new URL("/?welcome=true", request.url));
+      return finalizeSessionAndRedirect(request, supabase, session);
     }
   }
 

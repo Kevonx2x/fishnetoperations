@@ -12,7 +12,11 @@ export type DbProperty = {
   beds: number;
   baths: number;
   image_url: string;
-  status: "for_sale" | "for_rent" | "sold" | "rented";
+  status: "for_sale" | "for_rent" | "sold" | "rented" | "both";
+  /** sale | rent | both — mirrors `properties.listing_type`. */
+  listing_type?: "sale" | "rent" | "both" | null;
+  /** Monthly rent when `listing_type` is rent or both. */
+  rent_price?: string | null;
   listed_by?: string | null;
   description?: string | null;
   property_type?: string | null;

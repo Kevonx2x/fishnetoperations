@@ -31,7 +31,7 @@ function parsePriceToNumber(raw: string | number | bigint | null | undefined): n
  */
 export function formatListingPricePhp(
   priceRaw: string | number | bigint | null | undefined,
-  status: "for_sale" | "for_rent",
+  status: "for_sale" | "for_rent" | "both",
 ): string {
   const n = parsePriceToNumber(priceRaw);
   if (n === null) {
@@ -52,7 +52,7 @@ export function formatListingPricePhp(
 /** Display any property price with ₱ + comma grouping (en-PH). Preserves non-numeric strings with optional ₱ prefix. */
 export function formatPropertyPriceDisplay(
   priceRaw: string | number | bigint | null | undefined,
-  status?: "for_sale" | "for_rent" | "sold" | "rented",
+  status?: "for_sale" | "for_rent" | "sold" | "rented" | "both",
 ): string {
   const n = parsePriceToNumber(priceRaw);
   if (n === null) {
@@ -68,6 +68,18 @@ export function formatPropertyPriceDisplay(
   }).format(rounded);
   const base = `₱${formatted}`;
   if (status === "for_rent" || status === "rented") return `${base}/mo`;
+  if (status === "both") return base;
   return base;
+}
+
+/** Sale + rent dual listing: two labeled lines for cards/detail. */
+export function formatSaleAndRentLines(
+  saleRaw: string | number | bigint | null | undefined,
+  rentRaw: string | number | bigint | null | undefined,
+): { sale: string; rent: string } {
+  return {
+    sale: formatPropertyPriceDisplay(saleRaw, "for_sale"),
+    rent: formatPropertyPriceDisplay(rentRaw, "for_rent"),
+  };
 }
 

@@ -40,7 +40,9 @@ type PropertyRow = {
   name: string | null;
   location: string;
   price: string;
-  status: "for_sale" | "for_rent" | "sold" | "rented";
+  status: "for_sale" | "for_rent" | "sold" | "rented" | "both";
+  listing_type?: "sale" | "rent" | "both" | null;
+  rent_price?: string | null;
   sqft: string;
   beds: number;
   baths: number;
@@ -186,7 +188,7 @@ export default function PropertyPage() {
         .from("properties")
         .select(
           `
-          id, created_at, name, location, price, status, sqft, beds, baths, image_url, listed_by, property_type, lat, lng, description,
+          id, created_at, name, location, price, rent_price, listing_type, status, sqft, beds, baths, image_url, listed_by, property_type, lat, lng, description,
           is_presale, developer_name, turnover_date, unit_types,
           property_photos (url, sort_order),
           listing_agent:profiles!listed_by (id, full_name, avatar_url),
@@ -663,9 +665,22 @@ export default function PropertyPage() {
                   <h1 className="mt-1 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">
                     {property.location}
                   </h1>
-                  <p className="mt-1 font-serif text-2xl font-bold text-[#2C2C2C]">
-                    {formatPropertyPriceDisplay(property.price, property.status)}
-                  </p>
+                  {property.status === "both" || property.listing_type === "both" ? (
+                    <div className="mt-1 space-y-1">
+                      <p className="font-serif text-2xl font-bold text-[#2C2C2C]">
+                        <span className="text-sm font-semibold text-[#2C2C2C]/55">Sale </span>
+                        {formatPropertyPriceDisplay(property.price, "for_sale")}
+                      </p>
+                      <p className="font-serif text-xl font-bold text-[#2C2C2C]">
+                        <span className="text-sm font-semibold text-[#2C2C2C]/55">Rent (monthly) </span>
+                        {formatPropertyPriceDisplay(property.rent_price, "for_rent")}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-1 font-serif text-2xl font-bold text-[#2C2C2C]">
+                      {formatPropertyPriceDisplay(property.price, property.status)}
+                    </p>
+                  )}
                   <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold text-[#2C2C2C]/70">
                     <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{property.beds} beds</span>
                     <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{property.baths} baths</span>

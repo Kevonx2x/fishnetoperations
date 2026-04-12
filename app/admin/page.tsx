@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Eye, EyeOff, X } from "lucide-react";
 import { toast } from "sonner";
@@ -163,6 +163,15 @@ interface ProfileReportRow {
   notes: string | null;
   reporter_name: string;
   reported_name: string;
+}
+
+interface TeamMemberRow {
+  id: string;
+  created_at: string;
+  name: string;
+  email: string;
+  role: "owner" | "co_founder" | "va_admin";
+  created_by: string | null;
 }
 
 const CREDENTIALS_SUPER_ADMIN_EMAIL = "ron.business101@gmail.com";
@@ -480,6 +489,7 @@ export default function AdminPage() {
     | "users"
     | "coagent"
     | "hiring"
+    | "teamMembers"
     | "outreach"
     | "profileReports"
     | "vaReports"
@@ -678,9 +688,131 @@ export default function AdminPage() {
   });
   const [credentialSaving, setCredentialSaving] = useState(false);
 
-  const canSeeCredentials =
-    (user?.email ?? "").toLowerCase() === CREDENTIALS_SUPER_ADMIN_EMAIL;
-  const canSeeManual = canSeeCredentials;
+  const [teamAccess, setTeamAccess] = useState<{
+    loading: boolean;
+    role: "owner" | "co_founder" | "va_admin" | null;
+  }>({ loading: true, role: null });
+
+  useEffect(() => {
+    if (!user?.email || profile?.role !== "admin") {
+      setTeamAccess({ loading: false, role: null });
+      return;
+    }
+    const email = user.email.trim().toLowerCase();
+    if (email === CREDENTIALS_SUPER_ADMIN_EMAIL) {
+      setTeamAccess({ loading: false, role: null });
+      return;
+    }
+    setTeamAccess((prev) => ({ ...prev, loading: true }));
+    void supabase
+      .from("team_members")
+      .select("role")
+      .eq("email", email)
+      .maybeSingle()
+      .then(({ data }) => {
+        const r = data?.role as "owner" | "co_founder" | "va_admin" | undefined;
+        setTeamAccess({ loading: false, role: r ?? null });
+      });
+  }, [user?.email, profile?.role, supabase]);
+
+  /** full = credentials + manual; cofounder = all but those; va = outreach + VA reports + hiring only */
+  const adminNavKind = useMemo(() => {
+    const email = (user?.email ?? "").trim().toLowerCase();
+    if (email === CREDENTIALS_SUPER_ADMIN_EMAIL) return "full" as const;
+    if (teamAccess.loading) return "cofounder" as const;
+    if (teamAccess.role === "owner") return "full" as const;
+    if (teamAccess.role === "va_admin") return "va" as const;
+    return "cofounder" as const;
+  }, [user?.email, teamAccess.loading, teamAccess.role]);
+
+  const canSeeCredentials = adminNavKind === "full";
+  const canSeeManual = adminNavKind === "full";
+
+  const isAdminSectionVisible = useCallback(
+    (section: typeof adminSection): boolean => {
+      if (adminNavKind === "full") return true;
+      if (adminNavKind === "va") {
+        return section === "outreach" || section === "vaReports" || section === "hiring";
+      }
+      return section !== "credentials" && section !== "manual";
+    },
+    [adminNavKind],
+  );
+
+  const canSeeTeamTab = adminNavKind !== "va";
+
+  const [teamMembersRows, setTeamMembersRows] = useState<TeamMemberRow[]>([]);
+  const [teamMembersLoading, setTeamMembersLoading] = useState(false);
+  const [teamMemberModalOpen, setTeamMemberModalOpen] = useState(false);
+  const [teamMemberSaving, setTeamMemberSaving] = useState(false);
+  const [newTeamMember, setNewTeamMember] = useState({
+    name: "",
+    email: "",
+    role: "co_founder" as TeamMemberRow["role"],
+  });
+
+  const fetchTeamMembers = useCallback(async () => {
+    setTeamMembersLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("team_members")
+        .select("id, created_at, name, email, role, created_by")
+        .order("created_at", { ascending: false });
+      if (error) {
+        toast.error(error.message);
+        setTeamMembersRows([]);
+        return;
+      }
+      setTeamMembersRows((data ?? []) as TeamMemberRow[]);
+    } finally {
+      setTeamMembersLoading(false);
+    }
+  }, [supabase]);
+
+  const submitTeamMember = async () => {
+    const name = newTeamMember.name.trim();
+    const email = newTeamMember.email.trim().toLowerCase();
+    if (!name || !email) {
+      toast.error("Name and email are required.");
+      return;
+    }
+    setTeamMemberSaving(true);
+    try {
+      const { error } = await supabase.from("team_members").insert({
+        name,
+        email,
+        role: newTeamMember.role,
+        created_by: user?.id ?? null,
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success("Team member added.");
+      setTeamMemberModalOpen(false);
+      setNewTeamMember({ name: "", email: "", role: "co_founder" });
+      await fetchTeamMembers();
+    } finally {
+      setTeamMemberSaving(false);
+    }
+  };
+
+  const deleteTeamMember = async (id: string) => {
+    if (!confirm("Remove this team member?")) return;
+    const { error } = await supabase.from("team_members").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Removed.");
+    await fetchTeamMembers();
+  };
+
+  function teamRoleLabel(role: TeamMemberRow["role"]): string {
+    if (role === "co_founder") return "Co-Founder";
+    if (role === "va_admin") return "VA Admin";
+    return "Owner";
+  }
 
   const [manageAgentsProperty, setManageAgentsProperty] = useState<Property | null>(null);
   const [manageAgentsConnected, setManageAgentsConnected] = useState<PropertyConnectedAgent[]>([]);
@@ -1806,6 +1938,26 @@ export default function AdminPage() {
     }
   }, [adminSection, canSeeManual, profile?.role, user?.email]);
 
+  useEffect(() => {
+    if (adminSection === "teamMembers" && profile?.role === "admin" && user?.email && !canSeeTeamTab) {
+      setAdminSection("leads");
+    }
+  }, [adminSection, canSeeTeamTab, profile?.role, user?.email]);
+
+  useEffect(() => {
+    if (profile?.role !== "admin" || !user?.email) return;
+    if (adminNavKind !== "va") return;
+    if (!["outreach", "vaReports", "hiring"].includes(adminSection)) {
+      setAdminSection("outreach");
+    }
+  }, [adminNavKind, adminSection, profile?.role, user?.email]);
+
+  useEffect(() => {
+    if (user?.id && profile?.role === "admin" && adminSection === "teamMembers" && canSeeTeamTab) {
+      void fetchTeamMembers();
+    }
+  }, [user?.id, profile?.role, adminSection, canSeeTeamTab, fetchTeamMembers]);
+
   const filteredLeads =
     filter === "all"
       ? leads
@@ -2089,6 +2241,7 @@ export default function AdminPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {isAdminSectionVisible("leads") ? (
           <button
             type="button"
             onClick={() => setAdminSection("leads")}
@@ -2100,6 +2253,8 @@ export default function AdminPage() {
           >
             Leads
           </button>
+          ) : null}
+          {isAdminSectionVisible("properties") ? (
           <button
             type="button"
             onClick={() => setAdminSection("properties")}
@@ -2114,6 +2269,8 @@ export default function AdminPage() {
               {properties.length}
             </span>
           </button>
+          ) : null}
+          {isAdminSectionVisible("verification") ? (
           <button
             type="button"
             onClick={() => setAdminSection("verification")}
@@ -2128,6 +2285,8 @@ export default function AdminPage() {
               {pendingBrokers.length + pendingAgents.length}
             </span>
           </button>
+          ) : null}
+          {isAdminSectionVisible("agents") ? (
           <button
             type="button"
             onClick={() => setAdminSection("agents")}
@@ -2142,6 +2301,8 @@ export default function AdminPage() {
               {allAgentsList.length}
             </span>
           </button>
+          ) : null}
+          {isAdminSectionVisible("users") ? (
           <button
             type="button"
             onClick={() => setAdminSection("users")}
@@ -2156,6 +2317,8 @@ export default function AdminPage() {
               {adminUsers.length}
             </span>
           </button>
+          ) : null}
+          {isAdminSectionVisible("coagent") ? (
           <button
             type="button"
             onClick={() => setAdminSection("coagent")}
@@ -2170,6 +2333,8 @@ export default function AdminPage() {
               {coAgentRequests.length}
             </span>
           </button>
+          ) : null}
+          {isAdminSectionVisible("hiring") ? (
           <button
             type="button"
             onClick={() => setAdminSection("hiring")}
@@ -2184,6 +2349,21 @@ export default function AdminPage() {
               {applicants.length}
             </span>
           </button>
+          ) : null}
+          {canSeeTeamTab && isAdminSectionVisible("teamMembers") ? (
+            <button
+              type="button"
+              onClick={() => setAdminSection("teamMembers")}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                adminSection === "teamMembers"
+                  ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                  : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+              }`}
+            >
+              Team
+            </button>
+          ) : null}
+          {isAdminSectionVisible("outreach") ? (
           <button
             type="button"
             onClick={() => setAdminSection("outreach")}
@@ -2195,6 +2375,8 @@ export default function AdminPage() {
           >
             Outreach
           </button>
+          ) : null}
+          {isAdminSectionVisible("profileReports") ? (
           <button
             type="button"
             onClick={() => setAdminSection("profileReports")}
@@ -2209,6 +2391,8 @@ export default function AdminPage() {
               {profileReportsRows.length}
             </span>
           </button>
+          ) : null}
+          {isAdminSectionVisible("vaReports") ? (
           <button
             type="button"
             onClick={() => setAdminSection("vaReports")}
@@ -2220,6 +2404,7 @@ export default function AdminPage() {
           >
             VA Reports
           </button>
+          ) : null}
           {canSeeCredentials ? (
             <button
               type="button"
@@ -2257,6 +2442,7 @@ export default function AdminPage() {
             <p className="mt-1 text-xs text-white/40">Lead &amp; property</p>
           </div>
           <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
+            {isAdminSectionVisible("leads") ? (
             <button
               type="button"
               onClick={() => setAdminSection("leads")}
@@ -2268,6 +2454,8 @@ export default function AdminPage() {
             >
               Leads
             </button>
+            ) : null}
+            {isAdminSectionVisible("properties") ? (
             <button
               type="button"
               onClick={() => setAdminSection("properties")}
@@ -2282,6 +2470,8 @@ export default function AdminPage() {
                 {properties.length}
               </span>
             </button>
+            ) : null}
+            {isAdminSectionVisible("verification") ? (
             <button
               type="button"
               onClick={() => setAdminSection("verification")}
@@ -2296,6 +2486,8 @@ export default function AdminPage() {
                 {pendingBrokers.length + pendingAgents.length}
               </span>
             </button>
+            ) : null}
+            {isAdminSectionVisible("agents") ? (
             <button
               type="button"
               onClick={() => setAdminSection("agents")}
@@ -2310,6 +2502,8 @@ export default function AdminPage() {
                 {allAgentsList.length}
               </span>
             </button>
+            ) : null}
+            {isAdminSectionVisible("users") ? (
             <button
               type="button"
               onClick={() => setAdminSection("users")}
@@ -2324,6 +2518,8 @@ export default function AdminPage() {
                 {adminUsers.length}
               </span>
             </button>
+            ) : null}
+            {isAdminSectionVisible("coagent") ? (
             <button
               type="button"
               onClick={() => setAdminSection("coagent")}
@@ -2338,6 +2534,8 @@ export default function AdminPage() {
                 {coAgentRequests.length}
               </span>
             </button>
+            ) : null}
+            {isAdminSectionVisible("hiring") ? (
             <button
               type="button"
               onClick={() => setAdminSection("hiring")}
@@ -2352,6 +2550,21 @@ export default function AdminPage() {
                 {applicants.length}
               </span>
             </button>
+            ) : null}
+            {canSeeTeamTab && isAdminSectionVisible("teamMembers") ? (
+              <button
+                type="button"
+                onClick={() => setAdminSection("teamMembers")}
+                className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                  adminSection === "teamMembers"
+                    ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                    : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                Team
+              </button>
+            ) : null}
+            {isAdminSectionVisible("outreach") ? (
             <button
               type="button"
               onClick={() => setAdminSection("outreach")}
@@ -2363,6 +2576,8 @@ export default function AdminPage() {
             >
               Outreach
             </button>
+            ) : null}
+            {isAdminSectionVisible("profileReports") ? (
             <button
               type="button"
               onClick={() => setAdminSection("profileReports")}
@@ -2377,6 +2592,8 @@ export default function AdminPage() {
                 {profileReportsRows.length}
               </span>
             </button>
+            ) : null}
+            {isAdminSectionVisible("vaReports") ? (
             <button
               type="button"
               onClick={() => setAdminSection("vaReports")}
@@ -2388,6 +2605,7 @@ export default function AdminPage() {
             >
               VA Reports
             </button>
+            ) : null}
             {canSeeCredentials ? (
               <button
                 type="button"
@@ -3906,6 +4124,132 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {adminSection === "teamMembers" && canSeeTeamTab ? (
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Team</h2>
+              <button
+                type="button"
+                onClick={() => setTeamMemberModalOpen(true)}
+                className="rounded-full bg-[#2C2C2C] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#6B9E6E]"
+              >
+                New Team Member
+              </button>
+            </div>
+            {teamMembersLoading ? (
+              <p className="text-sm font-semibold text-[#2C2C2C]/55">Loading…</p>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+                <table className="min-w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                      <th className="px-4 py-3 font-semibold text-[#2C2C2C]">Name</th>
+                      <th className="px-4 py-3 font-semibold text-[#2C2C2C]">Email</th>
+                      <th className="px-4 py-3 font-semibold text-[#2C2C2C]">Role</th>
+                      <th className="px-4 py-3 font-semibold text-[#2C2C2C]">Added Date</th>
+                      <th className="px-4 py-3 font-semibold text-[#2C2C2C]">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teamMembersRows.map((row) => (
+                      <tr key={row.id} className="border-b border-[#2C2C2C]/10">
+                        <td className="px-4 py-3 font-semibold text-[#2C2C2C]">{row.name}</td>
+                        <td className="px-4 py-3 text-[#2C2C2C]/80">{row.email}</td>
+                        <td className="px-4 py-3">{teamRoleLabel(row.role)}</td>
+                        <td className="px-4 py-3 text-[#2C2C2C]/70">
+                          {new Date(row.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => void deleteTeamMember(row.id)}
+                            className="text-sm font-semibold text-red-700 underline hover:text-red-900"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {teamMembersRows.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-sm text-[#2C2C2C]/55">No team members yet.</p>
+                ) : null}
+              </div>
+            )}
+            {teamMemberModalOpen ? (
+              <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-4">
+                <div className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-xl">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-serif text-lg font-bold text-[#2C2C2C]">New team member</h3>
+                    <button
+                      type="button"
+                      onClick={() => setTeamMemberModalOpen(false)}
+                      className="rounded-full p-2 hover:bg-[#FAF8F4]"
+                      aria-label="Close"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    <label className="block text-xs font-bold uppercase text-[#2C2C2C]/45">
+                      Name
+                      <input
+                        value={newTeamMember.name}
+                        onChange={(e) => setNewTeamMember((m) => ({ ...m, name: e.target.value }))}
+                        className="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 text-sm font-semibold"
+                      />
+                    </label>
+                    <label className="block text-xs font-bold uppercase text-[#2C2C2C]/45">
+                      Email
+                      <input
+                        type="email"
+                        value={newTeamMember.email}
+                        onChange={(e) => setNewTeamMember((m) => ({ ...m, email: e.target.value }))}
+                        className="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 text-sm font-semibold"
+                      />
+                    </label>
+                    <label className="block text-xs font-bold uppercase text-[#2C2C2C]/45">
+                      Role
+                      <select
+                        value={newTeamMember.role}
+                        onChange={(e) =>
+                          setNewTeamMember((m) => ({
+                            ...m,
+                            role: e.target.value as TeamMemberRow["role"],
+                          }))
+                        }
+                        className="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 text-sm font-semibold"
+                      >
+                        <option value="owner">Owner</option>
+                        <option value="co_founder">Co-Founder</option>
+                        <option value="va_admin">VA Admin</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-6 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTeamMemberModalOpen(false)}
+                      className="rounded-full border border-[#2C2C2C]/15 px-4 py-2 text-sm font-semibold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={teamMemberSaving}
+                      onClick={() => void submitTeamMember()}
+                      className="rounded-full bg-[#6B9E6E] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      {teamMemberSaving ? "Saving…" : "Add"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {adminSection === "vaReports" && (
           <div className="space-y-6">

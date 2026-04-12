@@ -289,6 +289,7 @@ function PropertyDetailsSection({
   withA11yIds: boolean;
   omitDescription?: boolean;
 }) {
+  const isDual = property.status === "both" || property.listing_type === "both";
   return (
     <>
       <h2
@@ -297,9 +298,20 @@ function PropertyDetailsSection({
       >
         {property.name ?? property.location}
       </h2>
-      <p className="mt-2 font-serif text-2xl font-bold text-[#D4A843]">
-        {formatPropertyPriceDisplay(property.price, property.status)}
-      </p>
+      {isDual ? (
+        <div className="mt-2 space-y-1">
+          <p className="font-serif text-2xl font-bold text-[#D4A843]">
+            Sale {formatPropertyPriceDisplay(property.price, "for_sale")}
+          </p>
+          <p className="font-serif text-xl font-bold text-[#2C2C2C]/90">
+            Rent {formatPropertyPriceDisplay(property.rent_price, "for_rent")}
+          </p>
+        </div>
+      ) : (
+        <p className="mt-2 font-serif text-2xl font-bold text-[#D4A843]">
+          {formatPropertyPriceDisplay(property.price, property.status)}
+        </p>
+      )}
       <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/70">
         {property.beds ? `${property.beds} beds` : "Studio"} · {property.baths} baths · {property.sqft} sqft
       </p>
@@ -315,13 +327,24 @@ function PropertyDetailsSection({
           Turnover: {new Date(`${property.turnover_date}T12:00:00`).getFullYear()}
         </p>
       ) : null}
-      <span
-        className={`mt-3 inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${
-          property.is_presale ? "bg-[#D4A843]/25 text-[#8a6d32]" : "bg-[#6B9E6E]/15 text-[#2C2C2C]/85"
-        }`}
-      >
-        {statusLabel}
-      </span>
+      {isDual ? (
+        <span className="mt-3 inline-flex flex-wrap gap-1.5">
+          <span className="inline-flex rounded-full bg-[#6B9E6E]/20 px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/85">
+            For Sale
+          </span>
+          <span className="inline-flex rounded-full bg-[#3d6b78]/20 px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/85">
+            For Rent
+          </span>
+        </span>
+      ) : (
+        <span
+          className={`mt-3 inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${
+            property.is_presale ? "bg-[#D4A843]/25 text-[#8a6d32]" : "bg-[#6B9E6E]/15 text-[#2C2C2C]/85"
+          }`}
+        >
+          {statusLabel}
+        </span>
+      )}
       <div className="my-5 border-t border-[#2C2C2C]/10" />
       {desc && !omitDescription ? (
         <div id={withA11yIds ? detailsId : undefined}>
