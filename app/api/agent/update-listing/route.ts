@@ -150,6 +150,7 @@ export async function POST(req: Request) {
         property_id: parsed.data.propertyId,
         property_name: propertyName,
         edited_by_name: editedByName,
+        source: "agent_listing_edit",
       },
     });
 

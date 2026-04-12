@@ -19,6 +19,7 @@ import {
   LayoutGrid,
   Lock,
   MapPin,
+  Pencil,
   Pin,
   Search,
   Shield,
@@ -330,6 +331,15 @@ type FeedUnion =
       thumbUrl: string;
     }
   | {
+      kind: "listing_edited_al";
+      sortAt: string;
+      id: string;
+      propertyId: string;
+      propertyName: string;
+      editedByName: string;
+      thumbUrl: string;
+    }
+  | {
       kind: "badge";
       sortAt: string;
       notification: FeedNotificationRow;
@@ -378,7 +388,7 @@ function parseNotifPrefs(raw: unknown): NotifPrefs {
 function filterFeedByPrefs(items: FeedUnion[], prefs: NotifPrefs): FeedUnion[] {
   return items.filter((item) => {
     if (item.kind === "saved_property") return true;
-    if (item.kind === "price_drop_al") return prefs.price_drop;
+    if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") return prefs.price_drop;
     if (item.kind === "badge") return prefs.badge_earned;
     if (item.kind === "badge_earned") return prefs.badge_earned;
     if (item.kind === "agent") return prefs.viewing_request_confirmed;
@@ -445,6 +455,33 @@ const BUCKET_LABEL: Record<TimeBucket, string> = {
 function metaStr(m: Record<string, unknown> | null | undefined, key: string): string {
   const v = m?.[key];
   return typeof v === "string" ? v : "";
+}
+
+/** activity_log rows that only reflect client like/pin/save/heart side effects — exclude from listing-update feed. */
+function activityLogMetadataIndicatesEngagementOnly(m: Record<string, unknown> | null | undefined): boolean {
+  if (!m) return false;
+  const source = String(m.source ?? "").toLowerCase();
+  const trigger = String(m.trigger ?? m.triggered_by ?? "").toLowerCase();
+  const t = String(m.type ?? "").toLowerCase();
+  if (m.from_engagement === true || m.from_like === true || m.from_pin === true || m.from_save === true || m.from_heart === true) {
+    return true;
+  }
+  if (typeof m.engagement === "string" && ["like", "pin", "heart", "save"].includes(m.engagement.toLowerCase())) {
+    return true;
+  }
+  const engagementSources = new Set([
+    "like",
+    "pin",
+    "pin_save",
+    "heart",
+    "save",
+    "property_like",
+    "saved_property",
+    "engagement",
+    "engagement_notify",
+  ]);
+  if (engagementSources.has(source) || engagementSources.has(trigger) || engagementSources.has(t)) return true;
+  return false;
 }
 
 type LikePinApi = {
@@ -928,12 +965,12 @@ export function MobileClientDashboard() {
 
     const pidListForActivity = [...profileIdSetEarly];
     if (pidListForActivity.length > 0) {
-      const { data: alRows } = await supabase
+      const { data: alRowsPrice } = await supabase
         .from("activity_log")
-        .select("id, created_at, entity_id, metadata")
+        .select("id, created_at, entity_id, metadata, action, entity_type")
         .eq("entity_type", "price_drop")
         .in("entity_id", pidListForActivity);
-      for (const raw of alRows ?? []) {
+      for (const raw of alRowsPrice ?? []) {
         const row = raw as {
           id: string;
           created_at: string;
@@ -941,6 +978,7 @@ export function MobileClientDashboard() {
           metadata: Record<string, unknown> | null;
         };
         const meta = row.metadata ?? {};
+        if (activityLogMetadataIndicatesEngagementOnly(meta)) continue;
         const oldP = metaStr(meta, "old_price");
         const newP = metaStr(meta, "new_price");
         const propRow = propMap.get(row.entity_id);
@@ -959,6 +997,41 @@ export function MobileClientDashboard() {
           thumbUrl: thumb,
         });
       }
+
+      const { data: alRowsEdited } = await supabase
+        .from("activity_log")
+        .select("id, created_at, entity_id, metadata, action, entity_type")
+        .eq("entity_type", "property")
+        .eq("action", "listing_edited")
+        .in("entity_id", pidListForActivity);
+      for (const raw of alRowsEdited ?? []) {
+        const row = raw as {
+          id: string;
+          created_at: string;
+          entity_id: string;
+          metadata: Record<string, unknown> | null;
+        };
+        const meta = row.metadata ?? {};
+        if (activityLogMetadataIndicatesEngagementOnly(meta)) continue;
+        const propRow = propMap.get(row.entity_id);
+        const thumb =
+          propRow ? pickPropertyImage(propRow) : metaStr(meta, "property_image_url") || "";
+        const pName =
+          metaStr(meta, "property_name").trim() ||
+          propRow?.name?.trim() ||
+          propRow?.location?.trim() ||
+          "Listing";
+        const editedBy = metaStr(meta, "edited_by_name").trim() || "An agent";
+        built.push({
+          kind: "listing_edited_al",
+          sortAt: row.created_at,
+          id: row.id,
+          propertyId: row.entity_id,
+          propertyName: pName,
+          editedByName: editedBy,
+          thumbUrl: thumb,
+        });
+      }
     }
 
     built.sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime());
@@ -972,7 +1045,7 @@ export function MobileClientDashboard() {
     for (const item of built) {
       if (item.kind === "agent") {
         if (item.propertyId) feedPropIds.add(item.propertyId);
-      } else if (item.kind === "price_drop_al") {
+      } else if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") {
         feedPropIds.add(item.propertyId);
       } else if (item.kind === "saved_property") {
         feedPropIds.add(item.property.id);
@@ -1213,7 +1286,7 @@ function AllFeedTab({
                     ? item.saveKey
                     : item.kind === "badge_earned"
                       ? item.feedKey
-                      : item.kind === "price_drop_al"
+                      : item.kind === "price_drop_al" || item.kind === "listing_edited_al"
                         ? item.id
                         : item.kind === "viewing_confirmed"
                           ? item.notification.id
@@ -1234,6 +1307,8 @@ function AllFeedTab({
                   <ViewingRequestMediumCard item={item} feedAgentMeta={feedAgentMeta} />
                 ) : item.kind === "price_drop_al" ? (
                   <PriceDropMediumCard item={item} />
+                ) : item.kind === "listing_edited_al" ? (
+                  <ListingEditedActivityCard item={item} />
                 ) : item.kind === "badge_earned" ? (
                   <BadgeEarnedFeedCard
                     badge_slug={item.badge_slug}
@@ -1408,6 +1483,30 @@ function PriceDropMediumCard({ item }: { item: Extract<FeedUnion, { kind: "price
   );
 }
 
+function ListingEditedActivityCard({ item }: { item: Extract<FeedUnion, { kind: "listing_edited_al" }> }) {
+  return (
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-center gap-3")}>
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#D4A843]/20">
+        <Pencil className="h-5 w-5 text-[#8a6d32]" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-[#2C2C2C]">Listing updated</p>
+        <p className="mt-0.5 font-semibold text-[#2C2C2C]">{item.propertyName}</p>
+        <p className="mt-1 text-sm text-[#6B6B6B]">{item.editedByName} updated details</p>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <span className="text-xs text-[#6B6B6B]">{formatNotificationTimeAgo(item.sortAt)}</span>
+        <Link
+          href={`/properties/${item.propertyId}`}
+          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#E5E5E5] transition-all duration-200"
+        >
+          View
+        </Link>
+      </div>
+    </article>
+  );
+}
+
 function BadgeMediumCard({
   n,
   onViewBadges,
@@ -1545,7 +1644,7 @@ function ListingLikeSmallCard({
         <Home className="h-4 w-4 text-[#6B6B6B]" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-[#2C2C2C]">Listing updated</p>
+        <p className="text-sm font-bold text-[#2C2C2C]">You liked a listing</p>
         <p className="text-sm text-[#6B6B6B]">{title}</p>
         {ag?.agentName ? <p className="mt-0.5 text-xs text-[#6B6B6B]">{ag.agentName}</p> : null}
       </div>
