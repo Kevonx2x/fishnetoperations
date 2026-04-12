@@ -46,9 +46,11 @@ import {
   AllFeedTab,
   BadgesTab,
   DocumentsTab,
+  compactFeedThumbPropertyIdsFromItems,
   filterFeedGroupedByActiveEngagement,
   FEED_TITLE_MAX_BIG,
   truncateTitle,
+  useFeedCompactThumbnailMap,
 } from "@/components/client/mobile-client-dashboard";
 
 type PropertyRow = {
@@ -278,6 +280,16 @@ function ClientPublicProfilePageInner() {
     () => filterFeedGroupedByActiveEngagement(ownFeedGroupedFiltered, likes, pins),
     [ownFeedGroupedFiltered, likes, pins],
   );
+
+  const ownCompactThumbSourceItems = useMemo(
+    () => ownFeedGroupedActiveEngagement.flatMap((g) => g.items),
+    [ownFeedGroupedActiveEngagement],
+  );
+  const ownCompactThumbIds = useMemo(
+    () => compactFeedThumbPropertyIdsFromItems(ownCompactThumbSourceItems),
+    [ownCompactThumbSourceItems],
+  );
+  const ownCompactThumbByPropertyId = useFeedCompactThumbnailMap(ownCompactThumbIds);
 
   const ownLikeRowsFiltered = useMemo(
     () => filterLikeRowsByMode(ownLikeRows, ownListingMode),
@@ -1472,6 +1484,7 @@ function ClientPublicProfilePageInner() {
                           feedAgentMeta={ownFeedAgentMeta}
                           likes={likes}
                           pins={pins}
+                          compactThumbByPropertyId={ownCompactThumbByPropertyId}
                           onViewBadges={() => setOwnMainTab("badges")}
                         />
                       </div>

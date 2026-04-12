@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Bookmark,
@@ -71,6 +71,7 @@ import {
 } from "@/lib/client-profile-preferences";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const FEED_CARD_CLASS =
   "rounded-2xl border border-gray-100 bg-white text-gray-900 shadow-md transition-transform duration-150 active:scale-95 md:hover:shadow-lg";
@@ -83,6 +84,79 @@ export const FEED_TITLE_MAX_COMPACT = 30;
 
 export function truncateTitle(title: string, maxLength: number): string {
   return title.length > maxLength ? `${title.slice(0, maxLength)}...` : title;
+}
+
+/** Property ids for compact feed cards that load `property_photos` thumbnails. */
+export function compactFeedThumbPropertyIdsFromItems(items: FeedUnion[]): string[] {
+  const ids = new Set<string>();
+  for (const item of items) {
+    if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") {
+      if (item.propertyId) ids.add(item.propertyId);
+    }
+    if (item.kind === "pin_activity") ids.add(item.property.id);
+  }
+  return [...ids];
+}
+
+function firstPhotoUrlFromPropertyPhotos(
+  photos: { url: string | null; sort_order: number | null }[] | null | undefined,
+): string {
+  if (!photos?.length) return "";
+  const sorted = [...photos].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  return sorted[0]?.url?.trim() ?? "";
+}
+
+/** Loads first `property_photos` URL per property (same ordering idea as `pickPropertyImage`). */
+export function useFeedCompactThumbnailMap(propertyIds: readonly string[]): Record<string, string> {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const sortedKey = useMemo(() => [...propertyIds].filter(Boolean).sort().join(","), [propertyIds]);
+  const [map, setMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!sortedKey) {
+      setMap({});
+      return;
+    }
+    const ids = sortedKey.split(",");
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("properties")
+        .select("id, property_photos(url, sort_order)")
+        .in("id", ids);
+      if (cancelled) return;
+      if (error) {
+        console.warn("[useFeedCompactThumbnailMap]", error);
+        setMap({});
+        return;
+      }
+      const next: Record<string, string> = {};
+      for (const row of (data ?? []) as {
+        id: string;
+        property_photos: { url: string | null; sort_order: number | null }[] | null;
+      }[]) {
+        const url = firstPhotoUrlFromPropertyPhotos(row.property_photos);
+        if (url) next[row.id] = url;
+      }
+      setMap(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sortedKey, supabase]);
+
+  return map;
+}
+
+/** 56×56 `rounded-lg` thumbnail; renders nothing when `src` is empty (no layout gap). */
+function CompactFeedPropertyThumb({ src, alt = "" }: { src: string; alt?: string }) {
+  const u = src?.trim();
+  if (!u) return null;
+  return (
+    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+      <Image src={u} alt={alt} fill className="object-cover" sizes="56px" unoptimized />
+    </div>
+  );
 }
 
 /** All-tab items tied to `property_likes` / `saved_properties` only show while that engagement row still exists. */
@@ -504,7 +578,7 @@ function FeedPhotoOverlay({
   );
 }
 
-/** Compact feed: 56×56 property image (matches property_photos / image_url via thumbUrl or pickPropertyImage). */
+/** 56×56 thumbnail with gray placeholder when `src` is missing (e.g. viewing request card). */
 function FeedPropertyThumb56({ src, alt = "" }: { src: string; alt?: string }) {
   const u = src?.trim();
   if (!u) {
@@ -721,6 +795,16 @@ export function MobileClientDashboard() {
     () => filterFeedGroupedByActiveEngagement(feedGroupedAll, likes, pins),
     [feedGroupedAll, likes, pins],
   );
+
+  const compactThumbSourceItems = useMemo(
+    () => feedGroupedAllActive.flatMap((g) => g.items),
+    [feedGroupedAllActive],
+  );
+  const compactFeedThumbIds = useMemo(
+    () => compactFeedThumbPropertyIdsFromItems(compactThumbSourceItems),
+    [compactThumbSourceItems],
+  );
+  const compactThumbByPropertyId = useFeedCompactThumbnailMap(compactFeedThumbIds);
 
   const savedRowsFiltered = useMemo(
     () => filterSavedRowsByMode(savedRows, listingMode),
@@ -979,6 +1063,7 @@ export function MobileClientDashboard() {
               likes={likes}
               pins={pins}
               engagement={engagement}
+              compactThumbByPropertyId={compactThumbByPropertyId}
               onViewBadges={() => setMainTab("badges")}
             />
           </div>
@@ -1021,6 +1106,7 @@ export function AllFeedTab({
   likes,
   pins,
   engagement,
+  compactThumbByPropertyId = {},
   onViewBadges,
 }: {
   grouped: { bucket: TimeBucket; label: string; items: FeedUnion[] }[];
@@ -1032,9 +1118,21 @@ export function AllFeedTab({
   pins: LikePinApi;
   /** When set (mobile client dashboard), like/pin counts match homepage `usePropertyEngagementForProperties`. */
   engagement?: PropertyEngagement;
+  /** First `property_photos` URL per property for compact feed thumbnails. */
+  compactThumbByPropertyId?: Record<string, string>;
   onViewBadges: () => void;
 }) {
   const engagementForUi = engagement ?? null;
+  const listingEditedOrdinalById = useMemo(() => {
+    let n = 0;
+    const map = new Map<string, number>();
+    for (const g of grouped) {
+      for (const it of g.items) {
+        if (it.kind === "listing_edited_al") map.set(it.id, n++);
+      }
+    }
+    return map;
+  }, [grouped]);
   const empty = grouped.length === 0 || grouped.every((g) => g.items.length === 0);
 
   if (empty) {
@@ -1093,9 +1191,22 @@ export function AllFeedTab({
                     engagement={engagementForUi}
                   />
                 ) : item.kind === "price_drop_al" ? (
-                  <PriceDropMediumCard item={item} likes={likes} pins={pins} engagement={engagementForUi} />
+                  <PriceDropMediumCard
+                    item={item}
+                    likes={likes}
+                    pins={pins}
+                    engagement={engagementForUi}
+                    compactThumbByPropertyId={compactThumbByPropertyId}
+                  />
                 ) : item.kind === "listing_edited_al" ? (
-                  <ListingEditedActivityCard item={item} likes={likes} pins={pins} engagement={engagementForUi} />
+                  <ListingEditedActivityCard
+                    item={item}
+                    likes={likes}
+                    pins={pins}
+                    engagement={engagementForUi}
+                    listingEditedCompactIndex={listingEditedOrdinalById.get(item.id) ?? 0}
+                    compactThumbByPropertyId={compactThumbByPropertyId}
+                  />
                 ) : item.kind === "badge_earned" ? (
                   <BadgeEarnedFeedCard
                     badge_slug={item.badge_slug}
@@ -1116,6 +1227,7 @@ export function AllFeedTab({
                     likes={likes}
                     pins={pins}
                     engagement={engagementForUi}
+                    compactThumbByPropertyId={compactThumbByPropertyId}
                   />
                 )}
               </li>
@@ -1361,14 +1473,18 @@ function PriceDropMediumCard({
   likes,
   pins,
   engagement,
+  compactThumbByPropertyId,
 }: {
   item: Extract<FeedUnion, { kind: "price_drop_al" }>;
   likes: LikePinApi;
   pins: LikePinApi;
   engagement: PropertyEngagement | null;
+  compactThumbByPropertyId: Record<string, string>;
 }) {
   const newPriceDisplay = formatPropertyPriceDisplay(item.newPrice);
   const propertyNameDisplay = truncateTitle(item.propertyName, FEED_TITLE_MAX_COMPACT);
+  const pid = item.propertyId ?? "";
+  const photoUrl = pid ? (compactThumbByPropertyId[pid] ?? "") : "";
   const engagementBar =
     item.propertyId != null && item.propertyId !== "" ? (
       <div className="pointer-events-auto absolute right-2 top-2 z-10 flex gap-1">
@@ -1397,7 +1513,7 @@ function PriceDropMediumCard({
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <span className="text-xs text-gray-500">{formatNotificationTimeAgo(item.sortAt)}</span>
-        <FeedPropertyThumb56 src={item.thumbUrl} alt="" />
+        <CompactFeedPropertyThumb src={photoUrl} alt="" />
       </div>
     </>
   );
@@ -1424,13 +1540,20 @@ function ListingEditedActivityCard({
   likes,
   pins,
   engagement,
+  listingEditedCompactIndex,
+  compactThumbByPropertyId,
 }: {
   item: Extract<FeedUnion, { kind: "listing_edited_al" }>;
   likes: LikePinApi;
   pins: LikePinApi;
   engagement: PropertyEngagement | null;
+  listingEditedCompactIndex: number;
+  compactThumbByPropertyId: Record<string, string>;
 }) {
   const propertyNameDisplay = truncateTitle(item.propertyName, FEED_TITLE_MAX_COMPACT);
+  const showThumbSlot = listingEditedCompactIndex % 3 !== 1;
+  const pid = item.propertyId ?? "";
+  const photoUrl = showThumbSlot && pid ? (compactThumbByPropertyId[pid] ?? "") : "";
   const engagementBar =
     item.propertyId != null && item.propertyId !== "" ? (
       <div className="pointer-events-auto absolute right-2 top-2 z-10 flex gap-1">
@@ -1455,7 +1578,7 @@ function ListingEditedActivityCard({
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <span className="text-xs text-gray-500">{formatNotificationTimeAgo(item.sortAt)}</span>
-        <FeedPropertyThumb56 src={item.thumbUrl} alt="" />
+        <CompactFeedPropertyThumb src={photoUrl} alt="" />
       </div>
     </>
   );
@@ -1610,6 +1733,7 @@ function ListingLikeSmallCard({
   likes,
   pins,
   engagement,
+  compactThumbByPropertyId,
 }: {
   property: PropertyRow;
   createdAt: string;
@@ -1620,10 +1744,12 @@ function ListingLikeSmallCard({
   likes: LikePinApi;
   pins: LikePinApi;
   engagement: PropertyEngagement | null;
+  compactThumbByPropertyId: Record<string, string>;
 }) {
   const title = property.name?.trim() || property.location || "Listing";
   const titleDisplay = truncateTitle(title, FEED_TITLE_MAX_COMPACT);
   const ag = feedAgentMeta[property.id];
+  const photoUrl = compactThumbByPropertyId[property.id] ?? "";
 
   return (
     <article
@@ -1643,15 +1769,16 @@ function ListingLikeSmallCard({
           <p className="mt-0.5 text-xs font-medium text-[#6B9E6E]">{ag.agentName}</p>
         ) : null}
       </div>
-      <div className="shrink-0">
+      <div className="flex shrink-0 flex-col items-end gap-2">
         <HomepageStyleEngagementButtons
           propertyId={property.id}
           engagement={engagement}
           likes={likes}
           pins={pins}
         />
+        <CompactFeedPropertyThumb src={photoUrl} alt="" />
+        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(createdAt)}</span>
       </div>
-      <span className="shrink-0 text-xs text-gray-500">{formatNotificationTimeAgo(createdAt)}</span>
     </article>
   );
 }
