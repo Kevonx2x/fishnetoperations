@@ -25,7 +25,7 @@ import {
   Star,
   Tag,
   TrendingUp,
-  User,
+  Pin,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -41,7 +41,7 @@ const FEED_CARD_CLASS =
 const FEED_CARD_PAD_SM = "p-3";
 const FEED_CARD_PAD_MD = "p-4";
 
-type MainTab = "all" | "saves" | "likes" | "badges" | "documents";
+type MainTab = "all" | "pins" | "likes" | "badges" | "documents";
 
 type PropertyPhoto = { url: string; sort_order: number | null };
 
@@ -395,12 +395,6 @@ function greetingForHour(): string {
   return "Good evening";
 }
 
-function memberSince(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return `Member since ${d.toLocaleDateString(undefined, { month: "short", year: "numeric" })}`;
-}
-
 function pickPropertyImage(p: PropertyRow): string {
   const photos = p.property_photos;
   if (photos?.length) {
@@ -620,12 +614,10 @@ export function MobileClientDashboard() {
   const pathname = usePathname();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const [mainTab, setMainTab] = useState<MainTab>("saves");
+  const [mainTab, setMainTab] = useState<MainTab>("pins");
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [memberSinceIso, setMemberSinceIso] = useState<string | null>(null);
-  const [docCount, setDocCount] = useState(0);
   const [badges, setBadges] = useState<{ badge_slug: BadgeSlug; earned_at: string }[]>([]);
   const [savedRows, setSavedRows] = useState<SavedJoinRow[]>([]);
   const [likeRows, setLikeRows] = useState<LikeJoinRow[]>([]);
@@ -637,13 +629,6 @@ export function MobileClientDashboard() {
   const [feedAgentMeta, setFeedAgentMeta] = useState<
     Record<string, { agentName: string; agentAvatarUrl: string | null; agentId: string | null }>
   >({});
-  const [profileAgentMeta, setProfileAgentMeta] = useState<
-    Record<
-      string,
-      { agentName: string; agentAvatarUrl: string | null; listedAt: string; agentId: string | null }
-    >
-  >({});
-
   const likes = usePropertyLikes();
   const pins = usePinnedPropertyIds();
 
@@ -670,7 +655,6 @@ export function MobileClientDashboard() {
     const [
       profileRes,
       badgesRes,
-      docsCountRes,
       savedRes,
       likesRes,
       ownDocsRes,
@@ -680,7 +664,6 @@ export function MobileClientDashboard() {
     ] = await Promise.all([
       supabase.from("profiles").select("full_name, avatar_url, created_at, notification_preferences").eq("id", uid).maybeSingle(),
       supabase.from("client_badges").select("badge_slug, earned_at").eq("client_id", uid).order("earned_at", { ascending: false }),
-      supabase.from("client_documents").select("id", { count: "exact", head: true }).eq("client_id", uid),
       supabase
         .from("saved_properties")
         .select(
@@ -750,7 +733,6 @@ export function MobileClientDashboard() {
     if (prow) {
       setFullName(prow.full_name?.trim() ?? "");
       setAvatarUrl(prow.avatar_url?.trim() || null);
-      setMemberSinceIso(prow.created_at ?? null);
     }
 
     if (badgesRes.error) {
@@ -774,8 +756,6 @@ export function MobileClientDashboard() {
       rows: normalizedBadges,
     });
     setBadges(normalizedBadges);
-
-    setDocCount(docsCountRes.count ?? 0);
 
     setSavedRows((savedRes.data ?? []) as unknown as SavedJoinRow[]);
     setLikeRows((likesRes.data ?? []) as unknown as LikeJoinRow[]);
@@ -1035,105 +1015,12 @@ export function MobileClientDashboard() {
       setFeedAgentMeta({});
     }
 
-    const pidList = [...profileIdSetEarly];
-    if (pidList.length > 0) {
-      const [{ data: paRows }, { data: propMetaRows }] = await Promise.all([
-        supabase
-          .from("property_agents")
-          .select(
-            `
-            property_id,
-            agent:agents (
-              id,
-              name,
-              image_url
-            )
-          `,
-          )
-          .in("property_id", pidList),
-        supabase.from("properties").select("id, created_at").in("id", pidList),
-      ]);
-      const listedById = new Map<string, string>();
-      for (const row of propMetaRows ?? []) {
-        const r = row as { id: string; created_at: string };
-        listedById.set(r.id, r.created_at);
-      }
-      const meta: Record<
-        string,
-        { agentName: string; agentAvatarUrl: string | null; listedAt: string; agentId: string | null }
-      > = {};
-      for (const id of pidList) {
-        meta[id] = {
-          agentName: "Agent",
-          agentAvatarUrl: null,
-          listedAt: listedById.get(id) ?? "",
-          agentId: null,
-        };
-      }
-      const firstAgentPerProp = new Set<string>();
-      for (const row of paRows ?? []) {
-        const r = row as {
-          property_id: string;
-          agent: { id?: string | null; name?: string | null; image_url?: string | null } | null;
-        };
-        if (firstAgentPerProp.has(r.property_id) || !r.agent) continue;
-        firstAgentPerProp.add(r.property_id);
-        meta[r.property_id] = {
-          agentId: typeof r.agent.id === "string" && r.agent.id ? r.agent.id : null,
-          agentName: r.agent.name?.trim() || "Agent",
-          agentAvatarUrl: r.agent.image_url?.trim() || null,
-          listedAt: listedById.get(r.property_id) ?? "",
-        };
-      }
-      setProfileAgentMeta(meta);
-    } else {
-      setProfileAgentMeta({});
-    }
-
     setLoading(false);
   }, [supabase, user?.id]);
 
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
-
-  const profileGridItems = useMemo(() => {
-    const map = new Map<
-      string,
-      { property: PropertyRow; sortKey: number; saved: boolean; liked: boolean }
-    >();
-    for (const r of savedRows) {
-      const p = oneProperty(r.properties);
-      if (!p?.id) continue;
-      const prev = map.get(p.id);
-      const t = new Date(r.created_at).getTime();
-      if (!prev) {
-        map.set(p.id, { property: p, sortKey: t, saved: true, liked: false });
-      } else {
-        map.set(p.id, {
-          ...prev,
-          sortKey: Math.max(prev.sortKey, t),
-          saved: true,
-        });
-      }
-    }
-    for (const r of likeRows) {
-      const p = oneProperty(r.properties);
-      if (!p?.id) continue;
-      const prev = map.get(p.id);
-      const t = new Date(r.created_at).getTime();
-      if (!prev) {
-        map.set(p.id, { property: p, sortKey: t, saved: false, liked: true });
-      } else {
-        map.set(p.id, {
-          ...prev,
-          sortKey: Math.max(prev.sortKey, t),
-          liked: true,
-        });
-      }
-    }
-    return [...map.values()].sort((a, b) => b.sortKey - a.sortKey);
-  }, [savedRows, likeRows]);
 
   const feedGrouped = useMemo(() => {
     const order: TimeBucket[] = ["today", "yesterday", "this_week", "earlier"];
@@ -1197,7 +1084,6 @@ export function MobileClientDashboard() {
               {greetingForHour()},{" "}
               <span className="font-serif text-2xl font-bold text-[#2C2C2C]">{first}</span>
             </p>
-            <p className="mt-1 text-sm text-[#6B6B6B]">Here&apos;s what&apos;s happening with your properties.</p>
           </div>
           <Link
             href="/notifications"
@@ -1217,7 +1103,7 @@ export function MobileClientDashboard() {
           {(
             [
               ["all", "All", LayoutGrid],
-              ["saves", "Saves", User],
+              ["pins", "Pins", Pin],
               ["likes", "Likes", Heart],
               ["badges", "Badges", Star],
               ["documents", "Documents", FileText],
@@ -1256,19 +1142,10 @@ export function MobileClientDashboard() {
             pins={pins}
             onViewBadges={() => setMainTab("badges")}
           />
-        ) : mainTab === "saves" ? (
-          <ProfileTab
-            fullName={fullName}
-            avatarUrl={avatarUrl}
-            memberSinceIso={memberSinceIso}
-            verified={docCount >= 1}
-            gridItems={profileGridItems}
-            agentMeta={profileAgentMeta}
-            likes={likes}
-            pins={pins}
-          />
-        ) : mainTab === "likes" ? (
+        ) : mainTab === "pins" ? (
           <SavedPinsTab savedRows={savedRows} />
+        ) : mainTab === "likes" ? (
+          <LikedPropertiesTab likeRows={likeRows} />
         ) : mainTab === "badges" ? (
           <BadgesTab badges={badges} />
         ) : (
@@ -1678,151 +1555,47 @@ function ListingLikeSmallCard({
   );
 }
 
-function ProfileTab({
-  fullName,
-  avatarUrl,
-  memberSinceIso,
-  verified,
-  gridItems,
-  agentMeta,
-  likes,
-  pins,
-}: {
-  fullName: string;
-  avatarUrl: string | null;
-  memberSinceIso: string | null;
-  verified: boolean;
-  gridItems: { property: PropertyRow; saved: boolean; liked: boolean; sortKey: number }[];
-  agentMeta: Record<
-    string,
-    { agentName: string; agentAvatarUrl: string | null; listedAt: string; agentId: string | null }
-  >;
-  likes: LikePinApi;
-  pins: LikePinApi;
-}) {
-  const initial = fullName.trim().slice(0, 1).toUpperCase() || "?";
-
-  return (
-    <div className="space-y-8">
-      <div className="flex flex-col items-center text-center">
-        <div
-          className={cn(
-            "relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-[#E5E5E5]/40",
-            verified ? "ring-4 ring-[#D4A843] ring-offset-2 ring-offset-[#FAF8F4]" : "ring-2 ring-[#E5E5E5]",
-          )}
-        >
-          {avatarUrl ? (
-            <Image src={avatarUrl} alt="" fill className="object-cover" sizes="96px" unoptimized />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/30 font-serif text-2xl font-bold text-white">
-              {initial}
-            </div>
-          )}
-        </div>
-        <h2 className="mt-4 font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">{fullName.trim() || "Your profile"}</h2>
-        {memberSinceIso ? (
-          <p className="mt-1 text-xs font-medium text-[#6B6B6B]">{memberSince(memberSinceIso)}</p>
-        ) : null}
-      </div>
-
-      {gridItems.length === 0 ? (
-        <EmptyState
-          icon={Bookmark}
-          title="No saved properties yet"
-          subtitle="Start exploring listings and save your favorites."
-        />
-      ) : (
-        <div className="flex flex-col gap-3">
-          {gridItems.map(({ property: p, saved, liked, sortKey }) => {
-            const meta = agentMeta[p.id] ?? {
-              agentName: "Agent",
-              agentAvatarUrl: null,
-              listedAt: "",
-              agentId: null,
-            };
-            return (
-              <ProfilePropertyFeedCard
-                key={p.id}
-                property={p}
-                saved={saved}
-                liked={liked}
-                meta={meta}
-                headerTimeIso={new Date(sortKey).toISOString()}
-                likes={likes}
-                pins={pins}
-              />
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ProfilePropertyFeedCard({
-  property: p,
-  saved,
-  liked,
-  meta,
-  headerTimeIso,
-  likes,
-  pins,
-}: {
-  property: PropertyRow;
-  saved: boolean;
-  liked: boolean;
-  meta: { agentName: string; agentAvatarUrl: string | null; listedAt: string; agentId: string | null };
-  headerTimeIso: string;
-  likes: LikePinApi;
-  pins: LikePinApi;
-}) {
-  const img = pickPropertyImage(p);
-  const price = formatPropertyPriceDisplay(p.price, p.status);
-  const title = p.name?.trim() || p.location || "Listing";
-  const beforePostedBy =
-    saved && liked
-      ? "You saved & pinned this listing"
-      : saved
-        ? "You saved this listing"
-        : "You pinned this listing";
-  const agent = {
-    agentId: meta.agentId,
-    agentName: meta.agentName,
-    agentAvatarUrl: meta.agentAvatarUrl,
-  };
-
-  const headerBadgeKind: "pin" | "heart" | "both" =
-    saved && liked ? "both" : saved ? "heart" : "pin";
-
-  return (
-    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD)}>
-      <PinSaveFeedCardHeader
-        beforePostedBy={beforePostedBy}
-        createdAt={headerTimeIso}
-        agent={agent}
-        locationLine={p.location ?? ""}
-        headerBadgeKind={headerBadgeKind}
+/** Heart/liked listings from `property_likes` (same source as usePropertyLikes). */
+function LikedPropertiesTab({ likeRows }: { likeRows: LikeJoinRow[] }) {
+  if (likeRows.length === 0) {
+    return (
+      <EmptyState
+        icon={Heart}
+        title="No liked properties yet"
+        subtitle="Heart listings you love."
       />
-      {img ? (
-        <FeedPhotoOverlay
-          propertyId={p.id}
-          href={`/properties/${p.id}`}
-          imageSrc={img}
-          priceDisplay={price}
-          likes={likes}
-          pins={pins}
-        />
-      ) : null}
-      <Link
-        href={`/properties/${p.id}`}
-        className={cn(
-          "block text-sm font-semibold text-gray-800 transition-transform duration-150 active:scale-[0.98]",
-          img ? "mt-2" : "mt-3",
-        )}
-      >
-        {title}
-      </Link>
-    </article>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {likeRows.map((r) => {
+        const p = oneProperty(r.properties);
+        if (!p) return null;
+        const img = pickPropertyImage(p);
+        return (
+          <Link
+            key={`like-${r.created_at}-${p.id}`}
+            href={`/properties/${p.id}`}
+            className="relative block overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-[#E5E5E5] transition-all duration-200"
+          >
+            <div className="relative h-[200px] w-full bg-[#E5E5E5]/40">
+              {img ? (
+                <Image src={img} alt="" fill className="object-cover" sizes="100vw" unoptimized />
+              ) : null}
+              <div className="absolute right-3 top-3">
+                <Heart className="h-7 w-7 fill-red-500 text-red-500" aria-hidden />
+              </div>
+            </div>
+            <div className="p-4">
+              <p className="font-semibold text-[#2C2C2C]">{p.name?.trim() || "Listing"}</p>
+              <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
+              <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1932,6 +1705,7 @@ function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_at: str
   );
 }
 
+/** Pinned listings from `saved_properties` (same source as usePinnedPropertyIds / pin action). */
 function SavedPinsTab({ savedRows }: { savedRows: SavedJoinRow[] }) {
   if (savedRows.length === 0) {
     return (

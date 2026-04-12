@@ -423,8 +423,23 @@ export function MaddenTopNav() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <Link href="/" className="inline-flex shrink-0 items-center leading-none" aria-label="BahayGo home">
-            <BahayGoWordmark />
+          <Link
+            href="/"
+            className="inline-flex shrink-0 items-center leading-none"
+            aria-label="BahayGo home"
+          >
+            <span className="inline-flex items-center gap-2 sm:hidden">
+              <svg viewBox="0 0 40 36" className="h-9 w-auto shrink-0" aria-hidden>
+                <path fill="#D4A843" d="M20 2 L36 14 L36 32 L4 32 L4 14 Z" />
+                <rect x="16" y="22" width="8" height="10" rx="1" fill="#FAF8F4" />
+              </svg>
+              <span className="font-serif text-[1.35rem] font-semibold leading-none tracking-tight text-[#2C2C2C]">
+                BahayGo
+              </span>
+            </span>
+            <span className="hidden sm:inline">
+              <BahayGoWordmark />
+            </span>
           </Link>
         </div>
 

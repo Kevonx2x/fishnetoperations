@@ -1100,7 +1100,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
                     }`}
                   >
-                    <div className="relative h-[140px] w-full shrink-0 overflow-hidden lg:h-[160px]">
+                    <div className="relative h-[110px] w-full shrink-0 overflow-hidden lg:h-[130px]">
                       <Image
                         src={c.imageUrl}
                         alt=""
