@@ -25,7 +25,6 @@ import {
   Star,
   Tag,
   TrendingUp,
-  Pin,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
