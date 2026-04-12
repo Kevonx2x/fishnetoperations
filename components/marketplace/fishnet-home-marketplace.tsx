@@ -667,6 +667,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
   const [properties, setProperties] = useState<DbProperty[]>([]);
   const [featuredHomeProperty, setFeaturedHomeProperty] = useState<DbProperty | null>(null);
+  const [featuredHomeIsAdminFeatured, setFeaturedHomeIsAdminFeatured] = useState(false);
   const [agents, setAgents] = useState<MarketplaceAgent[]>([]);
   const [agentHomeExtrasById, setAgentHomeExtrasById] = useState<Record<string, AgentHomeExtra>>({});
   const [loading, setLoading] = useState(true);
@@ -710,11 +711,20 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       setError(mainRes.error.message);
       setProperties([]);
       setFeaturedHomeProperty(null);
+      setFeaturedHomeIsAdminFeatured(false);
     } else {
-      setProperties((mainRes.data ?? []) as unknown as DbProperty[]);
-      setFeaturedHomeProperty(
-        featRes.error || !featRes.data ? null : (featRes.data as unknown as DbProperty),
-      );
+      const list = (mainRes.data ?? []) as unknown as DbProperty[];
+      setProperties(list);
+      let featured: DbProperty | null = null;
+      let isAdminFeatured = false;
+      if (!featRes.error && featRes.data) {
+        featured = featRes.data as unknown as DbProperty;
+        isAdminFeatured = true;
+      } else if (list.length > 0) {
+        featured = list[0];
+      }
+      setFeaturedHomeProperty(featured);
+      setFeaturedHomeIsAdminFeatured(isAdminFeatured);
     }
     setLoading(false);
   }, []);
@@ -1804,9 +1814,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         sizes="(max-width: 768px) 100vw, 42rem"
                         loading="lazy"
                       />
-                      <span className="absolute left-3 top-3 z-10 rounded-full bg-[#D4A843] px-3 py-1 text-xs font-medium text-white">
-                        FEATURED
-                      </span>
+                      {featuredHomeIsAdminFeatured ? (
+                        <span className="absolute left-3 top-3 z-10 rounded-full bg-[#D4A843] px-3 py-1 text-xs font-medium text-white">
+                          FEATURED
+                        </span>
+                      ) : null}
                     </div>
                     <div className="p-5 md:p-6">
                       <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">

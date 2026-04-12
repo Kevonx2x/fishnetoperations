@@ -11,6 +11,7 @@ import {
   Bot,
   Building2,
   GitCompare,
+  Globe,
   GraduationCap,
   Heart,
   HeartHandshake,
@@ -58,6 +59,51 @@ type NavPendingItem = { kind: "pending"; label: string; icon: ReactNode };
 type NavDropdownEntry = NavLinkItem | NavDividerItem | NavPendingItem;
 
 const BAHAYGO_LANGUAGE_KEY = "bahaygo-language";
+
+function NavLanguageRow({
+  uiLanguage,
+  onSetLanguage,
+  className,
+}: {
+  uiLanguage: "en" | "fil";
+  onSetLanguage: (v: "en" | "fil") => void;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex items-center gap-2", className)}>
+      <Globe className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+      <span className="text-sm font-semibold text-[#2C2C2C]/85">Language</span>
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          onClick={() => onSetLanguage("en")}
+          className={cn(
+            "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none transition",
+            uiLanguage === "en"
+              ? "bg-[#6B9E6E] text-white"
+              : "bg-transparent text-[#2C2C2C]/60 ring-1 ring-inset ring-[#2C2C2C]/25",
+          )}
+        >
+          <span aria-hidden>🇺🇸</span>
+          EN
+        </button>
+        <button
+          type="button"
+          onClick={() => onSetLanguage("fil")}
+          className={cn(
+            "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none transition",
+            uiLanguage === "fil"
+              ? "bg-[#6B9E6E] text-white"
+              : "bg-transparent text-[#2C2C2C]/60 ring-1 ring-inset ring-[#2C2C2C]/25",
+          )}
+        >
+          <span aria-hidden>🇵🇭</span>
+          FIL
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function MobileNavSection({
   title,
@@ -512,36 +558,6 @@ export function MaddenTopNav() {
                   </span>
                 ) : null}
               </Link>
-              <div
-                className="hidden max-w-[80px] shrink-0 items-stretch rounded-full border border-[#2C2C2C]/20 p-0.5 sm:flex"
-                role="group"
-                aria-label="Language"
-              >
-                <button
-                  type="button"
-                  onClick={() => setUiLanguagePersist("en")}
-                  className={cn(
-                    "min-w-0 flex-1 rounded-full px-1 py-0.5 text-[10px] font-semibold leading-none transition",
-                    uiLanguage === "en"
-                      ? "bg-[#6B9E6E] text-white"
-                      : "bg-transparent text-[#2C2C2C]/55 ring-1 ring-inset ring-[#2C2C2C]/20",
-                  )}
-                >
-                  EN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUiLanguagePersist("fil")}
-                  className={cn(
-                    "min-w-0 flex-1 rounded-full px-1 py-0.5 text-[10px] font-semibold leading-none transition",
-                    uiLanguage === "fil"
-                      ? "bg-[#6B9E6E] text-white"
-                      : "bg-transparent text-[#2C2C2C]/55 ring-1 ring-inset ring-[#2C2C2C]/20",
-                  )}
-                >
-                  FIL
-                </button>
-              </div>
               <div className="relative" ref={accountRef}>
                 <div className="relative">
                   <button
@@ -646,6 +662,11 @@ export function MaddenTopNav() {
                         <Settings className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
                         Settings
                       </Link>
+                      <NavLanguageRow
+                        uiLanguage={uiLanguage}
+                        onSetLanguage={setUiLanguagePersist}
+                        className="px-3 py-2.5"
+                      />
                       {role === "agent" ? (
                         <>
                           <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
@@ -784,6 +805,9 @@ export function MaddenTopNav() {
                   My Profile
                 </Link>
               ) : null}
+              <div className="rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 shadow-sm">
+                <NavLanguageRow uiLanguage={uiLanguage} onSetLanguage={setUiLanguagePersist} />
+              </div>
               <MobileNavSection title="Agents" entries={agentsEntries} onNavigate={closeMobileNav} />
               <MobileNavSection title="Brokers" entries={brokersEntries} onNavigate={closeMobileNav} />
               <MobileNavSection title="Landmarks" entries={landmarksItems} onNavigate={closeMobileNav} />
