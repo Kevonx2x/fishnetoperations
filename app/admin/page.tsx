@@ -167,6 +167,25 @@ interface ProfileReportRow {
 
 const CREDENTIALS_SUPER_ADMIN_EMAIL = "ron.business101@gmail.com";
 
+type ManualSubTab =
+  | "overview"
+  | "services"
+  | "roles"
+  | "pipeline"
+  | "dailyOps"
+  | "scale"
+  | "emergency";
+
+const MANUAL_SUB_TABS: { id: ManualSubTab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "services", label: "Services" },
+  { id: "roles", label: "Roles" },
+  { id: "pipeline", label: "Pipeline" },
+  { id: "dailyOps", label: "Daily Ops" },
+  { id: "scale", label: "Scale" },
+  { id: "emergency", label: "Emergency" },
+];
+
 interface PropertyConnectedAgent {
   id: string;
   name: string;
@@ -308,7 +327,10 @@ export default function AdminPage() {
     | "profileReports"
     | "vaReports"
     | "credentials"
+    | "manual"
   >("leads");
+
+  const [manualSubTab, setManualSubTab] = useState<ManualSubTab>("overview");
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(false);
@@ -475,6 +497,7 @@ export default function AdminPage() {
 
   const canSeeCredentials =
     (user?.email ?? "").toLowerCase() === CREDENTIALS_SUPER_ADMIN_EMAIL;
+  const canSeeManual = canSeeCredentials;
 
   const [manageAgentsProperty, setManageAgentsProperty] = useState<Property | null>(null);
   const [manageAgentsConnected, setManageAgentsConnected] = useState<PropertyConnectedAgent[]>([]);
@@ -1594,6 +1617,12 @@ export default function AdminPage() {
     }
   }, [adminSection, canSeeCredentials, profile?.role, user?.email]);
 
+  useEffect(() => {
+    if (adminSection === "manual" && profile?.role === "admin" && user?.email && !canSeeManual) {
+      setAdminSection("leads");
+    }
+  }, [adminSection, canSeeManual, profile?.role, user?.email]);
+
   const filteredLeads =
     filter === "all"
       ? leads
@@ -2021,6 +2050,19 @@ export default function AdminPage() {
               Credentials
             </button>
           ) : null}
+          {canSeeManual ? (
+            <button
+              type="button"
+              onClick={() => setAdminSection("manual")}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                adminSection === "manual"
+                  ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                  : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+              }`}
+            >
+              Manual
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -2174,6 +2216,19 @@ export default function AdminPage() {
                 }`}
               >
                 Credentials
+              </button>
+            ) : null}
+            {canSeeManual ? (
+              <button
+                type="button"
+                onClick={() => setAdminSection("manual")}
+                className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                  adminSection === "manual"
+                    ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                    : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                Manual
               </button>
             ) : null}
           </nav>
@@ -4046,6 +4101,468 @@ export default function AdminPage() {
             <div className="rounded-2xl border border-[#D4A843]/35 bg-[#FAF8F4] px-4 py-3 text-sm font-semibold text-[#2C2C2C]">
               Total monthly cost: {formatPesoMonthly(credentialsTotal)}
             </div>
+          </div>
+        ) : null}
+
+        {adminSection === "manual" && canSeeManual ? (
+          <div className="space-y-6">
+            <div>
+              <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Owner&apos;s Manual</h2>
+              <p className="mt-1 text-sm text-[#2C2C2C]/55">Internal operations reference for BahayGo.</p>
+            </div>
+            <div className="flex flex-wrap gap-2 border-b border-[#2C2C2C]/10 pb-4">
+              {MANUAL_SUB_TABS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setManualSubTab(t.id)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                    manualSubTab === t.id
+                      ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                      : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {manualSubTab === "overview" ? (
+              <div className="space-y-6">
+                <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+                  <p className="text-sm leading-relaxed text-[#2C2C2C]/85">
+                    BahayGo is a Philippines-focused real estate marketplace that connects verified agents and
+                    brokers with buyers and renters. It combines listings discovery, agent profiles, lead and
+                    pipeline tools, and operational workflows so the team can run the platform end-to-end from one
+                    stack.
+                  </p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    { label: "Current monthly cost", value: "$32" },
+                    { label: "Break-even", value: "4 agents" },
+                    { label: "Stack", value: "Next.js + Supabase" },
+                    { label: "Live URL", value: "bahaygo.com" },
+                  ].map((c) => (
+                    <div
+                      key={c.label}
+                      className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm"
+                    >
+                      <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">{c.label}</p>
+                      <p className="mt-2 font-serif text-lg font-bold text-[#6B9E6E]">{c.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {manualSubTab === "services" ? (
+              <div className="overflow-x-auto rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+                <table className="w-full min-w-[900px]">
+                  <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                    <tr className="text-left text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                      <th className="px-4 py-3">Service</th>
+                      <th className="px-4 py-3">Purpose</th>
+                      <th className="px-4 py-3">Current cost</th>
+                      <th className="px-4 py-3">Login URL</th>
+                      <th className="px-4 py-3">When to upgrade</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2C2C2C]/5 text-sm text-[#2C2C2C]/85">
+                    <tr className="hover:bg-[#FAF8F4]/80">
+                      <td className="px-4 py-3 font-semibold text-[#2C2C2C]">Vercel</td>
+                      <td className="px-4 py-3">Hosting and deployments for the web app.</td>
+                      <td className="px-4 py-3">$0 (hobby)</td>
+                      <td className="px-4 py-3">
+                        <a
+                          href="https://vercel.com/dashboard"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-[#6B9E6E] underline hover:text-[#5d8a60]"
+                        >
+                          vercel.com/dashboard
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">Upgrade to Pro ($20/mo) at ~100 agents.</td>
+                    </tr>
+                    <tr className="hover:bg-[#FAF8F4]/80">
+                      <td className="px-4 py-3 font-semibold text-[#2C2C2C]">Supabase</td>
+                      <td className="px-4 py-3">Database, auth, storage, and APIs.</td>
+                      <td className="px-4 py-3">$0 (free tier)</td>
+                      <td className="px-4 py-3">
+                        <a
+                          href="https://supabase.com/dashboard"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-[#6B9E6E] underline hover:text-[#5d8a60]"
+                        >
+                          supabase.com/dashboard
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">Upgrade to Pro ($25/mo) before public launch.</td>
+                    </tr>
+                    <tr className="hover:bg-[#FAF8F4]/80">
+                      <td className="px-4 py-3 font-semibold text-[#2C2C2C]">Cloudinary</td>
+                      <td className="px-4 py-3">Image hosting and transforms for listings.</td>
+                      <td className="px-4 py-3">$0 (free)</td>
+                      <td className="px-4 py-3">
+                        <a
+                          href="https://console.cloudinary.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-[#6B9E6E] underline hover:text-[#5d8a60]"
+                        >
+                          console.cloudinary.com
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">Upgrade when storage approaches 25 GB.</td>
+                    </tr>
+                    <tr className="hover:bg-[#FAF8F4]/80">
+                      <td className="px-4 py-3 font-semibold text-[#2C2C2C]">Resend</td>
+                      <td className="px-4 py-3">Transactional email delivery.</td>
+                      <td className="px-4 py-3">$0 (free)</td>
+                      <td className="px-4 py-3">
+                        <a
+                          href="https://resend.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-[#6B9E6E] underline hover:text-[#5d8a60]"
+                        >
+                          resend.com
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">Upgrade around 3,000 emails per month.</td>
+                    </tr>
+                    <tr className="hover:bg-[#FAF8F4]/80">
+                      <td className="px-4 py-3 font-semibold text-[#2C2C2C]">Twilio</td>
+                      <td className="px-4 py-3">SMS for notifications and alerts.</td>
+                      <td className="px-4 py-3">Pay per SMS (~$0.01 each)</td>
+                      <td className="px-4 py-3">
+                        <a
+                          href="https://console.twilio.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-[#6B9E6E] underline hover:text-[#5d8a60]"
+                        >
+                          console.twilio.com
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">Monitor usage as volume grows; fund account before sends fail.</td>
+                    </tr>
+                    <tr className="hover:bg-[#FAF8F4]/80">
+                      <td className="px-4 py-3 font-semibold text-[#2C2C2C]">PayMongo</td>
+                      <td className="px-4 py-3">Card payments for the product.</td>
+                      <td className="px-4 py-3">$0 platform fee; 2.9% per transaction</td>
+                      <td className="px-4 py-3">
+                        <a
+                          href="https://dashboard.paymongo.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-[#6B9E6E] underline hover:text-[#5d8a60]"
+                        >
+                          dashboard.paymongo.com
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">Scale with volume; watch failed payments and webhooks.</td>
+                    </tr>
+                    <tr className="hover:bg-[#FAF8F4]/80">
+                      <td className="px-4 py-3 font-semibold text-[#2C2C2C]">Anthropic</td>
+                      <td className="px-4 py-3">LLM API for AI-assisted features.</td>
+                      <td className="px-4 py-3">Pay per token (~$5 credit lasts weeks at low usage)</td>
+                      <td className="px-4 py-3">
+                        <a
+                          href="https://console.anthropic.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-[#6B9E6E] underline hover:text-[#5d8a60]"
+                        >
+                          console.anthropic.com
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">Add billing when usage or traffic increases.</td>
+                    </tr>
+                    <tr className="hover:bg-[#FAF8F4]/80">
+                      <td className="px-4 py-3 font-semibold text-[#2C2C2C]">Namecheap</td>
+                      <td className="px-4 py-3">Domain registration and DNS.</td>
+                      <td className="px-4 py-3">~$15/year renewal</td>
+                      <td className="px-4 py-3">
+                        <a
+                          href="https://www.namecheap.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-[#6B9E6E] underline hover:text-[#5d8a60]"
+                        >
+                          namecheap.com
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">Renew annually; enable auto-renew to avoid expiry.</td>
+                    </tr>
+                    <tr className="hover:bg-[#FAF8F4]/80">
+                      <td className="px-4 py-3 font-semibold text-[#2C2C2C]">Google Workspace</td>
+                      <td className="px-4 py-3">hiring@ and support@ mailboxes.</td>
+                      <td className="px-4 py-3">~$12/mo</td>
+                      <td className="px-4 py-3">
+                        <a
+                          href="https://admin.google.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-[#6B9E6E] underline hover:text-[#5d8a60]"
+                        >
+                          admin.google.com
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">Add seats as the team grows.</td>
+                    </tr>
+                    <tr className="hover:bg-[#FAF8F4]/80">
+                      <td className="px-4 py-3 font-semibold text-[#2C2C2C]">GitHub</td>
+                      <td className="px-4 py-3">Source control and CI/CD integration.</td>
+                      <td className="px-4 py-3">$0 (free)</td>
+                      <td className="px-4 py-3">
+                        <a
+                          href="https://github.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-[#6B9E6E] underline hover:text-[#5d8a60]"
+                        >
+                          github.com
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">Upgrade if private collaborators or advanced CI needed.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+
+            {manualSubTab === "roles" ? (
+              <div className="space-y-4">
+                {[
+                  {
+                    title: "Admin",
+                    who: "You (full platform access).",
+                    can: [
+                      "Manage users, listings, verification, leads, hiring, outreach, and reports.",
+                      "Access credentials and internal operational tools.",
+                    ],
+                    cannot: [
+                      "Cannot be replaced by non-admin roles for admin-only actions.",
+                    ],
+                  },
+                  {
+                    title: "Agent",
+                    who: "Verified PRC agents who list and manage properties.",
+                    can: [
+                      "Create and publish listings, manage pipeline and leads, and coordinate viewings.",
+                      "Appear on the marketplace and agent directory when approved.",
+                    ],
+                    cannot: [
+                      "Cannot access admin-only areas or other agents' private dashboards without permission.",
+                    ],
+                  },
+                  {
+                    title: "Broker",
+                    who: "Brokerage operators who manage teams of agents.",
+                    can: [
+                      "Oversee connected agents and teams under their brokerage where the product supports it.",
+                    ],
+                    cannot: [
+                      "Cannot bypass admin-only controls or impersonate other users' accounts.",
+                    ],
+                  },
+                  {
+                    title: "Client",
+                    who: "Buyers and renters using the marketplace.",
+                    can: [
+                      "Search properties, save and like listings, book viewings, and manage their profile.",
+                    ],
+                    cannot: [
+                      "Cannot publish listings or access agent pipeline tools without an agent role.",
+                    ],
+                  },
+                ].map((row) => (
+                  <div
+                    key={row.title}
+                    className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm"
+                  >
+                    <h3 className="font-serif text-lg font-bold text-[#2C2C2C]">{row.title}</h3>
+                    <p className="mt-1 text-sm text-[#2C2C2C]/55">{row.who}</p>
+                    <p className="mt-3 text-xs font-bold uppercase tracking-wide text-[#6B9E6E]">Can</p>
+                    <ul className="mt-0.5 list-disc space-y-1 pl-5 text-sm text-[#2C2C2C]/85">
+                      {row.can.map((x) => (
+                        <li key={x}>{x}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-3 text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Cannot</p>
+                    <ul className="mt-0.5 list-disc space-y-1 pl-5 text-sm text-[#2C2C2C]/75">
+                      {row.cannot.map((x) => (
+                        <li key={x}>{x}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {manualSubTab === "pipeline" ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+                  <p className="text-sm font-semibold text-[#2C2C2C]">Deal flow</p>
+                  <p className="mt-2 text-sm text-[#2C2C2C]/75">
+                    Lead → Viewing → Offer → Reservation → Closed. Each stage should move only when the prior
+                    prerequisites are satisfied and the agent has confirmed the next step with the client.
+                  </p>
+                </div>
+                {[
+                  {
+                    stage: "Lead",
+                    what: "New interest captured from the site, inquiry, or referral. Qualify budget, timeline, and property fit.",
+                    docs: "None required unless you need KYC for internal notes; capture contact details in the CRM.",
+                    notes: "Notifications: new lead to the assigned agent; reminders for follow-up if idle.",
+                  },
+                  {
+                    stage: "Viewing",
+                    what: "Scheduled property visit or virtual walkthrough. Confirm attendance and property access.",
+                    docs: "Listing details, ID for building entry where required; agent may log viewing outcome.",
+                    notes: "Notifications: viewing confirmations and reminders to client and agent.",
+                  },
+                  {
+                    stage: "Offer",
+                    what: "Buyer submits price and terms; agent negotiates with seller or listing side.",
+                    docs: "Offer letter, proof of funds or financing intent, any counter-offer documentation.",
+                    notes: "Notifications: offer submitted and status changes to the agent pipeline.",
+                  },
+                  {
+                    stage: "Reservation",
+                    what: "Holding deposit or reservation fee to secure the unit while contracts are finalized.",
+                    docs: "Reservation agreement, payment receipt, developer or seller requirements for presale or resale.",
+                    notes: "Notifications: payment received and reservation expiry reminders.",
+                  },
+                  {
+                    stage: "Closed",
+                    what: "Deal completes: sale or lease signed, handover or move-in as applicable.",
+                    docs: "Final contract, deed or lease, tax and closing docs as required by jurisdiction.",
+                    notes: "Notifications: closed-won updates; archive the deal for reporting.",
+                  },
+                ].map((s) => (
+                  <div
+                    key={s.stage}
+                    className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm"
+                  >
+                    <h3 className="font-serif text-lg font-bold text-[#6B9E6E]">{s.stage}</h3>
+                    <p className="mt-2 text-sm text-[#2C2C2C]/85">
+                      <span className="font-semibold text-[#2C2C2C]">What happens: </span>
+                      {s.what}
+                    </p>
+                    <p className="mt-2 text-sm text-[#2C2C2C]/85">
+                      <span className="font-semibold text-[#2C2C2C]">Documents: </span>
+                      {s.docs}
+                    </p>
+                    <p className="mt-2 text-sm text-[#2C2C2C]/85">
+                      <span className="font-semibold text-[#2C2C2C]">Notifications: </span>
+                      {s.notes}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {manualSubTab === "dailyOps" ? (
+              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+                <p className="text-sm font-semibold text-[#2C2C2C]">Daily checklist</p>
+                <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-[#2C2C2C]/85">
+                  <li>Review new signups in the admin panel and note anything suspicious.</li>
+                  <li>Approve or follow up on pending agent or broker verifications.</li>
+                  <li>Review VA and internal reports (outreach, leads, daily ops).</li>
+                  <li>Check VA outreach numbers and follow-up cadence.</li>
+                  <li>Monitor Twilio SMS spend and delivery errors.</li>
+                  <li>Scan Vercel deployment logs for build or runtime errors.</li>
+                </ol>
+              </div>
+            ) : null}
+
+            {manualSubTab === "scale" ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+                  <p className="text-sm leading-relaxed text-[#2C2C2C]/85">
+                    Upgrade services before traffic spikes: move Vercel and Supabase to paid tiers when concurrent
+                    users and database load grow. Hire when support and development work exceed founder capacity.
+                    Incorporate when you need formal contracts, payroll, and investor-ready structure. Run paid ads
+                    once conversion and unit economics are proven on organic traffic.
+                  </p>
+                </div>
+                <div className="overflow-x-auto rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+                  <table className="w-full min-w-[480px]">
+                    <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                      <tr className="text-left text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                        <th className="px-4 py-3">Threshold</th>
+                        <th className="px-4 py-3">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#2C2C2C]/5 text-sm text-[#2C2C2C]/85">
+                      <tr className="hover:bg-[#FAF8F4]/80">
+                        <td className="px-4 py-3 font-semibold text-[#2C2C2C]">~10 agents</td>
+                        <td className="px-4 py-3">Test monetization (pricing, tiers, payment flows).</td>
+                      </tr>
+                      <tr className="hover:bg-[#FAF8F4]/80">
+                        <td className="px-4 py-3 font-semibold text-[#2C2C2C]">~50 agents</td>
+                        <td className="px-4 py-3">Upgrade Vercel and Supabase for reliability and headroom.</td>
+                      </tr>
+                      <tr className="hover:bg-[#FAF8F4]/80">
+                        <td className="px-4 py-3 font-semibold text-[#2C2C2C]">~100 agents</td>
+                        <td className="px-4 py-3">Hire a junior developer or support contractor.</td>
+                      </tr>
+                      <tr className="hover:bg-[#FAF8F4]/80">
+                        <td className="px-4 py-3 font-semibold text-[#2C2C2C]">~200 agents</td>
+                        <td className="px-4 py-3">Raise prices or adjust tiers to match demand.</td>
+                      </tr>
+                      <tr className="hover:bg-[#FAF8F4]/80">
+                        <td className="px-4 py-3 font-semibold text-[#2C2C2C]">~500 agents</td>
+                        <td className="px-4 py-3">Series A territory: formalize team, legal, and fundraising.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            {manualSubTab === "emergency" ? (
+              <div className="space-y-4">
+                {[
+                  {
+                    problem: "Site down or not loading",
+                    fix: "Open the Vercel dashboard, check project status, recent deploys, and function logs. Confirm DNS at the registrar points to Vercel.",
+                  },
+                  {
+                    problem: "Auth broken (sign-in or session errors)",
+                    fix: "Check Supabase Auth logs and provider settings; verify redirect URLs and JWT expiry. Test a fresh login in an incognito window.",
+                  },
+                  {
+                    problem: "Emails not sending",
+                    fix: "Open Resend: domain verification, API keys, and recent delivery errors. Check spam suppression lists and from-address configuration.",
+                  },
+                  {
+                    problem: "SMS not sending",
+                    fix: "Check Twilio balance, phone number status, and error webhooks. Verify templates and country permissions.",
+                  },
+                  {
+                    problem: "Payments failing",
+                    fix: "Check PayMongo dashboard for failed charges and webhook delivery. Confirm endpoint URLs and signing secrets in production.",
+                  },
+                  {
+                    problem: "Bad deploy needs rollback",
+                    fix: "In Vercel, open the project → Deployments, promote a previous stable deployment, or redeploy from a known-good Git commit.",
+                  },
+                ].map((row) => (
+                  <div
+                    key={row.problem}
+                    className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm"
+                  >
+                    <h3 className="font-serif text-base font-bold text-[#2C2C2C]">{row.problem}</h3>
+                    <p className="mt-2 text-sm text-[#2C2C2C]/85">{row.fix}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
             </div>
