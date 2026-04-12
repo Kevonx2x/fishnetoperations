@@ -73,6 +73,14 @@ const FEED_CARD_CLASS =
 const FEED_CARD_PAD_SM = "p-3";
 const FEED_CARD_PAD_MD = "p-4";
 
+/** Property title lines on client feed cards (not property detail pages). */
+export const FEED_TITLE_MAX_BIG = 40;
+export const FEED_TITLE_MAX_COMPACT = 30;
+
+export function truncateTitle(title: string, maxLength: number): string {
+  return title.length > maxLength ? `${title.slice(0, maxLength)}...` : title;
+}
+
 /** All-tab items tied to `property_likes` / `saved_properties` only show while that engagement row still exists. */
 export function filterFeedGroupedByActiveEngagement(
   grouped: { bucket: TimeBucket; label: string; items: FeedUnion[] }[],
@@ -947,6 +955,7 @@ function FollowedAgentListingCard({
   const pid = p.id;
   const img = pickPropertyImage(p);
   const title = p.name?.trim() || p.location || "Listing";
+  const titleDisplay = truncateTitle(title, FEED_TITLE_MAX_BIG);
   const price = formatPropertyPriceDisplay(p.price, p.status);
   const agent = item.agent;
 
@@ -995,10 +1004,10 @@ function FollowedAgentListingCard({
             img ? "" : "mt-4",
           )}
         >
-          {title}
+          {titleDisplay}
         </Link>
       ) : (
-        <p className={cn("text-lg font-bold text-gray-900", img ? "mt-3" : "mt-4")}>{title}</p>
+        <p className={cn("text-lg font-bold text-gray-900", img ? "mt-3" : "mt-4")}>{titleDisplay}</p>
       )}
       {p.location ? (
         <p className="mt-1 flex items-center gap-1 text-sm text-gray-600">
@@ -1029,6 +1038,7 @@ function SavedPropertyBigCard({
   const img = pickPropertyImage(property);
   const pid = property.id;
   const title = property.name?.trim() || property.location || "Listing";
+  const titleDisplay = truncateTitle(title, FEED_TITLE_MAX_BIG);
   const price = formatPropertyPriceDisplay(property.price, property.status);
   const ag = feedAgentMeta[pid];
   const agent = ag
@@ -1062,10 +1072,10 @@ function SavedPropertyBigCard({
             img ? "mt-2" : "mt-3",
           )}
         >
-          {title}
+          {titleDisplay}
         </Link>
       ) : (
-        <p className={cn("text-sm font-semibold text-gray-900", img ? "mt-2" : "mt-3")}>{title}</p>
+        <p className={cn("text-sm font-semibold text-gray-900", img ? "mt-2" : "mt-3")}>{titleDisplay}</p>
       )}
     </article>
   );
@@ -1088,6 +1098,7 @@ function ViewingRequestMediumCard({
     item.property?.name?.trim() ||
     item.property?.location ||
     "Property";
+  const propNameDisplay = truncateTitle(propName, FEED_TITLE_MAX_COMPACT);
   const actionText = (n.title ?? n.body ?? "Viewing activity").trim();
   const propertyHrefId = metaStr(m, "property_id").trim() || item.property?.id || "";
   const agentLine = propertyHrefId ? feedAgentMeta[propertyHrefId]?.agentName?.trim() : "";
@@ -1102,7 +1113,7 @@ function ViewingRequestMediumCard({
         <Link
           href={`/properties/${encodeURIComponent(propertyHrefId)}`}
           className="absolute inset-0 z-0 rounded-2xl"
-          aria-label={`View property: ${propName}`}
+          aria-label={`View property: ${propNameDisplay}`}
         />
       ) : null}
       <div
@@ -1116,7 +1127,7 @@ function ViewingRequestMediumCard({
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-bold leading-snug text-gray-900">{actionText}</p>
-          <p className="mt-0.5 text-sm text-gray-500">{propName}</p>
+          <p className="mt-0.5 text-sm text-gray-500">{propNameDisplay}</p>
           {agentLine ? <p className="mt-1 text-xs font-medium text-[#6B9E6E]">{agentLine}</p> : null}
           {waHref ? (
             <a
@@ -1140,6 +1151,7 @@ function ViewingRequestMediumCard({
 
 function PriceDropMediumCard({ item }: { item: Extract<FeedUnion, { kind: "price_drop_al" }> }) {
   const newPriceDisplay = formatPropertyPriceDisplay(item.newPrice);
+  const propertyNameDisplay = truncateTitle(item.propertyName, FEED_TITLE_MAX_COMPACT);
   const inner = (
     <>
       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
@@ -1147,7 +1159,7 @@ function PriceDropMediumCard({ item }: { item: Extract<FeedUnion, { kind: "price
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-bold text-gray-900">Price drop</p>
-        <p className="mt-0.5 font-semibold text-gray-900">{item.propertyName}</p>
+        <p className="mt-0.5 font-semibold text-gray-900">{propertyNameDisplay}</p>
         <p className="mt-1 text-sm text-gray-500">
           <span className="line-through">{formatPropertyPriceDisplay(item.oldPrice)}</span>
           <span className="mx-1.5">→</span>
@@ -1178,6 +1190,7 @@ function PriceDropMediumCard({ item }: { item: Extract<FeedUnion, { kind: "price
 }
 
 function ListingEditedActivityCard({ item }: { item: Extract<FeedUnion, { kind: "listing_edited_al" }> }) {
+  const propertyNameDisplay = truncateTitle(item.propertyName, FEED_TITLE_MAX_COMPACT);
   const inner = (
     <>
       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#D4A843]/20">
@@ -1185,7 +1198,7 @@ function ListingEditedActivityCard({ item }: { item: Extract<FeedUnion, { kind: 
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-bold text-gray-900">Listing updated</p>
-        <p className="mt-0.5 font-semibold text-gray-900">{item.propertyName}</p>
+        <p className="mt-0.5 font-semibold text-gray-900">{propertyNameDisplay}</p>
         <p className="mt-1 text-sm text-gray-500">{item.editedByName} updated details</p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
@@ -1352,6 +1365,7 @@ function ListingLikeSmallCard({
   likes: LikePinApi;
 }) {
   const title = property.name?.trim() || property.location || "Listing";
+  const titleDisplay = truncateTitle(title, FEED_TITLE_MAX_COMPACT);
   const ag = feedAgentMeta[property.id];
   const liked = likes.has(property.id);
 
@@ -1368,7 +1382,7 @@ function ListingLikeSmallCard({
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-gray-900">You liked a listing</p>
-        <p className="text-sm text-gray-500">{title}</p>
+        <p className="text-sm text-gray-500">{titleDisplay}</p>
         {ag?.agentName ? (
           <p className="mt-0.5 text-xs font-medium text-[#6B9E6E]">{ag.agentName}</p>
         ) : null}
@@ -1424,6 +1438,7 @@ export function LikedPropertiesTab({
         if (!p) return null;
         const img = pickPropertyImage(p);
         const liked = likes.has(p.id);
+        const listingTitle = truncateTitle(p.name?.trim() || p.location || "Listing", FEED_TITLE_MAX_BIG);
         return (
           <div
             key={`like-${r.created_at}-${p.id}`}
@@ -1434,7 +1449,7 @@ export function LikedPropertiesTab({
               className="flex items-center gap-3 p-4 pr-14 transition-all duration-200 active:opacity-90"
             >
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-[#2C2C2C]">{p.name?.trim() || "Listing"}</p>
+                <p className="font-semibold text-[#2C2C2C]">{listingTitle}</p>
                 <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
                 <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
               </div>
@@ -1601,6 +1616,7 @@ export function SavedPinsTab({ savedRows, pins }: { savedRows: SavedJoinRow[]; p
         if (!p) return null;
         const img = pickPropertyImage(p);
         const pinned = pins.has(p.id);
+        const listingTitle = truncateTitle(p.name?.trim() || p.location || "Listing", FEED_TITLE_MAX_BIG);
         return (
           <div
             key={`saved-${r.created_at}-${p.id}`}
@@ -1613,7 +1629,7 @@ export function SavedPinsTab({ savedRows, pins }: { savedRows: SavedJoinRow[]; p
                 ) : null}
               </div>
               <div className="p-4">
-                <p className="font-semibold text-[#2C2C2C]">{p.name?.trim() || "Listing"}</p>
+                <p className="font-semibold text-[#2C2C2C]">{listingTitle}</p>
                 <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
                 <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
               </div>

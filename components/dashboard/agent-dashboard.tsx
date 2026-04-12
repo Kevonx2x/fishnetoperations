@@ -1795,9 +1795,21 @@ export function AgentDashboard() {
                   Property name
                   <input
                     value={editForm.name}
+                    maxLength={60}
                     onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
                     className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                   />
+                  <p
+                    className={`mt-0.5 text-xs ${
+                      editForm.name.length >= 60
+                        ? "text-red-600"
+                        : editForm.name.length > 50
+                          ? "text-orange-500"
+                          : "text-gray-500"
+                    }`}
+                  >
+                    {editForm.name.length}/60
+                  </p>
                 </label>
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   {editForm.listing_type === "both"
@@ -2860,9 +2872,21 @@ function ListingsTab({
                   Title (optional)
                   <input
                     value={listingForm.name}
+                    maxLength={60}
                     onChange={(e) => setListingForm((f) => ({ ...f, name: e.target.value }))}
                     className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
                   />
+                  <p
+                    className={`mt-0.5 text-xs ${
+                      listingForm.name.length >= 60
+                        ? "text-red-600"
+                        : listingForm.name.length > 50
+                          ? "text-orange-500"
+                          : "text-gray-500"
+                    }`}
+                  >
+                    {listingForm.name.length}/60
+                  </p>
                 </label>
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   {listingForm.listing_type === "both"

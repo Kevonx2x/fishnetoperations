@@ -47,6 +47,8 @@ import {
   BadgesTab,
   DocumentsTab,
   filterFeedGroupedByActiveEngagement,
+  FEED_TITLE_MAX_BIG,
+  truncateTitle,
 } from "@/components/client/mobile-client-dashboard";
 
 type PropertyRow = {
@@ -907,6 +909,7 @@ function ClientPublicProfilePageInner() {
     const activityLine = activityIso ? pinnedRelativeLabel(activityIso) : "Recently";
     const listedLine = listingListedLabel(p.created_at);
     const title = p.name?.trim() || p.location || "Listing";
+    const titleDisplay = truncateTitle(title, FEED_TITLE_MAX_BIG);
     const statusLabel = p.status === "for_rent" ? "For Rent" : "For Sale";
     const agents = p.connectedAgents ?? [];
     const hasAgents = agents.length > 0;
@@ -1072,7 +1075,7 @@ function ClientPublicProfilePageInner() {
               p.status as "for_sale" | "for_rent" | "sold" | "rented",
             )}
           </p>
-          <p className="font-serif text-lg font-bold text-[#2C2C2C]">{title}</p>
+          <p className="font-serif text-lg font-bold text-[#2C2C2C]">{titleDisplay}</p>
           <p className="flex items-start gap-1.5 text-sm text-[#2C2C2C]/55">
             <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
             <span>{p.location}</span>
