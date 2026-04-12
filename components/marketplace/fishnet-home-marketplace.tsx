@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAgentLiveAvailabilityFromPropertyRows } from "@/hooks/use-agent-live-availability";
 import Image from "next/image";
 import Link from "next/link";
@@ -162,6 +162,33 @@ const FEATURED_CITIES: {
     match: (loc) => /bacolod/i.test(loc),
   },
 ];
+
+function stripDiacritics(s: string) {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/** When the search box exactly matches a featured city label/key, use its match() rules. */
+function resolveFeaturedKeyFromQuery(qRaw: string): string | null {
+  const t = qRaw.trim().toLowerCase();
+  if (!t) return null;
+  const strip = stripDiacritics(t);
+  for (const c of FEATURED_CITIES) {
+    if (c.key.toLowerCase() === t) return c.key;
+    if (c.label.toLowerCase() === t) return c.key;
+    if (stripDiacritics(c.label.toLowerCase()) === strip) return c.key;
+  }
+  return null;
+}
+
+function buildMarketplaceHref(searchQuery: string, targetMode: "buy" | "rent") {
+  const path = targetMode === "buy" ? "/buy" : "/";
+  const trimmed = searchQuery.trim();
+  if (!trimmed) return path;
+  const params = new URLSearchParams();
+  params.set("q", trimmed);
+  params.set("type", targetMode === "buy" ? "sale" : "rent");
+  return `${path}?${params.toString()}`;
+}
 
 function neighborhoodKey(location: string): string {
   const l = location.toLowerCase();
@@ -580,6 +607,7 @@ const DynamicHomepageTopAgents = dynamic(
 
 export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [welcomeBannerVisible, setWelcomeBannerVisible] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
@@ -738,6 +766,73 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [loadProperties, loadAgentsDirectory]);
 
+  const syncMarketplaceUrl = useCallback(
+    (qText: string) => {
+      const trimmed = qText.trim();
+      const path = mode === "buy" ? "/buy" : "/";
+      if (!trimmed) {
+        router.replace(path, { scroll: false });
+        return;
+      }
+      const params = new URLSearchParams();
+      params.set("q", trimmed);
+      params.set("type", mode === "buy" ? "sale" : "rent");
+      router.replace(`${path}?${params.toString()}`, { scroll: false });
+    },
+    [mode, router],
+  );
+
+  const applyLocationSearch = useCallback(() => {
+    const trimmed = search.trim();
+    if (!trimmed) {
+      setNeighborhoodFilter(null);
+      setListingViewMode("browse");
+      syncMarketplaceUrl("");
+      return;
+    }
+    const nk = resolveFeaturedKeyFromQuery(trimmed);
+    setNeighborhoodFilter(nk);
+    setListingViewMode("results");
+    syncMarketplaceUrl(trimmed);
+    requestAnimationFrame(() => {
+      document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [search, syncMarketplaceUrl]);
+
+  useEffect(() => {
+    const type = searchParams.get("type");
+    if (mode === "buy" && type === "rent") {
+      const p = new URLSearchParams(searchParams.toString());
+      p.set("type", "rent");
+      router.replace(`/?${p.toString()}`, { scroll: false });
+      return;
+    }
+    if (mode === "rent" && type === "sale") {
+      const p = new URLSearchParams(searchParams.toString());
+      p.set("type", "sale");
+      router.replace(`/buy?${p.toString()}`, { scroll: false });
+      return;
+    }
+
+    const sp = new URLSearchParams(searchParams.toString());
+    if (!sp.has("q")) {
+      setSearch("");
+      setNeighborhoodFilter(null);
+      setListingViewMode("browse");
+      return;
+    }
+    const raw = sp.get("q") ?? "";
+    let decoded = raw;
+    try {
+      decoded = decodeURIComponent(raw);
+    } catch {
+      decoded = raw;
+    }
+    setSearch(decoded);
+    setNeighborhoodFilter(decoded.trim() ? resolveFeaturedKeyFromQuery(decoded) : null);
+    if (decoded.trim()) setListingViewMode("results");
+  }, [searchParams, mode, router]);
+
   const directoryAgentIds = useMemo(() => agents.map((a) => a.id), [agents]);
   const mergeLiveAvailability = useAgentLiveAvailabilityFromPropertyRows(properties, directoryAgentIds);
 
@@ -757,14 +852,14 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
   const baseModeProperties = useMemo(() => {
     const base = properties.filter((p) => (mode === "buy" ? p.status === "for_sale" : p.status === "for_rent"));
+    if (neighborhoodFilter) {
+      const city = FEATURED_CITIES.find((c) => c.key === neighborhoodFilter);
+      if (city) return base.filter((p) => city.match(p.location));
+      return base.filter((p) => neighborhoodKey(p.location) === neighborhoodFilter);
+    }
     const q = search.trim().toLowerCase();
-    const searched = q
-      ? base.filter((p) => `${p.location} ${p.name ?? ""}`.toLowerCase().includes(q))
-      : base;
-    if (!neighborhoodFilter) return searched;
-    const city = FEATURED_CITIES.find((c) => c.key === neighborhoodFilter);
-    if (city) return searched.filter((p) => city.match(p.location));
-    return searched.filter((p) => neighborhoodKey(p.location) === neighborhoodFilter);
+    if (!q) return base;
+    return base.filter((p) => p.location.toLowerCase().includes(q));
   }, [properties, mode, search, neighborhoodFilter]);
 
   const cityListingCounts = useMemo(() => {
@@ -956,21 +1051,26 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       propertyType: "any",
     });
     setSortMode("newest");
+    router.replace(mode === "buy" ? "/buy" : "/", { scroll: false });
   };
 
   const onSearchSubmit = () => {
-    if (hasActiveSearchOrFilters) {
-      setListingViewMode("results");
-      return;
-    }
-    const el = rowRefs.current[mode === "buy" ? "buy-featured" : "rent-featured"];
-    if (!el) return;
-    const step = Math.max(300, Math.round(el.clientWidth * 0.85));
-    el.scrollBy({ left: -step, behavior: "smooth" });
+    applyLocationSearch();
   };
 
   const selectCityFilter = (key: string) => {
-    setNeighborhoodFilter((v) => (v === key ? null : key));
+    setNeighborhoodFilter((prev) => {
+      if (prev === key) {
+        setSearch("");
+        syncMarketplaceUrl("");
+        return null;
+      }
+      const city = FEATURED_CITIES.find((c) => c.key === key);
+      const label = city?.label ?? key;
+      setSearch(label);
+      syncMarketplaceUrl(label);
+      return key;
+    });
     setListingViewMode("results");
     requestAnimationFrame(() => {
       document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -984,7 +1084,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           {mode === "rent" ? (
             <>
               <Link
-                href="/buy"
+                href={buildMarketplaceHref(search, "buy")}
                 className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50"
               >
                 Buy
@@ -999,7 +1099,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 Buy
               </span>
               <Link
-                href="/"
+                href={buildMarketplaceHref(search, "rent")}
                 className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50"
               >
                 Rent
@@ -1012,7 +1112,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         <div className="relative z-20 flex w-full flex-col gap-3 sm:flex-row sm:items-center">
           <PhLocationInput
             value={search}
-            onChange={setSearch}
+            onChange={(v) => {
+              setNeighborhoodFilter(null);
+              setSearch(v);
+            }}
+            onSubmitSearch={applyLocationSearch}
             placeholder="Search by location or neighborhood"
             aria-label="Search listings by location"
             className="w-full min-w-0 flex-1"
@@ -1445,19 +1549,17 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         className="mt-12 flex flex-col items-center justify-center px-4 text-center"
                       >
                         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#6B9E6E]/12 ring-2 ring-[#D4A843]/30">
-                          <Search className="h-10 w-10 text-[#6B9E6E]" aria-hidden />
+                          <Home className="h-10 w-10 text-[#6B9E6E]" aria-hidden />
                         </div>
-                        <p className="mt-6 font-serif text-xl font-bold text-[#2C2C2C]">No properties found in this area yet.</p>
-                        <p className="mt-2 max-w-md text-sm font-semibold text-[#2C2C2C]/55">
-                          Try adjusting your filters or exploring a different neighborhood.
+                        <p className="mt-6 max-w-md font-serif text-xl font-bold leading-snug text-[#2C2C2C]">
+                          No listings found in that area yet. Be the first to list here.
                         </p>
-                        <button
-                          type="button"
-                          onClick={() => clearFiltersAndBrowse()}
-                          className="mt-6 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#6C8C70]"
+                        <Link
+                          href={user ? "/register/agent" : "/auth/signup"}
+                          className="mt-6 inline-flex rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[#6C8C70]"
                         >
-                          Clear Filters
-                        </button>
+                          Register as an agent
+                        </Link>
                       </motion.div>
                     ) : (
                       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

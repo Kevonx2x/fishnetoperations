@@ -74,6 +74,8 @@ function filterLocations(query: string): PhLocationOption[] {
 export type PhLocationInputProps = {
   value: string;
   onChange: (value: string) => void;
+  /** Called when Enter is pressed and no suggestion is being selected from the dropdown. */
+  onSubmitSearch?: () => void;
   id?: string;
   name?: string;
   placeholder?: string;
@@ -87,6 +89,7 @@ export type PhLocationInputProps = {
 export function PhLocationInput({
   value,
   onChange,
+  onSubmitSearch,
   id: idProp,
   name,
   placeholder = "City, area, or neighborhood",
@@ -143,6 +146,9 @@ export function PhLocationInput({
       if (e.key === "Escape") {
         setOpen(false);
         setHighlighted(-1);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        onSubmitSearch?.();
       }
       return;
     }
@@ -157,6 +163,8 @@ export function PhLocationInput({
       e.preventDefault();
       if (highlighted >= 0 && highlighted < suggestions.length) {
         selectOption(suggestions[highlighted]!);
+      } else {
+        onSubmitSearch?.();
       }
     } else if (e.key === "Escape") {
       e.preventDefault();
