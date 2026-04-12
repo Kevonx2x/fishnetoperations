@@ -276,6 +276,7 @@ function FeedPhotoOverlay({
   likes,
   pins,
   showPinButton = true,
+  photoClassName,
 }: {
   propertyId: string;
   href: string;
@@ -284,11 +285,18 @@ function FeedPhotoOverlay({
   likes: LikePinApi;
   pins: LikePinApi;
   showPinButton?: boolean;
+  /** e.g. h-[220px] for followed-agent listing cards */
+  photoClassName?: string;
 }) {
   const isLiked = likes.has(propertyId);
   const isPinned = pins.has(propertyId);
   return (
-    <div className="relative mt-3 h-[160px] w-full overflow-hidden rounded-xl bg-[#E5E5E5]/40">
+    <div
+      className={cn(
+        "relative mt-3 w-full overflow-hidden rounded-xl bg-[#E5E5E5]/40",
+        photoClassName ?? "h-[160px]",
+      )}
+    >
       <Link href={href} className="absolute inset-0 block">
         <Image src={imageSrc} alt="" fill className="object-cover" sizes="100vw" unoptimized />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
@@ -820,13 +828,15 @@ export function AllFeedTab({
                     ? item.saveKey
                     : item.kind === "badge_earned"
                       ? item.feedKey
-                      : item.kind === "price_drop_al" || item.kind === "listing_edited_al"
-                        ? item.id
-                        : item.kind === "viewing_confirmed"
-                          ? item.notification.id
-                          : "notification" in item
+                      : item.kind === "followed_agent_listing"
+                        ? item.feedKey
+                        : item.kind === "price_drop_al" || item.kind === "listing_edited_al"
+                          ? item.id
+                          : item.kind === "viewing_confirmed"
                             ? item.notification.id
-                            : item.likeKey
+                            : "notification" in item
+                              ? item.notification.id
+                              : item.likeKey
                 }`}
               >
                 {item.kind === "saved_property" ? (
@@ -853,6 +863,8 @@ export function AllFeedTab({
                   <BadgeMediumCard n={item.notification} onViewBadges={onViewBadges} />
                 ) : item.kind === "viewing_confirmed" ? (
                   <ViewingConfirmedSmallCard n={item.notification} />
+                ) : item.kind === "followed_agent_listing" ? (
+                  <FollowedAgentListingCard item={item} likes={likes} pins={pins} />
                 ) : (
                   <ListingLikeSmallCard
                     property={item.property}
@@ -866,6 +878,82 @@ export function AllFeedTab({
         </section>
       ))}
     </div>
+  );
+}
+
+function FollowedAgentListingCard({
+  item,
+  likes,
+  pins,
+}: {
+  item: Extract<FeedUnion, { kind: "followed_agent_listing" }>;
+  likes: LikePinApi;
+  pins: LikePinApi;
+}) {
+  const p = item.property;
+  const pid = p.id;
+  const img = pickPropertyImage(p);
+  const title = p.name?.trim() || p.location || "Listing";
+  const price = formatPropertyPriceDisplay(p.price, p.status);
+  const agent = item.agent;
+
+  return (
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD)}>
+      <div className="flex items-start gap-3">
+        <Link
+          href={`/agents/${encodeURIComponent(agent.id)}`}
+          className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10"
+        >
+          {agent.image_url ? (
+            <SupabasePublicImage src={agent.image_url} alt="" fill sizes="56px" className="object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center font-serif text-xl font-bold text-[#2C2C2C]/40">
+              {agent.name.slice(0, 1)}
+            </div>
+          )}
+        </Link>
+        <div className="min-w-0 flex-1">
+          <Link
+            href={`/agents/${encodeURIComponent(agent.id)}`}
+            className="block text-base font-bold text-[#6B9E6E] hover:underline"
+          >
+            {agent.name}
+          </Link>
+          <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">New listing</p>
+        </div>
+      </div>
+      {img && pid ? (
+        <FeedPhotoOverlay
+          propertyId={pid}
+          href={`/properties/${pid}`}
+          imageSrc={img}
+          priceDisplay={price}
+          likes={likes}
+          pins={pins}
+          showPinButton={false}
+          photoClassName="h-[220px]"
+        />
+      ) : null}
+      {pid ? (
+        <Link
+          href={`/properties/${pid}`}
+          className={cn(
+            "mt-3 block text-lg font-bold leading-snug text-gray-900 transition-transform duration-150 active:scale-[0.98]",
+            img ? "" : "mt-4",
+          )}
+        >
+          {title}
+        </Link>
+      ) : (
+        <p className={cn("text-lg font-bold text-gray-900", img ? "mt-3" : "mt-4")}>{title}</p>
+      )}
+      {p.location ? (
+        <p className="mt-1 flex items-center gap-1 text-sm text-gray-600">
+          <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden />
+          <span className="line-clamp-2">{p.location}</span>
+        </p>
+      ) : null}
+    </article>
   );
 }
 

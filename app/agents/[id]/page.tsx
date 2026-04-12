@@ -258,7 +258,7 @@ function engagementRoleBadgeLabel(role: string | null | undefined): string {
 export default function AgentProfilePage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
 
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -288,6 +288,82 @@ export default function AgentProfilePage() {
   }, [agent]);
 
   const isOwnProfile = Boolean(user?.id && agent?.user_id && user.id === agent.user_id);
+
+  const [followerCount, setFollowerCount] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followActionLoading, setFollowActionLoading] = useState(false);
+
+  const showClientFollowUi = Boolean(
+    user?.id && profile?.role === "client" && !isOwnProfile && agent?.id,
+  );
+
+  useEffect(() => {
+    if (!agent?.id) return;
+    let cancelled = false;
+    void (async () => {
+      const { count } = await supabase
+        .from("agent_followers")
+        .select("*", { count: "exact", head: true })
+        .eq("agent_id", agent.id);
+      if (!cancelled) setFollowerCount(typeof count === "number" ? count : 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agent?.id]);
+
+  useEffect(() => {
+    if (!agent?.id || !user?.id || profile?.role !== "client") {
+      setIsFollowing(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("agent_followers")
+        .select("id")
+        .eq("agent_id", agent.id)
+        .eq("client_id", user.id)
+        .maybeSingle();
+      if (!cancelled) setIsFollowing(Boolean(data));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agent?.id, user?.id, profile?.role]);
+
+  const onToggleFollow = useCallback(async () => {
+    if (!agent?.id || !user?.id || profile?.role !== "client") return;
+    setFollowActionLoading(true);
+    try {
+      if (isFollowing) {
+        const { error } = await supabase
+          .from("agent_followers")
+          .delete()
+          .eq("agent_id", agent.id)
+          .eq("client_id", user.id);
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+        setIsFollowing(false);
+        setFollowerCount((c) => Math.max(0, c - 1));
+      } else {
+        const { error } = await supabase.from("agent_followers").insert({
+          client_id: user.id,
+          agent_id: agent.id,
+        });
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+        setIsFollowing(true);
+        setFollowerCount((c) => c + 1);
+      }
+    } finally {
+      setFollowActionLoading(false);
+    }
+  }, [agent?.id, user?.id, profile?.role, isFollowing]);
 
   const [viewerBrokerTier, setViewerBrokerTier] = useState(false);
   useEffect(() => {
@@ -791,6 +867,30 @@ export default function AgentProfilePage() {
                       </span>
                     ) : null}
                   </div>
+
+                  {showClientFollowUi ? (
+                    <div className="mt-3 flex w-full flex-col items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={followActionLoading}
+                        onClick={() => void onToggleFollow()}
+                        className={
+                          isFollowing
+                            ? "rounded-full border border-[#2C2C2C]/20 bg-[#FAF8F4] px-4 py-1.5 text-xs font-semibold text-[#2C2C2C]/60 transition hover:bg-[#2C2C2C]/5"
+                            : "rounded-full border-2 border-[#6B9E6E] bg-transparent px-4 py-1.5 text-xs font-semibold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/10"
+                        }
+                      >
+                        {followActionLoading ? "…" : isFollowing ? "Unfollow" : "Follow"}
+                      </button>
+                      <p className="text-center text-[11px] text-[#2C2C2C]/45">
+                        {followerCount === 1 ? "1 follower" : `${followerCount} followers`}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-center text-[11px] text-[#2C2C2C]/45">
+                      {followerCount === 1 ? "1 follower" : `${followerCount} followers`}
+                    </p>
+                  )}
 
                   <h1 className="mt-4 text-center font-serif text-lg font-bold tracking-tight text-[#2C2C2C]">
                     {agent.name}

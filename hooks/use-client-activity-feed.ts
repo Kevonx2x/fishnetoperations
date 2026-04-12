@@ -11,8 +11,9 @@ export type PropertyRow = {
   name: string | null;
   location: string;
   price: string;
-  status: "for_sale" | "for_rent" | "sold" | "rented";
+  status: "for_sale" | "for_rent" | "sold" | "rented" | "both";
   image_url: string;
+  created_at?: string;
   property_photos?: PropertyPhoto[] | null;
 };
 
@@ -149,6 +150,13 @@ export type FeedUnion =
       likeKey: string;
       property: PropertyRow;
       created_at: string;
+    }
+  | {
+      kind: "followed_agent_listing";
+      sortAt: string;
+      feedKey: string;
+      property: PropertyRow;
+      agent: { id: string; name: string; image_url: string | null };
     };
 
 
@@ -176,6 +184,7 @@ export function parseNotifPrefs(raw: unknown): NotifPrefs {
 export function filterFeedByPrefs(items: FeedUnion[], prefs: NotifPrefs): FeedUnion[] {
   return items.filter((item) => {
     if (item.kind === "saved_property") return true;
+    if (item.kind === "followed_agent_listing") return prefs.new_listing_followed_agent;
     if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") return prefs.price_drop;
     if (item.kind === "badge") return prefs.badge_earned;
     if (item.kind === "badge_earned") return prefs.badge_earned;
@@ -266,6 +275,7 @@ export function propertyMatchesListingMode(
   mode: ListingMode,
 ): boolean {
   if (!p) return true;
+  if (p.status === "both") return true;
   return mode === "rent" ? p.status === "for_rent" : p.status === "for_sale";
 }
 
@@ -288,7 +298,11 @@ export function filterFeedItemsByListingMode(
     if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") {
       const st = statusByPropertyId[item.propertyId];
       if (!st) return true;
+      if (st === "both") return true;
       return mode === "rent" ? st === "for_rent" : st === "for_sale";
+    }
+    if (item.kind === "followed_agent_listing") {
+      return propertyMatchesListingMode(item.property, mode);
     }
     return true;
   });
@@ -568,7 +582,6 @@ export function useClientActivityFeed(userId: string | undefined) {
     propMap.forEach((v, k) => {
       statusRecord[k] = v.status;
     });
-    setPropertyStatusById(statusRecord);
 
     let phoneMap = new Map<string, string | null>();
     if (agentIds.size > 0) {
@@ -746,6 +759,78 @@ export function useClientActivityFeed(userId: string | undefined) {
       }
     }
 
+    const { data: followRows } = await supabase.from("agent_followers").select("agent_id").eq("client_id", uid);
+    const followedAgentIds = [...new Set((followRows ?? []).map((r) => (r as { agent_id: string }).agent_id))];
+    if (followedAgentIds.length > 0) {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: paRowsFollow } = await supabase
+        .from("property_agents")
+        .select("property_id, agent_id")
+        .in("agent_id", followedAgentIds);
+      const paList = (paRowsFollow ?? []) as { property_id: string; agent_id: string }[];
+      const propIdsFollow = [...new Set(paList.map((r) => r.property_id))];
+      if (propIdsFollow.length > 0) {
+        const { data: followProps } = await supabase
+          .from("properties")
+          .select(
+            `
+            id,
+            name,
+            location,
+            price,
+            status,
+            image_url,
+            created_at,
+            property_photos (url, sort_order)
+          `,
+          )
+          .in("id", propIdsFollow)
+          .gte("created_at", thirtyDaysAgo)
+          .order("created_at", { ascending: false });
+
+        const agentById = new Map<string, { name: string; image_url: string | null }>();
+        const { data: agRowsFollow } = await supabase
+          .from("agents")
+          .select("id, name, image_url")
+          .in("id", followedAgentIds);
+        for (const a of agRowsFollow ?? []) {
+          const r = a as { id: string; name: string; image_url: string | null };
+          agentById.set(r.id, { name: r.name, image_url: r.image_url });
+        }
+
+        const paByProp = new Map<string, { agent_id: string }[]>();
+        for (const row of paList) {
+          const list = paByProp.get(row.property_id) ?? [];
+          list.push(row);
+          paByProp.set(row.property_id, list);
+        }
+
+        for (const raw of followProps ?? []) {
+          const p = raw as PropertyRow;
+          if (!p.id) continue;
+          const candidates = paByProp.get(p.id) ?? [];
+          const chosen =
+            candidates.find((c) => followedAgentIds.includes(c.agent_id)) ?? candidates[0];
+          if (!chosen) continue;
+          const ag = agentById.get(chosen.agent_id);
+          statusRecord[p.id] = p.status;
+          built.push({
+            kind: "followed_agent_listing",
+            sortAt: p.created_at ?? new Date().toISOString(),
+            feedKey: `follow-${p.id}-${chosen.agent_id}`,
+            property: p,
+            agent: {
+              id: chosen.agent_id,
+              name: ag?.name ?? "Agent",
+              image_url: ag?.image_url ?? null,
+            },
+          });
+        }
+      }
+    }
+
+    setPropertyStatusById(statusRecord);
+
     built.sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime());
 
     const prefs = parseNotifPrefs(
@@ -762,6 +847,8 @@ export function useClientActivityFeed(userId: string | undefined) {
       } else if (item.kind === "saved_property") {
         feedPropIds.add(item.property.id);
       } else if (item.kind === "pin_activity") {
+        feedPropIds.add(item.property.id);
+      } else if (item.kind === "followed_agent_listing") {
         feedPropIds.add(item.property.id);
       }
     }
