@@ -154,6 +154,17 @@ interface AdminCredentialRow {
   notes: string | null;
 }
 
+interface ProfileReportRow {
+  id: string;
+  created_at: string;
+  reporter_id: string;
+  reported_user_id: string;
+  reason: string;
+  notes: string | null;
+  reporter_name: string;
+  reported_name: string;
+}
+
 const CREDENTIALS_SUPER_ADMIN_EMAIL = "ron.business101@gmail.com";
 
 interface PropertyConnectedAgent {
@@ -294,6 +305,7 @@ export default function AdminPage() {
     | "coagent"
     | "hiring"
     | "outreach"
+    | "profileReports"
     | "vaReports"
     | "credentials"
   >("leads");
@@ -432,6 +444,11 @@ export default function AdminPage() {
   });
   const [submitReportSaving, setSubmitReportSaving] = useState(false);
 
+  const [profileReportsRows, setProfileReportsRows] = useState<ProfileReportRow[]>([]);
+  const [profileReportsLoading, setProfileReportsLoading] = useState(false);
+  const [profileReportsError, setProfileReportsError] = useState("");
+  const [profileReportBusyId, setProfileReportBusyId] = useState<string | null>(null);
+
   const [credentialsRows, setCredentialsRows] = useState<AdminCredentialRow[]>([]);
   const [credentialsTotal, setCredentialsTotal] = useState(0);
   const [credentialsLoading, setCredentialsLoading] = useState(false);
@@ -485,6 +502,11 @@ export default function AdminPage() {
   const [resetPasswordAgent, setResetPasswordAgent] = useState<AllAgentRow | null>(null);
   const [resetPasswordValue, setResetPasswordValue] = useState("");
   const [resetPasswordSaving, setResetPasswordSaving] = useState(false);
+
+  const profileReportsThisWeek = useMemo(() => {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return profileReportsRows.filter((r) => new Date(r.created_at).getTime() >= weekAgo).length;
+  }, [profileReportsRows]);
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -994,6 +1016,83 @@ export default function AdminPage() {
     }
   };
 
+  const fetchProfileReports = async () => {
+    setProfileReportsLoading(true);
+    setProfileReportsError("");
+    try {
+      const res = await fetch("/api/admin/user-profile-reports", { credentials: "include" });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: ProfileReportRow[];
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        setProfileReportsError(json.error?.message ?? `HTTP ${res.status}`);
+        setProfileReportsRows([]);
+        return;
+      }
+      if (json.success && Array.isArray(json.data)) setProfileReportsRows(json.data);
+      else setProfileReportsRows([]);
+    } catch (e) {
+      setProfileReportsError(e instanceof Error ? e.message : "Failed to load reports");
+      setProfileReportsRows([]);
+    } finally {
+      setProfileReportsLoading(false);
+    }
+  };
+
+  const dismissProfileReport = async (id: string) => {
+    setProfileReportBusyId(id);
+    try {
+      const res = await fetch(`/api/admin/user-profile-reports?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        toast.error(json.error?.message ?? "Could not dismiss");
+        return;
+      }
+      toast.success("Report dismissed");
+      setProfileReportsRows((prev) => prev.filter((r) => r.id !== id));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not dismiss");
+    } finally {
+      setProfileReportBusyId(null);
+    }
+  };
+
+  const warnReportedUser = async (row: ProfileReportRow) => {
+    setProfileReportBusyId(row.id);
+    try {
+      const res = await fetch("/api/admin/user-profile-reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          reportedUserId: row.reported_user_id,
+          reportId: row.id,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        toast.error(json.error?.message ?? "Could not send warning");
+        return;
+      }
+      toast.success("Warning sent to user");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not send warning");
+    } finally {
+      setProfileReportBusyId(null);
+    }
+  };
+
   const fetchCredentials = async () => {
     if (!canSeeCredentials) return;
     setCredentialsLoading(true);
@@ -1423,6 +1522,7 @@ export default function AdminPage() {
         void fetchAllAgents();
         void fetchCoAgentRequests();
         void fetchApplicants();
+        void fetchProfileReports();
       });
     }
   }, [user?.id, profile?.role]);
@@ -1468,6 +1568,12 @@ export default function AdminPage() {
   useEffect(() => {
     if (user?.id && profile?.role === "admin" && adminSection === "vaReports") {
       void fetchVaReports();
+    }
+  }, [user?.id, profile?.role, adminSection]);
+
+  useEffect(() => {
+    if (user?.id && profile?.role === "admin" && adminSection === "profileReports") {
+      void fetchProfileReports();
     }
   }, [user?.id, profile?.role, adminSection]);
 
@@ -1879,6 +1985,20 @@ export default function AdminPage() {
           </button>
           <button
             type="button"
+            onClick={() => setAdminSection("profileReports")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+              adminSection === "profileReports"
+                ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+            }`}
+          >
+            Reports
+            <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
+              {profileReportsRows.length}
+            </span>
+          </button>
+          <button
+            type="button"
             onClick={() => setAdminSection("vaReports")}
             className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
               adminSection === "vaReports"
@@ -2017,6 +2137,20 @@ export default function AdminPage() {
               }`}
             >
               Outreach
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdminSection("profileReports")}
+              className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                adminSection === "profileReports"
+                  ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <span>Reports</span>
+              <span className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold tabular-nums">
+                {profileReportsRows.length}
+              </span>
             </button>
             <button
               type="button"
@@ -3614,6 +3748,94 @@ export default function AdminPage() {
                         <td className="px-4 py-3 text-sm">{r.contacts_made}</td>
                         <td className="px-4 py-3 text-sm">{r.replies}</td>
                         <td className="px-4 py-3 text-sm">{r.meetings_booked}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
+        {adminSection === "profileReports" && (
+          <div className="space-y-6">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-4 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/50">
+                  Total Reports
+                </p>
+                <p className="mt-1 font-serif text-2xl font-bold text-[#2C2C2C]">{profileReportsRows.length}</p>
+              </div>
+              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-4 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/50">
+                  Reports This Week
+                </p>
+                <p className="mt-1 font-serif text-2xl font-bold text-[#2C2C2C]">{profileReportsThisWeek}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => void fetchProfileReports()}
+                className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] shadow-sm hover:bg-[#FAF8F4]"
+              >
+                Refresh
+              </button>
+            </div>
+            {profileReportsError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {profileReportsError}
+              </div>
+            ) : null}
+            <div className="overflow-x-auto rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+              {profileReportsLoading ? (
+                <div className="p-10 text-center text-sm text-[#2C2C2C]/45">Loading reports…</div>
+              ) : profileReportsRows.length === 0 ? (
+                <div className="p-10 text-center text-sm text-[#2C2C2C]/45">No profile reports yet.</div>
+              ) : (
+                <table className="w-full min-w-[880px]">
+                  <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                    <tr className="text-left text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                      <th className="px-4 py-3">Reporter</th>
+                      <th className="px-4 py-3">Reported User</th>
+                      <th className="px-4 py-3">Reason</th>
+                      <th className="px-4 py-3">Notes</th>
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2C2C2C]/5">
+                    {profileReportsRows.map((r) => (
+                      <tr key={r.id} className="align-top hover:bg-[#FAF8F4]/80">
+                        <td className="px-4 py-3 text-sm font-semibold text-[#2C2C2C]">{r.reporter_name}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-[#2C2C2C]">{r.reported_name}</td>
+                        <td className="max-w-[200px] px-4 py-3 text-sm text-[#2C2C2C]/85">{r.reason}</td>
+                        <td className="max-w-[220px] px-4 py-3 text-sm text-[#2C2C2C]/70">
+                          {r.notes?.trim() ? r.notes : "—"}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-xs text-[#2C2C2C]/55">
+                          {new Date(r.created_at).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <button
+                              type="button"
+                              disabled={profileReportBusyId === r.id}
+                              onClick={() => void warnReportedUser(r)}
+                              className="rounded-full bg-amber-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-amber-700 disabled:opacity-50"
+                            >
+                              {profileReportBusyId === r.id ? "…" : "Warn User"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={profileReportBusyId === r.id}
+                              onClick={() => void dismissProfileReport(r.id)}
+                              className="rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1.5 text-xs font-bold text-[#2C2C2C] hover:bg-[#FAF8F4] disabled:opacity-50"
+                            >
+                              {profileReportBusyId === r.id ? "…" : "Dismiss"}
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
