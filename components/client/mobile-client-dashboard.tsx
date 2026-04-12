@@ -30,7 +30,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { usePinnedPropertyIds, usePropertyLikes } from "@/hooks/use-property-engagement";
+import {
+  usePropertyEngagementForProperties,
+  type PropertyEngagement,
+  type PropertyEngagementSource,
+} from "@/hooks/use-property-engagement";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { labelForClientDocType } from "@/lib/client-documents";
 import { formatNotificationTimeAgo } from "@/components/notifications/notification-list";
@@ -294,6 +298,161 @@ type LikePinApi = {
   toggle: (id: string) => Promise<boolean>;
 };
 
+/** Matches `fishnet-home-marketplace` property cards: circular controls + icon + tabular count. */
+function HomepageStyleEngagementButtons({
+  propertyId,
+  engagement,
+  likes,
+  pins,
+  showPinButton = true,
+}: {
+  propertyId: string;
+  engagement: PropertyEngagement | null;
+  likes: LikePinApi;
+  pins: LikePinApi;
+  showPinButton?: boolean;
+}) {
+  const { profile } = useAuth();
+  const agentEngagementLocked = profile?.role === "agent";
+
+  if (engagement) {
+    const showEng = engagement.showEngagementCounts(propertyId);
+    const showRow = showEng || agentEngagementLocked;
+    const isLiked = engagement.isLiked(propertyId);
+    const isPinned = engagement.isPinned(propertyId);
+    return (
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            engagement.toggleLike(propertyId);
+          }}
+          disabled={agentEngagementLocked}
+          className={cn(
+            "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+            isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
+            agentEngagementLocked && "pointer-events-none opacity-50",
+          )}
+          aria-label={`${engagement.likeCount(propertyId)} likes`}
+        >
+          <Heart
+            className={cn(
+              "h-3.5 w-3.5 shrink-0",
+              isLiked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
+            )}
+            aria-hidden
+          />
+          {showRow ? (
+            <span
+              className={cn(
+                "text-xs font-medium tabular-nums",
+                isLiked ? "text-red-500" : "text-red-400",
+              )}
+            >
+              {engagement.likeCount(propertyId)}
+            </span>
+          ) : null}
+        </button>
+        {showPinButton ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              engagement.togglePin(propertyId);
+            }}
+            disabled={agentEngagementLocked}
+            className={cn(
+              "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+              isPinned ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
+              agentEngagementLocked && "pointer-events-none opacity-50",
+            )}
+            aria-label={`${engagement.saveCount(propertyId)} saved`}
+          >
+            <Pin
+              className={cn(
+                "h-3.5 w-3.5 shrink-0",
+                isPinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
+              )}
+              aria-hidden
+            />
+            {showRow ? (
+              <span className="text-xs font-medium tabular-nums text-[#D4A843]">
+                {engagement.saveCount(propertyId)}
+              </span>
+            ) : null}
+          </button>
+        ) : (
+          <span
+            className="inline-flex flex-row items-center gap-1 rounded-full border border-gray-200 bg-white/80 p-1.5 shadow-sm"
+            aria-label={`${engagement.saveCount(propertyId)} saved`}
+          >
+            <Pin className="h-3.5 w-3.5 shrink-0 text-[#D4A843]" aria-hidden />
+            {showRow ? (
+              <span className="text-xs font-medium tabular-nums text-[#D4A843]">
+                {engagement.saveCount(propertyId)}
+              </span>
+            ) : null}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  const isLiked = likes.has(propertyId);
+  const isPinned = pins.has(propertyId);
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          void likes.toggle(propertyId);
+        }}
+        className={cn(
+          "inline-flex rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+          isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
+        )}
+        aria-label="Like"
+      >
+        <Heart
+          className={cn(
+            "h-3.5 w-3.5 shrink-0",
+            isLiked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
+          )}
+          aria-hidden
+        />
+      </button>
+      {showPinButton ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void pins.toggle(propertyId);
+          }}
+          className={cn(
+            "inline-flex rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+            isPinned ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
+          )}
+          aria-label="Save"
+        >
+          <Pin
+            className={cn(
+              "h-3.5 w-3.5 shrink-0",
+              isPinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
+            )}
+            aria-hidden
+          />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function FeedPhotoOverlay({
   propertyId,
   href,
@@ -301,6 +460,7 @@ function FeedPhotoOverlay({
   priceDisplay,
   likes,
   pins,
+  engagement = null,
   showPinButton = true,
   photoClassName,
 }: {
@@ -310,12 +470,11 @@ function FeedPhotoOverlay({
   priceDisplay: string;
   likes: LikePinApi;
   pins: LikePinApi;
+  engagement?: PropertyEngagement | null;
   showPinButton?: boolean;
   /** e.g. h-[220px] for followed-agent listing cards */
   photoClassName?: string;
 }) {
-  const isLiked = likes.has(propertyId);
-  const isPinned = pins.has(propertyId);
   return (
     <div
       className={cn(
@@ -332,48 +491,13 @@ function FeedPhotoOverlay({
       </Link>
       <div className="pointer-events-none absolute inset-0 z-20">
         <div className="pointer-events-auto absolute right-2 top-2 flex gap-1">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              void likes.toggle(propertyId);
-            }}
-            className={cn(
-              "inline-flex rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
-              isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
-            )}
-            aria-label="Like"
-          >
-            <Heart
-              className={cn(
-                "h-3.5 w-3.5 shrink-0",
-                isLiked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
-              )}
-            />
-          </button>
-          {showPinButton ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                void pins.toggle(propertyId);
-              }}
-              className={cn(
-                "inline-flex rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
-                isPinned ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
-              )}
-              aria-label="Save"
-            >
-              <Pin
-                className={cn(
-                  "h-3.5 w-3.5 shrink-0",
-                  isPinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
-                )}
-              />
-            </button>
-          ) : null}
+          <HomepageStyleEngagementButtons
+            propertyId={propertyId}
+            engagement={engagement ?? null}
+            likes={likes}
+            pins={pins}
+            showPinButton={showPinButton}
+          />
         </div>
       </div>
     </div>
@@ -531,10 +655,57 @@ export function MobileClientDashboard() {
     unreadCount,
     feedGrouped,
     feedAgentMeta,
+    feedItems,
   } = feed;
 
-  const likes = usePropertyLikes();
-  const pins = usePinnedPropertyIds();
+  const engagementPropertySources = useMemo((): PropertyEngagementSource[] => {
+    const ids = new Set<string>();
+    for (const item of feedItems) {
+      if (item.kind === "saved_property" || item.kind === "pin_activity") {
+        ids.add(item.property.id);
+      } else if (item.kind === "followed_agent_listing") {
+        ids.add(item.property.id);
+      } else if (item.kind === "agent") {
+        const id = item.property?.id;
+        if (id) ids.add(id);
+      } else if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") {
+        if (item.propertyId) ids.add(item.propertyId);
+      }
+    }
+    for (const r of savedRows) {
+      const p = oneProperty(r.properties);
+      if (p?.id) ids.add(p.id);
+    }
+    for (const r of likeRows) {
+      const p = oneProperty(r.properties);
+      if (p?.id) ids.add(p.id);
+      else if (r.property_id) ids.add(r.property_id);
+    }
+    return [...ids].map((id) => ({ id }));
+  }, [feedItems, savedRows, likeRows]);
+
+  const { engagement } = usePropertyEngagementForProperties(engagementPropertySources);
+
+  const likes = useMemo(
+    () => ({
+      has: engagement.isLiked,
+      toggle: async (id: string) => {
+        engagement.toggleLike(id);
+        return true;
+      },
+    }),
+    [engagement],
+  );
+  const pins = useMemo(
+    () => ({
+      has: engagement.isPinned,
+      toggle: async (id: string) => {
+        engagement.togglePin(id);
+        return true;
+      },
+    }),
+    [engagement],
+  );
 
   const prefsComplete = useMemo(
     () => (clientPrefs ? isClientProfilePrefsComplete(clientPrefs) : false),
@@ -807,18 +978,19 @@ export function MobileClientDashboard() {
               feedAgentMeta={feedAgentMeta}
               likes={likes}
               pins={pins}
+              engagement={engagement}
               onViewBadges={() => setMainTab("badges")}
             />
           </div>
         ) : mainTab === "pins" ? (
           <div>
             <ListingSubTabs mode={listingMode} onChange={setListingMode} />
-            <SavedPinsTab savedRows={savedRowsPinnedActive} pins={pins} />
+            <SavedPinsTab savedRows={savedRowsPinnedActive} likes={likes} pins={pins} engagement={engagement} />
           </div>
         ) : mainTab === "likes" ? (
           <div>
             <ListingSubTabs mode={listingMode} onChange={setListingMode} />
-            <LikedPropertiesTab likeRows={likeRowsLikedActive} likes={likes} />
+            <LikedPropertiesTab likeRows={likeRowsLikedActive} likes={likes} pins={pins} engagement={engagement} />
           </div>
         ) : mainTab === "badges" ? (
           <BadgesTab badges={badges} />
@@ -848,6 +1020,7 @@ export function AllFeedTab({
   feedAgentMeta,
   likes,
   pins,
+  engagement,
   onViewBadges,
 }: {
   grouped: { bucket: TimeBucket; label: string; items: FeedUnion[] }[];
@@ -857,8 +1030,11 @@ export function AllFeedTab({
   >;
   likes: LikePinApi;
   pins: LikePinApi;
+  /** When set (mobile client dashboard), like/pin counts match homepage `usePropertyEngagementForProperties`. */
+  engagement?: PropertyEngagement;
   onViewBadges: () => void;
 }) {
+  const engagementForUi = engagement ?? null;
   const empty = grouped.length === 0 || grouped.every((g) => g.items.length === 0);
 
   if (empty) {
@@ -906,13 +1082,20 @@ export function AllFeedTab({
                     feedAgentMeta={feedAgentMeta}
                     likes={likes}
                     pins={pins}
+                    engagement={engagementForUi}
                   />
                 ) : item.kind === "agent" ? (
-                  <ViewingRequestMediumCard item={item} feedAgentMeta={feedAgentMeta} />
+                  <ViewingRequestMediumCard
+                    item={item}
+                    feedAgentMeta={feedAgentMeta}
+                    likes={likes}
+                    pins={pins}
+                    engagement={engagementForUi}
+                  />
                 ) : item.kind === "price_drop_al" ? (
-                  <PriceDropMediumCard item={item} />
+                  <PriceDropMediumCard item={item} likes={likes} pins={pins} engagement={engagementForUi} />
                 ) : item.kind === "listing_edited_al" ? (
-                  <ListingEditedActivityCard item={item} />
+                  <ListingEditedActivityCard item={item} likes={likes} pins={pins} engagement={engagementForUi} />
                 ) : item.kind === "badge_earned" ? (
                   <BadgeEarnedFeedCard
                     badge_slug={item.badge_slug}
@@ -924,13 +1107,15 @@ export function AllFeedTab({
                 ) : item.kind === "viewing_confirmed" ? (
                   <ViewingConfirmedSmallCard n={item.notification} />
                 ) : item.kind === "followed_agent_listing" ? (
-                  <FollowedAgentListingCard item={item} likes={likes} pins={pins} />
+                  <FollowedAgentListingCard item={item} likes={likes} pins={pins} engagement={engagementForUi} />
                 ) : (
                   <ListingLikeSmallCard
                     property={item.property}
                     createdAt={item.created_at}
                     feedAgentMeta={feedAgentMeta}
                     likes={likes}
+                    pins={pins}
+                    engagement={engagementForUi}
                   />
                 )}
               </li>
@@ -946,10 +1131,12 @@ function FollowedAgentListingCard({
   item,
   likes,
   pins,
+  engagement,
 }: {
   item: Extract<FeedUnion, { kind: "followed_agent_listing" }>;
   likes: LikePinApi;
   pins: LikePinApi;
+  engagement: PropertyEngagement | null;
 }) {
   const p = item.property;
   const pid = p.id;
@@ -992,6 +1179,7 @@ function FollowedAgentListingCard({
           priceDisplay={price}
           likes={likes}
           pins={pins}
+          engagement={engagement}
           showPinButton={false}
           photoClassName="h-[220px]"
         />
@@ -1025,6 +1213,7 @@ function SavedPropertyBigCard({
   feedAgentMeta,
   likes,
   pins,
+  engagement,
 }: {
   property: PropertyRow;
   createdAt: string;
@@ -1034,6 +1223,7 @@ function SavedPropertyBigCard({
   >;
   likes: LikePinApi;
   pins: LikePinApi;
+  engagement: PropertyEngagement | null;
 }) {
   const img = pickPropertyImage(property);
   const pid = property.id;
@@ -1062,6 +1252,7 @@ function SavedPropertyBigCard({
           priceDisplay={price}
           likes={likes}
           pins={pins}
+          engagement={engagement}
         />
       ) : null}
       {pid ? (
@@ -1084,12 +1275,18 @@ function SavedPropertyBigCard({
 function ViewingRequestMediumCard({
   item,
   feedAgentMeta,
+  likes,
+  pins,
+  engagement,
 }: {
   item: Extract<FeedUnion, { kind: "agent" }>;
   feedAgentMeta: Record<
     string,
     { agentName: string; agentAvatarUrl: string | null; agentId?: string | null }
   >;
+  likes: LikePinApi;
+  pins: LikePinApi;
+  engagement: PropertyEngagement | null;
 }) {
   const n = item.notification;
   const m = n.metadata ?? {};
@@ -1142,6 +1339,16 @@ function ViewingRequestMediumCard({
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <span className="text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
+          {propertyHrefId ? (
+            <div className="pointer-events-auto z-[2]">
+              <HomepageStyleEngagementButtons
+                propertyId={propertyHrefId}
+                engagement={engagement}
+                likes={likes}
+                pins={pins}
+              />
+            </div>
+          ) : null}
           <FeedPropertyThumb56 src={thumbSrc} alt="" />
         </div>
       </div>
@@ -1149,9 +1356,31 @@ function ViewingRequestMediumCard({
   );
 }
 
-function PriceDropMediumCard({ item }: { item: Extract<FeedUnion, { kind: "price_drop_al" }> }) {
+function PriceDropMediumCard({
+  item,
+  likes,
+  pins,
+  engagement,
+}: {
+  item: Extract<FeedUnion, { kind: "price_drop_al" }>;
+  likes: LikePinApi;
+  pins: LikePinApi;
+  engagement: PropertyEngagement | null;
+}) {
   const newPriceDisplay = formatPropertyPriceDisplay(item.newPrice);
   const propertyNameDisplay = truncateTitle(item.propertyName, FEED_TITLE_MAX_COMPACT);
+  const engagementBar =
+    item.propertyId != null && item.propertyId !== "" ? (
+      <div className="pointer-events-auto absolute right-2 top-2 z-10 flex gap-1">
+        <HomepageStyleEngagementButtons
+          propertyId={item.propertyId}
+          engagement={engagement}
+          likes={likes}
+          pins={pins}
+        />
+      </div>
+    ) : null;
+
   const inner = (
     <>
       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
@@ -1179,9 +1408,10 @@ function PriceDropMediumCard({ item }: { item: Extract<FeedUnion, { kind: "price
         className={cn(
           FEED_CARD_CLASS,
           FEED_CARD_PAD_MD,
-          "flex w-full items-center gap-3 text-inherit no-underline transition-transform duration-150 active:scale-[0.99]",
+          "relative flex w-full items-center gap-3 text-inherit no-underline transition-transform duration-150 active:scale-[0.99]",
         )}
       >
+        {engagementBar}
         {inner}
       </Link>
     );
@@ -1189,8 +1419,30 @@ function PriceDropMediumCard({ item }: { item: Extract<FeedUnion, { kind: "price
   return <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-center gap-3")}>{inner}</article>;
 }
 
-function ListingEditedActivityCard({ item }: { item: Extract<FeedUnion, { kind: "listing_edited_al" }> }) {
+function ListingEditedActivityCard({
+  item,
+  likes,
+  pins,
+  engagement,
+}: {
+  item: Extract<FeedUnion, { kind: "listing_edited_al" }>;
+  likes: LikePinApi;
+  pins: LikePinApi;
+  engagement: PropertyEngagement | null;
+}) {
   const propertyNameDisplay = truncateTitle(item.propertyName, FEED_TITLE_MAX_COMPACT);
+  const engagementBar =
+    item.propertyId != null && item.propertyId !== "" ? (
+      <div className="pointer-events-auto absolute right-2 top-2 z-10 flex gap-1">
+        <HomepageStyleEngagementButtons
+          propertyId={item.propertyId}
+          engagement={engagement}
+          likes={likes}
+          pins={pins}
+        />
+      </div>
+    ) : null;
+
   const inner = (
     <>
       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#D4A843]/20">
@@ -1214,9 +1466,10 @@ function ListingEditedActivityCard({ item }: { item: Extract<FeedUnion, { kind: 
         className={cn(
           FEED_CARD_CLASS,
           FEED_CARD_PAD_MD,
-          "flex w-full items-center gap-3 text-inherit no-underline transition-transform duration-150 active:scale-[0.99]",
+          "relative flex w-full items-center gap-3 text-inherit no-underline transition-transform duration-150 active:scale-[0.99]",
         )}
       >
+        {engagementBar}
         {inner}
       </Link>
     );
@@ -1355,6 +1608,8 @@ function ListingLikeSmallCard({
   createdAt,
   feedAgentMeta,
   likes,
+  pins,
+  engagement,
 }: {
   property: PropertyRow;
   createdAt: string;
@@ -1363,11 +1618,12 @@ function ListingLikeSmallCard({
     { agentName: string; agentAvatarUrl: string | null; agentId: string | null }
   >;
   likes: LikePinApi;
+  pins: LikePinApi;
+  engagement: PropertyEngagement | null;
 }) {
   const title = property.name?.trim() || property.location || "Listing";
   const titleDisplay = truncateTitle(title, FEED_TITLE_MAX_COMPACT);
   const ag = feedAgentMeta[property.id];
-  const liked = likes.has(property.id);
 
   return (
     <article
@@ -1387,27 +1643,14 @@ function ListingLikeSmallCard({
           <p className="mt-0.5 text-xs font-medium text-[#6B9E6E]">{ag.agentName}</p>
         ) : null}
       </div>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          void likes.toggle(property.id);
-        }}
-        className={cn(
-          "shrink-0 rounded-full p-1.5 ring-1 ring-black/10 transition hover:bg-red-50",
-          liked ? "bg-white" : "bg-white/80",
-        )}
-        aria-label={liked ? "Unlike" : "Like"}
-      >
-        <Heart
-          className={cn(
-            "h-4 w-4 shrink-0",
-            liked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
-          )}
-          aria-hidden
+      <div className="shrink-0">
+        <HomepageStyleEngagementButtons
+          propertyId={property.id}
+          engagement={engagement}
+          likes={likes}
+          pins={pins}
         />
-      </button>
+      </div>
       <span className="shrink-0 text-xs text-gray-500">{formatNotificationTimeAgo(createdAt)}</span>
     </article>
   );
@@ -1417,9 +1660,13 @@ function ListingLikeSmallCard({
 export function LikedPropertiesTab({
   likeRows,
   likes,
+  pins,
+  engagement,
 }: {
   likeRows: LikeJoinRow[];
   likes: LikePinApi;
+  pins: LikePinApi;
+  engagement: PropertyEngagement;
 }) {
   if (likeRows.length === 0) {
     return (
@@ -1437,16 +1684,23 @@ export function LikedPropertiesTab({
         const p = oneProperty(r.properties);
         if (!p) return null;
         const img = pickPropertyImage(p);
-        const liked = likes.has(p.id);
         const listingTitle = truncateTitle(p.name?.trim() || p.location || "Listing", FEED_TITLE_MAX_BIG);
         return (
           <div
             key={`like-${r.created_at}-${p.id}`}
             className="relative overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-[#E5E5E5]"
           >
+            <div className="pointer-events-auto absolute right-3 top-3 z-[2] flex gap-1">
+              <HomepageStyleEngagementButtons
+                propertyId={p.id}
+                engagement={engagement}
+                likes={likes}
+                pins={pins}
+              />
+            </div>
             <Link
               href={`/properties/${p.id}`}
-              className="flex items-center gap-3 p-4 pr-14 transition-all duration-200 active:opacity-90"
+              className="flex items-center gap-3 p-4 transition-all duration-200 active:opacity-90"
             >
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-[#2C2C2C]">{listingTitle}</p>
@@ -1463,27 +1717,6 @@ export function LikedPropertiesTab({
                 )}
               </div>
             </Link>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                void likes.toggle(p.id);
-              }}
-              className={cn(
-                "absolute right-3 top-1/2 z-[1] -translate-y-1/2 rounded-full p-2 shadow-md ring-1 ring-black/10 transition hover:bg-[#FAF8F4]",
-                liked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/90",
-              )}
-              aria-label={liked ? "Unlike" : "Like"}
-            >
-              <Heart
-                className={cn(
-                  "h-5 w-5 shrink-0",
-                  liked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
-                )}
-                aria-hidden
-              />
-            </button>
           </div>
         );
       })}
@@ -1598,7 +1831,17 @@ export function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_
 }
 
 /** Pinned listings from `saved_properties` (same source as usePinnedPropertyIds / pin action). */
-export function SavedPinsTab({ savedRows, pins }: { savedRows: SavedJoinRow[]; pins: LikePinApi }) {
+export function SavedPinsTab({
+  savedRows,
+  likes,
+  pins,
+  engagement,
+}: {
+  savedRows: SavedJoinRow[];
+  likes: LikePinApi;
+  pins: LikePinApi;
+  engagement: PropertyEngagement;
+}) {
   if (savedRows.length === 0) {
     return (
       <EmptyState
@@ -1615,7 +1858,6 @@ export function SavedPinsTab({ savedRows, pins }: { savedRows: SavedJoinRow[]; p
         const p = oneProperty(r.properties);
         if (!p) return null;
         const img = pickPropertyImage(p);
-        const pinned = pins.has(p.id);
         const listingTitle = truncateTitle(p.name?.trim() || p.location || "Listing", FEED_TITLE_MAX_BIG);
         return (
           <div
@@ -1627,6 +1869,14 @@ export function SavedPinsTab({ savedRows, pins }: { savedRows: SavedJoinRow[]; p
                 {img ? (
                   <Image src={img} alt="" fill className="object-cover" sizes="100vw" unoptimized />
                 ) : null}
+                <div className="pointer-events-auto absolute right-2 top-2 z-[2] flex gap-1">
+                  <HomepageStyleEngagementButtons
+                    propertyId={p.id}
+                    engagement={engagement}
+                    likes={likes}
+                    pins={pins}
+                  />
+                </div>
               </div>
               <div className="p-4">
                 <p className="font-semibold text-[#2C2C2C]">{listingTitle}</p>
@@ -1634,27 +1884,6 @@ export function SavedPinsTab({ savedRows, pins }: { savedRows: SavedJoinRow[]; p
                 <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
               </div>
             </Link>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                void pins.toggle(p.id);
-              }}
-              className={cn(
-                "absolute right-3 top-3 z-[1] rounded-full bg-white/95 p-2 shadow-md ring-1 ring-black/10 transition hover:bg-[#FAF8F4]",
-                pinned ? "border border-[#D4A843]/40" : "border border-gray-200",
-              )}
-              aria-label={pinned ? "Unpin" : "Pin"}
-            >
-              <Pin
-                className={cn(
-                  "h-5 w-5 shrink-0",
-                  pinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
-                )}
-                aria-hidden
-              />
-            </button>
           </div>
         );
       })}
