@@ -29,6 +29,9 @@ export async function GET(_request: NextRequest, ctx: Ctx) {
 
     async function sign(path: string | null | undefined): Promise<string | null> {
       if (!path || typeof path !== "string") return null;
+      if (/^https?:\/\//i.test(path.trim())) {
+        return path.trim();
+      }
       const { data, error: signErr } = await sb.storage
         .from("verification")
         .createSignedUrl(path, 3600);

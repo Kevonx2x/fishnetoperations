@@ -181,6 +181,80 @@ const EDIT_LISTING_STATUSES = ["active", "under_offer", "sold", "off_market"] as
 const DEFAULT_LISTING_IMAGE =
   "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&h=800&fit=crop";
 
+function normalizeListingImageUrl(u: string): string {
+  return u.trim().split("?")[0].replace(/\/$/, "");
+}
+
+type PropertyPhotoRow = {
+  url: string;
+  sort_order?: number | null;
+  created_at?: string | null;
+};
+
+/** Ordered gallery for edit: [0] = main `image_url`; rest from `property_photos`, deduped. */
+function buildEditListingImageUrls(
+  imageUrl: string | null | undefined,
+  photoRows: PropertyPhotoRow[],
+): string[] {
+  const sorted = [...photoRows].sort((a, b) => {
+    const ao = a.sort_order ?? Number.MAX_SAFE_INTEGER;
+    const bo = b.sort_order ?? Number.MAX_SAFE_INTEGER;
+    if (ao !== bo) return ao - bo;
+    const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return ta - tb;
+  });
+  const urlsFromDb = sorted
+    .map((r) => r.url?.trim())
+    .filter((u): u is string => Boolean(u));
+
+  const mainNorm = imageUrl?.trim() ? normalizeListingImageUrl(imageUrl.trim()) : "";
+  const mainOriginal = imageUrl?.trim() || "";
+
+  if (urlsFromDb.length > 0 && mainNorm) {
+    const firstNorm = normalizeListingImageUrl(urlsFromDb[0]);
+    if (firstNorm === mainNorm) {
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const u of urlsFromDb) {
+        const n = normalizeListingImageUrl(u);
+        if (!seen.has(n)) {
+          seen.add(n);
+          out.push(u);
+        }
+      }
+      return out.slice(0, 10);
+    }
+  }
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  if (mainOriginal) {
+    out.push(mainOriginal);
+    seen.add(normalizeListingImageUrl(mainOriginal));
+  }
+  for (const u of urlsFromDb) {
+    const n = normalizeListingImageUrl(u);
+    if (!seen.has(n)) {
+      seen.add(n);
+      out.push(u);
+    }
+  }
+  if (out.length === 0 && urlsFromDb.length > 0) {
+    const seen2 = new Set<string>();
+    const out2: string[] = [];
+    for (const u of urlsFromDb) {
+      const n = normalizeListingImageUrl(u);
+      if (!seen2.has(n)) {
+        seen2.add(n);
+        out2.push(u);
+      }
+    }
+    return out2.slice(0, 10);
+  }
+  return out.slice(0, 10);
+}
+
 function computeListingCompleteness(
   form: {
     location: string;
@@ -899,9 +973,8 @@ export function AgentDashboard() {
       try {
         const { data: photoRows, error: photoErr } = await supabase
           .from("property_photos")
-          .select("url, sort_order")
-          .eq("property_id", p.id)
-          .order("sort_order", { ascending: true });
+          .select("id, url, sort_order, created_at")
+          .eq("property_id", p.id);
         if (photoErr) {
           toast.error("Could not load extra photos. Main image and other fields are still editable.");
         }
@@ -909,12 +982,7 @@ export function AgentDashboard() {
         const safeType = EDIT_PROPERTY_TYPES.includes(pt as (typeof EDIT_PROPERTY_TYPES)[number])
           ? pt
           : "House";
-        const extras = (photoRows ?? [])
-          .map((r: { url: string }) => r.url)
-          .filter((u) => typeof u === "string" && u.trim().length > 0 && u !== p.image_url);
-        const main =
-          typeof p.image_url === "string" && p.image_url.trim().length > 0 ? p.image_url.trim() : "";
-        const imageUrls = [main, ...extras].filter(Boolean).slice(0, 10);
+        const imageUrls = buildEditListingImageUrls(p.image_url, (photoRows ?? []) as PropertyPhotoRow[]);
         setEditPropertyId(p.id);
         setEditFormErrors({});
         setEditForm({

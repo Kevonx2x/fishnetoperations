@@ -1197,8 +1197,8 @@ function ListingLikeSmallCard({
         "flex items-center gap-3 text-gray-900",
       )}
     >
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gray-100">
-        <Home className="h-4 w-4 text-gray-500" aria-hidden />
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-red-50">
+        <Heart className="h-4 w-4 text-red-500" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-gray-900">You liked a listing</p>

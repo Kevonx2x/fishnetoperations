@@ -687,7 +687,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         `
           id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by, description, property_type,
           is_presale, developer_name, turnover_date, unit_types,
-          property_photos (url, sort_order),
+          property_photos (url, sort_order, created_at),
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
         `,
       )
@@ -1019,10 +1019,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       .slice(0, 12);
   }, [agents, cityFilterMeta, mergeLiveAvailability]);
   const featured = useMemo(() => properties[0] ?? null, [properties]);
-  const featuredPhotos = useMemo(() => {
-    const list = (featured?.property_photos ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
-    return list.length ? list.map((x) => x.url) : featured?.image_url ? [featured.image_url] : [];
-  }, [featured]);
+  const featuredPhotos = useMemo(() => (featured ? roomUrlsFor(featured) : []), [featured]);
 
   const scrollRow = (ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") => {
     const el = ref.current;

@@ -22,15 +22,31 @@ export type DbProperty = {
   /** ISO date string `YYYY-MM-DD` from DB. */
   turnover_date?: string | null;
   unit_types?: string[] | null;
-  property_photos?: { url: string; sort_order: number }[];
+  property_photos?: { url: string; sort_order?: number | null; created_at?: string | null }[];
   property_agents?: { agent: unknown }[];
 };
+
+/** Order gallery: lowest sort_order first; ties or missing sort_order use created_at ascending. */
+export function comparePropertyPhotos(
+  a: { sort_order?: number | null; created_at?: string | null },
+  b: { sort_order?: number | null; created_at?: string | null },
+): number {
+  const hasA = a.sort_order != null && !Number.isNaN(Number(a.sort_order));
+  const hasB = b.sort_order != null && !Number.isNaN(Number(b.sort_order));
+  const na = hasA ? Number(a.sort_order) : Number.POSITIVE_INFINITY;
+  const nb = hasB ? Number(b.sort_order) : Number.POSITIVE_INFINITY;
+  if (na !== nb) return na - nb;
+  const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+  const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+  return ta - tb;
+}
 
 export function roomUrlsFor(p: DbProperty): string[] {
   const fromDb = (p.property_photos ?? [])
     .slice()
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map((x) => x.url);
-  if (fromDb.length) return fromDb.slice(0, 4);
+    .sort(comparePropertyPhotos)
+    .map((x) => x.url)
+    .filter(Boolean);
+  if (fromDb.length) return fromDb;
   return [p.image_url];
 }

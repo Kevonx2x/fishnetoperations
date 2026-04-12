@@ -1337,10 +1337,15 @@ export default function AgentProfilePage() {
                                   }}
                                 >
                                   {(() => {
-                                    const users =
+                                    const usersRaw =
                                       flipFace === "likes"
                                         ? engagementMap[p.id]?.likers ?? []
                                         : engagementMap[p.id]?.pinners ?? [];
+                                    const users = [...usersRaw].sort((a, b) => {
+                                      const ta = engagementLastActivityAt(a)?.getTime() ?? 0;
+                                      const tb = engagementLastActivityAt(b)?.getTime() ?? 0;
+                                      return tb - ta;
+                                    });
                                     const hasUsers = users.length > 0;
                                     return (
                                       <>
@@ -1355,7 +1360,7 @@ export default function AgentProfilePage() {
                                             ← Back
                                           </button>
                                           <h2 className="mt-2 font-serif text-lg font-bold text-[#2C2C2C]">
-                                            {flipFace === "likes" ? "❤️ Liked by" : "📌 Pinned by"}
+                                            {flipFace === "likes" ? "Liked by" : "📌 Pinned by"}
                                           </h2>
                                         </div>
                                         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

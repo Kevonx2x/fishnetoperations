@@ -51,15 +51,48 @@ export async function POST(req: Request) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
+  const purposeRaw = String(formData.get("purpose") ?? "").trim().toLowerCase();
+  const folderRaw = String(formData.get("folder") ?? "").trim();
+  const isVerificationUpload =
+    folderRaw === "bahaygo/verification" ||
+    purposeRaw === "verification" ||
+    purposeRaw === "prc" ||
+    purposeRaw === "prc_verification";
+
+  const uploadFolder = isVerificationUpload ? "bahaygo/verification" : "bahaygo/properties";
+
+  const baseImageTransform = {
+    width: 1200,
+    crop: "limit" as const,
+    quality: "auto",
+    fetch_format: "auto",
+  };
+
+  /** Diagonal semi-transparent text watermark (PRC / identity docs only). */
+  const verificationWatermarkTransform = {
+    overlay: {
+      font_family: "Arial",
+      font_size: 40,
+      font_weight: "bold" as const,
+      text: "For BahayGo Verification Only",
+    },
+    color: "white",
+    opacity: 50,
+    angle: -30,
+    gravity: "center" as const,
+  };
+
+  const transformation = isVerificationUpload
+    ? [baseImageTransform, verificationWatermarkTransform]
+    : [baseImageTransform];
+
   try {
     const result = await new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          folder: "bahaygo/properties",
+          folder: uploadFolder,
           resource_type: "image",
-          transformation: [
-            { width: 1200, crop: "limit", quality: "auto", fetch_format: "auto" },
-          ],
+          transformation,
         },
         (error, res) => {
           if (error) reject(error);

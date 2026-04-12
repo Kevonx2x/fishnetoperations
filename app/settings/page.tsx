@@ -20,6 +20,7 @@ import { ServiceAreasMultiInput } from "@/components/ui/service-areas-multi-inpu
 import { useDataConsentGate } from "@/components/legal/data-consent-modal";
 import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
 import { applyBahayGoTheme, BAHAYGO_THEME_KEY } from "@/components/bahaygo-theme-provider";
+import { uploadVerificationImageToCloudinary } from "@/lib/upload-verification-image-cloudinary";
 
 const COUNTRY_OPTIONS = [
   "Philippines",
@@ -275,20 +276,23 @@ async function uploadVerificationPairSettings(
   selfie: File,
 ): Promise<{ prc_document_url: string; selfie_url: string }> {
   const prcExt = extForVerification("license", prc);
-  const selfieExt = extForVerification("selfie", selfie);
   const prcPath = `prc/${userId}/license.${prcExt}`;
-  const selfiePath = `prc/${userId}/selfie.${selfieExt}`;
-  const { error: e1 } = await supabase.storage.from("verification").upload(prcPath, prc, {
-    upsert: true,
-    contentType: prc.type || undefined,
-  });
-  if (e1) throw e1;
-  const { error: e2 } = await supabase.storage.from("verification").upload(selfiePath, selfie, {
-    upsert: true,
-    contentType: selfie.type || undefined,
-  });
-  if (e2) throw e2;
-  return { prc_document_url: prcPath, selfie_url: selfiePath };
+
+  let prc_document_url: string;
+  if (prc.type === "application/pdf" || prcExt === "pdf") {
+    const { error: e1 } = await supabase.storage.from("verification").upload(prcPath, prc, {
+      upsert: true,
+      contentType: prc.type || undefined,
+    });
+    if (e1) throw e1;
+    prc_document_url = prcPath;
+  } else {
+    prc_document_url = await uploadVerificationImageToCloudinary(prc);
+  }
+
+  const selfie_url = await uploadVerificationImageToCloudinary(selfie);
+
+  return { prc_document_url, selfie_url };
 }
 
 type SettingsVerificationDropzoneProps = {
