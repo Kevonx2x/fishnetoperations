@@ -15,6 +15,24 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
     const body = await req.json();
     const rest = body as Record<string, unknown>;
 
+    if (rest.featured === true) {
+      const supabase = createSupabaseAdmin();
+      const { error: clearErr } = await supabase.from("properties").update({ featured: false });
+      if (clearErr) {
+        return NextResponse.json({ error: clearErr.message }, { status: 500 });
+      }
+      const { data, error } = await supabase
+        .from("properties")
+        .update({ featured: true })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ property: data });
+    }
+
     const update: Record<string, string | number | null> = {};
     if (typeof rest.location === "string") update.location = rest.location;
     if (typeof rest.price === "string") update.price = rest.price;

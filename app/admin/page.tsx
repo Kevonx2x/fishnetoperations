@@ -33,6 +33,7 @@ interface Property {
   baths: number;
   image_url: string;
   listed_by?: string | null;
+  featured?: boolean;
 }
 
 interface PendingBroker {
@@ -531,6 +532,7 @@ export default function AdminPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [propertyError, setPropertyError] = useState("");
   const [propertySaving, setPropertySaving] = useState(false);
+  const [featuredSettingId, setFeaturedSettingId] = useState<string | null>(null);
 
   const [pendingBrokers, setPendingBrokers] = useState<PendingBroker[]>([]);
   const [pendingAgents, setPendingAgents] = useState<PendingAgent[]>([]);
@@ -2189,6 +2191,30 @@ export default function AdminPage() {
     }
   };
 
+  const setPropertyFeatured = async (id: string) => {
+    setFeaturedSettingId(id);
+    setPropertyError("");
+    try {
+      const res = await fetch(`/api/admin/properties/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ featured: true }),
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setPropertyError(json.error || "Could not set featured listing");
+        return;
+      }
+      toast.success("Homepage featured listing updated");
+      await fetchProperties();
+    } catch (err) {
+      setPropertyError(err instanceof Error ? err.message : "Could not set featured listing");
+    } finally {
+      setFeaturedSettingId(null);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#FAF8F4] text-sm text-[#2C2C2C]/50">
@@ -3095,6 +3121,18 @@ export default function AdminPage() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex flex-wrap items-center justify-end gap-2">
+                            {p.featured ? (
+                              <span className="text-xs font-semibold text-[#D4A843]">Featured</span>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={featuredSettingId !== null}
+                                onClick={() => void setPropertyFeatured(p.id)}
+                                className="text-sm font-medium text-[#D4A843] underline underline-offset-2 hover:text-[#b88d35] disabled:opacity-50"
+                              >
+                                {featuredSettingId === p.id ? "Saving…" : "Set as Featured"}
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => openManageAgents(p)}

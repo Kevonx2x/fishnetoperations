@@ -661,6 +661,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const [listingViewMode, setListingViewMode] = useState<"browse" | "results">("browse");
 
   const [properties, setProperties] = useState<DbProperty[]>([]);
+  const [featuredHomeProperty, setFeaturedHomeProperty] = useState<DbProperty | null>(null);
   const [agents, setAgents] = useState<MarketplaceAgent[]>([]);
   const [agentHomeExtrasById, setAgentHomeExtrasById] = useState<Record<string, AgentHomeExtra>>({});
   const [loading, setLoading] = useState(true);
@@ -688,24 +689,27 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const loadProperties = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data, error: fetchErr } = await supabase
-      .from("properties")
-      .select(
-        `
+    const selectQ = `
           id, created_at, name, location, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
           is_presale, developer_name, turnover_date, unit_types,
           property_photos (url, sort_order, created_at),
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
-        `,
-      )
-      .or(publicListingExpiryOrFilter())
-      .order("created_at", { ascending: false });
+        `;
+    const expiryOr = publicListingExpiryOrFilter();
+    const [mainRes, featRes] = await Promise.all([
+      supabase.from("properties").select(selectQ).or(expiryOr).order("created_at", { ascending: false }),
+      supabase.from("properties").select(selectQ).eq("featured", true).or(expiryOr).limit(1).maybeSingle(),
+    ]);
 
-    if (fetchErr) {
-      setError(fetchErr.message);
+    if (mainRes.error) {
+      setError(mainRes.error.message);
       setProperties([]);
+      setFeaturedHomeProperty(null);
     } else {
-      setProperties((data ?? []) as unknown as DbProperty[]);
+      setProperties((mainRes.data ?? []) as unknown as DbProperty[]);
+      setFeaturedHomeProperty(
+        featRes.error || !featRes.data ? null : (featRes.data as unknown as DbProperty),
+      );
     }
     setLoading(false);
   }, []);
@@ -1033,8 +1037,10 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       .sort((a, b) => b.score - a.score)
       .slice(0, 12);
   }, [agents, cityFilterMeta, mergeLiveAvailability]);
-  const featured = useMemo(() => properties[0] ?? null, [properties]);
-  const featuredPhotos = useMemo(() => (featured ? roomUrlsFor(featured) : []), [featured]);
+  const featuredPhotos = useMemo(
+    () => (featuredHomeProperty ? roomUrlsFor(featuredHomeProperty) : []),
+    [featuredHomeProperty],
+  );
 
   const scrollRow = (ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") => {
     const el = ref.current;
@@ -1776,61 +1782,74 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
             <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
 
             {/* 8. FEATURED PROPERTY */}
-            {featured ? (
+            {featuredHomeProperty ? (
               <section className="mt-12">
-                <Link
-                  href={`/properties/${encodeURIComponent(featured.id)}`}
-                  className="block overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm transition hover:shadow-md"
-                >
-                  <div className="relative aspect-video w-full bg-black/5">
-                    <Image
-                      src={featuredPhotos[0] ?? featured.image_url}
-                      alt={featured.name ?? featured.location}
-                      fill
-                      quality={95}
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, min(896px, 100vw)"
-                      loading="lazy"
-                    />
-                  </div>
-                  <div className="p-5 md:p-6">
-                    <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
-                      {featured.name ?? featured.location}
-                    </h2>
-                    {featured.status === "both" || featured.listing_type === "both" ? (
-                      <div className="mt-2 space-y-1">
-                        <p className="font-serif text-xl font-bold text-[#D4A843] md:text-2xl">
-                          Sale {formatPropertyPriceDisplay(featured.price, "for_sale")}
-                        </p>
-                        <p className="font-serif text-lg font-bold text-[#2C2C2C]/90 md:text-xl">
-                          Rent {formatPropertyPriceDisplay(featured.rent_price, "for_rent")}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="mt-2 font-serif text-xl font-bold text-[#D4A843] md:text-2xl">
-                        {formatPropertyPriceDisplay(featured.price, featured.status)}
-                      </p>
-                    )}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80">
-                        {featured.beds ? `${featured.beds} beds` : "Studio"}
-                      </span>
-                      <span className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80">
-                        {featured.baths} baths
-                      </span>
-                      <span className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80">
-                        {featured.sqft} sqft
+                <div className="mx-auto max-w-2xl">
+                  <Link
+                    href={`/properties/${encodeURIComponent(featuredHomeProperty.id)}`}
+                    className="block overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm transition hover:shadow-md"
+                  >
+                    <div className="relative h-48 w-full bg-black/5 lg:h-64">
+                      <Image
+                        src={featuredPhotos[0] ?? featuredHomeProperty.image_url}
+                        alt={featuredHomeProperty.name ?? featuredHomeProperty.location}
+                        fill
+                        quality={95}
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 42rem"
+                        loading="lazy"
+                      />
+                      <span className="absolute left-3 top-3 z-10 rounded-full bg-[#D4A843] px-3 py-1 text-xs font-medium text-white">
+                        FEATURED
                       </span>
                     </div>
-                    <p className="mt-4 flex items-start gap-2 text-sm font-semibold text-[#2C2C2C]/75">
-                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                      <span>{featured.location}</span>
-                    </p>
-                    <span className="mt-5 inline-flex rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-sm">
-                      Learn More
-                    </span>
-                  </div>
-                </Link>
+                    <div className="p-5 md:p-6">
+                      <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
+                        {featuredHomeProperty.name ?? featuredHomeProperty.location}
+                      </h2>
+                      {featuredHomeProperty.status === "both" ||
+                      featuredHomeProperty.listing_type === "both" ? (
+                        <div className="mt-2 space-y-1">
+                          <p className="font-serif text-xl font-bold text-[#D4A843] md:text-2xl">
+                            Sale {formatPropertyPriceDisplay(featuredHomeProperty.price, "for_sale")}
+                          </p>
+                          <p className="font-serif text-lg font-bold text-[#2C2C2C]/90 md:text-xl">
+                            Rent{" "}
+                            {formatPropertyPriceDisplay(
+                              featuredHomeProperty.rent_price,
+                              "for_rent",
+                            )}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-2 font-serif text-xl font-bold text-[#D4A843] md:text-2xl">
+                          {formatPropertyPriceDisplay(
+                            featuredHomeProperty.price,
+                            featuredHomeProperty.status,
+                          )}
+                        </p>
+                      )}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80">
+                          {featuredHomeProperty.beds ? `${featuredHomeProperty.beds} beds` : "Studio"}
+                        </span>
+                        <span className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80">
+                          {featuredHomeProperty.baths} baths
+                        </span>
+                        <span className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80">
+                          {featuredHomeProperty.sqft} sqft
+                        </span>
+                      </div>
+                      <p className="mt-4 flex items-start gap-2 text-sm font-semibold text-[#2C2C2C]/75">
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                        <span>{featuredHomeProperty.location}</span>
+                      </p>
+                      <span className="mt-5 inline-flex rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-sm">
+                        Learn More
+                      </span>
+                    </div>
+                  </Link>
+                </div>
               </section>
             ) : null}
 
