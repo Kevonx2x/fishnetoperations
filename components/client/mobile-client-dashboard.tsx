@@ -73,6 +73,24 @@ const FEED_CARD_CLASS =
 const FEED_CARD_PAD_SM = "p-3";
 const FEED_CARD_PAD_MD = "p-4";
 
+/** All-tab items tied to `property_likes` / `saved_properties` only show while that engagement row still exists. */
+export function filterFeedGroupedByActiveEngagement(
+  grouped: { bucket: TimeBucket; label: string; items: FeedUnion[] }[],
+  likes: { has: (id: string) => boolean },
+  pins: { has: (id: string) => boolean },
+): { bucket: TimeBucket; label: string; items: FeedUnion[] }[] {
+  return grouped
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((item) => {
+        if (item.kind === "pin_activity") return likes.has(item.property.id);
+        if (item.kind === "saved_property") return pins.has(item.property.id);
+        return true;
+      }),
+    }))
+    .filter((g) => g.items.length > 0);
+}
+
 type MainTab = "my_profile" | "all" | "pins" | "likes" | "badges" | "documents";
 
 const BADGE_UNLOCK_PILL: Record<BadgeSlug, string> = {
@@ -520,11 +538,32 @@ export function MobileClientDashboard() {
     [feedGrouped],
   );
 
+  const feedGroupedAllActive = useMemo(
+    () => filterFeedGroupedByActiveEngagement(feedGroupedAll, likes, pins),
+    [feedGroupedAll, likes, pins],
+  );
+
   const savedRowsFiltered = useMemo(
     () => filterSavedRowsByMode(savedRows, listingMode),
     [savedRows, listingMode],
   );
+  const savedRowsPinnedActive = useMemo(
+    () =>
+      savedRowsFiltered.filter((r) => {
+        const p = oneProperty(r.properties);
+        return Boolean(p?.id && pins.has(p.id));
+      }),
+    [savedRowsFiltered, pins],
+  );
   const likeRowsFiltered = useMemo(() => filterLikeRowsByMode(likeRows, listingMode), [likeRows, listingMode]);
+  const likeRowsLikedActive = useMemo(
+    () =>
+      likeRowsFiltered.filter((r) => {
+        const p = oneProperty(r.properties);
+        return Boolean(p?.id && likes.has(p.id));
+      }),
+    [likeRowsFiltered, likes],
+  );
 
   const openOwnDocument = async (file_url: string) => {
     setViewBusyUrl(file_url);
@@ -756,7 +795,7 @@ export function MobileClientDashboard() {
         ) : mainTab === "all" ? (
           <div>
             <AllFeedTab
-              grouped={feedGroupedAll}
+              grouped={feedGroupedAllActive}
               feedAgentMeta={feedAgentMeta}
               likes={likes}
               pins={pins}
@@ -766,12 +805,12 @@ export function MobileClientDashboard() {
         ) : mainTab === "pins" ? (
           <div>
             <ListingSubTabs mode={listingMode} onChange={setListingMode} />
-            <SavedPinsTab savedRows={savedRowsFiltered} />
+            <SavedPinsTab savedRows={savedRowsPinnedActive} pins={pins} />
           </div>
         ) : mainTab === "likes" ? (
           <div>
             <ListingSubTabs mode={listingMode} onChange={setListingMode} />
-            <LikedPropertiesTab likeRows={likeRowsFiltered} />
+            <LikedPropertiesTab likeRows={likeRowsLikedActive} likes={likes} />
           </div>
         ) : mainTab === "badges" ? (
           <BadgesTab badges={badges} />
@@ -883,6 +922,7 @@ export function AllFeedTab({
                     property={item.property}
                     createdAt={item.created_at}
                     feedAgentMeta={feedAgentMeta}
+                    likes={likes}
                   />
                 )}
               </li>
@@ -998,11 +1038,11 @@ function SavedPropertyBigCard({
   return (
     <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD)}>
       <PinSaveFeedCardHeader
-        beforePostedBy="You saved this listing"
+        beforePostedBy="You pinned this listing"
         createdAt={createdAt}
         agent={agent}
         locationLine={property.location ?? ""}
-        headerBadgeKind="heart"
+        headerBadgeKind="pin"
       />
       {img && pid ? (
         <FeedPhotoOverlay
@@ -1012,7 +1052,6 @@ function SavedPropertyBigCard({
           priceDisplay={price}
           likes={likes}
           pins={pins}
-          showPinButton={false}
         />
       ) : null}
       {pid ? (
@@ -1302,6 +1341,7 @@ function ListingLikeSmallCard({
   property,
   createdAt,
   feedAgentMeta,
+  likes,
 }: {
   property: PropertyRow;
   createdAt: string;
@@ -1309,16 +1349,18 @@ function ListingLikeSmallCard({
     string,
     { agentName: string; agentAvatarUrl: string | null; agentId: string | null }
   >;
+  likes: LikePinApi;
 }) {
   const title = property.name?.trim() || property.location || "Listing";
   const ag = feedAgentMeta[property.id];
+  const liked = likes.has(property.id);
 
   return (
     <article
       className={cn(
         FEED_CARD_CLASS,
         FEED_CARD_PAD_SM,
-        "flex items-center gap-3 text-gray-900",
+        "flex items-center gap-2 text-gray-900 sm:gap-3",
       )}
     >
       <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-red-50">
@@ -1331,13 +1373,40 @@ function ListingLikeSmallCard({
           <p className="mt-0.5 text-xs font-medium text-[#6B9E6E]">{ag.agentName}</p>
         ) : null}
       </div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          void likes.toggle(property.id);
+        }}
+        className={cn(
+          "shrink-0 rounded-full p-1.5 ring-1 ring-black/10 transition hover:bg-red-50",
+          liked ? "bg-white" : "bg-white/80",
+        )}
+        aria-label={liked ? "Unlike" : "Like"}
+      >
+        <Heart
+          className={cn(
+            "h-4 w-4 shrink-0",
+            liked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
+          )}
+          aria-hidden
+        />
+      </button>
       <span className="shrink-0 text-xs text-gray-500">{formatNotificationTimeAgo(createdAt)}</span>
     </article>
   );
 }
 
 /** Heart/liked listings from `property_likes` (same source as usePropertyLikes). */
-export function LikedPropertiesTab({ likeRows }: { likeRows: LikeJoinRow[] }) {
+export function LikedPropertiesTab({
+  likeRows,
+  likes,
+}: {
+  likeRows: LikeJoinRow[];
+  likes: LikePinApi;
+}) {
   if (likeRows.length === 0) {
     return (
       <EmptyState
@@ -1354,27 +1423,53 @@ export function LikedPropertiesTab({ likeRows }: { likeRows: LikeJoinRow[] }) {
         const p = oneProperty(r.properties);
         if (!p) return null;
         const img = pickPropertyImage(p);
+        const liked = likes.has(p.id);
         return (
-          <Link
+          <div
             key={`like-${r.created_at}-${p.id}`}
-            href={`/properties/${p.id}`}
-            className="flex items-center gap-3 overflow-hidden rounded-2xl bg-white p-4 shadow-lg ring-1 ring-[#E5E5E5] transition-all duration-200 active:opacity-90"
+            className="relative overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-[#E5E5E5]"
           >
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold text-[#2C2C2C]">{p.name?.trim() || "Listing"}</p>
-              <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
-              <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
-            </div>
-            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[#E5E5E5]/60">
-              {img ? (
-                <Image src={img} alt="" fill className="object-cover" sizes="56px" unoptimized />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <Heart className="h-6 w-6 fill-red-500/30 text-red-400" aria-hidden />
-                </div>
+            <Link
+              href={`/properties/${p.id}`}
+              className="flex items-center gap-3 p-4 pr-14 transition-all duration-200 active:opacity-90"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-[#2C2C2C]">{p.name?.trim() || "Listing"}</p>
+                <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
+                <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
+              </div>
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[#E5E5E5]/60">
+                {img ? (
+                  <Image src={img} alt="" fill className="object-cover" sizes="56px" unoptimized />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Heart className="h-6 w-6 fill-red-500/30 text-red-400" aria-hidden />
+                  </div>
+                )}
+              </div>
+            </Link>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void likes.toggle(p.id);
+              }}
+              className={cn(
+                "absolute right-3 top-1/2 z-[1] -translate-y-1/2 rounded-full p-2 shadow-md ring-1 ring-black/10 transition hover:bg-[#FAF8F4]",
+                liked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/90",
               )}
-            </div>
-          </Link>
+              aria-label={liked ? "Unlike" : "Like"}
+            >
+              <Heart
+                className={cn(
+                  "h-5 w-5 shrink-0",
+                  liked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
+                )}
+                aria-hidden
+              />
+            </button>
+          </div>
         );
       })}
     </div>
@@ -1488,7 +1583,7 @@ export function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_
 }
 
 /** Pinned listings from `saved_properties` (same source as usePinnedPropertyIds / pin action). */
-export function SavedPinsTab({ savedRows }: { savedRows: SavedJoinRow[] }) {
+export function SavedPinsTab({ savedRows, pins }: { savedRows: SavedJoinRow[]; pins: LikePinApi }) {
   if (savedRows.length === 0) {
     return (
       <EmptyState
@@ -1505,26 +1600,46 @@ export function SavedPinsTab({ savedRows }: { savedRows: SavedJoinRow[] }) {
         const p = oneProperty(r.properties);
         if (!p) return null;
         const img = pickPropertyImage(p);
+        const pinned = pins.has(p.id);
         return (
-          <Link
+          <div
             key={`saved-${r.created_at}-${p.id}`}
-            href={`/properties/${p.id}`}
-            className="relative block overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-[#E5E5E5] transition-all duration-200"
+            className="relative overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-[#E5E5E5]"
           >
-            <div className="relative h-[200px] w-full bg-[#E5E5E5]/40">
-              {img ? (
-                <Image src={img} alt="" fill className="object-cover" sizes="100vw" unoptimized />
-              ) : null}
-              <div className="absolute right-3 top-3">
-                <Bookmark className="h-7 w-7 fill-[#D4A843] text-[#D4A843]" aria-hidden />
+            <Link href={`/properties/${p.id}`} className="relative block transition-all duration-200">
+              <div className="relative h-[200px] w-full bg-[#E5E5E5]/40">
+                {img ? (
+                  <Image src={img} alt="" fill className="object-cover" sizes="100vw" unoptimized />
+                ) : null}
               </div>
-            </div>
-            <div className="p-4">
-              <p className="font-semibold text-[#2C2C2C]">{p.name?.trim() || "Listing"}</p>
-              <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
-              <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
-            </div>
-          </Link>
+              <div className="p-4">
+                <p className="font-semibold text-[#2C2C2C]">{p.name?.trim() || "Listing"}</p>
+                <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
+                <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
+              </div>
+            </Link>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void pins.toggle(p.id);
+              }}
+              className={cn(
+                "absolute right-3 top-3 z-[1] rounded-full bg-white/95 p-2 shadow-md ring-1 ring-black/10 transition hover:bg-[#FAF8F4]",
+                pinned ? "border border-[#D4A843]/40" : "border border-gray-200",
+              )}
+              aria-label={pinned ? "Unpin" : "Pin"}
+            >
+              <Pin
+                className={cn(
+                  "h-5 w-5 shrink-0",
+                  pinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
+                )}
+                aria-hidden
+              />
+            </button>
+          </div>
         );
       })}
     </div>

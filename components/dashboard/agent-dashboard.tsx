@@ -1526,7 +1526,7 @@ export function AgentDashboard() {
       </div>
 
       {/* Mobile bottom bar — Home, Overview, Pipeline, Listings, More */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-stretch justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-1 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-1 py-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
         <button
           type="button"
           onClick={() => {
@@ -1554,14 +1554,20 @@ export function AgentDashboard() {
                 tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
               }`}
             >
+              {t.id === "pipeline" ? (
+                <span
+                  className="pointer-events-none absolute left-1/2 top-0.5 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[#6B9E6E]"
+                  aria-hidden
+                />
+              ) : null}
               <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
                 {t.id === "pipeline" ? (
                   <GitBranch className="h-7 w-7" aria-hidden />
                 ) : (
-                  t.icon
+                  <span className="inline-flex [&_svg]:h-5 [&_svg]:w-5">{t.icon}</span>
                 )}
               </span>
-              {t.label}
+              <span className={t.id === "pipeline" ? "text-xs" : ""}>{t.label}</span>
               {t.id === "pipeline" && newLeadsCount > 0 ? (
                 <span className="absolute right-1 top-0.5 h-2 w-2 rounded-full bg-[#D4A843]" />
               ) : null}

@@ -46,6 +46,7 @@ import {
   AllFeedTab,
   BadgesTab,
   DocumentsTab,
+  filterFeedGroupedByActiveEngagement,
 } from "@/components/client/mobile-client-dashboard";
 
 type PropertyRow = {
@@ -271,13 +272,29 @@ function ClientPublicProfilePageInner() {
       .filter((g) => g.items.length > 0);
   }, [ownFeedGrouped, ownListingMode, ownPropertyStatusById]);
 
+  const ownFeedGroupedActiveEngagement = useMemo(
+    () => filterFeedGroupedByActiveEngagement(ownFeedGroupedFiltered, likes, pins),
+    [ownFeedGroupedFiltered, likes, pins],
+  );
+
   const ownLikeRowsFiltered = useMemo(
     () => filterLikeRowsByMode(ownLikeRows, ownListingMode),
     [ownLikeRows, ownListingMode],
   );
 
+  const ownLikeRowsActive = useMemo(
+    () =>
+      ownLikeRowsFiltered.filter((r) => {
+        const h = oneProperty(r.properties);
+        return Boolean(h?.id && likes.has(h.id));
+      }),
+    [ownLikeRowsFiltered, likes],
+  );
+
   const ownPinsSorted = useMemo(() => {
-    const list = properties.filter((p) => passesOwnListingMode(p, ownListingMode));
+    const list = properties.filter(
+      (p) => passesOwnListingMode(p, ownListingMode) && pins.has(p.id),
+    );
     list.sort((a, b) => {
       const pa = pinnedAtByPropertyId[a.id];
       const pb = pinnedAtByPropertyId[b.id];
@@ -286,7 +303,7 @@ function ClientPublicProfilePageInner() {
       return tb - ta;
     });
     return list;
-  }, [properties, ownListingMode, pinnedAtByPropertyId]);
+  }, [properties, ownListingMode, pinnedAtByPropertyId, pins]);
 
   const openOwnDesktopDocument = useCallback(async (file_url: string) => {
     setOwnDocViewBusy(file_url);
@@ -822,11 +839,12 @@ function ClientPublicProfilePageInner() {
           delete next[propertyId];
           return next;
         });
+        void pins.toggle(propertyId);
       } finally {
         setRemovingId(null);
       }
     },
-    [clientId, supabase, user?.id],
+    [clientId, supabase, user?.id, pins],
   );
 
   const openViewingForProperty = useCallback(
@@ -1447,7 +1465,7 @@ function ClientPublicProfilePageInner() {
                     ) : (
                       <div className="mt-8">
                         <AllFeedTab
-                          grouped={ownFeedGroupedFiltered}
+                          grouped={ownFeedGroupedActiveEngagement}
                           feedAgentMeta={ownFeedAgentMeta}
                           likes={likes}
                           pins={pins}
@@ -1508,7 +1526,7 @@ function ClientPublicProfilePageInner() {
                         <div className="h-72 animate-pulse rounded-2xl bg-[#E8E6E1]" />
                         <div className="h-72 animate-pulse rounded-2xl bg-[#E8E6E1]" />
                       </div>
-                    ) : ownLikeRowsFiltered.length === 0 ? (
+                    ) : ownLikeRowsActive.length === 0 ? (
                       <div className="mt-12 flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-[#FAF8F4]/50 py-16 text-center">
                         <Heart className="h-14 w-14 text-[#6B9E6E]/50" strokeWidth={1.25} />
                         <p className="mt-4 font-medium text-[#2C2C2C]/70">
@@ -1523,7 +1541,7 @@ function ClientPublicProfilePageInner() {
                       </div>
                     ) : (
                       <div className="mt-8 flex flex-col gap-4">
-                        {ownLikeRowsFiltered.map((r) => {
+                        {ownLikeRowsActive.map((r) => {
                           const full = propertyRowFromLikeJoin(r, properties);
                           if (!full) return null;
                           return renderWishlistFacebookCard(full, {
