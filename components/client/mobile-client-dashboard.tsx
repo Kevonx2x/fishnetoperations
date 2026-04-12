@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Bookmark,
@@ -35,6 +35,7 @@ import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { labelForClientDocType } from "@/lib/client-documents";
 import { formatNotificationTimeAgo } from "@/components/notifications/notification-list";
 import { cn } from "@/lib/utils";
+import { ClientMobileBottomNav } from "@/components/client/client-mobile-bottom-nav";
 
 const FEED_CARD_CLASS =
   "rounded-2xl border border-gray-100 bg-white shadow-md transition-transform duration-150 active:scale-95 md:hover:shadow-lg";
@@ -1230,7 +1231,7 @@ export function MobileClientDashboard() {
         )}
       </main>
 
-      <BottomNav
+      <ClientMobileBottomNav
         pathname={pathname}
         userId={user.id}
         avatarUrl={avatarUrl}
@@ -1675,20 +1676,21 @@ function LikedPropertiesTab({ likeRows }: { likeRows: LikeJoinRow[] }) {
           <Link
             key={`like-${r.created_at}-${p.id}`}
             href={`/properties/${p.id}`}
-            className="relative block overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-[#E5E5E5] transition-all duration-200"
+            className="flex items-center gap-3 overflow-hidden rounded-2xl bg-white p-4 shadow-lg ring-1 ring-[#E5E5E5] transition-all duration-200 active:opacity-90"
           >
-            <div className="relative h-[200px] w-full bg-[#E5E5E5]/40">
-              {img ? (
-                <Image src={img} alt="" fill className="object-cover" sizes="100vw" unoptimized />
-              ) : null}
-              <div className="absolute right-3 top-3">
-                <Heart className="h-7 w-7 fill-red-500 text-red-500" aria-hidden />
-              </div>
-            </div>
-            <div className="p-4">
+            <div className="min-w-0 flex-1">
               <p className="font-semibold text-[#2C2C2C]">{p.name?.trim() || "Listing"}</p>
               <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
               <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
+            </div>
+            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[#E5E5E5]/60">
+              {img ? (
+                <Image src={img} alt="" fill className="object-cover" sizes="56px" unoptimized />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <Heart className="h-6 w-6 fill-red-500/30 text-red-400" aria-hidden />
+                </div>
+              )}
             </div>
           </Link>
         );
@@ -1963,79 +1965,3 @@ function EmptyState({
   );
 }
 
-function BottomNav({
-  pathname,
-  userId,
-  avatarUrl,
-  fullName,
-  unreadCount,
-}: {
-  pathname: string;
-  userId: string;
-  avatarUrl: string | null;
-  fullName: string;
-  unreadCount: number;
-}) {
-  const initial = fullName.trim().slice(0, 1).toUpperCase() || "?";
-  const profileHref = `/clients/${encodeURIComponent(userId)}`;
-  const profileActive = pathname.startsWith("/clients/");
-
-  const Item = ({
-    href,
-    label,
-    icon: Icon,
-    active,
-    children,
-  }: {
-    href: string;
-    label: string;
-    icon?: typeof Home;
-    active: boolean;
-    children?: ReactNode;
-  }) => (
-    <Link
-      href={href}
-      className={cn(
-        "relative flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[10px] font-semibold transition-all duration-200",
-        active ? "text-[#6B9E6E]" : "text-[#6B6B6B]",
-      )}
-    >
-      {children ?? (Icon ? <Icon className="h-6 w-6" /> : null)}
-      <span className="truncate">{label}</span>
-    </Link>
-  );
-
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-[#E5E5E5] bg-white px-1 py-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-      <Item href="/" label="Home" icon={Home} active={pathname === "/"} />
-      <Item href="/notifications" label="Notifications" active={pathname.startsWith("/notifications")}>
-        <span className="relative">
-          <Bell className="h-6 w-6" />
-          {unreadCount > 0 ? (
-            <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold text-white">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          ) : null}
-        </span>
-      </Item>
-      <Link
-        href={profileHref}
-        className={cn(
-          "relative flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-[10px] font-semibold transition-all duration-200",
-          profileActive ? "text-[#6B9E6E]" : "text-[#6B6B6B]",
-        )}
-      >
-        <span className="relative h-7 w-7 overflow-hidden rounded-full bg-[#6B9E6E] ring-2 ring-[#E5E5E5]">
-          {avatarUrl ? (
-            <Image src={avatarUrl} alt="" fill className="object-cover" sizes="28px" unoptimized />
-          ) : (
-            <span className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-white">
-              {initial}
-            </span>
-          )}
-        </span>
-        <span className="truncate">Profile</span>
-      </Link>
-    </nav>
-  );
-}

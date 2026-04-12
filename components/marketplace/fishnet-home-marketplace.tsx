@@ -394,7 +394,7 @@ function HomepageFaqSection({
   setOpenFaqIndex: React.Dispatch<React.SetStateAction<number | null>>;
 }) {
   return (
-    <section className="mx-auto mt-12 max-w-3xl px-4 pb-16" aria-labelledby="homepage-faq-heading">
+    <section className="mx-auto mt-8 max-w-3xl px-4 pb-16" aria-labelledby="homepage-faq-heading">
       <h2 id="homepage-faq-heading" className="text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
         Frequently Asked Questions
       </h2>
@@ -1157,7 +1157,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         {!loading && !error ? (
           <>
             {/* PROPERTY LISTING SECTION (controlled by Buy/Rent toggle) */}
-            <section id="listings" className="min-h-[400px]">
+            <section id="listings">
               {!neighborhoodFilter ? (
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -1678,7 +1678,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               </section>
             ) : null}
 
-            <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
+            <hr className="mx-auto mt-8 w-3/4 border-t border-[#2C2C2C]/10" />
           </>
         ) : null}
       </main>

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bell } from "lucide-react";
+import { ClientMobileBottomNav } from "@/components/client/client-mobile-bottom-nav";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -27,11 +28,38 @@ function dayLabel(iso: string): "today" | "yesterday" | "week" | "older" {
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const pathname = usePathname();
+  const { user, profile, role, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [rows, setRows] = useState<NotificationListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [markingAll, setMarkingAll] = useState(false);
+  const [bottomNavUnread, setBottomNavUnread] = useState(0);
+
+  const refreshBottomNavUnread = useCallback(async () => {
+    if (!user?.id) {
+      setBottomNavUnread(0);
+      return;
+    }
+    const { count } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .is("read_at", null);
+    setBottomNavUnread(count ?? 0);
+  }, [user?.id, supabase]);
+
+  useEffect(() => {
+    void refreshBottomNavUnread();
+  }, [refreshBottomNavUnread]);
+
+  useEffect(() => {
+    const onRead = () => {
+      void refreshBottomNavUnread();
+    };
+    window.addEventListener("bahaygo:notifications-read", onRead);
+    return () => window.removeEventListener("bahaygo:notifications-read", onRead);
+  }, [refreshBottomNavUnread]);
 
   const load = useCallback(async () => {
     if (!user?.id) {
@@ -166,10 +194,14 @@ export default function NotificationsPage() {
     );
   }
 
+  const showClientMobileNav = role === "client" && user?.id;
+
   return (
     <div className="min-h-screen bg-[#FAF8F4]">
       <MaddenTopNav />
-      <main className="mx-auto max-w-2xl px-4 py-8 sm:py-10">
+      <main
+        className={`mx-auto max-w-2xl px-4 py-8 sm:py-10${showClientMobileNav ? " pb-28" : ""}`}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-serif text-3xl font-semibold text-[#2C2C2C]">Notifications</h1>
@@ -201,6 +233,15 @@ export default function NotificationsPage() {
           </>
         )}
       </main>
+      {showClientMobileNav ? (
+        <ClientMobileBottomNav
+          pathname={pathname}
+          userId={user.id}
+          avatarUrl={profile?.avatar_url?.trim() || null}
+          fullName={profile?.full_name?.trim() ?? ""}
+          unreadCount={bottomNavUnread}
+        />
+      ) : null}
     </div>
   );
 }

@@ -433,7 +433,7 @@ export function MaddenTopNav() {
                 <path fill="#D4A843" d="M20 2 L36 14 L36 32 L4 32 L4 14 Z" />
                 <rect x="16" y="22" width="8" height="10" rx="1" fill="#FAF8F4" />
               </svg>
-              <span className="font-serif text-[1.35rem] font-semibold leading-none tracking-tight text-[#2C2C2C]">
+              <span className="font-serif text-[1.35rem] font-semibold leading-none tracking-tight text-[#6B9E6E]">
                 BahayGo
               </span>
             </span>
