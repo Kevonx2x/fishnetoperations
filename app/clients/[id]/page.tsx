@@ -30,6 +30,7 @@ import { MobileClientDashboard } from "@/components/client/mobile-client-dashboa
 import { parseClientDocRequestParams } from "@/components/settings/client-documents-panel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { ReportProfileButton } from "@/components/report-profile-button";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 
@@ -927,6 +928,7 @@ export default function ClientPublicProfilePage() {
                     </Link>
                   </div>
                 ) : null}
+                {!isOwn ? <ReportProfileButton reportedUserId={clientId} /> : null}
               </div>
               {showClientPrefsCard && clientPrefs ? (
                 <div className="mt-6 w-full rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-5 text-left shadow-sm">

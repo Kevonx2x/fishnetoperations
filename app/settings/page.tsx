@@ -453,6 +453,8 @@ function SettingsPageInner() {
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteAccountBusy, setDeleteAccountBusy] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
 
   const [broker, setBroker] = useState<BrokerRow | null>(null);
   const [agent, setAgent] = useState<AgentRow | null>(null);
@@ -1093,6 +1095,35 @@ function SettingsPageInner() {
   const logout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/auth/signout";
+  };
+
+  const submitFeedback = async () => {
+    const t = feedbackText.trim();
+    if (!t) {
+      toast.error("Please enter your feedback.");
+      return;
+    }
+    setFeedbackBusy(true);
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ feedback: t }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok || json.success === false) {
+        toast.error(json.error?.message ?? "Could not send feedback");
+        return;
+      }
+      toast.success("Thanks — we received your feedback.");
+      setFeedbackText("");
+    } finally {
+      setFeedbackBusy(false);
+    }
   };
 
   const showExpiryWarn = (exp: string | null | undefined) =>
@@ -1937,6 +1968,28 @@ function SettingsPageInner() {
             ) : null}
           </div>
         ) : null}
+
+        <div className="mt-10 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+          <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">Feedback</h2>
+          <p className="mt-1 text-sm text-[#2C2C2C]/55">
+            Share ideas, bugs, or anything we should know. It goes straight to our team.
+          </p>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            rows={5}
+            className="mt-4 w-full resize-y rounded-xl border border-[#2C2C2C]/15 bg-[#FAF8F4] px-3 py-2 text-sm text-[#2C2C2C] placeholder:text-[#2C2C2C]/35"
+            placeholder="Your feedback…"
+          />
+          <button
+            type="button"
+            onClick={() => void submitFeedback()}
+            disabled={feedbackBusy}
+            className="mt-4 rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] disabled:opacity-50"
+          >
+            {feedbackBusy ? "Sending…" : "Submit Feedback"}
+          </button>
+        </div>
 
         <div className="mt-10 border-t border-[#2C2C2C]/10 pt-8">
           <button

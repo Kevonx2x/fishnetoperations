@@ -55,6 +55,17 @@ function SiteFooter() {
               <a className="block hover:text-[#2C2C2C]" href="/anti-scam">Anti-scam</a>
               <a className="block hover:text-[#2C2C2C]" href="/saved">Saved</a>
             </div>
+            <div className="space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
+                Support
+              </p>
+              <a
+                className="block text-sm font-semibold text-[#2C2C2C]/70 hover:text-[#2C2C2C]"
+                href="mailto:support@bahaygo.com"
+              >
+                support@bahaygo.com
+              </a>
+            </div>
           </div>
 
           <div className="flex items-center gap-3 text-[#2C2C2C]/55">

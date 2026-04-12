@@ -52,6 +52,7 @@ import { toast } from "sonner";
 import { shouldPulseEngagement, writeSeenEngagementCount } from "@/lib/engagement-seen-storage";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagement";
+import { ReportProfileButton } from "@/components/report-profile-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -859,6 +860,9 @@ export default function AgentProfilePage() {
                       Contact
                     </button>
                   </div>
+                  {agent ? (
+                    <ReportProfileButton reportedUserId={agent.user_id} disabled={isOwnProfile} />
+                  ) : null}
                 </div>
               </aside>
 

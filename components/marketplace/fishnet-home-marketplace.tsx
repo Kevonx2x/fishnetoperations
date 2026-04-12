@@ -1597,7 +1597,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               <section className="mt-12">
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                   <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
-                    <div className="relative aspect-video w-full bg-black/5">
+                    <div className="relative h-64 w-full bg-black/5 lg:h-auto lg:aspect-video">
                       <Image
                         src={featuredPhotos[0] ?? featured.image_url}
                         alt={featured.name ?? featured.location}
@@ -1629,7 +1629,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+                  <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm max-lg:px-5 max-lg:py-7">
                     <div className="flex items-center gap-2">
                       <span className="rounded-full bg-[#D4A843]/18 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#8a6d32]">
                         Featured
@@ -1648,21 +1648,21 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         </span>
                       )}
                     </div>
-                    <h2 className="mt-3 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">
+                    <h2 className="mt-3 font-serif text-xl font-bold tracking-tight text-[#2C2C2C] lg:text-3xl">
                       {featured.name ?? featured.location}
                     </h2>
-                    <p className="mt-2 font-serif text-2xl font-bold text-[#2C2C2C]">
+                    <p className="mt-2 font-serif text-lg font-bold text-[#2C2C2C] lg:text-2xl">
                       {formatPropertyPriceDisplay(featured.price, featured.status)}
                     </p>
-                    <p className="mt-3 text-sm font-semibold text-[#2C2C2C]/60">
+                    <p className="mt-3 text-base font-semibold text-[#2C2C2C]/60 lg:text-sm">
                       {featured.beds ? `${featured.beds} beds` : "Studio"} · {featured.baths} baths · {featured.sqft} sqft
                     </p>
-                    <p className="mt-4 text-sm leading-relaxed text-[#2C2C2C]/60">
+                    <p className="mt-4 text-base leading-relaxed text-[#2C2C2C]/60 lg:text-sm">
                       A vivid, high-contrast listing with verified agents underneath—built to feel like Zillow, but safer.
                     </p>
                     <Link
                       href={`/properties/${encodeURIComponent(featured.id)}`}
-                      className="mt-4 inline-flex rounded-full bg-[#2C2C2C] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#6B9E6E]"
+                      className="mt-4 inline-flex rounded-full bg-[#2C2C2C] px-6 py-3 text-base font-semibold text-white shadow-md hover:bg-[#6B9E6E] lg:text-sm"
                     >
                       Learn More →
                     </Link>
