@@ -174,7 +174,9 @@ type ManualSubTab =
   | "pipeline"
   | "dailyOps"
   | "scale"
-  | "emergency";
+  | "emergency"
+  | "team"
+  | "legal";
 
 const MANUAL_SUB_TABS: { id: ManualSubTab; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -184,6 +186,90 @@ const MANUAL_SUB_TABS: { id: ManualSubTab; label: string }[] = [
   { id: "dailyOps", label: "Daily Ops" },
   { id: "scale", label: "Scale" },
   { id: "emergency", label: "Emergency" },
+  { id: "team", label: "Team" },
+  { id: "legal", label: "Legal" },
+];
+
+const LEGAL_MANUAL_STORAGE_KEY = "bahaygo-admin-manual-legal-checklist";
+
+type LegalManualRisk = "High" | "Medium" | "Low";
+
+const LEGAL_MANUAL_ITEMS: {
+  id: string;
+  title: string;
+  description: string;
+  risk: LegalManualRisk;
+}[] = [
+  {
+    id: "npc_registration",
+    title: "NPC Registration",
+    description:
+      "Required when you reach 1,000 personal data records. High risk if missed — fines up to 5 million pesos.",
+    risk: "High",
+  },
+  {
+    id: "dpa_compliance",
+    title: "Data Privacy Act Compliance",
+    description:
+      "DPA consent on all forms; privacy policy live on the site and linked wherever you collect data.",
+    risk: "High",
+  },
+  {
+    id: "prc_disclaimer",
+    title: "PRC Verification Disclaimer",
+    description:
+      "Agents are verified by BahayGo processes; verification is not a government guarantee of licensure status.",
+    risk: "Medium",
+  },
+  {
+    id: "hold_harmless",
+    title: "Hold Harmless Clause",
+    description:
+      "Terms of Service should protect BahayGo from liability for fraudulent or inaccurate listings and user-generated content.",
+    risk: "Medium",
+  },
+  {
+    id: "aml",
+    title: "Anti-Money Laundering",
+    description:
+      "Real estate transactions over 500k PHP may require AMLC reporting when BahayGo processes or facilitates payments.",
+    risk: "High",
+  },
+  {
+    id: "sec_registration",
+    title: "SEC Registration",
+    description:
+      "Required if you take investment or grant co-founders equity; structure the entity before taking outside capital.",
+    risk: "High",
+  },
+  {
+    id: "bir_registration",
+    title: "BIR Registration",
+    description:
+      "Required once you have revenue; register as sole proprietor or corporation and issue receipts as required.",
+    risk: "High",
+  },
+  {
+    id: "business_permit",
+    title: "Business Permit",
+    description:
+      "Local government unit permit for Taguig or wherever you operate the business.",
+    risk: "Medium",
+  },
+  {
+    id: "intellectual_property",
+    title: "Intellectual Property",
+    description:
+      "Trademark the BahayGo name and logo with IPOPHL to protect the brand in the Philippines.",
+    risk: "Medium",
+  },
+  {
+    id: "agent_liability",
+    title: "Agent Liability",
+    description:
+      "Agents are independent contractors, not employees; reflect this in agent terms and onboarding.",
+    risk: "Low",
+  },
 ];
 
 interface PropertyConnectedAgent {
@@ -331,6 +417,31 @@ export default function AdminPage() {
   >("leads");
 
   const [manualSubTab, setManualSubTab] = useState<ManualSubTab>("overview");
+  const [legalManualChecked, setLegalManualChecked] = useState<Record<string, boolean>>({});
+  const [legalManualHydrated, setLegalManualHydrated] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(LEGAL_MANUAL_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, boolean>;
+        if (parsed && typeof parsed === "object") setLegalManualChecked(parsed);
+      }
+    } catch {
+      /* ignore */
+    }
+    setLegalManualHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!legalManualHydrated || typeof window === "undefined") return;
+    try {
+      localStorage.setItem(LEGAL_MANUAL_STORAGE_KEY, JSON.stringify(legalManualChecked));
+    } catch {
+      /* ignore */
+    }
+  }, [legalManualChecked, legalManualHydrated]);
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(false);
@@ -4561,6 +4672,159 @@ export default function AdminPage() {
                     <p className="mt-2 text-sm text-[#2C2C2C]/85">{row.fix}</p>
                   </div>
                 ))}
+              </div>
+            ) : null}
+
+            {manualSubTab === "team" ? (
+              <div className="space-y-6">
+                <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+                  <p className="text-sm leading-relaxed text-[#2C2C2C]/85">
+                    BahayGo runs as a small operator-led team: the Owner sets product and holds privileged keys;
+                    trusted operators use admin or scoped roles; VAs run outreach and reporting; developers ship
+                    code outside the admin app. Manage access by Supabase profile role, GitHub permissions, and
+                    shared SOPs so nobody gets more access than their job requires.
+                  </p>
+                </div>
+                <div className="overflow-x-auto rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+                  <table className="w-full min-w-[720px]">
+                    <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                      <tr className="text-left text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                        <th className="px-4 py-3">Role</th>
+                        <th className="px-4 py-3">Who</th>
+                        <th className="px-4 py-3">Access</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#2C2C2C]/5 text-sm text-[#2C2C2C]/85">
+                      <tr className="hover:bg-[#FAF8F4]/80">
+                        <td className="px-4 py-3 font-semibold text-[#2C2C2C]">Owner</td>
+                        <td className="px-4 py-3">You (ron.business101@gmail.com)</td>
+                        <td className="px-4 py-3">
+                          Full access to everything, including Credentials and Manual tabs.
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-[#FAF8F4]/80">
+                        <td className="px-4 py-3 font-semibold text-[#2C2C2C]">Co-Founder</td>
+                        <td className="px-4 py-3">Trusted partner</td>
+                        <td className="px-4 py-3">
+                          Full admin access except Credentials (no service passwords or billing secrets in that tab).
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-[#FAF8F4]/80">
+                        <td className="px-4 py-3 font-semibold text-[#2C2C2C]">VA Admin</td>
+                        <td className="px-4 py-3">Virtual assistant lead</td>
+                        <td className="px-4 py-3">
+                          Outreach, VA Reports, and Hiring tabs only (no leads, properties, or user management).
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-[#FAF8F4]/80">
+                        <td className="px-4 py-3 font-semibold text-[#2C2C2C]">Junior Dev</td>
+                        <td className="px-4 py-3">Contractor or hire</td>
+                        <td className="px-4 py-3">No admin panel access; works in GitHub and local codebase only.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+                  <h3 className="font-serif text-lg font-bold text-[#2C2C2C]">How to create roles in Supabase</h3>
+                  <p className="mt-2 text-sm text-[#2C2C2C]/85">
+                    For <span className="font-semibold text-[#2C2C2C]">Co-Founder</span> and{" "}
+                    <span className="font-semibold text-[#2C2C2C]">VA Admin</span>, open the Supabase dashboard →
+                    Table Editor → <span className="font-mono text-xs">profiles</span> → find the user row → set{" "}
+                    <span className="font-mono text-xs">role</span> to{" "}
+                    <span className="font-mono text-xs">co_founder</span> or{" "}
+                    <span className="font-mono text-xs">va_admin</span> (must match how the app enforces admin
+                    routes). Owner stays <span className="font-mono text-xs">admin</span> on the primary account.
+                  </p>
+                  <p className="mt-3 text-sm text-[#2C2C2C]/75">
+                    Junior Dev: add them in GitHub with repo access only; do not set an admin-level profile role.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+                  <h3 className="font-serif text-lg font-bold text-[#2C2C2C]">Onboarding checklist (new team member)</h3>
+                  <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-[#2C2C2C]/85">
+                    <li>Create their Google Workspace email (hiring@ / support@ namespace or a named inbox).</li>
+                    <li>Add them to the GitHub repository with permissions matching their role (read vs write).</li>
+                    <li>Create or invite their Supabase account if they need dashboard access (avoid sharing Owner).</li>
+                    <li>Brief them on the standard operating procedure (SOP) for their scope.</li>
+                  </ol>
+                </div>
+                <div className="rounded-2xl border border-red-200 bg-red-50/80 p-6 shadow-sm">
+                  <h3 className="font-serif text-lg font-bold text-red-900">Never share with team members</h3>
+                  <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-red-950/90">
+                    <li>Supabase service role key</li>
+                    <li>PayMongo secret key</li>
+                    <li>Anthropic API key</li>
+                    <li>Twilio auth token</li>
+                    <li>Admin account password</li>
+                  </ul>
+                  <p className="mt-4 text-sm text-red-900/85">
+                    Use environment variables on Vercel, rotate keys if exposed, and keep Owner-only access to
+                    credential storage.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {manualSubTab === "legal" ? (
+              <div className="space-y-6">
+                <div className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 shadow-sm">
+                  <p className="font-serif text-base font-bold text-amber-950">
+                    These are the legal risks that could shut you down.
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-amber-950/90">
+                    Address High risk items before public launch.
+                  </p>
+                </div>
+                <div className="space-y-4">
+                  {LEGAL_MANUAL_ITEMS.map((item) => {
+                    const riskClass =
+                      item.risk === "High"
+                        ? "border-red-200 bg-red-50 text-red-900"
+                        : item.risk === "Medium"
+                          ? "border-amber-200 bg-amber-50 text-amber-950"
+                          : "border-emerald-200/80 bg-emerald-50 text-emerald-950";
+                    const done = !!legalManualChecked[item.id];
+                    return (
+                      <div
+                        key={item.id}
+                        className={`flex gap-4 rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm ${
+                          done ? "opacity-90" : ""
+                        }`}
+                      >
+                        <div className="pt-0.5">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 shrink-0 rounded border-[#2C2C2C]/25 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                            checked={done}
+                            aria-label={`Mark ${item.title} as done`}
+                            onChange={() =>
+                              setLegalManualChecked((prev) => ({
+                                ...prev,
+                                [item.id]: !prev[item.id],
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-serif text-lg font-bold text-[#2C2C2C]">{item.title}</h3>
+                            <span
+                              className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${riskClass}`}
+                            >
+                              {item.risk} risk
+                            </span>
+                            {done ? (
+                              <span className="rounded-full bg-[#6B9E6E]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-900">
+                                Done
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-2 text-sm text-[#2C2C2C]/80">{item.description}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : null}
           </div>
