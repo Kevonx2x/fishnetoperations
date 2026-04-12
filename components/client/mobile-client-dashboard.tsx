@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Bell,
   Bookmark,
@@ -26,90 +26,55 @@ import {
   Star,
   Tag,
   TrendingUp,
+  User,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePinnedPropertyIds, usePropertyLikes } from "@/hooks/use-property-engagement";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { labelForClientDocType } from "@/lib/client-documents";
 import { formatNotificationTimeAgo } from "@/components/notifications/notification-list";
 import { cn } from "@/lib/utils";
 import { ClientMobileBottomNav } from "@/components/client/client-mobile-bottom-nav";
+import {
+  useClientActivityFeed,
+  filterFeedItemsByListingMode,
+  filterSavedRowsByMode,
+  filterLikeRowsByMode,
+  pickPropertyImage,
+  normalizeBadgeSlug,
+  metaStr,
+  stripPhoneDigits,
+  oneProperty,
+  BADGE_ORDER,
+  type ListingMode,
+  type FeedUnion,
+  type PropertyRow,
+  type SavedJoinRow,
+  type LikeJoinRow,
+  type ClientDocRow,
+  type SharedDocRow,
+  type BadgeSlug,
+  type ClientPrefsRow,
+  type FeedNotificationRow,
+  type TimeBucket,
+} from "@/hooks/use-client-activity-feed";
+import {
+  formatBudgetRangePhp,
+  isClientProfilePrefsComplete,
+  isNonFilipinoCountry,
+  lookingToLabel,
+  preferredLocationsLabel,
+} from "@/lib/client-profile-preferences";
+import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 
 const FEED_CARD_CLASS =
   "rounded-2xl border border-gray-100 bg-white shadow-md transition-transform duration-150 active:scale-95 md:hover:shadow-lg";
 const FEED_CARD_PAD_SM = "p-3";
 const FEED_CARD_PAD_MD = "p-4";
 
-type MainTab = "all" | "pins" | "likes" | "badges" | "documents";
-
-type PropertyPhoto = { url: string; sort_order: number | null };
-
-type PropertyRow = {
-  id: string;
-  name: string | null;
-  location: string;
-  price: string;
-  status: "for_sale" | "for_rent" | "sold" | "rented";
-  image_url: string;
-  property_photos?: PropertyPhoto[] | null;
-};
-
-type SavedJoinRow = { created_at: string; properties: PropertyRow | PropertyRow[] | null };
-type LikeJoinRow = {
-  property_id: string;
-  created_at: string;
-  properties: PropertyRow | PropertyRow[] | null;
-};
-
-function oneProperty(p: PropertyRow | PropertyRow[] | null | undefined): PropertyRow | null {
-  if (!p) return null;
-  return Array.isArray(p) ? (p[0] ?? null) : p;
-}
-
-type ClientDocRow = {
-  id: string;
-  created_at: string;
-  document_type: string;
-  file_url: string;
-  file_name: string | null;
-};
-
-type SharedDocRow = {
-  id: string;
-  created_at: string;
-  metadata: Record<string, unknown> | null;
-};
-
-type BadgeSlug =
-  | "first-save"
-  | "smart-shopper"
-  | "active-hunter"
-  | "early-adopter"
-  | "document-ready"
-  | "welcome-home"
-  | "neighborhood-scout"
-  | "committed"
-  | "in-the-pipeline"
-  | "signed-and-sealed"
-  | "document-pro"
-  | "social-saver";
-
-const BADGE_ORDER: BadgeSlug[] = [
-  "first-save",
-  "smart-shopper",
-  "active-hunter",
-  "early-adopter",
-  "document-ready",
-  "welcome-home",
-  "neighborhood-scout",
-  "committed",
-  "in-the-pipeline",
-  "signed-and-sealed",
-  "document-pro",
-  "social-saver",
-];
+type MainTab = "my_profile" | "all" | "pins" | "likes" | "badges" | "documents";
 
 const BADGE_UNLOCK_PILL: Record<BadgeSlug, string> = {
   "first-save": "Save 1 property",
@@ -286,118 +251,6 @@ const BADGE_META: Record<
   },
 };
 
-const KNOWN_BADGE_SLUGS = new Set<string>(BADGE_ORDER);
-
-function normalizeBadgeSlug(raw: string | null | undefined): BadgeSlug | null {
-  const t = (raw ?? "").trim();
-  return KNOWN_BADGE_SLUGS.has(t) ? (t as BadgeSlug) : null;
-}
-
-type FeedNotificationRow = {
-  id: string;
-  created_at: string;
-  type: string;
-  title: string;
-  body: string | null;
-  metadata: Record<string, unknown> | null;
-};
-
-type FeedUnion =
-  | {
-      kind: "saved_property";
-      sortAt: string;
-      property: PropertyRow;
-      created_at: string;
-      saveKey: string;
-    }
-  | {
-      kind: "agent";
-      sortAt: string;
-      notification: FeedNotificationRow;
-      agentPhone: string | null;
-      property?: PropertyRow | null;
-      propertyId: string;
-      imageUrl: string;
-      priceDisplay: string;
-      showSavedPill: boolean;
-    }
-  | {
-      kind: "price_drop_al";
-      sortAt: string;
-      id: string;
-      propertyId: string;
-      propertyName: string;
-      oldPrice: string;
-      newPrice: string;
-      thumbUrl: string;
-    }
-  | {
-      kind: "listing_edited_al";
-      sortAt: string;
-      id: string;
-      propertyId: string;
-      propertyName: string;
-      editedByName: string;
-      thumbUrl: string;
-    }
-  | {
-      kind: "badge";
-      sortAt: string;
-      notification: FeedNotificationRow;
-    }
-  | {
-      kind: "badge_earned";
-      sortAt: string;
-      badge_slug: BadgeSlug;
-      earned_at: string;
-      feedKey: string;
-    }
-  | {
-      kind: "viewing_confirmed";
-      sortAt: string;
-      notification: FeedNotificationRow;
-    }
-  | {
-      kind: "pin_activity";
-      sortAt: string;
-      likeKey: string;
-      property: PropertyRow;
-      created_at: string;
-    };
-
-type NotifPrefs = {
-  price_drop: boolean;
-  new_listing_followed_agent: boolean;
-  badge_earned: boolean;
-  document_request: boolean;
-  pipeline_stage: boolean;
-  viewing_request_confirmed: boolean;
-};
-
-function parseNotifPrefs(raw: unknown): NotifPrefs {
-  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  return {
-    price_drop: o.price_drop !== false,
-    new_listing_followed_agent: o.new_listing_followed_agent !== false,
-    badge_earned: o.badge_earned !== false,
-    document_request: o.document_request !== false,
-    pipeline_stage: o.pipeline_stage !== false,
-    viewing_request_confirmed: o.viewing_request_confirmed !== false,
-  };
-}
-
-function filterFeedByPrefs(items: FeedUnion[], prefs: NotifPrefs): FeedUnion[] {
-  return items.filter((item) => {
-    if (item.kind === "saved_property") return true;
-    if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") return prefs.price_drop;
-    if (item.kind === "badge") return prefs.badge_earned;
-    if (item.kind === "badge_earned") return prefs.badge_earned;
-    if (item.kind === "agent") return prefs.viewing_request_confirmed;
-    if (item.kind === "viewing_confirmed") return prefs.viewing_request_confirmed;
-    return true;
-  });
-}
-
 function greetingForHour(): string {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
@@ -405,84 +258,10 @@ function greetingForHour(): string {
   return "Good evening";
 }
 
-function pickPropertyImage(p: PropertyRow): string {
-  const photos = p.property_photos;
-  if (photos?.length) {
-    const sorted = [...photos].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    const u = sorted[0]?.url?.trim();
-    if (u) return u;
-  }
-  return p.image_url?.trim() || "";
-}
-
 function firstNameFromFull(full: string): string {
   const t = full.trim();
   if (!t) return "there";
   return t.split(/\s+/)[0] ?? "there";
-}
-
-function stripPhoneDigits(raw: string | null | undefined): string | null {
-  if (!raw?.trim()) return null;
-  const d = raw.replace(/\D/g, "");
-  return d.length >= 10 ? d : null;
-}
-
-function startOfLocalDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-type TimeBucket = "today" | "yesterday" | "this_week" | "earlier";
-
-function bucketForDate(iso: string): TimeBucket {
-  const t = new Date(iso).getTime();
-  const now = new Date();
-  const sod = startOfLocalDay(now).getTime();
-  const dayMs = 86400000;
-  if (t >= sod) return "today";
-  if (t >= sod - dayMs) return "yesterday";
-  if (t >= sod - 7 * dayMs) return "this_week";
-  return "earlier";
-}
-
-const BUCKET_LABEL: Record<TimeBucket, string> = {
-  today: "Today",
-  yesterday: "Yesterday",
-  this_week: "This Week",
-  earlier: "Earlier",
-};
-
-function metaStr(m: Record<string, unknown> | null | undefined, key: string): string {
-  const v = m?.[key];
-  return typeof v === "string" ? v : "";
-}
-
-/** activity_log rows that only reflect client like/pin/save/heart side effects — exclude from listing-update feed. */
-function activityLogMetadataIndicatesEngagementOnly(m: Record<string, unknown> | null | undefined): boolean {
-  if (!m) return false;
-  const source = String(m.source ?? "").toLowerCase();
-  const trigger = String(m.trigger ?? m.triggered_by ?? "").toLowerCase();
-  const t = String(m.type ?? "").toLowerCase();
-  if (m.from_engagement === true || m.from_like === true || m.from_pin === true || m.from_save === true || m.from_heart === true) {
-    return true;
-  }
-  if (typeof m.engagement === "string" && ["like", "pin", "heart", "save"].includes(m.engagement.toLowerCase())) {
-    return true;
-  }
-  const engagementSources = new Set([
-    "like",
-    "pin",
-    "pin_save",
-    "heart",
-    "save",
-    "property_like",
-    "saved_property",
-    "engagement",
-    "engagement_notify",
-  ]);
-  if (engagementSources.has(source) || engagementSources.has(trigger) || engagementSources.has(t)) return true;
-  return false;
 }
 
 type LikePinApi = {
@@ -646,474 +425,89 @@ function PinSaveFeedCardHeader({
   );
 }
 
+function visaExpiryDisplay(iso: string | null | undefined): string {
+  if (!iso?.trim()) return "";
+  const d = new Date(`${iso.trim().slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return "";
+  return `Expires: ${d.toLocaleDateString(undefined, { month: "long", year: "numeric" })}`;
+}
+
+function ListingSubTabs({
+  mode,
+  onChange,
+}: {
+  mode: ListingMode;
+  onChange: (m: ListingMode) => void;
+}) {
+  return (
+    <div className="mb-4 flex flex-wrap gap-2">
+      {(["rent", "sale"] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => onChange(m)}
+          className={cn(
+            "rounded-full px-4 py-2 text-xs font-semibold transition",
+            mode === m
+              ? "bg-[#6B9E6E] text-white shadow-sm"
+              : "border border-[#2C2C2C]/20 bg-white text-[#6B6B6B]",
+          )}
+        >
+          {m === "rent" ? "For Rent" : "For Sale"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function MobileClientDashboard() {
   const { user, loading: authLoading } = useAuth();
   const pathname = usePathname();
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const [mainTab, setMainTab] = useState<MainTab>("pins");
-  const [loading, setLoading] = useState(true);
-  const [fullName, setFullName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [badges, setBadges] = useState<{ badge_slug: BadgeSlug; earned_at: string }[]>([]);
-  const [savedRows, setSavedRows] = useState<SavedJoinRow[]>([]);
-  const [likeRows, setLikeRows] = useState<LikeJoinRow[]>([]);
-  const [ownDocs, setOwnDocs] = useState<ClientDocRow[]>([]);
-  const [sharedDocs, setSharedDocs] = useState<SharedDocRow[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [mainTab, setMainTab] = useState<MainTab>("my_profile");
+  const [listingMode, setListingMode] = useState<ListingMode>("rent");
   const [viewBusyUrl, setViewBusyUrl] = useState<string | null>(null);
-  const [feedItems, setFeedItems] = useState<FeedUnion[]>([]);
-  const [feedAgentMeta, setFeedAgentMeta] = useState<
-    Record<string, { agentName: string; agentAvatarUrl: string | null; agentId: string | null }>
-  >({});
+
+  const feed = useClientActivityFeed(user?.id);
+  const {
+    loading,
+    fullName,
+    avatarUrl,
+    createdAt,
+    clientPrefs,
+    badges,
+    savedRows,
+    likeRows,
+    ownDocs,
+    sharedDocs,
+    unreadCount,
+    feedGrouped,
+    feedAgentMeta,
+    propertyStatusById,
+  } = feed;
+
   const likes = usePropertyLikes();
   const pins = usePinnedPropertyIds();
 
-  const loadAll = useCallback(async () => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
+  const prefsComplete = useMemo(
+    () => (clientPrefs ? isClientProfilePrefsComplete(clientPrefs) : false),
+    [clientPrefs],
+  );
 
-    const { data: authData, error: authErr } = await supabase.auth.getUser();
-    if (authErr) {
-      console.warn("[mobile-client-dashboard] auth.getUser() error", authErr);
-    }
-    const authUid = authData.user?.id ?? null;
-    const uid = authUid ?? user.id;
-    if (authUid && user.id && authUid !== user.id) {
-      console.warn("[mobile-client-dashboard] auth user id does not match context user.id; using auth session id for queries", {
-        authUserId: authUid,
-        contextUserId: user.id,
-      });
-    }
+  const feedGroupedFiltered = useMemo(() => {
+    return feedGrouped
+      .map((g) => ({
+        ...g,
+        items: filterFeedItemsByListingMode(g.items, listingMode, propertyStatusById),
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [feedGrouped, listingMode, propertyStatusById]);
 
-    const [
-      profileRes,
-      badgesRes,
-      savedRes,
-      likesRes,
-      ownDocsRes,
-      sharedRes,
-      notifRes,
-      feedNotifRes,
-    ] = await Promise.all([
-      supabase.from("profiles").select("full_name, avatar_url, created_at, notification_preferences").eq("id", uid).maybeSingle(),
-      supabase.from("client_badges").select("badge_slug, earned_at").eq("client_id", uid).order("earned_at", { ascending: false }),
-      supabase
-        .from("saved_properties")
-        .select(
-          `
-          created_at,
-          properties (
-            id,
-            name,
-            location,
-            price,
-            status,
-            image_url,
-            property_photos (url, sort_order)
-          )
-        `,
-        )
-        .eq("user_id", uid)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("property_likes")
-        .select(
-          `
-          property_id,
-          created_at,
-          properties (
-            id,
-            name,
-            location,
-            price,
-            status,
-            image_url,
-            property_photos (url, sort_order)
-          )
-        `,
-        )
-        .eq("user_id", uid)
-        .order("created_at", { ascending: false })
-        .limit(80),
-      supabase
-        .from("client_documents")
-        .select("id, created_at, document_type, file_url, file_name")
-        .eq("client_id", uid)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("notifications")
-        .select("id, created_at, metadata")
-        .eq("user_id", uid)
-        .eq("type", "document_shared")
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", uid).is("read_at", null),
-      supabase
-        .from("notifications")
-        .select("id, created_at, type, title, body, metadata")
-        .eq("user_id", uid)
-        .in("type", ["client_feed_price_drop", "client_feed_viewing", "viewing_confirmed"])
-        .order("created_at", { ascending: false })
-        .limit(120),
-    ]);
-
-    const prow = profileRes.data as {
-      full_name?: string | null;
-      avatar_url?: string | null;
-      created_at?: string;
-      notification_preferences?: unknown;
-    } | null;
-    if (prow) {
-      setFullName(prow.full_name?.trim() ?? "");
-      setAvatarUrl(prow.avatar_url?.trim() || null);
-    }
-
-    if (badgesRes.error) {
-      console.error("[mobile-client-dashboard] client_badges query error", badgesRes.error);
-    }
-    const rawBadgeRows = (badgesRes.data ?? []) as { badge_slug: string; earned_at: string }[];
-    const normalizedBadges: { badge_slug: BadgeSlug; earned_at: string }[] = [];
-    for (const row of rawBadgeRows) {
-      const slug = normalizeBadgeSlug(row.badge_slug);
-      if (!slug) {
-        if ((row.badge_slug ?? "").trim()) {
-          console.warn("[mobile-client-dashboard] client_badges row ignored — unknown badge_slug", row.badge_slug);
-        }
-        continue;
-      }
-      normalizedBadges.push({ badge_slug: slug, earned_at: row.earned_at });
-    }
-    console.log("[mobile-client-dashboard] client_badges", {
-      clientId: uid,
-      rowCount: normalizedBadges.length,
-      rows: normalizedBadges,
-    });
-    setBadges(normalizedBadges);
-
-    setSavedRows((savedRes.data ?? []) as unknown as SavedJoinRow[]);
-    setLikeRows((likesRes.data ?? []) as unknown as LikeJoinRow[]);
-
-    setOwnDocs((ownDocsRes.data ?? []) as ClientDocRow[]);
-
-    if (sharedRes.data) {
-      const filtered = (sharedRes.data as SharedDocRow[]).filter((r) => {
-        const url = r.metadata && typeof r.metadata.signed_url === "string" ? r.metadata.signed_url : "";
-        return Boolean(url?.trim());
-      });
-      setSharedDocs(filtered);
-    } else {
-      setSharedDocs([]);
-    }
-
-    setUnreadCount(typeof notifRes.count === "number" ? notifRes.count : 0);
-
-    const feedRows = (feedNotifRes.data ?? []) as FeedNotificationRow[];
-    const savedIdSet = new Set<string>();
-    for (const r of (savedRes.data ?? []) as SavedJoinRow[]) {
-      const p = oneProperty(r.properties);
-      if (p?.id) savedIdSet.add(p.id);
-    }
-
-    const profileIdSetEarly = new Set<string>();
-    for (const r of (savedRes.data ?? []) as SavedJoinRow[]) {
-      const p = oneProperty(r.properties);
-      if (p?.id) profileIdSetEarly.add(p.id);
-    }
-    for (const r of (likesRes.data ?? []) as LikeJoinRow[]) {
-      const p = oneProperty(r.properties);
-      if (p?.id) profileIdSetEarly.add(p.id);
-    }
-
-    const propertyIds = new Set<string>(profileIdSetEarly);
-    const agentIds = new Set<string>();
-    for (const n of feedRows) {
-      const m = n.metadata ?? {};
-      const pid = m.property_id;
-      if (typeof pid === "string" && pid) propertyIds.add(pid);
-      const aid = m.agent_user_id;
-      if (typeof aid === "string" && aid) agentIds.add(aid);
-    }
-
-    let propMap = new Map<string, PropertyRow>();
-    if (propertyIds.size > 0) {
-      const { data: props } = await supabase
-        .from("properties")
-        .select(
-          `
-          id,
-          name,
-          location,
-          price,
-          status,
-          image_url,
-          property_photos (url, sort_order)
-        `,
-        )
-        .in("id", [...propertyIds]);
-      for (const row of (props ?? []) as PropertyRow[]) {
-        propMap.set(row.id, row);
-      }
-    }
-
-    let phoneMap = new Map<string, string | null>();
-    if (agentIds.size > 0) {
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id, phone")
-        .in("id", [...agentIds]);
-      for (const pr of profs ?? []) {
-        const r = pr as { id: string; phone: string | null };
-        phoneMap.set(r.id, r.phone);
-      }
-    }
-
-    const built: FeedUnion[] = [];
-
-    for (const n of feedRows) {
-      if (n.type === "viewing_confirmed") {
-        built.push({ kind: "viewing_confirmed", sortAt: n.created_at, notification: n });
-        continue;
-      }
-      const m = n.metadata ?? {};
-      if (n.type === "client_feed_viewing") {
-        const aid = typeof m.agent_user_id === "string" ? m.agent_user_id : "";
-        const pid = typeof m.property_id === "string" ? m.property_id : "";
-        const prop = pid ? propMap.get(pid) ?? null : null;
-        const metaImg = metaStr(m, "property_image_url");
-        const img = metaImg || (prop ? pickPropertyImage(prop) : "") || "";
-        const priceRaw = prop?.price ?? "";
-        const status = prop?.status ?? "for_sale";
-        const priceDisplay = formatPropertyPriceDisplay(priceRaw, status);
-        const showSavedPill = pid ? savedIdSet.has(pid) : false;
-        const phone = aid ? stripPhoneDigits(phoneMap.get(aid) ?? null) : null;
-        built.push({
-          kind: "agent",
-          sortAt: n.created_at,
-          notification: n,
-          agentPhone: phone,
-          property: prop,
-          propertyId: pid,
-          imageUrl: img,
-          priceDisplay,
-          showSavedPill,
-        });
-      } else if (n.type === "client_feed_price_drop") {
-        const pidDrop = typeof m.property_id === "string" ? m.property_id : "";
-        const propDrop = pidDrop ? propMap.get(pidDrop) : undefined;
-        const thumb =
-          metaStr(m, "property_image_url") || (propDrop ? pickPropertyImage(propDrop) : "") || "";
-        const pName =
-          metaStr(m, "property_name")?.trim() ||
-          propDrop?.name?.trim() ||
-          propDrop?.location?.trim() ||
-          "Listing";
-        built.push({
-          kind: "price_drop_al",
-          sortAt: n.created_at,
-          id: `notif-${n.id}`,
-          propertyId: pidDrop,
-          propertyName: pName,
-          oldPrice: metaStr(m, "old_price"),
-          newPrice: metaStr(m, "new_price"),
-          thumbUrl: thumb,
-        });
-      }
-    }
-
-    for (const b of normalizedBadges) {
-      built.push({
-        kind: "badge_earned",
-        sortAt: b.earned_at,
-        badge_slug: b.badge_slug,
-        earned_at: b.earned_at,
-        feedKey: `${b.badge_slug}-${b.earned_at}`,
-      });
-    }
-
-    const savedDataForFeed = (savedRes.data ?? []) as SavedJoinRow[];
-    for (const r of savedDataForFeed) {
-      const p = oneProperty(r.properties);
-      if (!p?.id) continue;
-      built.push({
-        kind: "saved_property",
-        sortAt: r.created_at,
-        property: p,
-        created_at: r.created_at,
-        saveKey: `${p.id}-${r.created_at}`,
-      });
-    }
-
-    const likeData = (likesRes.data ?? []) as {
-      property_id: string;
-      created_at: string;
-      properties: PropertyRow | PropertyRow[] | null;
-    }[];
-    for (const row of likeData) {
-      const p = oneProperty(row.properties);
-      if (!p?.id) continue;
-      built.push({
-        kind: "pin_activity",
-        sortAt: row.created_at,
-        likeKey: `${row.property_id}-${row.created_at}`,
-        property: p,
-        created_at: row.created_at,
-      });
-    }
-
-    const pidListForActivity = [...profileIdSetEarly];
-    if (pidListForActivity.length > 0) {
-      const { data: alRowsPrice } = await supabase
-        .from("activity_log")
-        .select("id, created_at, entity_id, metadata, action, entity_type")
-        .eq("entity_type", "price_drop")
-        .in("entity_id", pidListForActivity);
-      for (const raw of alRowsPrice ?? []) {
-        const row = raw as {
-          id: string;
-          created_at: string;
-          entity_id: string;
-          metadata: Record<string, unknown> | null;
-        };
-        const meta = row.metadata ?? {};
-        if (activityLogMetadataIndicatesEngagementOnly(meta)) continue;
-        const oldP = metaStr(meta, "old_price");
-        const newP = metaStr(meta, "new_price");
-        const propRow = propMap.get(row.entity_id);
-        const thumb =
-          propRow ? pickPropertyImage(propRow) : metaStr(meta, "property_image_url") || "";
-        const pName =
-          propRow?.name?.trim() || propRow?.location?.trim() || "Listing";
-        built.push({
-          kind: "price_drop_al",
-          sortAt: row.created_at,
-          id: row.id,
-          propertyId: row.entity_id,
-          propertyName: pName,
-          oldPrice: oldP,
-          newPrice: newP,
-          thumbUrl: thumb,
-        });
-      }
-
-      const { data: alRowsEdited } = await supabase
-        .from("activity_log")
-        .select("id, created_at, entity_id, metadata, action, entity_type")
-        .eq("entity_type", "property")
-        .eq("action", "listing_edited")
-        .in("entity_id", pidListForActivity);
-      for (const raw of alRowsEdited ?? []) {
-        const row = raw as {
-          id: string;
-          created_at: string;
-          entity_id: string;
-          metadata: Record<string, unknown> | null;
-        };
-        const meta = row.metadata ?? {};
-        if (activityLogMetadataIndicatesEngagementOnly(meta)) continue;
-        const propRow = propMap.get(row.entity_id);
-        const thumb =
-          propRow ? pickPropertyImage(propRow) : metaStr(meta, "property_image_url") || "";
-        const pName =
-          metaStr(meta, "property_name").trim() ||
-          propRow?.name?.trim() ||
-          propRow?.location?.trim() ||
-          "Listing";
-        const editedBy = metaStr(meta, "edited_by_name").trim() || "An agent";
-        built.push({
-          kind: "listing_edited_al",
-          sortAt: row.created_at,
-          id: row.id,
-          propertyId: row.entity_id,
-          propertyName: pName,
-          editedByName: editedBy,
-          thumbUrl: thumb,
-        });
-      }
-    }
-
-    built.sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime());
-
-    const prefs = parseNotifPrefs(
-      (profileRes.data as { notification_preferences?: unknown } | null)?.notification_preferences,
-    );
-    setFeedItems(filterFeedByPrefs(built, prefs));
-
-    const feedPropIds = new Set<string>();
-    for (const item of built) {
-      if (item.kind === "agent") {
-        if (item.propertyId) feedPropIds.add(item.propertyId);
-      } else if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") {
-        feedPropIds.add(item.propertyId);
-      } else if (item.kind === "saved_property") {
-        feedPropIds.add(item.property.id);
-      } else if (item.kind === "pin_activity") {
-        feedPropIds.add(item.property.id);
-      }
-    }
-    if (feedPropIds.size > 0) {
-      const { data: feedPa } = await supabase
-        .from("property_agents")
-        .select(
-          `
-          property_id,
-          agent:agents (
-            id,
-            name,
-            image_url
-          )
-        `,
-        )
-        .in("property_id", [...feedPropIds]);
-      const fam: Record<string, { agentName: string; agentAvatarUrl: string | null; agentId: string | null }> = {};
-      const seen = new Set<string>();
-      for (const row of feedPa ?? []) {
-        const r = row as {
-          property_id: string;
-          agent: { id?: string | null; name?: string | null; image_url?: string | null } | null;
-        };
-        if (seen.has(r.property_id) || !r.agent) continue;
-        seen.add(r.property_id);
-        fam[r.property_id] = {
-          agentId: typeof r.agent.id === "string" && r.agent.id ? r.agent.id : null,
-          agentName: r.agent.name?.trim() || "Agent",
-          agentAvatarUrl: r.agent.image_url?.trim() || null,
-        };
-      }
-      setFeedAgentMeta(fam);
-    } else {
-      setFeedAgentMeta({});
-    }
-
-    setLoading(false);
-  }, [supabase, user?.id]);
-
-  useEffect(() => {
-    void loadAll();
-  }, [loadAll]);
-
-  const feedGrouped = useMemo(() => {
-    const order: TimeBucket[] = ["today", "yesterday", "this_week", "earlier"];
-    const groups: Record<TimeBucket, FeedUnion[]> = {
-      today: [],
-      yesterday: [],
-      this_week: [],
-      earlier: [],
-    };
-    for (const item of feedItems) {
-      groups[bucketForDate(item.sortAt)].push(item);
-    }
-    return order
-      .filter((k) => groups[k].length > 0)
-      .map((k) => ({
-        bucket: k,
-        label: BUCKET_LABEL[k],
-        items: [...groups[k]].sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime()),
-      }));
-  }, [feedItems]);
+  const savedRowsFiltered = useMemo(
+    () => filterSavedRowsByMode(savedRows, listingMode),
+    [savedRows, listingMode],
+  );
+  const likeRowsFiltered = useMemo(() => filterLikeRowsByMode(likeRows, listingMode), [likeRows, listingMode]);
 
   const openOwnDocument = async (file_url: string) => {
     setViewBusyUrl(file_url);
@@ -1172,9 +566,10 @@ export function MobileClientDashboard() {
           </Link>
         </div>
 
-        <div className="scrollbar-hide -mx-1 mt-4 flex gap-2 overflow-x-auto pb-1">
+        <div className="scrollbar-hide -mx-1 mt-4 flex flex-nowrap gap-2 overflow-x-auto pb-2 pr-8">
           {(
             [
+              ["my_profile", "My Profile", User],
               ["all", "All", LayoutGrid],
               ["pins", "Pins", Pin],
               ["likes", "Likes", Heart],
@@ -1187,10 +582,10 @@ export function MobileClientDashboard() {
               type="button"
               onClick={() => setMainTab(id)}
               className={cn(
-                "flex shrink-0 flex-col items-center gap-1.5 rounded-full px-4 py-2.5 transition-all duration-200",
+                "flex min-w-[42%] max-w-[220px] shrink-0 snap-start flex-col items-center gap-1.5 rounded-full px-4 py-2.5 transition-all duration-200 sm:min-w-0",
                 mainTab === id
-                  ? "border-l-[3px] border-[#6B9E6E] bg-white pl-3 text-[#2C2C2C] shadow-sm ring-1 ring-[#E5E5E5]"
-                  : "border-l-[3px] border-transparent text-[#6B6B6B]",
+                  ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#6B9E6E]/40"
+                  : "bg-white/90 text-[#6B6B6B] ring-1 ring-[#E5E5E5]",
               )}
             >
               <Icon className="h-5 w-5" strokeWidth={mainTab === id ? 2.25 : 1.75} />
@@ -1207,18 +602,155 @@ export function MobileClientDashboard() {
             <div className="h-28 w-full rounded-2xl bg-[#E5E5E5]" />
             <div className="h-28 w-full rounded-2xl bg-[#E5E5E5]" />
           </div>
+        ) : mainTab === "my_profile" ? (
+          <div className="space-y-4">
+            <div className="flex flex-col items-center rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 text-center shadow-sm">
+              <div className="relative h-24 w-24 overflow-hidden rounded-full border-2 border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                {avatarUrl?.trim() ? (
+                  <SupabasePublicImage
+                    src={avatarUrl}
+                    alt=""
+                    width={96}
+                    height={96}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-xl font-bold text-white">
+                    {agentAvatarInitials(fullName || "Member")}
+                  </span>
+                )}
+              </div>
+              <h2 className="mt-3 font-serif text-xl font-semibold text-[#2C2C2C]">
+                {fullName.trim() || "Member"}
+              </h2>
+              <p className="mt-1 text-sm text-[#2C2C2C]/55">
+                Member since{" "}
+                {createdAt
+                  ? new Date(createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" })
+                  : "—"}
+              </p>
+              <p className="mt-3 text-sm font-semibold text-[#2C2C2C]">
+                <span className="text-[#6B9E6E]">{savedRows.length}</span> properties saved
+              </p>
+              <p className="mt-1 text-xs text-[#2C2C2C]/45">0 properties viewed · coming soon</p>
+            </div>
+            {clientPrefs ? (
+              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-serif text-lg font-semibold text-[#2C2C2C]">My Preferences</h3>
+                  <Link
+                    href="/settings?tab=profile"
+                    className="rounded-lg p-1.5 text-[#6B9E6E] transition hover:bg-[#6B9E6E]/15"
+                    aria-label="Edit preferences in settings"
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden />
+                  </Link>
+                </div>
+                <div className="mt-3 rounded-lg border border-[#6B9E6E]/30 bg-[#FAF8F4]/80 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B9E6E]">Location &amp; visa</p>
+                  <p className="mt-1 font-serif text-lg font-bold text-[#2C2C2C]">
+                    {clientPrefs.country_of_origin?.trim() || "—"}
+                  </p>
+                  {isNonFilipinoCountry(clientPrefs.country_of_origin) ? (
+                    <div className="mt-2 space-y-1 border-t border-[#2C2C2C]/10 pt-2 text-sm">
+                      {clientPrefs.visa_type?.trim() ? (
+                        <p className="font-semibold text-[#2C2C2C]">Visa: {clientPrefs.visa_type.trim()}</p>
+                      ) : (
+                        <p className="text-[#2C2C2C]/55">Visa not specified</p>
+                      )}
+                      {clientPrefs.visa_expiry?.trim() ? (
+                        <p className="font-medium text-[#D4A843]">{visaExpiryDisplay(clientPrefs.visa_expiry)}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+                <dl className="mt-3 space-y-2 text-sm">
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Budget</dt>
+                    <dd className="font-medium text-[#2C2C2C]">
+                      {clientPrefs.budget_min != null || clientPrefs.budget_max != null
+                        ? formatBudgetRangePhp(clientPrefs.budget_min, clientPrefs.budget_max)
+                        : "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Looking to</dt>
+                    <dd className="font-medium text-[#2C2C2C]">{lookingToLabel(clientPrefs.looking_to)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Property type</dt>
+                    <dd className="font-medium text-[#2C2C2C]">{clientPrefs.preferred_property_type?.trim() || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Preferred areas</dt>
+                    <dd className="font-medium text-[#2C2C2C]">{preferredLocationsLabel(clientPrefs.preferred_locations)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Occupants</dt>
+                    <dd className="font-medium text-[#2C2C2C]">
+                      {clientPrefs.occupant_count != null ? String(clientPrefs.occupant_count) : "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Pets</dt>
+                    <dd className="font-medium text-[#2C2C2C]">
+                      {clientPrefs.has_pets === true ? "Yes" : clientPrefs.has_pets === false ? "No" : "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Move-in timeline</dt>
+                    <dd className="font-medium text-[#2C2C2C]">{clientPrefs.move_in_timeline?.trim() || "—"}</dd>
+                  </div>
+                  {clientPrefs.agent_notes?.trim() ? (
+                    <div>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                        Notes for agents
+                      </dt>
+                      <dd className="text-sm font-medium leading-snug text-[#2C2C2C]">{clientPrefs.agent_notes.trim()}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+                <p
+                  className={`mt-3 text-center text-xs font-medium leading-snug ${
+                    prefsComplete ? "text-[#6B9E6E]" : "text-[#D4A843]"
+                  }`}
+                >
+                  {prefsComplete
+                    ? "✓ Profile preferences complete"
+                    : "⚠️ Complete your preferences so agents can serve you better"}
+                </p>
+                <Link
+                  href="/settings"
+                  className="mt-4 flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                >
+                  Edit Preferences
+                </Link>
+              </div>
+            ) : (
+              <p className="text-center text-sm text-[#6B6B6B]">Loading preferences…</p>
+            )}
+          </div>
         ) : mainTab === "all" ? (
-          <AllFeedTab
-            grouped={feedGrouped}
-            feedAgentMeta={feedAgentMeta}
-            likes={likes}
-            pins={pins}
-            onViewBadges={() => setMainTab("badges")}
-          />
+          <div>
+            <ListingSubTabs mode={listingMode} onChange={setListingMode} />
+            <AllFeedTab
+              grouped={feedGroupedFiltered}
+              feedAgentMeta={feedAgentMeta}
+              likes={likes}
+              pins={pins}
+              onViewBadges={() => setMainTab("badges")}
+            />
+          </div>
         ) : mainTab === "pins" ? (
-          <SavedPinsTab savedRows={savedRows} />
+          <div>
+            <ListingSubTabs mode={listingMode} onChange={setListingMode} />
+            <SavedPinsTab savedRows={savedRowsFiltered} />
+          </div>
         ) : mainTab === "likes" ? (
-          <LikedPropertiesTab likeRows={likeRows} />
+          <div>
+            <ListingSubTabs mode={listingMode} onChange={setListingMode} />
+            <LikedPropertiesTab likeRows={likeRowsFiltered} />
+          </div>
         ) : mainTab === "badges" ? (
           <BadgesTab badges={badges} />
         ) : (
@@ -1242,7 +774,7 @@ export function MobileClientDashboard() {
   );
 }
 
-function AllFeedTab({
+export function AllFeedTab({
   grouped,
   feedAgentMeta,
   likes,
@@ -1655,7 +1187,7 @@ function ListingLikeSmallCard({
 }
 
 /** Heart/liked listings from `property_likes` (same source as usePropertyLikes). */
-function LikedPropertiesTab({ likeRows }: { likeRows: LikeJoinRow[] }) {
+export function LikedPropertiesTab({ likeRows }: { likeRows: LikeJoinRow[] }) {
   if (likeRows.length === 0) {
     return (
       <EmptyState
@@ -1699,7 +1231,7 @@ function LikedPropertiesTab({ likeRows }: { likeRows: LikeJoinRow[] }) {
   );
 }
 
-function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_at: string }[] }) {
+export function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_at: string }[] }) {
   const earnedMap = useMemo(() => {
     const m = new Map<BadgeSlug, string>();
     for (const b of badges) m.set(b.badge_slug, b.earned_at);
@@ -1806,7 +1338,7 @@ function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_at: str
 }
 
 /** Pinned listings from `saved_properties` (same source as usePinnedPropertyIds / pin action). */
-function SavedPinsTab({ savedRows }: { savedRows: SavedJoinRow[] }) {
+export function SavedPinsTab({ savedRows }: { savedRows: SavedJoinRow[] }) {
   if (savedRows.length === 0) {
     return (
       <EmptyState
@@ -1849,7 +1381,7 @@ function SavedPinsTab({ savedRows }: { savedRows: SavedJoinRow[] }) {
   );
 }
 
-function DocumentsTab({
+export function DocumentsTab({
   ownDocs,
   sharedDocs,
   viewBusyUrl,

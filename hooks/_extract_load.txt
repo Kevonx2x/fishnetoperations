@@ -1,0 +1,421 @@
+  const loadAll = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+
+    const { data: authData, error: authErr } = await supabase.auth.getUser();
+    if (authErr) {
+      console.warn("[mobile-client-dashboard] auth.getUser() error", authErr);
+    }
+    const authUid = authData.user?.id ?? null;
+    const uid = authUid ?? user.id;
+    if (authUid && user.id && authUid !== user.id) {
+      console.warn("[mobile-client-dashboard] auth user id does not match context user.id; using auth session id for queries", {
+        authUserId: authUid,
+        contextUserId: user.id,
+      });
+    }
+
+    const [
+      profileRes,
+      badgesRes,
+      savedRes,
+      likesRes,
+      ownDocsRes,
+      sharedRes,
+      notifRes,
+      feedNotifRes,
+    ] = await Promise.all([
+      supabase.from("profiles").select("full_name, avatar_url, created_at, notification_preferences").eq("id", uid).maybeSingle(),
+      supabase.from("client_badges").select("badge_slug, earned_at").eq("client_id", uid).order("earned_at", { ascending: false }),
+      supabase
+        .from("saved_properties")
+        .select(
+          `
+          created_at,
+          properties (
+            id,
+            name,
+            location,
+            price,
+            status,
+            image_url,
+            property_photos (url, sort_order)
+          )
+        `,
+        )
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("property_likes")
+        .select(
+          `
+          property_id,
+          created_at,
+          properties (
+            id,
+            name,
+            location,
+            price,
+            status,
+            image_url,
+            property_photos (url, sort_order)
+          )
+        `,
+        )
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false })
+        .limit(80),
+      supabase
+        .from("client_documents")
+        .select("id, created_at, document_type, file_url, file_name")
+        .eq("client_id", uid)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("notifications")
+        .select("id, created_at, metadata")
+        .eq("user_id", uid)
+        .eq("type", "document_shared")
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", uid).is("read_at", null),
+      supabase
+        .from("notifications")
+        .select("id, created_at, type, title, body, metadata")
+        .eq("user_id", uid)
+        .in("type", ["client_feed_price_drop", "client_feed_viewing", "viewing_confirmed"])
+        .order("created_at", { ascending: false })
+        .limit(120),
+    ]);
+
+    const prow = profileRes.data as {
+      full_name?: string | null;
+      avatar_url?: string | null;
+      created_at?: string;
+      notification_preferences?: unknown;
+    } | null;
+    if (prow) {
+      setFullName(prow.full_name?.trim() ?? "");
+      setAvatarUrl(prow.avatar_url?.trim() || null);
+    }
+
+    if (badgesRes.error) {
+      console.error("[mobile-client-dashboard] client_badges query error", badgesRes.error);
+    }
+    const rawBadgeRows = (badgesRes.data ?? []) as { badge_slug: string; earned_at: string }[];
+    const normalizedBadges: { badge_slug: BadgeSlug; earned_at: string }[] = [];
+    for (const row of rawBadgeRows) {
+      const slug = normalizeBadgeSlug(row.badge_slug);
+      if (!slug) {
+        if ((row.badge_slug ?? "").trim()) {
+          console.warn("[mobile-client-dashboard] client_badges row ignored — unknown badge_slug", row.badge_slug);
+        }
+        continue;
+      }
+      normalizedBadges.push({ badge_slug: slug, earned_at: row.earned_at });
+    }
+    console.log("[mobile-client-dashboard] client_badges", {
+      clientId: uid,
+      rowCount: normalizedBadges.length,
+      rows: normalizedBadges,
+    });
+    setBadges(normalizedBadges);
+
+    setSavedRows((savedRes.data ?? []) as unknown as SavedJoinRow[]);
+    setLikeRows((likesRes.data ?? []) as unknown as LikeJoinRow[]);
+
+    setOwnDocs((ownDocsRes.data ?? []) as ClientDocRow[]);
+
+    if (sharedRes.data) {
+      const filtered = (sharedRes.data as SharedDocRow[]).filter((r) => {
+        const url = r.metadata && typeof r.metadata.signed_url === "string" ? r.metadata.signed_url : "";
+        return Boolean(url?.trim());
+      });
+      setSharedDocs(filtered);
+    } else {
+      setSharedDocs([]);
+    }
+
+    setUnreadCount(typeof notifRes.count === "number" ? notifRes.count : 0);
+
+    const feedRows = (feedNotifRes.data ?? []) as FeedNotificationRow[];
+    const savedIdSet = new Set<string>();
+    for (const r of (savedRes.data ?? []) as SavedJoinRow[]) {
+      const p = oneProperty(r.properties);
+      if (p?.id) savedIdSet.add(p.id);
+    }
+
+    const profileIdSetEarly = new Set<string>();
+    for (const r of (savedRes.data ?? []) as SavedJoinRow[]) {
+      const p = oneProperty(r.properties);
+      if (p?.id) profileIdSetEarly.add(p.id);
+    }
+    for (const r of (likesRes.data ?? []) as LikeJoinRow[]) {
+      const p = oneProperty(r.properties);
+      if (p?.id) profileIdSetEarly.add(p.id);
+    }
+
+    const propertyIds = new Set<string>(profileIdSetEarly);
+    const agentIds = new Set<string>();
+    for (const n of feedRows) {
+      const m = n.metadata ?? {};
+      const pid = m.property_id;
+      if (typeof pid === "string" && pid) propertyIds.add(pid);
+      const aid = m.agent_user_id;
+      if (typeof aid === "string" && aid) agentIds.add(aid);
+    }
+
+    let propMap = new Map<string, PropertyRow>();
+    if (propertyIds.size > 0) {
+      const { data: props } = await supabase
+        .from("properties")
+        .select(
+          `
+          id,
+          name,
+          location,
+          price,
+          status,
+          image_url,
+          property_photos (url, sort_order)
+        `,
+        )
+        .in("id", [...propertyIds]);
+      for (const row of (props ?? []) as PropertyRow[]) {
+        propMap.set(row.id, row);
+      }
+    }
+
+    let phoneMap = new Map<string, string | null>();
+    if (agentIds.size > 0) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, phone")
+        .in("id", [...agentIds]);
+      for (const pr of profs ?? []) {
+        const r = pr as { id: string; phone: string | null };
+        phoneMap.set(r.id, r.phone);
+      }
+    }
+
+    const built: FeedUnion[] = [];
+
+    for (const n of feedRows) {
+      if (n.type === "viewing_confirmed") {
+        built.push({ kind: "viewing_confirmed", sortAt: n.created_at, notification: n });
+        continue;
+      }
+      const m = n.metadata ?? {};
+      if (n.type === "client_feed_viewing") {
+        const aid = typeof m.agent_user_id === "string" ? m.agent_user_id : "";
+        const pid = typeof m.property_id === "string" ? m.property_id : "";
+        const prop = pid ? propMap.get(pid) ?? null : null;
+        const metaImg = metaStr(m, "property_image_url");
+        const img = metaImg || (prop ? pickPropertyImage(prop) : "") || "";
+        const priceRaw = prop?.price ?? "";
+        const status = prop?.status ?? "for_sale";
+        const priceDisplay = formatPropertyPriceDisplay(priceRaw, status);
+        const showSavedPill = pid ? savedIdSet.has(pid) : false;
+        const phone = aid ? stripPhoneDigits(phoneMap.get(aid) ?? null) : null;
+        built.push({
+          kind: "agent",
+          sortAt: n.created_at,
+          notification: n,
+          agentPhone: phone,
+          property: prop,
+          propertyId: pid,
+          imageUrl: img,
+          priceDisplay,
+          showSavedPill,
+        });
+      } else if (n.type === "client_feed_price_drop") {
+        const pidDrop = typeof m.property_id === "string" ? m.property_id : "";
+        const propDrop = pidDrop ? propMap.get(pidDrop) : undefined;
+        const thumb =
+          metaStr(m, "property_image_url") || (propDrop ? pickPropertyImage(propDrop) : "") || "";
+        const pName =
+          metaStr(m, "property_name")?.trim() ||
+          propDrop?.name?.trim() ||
+          propDrop?.location?.trim() ||
+          "Listing";
+        built.push({
+          kind: "price_drop_al",
+          sortAt: n.created_at,
+          id: `notif-${n.id}`,
+          propertyId: pidDrop,
+          propertyName: pName,
+          oldPrice: metaStr(m, "old_price"),
+          newPrice: metaStr(m, "new_price"),
+          thumbUrl: thumb,
+        });
+      }
+    }
+
+    for (const b of normalizedBadges) {
+      built.push({
+        kind: "badge_earned",
+        sortAt: b.earned_at,
+        badge_slug: b.badge_slug,
+        earned_at: b.earned_at,
+        feedKey: `${b.badge_slug}-${b.earned_at}`,
+      });
+    }
+
+    const savedDataForFeed = (savedRes.data ?? []) as SavedJoinRow[];
+    for (const r of savedDataForFeed) {
+      const p = oneProperty(r.properties);
+      if (!p?.id) continue;
+      built.push({
+        kind: "saved_property",
+        sortAt: r.created_at,
+        property: p,
+        created_at: r.created_at,
+        saveKey: `${p.id}-${r.created_at}`,
+      });
+    }
+
+    const likeData = (likesRes.data ?? []) as {
+      property_id: string;
+      created_at: string;
+      properties: PropertyRow | PropertyRow[] | null;
+    }[];
+    for (const row of likeData) {
+      const p = oneProperty(row.properties);
+      if (!p?.id) continue;
+      built.push({
+        kind: "pin_activity",
+        sortAt: row.created_at,
+        likeKey: `${row.property_id}-${row.created_at}`,
+        property: p,
+        created_at: row.created_at,
+      });
+    }
+
+    const pidListForActivity = [...profileIdSetEarly];
+    if (pidListForActivity.length > 0) {
+      const { data: alRowsPrice } = await supabase
+        .from("activity_log")
+        .select("id, created_at, entity_id, metadata, action, entity_type")
+        .eq("entity_type", "price_drop")
+        .in("entity_id", pidListForActivity);
+      for (const raw of alRowsPrice ?? []) {
+        const row = raw as {
+          id: string;
+          created_at: string;
+          entity_id: string;
+          metadata: Record<string, unknown> | null;
+        };
+        const meta = row.metadata ?? {};
+        if (activityLogMetadataIndicatesEngagementOnly(meta)) continue;
+        const oldP = metaStr(meta, "old_price");
+        const newP = metaStr(meta, "new_price");
+        const propRow = propMap.get(row.entity_id);
+        const thumb =
+          propRow ? pickPropertyImage(propRow) : metaStr(meta, "property_image_url") || "";
+        const pName =
+          propRow?.name?.trim() || propRow?.location?.trim() || "Listing";
+        built.push({
+          kind: "price_drop_al",
+          sortAt: row.created_at,
+          id: row.id,
+          propertyId: row.entity_id,
+          propertyName: pName,
+          oldPrice: oldP,
+          newPrice: newP,
+          thumbUrl: thumb,
+        });
+      }
+
+      const { data: alRowsEdited } = await supabase
+        .from("activity_log")
+        .select("id, created_at, entity_id, metadata, action, entity_type")
+        .eq("entity_type", "property")
+        .eq("action", "listing_edited")
+        .in("entity_id", pidListForActivity);
+      for (const raw of alRowsEdited ?? []) {
+        const row = raw as {
+          id: string;
+          created_at: string;
+          entity_id: string;
+          metadata: Record<string, unknown> | null;
+        };
+        const meta = row.metadata ?? {};
+        if (activityLogMetadataIndicatesEngagementOnly(meta)) continue;
+        const propRow = propMap.get(row.entity_id);
+        const thumb =
+          propRow ? pickPropertyImage(propRow) : metaStr(meta, "property_image_url") || "";
+        const pName =
+          metaStr(meta, "property_name").trim() ||
+          propRow?.name?.trim() ||
+          propRow?.location?.trim() ||
+          "Listing";
+        const editedBy = metaStr(meta, "edited_by_name").trim() || "An agent";
+        built.push({
+          kind: "listing_edited_al",
+          sortAt: row.created_at,
+          id: row.id,
+          propertyId: row.entity_id,
+          propertyName: pName,
+          editedByName: editedBy,
+          thumbUrl: thumb,
+        });
+      }
+    }
+
+    built.sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime());
+
+    const prefs = parseNotifPrefs(
+      (profileRes.data as { notification_preferences?: unknown } | null)?.notification_preferences,
+    );
+    setFeedItems(filterFeedByPrefs(built, prefs));
+
+    const feedPropIds = new Set<string>();
+    for (const item of built) {
+      if (item.kind === "agent") {
+        if (item.propertyId) feedPropIds.add(item.propertyId);
+      } else if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") {
+        feedPropIds.add(item.propertyId);
+      } else if (item.kind === "saved_property") {
+        feedPropIds.add(item.property.id);
+      } else if (item.kind === "pin_activity") {
+        feedPropIds.add(item.property.id);
+      }
+    }
+    if (feedPropIds.size > 0) {
+      const { data: feedPa } = await supabase
+        .from("property_agents")
+        .select(
+          `
+          property_id,
+          agent:agents (
+            id,
+            name,
+            image_url
+          )
+        `,
+        )
+        .in("property_id", [...feedPropIds]);
+      const fam: Record<string, { agentName: string; agentAvatarUrl: string | null; agentId: string | null }> = {};
+      const seen = new Set<string>();
+      for (const row of feedPa ?? []) {
+        const r = row as {
+          property_id: string;
+          agent: { id?: string | null; name?: string | null; image_url?: string | null } | null;
+        };
+        if (seen.has(r.property_id) || !r.agent) continue;
+        seen.add(r.property_id);
+        fam[r.property_id] = {
+          agentId: typeof r.agent.id === "string" && r.agent.id ? r.agent.id : null,
+          agentName: r.agent.name?.trim() || "Agent",
+          agentAvatarUrl: r.agent.image_url?.trim() || null,
+        };
+      }
+      setFeedAgentMeta(fam);
+    } else {
+      setFeedAgentMeta({});
+    }
+
+    setLoading(false);
+  }, [supabase, user?.id]);

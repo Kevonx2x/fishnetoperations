@@ -1,0 +1,191 @@
+type FeedNotificationRow = {
+  id: string;
+  created_at: string;
+  type: string;
+  title: string;
+  body: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
+type FeedUnion =
+  | {
+      kind: "saved_property";
+      sortAt: string;
+      property: PropertyRow;
+      created_at: string;
+      saveKey: string;
+    }
+  | {
+      kind: "agent";
+      sortAt: string;
+      notification: FeedNotificationRow;
+      agentPhone: string | null;
+      property?: PropertyRow | null;
+      propertyId: string;
+      imageUrl: string;
+      priceDisplay: string;
+      showSavedPill: boolean;
+    }
+  | {
+      kind: "price_drop_al";
+      sortAt: string;
+      id: string;
+      propertyId: string;
+      propertyName: string;
+      oldPrice: string;
+      newPrice: string;
+      thumbUrl: string;
+    }
+  | {
+      kind: "listing_edited_al";
+      sortAt: string;
+      id: string;
+      propertyId: string;
+      propertyName: string;
+      editedByName: string;
+      thumbUrl: string;
+    }
+  | {
+      kind: "badge";
+      sortAt: string;
+      notification: FeedNotificationRow;
+    }
+  | {
+      kind: "badge_earned";
+      sortAt: string;
+      badge_slug: BadgeSlug;
+      earned_at: string;
+      feedKey: string;
+    }
+  | {
+      kind: "viewing_confirmed";
+      sortAt: string;
+      notification: FeedNotificationRow;
+    }
+  | {
+      kind: "pin_activity";
+      sortAt: string;
+      likeKey: string;
+      property: PropertyRow;
+      created_at: string;
+    };
+
+type NotifPrefs = {
+  price_drop: boolean;
+  new_listing_followed_agent: boolean;
+  badge_earned: boolean;
+  document_request: boolean;
+  pipeline_stage: boolean;
+  viewing_request_confirmed: boolean;
+};
+
+function parseNotifPrefs(raw: unknown): NotifPrefs {
+  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return {
+    price_drop: o.price_drop !== false,
+    new_listing_followed_agent: o.new_listing_followed_agent !== false,
+    badge_earned: o.badge_earned !== false,
+    document_request: o.document_request !== false,
+    pipeline_stage: o.pipeline_stage !== false,
+    viewing_request_confirmed: o.viewing_request_confirmed !== false,
+  };
+}
+
+function filterFeedByPrefs(items: FeedUnion[], prefs: NotifPrefs): FeedUnion[] {
+  return items.filter((item) => {
+    if (item.kind === "saved_property") return true;
+    if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") return prefs.price_drop;
+    if (item.kind === "badge") return prefs.badge_earned;
+    if (item.kind === "badge_earned") return prefs.badge_earned;
+    if (item.kind === "agent") return prefs.viewing_request_confirmed;
+    if (item.kind === "viewing_confirmed") return prefs.viewing_request_confirmed;
+    return true;
+  });
+}
+
+function greetingForHour(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function pickPropertyImage(p: PropertyRow): string {
+  const photos = p.property_photos;
+  if (photos?.length) {
+    const sorted = [...photos].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    const u = sorted[0]?.url?.trim();
+    if (u) return u;
+  }
+  return p.image_url?.trim() || "";
+}
+
+function firstNameFromFull(full: string): string {
+  const t = full.trim();
+  if (!t) return "there";
+  return t.split(/\s+/)[0] ?? "there";
+}
+
+function stripPhoneDigits(raw: string | null | undefined): string | null {
+  if (!raw?.trim()) return null;
+  const d = raw.replace(/\D/g, "");
+  return d.length >= 10 ? d : null;
+}
+
+function startOfLocalDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+type TimeBucket = "today" | "yesterday" | "this_week" | "earlier";
+
+function bucketForDate(iso: string): TimeBucket {
+  const t = new Date(iso).getTime();
+  const now = new Date();
+  const sod = startOfLocalDay(now).getTime();
+  const dayMs = 86400000;
+  if (t >= sod) return "today";
+  if (t >= sod - dayMs) return "yesterday";
+  if (t >= sod - 7 * dayMs) return "this_week";
+  return "earlier";
+}
+
+const BUCKET_LABEL: Record<TimeBucket, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  this_week: "This Week",
+  earlier: "Earlier",
+};
+
+function metaStr(m: Record<string, unknown> | null | undefined, key: string): string {
+  const v = m?.[key];
+  return typeof v === "string" ? v : "";
+}
+
+/** activity_log rows that only reflect client like/pin/save/heart side effects — exclude from listing-update feed. */
+function activityLogMetadataIndicatesEngagementOnly(m: Record<string, unknown> | null | undefined): boolean {
+  if (!m) return false;
+  const source = String(m.source ?? "").toLowerCase();
+  const trigger = String(m.trigger ?? m.triggered_by ?? "").toLowerCase();
+  const t = String(m.type ?? "").toLowerCase();
+  if (m.from_engagement === true || m.from_like === true || m.from_pin === true || m.from_save === true || m.from_heart === true) {
+    return true;
+  }
+  if (typeof m.engagement === "string" && ["like", "pin", "heart", "save"].includes(m.engagement.toLowerCase())) {
+    return true;
+  }
+  const engagementSources = new Set([
+    "like",
+    "pin",
+    "pin_save",
+    "heart",
+    "save",
+    "property_like",
+    "saved_property",
+    "engagement",
+    "engagement_notify",
+  ]);
+  if (engagementSources.has(source) || engagementSources.has(trigger) || engagementSources.has(t)) return true;
+  return false;
+}

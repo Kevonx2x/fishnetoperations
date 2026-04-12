@@ -33,6 +33,20 @@ import { cn } from "@/lib/utils";
 import { ReportProfileButton } from "@/components/report-profile-button";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
+import {
+  filterFeedItemsByListingMode,
+  filterLikeRowsByMode,
+  oneProperty,
+  pickPropertyImage,
+  useClientActivityFeed,
+  type LikeJoinRow,
+  type ListingMode,
+} from "@/hooks/use-client-activity-feed";
+import {
+  AllFeedTab,
+  BadgesTab,
+  DocumentsTab,
+} from "@/components/client/mobile-client-dashboard";
 
 type PropertyRow = {
   id: string;
@@ -129,6 +143,46 @@ function passesWishFilter(p: PropertyRow, f: WishFilter): boolean {
   return true;
 }
 
+function passesOwnListingMode(p: PropertyRow, mode: ListingMode): boolean {
+  if (isSoldOrOffMarket(p)) return false;
+  return mode === "rent" ? p.status === "for_rent" : p.status === "for_sale";
+}
+
+function propertyRowFromLikeJoin(
+  r: LikeJoinRow,
+  wishlist: PropertyRow[],
+): PropertyRow | null {
+  const h = oneProperty(r.properties);
+  if (!h?.id) return null;
+  const pageP = wishlist.find((x) => x.id === h.id);
+  if (pageP) return pageP;
+  return {
+    id: h.id,
+    name: h.name,
+    location: h.location,
+    price: h.price,
+    beds: 0,
+    baths: 0,
+    sqft: "",
+    image_url: pickPropertyImage(h),
+    status: String(h.status ?? ""),
+    listing_status: null,
+    created_at: "",
+    listed_by: null,
+    connectedAgents: [],
+  };
+}
+
+type OwnMainTab = "all" | "pins" | "likes" | "badges" | "documents";
+
+const OWN_MAIN_TABS: { id: OwnMainTab; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "pins", label: "Pins" },
+  { id: "likes", label: "Likes" },
+  { id: "badges", label: "Badges" },
+  { id: "documents", label: "Documents" },
+];
+
 function overlayLabel(p: PropertyRow): "SOLD" | "OFF MARKET" | null {
   const ls = (p.listing_status ?? "").toLowerCase();
   if (ls === "sold") return "SOLD";
@@ -184,6 +238,9 @@ export default function ClientPublicProfilePage() {
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const [freeAgentWishlistPreview, setFreeAgentWishlistPreview] = useState(false);
   const [documentsPanelOpen, setDocumentsPanelOpen] = useState(false);
+  const [ownMainTab, setOwnMainTab] = useState<OwnMainTab>("all");
+  const [ownListingMode, setOwnListingMode] = useState<ListingMode>("rent");
+  const [ownDocViewBusy, setOwnDocViewBusy] = useState<string | null>(null);
 
   const clientId = rawId;
   const isOwn = Boolean(user?.id && user.id === clientId);
@@ -192,6 +249,63 @@ export default function ClientPublicProfilePage() {
 
   const likes = usePropertyLikes();
   const pins = usePinnedPropertyIds();
+
+  const ownActivityFeed = useClientActivityFeed(isOwn ? clientId : undefined);
+  const {
+    loading: ownFeedLoading,
+    badges: ownBadges,
+    likeRows: ownLikeRows,
+    feedGrouped: ownFeedGrouped,
+    feedAgentMeta: ownFeedAgentMeta,
+    propertyStatusById: ownPropertyStatusById,
+    ownDocs: ownOwnDocs,
+    sharedDocs: ownSharedDocs,
+  } = ownActivityFeed;
+
+  const ownFeedGroupedFiltered = useMemo(() => {
+    return ownFeedGrouped
+      .map((g) => ({
+        ...g,
+        items: filterFeedItemsByListingMode(g.items, ownListingMode, ownPropertyStatusById),
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [ownFeedGrouped, ownListingMode, ownPropertyStatusById]);
+
+  const ownLikeRowsFiltered = useMemo(
+    () => filterLikeRowsByMode(ownLikeRows, ownListingMode),
+    [ownLikeRows, ownListingMode],
+  );
+
+  const ownPinsSorted = useMemo(() => {
+    const list = properties.filter((p) => passesOwnListingMode(p, ownListingMode));
+    list.sort((a, b) => {
+      const pa = pinnedAtByPropertyId[a.id];
+      const pb = pinnedAtByPropertyId[b.id];
+      const ta = pa ? new Date(pa).getTime() : 0;
+      const tb = pb ? new Date(pb).getTime() : 0;
+      return tb - ta;
+    });
+    return list;
+  }, [properties, ownListingMode, pinnedAtByPropertyId]);
+
+  const openOwnDesktopDocument = useCallback(async (file_url: string) => {
+    setOwnDocViewBusy(file_url);
+    try {
+      const res = await fetch("/api/client/get-document-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ file_url }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { signedUrl?: string; error?: string };
+      if (!res.ok || !json.signedUrl) {
+        return;
+      }
+      window.open(json.signedUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setOwnDocViewBusy(null);
+    }
+  }, []);
 
   const canSeeWishlist = useMemo(() => {
     if (isOwn || isAdmin) return true;
@@ -760,6 +874,241 @@ export default function ClientPublicProfilePage() {
       })
     : "—";
 
+  const renderWishlistFacebookCard = (
+    p: PropertyRow,
+    opts: { variant: "pinned" | "liked"; activityIso: string | null },
+  ) => {
+    if (!clientProfile) return null;
+    const overlay = overlayLabel(p);
+    const likeTotal = likeCounts[p.id] ?? 0;
+    const pinSaveN = saveCounts[p.id] ?? 0;
+    const isHeartLiked = likes.has(p.id);
+    const isPinSaved = pins.has(p.id);
+    const pinnedIso = pinnedAtByPropertyId[p.id];
+    const activityIso = opts.activityIso ?? pinnedIso ?? null;
+    const activityLine = activityIso ? pinnedRelativeLabel(activityIso) : "Recently";
+    const listedLine = listingListedLabel(p.created_at);
+    const title = p.name?.trim() || p.location || "Listing";
+    const statusLabel = p.status === "for_rent" ? "For Rent" : "For Sale";
+    const agents = p.connectedAgents ?? [];
+    const hasAgents = agents.length > 0;
+    const showPinRemove = isOwn && Boolean(pinnedIso);
+
+    return (
+      <article
+        key={`${opts.variant}-${p.id}-${activityIso ?? ""}`}
+        className="overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm"
+      >
+        <div className="flex items-start gap-3 px-4 pt-4">
+          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
+            {clientProfile.avatar_url?.trim() ? (
+              <SupabasePublicImage
+                src={clientProfile.avatar_url}
+                alt=""
+                fill
+                sizes="40px"
+                className="object-cover"
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-sm font-bold text-white">
+                {agentAvatarInitials(displayName)}
+              </span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-[#2C2C2C]">{displayName}</p>
+            <p className="text-xs font-medium text-[#2C2C2C]/50">{activityLine}</p>
+            <p className="text-xs font-medium text-[#2C2C2C]/50">{listedLine}</p>
+          </div>
+        </div>
+
+        <div className="relative mt-3 w-full overflow-hidden">
+          <Link
+            href={`/properties/${encodeURIComponent(p.id)}`}
+            className="relative block aspect-video w-full bg-[#2C2C2C]/5"
+          >
+            <Image
+              src={p.image_url}
+              alt=""
+              fill
+              sizes="(max-width: 1024px) 100vw, 70vw"
+              className={`object-cover ${overlay ? "brightness-[0.55]" : ""}`}
+            />
+          </Link>
+          {overlay ? (
+            <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center bg-black/35">
+              <span className="rounded-lg border-2 border-white/90 bg-black/40 px-6 py-2 font-serif text-xl font-bold tracking-widest text-white">
+                {overlay}
+              </span>
+            </div>
+          ) : null}
+          <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
+            {opts.variant === "pinned" ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10">
+                <Pin className="h-3.5 w-3.5 shrink-0 text-[#D4A843]" aria-hidden />
+                Pinned
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10">
+                <Heart className="h-3.5 w-3.5 shrink-0 fill-red-500 text-red-500" aria-hidden />
+                Liked
+              </span>
+            )}
+            <span
+              className={`rounded-full px-2.5 py-1 text-[11px] font-bold text-white shadow-md ${
+                p.status === "for_rent" ? "bg-[#D4A843] text-[#2C2C2C]" : "bg-[#6B9E6E]"
+              }`}
+            >
+              {statusLabel}
+            </span>
+          </div>
+          <div className="absolute right-3 top-3 z-10 flex items-start gap-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void likes.toggle(p.id);
+              }}
+              className={cn(
+                "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+                isHeartLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
+              )}
+              aria-label={likeTotal > 0 ? `${likeTotal} likes` : "Like"}
+            >
+              <Heart
+                className={cn(
+                  "h-3.5 w-3.5 shrink-0",
+                  isHeartLiked ? "fill-red-500 text-red-500" : "text-red-400",
+                )}
+                aria-hidden
+              />
+              {likeTotal > 0 ? (
+                <span
+                  className={cn(
+                    "text-xs font-medium tabular-nums",
+                    isHeartLiked ? "text-red-500" : "text-red-400",
+                  )}
+                >
+                  {likeTotal}
+                </span>
+              ) : null}
+            </button>
+            {showPinRemove ? (
+              <button
+                type="button"
+                disabled={removingId === p.id}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void removeFromWishlist(p.id);
+                }}
+                className={cn(
+                  "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4] disabled:opacity-50",
+                  isPinSaved ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
+                )}
+                title="Remove from wishlist"
+                aria-label={
+                  pinSaveN > 0 ? `${pinSaveN} saves — remove from wishlist` : "Unpin from wishlist"
+                }
+              >
+                <Pin
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0",
+                    isPinSaved ? "fill-[#D4A843] text-[#D4A843]" : "text-[#D4A843]",
+                    removingId === p.id ? "opacity-35" : "",
+                  )}
+                  aria-hidden
+                />
+                {pinSaveN > 0 ? (
+                  <span className="text-xs font-medium tabular-nums text-[#D4A843]">{pinSaveN}</span>
+                ) : null}
+              </button>
+            ) : isOwn ? null : (
+              <span
+                className={cn(
+                  "pointer-events-none inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm",
+                  isPinSaved ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
+                )}
+                aria-label={pinSaveN > 0 ? `${pinSaveN} saves` : "Saves"}
+              >
+                <Pin
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0",
+                    isPinSaved ? "fill-[#D4A843] text-[#D4A843]" : "text-[#D4A843]",
+                  )}
+                  aria-hidden
+                />
+                {pinSaveN > 0 ? (
+                  <span className="text-xs font-medium tabular-nums text-[#D4A843]">{pinSaveN}</span>
+                ) : null}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-1 px-4 pb-3 pt-3">
+          <p className="font-serif text-2xl font-bold text-[#D4A843]">
+            {formatPropertyPriceDisplay(
+              p.price,
+              p.status as "for_sale" | "for_rent" | "sold" | "rented",
+            )}
+          </p>
+          <p className="font-serif text-lg font-bold text-[#2C2C2C]">{title}</p>
+          <p className="flex items-start gap-1.5 text-sm text-[#2C2C2C]/55">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+            <span>{p.location}</span>
+          </p>
+          <p className="text-sm text-[#6B6B6B]">
+            {p.sqft} sqft · {p.beds} beds · {p.baths} baths
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2 px-4 pb-4 sm:flex-row sm:flex-wrap sm:items-center">
+          <Link
+            href={`/properties/${encodeURIComponent(p.id)}`}
+            className="inline-flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] sm:w-auto"
+          >
+            View Property
+          </Link>
+          <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
+            <button
+              type="button"
+              onClick={() => openViewingForProperty(p)}
+              disabled={authLoading || !hasAgents || viewingPrefsBlocked}
+              title={
+                user && !hasAgents
+                  ? "No agent available"
+                  : viewingPrefsBlocked
+                    ? "Complete your profile preferences to request a viewing."
+                    : undefined
+              }
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            >
+              <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
+              Request Viewing
+            </button>
+            {!hasAgents ? (
+              <p className="max-w-md text-xs leading-snug text-[#2C2C2C]/65">
+                No listing agent is assigned to this property yet, so viewing requests are unavailable.
+              </p>
+            ) : viewingPrefsBlocked ? (
+              <p className="max-w-md text-xs leading-snug text-[#2C2C2C]">
+                Complete your profile preferences to request a viewing.{" "}
+                <Link
+                  href="/settings?tab=profile"
+                  className="font-semibold text-[#6B9E6E] underline underline-offset-2"
+                >
+                  Open settings
+                </Link>
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </article>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <MaddenTopNav />
@@ -1007,7 +1356,17 @@ export default function ClientPublicProfilePage() {
                 </div>
               ) : null}
               <h2 className="font-serif text-3xl font-semibold text-[#2C2C2C]">
-                My Home Wishlist
+                {isOwn
+                  ? ownMainTab === "all"
+                    ? "Activity"
+                    : ownMainTab === "pins"
+                      ? "My Home Wishlist"
+                      : ownMainTab === "likes"
+                        ? "Liked properties"
+                        : ownMainTab === "badges"
+                          ? "Badges"
+                          : "Documents"
+                  : "My Home Wishlist"}
               </h2>
 
               {!isOwn && !canSeeWishlist ? (
@@ -1030,6 +1389,185 @@ export default function ClientPublicProfilePage() {
                     Open agent dashboard
                   </Link>
                 </div>
+              ) : isOwn ? (
+                <>
+                  <div className="mt-6 flex flex-wrap gap-2 border-b border-[#2C2C2C]/10 pb-px">
+                    {OWN_MAIN_TABS.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setOwnMainTab(t.id)}
+                        className={`rounded-t-lg px-4 py-2 text-sm font-semibold transition ${
+                          ownMainTab === t.id
+                            ? "border-b-2 border-[#6B9E6E] text-[#6B9E6E]"
+                            : "text-[#2C2C2C]/55 hover:text-[#2C2C2C]"
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {(ownMainTab === "all" || ownMainTab === "pins" || ownMainTab === "likes") && (
+                    <div className="mt-6 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setOwnListingMode("rent")}
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                          ownListingMode === "rent"
+                            ? "border-[#6B9E6E] bg-[#6B9E6E] text-white"
+                            : "border-[#2C2C2C]/20 bg-white text-[#2C2C2C]/70",
+                        )}
+                      >
+                        For Rent
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOwnListingMode("sale")}
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                          ownListingMode === "sale"
+                            ? "border-[#6B9E6E] bg-[#6B9E6E] text-white"
+                            : "border-[#2C2C2C]/20 bg-white text-[#2C2C2C]/70",
+                        )}
+                      >
+                        For Sale
+                      </button>
+                    </div>
+                  )}
+
+                  {ownMainTab === "all" ? (
+                    ownFeedLoading ? (
+                      <div className="mt-8 space-y-4">
+                        <div className="h-44 animate-pulse rounded-2xl bg-[#E8E6E1]" />
+                        <div className="h-44 animate-pulse rounded-2xl bg-[#E8E6E1]" />
+                        <div className="h-32 animate-pulse rounded-2xl bg-[#E8E6E1]" />
+                      </div>
+                    ) : (
+                      <div className="mt-8">
+                        <AllFeedTab
+                          grouped={ownFeedGroupedFiltered}
+                          feedAgentMeta={ownFeedAgentMeta}
+                          likes={likes}
+                          pins={pins}
+                          onViewBadges={() => setOwnMainTab("badges")}
+                        />
+                      </div>
+                    )
+                  ) : null}
+
+                  {ownMainTab === "pins" ? (
+                    wishlistLoading ? (
+                      <div className="mt-8 space-y-4">
+                        <div className="h-72 animate-pulse rounded-2xl bg-[#E8E6E1]" />
+                        <div className="h-72 animate-pulse rounded-2xl bg-[#E8E6E1]" />
+                      </div>
+                    ) : properties.length === 0 ? (
+                      <div className="mt-12 flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-[#FAF8F4]/50 py-16 text-center">
+                        <Home className="h-14 w-14 text-[#6B9E6E]/50" strokeWidth={1.25} />
+                        <p className="mt-4 font-medium text-[#2C2C2C]/70">
+                          No saved properties yet. Start browsing!
+                        </p>
+                        <Link
+                          href="/"
+                          className="mt-4 text-sm font-semibold text-[#6B9E6E] underline underline-offset-2"
+                        >
+                          Browse listings
+                        </Link>
+                      </div>
+                    ) : ownPinsSorted.length === 0 ? (
+                      <div className="mt-12 flex flex-col items-center justify-center rounded-2xl border border-[#2C2C2C]/8 bg-white px-4 py-12 text-center shadow-sm">
+                        <Home className="mx-auto h-12 w-12 text-[#6B9E6E]/60" strokeWidth={1.25} />
+                        <p className="mt-4 font-medium text-[#2C2C2C]/75">
+                          No pinned listings in this category yet.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setOwnListingMode(ownListingMode === "rent" ? "sale" : "rent")}
+                          className="mt-4 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-bold text-white hover:bg-[#5c8a5f]"
+                        >
+                          Switch to {ownListingMode === "rent" ? "For Sale" : "For Rent"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-8 flex flex-col gap-4">
+                        {ownPinsSorted.map((p) =>
+                          renderWishlistFacebookCard(p, {
+                            variant: "pinned",
+                            activityIso: pinnedAtByPropertyId[p.id] ?? null,
+                          }),
+                        )}
+                      </div>
+                    )
+                  ) : null}
+
+                  {ownMainTab === "likes" ? (
+                    ownFeedLoading ? (
+                      <div className="mt-8 space-y-4">
+                        <div className="h-72 animate-pulse rounded-2xl bg-[#E8E6E1]" />
+                        <div className="h-72 animate-pulse rounded-2xl bg-[#E8E6E1]" />
+                      </div>
+                    ) : ownLikeRowsFiltered.length === 0 ? (
+                      <div className="mt-12 flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-[#FAF8F4]/50 py-16 text-center">
+                        <Heart className="h-14 w-14 text-[#6B9E6E]/50" strokeWidth={1.25} />
+                        <p className="mt-4 font-medium text-[#2C2C2C]/70">
+                          No liked properties in this category yet.
+                        </p>
+                        <Link
+                          href="/"
+                          className="mt-4 text-sm font-semibold text-[#6B9E6E] underline underline-offset-2"
+                        >
+                          Browse listings
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="mt-8 flex flex-col gap-4">
+                        {ownLikeRowsFiltered.map((r) => {
+                          const full = propertyRowFromLikeJoin(r, properties);
+                          if (!full) return null;
+                          return renderWishlistFacebookCard(full, {
+                            variant: "liked",
+                            activityIso: r.created_at,
+                          });
+                        })}
+                      </div>
+                    )
+                  ) : null}
+
+                  {ownMainTab === "badges" ? (
+                    ownFeedLoading ? (
+                      <div className="mt-8 grid grid-cols-2 gap-3">
+                        <div className="h-40 animate-pulse rounded-2xl bg-[#E8E6E1]" />
+                        <div className="h-40 animate-pulse rounded-2xl bg-[#E8E6E1]" />
+                        <div className="h-40 animate-pulse rounded-2xl bg-[#E8E6E1]" />
+                        <div className="h-40 animate-pulse rounded-2xl bg-[#E8E6E1]" />
+                      </div>
+                    ) : (
+                      <div className="mt-8 max-w-4xl">
+                        <BadgesTab badges={ownBadges} />
+                      </div>
+                    )
+                  ) : null}
+
+                  {ownMainTab === "documents" ? (
+                    ownFeedLoading ? (
+                      <div className="mt-8 space-y-3">
+                        <div className="h-24 animate-pulse rounded-2xl bg-[#E8E6E1]" />
+                        <div className="h-24 animate-pulse rounded-2xl bg-[#E8E6E1]" />
+                      </div>
+                    ) : (
+                      <div className="mt-8 max-w-4xl">
+                        <DocumentsTab
+                          ownDocs={ownOwnDocs}
+                          sharedDocs={ownSharedDocs}
+                          viewBusyUrl={ownDocViewBusy}
+                          onViewOwn={openOwnDesktopDocument}
+                        />
+                      </div>
+                    )
+                  ) : null}
+                </>
               ) : (
                 <>
                   {!isOwn && freeAgentWishlistPreview && canSeeWishlist ? (
@@ -1091,255 +1629,12 @@ export default function ClientPublicProfilePage() {
                     </div>
                   ) : (
                     <div className="mt-8 flex flex-col gap-4">
-                      {sortedFiltered.map((p) => {
-                        const overlay = overlayLabel(p);
-                        const likeTotal = likeCounts[p.id] ?? 0;
-                        const pinSaveN = saveCounts[p.id] ?? 0;
-                        const isHeartLiked = likes.has(p.id);
-                        const isPinSaved = pins.has(p.id);
-                        const pinnedIso = pinnedAtByPropertyId[p.id];
-                        const pinnedLine = pinnedIso
-                          ? pinnedRelativeLabel(pinnedIso)
-                          : "Pinned recently";
-                        const listedLine = listingListedLabel(p.created_at);
-                        const title = p.name?.trim() || p.location || "Listing";
-                        const statusLabel = p.status === "for_rent" ? "For Rent" : "For Sale";
-                        const agents = p.connectedAgents ?? [];
-                        const hasAgents = agents.length > 0;
-                        const canRequestViewing = hasAgents && !viewingPrefsBlocked;
-                        return (
-                          <article
-                            key={p.id}
-                            className="overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm"
-                          >
-                            <div className="flex items-start gap-3 px-4 pt-4">
-                              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
-                                {clientProfile.avatar_url?.trim() ? (
-                                  <SupabasePublicImage
-                                    src={clientProfile.avatar_url}
-                                    alt=""
-                                    fill
-                                    sizes="40px"
-                                    className="object-cover"
-                                  />
-                                ) : (
-                                  <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-sm font-bold text-white">
-                                    {agentAvatarInitials(displayName)}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="font-bold text-[#2C2C2C]">{displayName}</p>
-                                <p className="text-xs font-medium text-[#2C2C2C]/50">{pinnedLine}</p>
-                                <p className="text-xs font-medium text-[#2C2C2C]/50">{listedLine}</p>
-                              </div>
-                            </div>
-
-                            <div className="relative mt-3 w-full overflow-hidden">
-                              <Link
-                                href={`/properties/${encodeURIComponent(p.id)}`}
-                                className="relative block aspect-video w-full bg-[#2C2C2C]/5"
-                              >
-                                <Image
-                                  src={p.image_url}
-                                  alt=""
-                                  fill
-                                  sizes="(max-width: 1024px) 100vw, 70vw"
-                                  className={`object-cover ${overlay ? "brightness-[0.55]" : ""}`}
-                                />
-                              </Link>
-                              {overlay ? (
-                                <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center bg-black/35">
-                                  <span className="rounded-lg border-2 border-white/90 bg-black/40 px-6 py-2 font-serif text-xl font-bold tracking-widest text-white">
-                                    {overlay}
-                                  </span>
-                                </div>
-                              ) : null}
-                              <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
-                                <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10">
-                                  <Pin className="h-3.5 w-3.5 shrink-0 text-[#D4A843]" aria-hidden />
-                                  Pinned
-                                </span>
-                                <span
-                                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold text-white shadow-md ${
-                                    p.status === "for_rent"
-                                      ? "bg-[#D4A843] text-[#2C2C2C]"
-                                      : "bg-[#6B9E6E]"
-                                  }`}
-                                >
-                                  {statusLabel}
-                                </span>
-                              </div>
-                              <div className="absolute right-3 top-3 z-10 flex items-start gap-1">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    void likes.toggle(p.id);
-                                  }}
-                                  className={cn(
-                                    "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
-                                    isHeartLiked
-                                      ? "border border-red-200 bg-white"
-                                      : "border border-gray-200 bg-white/80",
-                                  )}
-                                  aria-label={likeTotal > 0 ? `${likeTotal} likes` : "Like"}
-                                >
-                                  <Heart
-                                    className={cn(
-                                      "h-3.5 w-3.5 shrink-0",
-                                      isHeartLiked ? "fill-red-500 text-red-500" : "text-red-400",
-                                    )}
-                                    aria-hidden
-                                  />
-                                  {likeTotal > 0 ? (
-                                    <span
-                                      className={cn(
-                                        "text-xs font-medium tabular-nums",
-                                        isHeartLiked ? "text-red-500" : "text-red-400",
-                                      )}
-                                    >
-                                      {likeTotal}
-                                    </span>
-                                  ) : null}
-                                </button>
-                                {isOwn ? (
-                                  <button
-                                    type="button"
-                                    disabled={removingId === p.id}
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      void removeFromWishlist(p.id);
-                                    }}
-                                    className={cn(
-                                      "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4] disabled:opacity-50",
-                                      isPinSaved
-                                        ? "border border-[#D4A843]/40 bg-white"
-                                        : "border border-gray-200 bg-white/80",
-                                    )}
-                                    title="Remove from wishlist"
-                                    aria-label={
-                                      pinSaveN > 0
-                                        ? `${pinSaveN} saves — remove from wishlist`
-                                        : "Unpin from wishlist"
-                                    }
-                                  >
-                                    <Pin
-                                      className={cn(
-                                        "h-3.5 w-3.5 shrink-0",
-                                        isPinSaved
-                                          ? "fill-[#D4A843] text-[#D4A843]"
-                                          : "text-[#D4A843]",
-                                        removingId === p.id ? "opacity-35" : "",
-                                      )}
-                                      aria-hidden
-                                    />
-                                    {pinSaveN > 0 ? (
-                                      <span className="text-xs font-medium tabular-nums text-[#D4A843]">
-                                        {pinSaveN}
-                                      </span>
-                                    ) : null}
-                                  </button>
-                                ) : (
-                                  <span
-                                    className={cn(
-                                      "pointer-events-none inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm",
-                                      isPinSaved
-                                        ? "border border-[#D4A843]/40 bg-white"
-                                        : "border border-gray-200 bg-white/80",
-                                    )}
-                                    aria-label={pinSaveN > 0 ? `${pinSaveN} saves` : "Saves"}
-                                  >
-                                    <Pin
-                                      className={cn(
-                                        "h-3.5 w-3.5 shrink-0",
-                                        isPinSaved
-                                          ? "fill-[#D4A843] text-[#D4A843]"
-                                          : "text-[#D4A843]",
-                                      )}
-                                      aria-hidden
-                                    />
-                                    {pinSaveN > 0 ? (
-                                      <span className="text-xs font-medium tabular-nums text-[#D4A843]">
-                                        {pinSaveN}
-                                      </span>
-                                    ) : null}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="space-y-1 px-4 pb-3 pt-3">
-                              <p className="font-serif text-2xl font-bold text-[#D4A843]">
-                                {formatPropertyPriceDisplay(
-                                  p.price,
-                                  p.status as "for_sale" | "for_rent" | "sold" | "rented",
-                                )}
-                              </p>
-                              <p className="font-serif text-lg font-bold text-[#2C2C2C]">{title}</p>
-                              <p className="flex items-start gap-1.5 text-sm text-[#2C2C2C]/55">
-                                <MapPin
-                                  className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]"
-                                  aria-hidden
-                                />
-                                <span>{p.location}</span>
-                              </p>
-                              <p className="text-sm text-[#6B6B6B]">
-                                {p.sqft} sqft · {p.beds} beds · {p.baths} baths
-                              </p>
-                            </div>
-
-                            <div className="flex flex-col gap-2 px-4 pb-4 sm:flex-row sm:flex-wrap sm:items-center">
-                              <Link
-                                href={`/properties/${encodeURIComponent(p.id)}`}
-                                className="inline-flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] sm:w-auto"
-                              >
-                                View Property
-                              </Link>
-                              <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
-                                <button
-                                  type="button"
-                                  onClick={() => openViewingForProperty(p)}
-                                  disabled={
-                                    authLoading ||
-                                    !hasAgents ||
-                                    viewingPrefsBlocked
-                                  }
-                                  title={
-                                    user && !hasAgents
-                                      ? "No agent available"
-                                      : viewingPrefsBlocked
-                                        ? "Complete your profile preferences to request a viewing."
-                                        : undefined
-                                  }
-                                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                                >
-                                  <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
-                                  Request Viewing
-                                </button>
-                                {!hasAgents ? (
-                                  <p className="max-w-md text-xs leading-snug text-[#2C2C2C]/65">
-                                    No listing agent is assigned to this property yet, so viewing
-                                    requests are unavailable.
-                                  </p>
-                                ) : viewingPrefsBlocked ? (
-                                  <p className="max-w-md text-xs leading-snug text-[#2C2C2C]">
-                                    Complete your profile preferences to request a viewing.{" "}
-                                    <Link
-                                      href="/settings?tab=profile"
-                                      className="font-semibold text-[#6B9E6E] underline underline-offset-2"
-                                    >
-                                      Open settings
-                                    </Link>
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                          </article>
-                        );
-                      })}
+                      {sortedFiltered.map((p) =>
+                        renderWishlistFacebookCard(p, {
+                          variant: "pinned",
+                          activityIso: pinnedAtByPropertyId[p.id] ?? null,
+                        }),
+                      )}
                     </div>
                   )}
                 </>
