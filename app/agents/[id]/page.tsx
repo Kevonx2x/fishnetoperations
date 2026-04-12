@@ -781,17 +781,6 @@ export default function AgentProfilePage() {
     [authLoading, user],
   );
 
-  const onCallClick = () => {
-    if (authLoading) return;
-    if (!user) {
-      setSignInPromptOpen(true);
-      return;
-    }
-    if (agent?.phone) {
-      window.location.href = `tel:${agent.phone}`;
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#2C2C2C]">
       {!loading && !error && agent && isOwnProfile && agent.verification_status !== "verified" ? (
@@ -935,18 +924,6 @@ export default function AgentProfilePage() {
                       Contact
                     </p>
                     <p className="break-all text-center text-sm font-medium text-[#2C2C2C]/80">{agent.email}</p>
-                    {agent.phone?.trim() ? (
-                      <button
-                        type="button"
-                        onClick={onCallClick}
-                        disabled={authLoading}
-                        className="w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:opacity-50"
-                      >
-                        {agent.phone}
-                      </button>
-                    ) : (
-                      <p className="text-center text-sm italic text-[#2C2C2C]/45">Phone not listed</p>
-                    )}
                   </div>
 
                   <div className="mt-4 space-y-2">

@@ -492,12 +492,17 @@ const HOMEPAGE_FAQ_ITEMS = [
 function HomepageFaqSection({
   openFaqIndex,
   setOpenFaqIndex,
+  className,
 }: {
   openFaqIndex: number | null;
   setOpenFaqIndex: React.Dispatch<React.SetStateAction<number | null>>;
+  className?: string;
 }) {
   return (
-    <section className="mx-auto mt-6 max-w-3xl px-4 pb-16" aria-labelledby="homepage-faq-heading">
+    <section
+      className={cn("mx-auto max-w-3xl px-4 pb-16", className)}
+      aria-labelledby="homepage-faq-heading"
+    >
       <h2 id="homepage-faq-heading" className="text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
         Frequently Asked Questions
       </h2>
@@ -1742,7 +1747,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               ) : null}
             </section>
 
-            <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
+            <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10 lg:mt-12" />
 
             {/* 6. TOP VERIFIED AGENTS THIS WEEK (deferred client load) */}
             <div>
@@ -1754,10 +1759,10 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               />
             </div>
 
-            <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
+            <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10 lg:mt-12" />
 
             {/* 7. WHY FISHNET TRUST SECTION */}
-            <section className="mt-12">
+            <section className="mt-6 lg:mt-12">
               <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
                   <Trust
@@ -1779,11 +1784,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               </div>
             </section>
 
-            <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
+            <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10 lg:mt-12" />
 
             {/* 8. FEATURED PROPERTY */}
             {featuredHomeProperty ? (
-              <section className="mt-12">
+              <section className="mt-6 lg:mt-12">
                 <div className="mx-auto max-w-2xl">
                   <Link
                     href={`/properties/${encodeURIComponent(featuredHomeProperty.id)}`}
@@ -1853,12 +1858,16 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               </section>
             ) : null}
 
-            <hr className="mx-auto mt-8 w-3/4 border-t border-[#2C2C2C]/10" />
+            <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10" />
           </>
         ) : null}
       </main>
 
-      <DynamicHomepageFaq openFaqIndex={openFaqIndex} setOpenFaqIndex={setOpenFaqIndex} />
+      <DynamicHomepageFaq
+        openFaqIndex={openFaqIndex}
+        setOpenFaqIndex={setOpenFaqIndex}
+        className="mt-6"
+      />
 
       <AnimatePresence>
         {zoomProperty ? (

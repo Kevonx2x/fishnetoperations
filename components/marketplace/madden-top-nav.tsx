@@ -44,6 +44,7 @@ import {
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { BahayGoWordmark } from "@/components/marketplace/bahaygo-wordmark";
 import {
@@ -55,6 +56,8 @@ type NavLinkItem = { kind: "link"; label: string; href: string; icon: ReactNode 
 type NavDividerItem = { kind: "divider"; label: string };
 type NavPendingItem = { kind: "pending"; label: string; icon: ReactNode };
 type NavDropdownEntry = NavLinkItem | NavDividerItem | NavPendingItem;
+
+const BAHAYGO_LANGUAGE_KEY = "bahaygo-language";
 
 function MobileNavSection({
   title,
@@ -203,6 +206,25 @@ export function MaddenTopNav() {
   const accountRef = useRef<HTMLDivElement | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifUnread, setNotifUnread] = useState(0);
+  const [uiLanguage, setUiLanguage] = useState<"en" | "fil">("en");
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(BAHAYGO_LANGUAGE_KEY);
+      if (raw === "fil" || raw === "en") setUiLanguage(raw);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const setUiLanguagePersist = useCallback((next: "en" | "fil") => {
+    setUiLanguage(next);
+    try {
+      localStorage.setItem(BAHAYGO_LANGUAGE_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     if (!user?.id) {
@@ -490,6 +512,36 @@ export function MaddenTopNav() {
                   </span>
                 ) : null}
               </Link>
+              <div
+                className="hidden max-w-[80px] shrink-0 items-stretch rounded-full border border-[#2C2C2C]/20 p-0.5 sm:flex"
+                role="group"
+                aria-label="Language"
+              >
+                <button
+                  type="button"
+                  onClick={() => setUiLanguagePersist("en")}
+                  className={cn(
+                    "min-w-0 flex-1 rounded-full px-1 py-0.5 text-[10px] font-semibold leading-none transition",
+                    uiLanguage === "en"
+                      ? "bg-[#6B9E6E] text-white"
+                      : "bg-transparent text-[#2C2C2C]/55 ring-1 ring-inset ring-[#2C2C2C]/20",
+                  )}
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUiLanguagePersist("fil")}
+                  className={cn(
+                    "min-w-0 flex-1 rounded-full px-1 py-0.5 text-[10px] font-semibold leading-none transition",
+                    uiLanguage === "fil"
+                      ? "bg-[#6B9E6E] text-white"
+                      : "bg-transparent text-[#2C2C2C]/55 ring-1 ring-inset ring-[#2C2C2C]/20",
+                  )}
+                >
+                  FIL
+                </button>
+              </div>
               <div className="relative" ref={accountRef}>
                 <div className="relative">
                   <button

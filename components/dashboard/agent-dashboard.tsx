@@ -555,6 +555,7 @@ export function AgentDashboard() {
   const [listingOpen, setListingOpen] = useState(false);
   const [listingLimitModalOpen, setListingLimitModalOpen] = useState(false);
   const [listingLimitModalKind, setListingLimitModalKind] = useState<"owned" | "coList">("owned");
+  const [listingPublishDisclosureOpen, setListingPublishDisclosureOpen] = useState(false);
   const [editWarningOpen, setEditWarningOpen] = useState(false);
   const [editFormOpen, setEditFormOpen] = useState(false);
   const [pendingEditProperty, setPendingEditProperty] = useState<PropertyRow | null>(null);
@@ -1159,43 +1160,8 @@ export function AgentDashboard() {
     [editPropertyId, editForm, editListingImages, loadData],
   );
 
-  const createListing = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const runCreateListingInsert = async () => {
     if (!user?.id) return;
-    if (!computeListingCompleteness(listingForm, listingForm.listingImageUrls).requiredComplete) {
-      toast.error("Complete required fields to publish");
-      return;
-    }
-    if (ownedListingCount >= listingLimit) {
-      setListingOpen(false);
-      setListingLimitModalKind("owned");
-      setListingLimitModalOpen(true);
-      return;
-    }
-    setListingFormErrors({});
-    const errs: Record<string, string> = {};
-    const pr = validateListingPriceDisplay(listingForm.price);
-    if (pr) errs.price = pr;
-    if (listingForm.listing_type === "both") {
-      const rr = validateListingPriceDisplay(listingForm.rent_price);
-      if (rr) errs.rent_price = rr;
-    }
-    if (!listingForm.location.trim()) errs.location = "Location is required.";
-    const sqe = validateSqft(listingForm.sqft);
-    if (sqe) errs.sqft = sqe;
-    const be = validateBedsBaths(listingForm.beds, "Beds");
-    if (be) errs.beds = be;
-    const ba = validateBedsBaths(listingForm.baths, "Baths");
-    if (ba) errs.baths = ba;
-    if (listingForm.property_type === "Presale") {
-      if (!listingForm.developer_name.trim()) errs.developer_name = "Developer name is required.";
-      if (!listingForm.turnover_date.trim()) errs.turnover_date = "Expected turnover date is required.";
-      if (listingForm.unit_types.length === 0) errs.unit_types = "Select at least one unit type.";
-    }
-    if (Object.keys(errs).length > 0) {
-      setListingFormErrors(errs);
-      return;
-    }
     const priceNum = parseListingPricePesos(listingForm.price);
     setSaving(true);
     setMsg("");
@@ -1296,6 +1262,46 @@ export function AgentDashboard() {
     await loadData();
     setMsg("Listing created.");
     setTab("listings");
+  };
+
+  const createListing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.id) return;
+    if (!computeListingCompleteness(listingForm, listingForm.listingImageUrls).requiredComplete) {
+      toast.error("Complete required fields to publish");
+      return;
+    }
+    if (ownedListingCount >= listingLimit) {
+      setListingOpen(false);
+      setListingLimitModalKind("owned");
+      setListingLimitModalOpen(true);
+      return;
+    }
+    setListingFormErrors({});
+    const errs: Record<string, string> = {};
+    const pr = validateListingPriceDisplay(listingForm.price);
+    if (pr) errs.price = pr;
+    if (listingForm.listing_type === "both") {
+      const rr = validateListingPriceDisplay(listingForm.rent_price);
+      if (rr) errs.rent_price = rr;
+    }
+    if (!listingForm.location.trim()) errs.location = "Location is required.";
+    const sqe = validateSqft(listingForm.sqft);
+    if (sqe) errs.sqft = sqe;
+    const be = validateBedsBaths(listingForm.beds, "Beds");
+    if (be) errs.beds = be;
+    const ba = validateBedsBaths(listingForm.baths, "Baths");
+    if (ba) errs.baths = ba;
+    if (listingForm.property_type === "Presale") {
+      if (!listingForm.developer_name.trim()) errs.developer_name = "Developer name is required.";
+      if (!listingForm.turnover_date.trim()) errs.turnover_date = "Expected turnover date is required.";
+      if (listingForm.unit_types.length === 0) errs.unit_types = "Select at least one unit type.";
+    }
+    if (Object.keys(errs).length > 0) {
+      setListingFormErrors(errs);
+      return;
+    }
+    setListingPublishDisclosureOpen(true);
   };
 
   if (authLoading || !loaded) {
@@ -1640,6 +1646,52 @@ export function AgentDashboard() {
             ownedLimit={listingLimit}
             coListLimit={coListLimit}
           />
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {listingPublishDisclosureOpen ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-4 sm:items-center"
+            onClick={() => setListingPublishDisclosureOpen(false)}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-6 shadow-2xl"
+            >
+              <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Publish listing</h2>
+              <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/75">
+                By publishing this listing you confirm that the property information is accurate and complete, you are
+                authorized to list this property on behalf of the owner, and you agree to BahayGo Terms of Service and
+                listing guidelines. BahayGo is not responsible for inaccurate or fraudulent listings.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setListingPublishDisclosureOpen(false)}
+                  className="flex-1 rounded-full border border-[#2C2C2C]/15 bg-white px-4 py-2.5 text-sm font-bold text-[#2C2C2C] hover:bg-[#FAF8F4]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setListingPublishDisclosureOpen(false);
+                    void runCreateListingInsert();
+                  }}
+                  className="flex-1 rounded-full bg-[#2C2C2C] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#6B9E6E]"
+                >
+                  I Agree and Publish
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         ) : null}
       </AnimatePresence>
 
