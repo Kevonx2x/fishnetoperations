@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, X } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -199,6 +199,7 @@ const LEGAL_MANUAL_ITEMS: {
   title: string;
   description: string;
   risk: LegalManualRisk;
+  steps: string[];
 }[] = [
   {
     id: "npc_registration",
@@ -206,6 +207,14 @@ const LEGAL_MANUAL_ITEMS: {
     description:
       "Required when you reach 1,000 personal data records. High risk if missed — fines up to 5 million pesos.",
     risk: "High",
+    steps: [
+      "Step 1 — Go to privacy.gov.ph and create an account.",
+      "Step 2 — Register your organization as a Personal Information Controller.",
+      "Step 3 — Submit your Data Protection Officer details (this can be you).",
+      "Step 4 — Pay the registration fee (around PHP 1,000).",
+      "Step 5 — Receive your NPC registration certificate.",
+      "Do this before you hit 1,000 user accounts.",
+    ],
   },
   {
     id: "dpa_compliance",
@@ -213,6 +222,13 @@ const LEGAL_MANUAL_ITEMS: {
     description:
       "DPA consent on all forms; privacy policy live on the site and linked wherever you collect data.",
     risk: "High",
+    steps: [
+      "Step 1 — Confirm your Privacy Policy page is live at bahaygo.com/privacy.",
+      "Step 2 — Confirm DPA consent checkbox exists on agent registration form.",
+      "Step 3 — Confirm data consent modal appears before document uploads.",
+      "Step 4 — Make sure users can delete their account in Settings (Right to Erasure).",
+      "Step 5 — Appoint yourself as Data Protection Officer and document it.",
+    ],
   },
   {
     id: "prc_disclaimer",
@@ -220,6 +236,11 @@ const LEGAL_MANUAL_ITEMS: {
     description:
       "Agents are verified by BahayGo processes; verification is not a government guarantee of licensure status.",
     risk: "Medium",
+    steps: [
+      "Step 1 — Go to your Terms of Service page and confirm it states BahayGo verifies agents through document submission and is not affiliated with PRC.",
+      "Step 2 — Confirm every agent profile shows Verified by BahayGo not Verified by PRC.",
+      "Step 3 — Add a tooltip or info icon explaining what verification means on the agent profile page.",
+    ],
   },
   {
     id: "hold_harmless",
@@ -227,6 +248,11 @@ const LEGAL_MANUAL_ITEMS: {
     description:
       "Terms of Service should protect BahayGo from liability for fraudulent or inaccurate listings and user-generated content.",
     risk: "Medium",
+    steps: [
+      "Step 1 — Go to bahaygo.com/terms and confirm the hold harmless clause is in the Terms of Service.",
+      "Step 2 — The clause should state users agree BahayGo is not liable for fraudulent listings, agent misconduct, or transaction disputes.",
+      "Step 3 — Have a lawyer review the clause before public launch.",
+    ],
   },
   {
     id: "aml",
@@ -234,6 +260,13 @@ const LEGAL_MANUAL_ITEMS: {
     description:
       "Real estate transactions over 500k PHP may require AMLC reporting when BahayGo processes or facilitates payments.",
     risk: "High",
+    steps: [
+      "Step 1 — Go to amlc.gov.ph and read the real estate covered person guidelines.",
+      "Step 2 — Register as a covered person if you process property transactions over PHP 500,000.",
+      "Step 3 — Implement a Know Your Customer process for high-value transactions.",
+      "Step 4 — Keep transaction records for 5 years.",
+      "Note: This applies when you actually facilitate payments not just connect buyers and agents.",
+    ],
   },
   {
     id: "sec_registration",
@@ -241,6 +274,14 @@ const LEGAL_MANUAL_ITEMS: {
     description:
       "Required if you take investment or grant co-founders equity; structure the entity before taking outside capital.",
     risk: "High",
+    steps: [
+      "Step 1 — Decide your structure: sole proprietor (DTI registration) or corporation (SEC registration).",
+      "Step 2 — If taking investment or adding co-founders with equity, register as a corporation at SEC.",
+      "Step 3 — Go to esecure.sec.gov.ph to file online.",
+      "Step 4 — Prepare Articles of Incorporation and By-Laws.",
+      "Step 5 — Pay registration fees (around PHP 2,000 to 5,000).",
+      "Step 6 — Get your Certificate of Incorporation.",
+    ],
   },
   {
     id: "bir_registration",
@@ -248,6 +289,14 @@ const LEGAL_MANUAL_ITEMS: {
     description:
       "Required once you have revenue; register as sole proprietor or corporation and issue receipts as required.",
     risk: "High",
+    steps: [
+      "Step 1 — Go to your local BIR Revenue District Office.",
+      "Step 2 — Register your business using BIR Form 1901 (sole proprietor) or 1903 (corporation).",
+      "Step 3 — Get your Certificate of Registration (Form 2303).",
+      "Step 4 — Register your official receipts or invoices.",
+      "Step 5 — Set up quarterly and annual tax filing.",
+      "Hire an accountant — do not do this alone.",
+    ],
   },
   {
     id: "business_permit",
@@ -255,6 +304,14 @@ const LEGAL_MANUAL_ITEMS: {
     description:
       "Local government unit permit for Taguig or wherever you operate the business.",
     risk: "Medium",
+    steps: [
+      "Step 1 — Go to your local city hall in Taguig (or wherever you operate).",
+      "Step 2 — Secure a Barangay Clearance first from your barangay hall.",
+      "Step 3 — Apply for a Mayor's Permit at the Business Permits and Licensing Office.",
+      "Step 4 — Submit DTI or SEC registration, lease contract or address proof, and barangay clearance.",
+      "Step 5 — Pay the permit fee and receive your Business Permit.",
+      "Renew every January.",
+    ],
   },
   {
     id: "intellectual_property",
@@ -262,6 +319,14 @@ const LEGAL_MANUAL_ITEMS: {
     description:
       "Trademark the BahayGo name and logo with IPOPHL to protect the brand in the Philippines.",
     risk: "Medium",
+    steps: [
+      "Step 1 — Go to ipophil.gov.ph and create an account.",
+      "Step 2 — Search if BahayGo is already trademarked by someone else.",
+      "Step 3 — File a trademark application for the BahayGo name and logo.",
+      "Step 4 — Pay the filing fee (around PHP 2,000 to 4,000).",
+      "Step 5 — Wait 18 to 24 months for approval.",
+      "File as soon as possible — first to file wins in the Philippines.",
+    ],
   },
   {
     id: "agent_liability",
@@ -269,6 +334,12 @@ const LEGAL_MANUAL_ITEMS: {
     description:
       "Agents are independent contractors, not employees; reflect this in agent terms and onboarding.",
     risk: "Low",
+    steps: [
+      "Step 1 — Go to bahaygo.com/terms and confirm agents are listed as independent contractors not employees.",
+      "Step 2 — Add a section stating BahayGo is not responsible for agent conduct outside the platform.",
+      "Step 3 — Confirm agents agreed to Terms of Service during registration.",
+      "Step 4 — Have a lawyer add an independent contractor clause before you reach 50 agents.",
+    ],
   },
 ];
 
@@ -418,6 +489,7 @@ export default function AdminPage() {
 
   const [manualSubTab, setManualSubTab] = useState<ManualSubTab>("overview");
   const [legalManualChecked, setLegalManualChecked] = useState<Record<string, boolean>>({});
+  const [legalManualAccordionOpen, setLegalManualAccordionOpen] = useState<Record<string, boolean>>({});
   const [legalManualHydrated, setLegalManualHydrated] = useState(false);
 
   useEffect(() => {
@@ -4784,6 +4856,7 @@ export default function AdminPage() {
                           ? "border-amber-200 bg-amber-50 text-amber-950"
                           : "border-emerald-200/80 bg-emerald-50 text-emerald-950";
                     const done = !!legalManualChecked[item.id];
+                    const accordionOpen = !!legalManualAccordionOpen[item.id];
                     return (
                       <div
                         key={item.id}
@@ -4806,20 +4879,55 @@ export default function AdminPage() {
                           />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-serif text-lg font-bold text-[#2C2C2C]">{item.title}</h3>
-                            <span
-                              className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${riskClass}`}
-                            >
-                              {item.risk} risk
-                            </span>
-                            {done ? (
-                              <span className="rounded-full bg-[#6B9E6E]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-900">
-                                Done
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex flex-wrap items-center gap-2">
+                              <h3 className="font-serif text-lg font-bold text-[#2C2C2C]">{item.title}</h3>
+                              <span
+                                className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${riskClass}`}
+                              >
+                                {item.risk} risk
                               </span>
-                            ) : null}
+                              {done ? (
+                                <span className="rounded-full bg-[#6B9E6E]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-900">
+                                  Done
+                                </span>
+                              ) : null}
+                            </div>
+                            <button
+                              type="button"
+                              aria-expanded={accordionOpen}
+                              aria-controls={`legal-manual-howto-${item.id}`}
+                              onClick={() =>
+                                setLegalManualAccordionOpen((prev) => ({
+                                  ...prev,
+                                  [item.id]: !prev[item.id],
+                                }))
+                              }
+                              className="shrink-0 rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] p-1.5 text-[#2C2C2C]/70 transition hover:bg-[#eef1f6] hover:text-[#2C2C2C]"
+                              title={accordionOpen ? "Hide how-to" : "Show how-to"}
+                            >
+                              <ChevronDown
+                                className={`h-4 w-4 transition-transform ${accordionOpen ? "rotate-180" : ""}`}
+                                aria-hidden
+                              />
+                            </button>
                           </div>
                           <p className="mt-2 text-sm text-[#2C2C2C]/80">{item.description}</p>
+                          {accordionOpen ? (
+                            <div
+                              id={`legal-manual-howto-${item.id}`}
+                              className="mt-4 rounded-xl border border-[#6B9E6E]/25 bg-[#FAF8F4]/80 px-4 py-3"
+                            >
+                              <p className="text-xs font-bold uppercase tracking-wide text-[#6B9E6E]">
+                                How-to
+                              </p>
+                              <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-[#2C2C2C]/85">
+                                {item.steps.map((step, idx) => (
+                                  <li key={idx}>{step}</li>
+                                ))}
+                              </ol>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     );

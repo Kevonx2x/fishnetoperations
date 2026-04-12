@@ -38,7 +38,6 @@ import { cn } from "@/lib/utils";
 import { ClientMobileBottomNav } from "@/components/client/client-mobile-bottom-nav";
 import {
   useClientActivityFeed,
-  filterFeedItemsByListingMode,
   filterSavedRowsByMode,
   filterLikeRowsByMode,
   pickPropertyImage,
@@ -485,7 +484,6 @@ export function MobileClientDashboard() {
     unreadCount,
     feedGrouped,
     feedAgentMeta,
-    propertyStatusById,
   } = feed;
 
   const likes = usePropertyLikes();
@@ -496,14 +494,10 @@ export function MobileClientDashboard() {
     [clientPrefs],
   );
 
-  const feedGroupedFiltered = useMemo(() => {
-    return feedGrouped
-      .map((g) => ({
-        ...g,
-        items: filterFeedItemsByListingMode(g.items, listingMode, propertyStatusById),
-      }))
-      .filter((g) => g.items.length > 0);
-  }, [feedGrouped, listingMode, propertyStatusById]);
+  const feedGroupedAll = useMemo(
+    () => feedGrouped.filter((g) => g.items.length > 0),
+    [feedGrouped],
+  );
 
   const savedRowsFiltered = useMemo(
     () => filterSavedRowsByMode(savedRows, listingMode),
@@ -740,9 +734,8 @@ export function MobileClientDashboard() {
           </div>
         ) : mainTab === "all" ? (
           <div>
-            <ListingSubTabs mode={listingMode} onChange={setListingMode} />
             <AllFeedTab
-              grouped={feedGroupedFiltered}
+              grouped={feedGroupedAll}
               feedAgentMeta={feedAgentMeta}
               likes={likes}
               pins={pins}

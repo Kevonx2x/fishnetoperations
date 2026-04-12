@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
-import { ConnectedAgentsBox } from "@/components/marketplace/connected-agents-box";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import type { DbProperty, SortMode } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
@@ -490,7 +489,7 @@ function HomepageFaqSection({
   setOpenFaqIndex: React.Dispatch<React.SetStateAction<number | null>>;
 }) {
   return (
-    <section className="mx-auto mt-8 max-w-3xl px-4 pb-16" aria-labelledby="homepage-faq-heading">
+    <section className="mx-auto mt-6 max-w-3xl px-4 pb-16" aria-labelledby="homepage-faq-heading">
       <h2 id="homepage-faq-heading" className="text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
         Frequently Asked Questions
       </h2>
@@ -1724,7 +1723,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
             <hr className="mx-auto mt-12 w-3/4 border-t border-[#2C2C2C]/10" />
 
             {/* 6. TOP VERIFIED AGENTS THIS WEEK (deferred client load) */}
-            <div className="min-h-[200px]">
+            <div>
               <DynamicHomepageTopAgents
                 topAgents={topAgents}
                 topAgentsRef={topAgentsRef}
@@ -1763,86 +1762,48 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
             {/* 8. FEATURED PROPERTY */}
             {featured ? (
               <section className="mt-12">
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
-                    <div className="relative h-64 w-full bg-black/5 lg:h-auto lg:aspect-video">
-                      <Image
-                        src={featuredPhotos[0] ?? featured.image_url}
-                        alt={featured.name ?? featured.location}
-                        fill
-                        quality={95}
-                        className="object-cover"
-                        sizes="(min-width: 1024px) 600px, 100vw"
-                        loading="lazy"
-                      />
-                      <div className="absolute inset-x-0 bottom-0 bg-black/35 px-3 py-3 backdrop-blur-sm">
-                        <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:overflow-x-auto sm:scrollbar-hide">
-                          {featuredPhotos.slice(0, 4).map((u) => (
-                            <div
-                              key={u}
-                              className="relative aspect-video w-20 shrink-0 overflow-hidden rounded-lg border border-white/30"
-                            >
-                              <Image
-                                src={u}
-                                alt=""
-                                fill
-                                sizes="80px"
-                                className="object-cover"
-                                loading="lazy"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                <Link
+                  href={`/properties/${encodeURIComponent(featured.id)}`}
+                  className="block overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm transition hover:shadow-md"
+                >
+                  <div className="relative aspect-video w-full bg-black/5">
+                    <Image
+                      src={featuredPhotos[0] ?? featured.image_url}
+                      alt={featured.name ?? featured.location}
+                      fill
+                      quality={95}
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, min(896px, 100vw)"
+                      loading="lazy"
+                    />
                   </div>
-
-                  <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm max-lg:px-5 max-lg:py-7">
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-[#D4A843]/18 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#8a6d32]">
-                        Featured
-                      </span>
-                      {featured.is_presale ? (
-                        <span className="rounded-full bg-[#D4A843]/25 px-3 py-1 text-[11px] font-bold text-[#8a6d32]">
-                          Presale
-                        </span>
-                      ) : featured.status === "for_rent" ? (
-                        <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/70">
-                          For Rent
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/70">
-                          For Sale
-                        </span>
-                      )}
-                    </div>
-                    <h2 className="mt-3 font-serif text-xl font-bold tracking-tight text-[#2C2C2C] lg:text-3xl">
+                  <div className="p-5 md:p-6">
+                    <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
                       {featured.name ?? featured.location}
                     </h2>
-                    <p className="mt-2 font-serif text-lg font-bold text-[#2C2C2C] lg:text-2xl">
+                    <p className="mt-2 font-serif text-xl font-bold text-[#D4A843] md:text-2xl">
                       {formatPropertyPriceDisplay(featured.price, featured.status)}
                     </p>
-                    <p className="mt-3 text-base font-semibold text-[#2C2C2C]/60 lg:text-sm">
-                      {featured.beds ? `${featured.beds} beds` : "Studio"} · {featured.baths} baths · {featured.sqft} sqft
-                    </p>
-                    <p className="mt-4 text-base leading-relaxed text-[#2C2C2C]/60 lg:text-sm">
-                      A vivid, high-contrast listing with verified agents underneath—built to feel like Zillow, but safer.
-                    </p>
-                    <Link
-                      href={`/properties/${encodeURIComponent(featured.id)}`}
-                      className="mt-4 inline-flex rounded-full bg-[#2C2C2C] px-6 py-3 text-base font-semibold text-white shadow-md hover:bg-[#6B9E6E] lg:text-sm"
-                    >
-                      Learn More →
-                    </Link>
-                    <div className="mt-6 border-t border-[#2C2C2C]/10 pt-4">
-                      <ConnectedAgentsBox
-                        title="Connected Agents"
-                        agents={allConnectedAgentsByPropertyId.get(featured.id) ?? []}
-                        defaultVisible={3}
-                      />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80">
+                        {featured.beds ? `${featured.beds} beds` : "Studio"}
+                      </span>
+                      <span className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80">
+                        {featured.baths} baths
+                      </span>
+                      <span className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80">
+                        {featured.sqft} sqft
+                      </span>
                     </div>
+                    <p className="mt-4 flex items-start gap-2 text-sm font-semibold text-[#2C2C2C]/75">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                      <span>{featured.location}</span>
+                    </p>
+                    <span className="mt-5 inline-flex rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-sm">
+                      Learn More
+                    </span>
                   </div>
-                </div>
+                </Link>
               </section>
             ) : null}
 
@@ -2704,7 +2665,7 @@ function RowCarousel({
     list.length === 0 ? 3 : list.length > 0 && list.length < 5 ? 5 - list.length : 0;
   const featuredClasses = featured ? "rounded-2xl border border-[#D4A843]/30 bg-[#D4A843]/5 px-3 pt-3" : "";
   const cardWidthClass = "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]";
-  const reserveBrowseSectionMinH = title === "Featured Picks" || title === "Newly Listed Rentals";
+  const reserveBrowseSectionMinH = title === "Newly Listed Rentals";
 
   return (
     <div className={cn(featuredClasses, reserveBrowseSectionMinH && "min-h-[400px]")}>
@@ -2720,10 +2681,17 @@ function RowCarousel({
         <button
           type="button"
           onClick={() => scroll("prev")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pl-2"
+          className={cn(
+            "hidden shrink-0 self-center rounded-full p-2 md:flex md:pl-2",
+            title === "Featured Picks"
+              ? "bg-white text-[#2C2C2C] shadow-md hover:bg-neutral-50"
+              : "border border-black/10 bg-white shadow-sm hover:bg-neutral-50",
+          )}
           aria-label="Scroll left"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft
+            className={cn("h-4 w-4", title === "Featured Picks" ? "text-[#2C2C2C]" : undefined)}
+          />
         </button>
         <div
           ref={(el) => {
@@ -2773,10 +2741,17 @@ function RowCarousel({
         <button
           type="button"
           onClick={() => scroll("next")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pr-2"
+          className={cn(
+            "hidden shrink-0 self-center rounded-full p-2 md:flex md:pr-2",
+            title === "Featured Picks"
+              ? "bg-white text-[#2C2C2C] shadow-md hover:bg-neutral-50"
+              : "border border-black/10 bg-white shadow-sm hover:bg-neutral-50",
+          )}
           aria-label="Scroll right"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight
+            className={cn("h-4 w-4", title === "Featured Picks" ? "text-[#2C2C2C]" : undefined)}
+          />
         </button>
       </div>
     </div>
