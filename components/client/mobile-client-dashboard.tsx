@@ -354,6 +354,19 @@ function FeedPhotoOverlay({
   );
 }
 
+/** Compact feed: 56×56 property image (matches property_photos / image_url via thumbUrl or pickPropertyImage). */
+function FeedPropertyThumb56({ src, alt = "" }: { src: string; alt?: string }) {
+  const u = src?.trim();
+  if (!u) {
+    return <div className="h-14 w-14 shrink-0 rounded-lg bg-gray-200" aria-hidden />;
+  }
+  return (
+    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+      <Image src={u} alt={alt} fill className="object-cover" sizes="56px" unoptimized />
+    </div>
+  );
+}
+
 function PinSaveFeedCardHeader({
   beforePostedBy,
   createdAt,
@@ -1040,37 +1053,47 @@ function ViewingRequestMediumCard({
   const propertyHrefId = metaStr(m, "property_id").trim() || item.property?.id || "";
   const agentLine = propertyHrefId ? feedAgentMeta[propertyHrefId]?.agentName?.trim() : "";
   const waHref = item.agentPhone ? `https://wa.me/${item.agentPhone}` : null;
+  const thumbSrc = item.property
+    ? pickPropertyImage(item.property)
+    : metaStr(m, "property_image_url").trim();
 
   return (
-    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-start gap-3")}>
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
-        <Calendar className="h-5 w-5 text-[#6B9E6E]" aria-hidden />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="font-bold leading-snug text-gray-900">{actionText}</p>
-        <p className="mt-0.5 text-sm text-gray-500">{propName}</p>
-        {agentLine ? <p className="mt-1 text-xs font-medium text-[#6B9E6E]">{agentLine}</p> : null}
-        {waHref ? (
-          <a
-            href={waHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-900"
-          >
-            WhatsApp
-          </a>
-        ) : null}
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
-        {propertyHrefId ? (
-          <Link
-            href={`/properties/${propertyHrefId}`}
-            className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-gray-900 ring-1 ring-[#E5E5E5]"
-          >
-            View
-          </Link>
-        ) : null}
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "relative flex w-full items-start gap-3")}>
+      {propertyHrefId ? (
+        <Link
+          href={`/properties/${encodeURIComponent(propertyHrefId)}`}
+          className="absolute inset-0 z-0 rounded-2xl"
+          aria-label={`View property: ${propName}`}
+        />
+      ) : null}
+      <div
+        className={cn(
+          "relative z-[1] flex w-full min-w-0 items-start gap-3",
+          propertyHrefId ? "pointer-events-none" : "",
+        )}
+      >
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
+          <Calendar className="h-5 w-5 text-[#6B9E6E]" aria-hidden />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-bold leading-snug text-gray-900">{actionText}</p>
+          <p className="mt-0.5 text-sm text-gray-500">{propName}</p>
+          {agentLine ? <p className="mt-1 text-xs font-medium text-[#6B9E6E]">{agentLine}</p> : null}
+          {waHref ? (
+            <a
+              href={waHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pointer-events-auto mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-900"
+            >
+              WhatsApp
+            </a>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <span className="text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
+          <FeedPropertyThumb56 src={thumbSrc} alt="" />
+        </div>
       </div>
     </article>
   );
@@ -1078,8 +1101,8 @@ function ViewingRequestMediumCard({
 
 function PriceDropMediumCard({ item }: { item: Extract<FeedUnion, { kind: "price_drop_al" }> }) {
   const newPriceDisplay = formatPropertyPriceDisplay(item.newPrice);
-  return (
-    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-center gap-3")}>
+  const inner = (
+    <>
       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
         <Tag className="h-5 w-5 text-[#6B9E6E]" aria-hidden />
       </div>
@@ -1094,20 +1117,30 @@ function PriceDropMediumCard({ item }: { item: Extract<FeedUnion, { kind: "price
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <span className="text-xs text-gray-500">{formatNotificationTimeAgo(item.sortAt)}</span>
-        <Link
-          href={`/properties/${item.propertyId}`}
-          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-gray-900 ring-1 ring-[#E5E5E5] transition-all duration-200"
-        >
-          View
-        </Link>
+        <FeedPropertyThumb56 src={item.thumbUrl} alt="" />
       </div>
-    </article>
+    </>
   );
+  if (item.propertyId) {
+    return (
+      <Link
+        href={`/properties/${encodeURIComponent(item.propertyId)}`}
+        className={cn(
+          FEED_CARD_CLASS,
+          FEED_CARD_PAD_MD,
+          "flex w-full items-center gap-3 text-inherit no-underline transition-transform duration-150 active:scale-[0.99]",
+        )}
+      >
+        {inner}
+      </Link>
+    );
+  }
+  return <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-center gap-3")}>{inner}</article>;
 }
 
 function ListingEditedActivityCard({ item }: { item: Extract<FeedUnion, { kind: "listing_edited_al" }> }) {
-  return (
-    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-center gap-3")}>
+  const inner = (
+    <>
       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#D4A843]/20">
         <Pencil className="h-5 w-5 text-[#8a6d32]" aria-hidden />
       </div>
@@ -1118,15 +1151,25 @@ function ListingEditedActivityCard({ item }: { item: Extract<FeedUnion, { kind: 
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <span className="text-xs text-gray-500">{formatNotificationTimeAgo(item.sortAt)}</span>
-        <Link
-          href={`/properties/${item.propertyId}`}
-          className="rounded-full bg-[#F0F0F0] px-3 py-1.5 text-xs font-semibold text-gray-900 ring-1 ring-[#E5E5E5] transition-all duration-200"
-        >
-          View
-        </Link>
+        <FeedPropertyThumb56 src={item.thumbUrl} alt="" />
       </div>
-    </article>
+    </>
   );
+  if (item.propertyId) {
+    return (
+      <Link
+        href={`/properties/${encodeURIComponent(item.propertyId)}`}
+        className={cn(
+          FEED_CARD_CLASS,
+          FEED_CARD_PAD_MD,
+          "flex w-full items-center gap-3 text-inherit no-underline transition-transform duration-150 active:scale-[0.99]",
+        )}
+      >
+        {inner}
+      </Link>
+    );
+  }
+  return <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-center gap-3")}>{inner}</article>;
 }
 
 function BadgeMediumCard({
