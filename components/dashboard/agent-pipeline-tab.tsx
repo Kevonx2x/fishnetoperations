@@ -766,6 +766,36 @@ export function AgentPipelineTab({
     }
   };
 
+  const getCurrentProfileId = useCallback(async (): Promise<string | null> => {
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser();
+    if (authErr) {
+      toast.error(authErr.message);
+      return null;
+    }
+    if (!user?.id) {
+      toast.error("Sign in required");
+      return null;
+    }
+    const { data: prof, error: profErr } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profErr) {
+      toast.error(profErr.message);
+      return null;
+    }
+    const profileId = (prof as { id?: string } | null)?.id;
+    if (!profileId) {
+      toast.error("Profile not found for current user");
+      return null;
+    }
+    return profileId;
+  }, [supabase]);
+
   const submitPanelRequestFlow = async () => {
     if (!docsLead?.client_id) return;
     const meta = panelDocSlug ? PANEL_DOC_BY_SLUG[panelDocSlug] : undefined;
@@ -773,6 +803,8 @@ export function AgentPipelineTab({
       toast.error("Select a document type.");
       return;
     }
+    const profileId = await getCurrentProfileId();
+    if (!profileId) return;
     setRequestFlowBusy(true);
     try {
       const res = await fetch("/api/agent/pipeline-deal-document-flow", {
@@ -781,6 +813,7 @@ export function AgentPipelineTab({
         credentials: "include",
         body: JSON.stringify({
           lead_id: docsLead.id,
+          agent_id: profileId,
           mode: "request",
           document_type: meta.slug,
           document_name: meta.label,
@@ -819,6 +852,8 @@ export function AgentPipelineTab({
       toast.error("Upload a file before sending.");
       return;
     }
+    const profileId = await getCurrentProfileId();
+    if (!profileId) return;
     setSendFlowBusy(true);
     try {
       const res = await fetch("/api/agent/pipeline-deal-document-flow", {
@@ -827,6 +862,7 @@ export function AgentPipelineTab({
         credentials: "include",
         body: JSON.stringify({
           lead_id: docsLead.id,
+          agent_id: profileId,
           mode: "send",
           document_type: meta.slug,
           document_name: meta.label,

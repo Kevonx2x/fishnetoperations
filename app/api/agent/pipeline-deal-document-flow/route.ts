@@ -39,6 +39,7 @@ export async function POST(req: Request) {
 
   let body: {
     lead_id?: unknown;
+    agent_id?: unknown;
     mode?: unknown;
     document_type?: unknown;
     document_name?: unknown;
@@ -124,7 +125,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const targetAgentUserId = agentId || uid;
+  const requestedAgentId = typeof body.agent_id === "string" ? body.agent_id.trim() : "";
+  const targetAgentUserId = requestedAgentId || agentId || uid;
 
   const documentName =
     typeof body.document_name === "string" && body.document_name.trim()
