@@ -41,6 +41,7 @@ import {
   teamMemberLimitForTier,
   TIER_LABEL,
 } from "@/lib/agent-listing-limits";
+import { EkgHeartbeatIcon } from "@/components/icons/ekg-heartbeat-icon";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
 import { ImportListingModal } from "@/components/dashboard/import-listing-modal";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
@@ -1527,14 +1528,14 @@ export function AgentDashboard() {
       </div>
 
       {/* Mobile bottom bar — Home, Overview, Pipeline, Listings, More */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-1 py-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-1 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
         <button
           type="button"
           onClick={() => {
             setMoreDrawerOpen(false);
             router.push("/");
           }}
-          className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-1 text-[10px] font-bold text-[#2C2C2C]/45"
+          className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[10px] font-bold text-[#2C2C2C]/45"
         >
           <span className="text-[#2C2C2C]/45">
             <House className="h-5 w-5" aria-hidden />
@@ -1551,7 +1552,7 @@ export function AgentDashboard() {
                 setTab(t.id);
                 setMoreDrawerOpen(false);
               }}
-              className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-1 text-[10px] font-bold ${
+              className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[10px] font-bold ${
                 tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
               }`}
             >
@@ -1563,7 +1564,7 @@ export function AgentDashboard() {
               ) : null}
               <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
                 {t.id === "pipeline" ? (
-                  <GitBranch className="h-7 w-7" aria-hidden />
+                  <EkgHeartbeatIcon className="h-5 w-5" />
                 ) : (
                   <span className="inline-flex [&_svg]:h-5 [&_svg]:w-5">{t.icon}</span>
                 )}
@@ -1578,7 +1579,7 @@ export function AgentDashboard() {
         <button
           type="button"
           onClick={() => setMoreDrawerOpen(true)}
-          className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-1 text-[10px] font-bold ${
+          className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[10px] font-bold ${
             moreDrawerOpen || mobileMoreTabIds.includes(tab) ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
           }`}
         >

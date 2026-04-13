@@ -885,7 +885,7 @@ export function MobileClientDashboard() {
           </Link>
         </div>
 
-        <div className="scrollbar-hide -mx-1 mt-4 flex flex-nowrap gap-3 overflow-x-auto pb-2 pr-10">
+        <div className="mt-4 flex w-full justify-between gap-0.5 pb-2">
           {(
             [
               ["my_profile", "My Profile", User],
@@ -901,19 +901,18 @@ export function MobileClientDashboard() {
               <button
                 key={id}
                 type="button"
+                aria-label={label}
                 onClick={() => setMainTab(id)}
                 className={cn(
-                  "flex shrink-0 snap-start flex-col items-center gap-1 px-2 py-1.5 transition-colors duration-200",
+                  "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 py-1 transition-colors duration-200",
                   active ? "text-[#6B9E6E]" : "text-gray-500",
                 )}
               >
                 <Icon
-                  className={cn("h-5 w-5", active ? "text-[#6B9E6E]" : "text-gray-400")}
+                  className={cn("h-5 w-5 shrink-0", active ? "text-[#6B9E6E]" : "text-gray-400")}
                   strokeWidth={active ? 2.25 : 1.75}
                 />
-                <span className={cn("text-xs font-medium", active ? "text-[#6B9E6E]" : "text-gray-500")}>
-                  {label}
-                </span>
+                <span className="sr-only">{label}</span>
               </button>
             );
           })}

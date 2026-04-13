@@ -32,7 +32,7 @@ export function BottomNav({
               key={item.id}
               type="button"
               onClick={() => onTab(item.id)}
-              className="relative flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-semibold text-[#2C2C2C]/55 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/30"
+              className="relative flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[10px] font-semibold text-[#2C2C2C]/55 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/30"
               aria-current={isActive ? "page" : undefined}
             >
               {isActive && (
