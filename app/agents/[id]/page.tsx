@@ -1570,9 +1570,9 @@ export default function AgentProfilePage() {
                                                                   <PopoverContent
                                                                     align="end"
                                                                     side="bottom"
-                                                                    className="w-[min(calc(100vw-2rem),18rem)] p-3"
+                                                                    className="w-[min(calc(100vw-2rem),18rem)] bg-white p-3 text-gray-900 shadow-md ring-1 ring-gray-200"
                                                                   >
-                                                                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                                                                    <p className="text-[10px] font-bold uppercase tracking-wide text-gray-900">
                                                                       Quick messages
                                                                     </p>
                                                                     <div className="mt-2 space-y-1">
@@ -1586,13 +1586,13 @@ export default function AgentProfilePage() {
                                                                               [leadKey]: msg,
                                                                             }));
                                                                           }}
-                                                                          className="w-full rounded-lg border border-[#2C2C2C]/10 bg-[#FAF8F4] px-2 py-2 text-left text-xs font-medium text-[#2C2C2C]/85 hover:bg-[#6B9E6E]/10"
+                                                                          className="w-full rounded-xl border border-gray-200 bg-[#FAF8F4] px-2 py-2 text-left text-xs font-medium text-gray-800"
                                                                         >
                                                                           {msg}
                                                                         </button>
                                                                       ))}
                                                                     </div>
-                                                                    <div className="mt-3 border-t border-[#2C2C2C]/10 pt-3">
+                                                                    <div className="mt-3 border-t border-gray-200 pt-3">
                                                                       <div className="flex items-center gap-2">
                                                                         <input
                                                                           type="text"
@@ -1604,11 +1604,11 @@ export default function AgentProfilePage() {
                                                                             }))
                                                                           }
                                                                           placeholder="Write your own message…"
-                                                                          className="min-w-0 flex-1 rounded-lg border border-[#2C2C2C]/15 bg-white px-2 py-2 text-xs text-[#2C2C2C]"
+                                                                          className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-2 text-xs text-gray-900 placeholder:text-gray-500"
                                                                         />
                                                                         <button
                                                                           type="button"
-                                                                          className="shrink-0 rounded-lg p-2 text-[#6B9E6E] hover:bg-[#6B9E6E]/10"
+                                                                          className="shrink-0 rounded-lg p-2 text-gray-900 hover:bg-gray-100"
                                                                           aria-label="Edit message"
                                                                         >
                                                                           <Pencil className="h-4 w-4" />
@@ -1667,7 +1667,7 @@ export default function AgentProfilePage() {
                                                                             }, 3000);
                                                                           })();
                                                                         }}
-                                                                        className="mt-3 w-full rounded-xl bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white disabled:pointer-events-none disabled:opacity-50"
+                                                                        className="mt-3 w-full rounded-full bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white disabled:pointer-events-none disabled:opacity-50"
                                                                       >
                                                                         Send Message
                                                                       </button>
