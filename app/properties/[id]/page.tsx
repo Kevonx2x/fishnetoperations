@@ -27,6 +27,7 @@ import { coListLimitForTier, listingLimitForTier } from "@/lib/agent-listing-lim
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { cn } from "@/lib/utils";
+import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 
 type ListingAgentProfile = {
   id: string;
@@ -96,6 +97,10 @@ function buildAllPhotos(property: PropertyRow): string[] {
 }
 
 /** Inserts Cloudinary transforms before the version segment (v123/…). Non-Cloudinary URLs unchanged. */
+function isValidMapCoordinate(n: unknown): n is number {
+  return typeof n === "number" && Number.isFinite(n);
+}
+
 function cloudinaryTransformUrl(url: string, transform: string): string {
   if (!url || !/res\.cloudinary\.com/.test(url)) return url;
   try {
@@ -1065,8 +1070,35 @@ export default function PropertyPage() {
             <p className="text-sm font-semibold text-[#2C2C2C]">Similar properties</p>
           </section>
         )}
+
+        {!loading && !error && property && isValidMapCoordinate(property.lat) && isValidMapCoordinate(property.lng) ? (
+          <PropertyLocationMapSection lat={property.lat} lng={property.lng} />
+        ) : null}
       </main>
     </div>
+  );
+}
+
+function PropertyLocationMapSection({ lat, lng }: { lat: number; lng: number }) {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API?.trim() ?? "";
+  if (!apiKey) return null;
+
+  return (
+    <section className="mt-10 w-full" aria-label="Property location">
+      <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">Location</h2>
+      <div className="mt-3 w-full overflow-hidden rounded-2xl ring-1 ring-[#2C2C2C]/10">
+        <APIProvider apiKey={apiKey}>
+          <Map
+            defaultCenter={{ lat, lng }}
+            defaultZoom={15}
+            gestureHandling="greedy"
+            className="h-[400px] w-full"
+          >
+            <Marker position={{ lat, lng }} />
+          </Map>
+        </APIProvider>
+      </div>
+    </section>
   );
 }
 
