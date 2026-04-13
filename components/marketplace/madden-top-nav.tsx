@@ -11,6 +11,7 @@ import {
   Bot,
   Building2,
   GitCompare,
+  GitBranch,
   Globe,
   GraduationCap,
   Heart,
@@ -638,22 +639,45 @@ export function MaddenTopNav() {
                         <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
                         My Profile
                       </Link>
-                      <Link
-                        href="/likes"
-                        className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                        onClick={() => setAccountOpen(false)}
-                      >
-                        <Heart className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
-                        My Likes
-                      </Link>
-                      <Link
-                        href="/saved"
-                        className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                        onClick={() => setAccountOpen(false)}
-                      >
-                        <Pin className="h-4 w-4 shrink-0 text-[#D4A843]" />
-                        Pinned properties
-                      </Link>
+                      {role === "agent" ? (
+                        <>
+                          <Link
+                            href="/dashboard/agent"
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <LayoutDashboard className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
+                            Agent Dashboard
+                          </Link>
+                          <Link
+                            href="/dashboard/agent?tab=pipeline"
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <GitBranch className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
+                            Pipeline
+                          </Link>
+                        </>
+                      ) : (
+                        <>
+                          <Link
+                            href="/likes"
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <Heart className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
+                            My Likes
+                          </Link>
+                          <Link
+                            href="/saved"
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <Pin className="h-4 w-4 shrink-0 text-[#D4A843]" />
+                            Pinned properties
+                          </Link>
+                        </>
+                      )}
                       <Link
                         href="/settings"
                         className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
@@ -670,14 +694,6 @@ export function MaddenTopNav() {
                       {role === "agent" ? (
                         <>
                           <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
-                          <Link
-                            href="/dashboard/agent"
-                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                            onClick={() => setAccountOpen(false)}
-                          >
-                            <LayoutDashboard className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
-                            Agent Dashboard
-                          </Link>
                           <Link
                             href="/dashboard/agent?tab=listings"
                             className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
