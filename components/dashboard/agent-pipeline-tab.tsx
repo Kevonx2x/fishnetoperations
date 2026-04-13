@@ -25,6 +25,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Loader2, MoreHorizontal, X } from "lucide-react";
 import { toast } from "sonner";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
+import { formatRelativeTime } from "@/lib/relative-time";
 
 export const PIPELINE_STAGES = [
   { id: "lead", label: "Lead" },
@@ -182,6 +183,8 @@ type ClientDocRow = {
 };
 
 type DealDocCheckRow = {
+  created_at: string;
+  document_type: string;
   status: string;
   required: boolean | null;
   suggested_for_stage: string | null;
@@ -677,7 +680,7 @@ export function AgentPipelineTab({
       try {
         const { data: dealData, error: dealErr } = await supabase
           .from("deal_documents")
-          .select("status, required, suggested_for_stage, direction")
+          .select("created_at, document_type, status, required, suggested_for_stage, direction")
           .eq("lead_id", lead.id);
 
         if (dealErr) {
@@ -1567,6 +1570,19 @@ export function AgentPipelineTab({
                           : statusLabel === "Signed"
                             ? "bg-blue-100 text-blue-900"
                             : "bg-amber-100 text-amber-900";
+                      const matchCreatedAt =
+                        dealDocCheckRows
+                          .filter((r) => {
+                            const t = (r.document_type ?? "").trim();
+                            if (!t) return false;
+                            return t === cd.document_type || t.endsWith(`:${cd.document_type}`);
+                          })
+                          .map((r) => r.created_at)
+                          .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ??
+                        null;
+                      const createdAtLabel = matchCreatedAt
+                        ? formatRelativeTime(matchCreatedAt)
+                        : formatRelativeTime(cd.created_at);
                       return (
                         <li
                           key={cd.id}
@@ -1587,6 +1603,9 @@ export function AgentPipelineTab({
                               {cd.file_name}
                             </p>
                           ) : null}
+                          <p className="mt-1 text-[11px] font-semibold text-[#2C2C2C]/45">
+                            {createdAtLabel}
+                          </p>
                           <div className="mt-2 flex flex-wrap gap-2">
                             <button
                               type="button"

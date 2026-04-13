@@ -69,6 +69,7 @@ import {
   resolveNotificationLink,
   type NotificationListItem,
 } from "@/components/notifications/notification-list";
+import { formatRelativeTime } from "@/lib/relative-time";
 
 type Tab =
   | "overview"
@@ -3630,14 +3631,19 @@ function AgentNotificationsTab({
   const router = useRouter();
   const [rows, setRows] = useState<NotificationListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [parentById, setParentById] = useState<Record<string, NotificationListItem>>({});
+  const [replyOpenId, setReplyOpenId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replyBusy, setReplyBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       const { data } = await supabase
         .from("notifications")
-        .select("id, created_at, type, title, body, read_at, metadata")
+        .select("id, created_at, type, title, body, read_at, metadata, dismissed_by_agent, parent_id, property_name, reply_message")
         .eq("user_id", userId)
+        .eq("dismissed_by_agent", false)
         .order("created_at", { ascending: false })
         .limit(50);
       if (cancelled) return;
@@ -3648,6 +3654,27 @@ function AgentNotificationsTab({
       cancelled = true;
     };
   }, [userId, supabase]);
+
+  useEffect(() => {
+    const parentIds = [...new Set(rows.map((r) => (r as unknown as { parent_id?: string | null }).parent_id).filter((x): x is string => Boolean(x)))];
+    if (parentIds.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("notifications")
+        .select("id, created_at, type, title, body, read_at, metadata, property_name")
+        .in("id", parentIds);
+      if (cancelled) return;
+      const map: Record<string, NotificationListItem> = {};
+      for (const row of (data ?? []) as NotificationListItem[]) {
+        map[row.id] = row;
+      }
+      setParentById((prev) => ({ ...prev, ...map }));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [rows, supabase]);
 
   const markRead = async (n: NotificationListItem, navigateTo?: string | null) => {
     if (!n.read_at) {
@@ -3677,7 +3704,144 @@ function AgentNotificationsTab({
         <ul className="mt-6 space-y-3">
           {rows.map((n) => (
             <li key={n.id}>
-              <NotificationCard n={n} onMarkRead={markRead} />
+              {(n.type ?? "").toLowerCase() === "client_reply" ? (
+                <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-bold text-gray-900">
+                          {((n as unknown as { property_name?: string | null }).property_name ?? "").trim() ||
+                            (n.metadata && typeof n.metadata.property_name === "string" ? n.metadata.property_name : "") ||
+                            "Property"}
+                        </span>
+                        <span className="text-xs font-semibold tabular-nums text-[#2C2C2C]/45">
+                          {formatRelativeTime(n.created_at)}
+                        </span>
+                      </div>
+                      <p className="mt-2 font-bold text-[#2C2C2C]">Client Reply</p>
+                      <p className="mt-1 text-sm font-medium text-[#2C2C2C]/70">
+                        {((n as unknown as { reply_message?: string | null }).reply_message ?? n.body ?? "").toString()}
+                      </p>
+                      {(() => {
+                        const pid = (n as unknown as { parent_id?: string | null }).parent_id ?? "";
+                        const parent = pid ? parentById[pid] : null;
+                        if (!parent) return null;
+                        return (
+                          <div className="mt-3 rounded-xl border border-gray-200 bg-[#FAF8F4] p-3">
+                            <p className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/55">
+                              Original message
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-[#2C2C2C]">{parent.title}</p>
+                            {parent.body ? (
+                              <p className="mt-1 text-sm font-medium text-[#2C2C2C]/70">{parent.body}</p>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <div className="shrink-0">
+                      <button
+                        type="button"
+                        aria-label="Dismiss notification"
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from("notifications")
+                            .update({ dismissed_by_agent: true })
+                            .eq("id", n.id)
+                            .eq("user_id", userId);
+                          if (!error) setRows((prev) => prev.filter((x) => x.id !== n.id));
+                        }}
+                        className="rounded-full p-2 text-[#2C2C2C]/45 hover:bg-gray-100 hover:text-[#2C2C2C]/70"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    {replyOpenId === n.id ? (
+                      <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                        <input
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder="Reply back…"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm outline-none"
+                        />
+                        <div className="mt-2 flex justify-end gap-2">
+                          <button
+                            type="button"
+                            disabled={replyBusy}
+                            onClick={() => {
+                              setReplyOpenId(null);
+                              setReplyText("");
+                            }}
+                            className="rounded-full px-4 py-2 text-sm font-bold text-[#2C2C2C]/60 hover:bg-gray-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={replyBusy || !replyText.trim()}
+                            onClick={async () => {
+                              setReplyBusy(true);
+                              try {
+                                const res = await fetch("/api/agent/notification-reply-back", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  credentials: "include",
+                                  body: JSON.stringify({
+                                    reply_to_notification_id: n.id,
+                                    message: replyText.trim(),
+                                  }),
+                                });
+                                if (res.ok) {
+                                  setReplyOpenId(null);
+                                  setReplyText("");
+                                }
+                              } finally {
+                                setReplyBusy(false);
+                              }
+                            }}
+                            className="rounded-full bg-[#6B9E6E] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                          >
+                            {replyBusy ? "…" : "Send"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyOpenId(n.id);
+                          setReplyText("");
+                        }}
+                        className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-900 shadow-sm hover:bg-gray-50"
+                      >
+                        Reply Back
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="relative">
+                  <NotificationCard n={n} onMarkRead={markRead} />
+                  <button
+                    type="button"
+                    aria-label="Dismiss notification"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const { error } = await supabase
+                        .from("notifications")
+                        .update({ dismissed_by_agent: true })
+                        .eq("id", n.id)
+                        .eq("user_id", userId);
+                      if (!error) setRows((prev) => prev.filter((x) => x.id !== n.id));
+                    }}
+                    className="absolute right-3 top-3 rounded-full p-1.5 text-[#2C2C2C]/45 hover:bg-gray-100 hover:text-[#2C2C2C]/70"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>

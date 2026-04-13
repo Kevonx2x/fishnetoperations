@@ -66,11 +66,13 @@ export async function POST(req: Request) {
 
     const { error: insErr } = await admin.from("notifications").insert({
       user_id: recipientUserId,
-      type: "message",
+      type: "agent_message",
       title,
       body: message,
+      property_name: propertyAddress,
       metadata: {
         property_id: propertyId,
+        property_name: propertyAddress,
         from_agent_user_id: session.userId,
       },
     });

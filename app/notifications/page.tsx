@@ -13,6 +13,8 @@ import {
   resolveNotificationLink,
   type NotificationListItem,
 } from "@/components/notifications/notification-list";
+import { X } from "lucide-react";
+import { formatRelativeTime } from "@/lib/relative-time";
 
 function dayLabel(iso: string): "today" | "yesterday" | "week" | "older" {
   const d = new Date(iso);
@@ -70,8 +72,9 @@ export default function NotificationsPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("notifications")
-      .select("id, created_at, type, title, body, read_at, metadata")
+      .select("id, created_at, type, title, body, read_at, metadata, dismissed_by_client, parent_id, property_name")
       .eq("user_id", user.id)
+      .eq("dismissed_by_client", false)
       .order("created_at", { ascending: false })
       .limit(200);
     if (!error) {
@@ -158,7 +161,43 @@ export default function NotificationsPage() {
         <ul className="mt-3 space-y-3">
           {list.map((n) => (
             <li key={n.id}>
-              <NotificationCard n={n} onMarkRead={markRead} />
+              {n.type === "agent_message" ? (
+                <AgentMessageClientReplyCard
+                  n={n}
+                  clientName={profile?.full_name?.trim() || user?.email?.trim() || "Client"}
+                  onDismiss={async () => {
+                    if (!user?.id) return;
+                    const { error } = await supabase
+                      .from("notifications")
+                      .update({ dismissed_by_client: true })
+                      .eq("id", n.id)
+                      .eq("user_id", user.id);
+                    if (!error) setRows((prev) => prev.filter((x) => x.id !== n.id));
+                  }}
+                  onSent={() => void load()}
+                />
+              ) : (
+                <div className="relative">
+                  <NotificationCard n={n} onMarkRead={markRead} />
+                  <button
+                    type="button"
+                    aria-label="Dismiss notification"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!user?.id) return;
+                      const { error } = await supabase
+                        .from("notifications")
+                        .update({ dismissed_by_client: true })
+                        .eq("id", n.id)
+                        .eq("user_id", user.id);
+                      if (!error) setRows((prev) => prev.filter((x) => x.id !== n.id));
+                    }}
+                    className="absolute right-3 top-3 rounded-full p-1.5 text-[#2C2C2C]/45 hover:bg-gray-100 hover:text-[#2C2C2C]/70"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -245,3 +284,138 @@ export default function NotificationsPage() {
     </div>
   );
 }
+
+function AgentMessageClientReplyCard({
+  n,
+  clientName,
+  onDismiss,
+  onSent,
+}: {
+  n: NotificationListItem;
+  clientName: string;
+  onDismiss: () => void | Promise<void>;
+  onSent: () => void;
+}) {
+  const meta = (n.metadata ?? {}) as Record<string, unknown>;
+  const parsed =
+    typeof n.title === "string"
+      ? /^Message from (.+) about (.+)$/i.exec(n.title.trim())
+      : null;
+  const agentName =
+    (typeof meta.agent_name === "string" ? meta.agent_name.trim() : "") ||
+    (typeof meta.from_agent_name === "string" ? meta.from_agent_name.trim() : "") ||
+    (parsed?.[1]?.trim() ?? "") ||
+    "Agent";
+  const propertyName =
+    (typeof n.metadata?.property_name === "string" ? n.metadata.property_name.trim() : "") ||
+    ((meta.property_name as string | undefined) ?? "").trim() ||
+    ((n as unknown as { property_name?: string | null }).property_name ?? "").trim() ||
+    (parsed?.[2]?.trim() ?? "") ||
+    "Property";
+
+  const agentUserId =
+    typeof meta.from_agent_user_id === "string"
+      ? meta.from_agent_user_id
+      : typeof meta.agent_user_id === "string"
+        ? meta.agent_user_id
+        : "";
+
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const quick = [
+    "Interested let us talk",
+    "Can we schedule a viewing",
+    "Send me more details",
+  ] as const;
+
+  const send = async () => {
+    if (!agentUserId) return;
+    const msg = text.trim();
+    if (!msg) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/client/notification-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ notification_id: n.id, reply_message: msg }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        return;
+      }
+      setText("");
+      onSent();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="relative rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
+      <button
+        type="button"
+        aria-label="Dismiss notification"
+        onClick={(e) => {
+          e.stopPropagation();
+          void onDismiss();
+        }}
+        className="absolute right-3 top-3 rounded-full p-1.5 text-[#2C2C2C]/45 hover:bg-gray-100 hover:text-[#2C2C2C]/70"
+      >
+        <X className="h-4 w-4" />
+      </button>
+      <div className="flex items-start justify-between gap-3 pr-8">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-[#6B9E6E]/15 px-2.5 py-0.5 text-[11px] font-bold text-[#2d5a30]">
+              {agentName}
+            </span>
+            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-bold text-gray-900">
+              {propertyName}
+            </span>
+          </div>
+          <p className="mt-2 font-bold text-[#2C2C2C]">{n.title}</p>
+          {n.body ? <p className="mt-1 text-sm font-medium text-[#2C2C2C]/70">{n.body}</p> : null}
+        </div>
+        <span className="shrink-0 text-xs font-semibold tabular-nums text-[#2C2C2C]/45">
+          {formatRelativeTime(n.created_at)}
+        </span>
+      </div>
+
+      <div className="mt-4 rounded-xl border border-gray-200 bg-[#FAF8F4] p-3">
+        <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/55">Reply</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {quick.map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => setText(q)}
+              className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-900 shadow-sm hover:bg-gray-50"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Type your reply…"
+          className="mt-3 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm outline-none focus:border-[#6B9E6E]/60"
+        />
+        <button
+          type="button"
+          disabled={busy || !text.trim()}
+          onClick={() => void send()}
+          className="mt-3 w-full rounded-full bg-[#6B9E6E] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+        >
+          {busy ? "…" : "Send Reply"}
+        </button>
+        <p className="mt-2 text-[11px] font-medium text-[#2C2C2C]/50">
+          Sending as {clientName}
+        </p>
+      </div>
+    </div>
+  );
+}
+
