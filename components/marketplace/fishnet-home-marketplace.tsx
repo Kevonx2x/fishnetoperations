@@ -2767,6 +2767,57 @@ function RowCarousel({
   const featuredClasses = featured ? "rounded-2xl border border-[#D4A843]/30 bg-[#D4A843]/5 px-3 pt-3" : "";
   const cardWidthClass = "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]";
   const reserveBrowseSectionMinH = title === "Newly Listed Rentals";
+  const isFeaturedPicksRow = title === "Featured Picks";
+
+  const scrollTrack = (
+    <div
+      ref={(el) => {
+        rowRefs.current[rowKey] = el;
+      }}
+      className={cn(
+        "min-w-0 overflow-x-auto px-1 pb-2 scrollbar-hide",
+        isFeaturedPicksRow ? "md:px-10" : "flex-1",
+      )}
+    >
+      <div className="flex w-max flex-nowrap gap-3">
+        {list.map((p) => (
+          <NewlyListedCard
+            key={`${rowKey}-${p.id}`}
+            property={p}
+            roomUrls={roomUrlsFor(p)}
+            roomIdx={cardRoomIdx[p.id] ?? 0}
+            onRoomPrev={() =>
+              setCardRoomIdx((s) => ({
+                ...s,
+                [p.id]:
+                  (roomUrlsFor(p).length + (s[p.id] ?? 0) - 1) % Math.max(1, roomUrlsFor(p).length),
+              }))
+            }
+            onRoomNext={() =>
+              setCardRoomIdx((s) => ({
+                ...s,
+                [p.id]: ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
+              }))
+            }
+            engagement={engagement}
+            connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
+            onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
+            cardWidthClass={cardWidthClass}
+            viewerUserId={viewerUserId}
+            compact
+            verifiedListingAgent={viewerVerifiedListingAgent}
+          />
+        ))}
+        {Array.from({ length: fillerCount }).map((_, i) => (
+          <ListingsComingSoonPlaceholderCard
+            key={`ph-${rowKey}-${i}`}
+            cardWidthClass={cardWidthClass}
+            href={listingsOnboardingHref}
+          />
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className={cn(featuredClasses, reserveBrowseSectionMinH && "min-h-[400px]")}>
@@ -2778,83 +2829,47 @@ function RowCarousel({
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
       </div>
 
-      <div className="-mx-4 flex items-stretch gap-1 md:gap-2">
-        <button
-          type="button"
-          onClick={() => scroll("prev")}
-          className={cn(
-            "hidden shrink-0 self-center rounded-full p-2 md:flex md:pl-2",
-            title === "Featured Picks"
-              ? "bg-white text-[#2C2C2C] shadow-md hover:bg-neutral-50"
-              : "border border-black/10 bg-white shadow-sm hover:bg-neutral-50",
-          )}
-          aria-label="Scroll left"
-        >
-          <ChevronLeft
-            className={cn("h-4 w-4", title === "Featured Picks" ? "text-[#2C2C2C]" : undefined)}
-          />
-        </button>
-        <div
-          ref={(el) => {
-            rowRefs.current[rowKey] = el;
-          }}
-          className="min-w-0 flex-1 overflow-x-auto px-1 pb-2 scrollbar-hide"
-        >
-          <div className="flex w-max flex-nowrap gap-3">
-            {list.map((p) => (
-              <NewlyListedCard
-                key={`${rowKey}-${p.id}`}
-                property={p}
-                roomUrls={roomUrlsFor(p)}
-                roomIdx={cardRoomIdx[p.id] ?? 0}
-                onRoomPrev={() =>
-                  setCardRoomIdx((s) => ({
-                    ...s,
-                    [p.id]:
-                      (roomUrlsFor(p).length + (s[p.id] ?? 0) - 1) %
-                      Math.max(1, roomUrlsFor(p).length),
-                  }))
-                }
-                onRoomNext={() =>
-                  setCardRoomIdx((s) => ({
-                    ...s,
-                    [p.id]: ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
-                  }))
-                }
-                engagement={engagement}
-                connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
-                onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
-                cardWidthClass={cardWidthClass}
-                viewerUserId={viewerUserId}
-                compact
-                verifiedListingAgent={viewerVerifiedListingAgent}
-              />
-            ))}
-            {Array.from({ length: fillerCount }).map((_, i) => (
-              <ListingsComingSoonPlaceholderCard
-                key={`ph-${rowKey}-${i}`}
-                cardWidthClass={cardWidthClass}
-                href={listingsOnboardingHref}
-              />
-            ))}
-          </div>
+      {isFeaturedPicksRow ? (
+        <div className="relative -mx-4">
+          <button
+            type="button"
+            onClick={() => scroll("prev")}
+            className="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow-md md:flex"
+            aria-label="Scroll left"
+          >
+            <ChevronLeft className="h-5 w-5 text-[#2C2C2C]" />
+          </button>
+          <button
+            type="button"
+            onClick={() => scroll("next")}
+            className="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow-md md:flex"
+            aria-label="Scroll right"
+          >
+            <ChevronRight className="h-5 w-5 text-[#2C2C2C]" />
+          </button>
+          {scrollTrack}
         </div>
-        <button
-          type="button"
-          onClick={() => scroll("next")}
-          className={cn(
-            "hidden shrink-0 self-center rounded-full p-2 md:flex md:pr-2",
-            title === "Featured Picks"
-              ? "bg-white text-[#2C2C2C] shadow-md hover:bg-neutral-50"
-              : "border border-black/10 bg-white shadow-sm hover:bg-neutral-50",
-          )}
-          aria-label="Scroll right"
-        >
-          <ChevronRight
-            className={cn("h-4 w-4", title === "Featured Picks" ? "text-[#2C2C2C]" : undefined)}
-          />
-        </button>
-      </div>
+      ) : (
+        <div className="-mx-4 flex items-stretch gap-1 md:gap-2">
+          <button
+            type="button"
+            onClick={() => scroll("prev")}
+            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pl-2"
+            aria-label="Scroll left"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          {scrollTrack}
+          <button
+            type="button"
+            onClick={() => scroll("next")}
+            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pr-2"
+            aria-label="Scroll right"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

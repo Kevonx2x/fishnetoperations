@@ -805,9 +805,6 @@ export function MaddenTopNav() {
                   My Profile
                 </Link>
               ) : null}
-              <div className="rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 shadow-sm">
-                <NavLanguageRow uiLanguage={uiLanguage} onSetLanguage={setUiLanguagePersist} />
-              </div>
               <MobileNavSection title="Agents" entries={agentsEntries} onNavigate={closeMobileNav} />
               <MobileNavSection title="Brokers" entries={brokersEntries} onNavigate={closeMobileNav} />
               <MobileNavSection title="Landmarks" entries={landmarksItems} onNavigate={closeMobileNav} />

@@ -42,11 +42,6 @@ import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter"
 import { cn } from "@/lib/utils";
 import { fetchSimilarAgents } from "@/lib/similar-agents";
 import { listingListedLabel } from "@/lib/listing-listed-time";
-import {
-  formatBudgetRangePhp,
-  lookingToLabel,
-  preferredLocationsLabel,
-} from "@/lib/client-profile-preferences";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { shouldPulseEngagement, writeSeenEngagementCount } from "@/lib/engagement-seen-storage";
@@ -222,13 +217,6 @@ type EngagementEngager = {
   likedAt: string | null;
   savedAt: string | null;
 };
-
-function engagementHasPrefs(u: EngagementEngager): boolean {
-  const locs = preferredLocationsLabel(u.preferred_locations);
-  const hasBudget = u.budget_min != null || u.budget_max != null;
-  const hasLooking = Boolean(u.looking_to?.trim());
-  return locs !== "—" || hasBudget || hasLooking;
-}
 
 function engagementLastActivityAt(u: EngagementEngager): Date | null {
   const a = u.likedAt ? new Date(u.likedAt).getTime() : 0;
@@ -1467,7 +1455,7 @@ export default function AgentProfilePage() {
                                                 </button>
                                               </div>
                                             ) : (
-                                              <ul className="space-y-5">
+                                              <ul className="space-y-2">
                                                 {users.map((u) => {
                                                   const href = profileHrefForEngagement(
                                                     u,
@@ -1477,142 +1465,108 @@ export default function AgentProfilePage() {
                                                   const leadKey = `${p.id}:${u.id}`;
                                                   const leadAdded = engagementLeadAdded[leadKey];
                                                   const lastAct = engagementLastActivityAt(u);
-                                                  const locBudget =
-                                                    engagementHasPrefs(u) ? (
-                                                      <>
-                                                        📍 {preferredLocationsLabel(u.preferred_locations)} · 💰{" "}
-                                                        {formatBudgetRangePhp(u.budget_min, u.budget_max)}
-                                                      </>
-                                                    ) : (
-                                                      <span className="text-[#2C2C2C]/45">No preferences set yet</span>
-                                                    );
+                                                  const activeLabel = lastAct
+                                                    ? formatDistanceToNow(lastAct, { addSuffix: true })
+                                                    : "recently";
                                                   return (
-                                                    <li key={u.id} className="border-b border-[#2C2C2C]/8 pb-5 last:border-0 last:pb-0">
-                                                      <div className="flex gap-3">
-                                                        <div className="relative shrink-0">
-                                                          <div className="relative h-16 w-16 overflow-hidden rounded-full bg-[#FAF8F4] ring-2 ring-[#6B9E6E]">
+                                                    <li
+                                                      key={u.id}
+                                                      className="border-b border-[#2C2C2C]/8 py-1.5 last:border-0"
+                                                    >
+                                                      <div className="flex min-h-0 flex-col gap-1">
+                                                        <div className="flex min-h-0 items-center gap-2">
+                                                          <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-[#6B9E6E]/35">
                                                             {u.avatar_url?.trim() ? (
                                                               <SupabasePublicImage
                                                                 src={u.avatar_url}
                                                                 alt=""
                                                                 fill
-                                                                sizes="64px"
+                                                                sizes="32px"
                                                                 className="object-cover"
                                                               />
                                                             ) : (
-                                                              <span className="flex h-full w-full items-center justify-center text-sm font-bold text-[#2C2C2C]/55">
+                                                              <span className="flex h-full w-full items-center justify-center text-[10px] font-bold text-[#2C2C2C]/55">
                                                                 {agentAvatarInitials(label)}
                                                               </span>
                                                             )}
                                                           </div>
-                                                          {u.role === "client" ? (
-                                                            <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm ring-2 ring-white">
-                                                              <BadgeCheck
-                                                                className="h-4 w-4 text-[#6B9E6E]"
-                                                                aria-label="Verified"
-                                                              />
-                                                            </span>
-                                                          ) : null}
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                          <div className="flex items-start justify-between gap-2">
-                                                            <div className="min-w-0">
-                                                              <p className="font-bold text-base text-[#2C2C2C]">{label}</p>
-                                                              <span className="mt-1 inline-flex rounded-full bg-[#6B9E6E]/12 px-2.5 py-0.5 text-xs font-semibold text-[#6B9E6E]">
+                                                          <div className="min-w-0 flex-1">
+                                                            <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0">
+                                                              <span className="truncate text-sm font-bold text-[#2C2C2C]">
+                                                                {label}
+                                                              </span>
+                                                              <span className="shrink-0 rounded-full bg-[#6B9E6E]/12 px-1.5 py-px text-[10px] font-semibold leading-tight text-[#6B9E6E]">
                                                                 {engagementRoleBadgeLabel(u.role)}
                                                               </span>
-                                                              <p className="mt-1 text-xs text-gray-500">{locBudget}</p>
                                                             </div>
-                                                            {href ? (
-                                                              <Link
-                                                                href={href}
-                                                                className="shrink-0 text-sm font-semibold text-[#6B9E6E] hover:underline"
-                                                                onClick={(e) => e.stopPropagation()}
-                                                              >
-                                                                View Profile →
-                                                              </Link>
-                                                            ) : null}
                                                           </div>
-                                                          <div className="mt-3 flex flex-wrap items-center gap-0.5 rounded-full bg-gray-50 px-2 py-2">
-                                                            <span className="rounded-full px-3 py-1.5 text-xs text-[#2C2C2C]/80">
-                                                              ● Active{" "}
-                                                              {lastAct
-                                                                ? formatDistanceToNow(lastAct, { addSuffix: true })
-                                                                : "recently"}
-                                                            </span>
-                                                            <span className="mx-0.5 h-4 w-px shrink-0 bg-gray-200" />
-                                                            <span
-                                                              className={cn(
-                                                                "rounded-full px-3 py-1.5 text-xs",
-                                                                u.likedAt ? "text-[#2C2C2C]/80" : "text-gray-400",
-                                                              )}
+                                                          <span className="shrink-0 text-[10px] leading-tight text-gray-500">
+                                                            Active {activeLabel}
+                                                          </span>
+                                                          {href ? (
+                                                            <Link
+                                                              href={href}
+                                                              className="shrink-0 text-[10px] font-semibold text-[#6B9E6E] hover:underline"
+                                                              onClick={(e) => e.stopPropagation()}
                                                             >
-                                                              ❤️ Liked
-                                                            </span>
-                                                            <span className="mx-0.5 h-4 w-px shrink-0 bg-gray-200" />
-                                                            <span
-                                                              className={cn(
-                                                                "rounded-full px-3 py-1.5 text-xs",
-                                                                u.savedAt ? "text-[#2C2C2C]/80" : "text-gray-400",
-                                                              )}
-                                                            >
-                                                              🔖 Saved
-                                                            </span>
-                                                          </div>
-                                                          {isOwnProfile ? (
-                                                            <div className="mt-4 space-y-3">
-                                                              <div className="grid grid-cols-2 gap-2">
-                                                                <button
-                                                                  type="button"
-                                                                  disabled={leadAdded}
-                                                                  onClick={() => {
-                                                                    void (async () => {
-                                                                      if (!agent) return;
-                                                                      const { error } = await supabase
-                                                                        .from("leads")
-                                                                        .insert({
-                                                                          name: label,
-                                                                          email: u.email?.trim() || "",
-                                                                          agent_id: agent.user_id,
-                                                                          client_id: u.id,
-                                                                          property_id: p.id,
-                                                                          source: "engagement",
-                                                                          stage: "new",
-                                                                          property_interest: title,
-                                                                        });
-                                                                      if (error) {
-                                                                        if (error.code === "23505") {
-                                                                          setEngagementLeadAdded((prev) => ({
-                                                                            ...prev,
-                                                                            [leadKey]: true,
-                                                                          }));
-                                                                          toast.success("Lead added!");
-                                                                        } else {
-                                                                          toast.error(error.message);
-                                                                        }
-                                                                        return;
-                                                                      }
+                                                              View Profile
+                                                            </Link>
+                                                          ) : null}
+                                                        </div>
+                                                        {isOwnProfile ? (
+                                                          <>
+                                                            <div className="flex min-h-0 flex-wrap items-center gap-1.5 pl-10">
+                                                            <button
+                                                              type="button"
+                                                              disabled={leadAdded}
+                                                              onClick={() => {
+                                                                void (async () => {
+                                                                  if (!agent) return;
+                                                                  const { error } = await supabase
+                                                                    .from("leads")
+                                                                    .insert({
+                                                                      name: label,
+                                                                      email: u.email?.trim() || "",
+                                                                      agent_id: agent.user_id,
+                                                                      client_id: u.id,
+                                                                      property_id: p.id,
+                                                                      source: "engagement",
+                                                                      stage: "new",
+                                                                      property_interest: title,
+                                                                    });
+                                                                  if (error) {
+                                                                    if (error.code === "23505") {
                                                                       setEngagementLeadAdded((prev) => ({
                                                                         ...prev,
                                                                         [leadKey]: true,
                                                                       }));
                                                                       toast.success("Lead added!");
-                                                                    })();
-                                                                  }}
-                                                                  className="flex h-12 items-center justify-center rounded-xl border-2 border-[#6B9E6E] bg-white text-sm font-semibold text-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-70"
+                                                                    } else {
+                                                                      toast.error(error.message);
+                                                                    }
+                                                                    return;
+                                                                  }
+                                                                  setEngagementLeadAdded((prev) => ({
+                                                                    ...prev,
+                                                                    [leadKey]: true,
+                                                                  }));
+                                                                  toast.success("Lead added!");
+                                                                })();
+                                                              }}
+                                                              className="rounded-lg border border-[#6B9E6E] bg-white px-3 py-1 text-xs font-semibold text-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-70"
+                                                            >
+                                                              {leadAdded ? "✓ Lead Added" : "+ Add as Lead"}
+                                                            </button>
+                                                            <Popover>
+                                                              <PopoverTrigger asChild>
+                                                                <button
+                                                                  type="button"
+                                                                  className="inline-flex items-center justify-center gap-0.5 rounded-lg bg-[#6B9E6E] px-3 py-1 text-xs font-semibold text-white"
                                                                 >
-                                                                  {leadAdded ? "✓ Lead Added" : "+ Add as Lead"}
+                                                                  Message
+                                                                  <ChevronDown className="h-3 w-3 shrink-0 opacity-90" />
                                                                 </button>
-                                                                <Popover>
-                                                                  <PopoverTrigger asChild>
-                                                                    <button
-                                                                      type="button"
-                                                                      className="inline-flex h-12 w-full items-center justify-center gap-1 rounded-xl bg-[#6B9E6E] px-2 text-sm font-semibold text-white"
-                                                                    >
-                                                                      💬 Message
-                                                                      <ChevronDown className="h-4 w-4 shrink-0 opacity-90" />
-                                                                    </button>
-                                                                  </PopoverTrigger>
+                                                              </PopoverTrigger>
                                                                   <PopoverContent
                                                                     align="end"
                                                                     side="bottom"
@@ -1720,15 +1674,14 @@ export default function AgentProfilePage() {
                                                                     </div>
                                                                   </PopoverContent>
                                                                 </Popover>
-                                                              </div>
-                                                              {engagementMessageSentBanner[leadKey] ? (
-                                                                <div className="rounded-lg border border-green-200 bg-green-50 p-2 text-xs text-green-700">
-                                                                  ✅ Message sent to {label}!
-                                                                </div>
-                                                              ) : null}
                                                             </div>
-                                                          ) : null}
-                                                        </div>
+                                                            {engagementMessageSentBanner[leadKey] ? (
+                                                              <div className="rounded-lg border border-green-200 bg-green-50 p-2 text-xs text-green-700">
+                                                                ✅ Message sent to {label}!
+                                                              </div>
+                                                            ) : null}
+                                                          </>
+                                                        ) : null}
                                                       </div>
                                                     </li>
                                                   );
