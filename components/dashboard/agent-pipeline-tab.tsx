@@ -24,7 +24,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Loader2, MoreHorizontal, X } from "lucide-react";
 import { toast } from "sonner";
-import { useDataConsentGate } from "@/components/legal/data-consent-modal";
+import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
 
 export const PIPELINE_STAGES = [
   { id: "lead", label: "Lead" },
@@ -102,6 +102,56 @@ const CLIENT_DOC_REQUEST_OPTIONS = [
   { key: "other" as const, label: "Other" },
 ];
 
+/** Grouped document types for View Documents panel (request + send flows). */
+const PANEL_DOC_OPTGROUPS: {
+  label: string;
+  options: { slug: string; label: string; suggested_for_stage: PipelineStageId }[];
+}[] = [
+  {
+    label: "Viewing",
+    options: [{ slug: "valid_id", label: "Valid ID", suggested_for_stage: "viewing" }],
+  },
+  {
+    label: "Offer",
+    options: [
+      { slug: "proof_of_income", label: "Proof of Income", suggested_for_stage: "offer" },
+      { slug: "tin", label: "TIN", suggested_for_stage: "offer" },
+    ],
+  },
+  {
+    label: "Reservation",
+    options: [
+      { slug: "contract_to_sell", label: "Contract to Sell", suggested_for_stage: "reservation" },
+      { slug: "reservation_agreement", label: "Reservation Agreement", suggested_for_stage: "reservation" },
+    ],
+  },
+  {
+    label: "Closing",
+    options: [
+      { slug: "deed_of_sale", label: "Deed of Sale", suggested_for_stage: "closed" },
+      { slug: "final_docs", label: "Final Docs", suggested_for_stage: "closed" },
+    ],
+  },
+];
+
+const PANEL_DOC_BY_SLUG: Record<
+  string,
+  { slug: string; label: string; suggested_for_stage: PipelineStageId }
+> = Object.fromEntries(
+  PANEL_DOC_OPTGROUPS.flatMap((g) => g.options.map((o) => [o.slug, o] as const)),
+);
+
+/** When moving into a stage, pre-select this document in Request flow. */
+const STAGE_MOVE_SUGGEST_SLUG: Partial<Record<PipelineStageId, string>> = {
+  viewing: "valid_id",
+  offer: "proof_of_income",
+  reservation: "contract_to_sell",
+  closed: "deed_of_sale",
+};
+
+const PANEL_SELECT_CLASS =
+  "mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm";
+
 /** Labels for shared client_documents rows in the pipeline panel */
 const CLIENT_SHARED_DOC_TYPE_LABEL: Record<string, string> = {
   valid_id: "Valid ID",
@@ -114,6 +164,14 @@ function labelSharedClientDocType(documentType: string): string {
   return CLIENT_SHARED_DOC_TYPE_LABEL[documentType] ?? documentType;
 }
 
+function clientDocStatusLabel(status: string): string {
+  const s = status.trim().toLowerCase();
+  if (s === "shared") return "Received";
+  if (s === "private") return "Pending";
+  if (s === "signed") return "Signed";
+  return "Pending";
+}
+
 type ClientDocRow = {
   id: string;
   document_type: string;
@@ -123,19 +181,11 @@ type ClientDocRow = {
   status: string;
 };
 
-/** Matches deal_documents columns used in the pipeline panel (no updated_at). */
-type DealDocumentRow = {
-  id: string;
-  lead_id: number;
-  agent_id: string | null;
-  document_type: string;
-  file_url: string;
-  file_name: string | null;
+type DealDocCheckRow = {
   status: string;
-  pipeline_stage: string | null;
-  notes: string | null;
-  sent_to_client?: boolean | null;
-  sent_at?: string | null;
+  required: boolean | null;
+  suggested_for_stage: string | null;
+  direction: string | null;
 };
 
 function clientInitials(name: string): string {
@@ -184,7 +234,10 @@ function SortableDealCard({
   indexInStage,
   propertyLabel,
   onOpenDocs,
-  onOpenMoveModal,
+  onBeginStageMove,
+  stageMovePrompt,
+  onStageMovePromptSkip,
+  onStageMovePromptYes,
   menuOpenId,
   setMenuOpenId,
   menuMoveOpen,
@@ -201,7 +254,14 @@ function SortableDealCard({
   indexInStage: number;
   propertyLabel: (propertyId: string | null) => string;
   onOpenDocs: (lead: PipelineLeadRow) => void;
-  onOpenMoveModal: (lead: PipelineLeadRow) => void;
+  onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
+  stageMovePrompt: {
+    lead: PipelineLeadRow;
+    targetStage: PipelineStageId;
+    kind: "advance" | "jump";
+  } | null;
+  onStageMovePromptSkip: () => void;
+  onStageMovePromptYes: (lead: PipelineLeadRow, targetStage: PipelineStageId) => void;
   menuOpenId: number | null;
   setMenuOpenId: (id: number | null) => void;
   menuMoveOpen: boolean;
@@ -352,7 +412,7 @@ function SortableDealCard({
                         disabled={moveBusyId === deal.id}
                         className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
                         onClick={() => {
-                          void onMoveToStage(deal, s.id);
+                          onBeginStageMove(deal, s.id, "jump");
                           setMenuOpenId(null);
                           setMenuMoveOpen(false);
                         }}
@@ -401,7 +461,7 @@ function SortableDealCard({
           <button
             type="button"
             onClick={() => {
-              onOpenMoveModal(deal);
+              onBeginStageMove(deal, next, "advance");
             }}
             className="flex flex-1 items-center justify-center rounded-xl bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
           >
@@ -420,6 +480,31 @@ function SortableDealCard({
           📄 View Documents
         </button>
       </div>
+      {stageMovePrompt?.lead.id === deal.id ? (
+        <div className="mt-3 rounded-xl border border-gray-200 bg-amber-50/90 p-3 shadow-sm">
+          <p className="text-xs font-semibold text-gray-800">
+            Suggest requesting a document for this stage?
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#5d8a60]"
+              onClick={() =>
+                onStageMovePromptYes(stageMovePrompt.lead, stageMovePrompt.targetStage)
+              }
+            >
+              Yes, Request It
+            </button>
+            <button
+              type="button"
+              className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
+              onClick={onStageMovePromptSkip}
+            >
+              Skip
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -460,14 +545,25 @@ export function AgentPipelineTab({
 
   const [filterStage, setFilterStage] = useState<PipelineStageId>("lead");
   const [docsLead, setDocsLead] = useState<PipelineLeadRow | null>(null);
-  const [docRows, setDocRows] = useState<DealDocumentRow[]>([]);
   const [clientDocRows, setClientDocRows] = useState<ClientDocRow[]>([]);
+  const [dealDocCheckRows, setDealDocCheckRows] = useState<DealDocCheckRow[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
+  const [docsPanelFlow, setDocsPanelFlow] = useState<"idle" | "request" | "send">("idle");
+  const [panelDocSlug, setPanelDocSlug] = useState("");
+  const [requestRequired, setRequestRequired] = useState(false);
+  const [sendRequired, setSendRequired] = useState(false);
+  const [sendFileUrls, setSendFileUrls] = useState<string[]>([]);
+  const [requestFlowBusy, setRequestFlowBusy] = useState(false);
+  const [sendFlowBusy, setSendFlowBusy] = useState(false);
   const [clientDocOpeningId, setClientDocOpeningId] = useState<string | null>(null);
+  const [stageMovePrompt, setStageMovePrompt] = useState<{
+    lead: PipelineLeadRow;
+    targetStage: PipelineStageId;
+    kind: "advance" | "jump";
+  } | null>(null);
   const [moveLead, setMoveLead] = useState<PipelineLeadRow | null>(null);
   const [moveNote, setMoveNote] = useState("");
   const [moveBusy, setMoveBusy] = useState(false);
-  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [optimisticOrderIds, setOptimisticOrderIds] = useState<number[] | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [menuMoveOpen, setMenuMoveOpen] = useState(false);
@@ -483,9 +579,6 @@ export function AgentPipelineTab({
     other: false,
   });
   const [requestDocsBusy, setRequestDocsBusy] = useState(false);
-  const [sendDealDocBusyId, setSendDealDocBusyId] = useState<string | null>(null);
-  const [viewDealDocBusyId, setViewDealDocBusyId] = useState<string | null>(null);
-  const { ensureConsent, dataConsentModal } = useDataConsentGate();
   const menuWrapRef = useRef<HTMLDivElement | null>(null);
 
   const sensors = useSensors(
@@ -582,27 +675,28 @@ export function AgentPipelineTab({
     async (lead: PipelineLeadRow) => {
       setDocsLoading(true);
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        const agentUserId = user?.id;
-
         const { data: dealData, error: dealErr } = await supabase
           .from("deal_documents")
-          .select(
-            "id, lead_id, agent_id, document_type, file_url, file_name, status, pipeline_stage, notes, sent_to_client, sent_at",
-          )
+          .select("status, required, suggested_for_stage, direction")
           .eq("lead_id", lead.id);
 
         if (dealErr) {
           toast.error(dealErr.message);
-          setDocRows([]);
+          setDealDocCheckRows([]);
+        } else {
+          setDealDocCheckRows((dealData ?? []) as DealDocCheckRow[]);
+        }
+
+        if (!lead.client_id) {
           setClientDocRows([]);
           return;
         }
-        setDocRows((dealData ?? []) as DealDocumentRow[]);
 
-        if (!lead.client_id || !agentUserId) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const agentUserId = user?.id;
+        if (!agentUserId) {
           setClientDocRows([]);
           return;
         }
@@ -628,8 +722,25 @@ export function AgentPipelineTab({
 
   const openDocs = (lead: PipelineLeadRow) => {
     setDocsLead(lead);
-    setDocRows([]);
+    setDocsPanelFlow("idle");
+    setPanelDocSlug("");
+    setRequestRequired(false);
+    setSendRequired(false);
+    setSendFileUrls([]);
     setClientDocRows([]);
+    setDealDocCheckRows([]);
+    void loadDocs(lead);
+  };
+
+  const openDocsWithRequestPrefill = (lead: PipelineLeadRow, slug: string) => {
+    setDocsLead(lead);
+    setDocsPanelFlow("request");
+    setPanelDocSlug(PANEL_DOC_BY_SLUG[slug] ? slug : "");
+    setRequestRequired(false);
+    setSendRequired(false);
+    setSendFileUrls([]);
+    setClientDocRows([]);
+    setDealDocCheckRows([]);
     void loadDocs(lead);
   };
 
@@ -655,169 +766,143 @@ export function AgentPipelineTab({
     }
   };
 
-  const docStatusFor = (key: string): "missing" | "uploaded" | "approved" => {
-    const row = docRows.find((r) => r.document_type === key);
-    if (!row) return "missing";
-    if (row.status === "approved") return "approved";
-    return "uploaded";
-  };
-
-  const viewDealDocument = async (doc: DealDocumentRow) => {
-    setViewDealDocBusyId(doc.id);
-    try {
-      const res = await fetch("/api/agent/get-deal-document-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ file_url: doc.file_url }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { signedUrl?: string; error?: string };
-      if (!res.ok) {
-        toast.error(json.error ?? "Could not open document");
-        return;
-      }
-      if (json.signedUrl) {
-        window.open(json.signedUrl, "_blank", "noopener,noreferrer");
-      }
-    } finally {
-      setViewDealDocBusyId(null);
-    }
-  };
-
-  const replaceDealDocumentAfterConsent = async (
-    lead: PipelineLeadRow,
-    docKey: string,
-    file: File,
-    storagePath: string,
-  ) => {
-    setUploadingKey(docKey);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user?.id) {
-        toast.error("Sign in required");
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("lead_id", String(lead.id));
-      formData.append("document_type", docKey);
-      formData.append("agent_id", user.id);
-      formData.append("file_path", storagePath);
-
-      const res = await fetch("/api/agent/upload-deal-document", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        const err = (await res.json()) as { error?: string };
-        throw new Error(err.error ?? "Replace failed");
-      }
-
-      toast.success("Document replaced successfully");
-      await loadDocs(lead);
-      onRefresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Replace failed");
-    } finally {
-      setUploadingKey(null);
-    }
-  };
-
-  const replaceDealDocument = (
-    lead: PipelineLeadRow,
-    docKey: string,
-    file: File,
-    storagePath: string,
-  ) => {
-    ensureConsent(() => void replaceDealDocumentAfterConsent(lead, docKey, file, storagePath));
-  };
-
-  const sendDealDocumentToClient = async (doc: DealDocumentRow) => {
-    if (!docsLead) return;
-    if (!docsLead.client_id) {
-      toast.error("This lead is not linked to a client account yet.");
+  const submitPanelRequestFlow = async () => {
+    if (!docsLead?.client_id) return;
+    const meta = panelDocSlug ? PANEL_DOC_BY_SLUG[panelDocSlug] : undefined;
+    if (!meta) {
+      toast.error("Select a document type.");
       return;
     }
-    setSendDealDocBusyId(doc.id);
+    setRequestFlowBusy(true);
     try {
-      const res = await fetch("/api/agent/send-document-to-client", {
+      const res = await fetch("/api/agent/pipeline-deal-document-flow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ deal_document_id: doc.id, lead_id: docsLead.id }),
+        body: JSON.stringify({
+          lead_id: docsLead.id,
+          mode: "request",
+          document_type: meta.slug,
+          document_name: meta.label,
+          required: requestRequired,
+          suggested_for_stage: meta.suggested_for_stage,
+        }),
       });
-      const json = (await res.json().catch(() => ({}))) as { error?: string; success?: boolean };
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        toast.error(json.error ?? "Could not send document");
+        if (res.status === 409) {
+          toast.error(json.error ?? "This document is already on file for this deal.");
+        } else {
+          toast.error(json.error ?? "Could not send request");
+        }
         return;
       }
-      toast.success("Document sent to client");
+      toast.success("Request sent — client notified");
+      setPanelDocSlug("");
+      setRequestRequired(false);
       await loadDocs(docsLead);
-    } finally {
-      setSendDealDocBusyId(null);
-    }
-  };
-
-  const uploadDocAfterConsent = async (lead: PipelineLeadRow, docKey: string, file: File) => {
-    setUploadingKey(docKey);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user?.id) {
-        toast.error("Sign in required");
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("lead_id", String(lead.id));
-      formData.append("document_type", docKey);
-      formData.append("agent_id", user.id);
-
-      const res = await fetch("/api/agent/upload-deal-document", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        const err = (await res.json()) as { error?: string };
-        throw new Error(err.error ?? "Upload failed");
-      }
-
-      toast.success("Uploaded");
-      await loadDocs(lead);
       onRefresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
-      setUploadingKey(null);
+      setRequestFlowBusy(false);
     }
   };
 
-  const uploadDoc = (lead: PipelineLeadRow, docKey: string, file: File) => {
-    ensureConsent(() => void uploadDocAfterConsent(lead, docKey, file));
-  };
-
-  const approveDoc = async (lead: PipelineLeadRow, docKey: string) => {
-    const { error } = await supabase
-      .from("deal_documents")
-      .update({ status: "approved" })
-      .eq("lead_id", lead.id)
-      .eq("document_type", docKey);
-    if (error) {
-      toast.error(error.message);
+  const submitPanelSendFlow = async () => {
+    if (!docsLead?.client_id) return;
+    const meta = panelDocSlug ? PANEL_DOC_BY_SLUG[panelDocSlug] : undefined;
+    if (!meta) {
+      toast.error("Select a document type.");
       return;
     }
-    toast.success("Marked approved");
-    await loadDocs(lead);
-    onRefresh();
+    const fileUrl = sendFileUrls[0];
+    if (!fileUrl) {
+      toast.error("Upload a file before sending.");
+      return;
+    }
+    setSendFlowBusy(true);
+    try {
+      const res = await fetch("/api/agent/pipeline-deal-document-flow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          lead_id: docsLead.id,
+          mode: "send",
+          document_type: meta.slug,
+          document_name: meta.label,
+          file_url: fileUrl,
+          required: sendRequired,
+          suggested_for_stage: meta.suggested_for_stage,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        if (res.status === 409) {
+          toast.error(json.error ?? "This document type already exists for this deal.");
+        } else {
+          toast.error(json.error ?? "Could not send document");
+        }
+        return;
+      }
+      toast.success("Document sent — client notified");
+      setPanelDocSlug("");
+      setSendRequired(false);
+      setSendFileUrls([]);
+      await loadDocs(docsLead);
+      onRefresh();
+    } finally {
+      setSendFlowBusy(false);
+    }
+  };
+
+  const docsLeadLive = useMemo(() => {
+    if (!docsLead) return null;
+    return deals.find((d) => d.id === docsLead.id) ?? docsLead;
+  }, [deals, docsLead]);
+
+  const showRequiredDocsWarning = useMemo(() => {
+    if (!docsLeadLive) return false;
+    const stage = docsLeadLive.pipeline_stage;
+    return dealDocCheckRows.some(
+      (row) =>
+        row.required === true &&
+        row.suggested_for_stage === stage &&
+        row.status !== "approved",
+    );
+  }, [dealDocCheckRows, docsLeadLive]);
+
+  const beginStageMove = (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => {
+    setStageMovePrompt({ lead, targetStage, kind });
+  };
+
+  const onStageMovePromptSkip = () => {
+    const p = stageMovePrompt;
+    if (!p) return;
+    setStageMovePrompt(null);
+    if (p.kind === "advance") {
+      setMoveLead(p.lead);
+      setMoveNote("");
+    } else {
+      void moveDealToStage(p.lead, p.targetStage);
+    }
+  };
+
+  const onStageMovePromptYes = (lead: PipelineLeadRow, targetStage: PipelineStageId) => {
+    setStageMovePrompt(null);
+    const slug = STAGE_MOVE_SUGGEST_SLUG[targetStage];
+    if (slug) {
+      openDocsWithRequestPrefill(lead, slug);
+    } else {
+      setDocsLead(lead);
+      setDocsPanelFlow("request");
+      setPanelDocSlug("");
+      setRequestRequired(false);
+      setSendRequired(false);
+      setSendFileUrls([]);
+      setClientDocRows([]);
+      setDealDocCheckRows([]);
+      void loadDocs(lead);
+    }
   };
 
   const confirmMove = async () => {
@@ -942,13 +1027,10 @@ export function AgentPipelineTab({
     }
   };
 
-  const checklistForLead = docsLead ? PIPELINE_DOC_CHECKLIST[docsLead.pipeline_stage] : [];
-
   const sortableIds = useMemo(() => displayDeals.map((d) => String(d.id)), [displayDeals]);
 
   return (
     <div className="space-y-6">
-      {dataConsentModal}
       <div>
         <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">Pipeline</h1>
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
@@ -1032,10 +1114,10 @@ export function AgentPipelineTab({
                   indexInStage={idx}
                   propertyLabel={propertyLabel}
                   onOpenDocs={openDocs}
-                  onOpenMoveModal={(d) => {
-                    setMoveLead(d);
-                    setMoveNote("");
-                  }}
+                  onBeginStageMove={beginStageMove}
+                  stageMovePrompt={stageMovePrompt}
+                  onStageMovePromptSkip={onStageMovePromptSkip}
+                  onStageMovePromptYes={onStageMovePromptYes}
                   menuOpenId={menuOpenId}
                   setMenuOpenId={setMenuOpenId}
                   menuMoveOpen={menuMoveOpen}
@@ -1265,183 +1347,227 @@ export function AgentPipelineTab({
                 </button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                  {PIPELINE_STAGES.find((x) => x.id === docsLead.pipeline_stage)?.label} stage checklist
-                </p>
-                {docsLoading ? (
-                  <div className="flex justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" />
+                {showRequiredDocsWarning ? (
+                  <div
+                    role="status"
+                    className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-950 shadow-sm"
+                  >
+                    Some required documents for this stage have not been received yet. You can still
+                    move the deal forward when you&apos;re ready.
+                  </div>
+                ) : null}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={!docsLead.client_id}
+                    onClick={() => {
+                      setDocsPanelFlow("request");
+                      setPanelDocSlug("");
+                      setRequestRequired(false);
+                    }}
+                    className={`flex-1 rounded-xl border px-3 py-2.5 text-xs font-bold shadow-sm transition ${
+                      docsPanelFlow === "request"
+                        ? "border-[#6B9E6E] bg-[#6B9E6E] text-white"
+                        : "border-gray-200 bg-white text-gray-900 hover:bg-gray-50"
+                    } disabled:cursor-not-allowed disabled:opacity-45`}
+                  >
+                    Request Document
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!docsLead.client_id}
+                    onClick={() => {
+                      setDocsPanelFlow("send");
+                      setPanelDocSlug("");
+                      setSendRequired(false);
+                      setSendFileUrls([]);
+                    }}
+                    className={`flex-1 rounded-xl border px-3 py-2.5 text-xs font-bold shadow-sm transition ${
+                      docsPanelFlow === "send"
+                        ? "border-[#6B9E6E] bg-[#6B9E6E] text-white"
+                        : "border-gray-200 bg-white text-gray-900 hover:bg-gray-50"
+                    } disabled:cursor-not-allowed disabled:opacity-45`}
+                  >
+                    Send Document
+                  </button>
+                </div>
+
+                {!docsLead.client_id ? (
+                  <p className="mt-4 rounded-xl border border-[#2C2C2C]/10 bg-white p-3 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm">
+                    No client account linked to this deal — link a client to send or request documents.
+                  </p>
+                ) : docsPanelFlow === "request" ? (
+                  <div className="mt-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                    <label
+                      className="block text-xs font-semibold text-gray-700"
+                      htmlFor="panel-request-doc-type"
+                    >
+                      Document type
+                    </label>
+                    <select
+                      id="panel-request-doc-type"
+                      value={panelDocSlug}
+                      onChange={(e) => setPanelDocSlug(e.target.value)}
+                      className={PANEL_SELECT_CLASS}
+                    >
+                      <option value="">Choose a document…</option>
+                      {PANEL_DOC_OPTGROUPS.map((g) => (
+                        <optgroup key={g.label} label={g.label}>
+                          {g.options.map((o) => (
+                            <option key={o.slug} value={o.slug}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-800">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                        checked={requestRequired}
+                        onChange={(e) => setRequestRequired(e.target.checked)}
+                      />
+                      Required (must be received before progressing to the next stage)
+                    </label>
+                    <button
+                      type="button"
+                      disabled={!panelDocSlug || requestFlowBusy}
+                      onClick={() => void submitPanelRequestFlow()}
+                      className="mt-4 w-full rounded-full bg-[#6B9E6E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      {requestFlowBusy ? (
+                        <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                      ) : (
+                        "Submit Request"
+                      )}
+                    </button>
+                  </div>
+                ) : docsPanelFlow === "send" ? (
+                  <div className="mt-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                    <label
+                      className="block text-xs font-semibold text-gray-700"
+                      htmlFor="panel-send-doc-type"
+                    >
+                      Document type
+                    </label>
+                    <select
+                      id="panel-send-doc-type"
+                      value={panelDocSlug}
+                      onChange={(e) => setPanelDocSlug(e.target.value)}
+                      className={PANEL_SELECT_CLASS}
+                    >
+                      <option value="">Choose a document…</option>
+                      {PANEL_DOC_OPTGROUPS.map((g) => (
+                        <optgroup key={g.label} label={g.label}>
+                          {g.options.map((o) => (
+                            <option key={o.slug} value={o.slug}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-800">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                        checked={sendRequired}
+                        onChange={(e) => setSendRequired(e.target.checked)}
+                      />
+                      Required (must be received before progressing to the next stage)
+                    </label>
+                    <p className="mt-3 text-xs font-semibold text-gray-600">File</p>
+                    <div className="mt-1">
+                      <CloudinaryUpload
+                        value={sendFileUrls}
+                        onUpload={setSendFileUrls}
+                        maxFiles={1}
+                        disabled={sendFlowBusy}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!panelDocSlug || sendFileUrls.length === 0 || sendFlowBusy}
+                      onClick={() => void submitPanelSendFlow()}
+                      className="mt-4 w-full rounded-full bg-[#6B9E6E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      {sendFlowBusy ? (
+                        <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                      ) : (
+                        "Send Document"
+                      )}
+                    </button>
                   </div>
                 ) : (
-                  <>
-                    <ul className="space-y-3">
-                      {checklistForLead.map((doc) => {
-                        const st = docStatusFor(doc.key);
-                        const row = docRows.find((r) => r.document_type === doc.key);
-                        const showSendToClient =
-                          row &&
-                          (row.status === "uploaded" || row.status === "approved") &&
-                          (st === "uploaded" || st === "approved");
-                        return (
-                          <li
-                            key={doc.key}
-                            className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-sm font-semibold text-[#2C2C2C]">{doc.label}</p>
-                              <span
-                                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                  st === "missing"
-                                    ? "bg-red-100 text-red-800"
-                                    : st === "uploaded"
-                                      ? "bg-amber-100 text-amber-900"
-                                      : "bg-emerald-100 text-emerald-900"
-                                }`}
-                              >
-                                {st === "missing" ? "Missing" : st === "uploaded" ? "Uploaded" : "Approved"}
-                              </span>
-                            </div>
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              {st === "missing" ? (
-                                <label className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-[#6B9E6E] px-3 py-1 text-[11px] font-bold text-white hover:bg-[#5a8a5d]">
-                                  {uploadingKey === doc.key ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : null}
-                                  Upload
-                                  <input
-                                    type="file"
-                                    className="hidden"
-                                    accept=".pdf,.jpg,.jpeg,.png,.webp"
-                                    onChange={(e) => {
-                                      const f = e.target.files?.[0];
-                                      e.target.value = "";
-                                      if (f) void uploadDoc(docsLead, doc.key, f);
-                                    }}
-                                  />
-                                </label>
-                              ) : null}
-                              {st !== "missing" &&
-                              row &&
-                              (row.status === "uploaded" || row.status === "approved") ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    disabled={viewDealDocBusyId === row.id}
-                                    onClick={() => void viewDealDocument(row)}
-                                    className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80 hover:bg-gray-50 disabled:opacity-50"
-                                  >
-                                    {viewDealDocBusyId === row.id ? (
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    ) : null}
-                                    View
-                                  </button>
-                                  <label className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-400 hover:bg-red-50">
-                                    {uploadingKey === doc.key ? (
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    ) : null}
-                                    Replace
-                                    <input
-                                      type="file"
-                                      className="hidden"
-                                      accept=".pdf,.jpg,.jpeg,.png,.webp"
-                                      onChange={(e) => {
-                                        const f = e.target.files?.[0];
-                                        e.target.value = "";
-                                        if (f && row.file_url) {
-                                          void replaceDealDocument(docsLead, doc.key, f, row.file_url);
-                                        }
-                                      }}
-                                    />
-                                  </label>
-                                </>
-                              ) : null}
-                              {st === "uploaded" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => void approveDoc(docsLead, doc.key)}
-                                  className="rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
-                                >
-                                  Mark approved
-                                </button>
-                              ) : null}
-                              {showSendToClient && row ? (
-                                row.sent_to_client !== true ? (
-                                  <button
-                                    type="button"
-                                    disabled={sendDealDocBusyId === row.id}
-                                    onClick={() => void sendDealDocumentToClient(row)}
-                                    className="inline-flex items-center gap-1 rounded-full border border-[#6B9E6E] px-3 py-1 text-xs font-semibold text-[#6B9E6E] hover:bg-[#6B9E6E]/10 disabled:opacity-50"
-                                  >
-                                    {sendDealDocBusyId === row.id ? (
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    ) : null}
-                                    Send to Client
-                                  </button>
-                                ) : (
-                                  <span className="text-xs text-gray-400">✓ Sent to client</span>
-                                )
-                              ) : null}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
+                  <p className="mt-4 text-center text-xs font-semibold text-gray-500">
+                    Choose Request Document or Send Document above.
+                  </p>
+                )}
 
-                    <p className="mb-3 mt-8 text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                      Client Documents
-                    </p>
-                    {!docsLead.client_id ? (
-                      <p className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm">
-                        No client account linked to this deal
-                      </p>
-                    ) : clientDocRows.length === 0 ? (
-                      <p className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 text-sm font-semibold text-[#2C2C2C]/65 shadow-sm">
-                        No documents shared yet. Use Request Documents to ask the client.
-                      </p>
-                    ) : (
-                      <ul className="space-y-3">
-                        {clientDocRows.map((cd) => (
-                          <li
-                            key={cd.id}
-                            className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-sm font-semibold text-[#2C2C2C]">
-                                {labelSharedClientDocType(cd.document_type)}
-                              </p>
-                              <span
-                                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                  cd.status === "shared"
-                                    ? "bg-emerald-100 text-emerald-900"
-                                    : "bg-gray-100 text-gray-700"
-                                }`}
-                              >
-                                {cd.status === "shared" ? "Shared" : cd.status}
-                              </span>
-                            </div>
-                            {cd.file_name ? (
-                              <p className="mt-1 truncate text-xs font-medium text-[#2C2C2C]/60">
-                                {cd.file_name}
-                              </p>
-                            ) : null}
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                disabled={clientDocOpeningId === cd.id}
-                                onClick={() => void openClientDocumentUrl(cd)}
-                                className="inline-flex items-center gap-1 rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4] disabled:opacity-50"
-                              >
-                                {clientDocOpeningId === cd.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : null}
-                                View
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
+                <p className="mb-3 mt-8 text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Client Documents
+                </p>
+                {docsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" />
+                  </div>
+                ) : !docsLead.client_id ? (
+                  <p className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm">
+                    No client account linked to this deal
+                  </p>
+                ) : clientDocRows.length === 0 ? (
+                  <p className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 text-sm font-semibold text-[#2C2C2C]/65 shadow-sm">
+                    No documents shared yet. Use Request Documents to ask the client.
+                  </p>
+                ) : (
+                  <ul className="space-y-3">
+                    {clientDocRows.map((cd) => {
+                      const statusLabel = clientDocStatusLabel(cd.status);
+                      const statusClass =
+                        statusLabel === "Received"
+                          ? "bg-emerald-100 text-emerald-900"
+                          : statusLabel === "Signed"
+                            ? "bg-blue-100 text-blue-900"
+                            : "bg-amber-100 text-amber-900";
+                      return (
+                        <li
+                          key={cd.id}
+                          className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-semibold text-[#2C2C2C]">
+                              {labelSharedClientDocType(cd.document_type)}
+                            </p>
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${statusClass}`}
+                            >
+                              {statusLabel}
+                            </span>
+                          </div>
+                          {cd.file_name ? (
+                            <p className="mt-1 truncate text-xs font-medium text-[#2C2C2C]/60">
+                              {cd.file_name}
+                            </p>
+                          ) : null}
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={clientDocOpeningId === cd.id}
+                              onClick={() => void openClientDocumentUrl(cd)}
+                              className="inline-flex items-center gap-1 rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4] disabled:opacity-50"
+                            >
+                              {clientDocOpeningId === cd.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : null}
+                              View
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
               </div>
             </motion.aside>
