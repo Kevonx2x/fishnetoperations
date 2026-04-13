@@ -242,6 +242,25 @@ function formatPeso(n: number): string {
   return `₱${Math.round(n).toLocaleString()}`;
 }
 
+const HOMEPAGE_FILTER_MAX_PRICE = 350_000_000;
+
+/** Compact P-prefixed labels for the homepage filter slider (e.g. P500K, P2.5M, P350M). */
+function formatHomepageFilterPrice(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "P0";
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000;
+    const dec = m >= 10 || m % 1 === 0 ? 0 : 1;
+    let s = m.toFixed(dec);
+    if (dec === 1) s = s.replace(/\.0$/, "");
+    return `P${s}M`;
+  }
+  if (n >= 1_000) {
+    const k = Math.round(n / 1_000);
+    return `P${k}K`;
+  }
+  return `P${Math.round(n)}`;
+}
+
 /** Hide admin/test accounts from homepage directory lists (top agents, city agents). */
 function isExcludedFromPublicAgentDirectory(a: MarketplaceAgent): boolean {
   if (a.name.trim().toLowerCase() === "ron admin") return true;
@@ -443,7 +462,7 @@ type FiltersState = {
   minPrice: number;
   maxPrice: number;
   beds: "any" | 1 | 2 | 3 | 4;
-  baths: "any" | 1 | 2 | 3;
+  baths: "any" | 1 | 2 | 3 | 4;
   propertyType: "any" | "House" | "Condo" | "Villa" | "Land" | "Studio" | "Presale";
 };
 
@@ -679,7 +698,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [filters, setFilters] = useState<FiltersState>({
     minPrice: 0,
-    maxPrice: 350_000_000,
+    maxPrice: HOMEPAGE_FILTER_MAX_PRICE,
     beds: "any",
     baths: "any",
     propertyType: "any",
@@ -915,8 +934,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         } else if (p.beds !== filters.beds) return false;
       }
       if (filters.baths !== "any") {
-        if (filters.baths === 3) {
-          if (p.baths < 3) return false;
+        if (filters.baths === 4) {
+          if (p.baths < 4) return false;
         } else if (p.baths !== filters.baths) return false;
       }
       if (filters.propertyType !== "any") {
@@ -1066,7 +1085,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
   const hasActiveSearchOrFilters = useMemo(() => {
     if (search.trim().length > 0 || neighborhoodFilter !== null) return true;
-    if (filters.minPrice !== 0 || filters.maxPrice !== 350_000_000) return true;
+    if (filters.minPrice !== 0 || filters.maxPrice !== HOMEPAGE_FILTER_MAX_PRICE) return true;
     if (filters.beds !== "any" || filters.baths !== "any" || filters.propertyType !== "any") return true;
     if (sortMode !== "newest") return true;
     return false;
@@ -1078,7 +1097,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     setNeighborhoodFilter(null);
     setFilters({
       minPrice: 0,
-      maxPrice: 350_000_000,
+      maxPrice: HOMEPAGE_FILTER_MAX_PRICE,
       beds: "any",
       baths: "any",
       propertyType: "any",
@@ -1368,7 +1387,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     {activeFilterChips(filters, sortMode, {
-                      clearPrice: () => setFilters((s) => ({ ...s, minPrice: 0, maxPrice: 350_000_000 })),
+                      clearPrice: () =>
+                        setFilters((s) => ({ ...s, minPrice: 0, maxPrice: HOMEPAGE_FILTER_MAX_PRICE })),
                       clearBeds: () => setFilters((s) => ({ ...s, beds: "any" })),
                       clearBaths: () => setFilters((s) => ({ ...s, baths: "any" })),
                       clearType: () => setFilters((s) => ({ ...s, propertyType: "any" })),
@@ -1404,9 +1424,10 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       <Filter className="h-4 w-4" />
                       Filters
                       {countActiveFilters(filters, sortMode) > 0 ? (
-                        <span className="ml-1 rounded-full bg-[#D4A843]/18 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                          {countActiveFilters(filters, sortMode)}
-                        </span>
+                        <span
+                          className="absolute right-2.5 top-2 h-2 w-2 rounded-full bg-[#6B9E6E]"
+                          aria-hidden
+                        />
                       ) : null}
                     </button>
 
@@ -1454,86 +1475,99 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         </select>
                       </div>
                     ) : null}
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Price range</p>
-                        <div className="mt-2 flex items-center justify-between text-xs font-semibold text-[#2C2C2C]/60">
-                          <span>{formatPeso(filters.minPrice)}</span>
-                          <span>{formatPeso(filters.maxPrice)}</span>
-                        </div>
-                        <div className="mt-3 grid grid-cols-1 gap-2">
-                          <input
-                            type="range"
-                            min={0}
-                            max={350_000_000}
-                            step={1_000_000}
-                            value={filters.minPrice}
-                            onChange={(e) => {
-                              const v = Number(e.target.value);
-                              setFilters((s) => ({ ...s, minPrice: Math.min(v, s.maxPrice) }));
-                            }}
-                          />
-                          <input
-                            type="range"
-                            min={0}
-                            max={350_000_000}
-                            step={1_000_000}
-                            value={filters.maxPrice}
-                            onChange={(e) => {
-                              const v = Number(e.target.value);
-                              setFilters((s) => ({ ...s, maxPrice: Math.max(v, s.minPrice) }));
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Beds</p>
-                          <select
-                            value={String(filters.beds)}
-                            onChange={(e) => setFilters((s) => ({ ...s, beds: (e.target.value === "any" ? "any" : Number(e.target.value)) as FiltersState["beds"] }))}
-                            className="mt-2 w-full rounded-xl border border-black/10 bg-neutral-50 px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
-                          >
-                            <option value="any">Any</option>
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4+</option>
-                          </select>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Baths</p>
-                          <select
-                            value={String(filters.baths)}
-                            onChange={(e) => setFilters((s) => ({ ...s, baths: (e.target.value === "any" ? "any" : Number(e.target.value)) as FiltersState["baths"] }))}
-                            className="mt-2 w-full rounded-xl border border-black/10 bg-neutral-50 px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
-                          >
-                            <option value="any">Any</option>
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3+</option>
-                          </select>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Type</p>
-                          <select
-                            value={filters.propertyType}
-                            onChange={(e) => setFilters((s) => ({ ...s, propertyType: e.target.value as FiltersState["propertyType"] }))}
-                            className="mt-2 w-full rounded-xl border border-black/10 bg-neutral-50 px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
-                          >
-                            <option value="any">Any</option>
-                            <option value="House">House</option>
-                            <option value="Condo">Condo</option>
-                            <option value="Villa">Villa</option>
-                            <option value="Land">Land</option>
-                            <option value="Studio">Studio</option>
-                            <option value="Presale">Presale</option>
-                          </select>
-                        </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Price range</p>
+                      <div className="mt-2 max-w-xl">
+                        <HomepageFilterDualPriceSlider
+                          minPrice={filters.minPrice}
+                          maxPrice={filters.maxPrice}
+                          onChange={(next) => setFilters((s) => ({ ...s, ...next }))}
+                        />
                       </div>
                     </div>
-                    <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-[#2C2C2C]/10 pt-4">
+
+                    <div className="mt-4 flex flex-wrap items-end gap-x-5 gap-y-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Beds</p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {(
+                            [
+                              ["any", "Any"],
+                              ["1", "1"],
+                              ["2", "2"],
+                              ["3", "3"],
+                              ["4", "4+"],
+                            ] as const
+                          ).map(([val, label]) => (
+                            <button
+                              key={`bed-${val}`}
+                              type="button"
+                              onClick={() =>
+                                setFilters((s) => ({
+                                  ...s,
+                                  beds: (val === "any" ? "any" : Number(val)) as FiltersState["beds"],
+                                }))
+                              }
+                              className={filterPillClass(
+                                val === "any" ? filters.beds === "any" : filters.beds === Number(val),
+                              )}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Baths</p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {(
+                            [
+                              ["any", "Any"],
+                              ["1", "1"],
+                              ["2", "2"],
+                              ["3", "3"],
+                              ["4", "4+"],
+                            ] as const
+                          ).map(([val, label]) => (
+                            <button
+                              key={`bath-${val}`}
+                              type="button"
+                              onClick={() =>
+                                setFilters((s) => ({
+                                  ...s,
+                                  baths: (val === "any" ? "any" : Number(val)) as FiltersState["baths"],
+                                }))
+                              }
+                              className={filterPillClass(
+                                val === "any" ? filters.baths === "any" : filters.baths === Number(val),
+                              )}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="min-w-[min(100%,12rem)] flex-1">
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Type</p>
+                        <select
+                          value={filters.propertyType}
+                          onChange={(e) =>
+                            setFilters((s) => ({
+                              ...s,
+                              propertyType: e.target.value as FiltersState["propertyType"],
+                            }))
+                          }
+                          className="mt-2 w-full rounded-xl border border-black/10 bg-neutral-50 px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
+                        >
+                          <option value="any">Any</option>
+                          <option value="House">House</option>
+                          <option value="Condo">Condo</option>
+                          <option value="Villa">Villa</option>
+                          <option value="Land">Land</option>
+                          <option value="Studio">Studio</option>
+                          <option value="Presale">Presale</option>
+                        </select>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
@@ -1543,7 +1577,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           }
                         }}
                         disabled={!hasActiveSearchOrFilters}
-                        className="rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#6C8C70] disabled:cursor-not-allowed disabled:opacity-45"
+                        className="ml-auto shrink-0 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         Apply
                       </button>
@@ -2389,9 +2423,93 @@ export function NewlyListedCard({
   );
 }
 
+function filterPillClass(selected: boolean): string {
+  return cn(
+    "rounded-full px-3 py-1.5 text-xs font-semibold transition",
+    selected ? "bg-[#6B9E6E] text-white" : "border border-black/15 bg-white text-[#2C2C2C]/85",
+  );
+}
+
+function HomepageFilterDualPriceSlider({
+  minPrice,
+  maxPrice,
+  onChange,
+}: {
+  minPrice: number;
+  maxPrice: number;
+  onChange: (next: { minPrice: number; maxPrice: number }) => void;
+}) {
+  const maxP = HOMEPAGE_FILTER_MAX_PRICE;
+  const step = 1_000_000;
+  const [active, setActive] = useState<"min" | "max" | null>(null);
+
+  const rangeBase =
+    "pointer-events-none absolute left-0 top-1/2 h-0 w-full -translate-y-1/2 appearance-none bg-transparent outline-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:cursor-grab [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-[#6B9E6E] [&::-webkit-slider-thumb]:shadow-md [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:cursor-grab [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-[#6B9E6E] [&::-moz-range-thumb]:shadow-md";
+
+  const minPct = (minPrice / maxP) * 100;
+  const maxPct = (maxPrice / maxP) * 100;
+
+  return (
+    <div className="w-full">
+      <div className="relative mx-1 h-7 min-h-[1.75rem]">
+        <span
+          className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[11px] font-bold leading-none text-[#2C2C2C]"
+          style={{ left: `${minPct}%` }}
+        >
+          {formatHomepageFilterPrice(minPrice)}
+        </span>
+        <span
+          className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[11px] font-bold leading-none text-[#2C2C2C]"
+          style={{ left: `${maxPct}%` }}
+        >
+          {formatHomepageFilterPrice(maxPrice)}
+        </span>
+      </div>
+      <div className="relative mx-1 mt-1 h-9 touch-none" onPointerUp={() => setActive(null)}>
+        <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-neutral-200" />
+        <div
+          className="pointer-events-none absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-[#6B9E6E]"
+          style={{
+            left: `${minPct}%`,
+            width: `${Math.max(0, maxPct - minPct)}%`,
+          }}
+        />
+        <input
+          type="range"
+          min={0}
+          max={maxP}
+          step={step}
+          value={minPrice}
+          aria-label="Minimum price"
+          onPointerDown={() => setActive("min")}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            onChange({ minPrice: Math.min(v, maxPrice), maxPrice });
+          }}
+          className={cn(rangeBase, active === "min" ? "z-[36]" : "z-[30]")}
+        />
+        <input
+          type="range"
+          min={0}
+          max={maxP}
+          step={step}
+          value={maxPrice}
+          aria-label="Maximum price"
+          onPointerDown={() => setActive("max")}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            onChange({ minPrice, maxPrice: Math.max(v, minPrice) });
+          }}
+          className={cn(rangeBase, active === "max" ? "z-[36]" : "z-[32]")}
+        />
+      </div>
+    </div>
+  );
+}
+
 function countActiveFilters(filters: FiltersState, sortMode: SortMode): number {
   let n = 0;
-  if (filters.minPrice !== 0 || filters.maxPrice !== 350_000_000) n++;
+  if (filters.minPrice !== 0 || filters.maxPrice !== HOMEPAGE_FILTER_MAX_PRICE) n++;
   if (filters.beds !== "any") n++;
   if (filters.baths !== "any") n++;
   if (filters.propertyType !== "any") n++;
@@ -2411,10 +2529,10 @@ function activeFilterChips(
   },
 ) {
   const chips: { key: string; label: string; onRemove: () => void }[] = [];
-  if (filters.minPrice !== 0 || filters.maxPrice !== 350_000_000) {
+  if (filters.minPrice !== 0 || filters.maxPrice !== HOMEPAGE_FILTER_MAX_PRICE) {
     chips.push({
       key: "price",
-      label: `Price ${formatPeso(filters.minPrice)}–${formatPeso(filters.maxPrice)}`,
+      label: `Price ${formatHomepageFilterPrice(filters.minPrice)}–${formatHomepageFilterPrice(filters.maxPrice)}`,
       onRemove: actions.clearPrice,
     });
   }
@@ -2422,7 +2540,7 @@ function activeFilterChips(
     chips.push({ key: "beds", label: `Beds ${filters.beds === 4 ? "4+" : filters.beds}`, onRemove: actions.clearBeds });
   }
   if (filters.baths !== "any") {
-    chips.push({ key: "baths", label: `Baths ${filters.baths === 3 ? "3+" : filters.baths}`, onRemove: actions.clearBaths });
+    chips.push({ key: "baths", label: `Baths ${filters.baths === 4 ? "4+" : filters.baths}`, onRemove: actions.clearBaths });
   }
   if (filters.propertyType !== "any") {
     chips.push({ key: "type", label: `Type ${filters.propertyType}`, onRemove: actions.clearType });
