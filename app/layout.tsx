@@ -22,7 +22,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "BahayGo",
   description: "Luxury properties with verified agents and licensed brokers.",
-  icons: { icon: "/favicon.ico", apple: "/apple-touch-icon.png" },
+  icons: { icon: "/icon.png", shortcut: "/favicon.ico", apple: "/icon.png" },
 };
 
 function SiteFooter() {
