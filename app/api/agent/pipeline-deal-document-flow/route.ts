@@ -126,7 +126,25 @@ export async function POST(req: Request) {
   }
 
   const requestedAgentId = typeof body.agent_id === "string" ? body.agent_id.trim() : "";
-  const targetAgentUserId = requestedAgentId || agentId || uid;
+  const targetAgentUserId = agentId || uid;
+
+  const sessionEmail = session.email?.trim() ?? "";
+  if (!sessionEmail) {
+    return Response.json({ error: "Missing agent email in session" }, { status: 400 });
+  }
+  const { data: agentByEmail, error: agentLookupErr } = await admin
+    .from("agents")
+    .select("id")
+    .eq("email", sessionEmail)
+    .maybeSingle();
+  if (agentLookupErr) {
+    return Response.json({ error: agentLookupErr.message }, { status: 500 });
+  }
+  const agentRowId = (agentByEmail as { id?: string } | null)?.id;
+  if (!agentRowId) {
+    return Response.json({ error: "Agent record not found for current user" }, { status: 400 });
+  }
+  const dealAgentId = requestedAgentId || agentRowId;
 
   const documentName =
     typeof body.document_name === "string" && body.document_name.trim()
@@ -159,7 +177,7 @@ export async function POST(req: Request) {
         document_type: documentType,
         document_name: documentName,
         direction: "requested",
-        agent_id: targetAgentUserId,
+        agent_id: dealAgentId,
         status: "pending",
         file_url: null,
         required,
@@ -220,7 +238,7 @@ export async function POST(req: Request) {
       document_type: documentType,
       document_name: documentName,
       direction: "sent",
-      agent_id: targetAgentUserId,
+      agent_id: dealAgentId,
       status: "uploaded",
       file_url: fileUrl,
       required,

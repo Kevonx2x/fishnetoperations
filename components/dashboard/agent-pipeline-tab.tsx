@@ -766,7 +766,7 @@ export function AgentPipelineTab({
     }
   };
 
-  const getCurrentProfileId = useCallback(async (): Promise<string | null> => {
+  const getCurrentAgentId = useCallback(async (): Promise<string | null> => {
     const {
       data: { user },
       error: authErr,
@@ -775,25 +775,25 @@ export function AgentPipelineTab({
       toast.error(authErr.message);
       return null;
     }
-    if (!user?.id) {
+    if (!user?.id || !user.email) {
       toast.error("Sign in required");
       return null;
     }
-    const { data: prof, error: profErr } = await supabase
-      .from("profiles")
+    const { data: agent, error: agentErr } = await supabase
+      .from("agents")
       .select("id")
-      .eq("id", user.id)
+      .eq("email", user.email)
       .maybeSingle();
-    if (profErr) {
-      toast.error(profErr.message);
+    if (agentErr) {
+      toast.error(agentErr.message);
       return null;
     }
-    const profileId = (prof as { id?: string } | null)?.id;
-    if (!profileId) {
-      toast.error("Profile not found for current user");
+    const agentId = (agent as { id?: string } | null)?.id;
+    if (!agentId) {
+      toast.error("Agent record not found for current user");
       return null;
     }
-    return profileId;
+    return agentId;
   }, [supabase]);
 
   const submitPanelRequestFlow = async () => {
@@ -803,8 +803,8 @@ export function AgentPipelineTab({
       toast.error("Select a document type.");
       return;
     }
-    const profileId = await getCurrentProfileId();
-    if (!profileId) return;
+    const agentId = await getCurrentAgentId();
+    if (!agentId) return;
     setRequestFlowBusy(true);
     try {
       const res = await fetch("/api/agent/pipeline-deal-document-flow", {
@@ -813,7 +813,7 @@ export function AgentPipelineTab({
         credentials: "include",
         body: JSON.stringify({
           lead_id: docsLead.id,
-          agent_id: profileId,
+          agent_id: agentId,
           mode: "request",
           document_type: meta.slug,
           document_name: meta.label,
@@ -852,8 +852,8 @@ export function AgentPipelineTab({
       toast.error("Upload a file before sending.");
       return;
     }
-    const profileId = await getCurrentProfileId();
-    if (!profileId) return;
+    const agentId = await getCurrentAgentId();
+    if (!agentId) return;
     setSendFlowBusy(true);
     try {
       const res = await fetch("/api/agent/pipeline-deal-document-flow", {
@@ -862,7 +862,7 @@ export function AgentPipelineTab({
         credentials: "include",
         body: JSON.stringify({
           lead_id: docsLead.id,
-          agent_id: profileId,
+          agent_id: agentId,
           mode: "send",
           document_type: meta.slug,
           document_name: meta.label,
