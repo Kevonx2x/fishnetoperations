@@ -387,6 +387,7 @@ export default function AgentProfilePage() {
   const [markingStatus, setMarkingStatus] = useState(false);
   const [engagementMessageDraft, setEngagementMessageDraft] = useState<Record<string, string>>({});
   const [engagementMessageSentBanner, setEngagementMessageSentBanner] = useState<Record<string, boolean>>({});
+  const [engagementMessageBannerFading, setEngagementMessageBannerFading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -1572,6 +1573,17 @@ export default function AgentProfilePage() {
                                                                     side="bottom"
                                                                     className="w-[min(calc(100vw-2rem),18rem)] bg-white p-3 text-gray-900 shadow-md ring-1 ring-gray-200"
                                                                   >
+                                                                    {engagementMessageSentBanner[leadKey] ? (
+                                                                      <div
+                                                                        className={`mb-3 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-800 transition-opacity duration-300 ${
+                                                                          engagementMessageBannerFading[leadKey]
+                                                                            ? "opacity-0"
+                                                                            : "opacity-100"
+                                                                        }`}
+                                                                      >
+                                                                        ✅ Message sent to {label}!
+                                                                      </div>
+                                                                    ) : null}
                                                                     <p className="text-[10px] font-bold uppercase tracking-wide text-gray-900">
                                                                       Quick messages
                                                                     </p>
@@ -1654,13 +1666,27 @@ export default function AgentProfilePage() {
                                                                               ...prev,
                                                                               [leadKey]: true,
                                                                             }));
+                                                                            setEngagementMessageBannerFading((prev) => ({
+                                                                              ...prev,
+                                                                              [leadKey]: false,
+                                                                            }));
                                                                             setEngagementMessageDraft((prev) => {
                                                                               const next = { ...prev };
                                                                               delete next[leadKey];
                                                                               return next;
                                                                             });
                                                                             window.setTimeout(() => {
+                                                                              setEngagementMessageBannerFading((prev) => ({
+                                                                                ...prev,
+                                                                                [leadKey]: true,
+                                                                              }));
+                                                                            }, 2700);
+                                                                            window.setTimeout(() => {
                                                                               setEngagementMessageSentBanner((prev) => ({
+                                                                                ...prev,
+                                                                                [leadKey]: false,
+                                                                              }));
+                                                                              setEngagementMessageBannerFading((prev) => ({
                                                                                 ...prev,
                                                                                 [leadKey]: false,
                                                                               }));
@@ -1675,11 +1701,6 @@ export default function AgentProfilePage() {
                                                                   </PopoverContent>
                                                                 </Popover>
                                                             </div>
-                                                            {engagementMessageSentBanner[leadKey] ? (
-                                                              <div className="rounded-lg border border-green-200 bg-green-50 p-2 text-xs text-green-700">
-                                                                ✅ Message sent to {label}!
-                                                              </div>
-                                                            ) : null}
                                                           </>
                                                         ) : null}
                                                       </div>

@@ -71,9 +71,11 @@ export function getNotificationClickHref(type: string): string | null {
 type NotificationCardProps = {
   n: NotificationListItem;
   onMarkRead: (n: NotificationListItem, navigateTo?: string | null) => void | Promise<void>;
+  /** Extra right padding when a dismiss control is overlaid top-right (client notification center). */
+  dismissGutter?: boolean;
 };
 
-export function NotificationCard({ n, onMarkRead }: NotificationCardProps) {
+export function NotificationCard({ n, onMarkRead, dismissGutter }: NotificationCardProps) {
   const meta = n.metadata ?? null;
   const metaLink =
     meta && typeof meta.link === "string" && meta.link.startsWith("/") ? meta.link : null;
@@ -93,6 +95,7 @@ export function NotificationCard({ n, onMarkRead }: NotificationCardProps) {
     <div
       className={cn(
         "flex w-full gap-3 rounded-2xl bg-white px-4 py-4 shadow-sm transition",
+        dismissGutter && "pr-12",
         clickable ? "cursor-pointer hover:bg-gray-50" : "hover:bg-[#FAF8F4]",
         unread
           ? "border border-[#2C2C2C]/10 border-l-[3px] border-l-[#6B9E6E]"

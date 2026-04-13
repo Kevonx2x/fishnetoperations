@@ -178,7 +178,7 @@ export default function NotificationsPage() {
                 />
               ) : (
                 <div className="relative">
-                  <NotificationCard n={n} onMarkRead={markRead} />
+                  <NotificationCard n={n} onMarkRead={markRead} dismissGutter />
                   <button
                     type="button"
                     aria-label="Dismiss notification"
@@ -192,7 +192,7 @@ export default function NotificationsPage() {
                         .eq("user_id", user.id);
                       if (!error) setRows((prev) => prev.filter((x) => x.id !== n.id));
                     }}
-                    className="absolute right-3 top-3 rounded-full p-1.5 text-[#2C2C2C]/45 hover:bg-gray-100 hover:text-[#2C2C2C]/70"
+                    className="absolute right-2 top-2 z-10 rounded-full p-2 text-[#2C2C2C]/45 hover:bg-gray-100 hover:text-[#2C2C2C]/70"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -353,7 +353,7 @@ function AgentMessageClientReplyCard({
   };
 
   return (
-    <div className="relative rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
+    <div className="relative rounded-2xl border border-[#2C2C2C]/10 bg-white py-4 pl-4 pr-14 shadow-sm">
       <button
         type="button"
         aria-label="Dismiss notification"
@@ -361,26 +361,26 @@ function AgentMessageClientReplyCard({
           e.stopPropagation();
           void onDismiss();
         }}
-        className="absolute right-3 top-3 rounded-full p-1.5 text-[#2C2C2C]/45 hover:bg-gray-100 hover:text-[#2C2C2C]/70"
+        className="absolute right-2 top-2 z-10 rounded-full p-2 text-[#2C2C2C]/45 hover:bg-gray-100 hover:text-[#2C2C2C]/70"
       >
         <X className="h-4 w-4" />
       </button>
-      <div className="flex items-start justify-between gap-3 pr-8">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-[#6B9E6E]/15 px-2.5 py-0.5 text-[11px] font-bold text-[#2d5a30]">
-              {agentName}
-            </span>
-            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-bold text-gray-900">
-              {propertyName}
-            </span>
-          </div>
-          <p className="mt-2 font-bold text-[#2C2C2C]">{n.title}</p>
-          {n.body ? <p className="mt-1 text-sm font-medium text-[#2C2C2C]/70">{n.body}</p> : null}
-        </div>
-        <span className="shrink-0 text-xs font-semibold tabular-nums text-[#2C2C2C]/45">
+      <div className="flex justify-end">
+        <span className="text-xs font-semibold tabular-nums text-[#2C2C2C]/45">
           {formatRelativeTime(n.created_at)}
         </span>
+      </div>
+      <div className="mt-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-[#6B9E6E]/15 px-2.5 py-0.5 text-[11px] font-bold text-[#2d5a30]">
+            {agentName}
+          </span>
+          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-bold text-gray-900">
+            {propertyName}
+          </span>
+        </div>
+        <p className="mt-2 font-bold text-[#2C2C2C]">{n.title}</p>
+        {n.body ? <p className="mt-1 text-sm font-medium text-[#2C2C2C]/70">{n.body}</p> : null}
       </div>
 
       <div className="mt-4 rounded-xl border border-gray-200 bg-[#FAF8F4] p-3">
