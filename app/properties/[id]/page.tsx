@@ -74,25 +74,13 @@ function listingAgentUserId(property: PropertyRow, agents: MarketplaceAgent[]): 
   return agents[0]?.userId ?? null;
 }
 
-const ROOM_IMAGES = [
-  "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1000&h=700&fit=crop",
-  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1000&h=700&fit=crop",
-  "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1000&h=700&fit=crop",
-  "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=1000&h=700&fit=crop",
-  "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1000&h=700&fit=crop",
-];
-
 function buildAllPhotos(property: PropertyRow): string[] {
-  const fromDb = (property.property_photos ?? [])
+  return (property.property_photos ?? [])
     .slice()
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     .map((x) => String(x.url || "").trim())
     .filter((u) => u.length > 0)
     .map((u) => cloudinaryPropertyPhotoDisplayUrl(u));
-  if (fromDb.length) return fromDb;
-  const primary = property.image_url;
-  const extras = ROOM_IMAGES.filter((u) => u !== primary);
-  return [primary, ...extras];
 }
 
 /** Inserts Cloudinary transforms before the version segment (v123/…). Non-Cloudinary URLs unchanged. */
@@ -301,6 +289,13 @@ export default function PropertyPage() {
   }, [property?.id, myAgent?.id]);
 
   const allPhotos = useMemo(() => (property ? buildAllPhotos(property) : []), [property]);
+  /** When there are no `property_photos` rows, hero uses `properties.image_url` if set; otherwise a gray block. */
+  const noGalleryFallbackHeroSrc = useMemo(() => {
+    if (!property || allPhotos.length > 0) return "";
+    const u = String(property.image_url ?? "").trim();
+    if (!u) return "";
+    return cloudinaryTransformUrl(cloudinaryPropertyPhotoDisplayUrl(u), "c_fill,w_1600,h_900,q_auto,f_auto");
+  }, [property, allPhotos.length]);
   /** Hero image URL; thumbnails call setActivePhoto(url). */
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
 
@@ -532,9 +527,23 @@ export default function PropertyPage() {
               <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
                 <div className="p-2">
                   {allPhotos.length === 0 ? (
-                    <div className="flex min-h-[200px] items-center justify-center rounded-2xl bg-gray-100">
-                      <p className="text-sm font-medium text-gray-500">No photos available</p>
-                    </div>
+                    noGalleryFallbackHeroSrc ? (
+                      <div className="relative h-80 w-full overflow-hidden rounded-2xl lg:h-[500px]">
+                        <Image
+                          src={noGalleryFallbackHeroSrc}
+                          alt={property.location}
+                          fill
+                          sizes="100vw"
+                          loading="eager"
+                          className="absolute inset-0 h-full w-full object-cover"
+                          priority
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex min-h-[200px] items-center justify-center rounded-2xl bg-gray-100">
+                        <p className="text-sm font-medium text-gray-500">No photos available</p>
+                      </div>
+                    )
                   ) : (
                     <>
                       <div className="relative h-80 w-full overflow-hidden rounded-2xl lg:h-[500px]">
