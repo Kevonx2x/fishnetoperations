@@ -49,6 +49,7 @@ import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
 import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
 import { formatListingPricePhp } from "@/lib/format-listing-price";
+import { cn } from "@/lib/utils";
 import {
   AGENT_AVAILABILITY_NOW,
   AGENT_AVAILABILITY_OFFLINE,
@@ -541,6 +542,7 @@ export function AgentDashboard() {
   const [msg, setMsg] = useState("");
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null);
   const [leavingPropertyId, setLeavingPropertyId] = useState<string | null>(null);
+  const [profileViewsCount, setProfileViewsCount] = useState(0);
 
   const [profileForm, setProfileForm] = useState({
     name: "",
@@ -628,12 +630,13 @@ export function AgentDashboard() {
       setLeads([]);
       setProperties([]);
       setViewings([]);
+      setProfileViewsCount(0);
       setPropertiesLoadVersion((v) => v + 1);
       return;
     }
 
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
-      const [{ data: ld }, { data: owned }, { data: paRows }, vwRes] = await Promise.all([
+      const [{ data: ld }, { data: owned }, { data: paRows }, vwRes, viewsRes] = await Promise.all([
         supabase
           .from("leads")
           .select(
@@ -654,8 +657,14 @@ export function AgentDashboard() {
           .select("*")
           .eq("agent_user_id", user.id)
           .order("scheduled_at", { ascending: true }),
+        supabase
+          .from("activity_log")
+          .select("id", { count: "exact", head: true })
+          .eq("action", "profile_view")
+          .eq("agent_id", a.id),
       ]);
       setLeads((ld as LeadRow[]) ?? []);
+      setProfileViewsCount(viewsRes.error ? 0 : (viewsRes.count ?? 0));
 
       const ownedList = ((owned ?? []) as Record<string, unknown>[]).map((raw) => {
         const p = raw as Record<string, unknown>;
@@ -743,6 +752,7 @@ export function AgentDashboard() {
       setLeads([]);
       setProperties([]);
       setViewings([]);
+      setProfileViewsCount(0);
     }
     setPropertiesLoadVersion((v) => v + 1);
   }, [supabase, user?.id]);
@@ -874,8 +884,13 @@ export function AgentDashboard() {
     [properties],
   );
 
-  const mockProfileViews = useMemo(() => 120 + (agent?.id ? agent.id.charCodeAt(0) % 380 : 0), [agent?.id]);
-  const mockResponseRate = useMemo(() => 85 + (agent?.id ? agent.id.charCodeAt(1) % 14 : 0), [agent?.id]);
+  const responseRatePct = useMemo(() => {
+    const total = leads.length;
+    if (total <= 0) return 0;
+    const responded = leads.filter((l) => String(l.stage ?? "").trim().toLowerCase() !== "new").length;
+    if (!Number.isFinite(responded) || responded <= 0) return 0;
+    return Math.round((responded / total) * 100);
+  }, [leads]);
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1481,8 +1496,8 @@ export function AgentDashboard() {
                   ownedListingCount={ownedListingCount}
                   coListedCount={coListedCount}
                   profileComplete={profileComplete}
-                  mockProfileViews={mockProfileViews}
-                  mockResponseRate={mockResponseRate}
+                  profileViewsCount={profileViewsCount}
+                  responseRatePct={responseRatePct}
                   listingLimit={listingLimit}
                   coListLimit={coListLimit}
                   atListingLimit={atListingLimit}
@@ -2167,8 +2182,8 @@ function OverviewTab({
   ownedListingCount,
   coListedCount,
   profileComplete,
-  mockProfileViews,
-  mockResponseRate,
+  profileViewsCount,
+  responseRatePct,
   listingLimit,
   coListLimit,
   atListingLimit,
@@ -2182,8 +2197,8 @@ function OverviewTab({
   ownedListingCount: number;
   coListedCount: number;
   profileComplete: { pct: number; checks: { ok: boolean; label: string }[] };
-  mockProfileViews: number;
-  mockResponseRate: number;
+  profileViewsCount: number;
+  responseRatePct: number;
   listingLimit: number;
   coListLimit: number;
   atListingLimit: boolean;
@@ -2193,6 +2208,10 @@ function OverviewTab({
   const incomplete = profileComplete.pct < 100;
   const totalRepresented = properties.length;
   const ownedCount = properties.filter((p) => !p.isCoHost).length;
+  const agentScoreOutOfTen = useMemo(() => {
+    const s = agent.score;
+    return typeof s === "number" && Number.isFinite(s) ? Math.max(0, Math.min(10, s)) : 0;
+  }, [agent.score]);
 
   return (
     <div className="space-y-8">
@@ -2225,8 +2244,23 @@ function OverviewTab({
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Total Leads" value={String(leads.length)} />
         <StatCard label="Owned listings" value={String(ownedCount)} />
-        <StatCard label="Profile Views" value={String(mockProfileViews)} hint="mock" />
-        <StatCard label="Response Rate" value={`${mockResponseRate}%`} hint="mock" />
+        <StatCard label="Profile Views" value={String(profileViewsCount || 0)} />
+        <StatCard label="Response Rate" value={`${responseRatePct || 0}%`} />
+      </div>
+
+      <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
+        <p className="text-sm font-bold text-[#2C2C2C]">Agent Score</p>
+        <p className="mt-2 font-serif text-3xl font-bold text-[#2C2C2C]">{agentScoreOutOfTen}/10</p>
+        <p className="mt-4 text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+          How to increase your score
+        </p>
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm font-semibold text-[#2C2C2C]/75">
+          <li>Close more deals</li>
+          <li>Get verified if not already</li>
+          <li>Complete your profile</li>
+          <li>Add more listings</li>
+          <li>Respond to leads faster</li>
+        </ul>
       </div>
 
       {identityVerified ? (
@@ -2366,7 +2400,34 @@ function OverviewTab({
                     <p className="font-semibold text-[#2C2C2C]">{l.name}</p>
                     <p className="text-xs font-semibold text-[#2C2C2C]/45">{l.email}</p>
                   </div>
-                  <span className="rounded-full bg-[#6B9E6E]/12 px-2 py-1 text-xs font-bold text-[#2C2C2C]/70">
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-1 text-xs font-bold",
+                      String(l.stage ?? "")
+                        .trim()
+                        .toLowerCase() === "new"
+                        ? "bg-blue-100 text-blue-700"
+                        : String(l.stage ?? "")
+                              .trim()
+                              .toLowerCase() === "active" ||
+                            String(l.stage ?? "")
+                              .trim()
+                              .toLowerCase() === "contacted"
+                          ? "bg-green-100 text-green-700"
+                          : String(l.stage ?? "")
+                                .trim()
+                                .toLowerCase() === "viewing"
+                            ? "bg-purple-100 text-purple-700"
+                            : String(l.stage ?? "")
+                                  .trim()
+                                  .toLowerCase() === "declined" ||
+                                String(l.stage ?? "")
+                                  .trim()
+                                  .toLowerCase() === "closed_lost"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-[#6B9E6E]/12 text-[#2C2C2C]/70",
+                    )}
+                  >
                     {labelForStage(l.stage)}
                   </span>
                 </li>
