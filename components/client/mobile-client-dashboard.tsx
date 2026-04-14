@@ -615,35 +615,73 @@ function PinSaveFeedCardHeader({
   return (
     <div className="flex gap-3">
       {a ? (
-        <div className="relative h-10 w-10 shrink-0">
-          <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[#E5E5E5]/60">
-            {a.agentAvatarUrl ? (
-              <Image src={a.agentAvatarUrl} alt="" fill className="object-cover" sizes="40px" unoptimized />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/40 text-sm font-bold text-gray-900">
-                {(a.agentName || "A").slice(0, 1).toUpperCase()}
+        a.agentId ? (
+          <Link href={`/agents/${a.agentId}`} className="relative h-10 w-10 shrink-0 cursor-pointer">
+            <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[#E5E5E5]/60">
+              {a.agentAvatarUrl ? (
+                <Image src={a.agentAvatarUrl} alt="" fill className="object-cover" sizes="40px" unoptimized />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/40 text-sm font-bold text-gray-900">
+                  {(a.agentName || "A").slice(0, 1).toUpperCase()}
+                </div>
+              )}
+            </div>
+            {headerBadgeKind === "both" ? (
+              <div className="absolute -bottom-0.5 -right-0.5 flex items-end" aria-hidden>
+                <span className="relative z-[1] flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md">
+                  <Heart className="h-4 w-4 text-red-500" strokeWidth={2.25} fill="currentColor" />
+                </span>
+                <span className="relative z-[2] -ml-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md">
+                  <Pin className="h-4 w-4 text-[#D4A843]" strokeWidth={2.25} />
+                </span>
               </div>
-            )}
-          </div>
-          {headerBadgeKind === "both" ? (
-            <div className="absolute -bottom-0.5 -right-0.5 flex items-end" aria-hidden>
-              <span className="relative z-[1] flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md">
-                <Heart className="h-4 w-4 text-red-500" strokeWidth={2.25} fill="currentColor" />
-              </span>
-              <span className="relative z-[2] -ml-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md">
+            ) : headerBadgeKind === "pin" ? (
+              <span
+                className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md"
+                aria-hidden
+              >
                 <Pin className="h-4 w-4 text-[#D4A843]" strokeWidth={2.25} />
               </span>
+            ) : headerBadgeKind === "heart" ? (
+              <span
+                className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md"
+                aria-hidden
+              >
+                <Heart className="h-4 w-4 text-red-500" strokeWidth={2.25} fill="currentColor" />
+              </span>
+            ) : null}
+          </Link>
+        ) : (
+          <div className="relative h-10 w-10 shrink-0">
+            <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[#E5E5E5]/60">
+              {a.agentAvatarUrl ? (
+                <Image src={a.agentAvatarUrl} alt="" fill className="object-cover" sizes="40px" unoptimized />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/40 text-sm font-bold text-gray-900">
+                  {(a.agentName || "A").slice(0, 1).toUpperCase()}
+                </div>
+              )}
             </div>
-          ) : headerBadgeKind === "pin" ? (
-            <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md" aria-hidden>
-              <Pin className="h-4 w-4 text-[#D4A843]" strokeWidth={2.25} />
-            </span>
-          ) : headerBadgeKind === "heart" ? (
-            <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md" aria-hidden>
-              <Heart className="h-4 w-4 text-red-500" strokeWidth={2.25} fill="currentColor" />
-            </span>
-          ) : null}
-        </div>
+            {headerBadgeKind === "both" ? (
+              <div className="absolute -bottom-0.5 -right-0.5 flex items-end" aria-hidden>
+                <span className="relative z-[1] flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md">
+                  <Heart className="h-4 w-4 text-red-500" strokeWidth={2.25} fill="currentColor" />
+                </span>
+                <span className="relative z-[2] -ml-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md">
+                  <Pin className="h-4 w-4 text-[#D4A843]" strokeWidth={2.25} />
+                </span>
+              </div>
+            ) : headerBadgeKind === "pin" ? (
+              <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md" aria-hidden>
+                <Pin className="h-4 w-4 text-[#D4A843]" strokeWidth={2.25} />
+              </span>
+            ) : headerBadgeKind === "heart" ? (
+              <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md" aria-hidden>
+                <Heart className="h-4 w-4 text-red-500" strokeWidth={2.25} fill="currentColor" />
+              </span>
+            ) : null}
+          </div>
+        )
       ) : null}
       <div className="min-w-0 flex-1">
         <p className="text-sm leading-snug">
@@ -652,7 +690,7 @@ function PinSaveFeedCardHeader({
             <>
               {" posted by "}
               {a.agentId ? (
-                <Link href={`/agents/${a.agentId}`} className="font-medium text-[#6B9E6E] hover:underline">
+                <Link href={`/agents/${a.agentId}`} className="cursor-pointer font-medium text-[#6B9E6E] hover:underline">
                   {a.agentName}
                 </Link>
               ) : (
