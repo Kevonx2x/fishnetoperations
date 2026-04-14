@@ -1,5 +1,7 @@
 /** Shared types/helpers for marketplace property cards and modals. */
 
+import { cloudinaryPropertyPhotoDisplayUrl } from "@/lib/cloudinary-property-photo-url";
+
 export type SortMode = "newest" | "price_low" | "price_high" | "most_beds";
 
 export type DbProperty = {
@@ -49,8 +51,9 @@ export function roomUrlsFor(p: DbProperty): string[] {
   const fromDb = (p.property_photos ?? [])
     .slice()
     .sort(comparePropertyPhotos)
-    .map((x) => x.url)
-    .filter(Boolean);
+    .map((x) => String(x.url || "").trim())
+    .filter((u) => u.length > 0)
+    .map((u) => cloudinaryPropertyPhotoDisplayUrl(u));
   if (fromDb.length) return fromDb;
   return [p.image_url];
 }

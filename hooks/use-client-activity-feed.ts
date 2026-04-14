@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
+import { cloudinaryPropertyPhotoDisplayUrl } from "@/lib/cloudinary-property-photo-url";
 
 export type PropertyPhoto = { url: string; sort_order: number | null };
 
@@ -227,7 +228,7 @@ export function pickPropertyImage(p: PropertyRow): string {
   if (photos?.length) {
     const sorted = [...photos].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
     const u = sorted[0]?.url?.trim();
-    if (u) return u;
+    if (u) return cloudinaryPropertyPhotoDisplayUrl(u);
   }
   return p.image_url?.trim() || "";
 }

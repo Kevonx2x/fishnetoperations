@@ -36,6 +36,7 @@ import {
   type PropertyEngagementSource,
 } from "@/hooks/use-property-engagement";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
+import { cloudinaryPropertyPhotoDisplayUrl } from "@/lib/cloudinary-property-photo-url";
 import { labelForClientDocType } from "@/lib/client-documents";
 import { formatNotificationTimeAgo } from "@/components/notifications/notification-list";
 import { cn } from "@/lib/utils";
@@ -103,7 +104,8 @@ function firstPhotoUrlFromPropertyPhotos(
 ): string {
   if (!photos?.length) return "";
   const sorted = [...photos].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-  return sorted[0]?.url?.trim() ?? "";
+  const raw = sorted[0]?.url?.trim() ?? "";
+  return raw ? cloudinaryPropertyPhotoDisplayUrl(raw) : "";
 }
 
 /** Loads first `property_photos` URL per property (same ordering idea as `pickPropertyImage`). */

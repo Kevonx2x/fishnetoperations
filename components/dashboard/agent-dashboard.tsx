@@ -605,6 +605,9 @@ export function AgentDashboard() {
     [editForm, editListingImages],
   );
 
+  /** Bumps when a new edit open starts or the edit modal closes, so stale photo fetches cannot apply the wrong listing's images. */
+  const editListingPhotosLoadIdRef = useRef(0);
+
   const loadData = useCallback(async () => {
     if (!user?.id) return;
     const { data: a } = await supabase
@@ -1002,20 +1005,27 @@ export function AgentDashboard() {
 
   const openEditFormFromProperty = useCallback(
     async (p: PropertyRow) => {
+      const loadId = ++editListingPhotosLoadIdRef.current;
+      const propertyId = p.id;
       try {
         const { data: photoRows, error: photoErr } = await supabase
           .from("property_photos")
-          .select("id, url, sort_order, created_at")
-          .eq("property_id", p.id);
+          .select("id, url, sort_order, created_at, property_id")
+          .eq("property_id", propertyId);
+        if (loadId !== editListingPhotosLoadIdRef.current) return;
         if (photoErr) {
           toast.error("Could not load extra photos. Main image and other fields are still editable.");
         }
+        const rowsForListing = (photoRows ?? []).filter(
+          (row) => String((row as { property_id?: string }).property_id ?? "") === propertyId,
+        );
         const pt = (p.property_type ?? "House").trim();
         const safeType = EDIT_PROPERTY_TYPES.includes(pt as (typeof EDIT_PROPERTY_TYPES)[number])
           ? pt
           : "House";
-        const imageUrls = buildEditListingImageUrls(p.image_url, (photoRows ?? []) as PropertyPhotoRow[]);
-        setEditPropertyId(p.id);
+        const imageUrls = buildEditListingImageUrls(p.image_url, rowsForListing as PropertyPhotoRow[]);
+        if (loadId !== editListingPhotosLoadIdRef.current) return;
+        setEditPropertyId(propertyId);
         setEditFormErrors({});
         const lt: EditListingForm["listing_type"] =
           p.listing_type === "both" || p.status === "both"
@@ -1151,6 +1161,7 @@ export function AgentDashboard() {
         }
         toast.success("Listing updated successfully");
         setEditFormErrors({});
+        editListingPhotosLoadIdRef.current += 1;
         setEditFormOpen(false);
         setEditPropertyId(null);
         setEditListingImages([]);
@@ -1762,6 +1773,7 @@ export function AgentDashboard() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-4 sm:items-center"
             onClick={() => {
+              editListingPhotosLoadIdRef.current += 1;
               setEditFormOpen(false);
               setEditPropertyId(null);
               setEditListingImages([]);
@@ -1781,6 +1793,7 @@ export function AgentDashboard() {
                 <button
                   type="button"
                   onClick={() => {
+                    editListingPhotosLoadIdRef.current += 1;
                     setEditFormOpen(false);
                     setEditPropertyId(null);
                     setEditListingImages([]);

@@ -312,6 +312,8 @@ export async function POST(req: Request) {
     });
     console.log("[create-viewing-request] before leads insert: leads insert payload", leadsInsertPayload);
 
+    console.log("[debug] agent_id being inserted:", leadsInsertPayload.agent_id);
+
     const { data: inserted, error: insErr } = await admin
       .from("leads")
       .insert(leadsInsertPayload)

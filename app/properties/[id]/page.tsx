@@ -9,11 +9,10 @@ import { Heart, LayoutGrid, Pin, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
-import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagement";
+import { cloudinaryPropertyPhotoDisplayUrl } from "@/lib/cloudinary-property-photo-url";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { recordRecentlyViewedPropertyId } from "@/lib/recently-viewed";
-import { PropertyPageEmptyAgents } from "@/components/marketplace/agent-slot-placeholder";
 import { CoListVerificationRequiredModal } from "@/components/marketplace/co-list-verification-required-modal";
 import { ViewingAgentPickerModal } from "@/components/marketplace/viewing-agent-picker-modal";
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
@@ -24,7 +23,6 @@ import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit
 import { useAuth } from "@/contexts/auth-context";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { coListLimitForTier, listingLimitForTier } from "@/lib/agent-listing-limits";
-import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { cn } from "@/lib/utils";
 import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
@@ -88,8 +86,9 @@ function buildAllPhotos(property: PropertyRow): string[] {
   const fromDb = (property.property_photos ?? [])
     .slice()
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    .map((x) => x.url)
-    .filter(Boolean);
+    .map((x) => String(x.url || "").trim())
+    .filter((u) => u.length > 0)
+    .map((u) => cloudinaryPropertyPhotoDisplayUrl(u));
   if (fromDb.length) return fromDb;
   const primary = property.image_url;
   const extras = ROOM_IMAGES.filter((u) => u !== primary);
@@ -736,115 +735,7 @@ export default function PropertyPage() {
 
             <aside className="lg:sticky lg:top-24 lg:col-span-1 lg:self-start">
               <div id="agents-section" className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
-                <h2 className="font-serif text-lg font-bold text-[#2C2C2C]">Connected Agents</h2>
-                {connectedAgents.length === 0 ? (
-                  <div className="mt-4">
-                    <PropertyPageEmptyAgents onVerificationRequired={() => setShowVerificationModal(true)} />
-                  </div>
-                ) : (
-                  <ul className="mt-4 list-none space-y-4 p-0">
-                    {connectedAgents.map((a) => (
-                      <li
-                        key={a.id}
-                        className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm"
-                      >
-                        <div className="flex gap-3">
-                          <Link
-                            href={`/agents/${encodeURIComponent(a.id)}`}
-                            className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10"
-                          >
-                            <AgentAvatarFill name={a.name} imageUrl={a.image} sizes="48px" textClassName="text-sm" />
-                          </Link>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Link
-                                href={`/agents/${encodeURIComponent(a.id)}`}
-                                className="cursor-pointer text-sm font-semibold text-[#2C2C2C] hover:underline"
-                              >
-                                {a.name}
-                              </Link>
-                              {a.verified && a.status === "approved" ? <VerifiedAgentBadge show /> : null}
-                              <span className="rounded-md bg-[#2C2C2C]/8 px-2 py-0.5 text-[10px] font-bold text-[#2C2C2C]/80">
-                                {formatAgentScore(a.score)}
-                              </span>
-                            </div>
-                            <div className="mt-1">
-                              <AgentAvailabilityBadge availability={a.availability} />
-                            </div>
-                            <div className="mt-2">
-                              {myAgent?.id === a.id || user?.id === a.userId ? null : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (!isLoggedIn) {
-                                      setSignInPromptOpen(true);
-                                      return;
-                                    }
-                                    setContactModalAgent(a);
-                                    setShowContactModal(true);
-                                  }}
-                                  className="inline-flex w-full justify-center rounded-lg bg-[#6B9E6E] px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60] sm:w-auto"
-                                >
-                                  Contact
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {showCoAgentPendingBanner ? (
-                  <div className="mt-4 rounded-xl border border-[#D4A843]/30 bg-[#FAF8F4] p-3">
-                    <p className="text-xs font-bold text-[#2C2C2C]">Co-list request pending</p>
-                    <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/65">
-                      BahayGo admin will review your credentials. You’ll be notified when it’s approved or declined.
-                    </p>
-                  </div>
-                ) : null}
-                {showCoListNeedsVerificationPanel ? (
-                  <div className="mt-4 rounded-xl border border-[#D4A843]/25 bg-[#FAF8F4] p-3">
-                    <p className="text-xs font-semibold text-[#2C2C2C]/70">
-                      Want to co-list this property? Complete identity verification first.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setShowVerificationModal(true);
-                      }}
-                      className="mt-2 w-full rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
-                    >
-                      Verification required
-                    </button>
-                  </div>
-                ) : null}
-                {showCoAgentRequestButton ? (
-                  <div className="mt-4 rounded-xl border border-[#D4A843]/25 bg-[#FAF8F4] p-3">
-                    <p className="text-xs font-semibold text-[#2C2C2C]/70">
-                      Want to co-list this property? Submit a request for admin approval.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCoAgentMsg(null);
-                        setCoAgentConfirmOpen(true);
-                      }}
-                      disabled={coAgentSubmitting}
-                      className="mt-2 w-full rounded-full bg-[#2C2C2C] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Request to Co-List
-                    </button>
-                    {coAgentMsg ? (
-                      <p className="mt-2 text-xs font-semibold text-red-700">{coAgentMsg}</p>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <div id="presale-interest" className="mt-6 border-t border-[#2C2C2C]/10 pt-4">
+                <div id="presale-interest">
                   {property.is_presale ? (
                     <>
                       <p className="font-serif text-base font-bold text-[#2C2C2C]">Register interest</p>
@@ -950,7 +841,7 @@ export default function PropertyPage() {
                         type="button"
                         onClick={onRequestViewing}
                         disabled={authLoading || connectedAgents.length === 0}
-                        className="mt-4 w-full rounded-full bg-[#2C2C2C] px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#6B9E6E] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="mt-4 w-full rounded-full bg-[#6B9E6E] px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#5d8a60] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {authLoading ? "Loading…" : "Request viewing"}
                       </button>
