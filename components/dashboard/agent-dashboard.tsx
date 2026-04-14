@@ -485,7 +485,7 @@ export function AgentDashboard() {
   const { user, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>("pipeline");
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [paymentBannerTier, setPaymentBannerTier] = useState<string | null>(null);
@@ -1622,9 +1622,6 @@ export function AgentDashboard() {
                 )}
               </span>
               <span className={t.id === "pipeline" ? "text-xs" : ""}>{t.label}</span>
-              {t.id === "pipeline" && newLeadsCount > 0 ? (
-                <span className="absolute right-1 top-0.5 h-2 w-2 rounded-full bg-[#D4A843]" />
-              ) : null}
             </button>
           );
         })}
