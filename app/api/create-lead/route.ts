@@ -16,7 +16,11 @@ const contactSchema = z.object({
 
 const viewingSchema = z.object({
   source: z.literal("viewing_request"),
-  viewingRequestId: z.string().uuid(),
+  agent_user_id: z.string().uuid(),
+  property_id: z.string().uuid().nullable(),
+  client_name: z.string().min(1).max(500),
+  client_email: z.string().email(),
+  client_phone: z.string().min(1).max(200),
 });
 
 const bodySchema = z.discriminatedUnion("source", [contactSchema, viewingSchema]);
@@ -53,20 +57,6 @@ async function findExistingLeadIdForViewingDedupe(
   }
   const id = (data as { id?: number } | null)?.id;
   return id != null ? Number(id) : null;
-}
-
-function formatSlot(iso: string): { date: string; time: string; combined: string } {
-  const d = new Date(iso);
-  return {
-    date: d.toLocaleDateString(undefined, {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }),
-    time: d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
-    combined: d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }),
-  };
 }
 
 export async function POST(req: Request) {
@@ -106,58 +96,18 @@ export async function POST(req: Request) {
     }
 
     if (parsed.data.source === "viewing_request") {
-      const viewingRequestId = parsed.data.viewingRequestId;
-      console.log("[create-lead] viewing_request: loading row", { viewingRequestId });
-
-      const { data: vr, error: vrErr } = await admin
-        .from("viewing_requests")
-        .select(
-          "id, client_name, client_email, client_phone, scheduled_at, notes, agent_user_id, property_id, client_user_id",
-        )
-        .eq("id", viewingRequestId)
-        .maybeSingle();
-
-      if (vrErr) {
-        console.error("[create-lead] viewing_request: failed to load viewing_requests row", vrErr);
-        return fail("NOT_FOUND", "Viewing request not found", 404);
-      }
-      if (!vr) {
-        console.warn("[create-lead] viewing_request: no row returned for id", viewingRequestId);
-        return fail("NOT_FOUND", "Viewing request not found", 404);
-      }
-
-      console.log("[create-lead] viewing_request: row loaded", {
-        id: (vr as { id: string }).id,
-        agent_user_id: (vr as { agent_user_id: string }).agent_user_id,
-        property_id: (vr as { property_id: string | null }).property_id,
-      });
-
-      const vrRow = vr as {
-        client_email: string;
-        client_user_id: string | null;
-        agent_user_id: string;
-        property_id: string | null;
-        scheduled_at: string;
-        notes: string | null;
-        client_name: string;
-        client_phone: string | null;
-      };
-
-      const emailMatch =
-        vrRow.client_email.trim().toLowerCase() === clientEmail.toLowerCase() ||
-        (vrRow.client_user_id && vrRow.client_user_id === session.userId);
-      if (!emailMatch) {
-        console.warn("[create-lead] viewing_request: session email does not match viewing row", {
+      const vr = parsed.data;
+      if (vr.client_email.trim().toLowerCase() !== clientEmail.toLowerCase()) {
+        console.warn("[create-lead] viewing_request: session email does not match body", {
           sessionEmail: clientEmail,
-          vrClientEmail: vrRow.client_email,
-          vrClientUserId: vrRow.client_user_id,
+          bodyEmail: vr.client_email,
           sessionUserId: session.userId,
         });
         return fail("FORBIDDEN", "Not allowed", 403);
       }
 
-      const agentUserId = vrRow.agent_user_id;
-      const propertyId = vrRow.property_id;
+      const agentUserId = vr.agent_user_id;
+      const propertyId = vr.property_id;
 
       let propertyLabel = "General Inquiry";
       if (propertyId) {
@@ -173,25 +123,15 @@ export async function POST(req: Request) {
           "Property";
       }
 
-      const slot = formatSlot(vrRow.scheduled_at);
-      const messageParts = [
-        `Viewing request for ${slot.combined}`,
-        vrRow.notes ? `Notes: ${vrRow.notes}` : null,
-      ].filter(Boolean);
-
       const notifyArgs = {
         agentUserId,
-        clientName: vrRow.client_name.trim() || clientName,
+        clientName: vr.client_name.trim() || clientName,
         propertyLabel,
-        clientEmail: vrRow.client_email.trim(),
-        clientPhone: vrRow.client_phone,
+        clientEmail: vr.client_email.trim(),
+        clientPhone: vr.client_phone,
         sourceLabel: "viewing_request" as const,
-        extraEmailHtml: `
-          <p><strong>Preferred date:</strong> ${esc(slot.date)}</p>
-          <p><strong>Preferred time:</strong> ${esc(slot.time)}</p>
-          ${vrRow.notes ? `<p style="white-space:pre-wrap"><strong>Message:</strong> ${esc(vrRow.notes)}</p>` : ""}
-        `,
-        smsSuffix: ` Viewing: ${slot.combined}.`,
+        extraEmailHtml: `<p><strong>Phone:</strong> ${esc(vr.client_phone.trim())}</p>`,
+        smsSuffix: " Viewing request submitted.",
       };
 
       const existingLeadId = await findExistingLeadIdForViewingDedupe(
@@ -206,7 +146,6 @@ export async function POST(req: Request) {
           .from("leads")
           .update({
             pipeline_stage: VIEWING_PIPELINE_STAGE,
-            viewing_request_id: viewingRequestId,
             stage: VIEWING_REQUEST_LEAD_STAGE,
           })
           .eq("id", existingLeadId);
@@ -224,17 +163,16 @@ export async function POST(req: Request) {
       const { data: inserted, error: insErr } = await admin
         .from("leads")
         .insert({
-          name: vrRow.client_name.trim() || clientName,
-          email: vrRow.client_email.trim(),
-          phone: vrRow.client_phone?.trim() || clientPhone,
+          name: vr.client_name.trim() || clientName,
+          email: vr.client_email.trim(),
+          phone: vr.client_phone.trim() || clientPhone,
           property_interest: propertyLabel,
-          message: messageParts.join("\n"),
+          message: "Viewing request submitted.",
           agent_id: agentUserId,
           client_id: session.userId,
           source: "viewing_request",
           stage: VIEWING_REQUEST_LEAD_STAGE,
           pipeline_stage: VIEWING_PIPELINE_STAGE,
-          viewing_request_id: viewingRequestId,
           property_id: propertyId,
         })
         .select("id")
@@ -258,7 +196,6 @@ export async function POST(req: Request) {
               .from("leads")
               .update({
                 pipeline_stage: VIEWING_PIPELINE_STAGE,
-                viewing_request_id: viewingRequestId,
                 stage: VIEWING_REQUEST_LEAD_STAGE,
               })
               .eq("id", raceLeadId);
