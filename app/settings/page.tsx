@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { FileText } from "lucide-react";
+import { FileText, House } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
@@ -1242,7 +1242,7 @@ function SettingsPageInner() {
             <p className="mt-1 text-sm text-[#2C2C2C]/50">
               Your name, photo, and bio appear on your account across BahayGo.
             </p>
-            {user?.id ? (
+            {user?.id && currentRole !== "agent" ? (
               <div className="mt-6">
                 <SettingsAvatarUpload
                   userId={user.id}
@@ -1254,25 +1254,29 @@ function SettingsPageInner() {
               </div>
             ) : null}
             <form onSubmit={saveProfile} className="mt-8 space-y-4">
-              <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-                Full name
-                <input
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
-                />
-              </label>
-              <div>
-                <label className="block text-xs font-semibold text-[#2C2C2C]/55" htmlFor="settings-phone">
-                  Phone
-                </label>
-                <PhPhoneInput
-                  id="settings-phone"
-                  value={phone}
-                  onChange={setPhone}
-                  className="mt-1.5"
-                />
-              </div>
+              {currentRole !== "agent" ? (
+                <>
+                  <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                    Full name
+                    <input
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
+                    />
+                  </label>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#2C2C2C]/55" htmlFor="settings-phone">
+                      Phone
+                    </label>
+                    <PhPhoneInput
+                      id="settings-phone"
+                      value={phone}
+                      onChange={setPhone}
+                      className="mt-1.5"
+                    />
+                  </div>
+                </>
+              ) : null}
               <label className="block text-xs font-semibold text-[#2C2C2C]/55">
                 Bio
                 <textarea
@@ -1283,6 +1287,27 @@ function SettingsPageInner() {
                   className="mt-1.5 w-full resize-y rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/60"
                 />
               </label>
+              {currentRole === "agent" ? (
+                <div className="rounded-2xl border border-[#6B9E6E33] bg-[#F0F7F0] p-5">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 text-[#6B9E6E]" aria-hidden>
+                      <House className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-serif text-lg font-semibold text-[#2C2C2C]">Your Public Profile</p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Manage your photo, name, phone number and public-facing details in your dashboard
+                      </p>
+                      <Link
+                        href="/dashboard?tab=profile"
+                        className="mt-4 inline-flex rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-medium text-white"
+                      >
+                        Go to Dashboard Profile
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               {currentRole === "client" && !isAdmin ? (
                 <div className="space-y-6 border-t border-[#2C2C2C]/10 pt-6">
                   <div>

@@ -22,7 +22,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { AnimatePresence, motion } from "framer-motion";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Loader2, MoreHorizontal, X } from "lucide-react";
+import { Eye, FileText, Loader2, MoreHorizontal, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
 import { formatRelativeTime } from "@/lib/relative-time";
@@ -46,6 +46,7 @@ export type PipelineLeadRow = {
   pipeline_stage: PipelineStageId;
   property_id: string | null;
   created_at: string;
+  updated_at?: string | null;
   pipeline_position?: number | null;
   closing_notes?: string | null;
 };
@@ -232,10 +233,51 @@ function sortDealsInStage(a: PipelineLeadRow, b: PipelineLeadRow): number {
   return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
 }
 
+function nextStepForStage(s: PipelineStageId): string {
+  switch (s) {
+    case "lead":
+      return "Follow up with client";
+    case "viewing":
+      return "Prepare viewing documents";
+    case "offer":
+      return "Send contract";
+    case "reservation":
+      return "Confirm reservation details";
+    case "closed":
+      return "Deal complete";
+  }
+}
+
+function stageIconFor(raw: string | null | undefined) {
+  const s = String(raw ?? "").trim().toLowerCase();
+  if (s === "viewing") return <Eye className="h-3 w-3" aria-hidden />;
+  if (s === "offer") return <FileText className="h-3 w-3" aria-hidden />;
+  if (s === "declined") return <X className="h-3 w-3" aria-hidden />;
+  return <User className="h-3 w-3" aria-hidden />;
+}
+
+function formatPesoCompact(n: number): string {
+  try {
+    return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", maximumFractionDigits: 0 }).format(n);
+  } catch {
+    return `₱${Math.round(n).toLocaleString()}`;
+  }
+}
+
+function parsePriceToNumber(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string") {
+    const n = Number(raw.replace(/[^\d.]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 function SortableDealCard({
   deal,
   indexInStage,
   propertyLabel,
+  dealValueLine,
   onOpenDocs,
   onBeginStageMove,
   stageMovePrompt,
@@ -256,6 +298,7 @@ function SortableDealCard({
   deal: PipelineLeadRow;
   indexInStage: number;
   propertyLabel: (propertyId: string | null) => string;
+  dealValueLine: string | null;
   onOpenDocs: (lead: PipelineLeadRow) => void;
   onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
   stageMovePrompt: {
@@ -291,6 +334,20 @@ function SortableDealCard({
   const moveLabel = MOVE_TO_LABEL[deal.pipeline_stage];
   const isHot = indexInStage === 0;
   const menuOpen = menuOpenId === deal.id;
+  const isArchived = String((deal as unknown as { pipeline_stage?: unknown }).pipeline_stage ?? "")
+    .trim()
+    .toLowerCase() === "declined" || deal.pipeline_stage === "closed";
+  const updatedIso = (deal.updated_at ?? deal.created_at) as string;
+  const updatedMs = new Date(updatedIso).getTime();
+  const createdMs = new Date(deal.created_at).getTime();
+  const now = Date.now();
+  const recentlyActive = Number.isFinite(updatedMs) && now - updatedMs <= 2 * 60 * 60 * 1000;
+  const longInStage = Number.isFinite(createdMs) && now - createdMs > 3 * 24 * 60 * 60 * 1000;
+  const hotSubtext = recentlyActive
+    ? "Client recently active"
+    : longInStage
+      ? "High priority — needs follow up"
+      : "High engagement";
 
   const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
 
@@ -300,7 +357,7 @@ function SortableDealCard({
       style={style}
       className={`relative rounded-2xl border border-gray-100 border-l-4 border-l-[#6B9E6E] bg-white p-4 shadow-sm ${
         isDragging ? "scale-105 shadow-xl" : ""
-      }`}
+      } ${isArchived ? "opacity-50 grayscale-[30%]" : ""}`}
     >
       <div
         className="touch-none"
@@ -315,6 +372,9 @@ function SortableDealCard({
             <div className="min-w-0">
               <p className="font-semibold text-[#2C2C2C]">{deal.name}</p>
               <p className="truncate text-xs text-gray-400">{deal.email}</p>
+              {dealValueLine ? (
+                <p className="mt-1 text-xs font-semibold text-[#D4A843]">{dealValueLine}</p>
+              ) : null}
             </div>
           </div>
           <div
@@ -324,9 +384,12 @@ function SortableDealCard({
           >
             <div className="flex items-center gap-2">
               {isHot ? (
-                <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-500">
-                  🔥 Hot
-                </span>
+                <div className="flex flex-col items-end">
+                  <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-500">
+                    🔥 Hot
+                  </span>
+                  <span className="mt-0.5 text-[10px] text-gray-400">{hotSubtext}</span>
+                </div>
               ) : null}
               <button
                 type="button"
@@ -450,10 +513,14 @@ function SortableDealCard({
           >
             {PIPELINE_STAGES.find((x) => x.id === deal.pipeline_stage)?.label ?? deal.pipeline_stage}
           </span>
+          {isArchived ? (
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Archived</span>
+          ) : null}
           <span className="text-xs text-gray-400">
             Created {new Date(deal.created_at).toLocaleDateString(undefined, { dateStyle: "medium" })}
           </span>
         </div>
+        <p className="mt-2 text-xs font-medium text-[#6B9E6E]">→ {nextStepForStage(deal.pipeline_stage)}</p>
       </div>
 
       <div
@@ -478,7 +545,7 @@ function SortableDealCard({
         <button
           type="button"
           onClick={() => onOpenDocs(deal)}
-          className="flex flex-1 items-center justify-center rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-gray-50"
+          className="flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
         >
           📄 View Documents
         </button>
@@ -545,6 +612,54 @@ export function AgentPipelineTab({
         pipeline_stage: normalizeStage(l.pipeline_stage as string),
       }));
   }, [leads]);
+
+  const [dealValueByPropertyId, setDealValueByPropertyId] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const ids = [
+      ...new Set(
+        deals
+          .map((d) => d.property_id)
+          .filter((id): id is string => typeof id === "string" && id.trim().length > 0),
+      ),
+    ];
+    if (ids.length === 0) {
+      setDealValueByPropertyId({});
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("properties")
+        .select("id, price, rent_price, listing_type, status")
+        .in("id", ids);
+      if (cancelled) return;
+      if (error) {
+        setDealValueByPropertyId({});
+        return;
+      }
+      const next: Record<string, string> = {};
+      for (const row of (data ?? []) as {
+        id: string;
+        price: unknown;
+        rent_price: unknown;
+        listing_type: unknown;
+        status: unknown;
+      }[]) {
+        const lt = String(row.listing_type ?? "").trim().toLowerCase();
+        const status = String(row.status ?? "").trim().toLowerCase();
+        const isRent = lt === "rent" || status === "for_rent";
+        const raw = isRent ? row.rent_price : row.price;
+        const n = parsePriceToNumber(raw);
+        if (!n) continue;
+        next[row.id] = `${formatPesoCompact(n)}${isRent ? "/mo" : ""}`;
+      }
+      setDealValueByPropertyId(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [deals, supabase]);
 
   const [filterStage, setFilterStage] = useState<PipelineStageId>("lead");
   const [docsLead, setDocsLead] = useState<PipelineLeadRow | null>(null);
@@ -1080,17 +1195,30 @@ export function AgentPipelineTab({
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">Pipeline overview</p>
         <div className="-mx-1 overflow-x-auto pb-1 scrollbar-hide">
-          <div className="flex min-w-[min(100%,520px)] items-center justify-between gap-1 px-1 sm:min-w-0 sm:gap-0">
+          <div className="relative flex min-w-[min(100%,520px)] items-center justify-between gap-1 px-1 sm:min-w-0 sm:gap-0">
+            <div className="pointer-events-none absolute left-1 right-1 top-[22px] h-0.5 bg-gray-200" aria-hidden />
+            <div
+              className="pointer-events-none absolute left-1 top-[22px] h-0.5 bg-[#6B9E6E]"
+              style={{
+                width: `${
+                  PIPELINE_STAGES.length > 1
+                    ? (STAGE_ORDER.indexOf(filterStage) / (PIPELINE_STAGES.length - 1)) * 100
+                    : 0
+                }%`,
+              }}
+              aria-hidden
+            />
             {PIPELINE_STAGES.map((s, idx) => {
               const n = counts[s.id];
               const hasCount = n > 0;
+              const active = filterStage === s.id;
               return (
                 <div key={s.id} className="flex min-w-0 flex-1 items-center">
                   <div className="flex w-full min-w-[56px] flex-col items-center gap-1.5">
                     <div
                       className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 bg-white text-sm font-bold shadow-sm ${
                         hasCount ? "border-[#6B9E6E] text-[#6B9E6E]" : "border-gray-300 text-gray-400"
-                      }`}
+                      } ${active ? "animate-pulse ring-2 ring-[#6B9E6E] ring-offset-2" : ""}`}
                     >
                       {n}
                     </div>
@@ -1101,6 +1229,9 @@ export function AgentPipelineTab({
                     >
                       {s.label}
                     </span>
+                    {active ? (
+                      <span className="text-[10px] font-medium text-[#6B9E6E]">Current stage</span>
+                    ) : null}
                   </div>
                   {idx < PIPELINE_STAGES.length - 1 ? (
                     <div className="mx-0.5 h-0.5 min-w-[8px] flex-1 bg-gray-200 sm:min-w-[12px]" aria-hidden />
@@ -1152,6 +1283,7 @@ export function AgentPipelineTab({
                   deal={deal}
                   indexInStage={idx}
                   propertyLabel={propertyLabel}
+                  dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
                   onOpenDocs={openDocs}
                   onBeginStageMove={beginStageMove}
                   stageMovePrompt={stageMovePrompt}
@@ -1566,7 +1698,7 @@ export function AgentPipelineTab({
                       const statusLabel = clientDocStatusLabel(cd.status);
                       const statusClass =
                         statusLabel === "Received"
-                          ? "bg-emerald-100 text-emerald-900"
+                          ? "bg-emerald-100 text-emerald-900 font-semibold"
                           : statusLabel === "Signed"
                             ? "bg-blue-100 text-blue-900"
                             : "bg-amber-100 text-amber-900";
@@ -1605,6 +1737,9 @@ export function AgentPipelineTab({
                           ) : null}
                           <p className="mt-1 text-[11px] font-semibold text-[#2C2C2C]/45">
                             {createdAtLabel}
+                          </p>
+                          <p className="mt-1 text-[10px] text-gray-400">
+                            {(statusLabel === "Pending" ? "Requested " : "Uploaded ") + formatRelativeTime(cd.created_at)}
                           </p>
                           <div className="mt-2 flex flex-wrap gap-2">
                             <button

@@ -6,10 +6,13 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowUpRight,
   BarChart3,
   Bell,
+  FileText,
   Check,
   CreditCard,
+  Eye,
   GitBranch,
   House,
   LayoutDashboard,
@@ -18,6 +21,7 @@ import {
   MoreHorizontal,
   Settings,
     Sparkles,
+  User,
   Users,
   X,
 } from "lucide-react";
@@ -57,6 +61,7 @@ import {
 } from "@/components/marketplace/agent-availability-badge";
 import { AgentAvailabilitySchedule } from "@/components/dashboard/agent-availability-schedule";
 import { toast } from "sonner";
+import { Bar, BarChart, ResponsiveContainer, XAxis } from "recharts";
 import {
   formatDigitsOnly,
   formatPriceInputDigits,
@@ -543,6 +548,8 @@ export function AgentDashboard() {
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null);
   const [leavingPropertyId, setLeavingPropertyId] = useState<string | null>(null);
   const [profileViewsCount, setProfileViewsCount] = useState(0);
+  const [pendingDealDocumentsCount, setPendingDealDocumentsCount] = useState(0);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   const [profileForm, setProfileForm] = useState({
     name: "",
@@ -631,12 +638,14 @@ export function AgentDashboard() {
       setProperties([]);
       setViewings([]);
       setProfileViewsCount(0);
+      setPendingDealDocumentsCount(0);
+      setUnreadNotificationsCount(0);
       setPropertiesLoadVersion((v) => v + 1);
       return;
     }
 
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
-      const [{ data: ld }, { data: owned }, { data: paRows }, vwRes, viewsRes] = await Promise.all([
+      const [{ data: ld }, { data: owned }, { data: paRows }, vwRes, viewsRes, unreadRes] = await Promise.all([
         supabase
           .from("leads")
           .select(
@@ -662,9 +671,29 @@ export function AgentDashboard() {
           .select("id", { count: "exact", head: true })
           .eq("action", "profile_view")
           .eq("agent_id", a.id),
+        supabase
+          .from("notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .is("read_at", null),
       ]);
-      setLeads((ld as LeadRow[]) ?? []);
+      const leadRows = (ld as LeadRow[]) ?? [];
+      setLeads(leadRows);
       setProfileViewsCount(viewsRes.error ? 0 : (viewsRes.count ?? 0));
+      setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
+
+      // Deal documents: schema stores status ('uploaded','approved'); treat 'uploaded' as pending for dashboard.
+      const leadIds = leadRows.map((l) => l.id).filter((id): id is number => typeof id === "number");
+      if (leadIds.length === 0) {
+        setPendingDealDocumentsCount(0);
+      } else {
+        const ddRes = await supabase
+          .from("deal_documents")
+          .select("id", { count: "exact", head: true })
+          .in("lead_id", leadIds)
+          .eq("status", "uploaded");
+        setPendingDealDocumentsCount(ddRes.error ? 0 : (ddRes.count ?? 0));
+      }
 
       const ownedList = ((owned ?? []) as Record<string, unknown>[]).map((raw) => {
         const p = raw as Record<string, unknown>;
@@ -753,6 +782,8 @@ export function AgentDashboard() {
       setProperties([]);
       setViewings([]);
       setProfileViewsCount(0);
+      setPendingDealDocumentsCount(0);
+      setUnreadNotificationsCount(0);
     }
     setPropertiesLoadVersion((v) => v + 1);
   }, [supabase, user?.id]);
@@ -1496,12 +1527,16 @@ export function AgentDashboard() {
                   ownedListingCount={ownedListingCount}
                   coListedCount={coListedCount}
                   profileComplete={profileComplete}
-                  profileViewsCount={profileViewsCount}
-                  responseRatePct={responseRatePct}
+                  unreadNotificationsCount={unreadNotificationsCount}
+                  pendingDealDocumentsCount={pendingDealDocumentsCount}
                   listingLimit={listingLimit}
                   coListLimit={coListLimit}
                   atListingLimit={atListingLimit}
                   atCoListLimit={atCoListLimit}
+                  onNavigateTab={(next) => {
+                    setTab(next);
+                    setMoreDrawerOpen(false);
+                  }}
                 />
               )}
               {tab === "pipeline" && identityVerified && (
@@ -2182,12 +2217,13 @@ function OverviewTab({
   ownedListingCount,
   coListedCount,
   profileComplete,
-  profileViewsCount,
-  responseRatePct,
+  unreadNotificationsCount,
+  pendingDealDocumentsCount,
   listingLimit,
   coListLimit,
   atListingLimit,
   atCoListLimit,
+  onNavigateTab,
 }: {
   agent: AgentRow;
   accountApproved: boolean;
@@ -2197,245 +2233,531 @@ function OverviewTab({
   ownedListingCount: number;
   coListedCount: number;
   profileComplete: { pct: number; checks: { ok: boolean; label: string }[] };
-  profileViewsCount: number;
-  responseRatePct: number;
+  unreadNotificationsCount: number;
+  pendingDealDocumentsCount: number;
   listingLimit: number;
   coListLimit: number;
   atListingLimit: boolean;
   atCoListLimit: boolean;
+  onNavigateTab: (tab: Tab) => void;
 }) {
-  const recent = leads.slice(0, 5);
-  const incomplete = profileComplete.pct < 100;
-  const totalRepresented = properties.length;
-  const ownedCount = properties.filter((p) => !p.isCoHost).length;
+  const firstName = useMemo(() => {
+    const t = (agent.name ?? "").trim();
+    if (!t) return "there";
+    return t.split(/\s+/)[0] ?? "there";
+  }, [agent.name]);
+
+  const greeting = useMemo(() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  }, []);
+
+  const todayLabel = useMemo(() => {
+    const d = new Date();
+    return d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  }, []);
+
   const agentScoreOutOfTen = useMemo(() => {
     const s = agent.score;
     return typeof s === "number" && Number.isFinite(s) ? Math.max(0, Math.min(10, s)) : 0;
   }, [agent.score]);
 
+  const ring = useMemo(() => {
+    const radius = 56;
+    const circumference = 2 * Math.PI * radius;
+    const pct = Math.max(0, Math.min(1, agentScoreOutOfTen / 10));
+    return {
+      radius,
+      circumference,
+      dashOffset: circumference * (1 - pct),
+    };
+  }, [agentScoreOutOfTen]);
+
+  const listingsCount = useMemo(() => properties.length, [properties.length]);
+
+  const hasUnrespondedLeadsOver24h = useMemo(() => {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    return leads.some((l) => {
+      const stage = String(l.stage ?? "").trim().toLowerCase();
+      if (stage !== "new") return false;
+      const t = new Date(l.created_at).getTime();
+      return Number.isFinite(t) && t < cutoff;
+    });
+  }, [leads]);
+
+  const actionItems = useMemo(() => {
+    const items: { label: string; tab: Tab }[] = [];
+    const closings = typeof agent.closings === "number" && Number.isFinite(agent.closings) ? agent.closings : 0;
+    const verified = agent.verification_status === "verified";
+    const profilePct = profileComplete.pct ?? 0;
+
+    if (closings === 0) items.push({ label: "Close your first deal to boost your score", tab: "pipeline" });
+    if (!verified) items.push({ label: "Complete PRC verification", tab: "profile" });
+    if (profilePct < 100) items.push({ label: "Complete your profile", tab: "profile" });
+    if (listingsCount < 3) items.push({ label: "Add more listings to increase visibility", tab: "listings" });
+    if (hasUnrespondedLeadsOver24h) items.push({ label: "You have unresponded leads", tab: "pipeline" });
+
+    return items.slice(0, 3);
+  }, [agent.closings, agent.verification_status, profileComplete.pct, listingsCount, hasUnrespondedLeadsOver24h]);
+
+  const newLeadsToday = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const d = now.getDate();
+    return leads.filter((l) => {
+      const t = new Date(l.created_at);
+      return t.getFullYear() === y && t.getMonth() === m && t.getDate() === d;
+    }).length;
+  }, [leads]);
+
+  const newLeadsYesterday = useMemo(() => {
+    const now = new Date();
+    const yd = new Date(now);
+    yd.setDate(now.getDate() - 1);
+    const y = yd.getFullYear();
+    const m = yd.getMonth();
+    const d = yd.getDate();
+    return leads.filter((l) => {
+      const t = new Date(l.created_at);
+      return t.getFullYear() === y && t.getMonth() === m && t.getDate() === d;
+    }).length;
+  }, [leads]);
+
+  const momentumFromYesterdayLabel = useMemo(() => {
+    const delta = newLeadsToday - newLeadsYesterday;
+    if (delta === 0) return "0 from yesterday";
+    if (delta > 0) return `+${delta} from yesterday`;
+    return `${delta} from yesterday`;
+  }, [newLeadsToday, newLeadsYesterday]);
+
+  const momentumArrowLabel = useMemo(() => {
+    const delta = newLeadsToday - newLeadsYesterday;
+    const s = delta === 0 ? "0" : delta > 0 ? `+${delta}` : String(delta);
+    return `↑ ${s} from yesterday`;
+  }, [newLeadsToday, newLeadsYesterday]);
+
+  const actionsAwayFromFive = useMemo(() => {
+    if (agentScoreOutOfTen >= 5) return 0;
+    const need = 5 - agentScoreOutOfTen;
+    const pts = [1.5, 0.8, 0.5, 0.3].slice().sort((a, b) => b - a);
+    let remaining = need;
+    let n = 0;
+    for (const p of pts) {
+      while (remaining > 1e-9 && remaining - p > -1e-9) {
+        remaining -= p;
+        n += 1;
+        if (n > 99) return 99;
+      }
+      if (remaining <= 1e-9) break;
+    }
+    // If still not reached (e.g. score is fractional and smaller steps required), pad with smallest action.
+    if (remaining > 1e-9) {
+      n += Math.ceil(remaining / 0.3);
+    }
+    return Math.max(1, n);
+  }, [agentScoreOutOfTen]);
+
+  const pipelineSnapshot = useMemo(() => {
+    const active = leads
+      .filter((l) => String(l.stage ?? "").trim().toLowerCase() !== "declined")
+      .filter((l) => String(l.pipeline_stage ?? "lead").trim().toLowerCase() !== "closed")
+      .slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return active.slice(0, 2);
+  }, [leads]);
+
+  const propertyLabelForLead = useCallback(
+    (l: LeadRow): string => {
+      const explicit = (l.property_interest ?? "").trim();
+      if (explicit) return explicit;
+      const pid = l.property_id;
+      if (pid) {
+        const p = properties.find((x) => x.id === pid);
+        if (p) return (p.name?.trim() || p.location || "Property").trim();
+      }
+      return "Property";
+    },
+    [properties],
+  );
+
+  const phpPriceLabelForLead = useCallback(
+    (l: LeadRow): string | null => {
+      const pid = l.property_id;
+      if (!pid) return null;
+      const p = properties.find((x) => x.id === pid);
+      if (!p) return null;
+      const raw = (p as unknown as { price?: unknown }).price;
+      const n =
+        typeof raw === "number"
+          ? raw
+          : typeof raw === "string"
+            ? Number(String(raw).replace(/[^\d.]/g, ""))
+            : Number.NaN;
+      if (!Number.isFinite(n) || n <= 0) return null;
+      try {
+        return new Intl.NumberFormat("en-PH", {
+          style: "currency",
+          currency: "PHP",
+          maximumFractionDigits: 0,
+        }).format(n);
+      } catch {
+        return `₱${Math.round(n).toLocaleString()}`;
+      }
+    },
+    [properties],
+  );
+
+  const pipelineStageBadgeClass = useCallback((raw: string | null | undefined): string => {
+    const s = String(raw ?? "lead").trim().toLowerCase();
+    if (s === "viewing") return "bg-purple-50 text-purple-700";
+    if (s === "offer") return "bg-yellow-50 text-yellow-700";
+    return "bg-blue-50 text-blue-700";
+  }, []);
+
+  const nextStepLabel = useCallback((raw: string | null | undefined): string => {
+    const s = String(raw ?? "lead").trim().toLowerCase();
+    if (s === "viewing") return "Prepare viewing documents";
+    if (s === "offer") return "Send contract";
+    if (s === "reservation") return "Confirm reservation details";
+    return "Follow up with client";
+  }, []);
+
+  const stageIcon = useCallback((raw: string | null | undefined) => {
+    const s = String(raw ?? "lead").trim().toLowerCase();
+    if (s === "viewing") return <Eye className="h-3 w-3" aria-hidden />;
+    if (s === "offer") return <FileText className="h-3 w-3" aria-hidden />;
+    if (s === "declined") return <X className="h-3 w-3" aria-hidden />;
+    return <User className="h-3 w-3" aria-hidden />;
+  }, []);
+
+  const pipelineProgressPct = useCallback((raw: string | null | undefined): number => {
+    const s = String(raw ?? "lead").trim().toLowerCase();
+    if (s === "viewing") return 40;
+    if (s === "offer") return 60;
+    if (s === "reservation") return 80;
+    if (s === "closed") return 100;
+    return 20;
+  }, []);
+
+  const formatRelative = useCallback((iso: string | null | undefined): string => {
+    const t = iso ? new Date(iso).getTime() : Number.NaN;
+    if (!Number.isFinite(t)) return "—";
+    const ms = Date.now() - t;
+    const min = Math.max(0, Math.floor(ms / (60 * 1000)));
+    if (min < 1) return "just now";
+    if (min < 60) return `${min} min ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr} hour${hr === 1 ? "" : "s"} ago`;
+    const day = Math.floor(hr / 24);
+    return `${day} day${day === 1 ? "" : "s"} ago`;
+  }, []);
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Overview</h1>
-        <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Welcome back, {agent.name.split(" ")[0]}.</p>
-      </div>
-
-      {!accountApproved ? (
-        <div className="rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4 text-sm font-semibold text-amber-950">
-          Your agent application is {agent.status === "pending" ? "pending review" : agent.status}. Dashboard tools
-          unlock once you are verified.
-        </div>
-      ) : null}
-
-      {accountApproved && !identityVerified ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-sm font-semibold text-amber-950">
-            ⚠️ Your account is not verified. Upload your documents to unlock all features.
-          </p>
-          <Link
-            href="/settings?tab=verification"
-            className="mt-3 inline-flex rounded-full bg-[#2C2C2C] px-4 py-2 text-sm font-bold text-white hover:bg-[#6B9E6E]"
-          >
-            Complete Verification →
-          </Link>
-        </div>
-      ) : null}
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Total Leads" value={String(leads.length)} />
-        <StatCard label="Owned listings" value={String(ownedCount)} />
-        <StatCard label="Profile Views" value={String(profileViewsCount || 0)} />
-        <StatCard label="Response Rate" value={`${responseRatePct || 0}%`} />
-      </div>
-
-      <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
-        <p className="text-sm font-bold text-[#2C2C2C]">Agent Score</p>
-        <p className="mt-2 font-serif text-3xl font-bold text-[#2C2C2C]">{agentScoreOutOfTen}/10</p>
-        <p className="mt-4 text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-          How to increase your score
-        </p>
-        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm font-semibold text-[#2C2C2C]/75">
-          <li>Close more deals</li>
-          <li>Get verified if not already</li>
-          <li>Complete your profile</li>
-          <li>Add more listings</li>
-          <li>Respond to leads faster</li>
-        </ul>
-      </div>
-
-      {identityVerified ? (
-        <p className="text-sm font-semibold text-[#2C2C2C]/75">
-          You represent {totalRepresented} propert{totalRepresented === 1 ? "y" : "ies"} total ({ownedCount} owned,{" "}
-          {coListedCount} co-listed).
-        </p>
-      ) : null}
-
-      {identityVerified ? (
-        <div
-          className={`rounded-2xl border bg-white p-5 shadow-sm ${
-            atListingLimit || atCoListLimit ? "border-[#D4A843]/50 ring-1 ring-[#D4A843]/25" : "border-[#2C2C2C]/10"
-          }`}
+    <div>
+      {/* Top motivator bar */}
+      {agentScoreOutOfTen < 5 ? (
+        <motion.div
+          initial={{ opacity: 0, y: 0 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          className="mb-8 rounded-2xl bg-[#6B9E6E] px-5 py-3 text-sm font-medium text-white"
         >
-          <p className="text-sm font-bold text-[#2C2C2C]">Plan usage</p>
-          <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
-            Owned listings and co-listings each use separate slots on your plan.
-          </p>
-
-          <div className="mt-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className={`text-xs font-bold uppercase tracking-wide ${atListingLimit ? "text-[#8a6d32]" : "text-[#2C2C2C]/80"}`}>
-                Owned listings
-              </p>
-              <p
-                className={`text-sm font-bold tabular-nums ${atListingLimit ? "text-[#B8860B]" : "text-[#2C2C2C]/80"}`}
-              >
-                {ownedListingCount}/{Number.isFinite(listingLimit) ? listingLimit : "∞"} used
-              </p>
-            </div>
-            <div
-              className={`mt-2 h-2 w-full overflow-hidden rounded-full ${
-                atListingLimit ? "bg-[#D4A843]/25" : "bg-[#EBE6DC]"
-              }`}
-            >
-              <div
-                className={`h-full rounded-full transition-all ${
-                  atListingLimit
-                    ? "bg-gradient-to-r from-[#D4AF37] to-[#D4A843]"
-                    : "bg-gradient-to-r from-[#6B9E6E] to-[#D4A843]/90"
-                }`}
-                style={{
-                  width: `${
-                    Number.isFinite(listingLimit) && listingLimit > 0
-                      ? Math.min(100, (ownedListingCount / listingLimit) * 100)
-                      : 0
-                  }%`,
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className={`text-xs font-bold uppercase tracking-wide ${atCoListLimit ? "text-[#8a6d32]" : "text-[#2C2C2C]/80"}`}>
-                Co-listings
-              </p>
-              <p
-                className={`text-sm font-bold tabular-nums ${atCoListLimit ? "text-[#B8860B]" : "text-[#2C2C2C]/80"}`}
-              >
-                {coListedCount}/{Number.isFinite(coListLimit) ? coListLimit : "∞"} used
-              </p>
-            </div>
-            <div
-              className={`mt-2 h-2 w-full overflow-hidden rounded-full ${
-                atCoListLimit ? "bg-[#D4A843]/25" : "bg-[#EBE6DC]"
-              }`}
-            >
-              <div
-                className={`h-full rounded-full transition-all ${
-                  atCoListLimit
-                    ? "bg-gradient-to-r from-[#D4AF37] to-[#D4A843]"
-                    : "bg-gradient-to-r from-[#6B9E6E] to-[#D4A843]/90"
-                }`}
-                style={{
-                  width: `${
-                    Number.isFinite(coListLimit) && coListLimit > 0
-                      ? Math.min(100, (coListedCount / coListLimit) * 100)
-                      : 0
-                  }%`,
-                }}
-              />
-            </div>
-          </div>
-
-          {atListingLimit || atCoListLimit ? (
-            <p className="mt-3 text-xs font-semibold text-[#8a6d32]">
-              You are at a plan limit. Compare tiers on the{" "}
-              <Link href="/pricing" className="underline underline-offset-2 hover:text-[#2C2C2C]">
-                pricing page
-              </Link>
-              .
-            </p>
-          ) : null}
-        </div>
+          You are {actionsAwayFromFive} actions away from reaching 5.0
+        </motion.div>
       ) : null}
 
-      <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
-        <p className="text-sm font-bold text-[#2C2C2C]">Profile completeness</p>
-        <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-[#EBE6DC]">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-[#6B9E6E] to-[#D4A843] transition-all"
-            style={{ width: `${profileComplete.pct}%` }}
-          />
-        </div>
-        <ul className="mt-4 space-y-2">
-          {profileComplete.checks.map((c) => (
-            <li key={c.label} className="flex items-center gap-2 text-sm font-semibold text-[#2C2C2C]/75">
-              <span className={c.ok ? "text-[#6B9E6E]" : "text-[#2C2C2C]/25"}>
-                {c.ok ? <Check className="h-4 w-4" /> : "○"}
-              </span>
-              {c.label}
-            </li>
-          ))}
-        </ul>
-        {incomplete && identityVerified ? (
-          <p className="mt-4 rounded-xl bg-[#D4A843]/12 px-4 py-3 text-sm font-semibold text-[#8a6d32]">
-            Complete your profile to get more leads — add a photo, bio, specialties, and your first listing.
-          </p>
-        ) : null}
-      </div>
+      {/* Section 1 - Daily Briefing Header */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.1 }}
+        className="mb-8"
+      >
+        <p className="text-sm font-semibold text-[#2C2C2C]">{greeting},</p>
+        <h1 className="mt-1 font-serif text-[32px] font-bold leading-tight text-[#2C2C2C]">{firstName}</h1>
+        <p className="mt-1 text-sm font-semibold text-[#2C2C2C]">{todayLabel}</p>
+      </motion.section>
 
-      {identityVerified ? (
-        <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <p className="font-serif text-lg font-bold text-[#2C2C2C]">Recent leads</p>
-            <span className="text-xs font-semibold text-[#2C2C2C]/45">Last 5</span>
+      {/* Section 2 - Agent Score Ring */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.2 }}
+        className="mb-10 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+      >
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-6">
+            <div className="relative h-40 w-40">
+              <svg viewBox="0 0 140 140" className="h-40 w-40">
+                <circle
+                  cx="70"
+                  cy="70"
+                  r={ring.radius}
+                  stroke="#E5E5E5"
+                  strokeWidth="12"
+                  fill="none"
+                />
+                <circle
+                  cx="70"
+                  cy="70"
+                  r={ring.radius}
+                  stroke="#6B9E6E"
+                  strokeWidth="12"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray={ring.circumference}
+                  strokeDashoffset={ring.dashOffset}
+                  transform="rotate(-90 70 70)"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <p className="font-serif text-4xl font-bold text-[#2C2C2C]">{agentScoreOutOfTen.toFixed(1)}</p>
+                <p className="mt-1 text-xs font-semibold text-gray-500">/ 10</p>
+              </div>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">Agent Score</p>
+            </div>
           </div>
-          {recent.length === 0 ? (
-            <p className="mt-4 text-sm font-semibold text-[#2C2C2C]/45">No leads yet.</p>
-          ) : (
-            <ul className="mt-4 divide-y divide-[#2C2C2C]/10">
-              {recent.map((l) => (
-                <li key={l.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="font-semibold text-[#2C2C2C]">{l.name}</p>
-                    <p className="text-xs font-semibold text-[#2C2C2C]/45">{l.email}</p>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Score breakdown</p>
+            <div className="mt-3 flex flex-col gap-2">
+              <div className="flex items-center gap-3 rounded-2xl border border-[#6B9E6E] bg-[#F0F7F0] px-4 py-3 shadow-sm">
+                <span className="rounded-full bg-[#6B9E6E] px-2 py-0.5 text-xs font-bold text-white">+1.5 pts</span>
+                <span className="text-sm font-semibold text-[#2C2C2C]">— Close a deal</span>
+                <span className="ml-auto rounded-full bg-[#D4A843] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                  Fastest way
+                </span>
+              </div>
+              {[
+                { pts: "+0.8 pts", label: "Respond within 5 mins" },
+                { pts: "+0.5 pts", label: "Complete your profile" },
+                { pts: "+0.3 pts", label: "Add more listings" },
+              ].map((row) => (
+                <div
+                  key={row.label}
+                  className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm"
+                >
+                  <span className="rounded-full bg-[#6B9E6E] px-2 py-0.5 text-xs font-bold text-white">
+                    {row.pts}
+                  </span>
+                  <span className="text-sm font-semibold text-[#2C2C2C]">— {row.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Section 3 - Today at a Glance */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.3 }}
+        className="mb-8"
+      >
+        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">Today at a glance</p>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="rounded-full border border-[#6B9E6E33] bg-[#F0F7F0] px-4 py-2 shadow-sm transition hover:shadow-md">
+            <div className="flex items-center gap-2 text-[#4A7C4E]">
+              <Users className="h-4 w-4" aria-hidden />
+              <span className="text-lg font-bold tabular-nums">{newLeadsToday}</span>
+            </div>
+            <p className="mt-0.5 text-xs font-semibold text-[#4A7C4E]">New Leads today</p>
+            <p className="mt-0.5 text-xs font-bold text-[#6B9E6E]">{momentumArrowLabel}</p>
+          </div>
+          <div className="rounded-full border border-[#D4A84333] bg-[#FDF8EE] px-4 py-2 shadow-sm transition hover:shadow-md">
+            <div className="flex items-center gap-2 text-[#A07830]">
+              <FileText className="h-4 w-4" aria-hidden />
+              <span className="text-lg font-bold tabular-nums">{pendingDealDocumentsCount}</span>
+            </div>
+            <p className="mt-0.5 text-xs font-semibold text-[#A07830]">Pending Documents</p>
+            <p className="mt-0.5 text-xs font-bold text-[#6B9E6E]">{momentumArrowLabel}</p>
+          </div>
+          <div className="rounded-full border border-[#D4A84333] bg-[#FDF8EE] px-4 py-2 shadow-sm transition hover:shadow-md">
+            <div className="flex items-center gap-2 text-[#A07830]">
+              <Bell className="h-4 w-4" aria-hidden />
+              <span className="text-lg font-bold tabular-nums">{unreadNotificationsCount}</span>
+            </div>
+            <p className="mt-0.5 text-xs font-semibold text-[#A07830]">Unread Notifications</p>
+            <p className="mt-0.5 text-xs font-bold text-[#6B9E6E]">{momentumArrowLabel}</p>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Section 4 - Pipeline Snapshot */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.4 }}
+        className="mb-8 space-y-3"
+      >
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Pipeline Snapshot</p>
+          <button
+            type="button"
+            onClick={() => onNavigateTab("pipeline")}
+            className="text-sm font-semibold text-[#6B9E6E] hover:underline"
+          >
+            Manage Deals →
+          </button>
+        </div>
+        {pipelineSnapshot.length === 0 ? (
+          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <p className="text-sm font-semibold text-gray-500">No active leads yet.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {pipelineSnapshot.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => onNavigateTab("pipeline")}
+                className="cursor-pointer rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:shadow-md"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-[#2C2C2C]">{l.name}</p>
+                    <p className="mt-0.5 truncate text-xs font-semibold text-gray-500">
+                      {propertyLabelForLead(l)}
+                    </p>
+                    {phpPriceLabelForLead(l) ? (
+                      <p className="mt-1 text-xs font-semibold text-[#D4A843]">{phpPriceLabelForLead(l)}</p>
+                    ) : null}
+                    <p className="mt-1 text-xs font-semibold text-gray-400">
+                      Last activity {formatRelative(l.updated_at ?? l.created_at)}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-[#6B9E6E]">
+                      Next step: {nextStepLabel(l.pipeline_stage)}
+                    </p>
                   </div>
                   <span
                     className={cn(
-                      "rounded-full px-2 py-1 text-xs font-bold",
-                      String(l.stage ?? "")
-                        .trim()
-                        .toLowerCase() === "new"
-                        ? "bg-blue-100 text-blue-700"
-                        : String(l.stage ?? "")
-                              .trim()
-                              .toLowerCase() === "active" ||
-                            String(l.stage ?? "")
-                              .trim()
-                              .toLowerCase() === "contacted"
-                          ? "bg-green-100 text-green-700"
-                          : String(l.stage ?? "")
-                                .trim()
-                                .toLowerCase() === "viewing"
-                            ? "bg-purple-100 text-purple-700"
-                            : String(l.stage ?? "")
-                                  .trim()
-                                  .toLowerCase() === "declined" ||
-                                String(l.stage ?? "")
-                                  .trim()
-                                  .toLowerCase() === "closed_lost"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-[#6B9E6E]/12 text-[#2C2C2C]/70",
+                      "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-bold",
+                      pipelineStageBadgeClass(l.pipeline_stage),
                     )}
                   >
-                    {labelForStage(l.stage)}
+                    {stageIcon(l.pipeline_stage)}
+                    {String(l.pipeline_stage ?? "lead").trim() || "lead"}
                   </span>
-                </li>
-              ))}
-            </ul>
-          )}
+                </div>
+                <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-[#E5E5E5]">
+                  <div
+                    className="h-2 rounded-full bg-[#6B9E6E] animate-pulse"
+                    style={{ width: `${pipelineProgressPct(l.pipeline_stage)}%` }}
+                  />
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </motion.section>
+
+      {/* Section 5 - Score History Chart */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.5 }}
+        className="mb-8"
+      >
+        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">YOUR SCORE OVER TIME</p>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="h-[120px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={(() => {
+                  const now = new Date();
+                  const months: { label: string; score: number }[] = [];
+                  for (let i = 5; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const label = d.toLocaleDateString(undefined, { month: "short" });
+                    const score = Math.max(0, Number((agentScoreOutOfTen - 0.3 * i).toFixed(1)));
+                    months.push({ label, score });
+                  }
+                  return months;
+                })()}
+                margin={{ top: 8, right: 0, bottom: 0, left: 0 }}
+              >
+                <XAxis
+                  dataKey="label"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "#6B6B6B", fontWeight: 600 }}
+                />
+                <Bar dataKey="score" fill="#6B9E6E" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-3 text-xs text-gray-400">
+            Your score increases when you close deals, respond fast, and stay active.
+          </p>
         </div>
-      ) : null}
+      </motion.section>
+
+      {/* Section 6 - Agent Profile Preview Card */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.6 }}
+        className="mb-8"
+      >
+        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">HOW CLIENTS SEE YOU</p>
+        <div className="max-w-sm rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
+              {agent.image_url ? (
+                <SupabasePublicImage src={agent.image_url} alt="" fill className="object-cover" sizes="56px" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/20 text-lg font-bold text-[#2C2C2C]/60">
+                  {(agent.name?.trim() || "A").slice(0, 1).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-serif text-lg font-semibold text-[#2C2C2C]">{agent.name}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <VerifiedAgentBadge show={agent.verification_status === "verified"} />
+                <span className="text-xs font-semibold text-[#2C2C2C]/60">
+                  {agentScoreOutOfTen.toFixed(1)} out of 10
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {splitCsv(agent.specialties).length > 0 ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {splitCsv(agent.specialties)
+                .slice(0, 6)
+                .map((s) => (
+                  <span
+                    key={s}
+                    className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/70"
+                  >
+                    {s}
+                  </span>
+                ))}
+            </div>
+          ) : null}
+
+          {splitServiceAreas(agent.service_areas).length > 0 ? (
+            <p className="mt-4 text-sm font-semibold text-[#2C2C2C]/55">
+              {splitServiceAreas(agent.service_areas).slice(0, 2).join(" · ")}
+            </p>
+          ) : null}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onNavigateTab("profile")}
+          className="mt-4 rounded-full border border-[#6B9E6E] px-5 py-2 text-sm font-medium text-[#6B9E6E] transition hover:bg-[#6B9E6E] hover:text-white"
+        >
+          Improve your profile
+        </button>
+      </motion.section>
     </div>
   );
 }
