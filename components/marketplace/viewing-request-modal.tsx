@@ -223,7 +223,7 @@ export function ViewingRequestModal({
       }
 
       const scheduledAt = toScheduledIso(date, hour);
-      const { data: row, error: insErr } = await supabase
+      const { data: insertedRows, error: insErr } = await supabase
         .from("viewing_requests")
         .insert({
           agent_user_id: agentUserId,
@@ -236,13 +236,13 @@ export function ViewingRequestModal({
           notes: notes.trim() ? notes.trim() : null,
           status: "pending",
         })
-        .select("id")
-        .single();
+        .select("id");
 
       if (insErr) throw insErr;
-      if (!row?.id) throw new Error("Could not create request.");
+      const inserted = insertedRows?.[0];
+      if (!inserted?.id) throw new Error("Could not create request.");
 
-      const viewingRequestId = row.id;
+      const viewingRequestId = inserted.id;
 
       try {
         const res = await fetch("/api/create-lead", {
