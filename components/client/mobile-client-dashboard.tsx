@@ -380,12 +380,15 @@ function HomepageStyleEngagementButtons({
   engagement,
   likes,
   pins,
+  showHeartButton = true,
   showPinButton = true,
 }: {
   propertyId: string;
   engagement: PropertyEngagement | null;
   likes: LikePinApi;
   pins: LikePinApi;
+  /** When false, the heart control is omitted (e.g. Pins tab cards). */
+  showHeartButton?: boolean;
   showPinButton?: boolean;
 }) {
   const { profile } = useAuth();
@@ -398,39 +401,41 @@ function HomepageStyleEngagementButtons({
     const isPinned = engagement.isPinned(propertyId);
     return (
       <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            engagement.toggleLike(propertyId);
-          }}
-          disabled={agentEngagementLocked}
-          className={cn(
-            "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
-            isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
-            agentEngagementLocked && "pointer-events-none opacity-50",
-          )}
-          aria-label={`${engagement.likeCount(propertyId)} likes`}
-        >
-          <Heart
+        {showHeartButton ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              engagement.toggleLike(propertyId);
+            }}
+            disabled={agentEngagementLocked}
             className={cn(
-              "h-3.5 w-3.5 shrink-0",
-              isLiked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
+              "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+              isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
+              agentEngagementLocked && "pointer-events-none opacity-50",
             )}
-            aria-hidden
-          />
-          {showRow ? (
-            <span
+            aria-label={`${engagement.likeCount(propertyId)} likes`}
+          >
+            <Heart
               className={cn(
-                "text-xs font-medium tabular-nums",
-                isLiked ? "text-red-500" : "text-red-400",
+                "h-3.5 w-3.5 shrink-0",
+                isLiked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
               )}
-            >
-              {engagement.likeCount(propertyId)}
-            </span>
-          ) : null}
-        </button>
+              aria-hidden
+            />
+            {showRow ? (
+              <span
+                className={cn(
+                  "text-xs font-medium tabular-nums",
+                  isLiked ? "text-red-500" : "text-red-400",
+                )}
+              >
+                {engagement.likeCount(propertyId)}
+              </span>
+            ) : null}
+          </button>
+        ) : null}
         {showPinButton ? (
           <button
             type="button"
@@ -460,19 +465,7 @@ function HomepageStyleEngagementButtons({
               </span>
             ) : null}
           </button>
-        ) : (
-          <span
-            className="inline-flex flex-row items-center gap-1 rounded-full border border-gray-200 bg-white/80 p-1.5 shadow-sm"
-            aria-label={`${engagement.saveCount(propertyId)} saved`}
-          >
-            <Pin className="h-3.5 w-3.5 shrink-0 text-[#D4A843]" aria-hidden />
-            {showRow ? (
-              <span className="text-xs font-medium tabular-nums text-[#D4A843]">
-                {engagement.saveCount(propertyId)}
-              </span>
-            ) : null}
-          </span>
-        )}
+        ) : null}
       </div>
     );
   }
@@ -481,27 +474,29 @@ function HomepageStyleEngagementButtons({
   const isPinned = pins.has(propertyId);
   return (
     <div className="flex items-center gap-1">
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          void likes.toggle(propertyId);
-        }}
-        className={cn(
-          "inline-flex rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
-          isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
-        )}
-        aria-label="Like"
-      >
-        <Heart
+      {showHeartButton ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void likes.toggle(propertyId);
+          }}
           className={cn(
-            "h-3.5 w-3.5 shrink-0",
-            isLiked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
+            "inline-flex rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+            isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
           )}
-          aria-hidden
-        />
-      </button>
+          aria-label="Like"
+        >
+          <Heart
+            className={cn(
+              "h-3.5 w-3.5 shrink-0",
+              isLiked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
+            )}
+            aria-hidden
+          />
+        </button>
+      ) : null}
       {showPinButton ? (
         <button
           type="button"
@@ -538,6 +533,7 @@ function FeedPhotoOverlay({
   pins,
   engagement = null,
   showPinButton = true,
+  showEngagementOverlay = true,
   photoClassName,
 }: {
   propertyId: string;
@@ -548,6 +544,8 @@ function FeedPhotoOverlay({
   pins: LikePinApi;
   engagement?: PropertyEngagement | null;
   showPinButton?: boolean;
+  /** When false, no like/pin controls on the image (activity feed). */
+  showEngagementOverlay?: boolean;
   /** e.g. h-[220px] for followed-agent listing cards */
   photoClassName?: string;
 }) {
@@ -565,17 +563,19 @@ function FeedPhotoOverlay({
           <span className="text-sm font-bold text-gray-900">{priceDisplay}</span>
         </div>
       </Link>
-      <div className="pointer-events-none absolute inset-0 z-20">
-        <div className="pointer-events-auto absolute right-2 top-2 flex gap-1">
-          <HomepageStyleEngagementButtons
-            propertyId={propertyId}
-            engagement={engagement ?? null}
-            likes={likes}
-            pins={pins}
-            showPinButton={showPinButton}
-          />
+      {showEngagementOverlay ? (
+        <div className="pointer-events-none absolute inset-0 z-20">
+          <div className="pointer-events-auto absolute right-2 top-2 flex gap-1">
+            <HomepageStyleEngagementButtons
+              propertyId={propertyId}
+              engagement={engagement ?? null}
+              likes={likes}
+              pins={pins}
+              showPinButton={showPinButton}
+            />
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
@@ -1222,27 +1222,12 @@ export function AllFeedTab({
                     engagement={engagementForUi}
                   />
                 ) : item.kind === "agent" ? (
-                  <ViewingRequestMediumCard
-                    item={item}
-                    feedAgentMeta={feedAgentMeta}
-                    likes={likes}
-                    pins={pins}
-                    engagement={engagementForUi}
-                  />
+                  <ViewingRequestMediumCard item={item} feedAgentMeta={feedAgentMeta} />
                 ) : item.kind === "price_drop_al" ? (
-                  <PriceDropMediumCard
-                    item={item}
-                    likes={likes}
-                    pins={pins}
-                    engagement={engagementForUi}
-                    compactThumbByPropertyId={compactThumbByPropertyId}
-                  />
+                  <PriceDropMediumCard item={item} compactThumbByPropertyId={compactThumbByPropertyId} />
                 ) : item.kind === "listing_edited_al" ? (
                   <ListingEditedActivityCard
                     item={item}
-                    likes={likes}
-                    pins={pins}
-                    engagement={engagementForUi}
                     listingEditedCompactIndex={listingEditedOrdinalById.get(item.id) ?? 0}
                     compactThumbByPropertyId={compactThumbByPropertyId}
                   />
@@ -1262,10 +1247,6 @@ export function AllFeedTab({
                   <ListingLikeSmallCard
                     property={item.property}
                     createdAt={item.created_at}
-                    feedAgentMeta={feedAgentMeta}
-                    likes={likes}
-                    pins={pins}
-                    engagement={engagementForUi}
                     compactThumbByPropertyId={compactThumbByPropertyId}
                   />
                 )}
@@ -1332,6 +1313,7 @@ function FollowedAgentListingCard({
           pins={pins}
           engagement={engagement}
           showPinButton={false}
+          showEngagementOverlay={false}
           photoClassName="h-[220px]"
         />
       ) : null}
@@ -1404,6 +1386,7 @@ function SavedPropertyBigCard({
           likes={likes}
           pins={pins}
           engagement={engagement}
+          showEngagementOverlay={false}
         />
       ) : null}
       {pid ? (
@@ -1426,18 +1409,12 @@ function SavedPropertyBigCard({
 function ViewingRequestMediumCard({
   item,
   feedAgentMeta,
-  likes,
-  pins,
-  engagement,
 }: {
   item: Extract<FeedUnion, { kind: "agent" }>;
   feedAgentMeta: Record<
     string,
     { agentName: string; agentAvatarUrl: string | null; agentId?: string | null }
   >;
-  likes: LikePinApi;
-  pins: LikePinApi;
-  engagement: PropertyEngagement | null;
 }) {
   const n = item.notification;
   const m = n.metadata ?? {};
@@ -1450,7 +1427,6 @@ function ViewingRequestMediumCard({
   const actionText = (n.title ?? n.body ?? "Viewing activity").trim();
   const propertyHrefId = metaStr(m, "property_id").trim() || item.property?.id || "";
   const agentLine = propertyHrefId ? feedAgentMeta[propertyHrefId]?.agentName?.trim() : "";
-  const waHref = item.agentPhone ? `https://wa.me/${item.agentPhone}` : null;
   const thumbSrc = item.property
     ? pickPropertyImage(item.property)
     : metaStr(m, "property_image_url").trim();
@@ -1477,29 +1453,9 @@ function ViewingRequestMediumCard({
           <p className="font-bold leading-snug text-gray-900">{actionText}</p>
           <p className="mt-0.5 text-sm text-gray-500">{propNameDisplay}</p>
           {agentLine ? <p className="mt-1 text-xs font-medium text-[#6B9E6E]">{agentLine}</p> : null}
-          {waHref ? (
-            <a
-              href={waHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="pointer-events-auto mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-900"
-            >
-              WhatsApp
-            </a>
-          ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <span className="text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
-          {propertyHrefId ? (
-            <div className="pointer-events-auto z-[2]">
-              <HomepageStyleEngagementButtons
-                propertyId={propertyHrefId}
-                engagement={engagement}
-                likes={likes}
-                pins={pins}
-              />
-            </div>
-          ) : null}
           <FeedPropertyThumb56 src={thumbSrc} alt="" />
         </div>
       </div>
@@ -1509,32 +1465,15 @@ function ViewingRequestMediumCard({
 
 function PriceDropMediumCard({
   item,
-  likes,
-  pins,
-  engagement,
   compactThumbByPropertyId,
 }: {
   item: Extract<FeedUnion, { kind: "price_drop_al" }>;
-  likes: LikePinApi;
-  pins: LikePinApi;
-  engagement: PropertyEngagement | null;
   compactThumbByPropertyId: Record<string, string>;
 }) {
   const newPriceDisplay = formatPropertyPriceDisplay(item.newPrice);
   const propertyNameDisplay = truncateTitle(item.propertyName, FEED_TITLE_MAX_COMPACT);
   const pid = item.propertyId ?? "";
   const photoUrl = pid ? (compactThumbByPropertyId[pid] ?? "") : "";
-  const engagementBar =
-    item.propertyId != null && item.propertyId !== "" ? (
-      <div className="pointer-events-auto absolute right-2 top-2 z-10 flex gap-1">
-        <HomepageStyleEngagementButtons
-          propertyId={item.propertyId}
-          engagement={engagement}
-          likes={likes}
-          pins={pins}
-        />
-      </div>
-    ) : null;
 
   const inner = (
     <>
@@ -1566,7 +1505,6 @@ function PriceDropMediumCard({
           "relative flex w-full items-center gap-3 text-inherit no-underline transition-transform duration-150 active:scale-[0.99]",
         )}
       >
-        {engagementBar}
         {inner}
       </Link>
     );
@@ -1576,16 +1514,10 @@ function PriceDropMediumCard({
 
 function ListingEditedActivityCard({
   item,
-  likes,
-  pins,
-  engagement,
   listingEditedCompactIndex,
   compactThumbByPropertyId,
 }: {
   item: Extract<FeedUnion, { kind: "listing_edited_al" }>;
-  likes: LikePinApi;
-  pins: LikePinApi;
-  engagement: PropertyEngagement | null;
   listingEditedCompactIndex: number;
   compactThumbByPropertyId: Record<string, string>;
 }) {
@@ -1593,17 +1525,6 @@ function ListingEditedActivityCard({
   const showThumbSlot = listingEditedCompactIndex % 3 !== 1;
   const pid = item.propertyId ?? "";
   const photoUrl = showThumbSlot && pid ? (compactThumbByPropertyId[pid] ?? "") : "";
-  const engagementBar =
-    item.propertyId != null && item.propertyId !== "" ? (
-      <div className="pointer-events-auto absolute right-2 top-2 z-10 flex gap-1">
-        <HomepageStyleEngagementButtons
-          propertyId={item.propertyId}
-          engagement={engagement}
-          likes={likes}
-          pins={pins}
-        />
-      </div>
-    ) : null;
 
   const inner = (
     <>
@@ -1631,7 +1552,6 @@ function ListingEditedActivityCard({
           "relative flex w-full items-center gap-3 text-inherit no-underline transition-transform duration-150 active:scale-[0.99]",
         )}
       >
-        {engagementBar}
         {inner}
       </Link>
     );
@@ -1768,26 +1688,14 @@ function ViewingConfirmedSmallCard({ n }: { n: FeedNotificationRow }) {
 function ListingLikeSmallCard({
   property,
   createdAt,
-  feedAgentMeta,
-  likes,
-  pins,
-  engagement,
   compactThumbByPropertyId,
 }: {
   property: PropertyRow;
   createdAt: string;
-  feedAgentMeta: Record<
-    string,
-    { agentName: string; agentAvatarUrl: string | null; agentId: string | null }
-  >;
-  likes: LikePinApi;
-  pins: LikePinApi;
-  engagement: PropertyEngagement | null;
   compactThumbByPropertyId: Record<string, string>;
 }) {
   const title = property.name?.trim() || property.location || "Listing";
   const titleDisplay = truncateTitle(title, FEED_TITLE_MAX_COMPACT);
-  const ag = feedAgentMeta[property.id];
   const photoUrl = compactThumbByPropertyId[property.id] ?? "";
 
   return (
@@ -1804,17 +1712,8 @@ function ListingLikeSmallCard({
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-gray-900">You liked a listing</p>
         <p className="text-sm text-gray-500">{titleDisplay}</p>
-        {ag?.agentName ? (
-          <p className="mt-0.5 text-xs font-medium text-[#6B9E6E]">{ag.agentName}</p>
-        ) : null}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <HomepageStyleEngagementButtons
-          propertyId={property.id}
-          engagement={engagement}
-          likes={likes}
-          pins={pins}
-        />
         <CompactFeedPropertyThumb src={photoUrl} alt="" />
         <span className="text-xs text-gray-500">{formatNotificationTimeAgo(createdAt)}</span>
       </div>
@@ -1862,6 +1761,7 @@ export function LikedPropertiesTab({
                 engagement={engagement}
                 likes={likes}
                 pins={pins}
+                showPinButton={false}
               />
             </div>
             <Link
@@ -2041,6 +1941,7 @@ export function SavedPinsTab({
                     engagement={engagement}
                     likes={likes}
                     pins={pins}
+                    showHeartButton={false}
                   />
                 </div>
               </div>

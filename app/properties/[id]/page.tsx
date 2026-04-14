@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import { createPortal } from "react-dom";
-import { Heart, LayoutGrid, Pin, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Heart, LayoutGrid, Pin, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
@@ -1025,9 +1025,36 @@ function PropertyPhotoLightbox({
   title: string;
   onClose: () => void;
 }) {
+  const [index, setIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+
+  const goPrev = useCallback(() => {
+    setIndex((i) => (i - 1 + photos.length) % photos.length);
+  }, [photos.length]);
+
+  const goNext = useCallback(() => {
+    setIndex((i) => (i + 1) % photos.length);
+  }, [photos.length]);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [photos]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        goPrev();
+        return;
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        goNext();
+      }
     };
     window.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -1036,51 +1063,138 @@ function PropertyPhotoLightbox({
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, [onClose, goPrev, goNext]);
+
+  const onTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    touchStartX.current = e.changedTouches[0]?.clientX ?? null;
+  };
+
+  const onTouchEnd = (e: TouchEvent<HTMLDivElement>) => {
+    if (touchStartX.current == null) return;
+    const endX = e.changedTouches[0]?.clientX ?? 0;
+    const dx = endX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) < 48) return;
+    if (dx > 0) goPrev();
+    else goNext();
+  };
 
   if (typeof document === "undefined") return null;
+
+  const mobileSrc = cloudinaryTransformUrl(
+    String(photos[index] ?? photos[0]).trim(),
+    "c_limit,w_1600,h_1600,q_auto,f_auto",
+  );
+
   const shell = (
-    <div className="fixed inset-0 z-[210] flex items-center justify-center p-4" role="presentation">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/60"
-        aria-label="Close"
-        onClick={onClose}
-      />
+    <>
+      {/* Mobile: full-screen swipe viewer */}
       <div
+        className="fixed inset-0 z-50 flex h-full w-full flex-col bg-black md:hidden"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="property-photo-lightbox-title"
-        className="relative z-[211] flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        aria-labelledby="property-photo-lightbox-title-mobile"
       >
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#2C2C2C]/10 px-4 py-3">
-          <p id="property-photo-lightbox-title" className="min-w-0 truncate text-sm font-semibold text-[#2C2C2C]">
-            {title}
+        <div className="grid shrink-0 grid-cols-3 items-center gap-2 px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <div />
+          <p
+            id="property-photo-lightbox-title-mobile"
+            className="text-center text-sm text-white"
+          >
+            {photos.length > 0 ? `${index + 1} of ${photos.length}` : ""}
           </p>
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-full p-2 text-[#2C2C2C] hover:bg-black/5"
+            className="justify-self-end rounded-full p-2 text-white hover:bg-white/10"
             aria-label="Close"
           >
-            <X className="h-6 w-6" />
+            <X className="h-9 w-9" strokeWidth={2} />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-            {photos.map((url, i) => {
-              const src = cloudinaryTransformUrl(String(url).trim(), "c_fill,w_800,h_800,q_auto,f_auto");
-              return (
-                <div key={`${i}-${url}`} className="relative aspect-square overflow-hidden rounded-xl">
-                  <Image src={src} alt="" fill className="object-cover" sizes="(max-width: 1024px) 50vw, 33vw" />
-                </div>
-              );
-            })}
+        <div
+          className="relative min-h-0 flex-1 touch-pan-x"
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          {photos.length > 0 ? (
+            <Image
+              src={mobileSrc}
+              alt=""
+              fill
+              className="object-contain"
+              sizes="100vw"
+              priority
+            />
+          ) : null}
+        </div>
+      </div>
+
+      {/* Desktop: modal + 2-column grid */}
+      <div className="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4 md:flex" role="presentation">
+        <button
+          type="button"
+          className="absolute inset-0 cursor-default"
+          aria-label="Close"
+          onClick={onClose}
+        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="property-photo-lightbox-title"
+          className="relative z-[1] flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#2C2C2C]/10 px-4 py-3">
+            <p id="property-photo-lightbox-title" className="min-w-0 truncate text-sm font-semibold text-[#2C2C2C]">
+              {title}
+            </p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 rounded-full p-2 text-[#2C2C2C] hover:bg-black/5"
+              aria-label="Close"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+          <div className="relative min-h-0 flex-1 overflow-y-auto p-4">
+            <button
+              type="button"
+              onClick={goPrev}
+              className="absolute left-2 top-1/2 z-[2] -translate-y-1/2 rounded-full bg-white/95 p-2.5 text-[#2C2C2C] shadow-md ring-1 ring-black/10 hover:bg-white"
+              aria-label="Previous photo"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              className="absolute right-2 top-1/2 z-[2] -translate-y-1/2 rounded-full bg-white/95 p-2.5 text-[#2C2C2C] shadow-md ring-1 ring-black/10 hover:bg-white"
+              aria-label="Next photo"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+            <div className="grid grid-cols-2 gap-3 px-10">
+              {photos.map((url, i) => {
+                const src = cloudinaryTransformUrl(String(url).trim(), "c_fill,w_800,h_800,q_auto,f_auto");
+                return (
+                  <div
+                    key={`${i}-${url}`}
+                    className={cn(
+                      "relative aspect-square overflow-hidden rounded-xl ring-2 ring-offset-2 transition-shadow",
+                      i === index ? "ring-[#6B9E6E]" : "ring-transparent",
+                    )}
+                  >
+                    <Image src={src} alt="" fill className="object-cover" sizes="(max-width: 1024px) 50vw, 400px" />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
   return createPortal(shell, document.body);
 }

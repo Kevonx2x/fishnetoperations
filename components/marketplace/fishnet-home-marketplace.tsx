@@ -2191,20 +2191,15 @@ export function NewlyListedCard({
         <div className="absolute left-3 top-3 z-20 flex flex-wrap gap-1">
           {isDualListing ? (
             <>
-              <span className="rounded-full bg-[#6B9E6E] px-2.5 py-1 text-[10px] font-bold text-white shadow-sm">
+              <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-medium text-gray-800 shadow-sm backdrop-blur-sm">
                 For Sale
               </span>
-              <span className="rounded-full bg-[#3d6b78] px-2.5 py-1 text-[10px] font-bold text-white shadow-sm">
+              <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-medium text-gray-800 shadow-sm backdrop-blur-sm">
                 For Rent
               </span>
             </>
           ) : (
-            <span
-              className={cn(
-                "rounded-full px-3 py-1 text-[11px] font-bold shadow-sm",
-                property.is_presale ? "bg-[#D4A843] text-[#2C2C2C]" : "bg-[#6B9E6E] text-white",
-              )}
-            >
+            <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-medium text-gray-800 shadow-sm backdrop-blur-sm">
               {statusLabel}
             </span>
           )}

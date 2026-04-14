@@ -59,6 +59,20 @@ type NavDividerItem = { kind: "divider"; label: string };
 type NavPendingItem = { kind: "pending"; label: string; icon: ReactNode };
 type NavDropdownEntry = NavLinkItem | NavDividerItem | NavPendingItem;
 
+/** Dropdown labels that are not live yet — show a small Coming Soon pill (exact match to `label` strings). */
+const COMING_SOON_NAV_LABELS = new Set([
+  "Top Brokerages",
+  "Near Schools",
+  "Near Hospitals",
+  "Near Malls",
+  "Near Parks & Recreation",
+  "Near Business Districts (BGC, Makati, Ortigas)",
+  "Near Transportation Hubs",
+  "Foreclosures & Deals",
+  "Luxury Homes ₱50M+",
+  "Near Business Districts",
+]);
+
 const BAHAYGO_LANGUAGE_KEY = "bahaygo-language";
 
 function NavLanguageRow({
@@ -149,7 +163,12 @@ function MobileNavSection({
                 className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 transition hover:bg-white"
               >
                 <span className="text-[#6B9E6E] [&>svg]:h-4 [&>svg]:w-4">{it.icon}</span>
-                {it.label}
+                <span className="min-w-0 flex-1">{it.label}</span>
+                {COMING_SOON_NAV_LABELS.has(it.label) ? (
+                  <span className="ml-2 shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-400">
+                    Coming Soon
+                  </span>
+                ) : null}
               </Link>
             </li>
           );
@@ -222,7 +241,12 @@ function NavDropdownMenu({ label, entries }: { label: string; entries: NavDropdo
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 transition hover:bg-[#FAF8F4]"
                     >
                       <span className="text-[#6B9E6E] [&>svg]:h-4 [&>svg]:w-4">{it.icon}</span>
-                      {it.label}
+                      <span className="min-w-0 flex-1">{it.label}</span>
+                      {COMING_SOON_NAV_LABELS.has(it.label) ? (
+                        <span className="ml-2 shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-400">
+                          Coming Soon
+                        </span>
+                      ) : null}
                     </Link>
                   </li>
                 );
