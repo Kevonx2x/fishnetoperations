@@ -223,54 +223,33 @@ export function ViewingRequestModal({
       }
 
       const scheduledAt = toScheduledIso(date, hour);
-      const { error: insErr } = await supabase.from("viewing_requests").insert({
-        agent_user_id: agentUserId,
-        property_id: propertyId ?? null,
-        client_user_id: user.id,
-        client_name: name.trim(),
-        client_email: email.trim(),
-        client_phone: phone.trim(),
-        scheduled_at: scheduledAt,
-        notes: notes.trim() ? notes.trim() : null,
-        status: "pending",
+      const res = await fetch("/api/create-viewing-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          agent_user_id: agentUserId,
+          property_id: propertyId ?? null,
+          client_name: name.trim(),
+          client_email: email.trim(),
+          client_phone: phone.trim(),
+          scheduled_at: scheduledAt,
+          notes: notes.trim() ? notes.trim() : null,
+          status: "pending",
+        }),
       });
 
-      if (insErr) throw insErr;
-
+      const responseText = await res.text();
+      let responseBody: unknown = responseText;
       try {
-        const res = await fetch("/api/create-lead", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            source: "viewing_request",
-            agent_user_id: agentUserId,
-            property_id: propertyId ?? null,
-            client_name: name.trim(),
-            client_email: email.trim(),
-            client_phone: phone.trim(),
-          }),
-        });
-
-        const responseText = await res.text();
-        let responseBody: unknown = responseText;
-        try {
-          responseBody = responseText ? JSON.parse(responseText) : null;
-        } catch {
-          /* keep raw text */
-        }
-
-        if (!res.ok) {
-          const j = responseBody as { error?: { message?: string } } | null;
-          setNotifyWarning(
-            j?.error?.message ??
-              "Your request was saved, but we could not notify the agent automatically.",
-          );
-        }
+        responseBody = responseText ? JSON.parse(responseText) : null;
       } catch {
-        setNotifyWarning(
-          "Your request was saved, but we could not notify the agent automatically.",
-        );
+        /* keep raw text */
+      }
+
+      if (!res.ok) {
+        const j = responseBody as { error?: { message?: string } } | null;
+        throw new Error(j?.error?.message ?? "Something went wrong.");
       }
 
       setSuccess(true);
