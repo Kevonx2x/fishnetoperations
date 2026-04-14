@@ -489,10 +489,14 @@ export function AgentDashboard() {
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [paymentBannerTier, setPaymentBannerTier] = useState<string | null>(null);
+  /** Set from `?editProperty=` on /dashboard/agent; applied after listings load (see propertiesLoadVersion). */
+  const pendingEditPropertyIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const sp = new URLSearchParams(window.location.search);
+    const editProp = sp.get("editProperty");
+    if (editProp) pendingEditPropertyIdRef.current = editProp;
     const raw = sp.get("tab");
     const allowed: Tab[] = [
       "overview",
@@ -607,6 +611,7 @@ export function AgentDashboard() {
 
   /** Bumps when a new edit open starts or the edit modal closes, so stale photo fetches cannot apply the wrong listing's images. */
   const editListingPhotosLoadIdRef = useRef(0);
+  const [propertiesLoadVersion, setPropertiesLoadVersion] = useState(0);
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
@@ -619,7 +624,13 @@ export function AgentDashboard() {
       .maybeSingle();
     setAgent((a as AgentRow | null) ?? null);
     setLoaded(true);
-    if (!a) return;
+    if (!a) {
+      setLeads([]);
+      setProperties([]);
+      setViewings([]);
+      setPropertiesLoadVersion((v) => v + 1);
+      return;
+    }
 
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
       const [{ data: ld }, { data: owned }, { data: paRows }, vwRes] = await Promise.all([
@@ -733,6 +744,7 @@ export function AgentDashboard() {
       setProperties([]);
       setViewings([]);
     }
+    setPropertiesLoadVersion((v) => v + 1);
   }, [supabase, user?.id]);
 
   useEffect(() => {
@@ -1061,6 +1073,35 @@ export function AgentDashboard() {
     },
     [supabase],
   );
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const pending = pendingEditPropertyIdRef.current;
+    if (!pending) return;
+    if (propertiesLoadVersion === 0) return;
+    const p = properties.find((x) => x.id === pending);
+    if (p) {
+      pendingEditPropertyIdRef.current = null;
+      setTab("listings");
+      void openEditFormFromProperty(p);
+      if (typeof window !== "undefined") {
+        const sp = new URLSearchParams(window.location.search);
+        sp.delete("editProperty");
+        const qs = sp.toString();
+        window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+      }
+      return;
+    }
+    pendingEditPropertyIdRef.current = null;
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.has("editProperty")) {
+        sp.delete("editProperty");
+        const qs = sp.toString();
+        window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+      }
+    }
+  }, [propertiesLoadVersion, properties, user?.id, openEditFormFromProperty]);
 
   const beginEditListing = useCallback(
     async (p: PropertyRow) => {

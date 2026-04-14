@@ -360,6 +360,13 @@ export default function PropertyPage() {
     return connectedAgents.some((a) => a.id === myAgent.id);
   }, [myAgent?.id, connectedAgents]);
 
+  /** True when the signed-in user is the listing owner (listed_by) or a connected agent on this property. */
+  const isListingAgentUser = useMemo(() => {
+    if (!user?.id || !property) return false;
+    if (property.listed_by && user.id === property.listed_by) return true;
+    return connectedAgents.some((a) => a.userId === user.id);
+  }, [user?.id, property?.listed_by, connectedAgents]);
+
   const showCoAgentPendingBanner = useMemo(() => {
     if (!isLoggedIn || profile?.role !== "agent" || !myAgent) return false;
     if (isConnectedAsAgent) return false;
@@ -736,7 +743,14 @@ export default function PropertyPage() {
             <aside className="lg:sticky lg:top-24 lg:col-span-1 lg:self-start">
               <div id="agents-section" className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
                 <div id="presale-interest">
-                  {property.is_presale ? (
+                  {isListingAgentUser ? (
+                    <Link
+                      href={`/dashboard/agent?tab=listings&editProperty=${encodeURIComponent(property.id)}`}
+                      className="flex w-full items-center justify-center rounded-full bg-[#6B9E6E] py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#5d8a60] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
+                    >
+                      Edit Listing
+                    </Link>
+                  ) : property.is_presale ? (
                     <>
                       <p className="font-serif text-base font-bold text-[#2C2C2C]">Register interest</p>
                       <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
