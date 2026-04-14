@@ -1138,7 +1138,7 @@ export function AgentPipelineTab({
         })}
       </div>
 
-      <div className="space-y-3">
+      <div className="touch-pan-y space-y-3 overflow-y-auto overscroll-contain max-h-[calc(100vh-280px)] md:max-h-none md:overflow-visible md:touch-auto">
         {displayDeals.length === 0 ? (
           <p className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center text-sm font-semibold text-[#2C2C2C]/45">
             No deals at this stage.
