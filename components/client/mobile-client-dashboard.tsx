@@ -1835,7 +1835,7 @@ export function LikedPropertiesTab({
                 <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
                 <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
               </div>
-              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[#E5E5E5]/60">
+              <div className="relative mt-10 h-14 w-14 shrink-0 self-start overflow-hidden rounded-lg bg-[#E5E5E5]/60">
                 {img ? (
                   <Image src={img} alt="" fill className="object-cover" sizes="56px" unoptimized />
                 ) : (
