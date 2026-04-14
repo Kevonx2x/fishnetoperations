@@ -213,7 +213,6 @@ export async function POST(req: Request) {
     if (!agentRow || !(agentRow as { id?: string }).id) {
       return fail("BAD_REQUEST", "agent not found", 400);
     }
-    const agentId = (agentRow as { id: string }).id;
 
     const { data: vrRow, error: vrErr } = await admin
       .from("viewing_requests")
@@ -266,7 +265,7 @@ export async function POST(req: Request) {
     const existingLeadId = await findExistingLeadIdForViewingDedupe(
       admin,
       session.userId,
-      agentId,
+      agentUserId,
       propertyId,
     );
 
@@ -290,22 +289,32 @@ export async function POST(req: Request) {
       return ok({ viewing_request_id: viewingRequestId, lead_id: existingLeadId });
     }
 
+    const leadsInsertPayload = {
+      name: body.client_name.trim() || clientNameFromProfile,
+      email: body.client_email.trim(),
+      phone: body.client_phone.trim() || clientPhoneFromProfile,
+      property_interest: propertyLabel,
+      message: "Viewing request submitted.",
+      agent_id: agentUserId,
+      client_id: session.userId,
+      source: "viewing_request",
+      stage: VIEWING_REQUEST_LEAD_STAGE,
+      pipeline_stage: VIEWING_PIPELINE_STAGE,
+      property_id: propertyId,
+      viewing_request_id: viewingRequestId,
+    };
+
+    console.log("[create-viewing-request] before leads insert: agentUserId from body", agentUserId);
+    console.log("[create-viewing-request] before leads insert: agents lookup", {
+      data: agentRow,
+      error: agentLookupErr,
+      id: (agentRow as { id?: string } | null)?.id ?? null,
+    });
+    console.log("[create-viewing-request] before leads insert: leads insert payload", leadsInsertPayload);
+
     const { data: inserted, error: insErr } = await admin
       .from("leads")
-      .insert({
-        name: body.client_name.trim() || clientNameFromProfile,
-        email: body.client_email.trim(),
-        phone: body.client_phone.trim() || clientPhoneFromProfile,
-        property_interest: propertyLabel,
-        message: "Viewing request submitted.",
-        agent_id: agentId,
-        client_id: session.userId,
-        source: "viewing_request",
-        stage: VIEWING_REQUEST_LEAD_STAGE,
-        pipeline_stage: VIEWING_PIPELINE_STAGE,
-        property_id: propertyId,
-        viewing_request_id: viewingRequestId,
-      })
+      .insert(leadsInsertPayload)
       .select("id")
       .maybeSingle();
 
@@ -319,7 +328,7 @@ export async function POST(req: Request) {
         const raceLeadId = await findExistingLeadIdForViewingDedupe(
           admin,
           session.userId,
-          agentId,
+          agentUserId,
           propertyId,
         );
         if (raceLeadId != null) {
@@ -355,7 +364,7 @@ export async function POST(req: Request) {
       const fallbackLeadId = await findExistingLeadIdForViewingDedupe(
         admin,
         session.userId,
-        agentId,
+        agentUserId,
         propertyId,
       );
       await notifyAgentNewLead(admin, {
