@@ -550,6 +550,9 @@ export function AgentDashboard() {
   const [profileViewsCount, setProfileViewsCount] = useState(0);
   const [pendingDealDocumentsCount, setPendingDealDocumentsCount] = useState(0);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [yesterdayNewLeadsCount, setYesterdayNewLeadsCount] = useState(0);
+  const [yesterdayPendingDocumentsCount, setYesterdayPendingDocumentsCount] = useState(0);
+  const [yesterdayUnreadNotificationsCount, setYesterdayUnreadNotificationsCount] = useState(0);
 
   const [profileForm, setProfileForm] = useState({
     name: "",
@@ -640,6 +643,9 @@ export function AgentDashboard() {
       setProfileViewsCount(0);
       setPendingDealDocumentsCount(0);
       setUnreadNotificationsCount(0);
+      setYesterdayNewLeadsCount(0);
+      setYesterdayPendingDocumentsCount(0);
+      setYesterdayUnreadNotificationsCount(0);
       setPropertiesLoadVersion((v) => v + 1);
       return;
     }
@@ -682,17 +688,54 @@ export function AgentDashboard() {
       setProfileViewsCount(viewsRes.error ? 0 : (viewsRes.count ?? 0));
       setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
 
-      // Deal documents: schema stores status ('uploaded','approved'); treat 'uploaded' as pending for dashboard.
+      const now = new Date();
+      const startToday = new Date(now);
+      startToday.setHours(0, 0, 0, 0);
+      const startYesterday = new Date(startToday);
+      startYesterday.setDate(startToday.getDate() - 1);
+      const startTodayIso = startToday.toISOString();
+      const startYesterdayIso = startYesterday.toISOString();
+
+      // Leads yesterday (created_at between start/end of yesterday).
+      const yLeadRes = await supabase
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .eq("agent_id", user.id)
+        .gte("created_at", startYesterdayIso)
+        .lt("created_at", startTodayIso);
+      setYesterdayNewLeadsCount(yLeadRes.error ? 0 : (yLeadRes.count ?? 0));
+
+      // Deal documents: count pending docs across this agent's leads.
       const leadIds = leadRows.map((l) => l.id).filter((id): id is number => typeof id === "number");
       if (leadIds.length === 0) {
         setPendingDealDocumentsCount(0);
+        setYesterdayPendingDocumentsCount(0);
+        setYesterdayUnreadNotificationsCount(0);
       } else {
         const ddRes = await supabase
           .from("deal_documents")
           .select("id", { count: "exact", head: true })
           .in("lead_id", leadIds)
-          .eq("status", "uploaded");
+          .eq("status", "pending");
         setPendingDealDocumentsCount(ddRes.error ? 0 : (ddRes.count ?? 0));
+
+        const yDocsRes = await supabase
+          .from("deal_documents")
+          .select("id", { count: "exact", head: true })
+          .in("lead_id", leadIds)
+          .eq("status", "pending")
+          .gte("created_at", startYesterdayIso)
+          .lt("created_at", startTodayIso);
+        setYesterdayPendingDocumentsCount(yDocsRes.error ? 0 : (yDocsRes.count ?? 0));
+
+        const yUnreadRes = await supabase
+          .from("notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .is("read_at", null)
+          .gte("created_at", startYesterdayIso)
+          .lt("created_at", startTodayIso);
+        setYesterdayUnreadNotificationsCount(yUnreadRes.error ? 0 : (yUnreadRes.count ?? 0));
       }
 
       const ownedList = ((owned ?? []) as Record<string, unknown>[]).map((raw) => {
@@ -784,6 +827,9 @@ export function AgentDashboard() {
       setProfileViewsCount(0);
       setPendingDealDocumentsCount(0);
       setUnreadNotificationsCount(0);
+      setYesterdayNewLeadsCount(0);
+      setYesterdayPendingDocumentsCount(0);
+      setYesterdayUnreadNotificationsCount(0);
     }
     setPropertiesLoadVersion((v) => v + 1);
   }, [supabase, user?.id]);
@@ -1529,6 +1575,9 @@ export function AgentDashboard() {
                   profileComplete={profileComplete}
                   unreadNotificationsCount={unreadNotificationsCount}
                   pendingDealDocumentsCount={pendingDealDocumentsCount}
+                  yesterdayNewLeadsCount={yesterdayNewLeadsCount}
+                  yesterdayPendingDocumentsCount={yesterdayPendingDocumentsCount}
+                  yesterdayUnreadNotificationsCount={yesterdayUnreadNotificationsCount}
                   listingLimit={listingLimit}
                   coListLimit={coListLimit}
                   atListingLimit={atListingLimit}
@@ -2219,6 +2268,9 @@ function OverviewTab({
   profileComplete,
   unreadNotificationsCount,
   pendingDealDocumentsCount,
+  yesterdayNewLeadsCount,
+  yesterdayPendingDocumentsCount,
+  yesterdayUnreadNotificationsCount,
   listingLimit,
   coListLimit,
   atListingLimit,
@@ -2235,6 +2287,9 @@ function OverviewTab({
   profileComplete: { pct: number; checks: { ok: boolean; label: string }[] };
   unreadNotificationsCount: number;
   pendingDealDocumentsCount: number;
+  yesterdayNewLeadsCount: number;
+  yesterdayPendingDocumentsCount: number;
+  yesterdayUnreadNotificationsCount: number;
   listingLimit: number;
   coListLimit: number;
   atListingLimit: boolean;
@@ -2313,31 +2368,15 @@ function OverviewTab({
     }).length;
   }, [leads]);
 
-  const newLeadsYesterday = useMemo(() => {
-    const now = new Date();
-    const yd = new Date(now);
-    yd.setDate(now.getDate() - 1);
-    const y = yd.getFullYear();
-    const m = yd.getMonth();
-    const d = yd.getDate();
-    return leads.filter((l) => {
-      const t = new Date(l.created_at);
-      return t.getFullYear() === y && t.getMonth() === m && t.getDate() === d;
-    }).length;
-  }, [leads]);
-
-  const momentumFromYesterdayLabel = useMemo(() => {
-    const delta = newLeadsToday - newLeadsYesterday;
-    if (delta === 0) return "0 from yesterday";
-    if (delta > 0) return `+${delta} from yesterday`;
-    return `${delta} from yesterday`;
-  }, [newLeadsToday, newLeadsYesterday]);
-
-  const momentumArrowLabel = useMemo(() => {
-    const delta = newLeadsToday - newLeadsYesterday;
-    const s = delta === 0 ? "0" : delta > 0 ? `+${delta}` : String(delta);
-    return `↑ ${s} from yesterday`;
-  }, [newLeadsToday, newLeadsYesterday]);
+  const renderMomentum = useCallback((delta: number) => {
+    if (!Number.isFinite(delta) || delta === 0) {
+      return <span className="text-gray-400">same as yesterday</span>;
+    }
+    if (delta > 0) {
+      return <span className="font-bold text-[#6B9E6E]">↑ +{delta} from yesterday</span>;
+    }
+    return <span className="font-bold text-red-600">↓ {delta} from yesterday</span>;
+  }, []);
 
   const actionsAwayFromFive = useMemo(() => {
     if (agentScoreOutOfTen >= 5) return 0;
@@ -2568,7 +2607,7 @@ function OverviewTab({
               <span className="text-lg font-bold tabular-nums">{newLeadsToday}</span>
             </div>
             <p className="mt-0.5 text-xs font-semibold text-[#4A7C4E]">New Leads today</p>
-            <p className="mt-0.5 text-xs font-bold text-[#6B9E6E]">{momentumArrowLabel}</p>
+            <p className="mt-0.5 text-xs">{renderMomentum(newLeadsToday - (yesterdayNewLeadsCount || 0))}</p>
           </div>
           <div className="rounded-full border border-[#D4A84333] bg-[#FDF8EE] px-4 py-2 shadow-sm transition hover:shadow-md">
             <div className="flex items-center gap-2 text-[#A07830]">
@@ -2576,7 +2615,9 @@ function OverviewTab({
               <span className="text-lg font-bold tabular-nums">{pendingDealDocumentsCount}</span>
             </div>
             <p className="mt-0.5 text-xs font-semibold text-[#A07830]">Pending Documents</p>
-            <p className="mt-0.5 text-xs font-bold text-[#6B9E6E]">{momentumArrowLabel}</p>
+            <p className="mt-0.5 text-xs">
+              {renderMomentum(pendingDealDocumentsCount - (yesterdayPendingDocumentsCount || 0))}
+            </p>
           </div>
           <div className="rounded-full border border-[#D4A84333] bg-[#FDF8EE] px-4 py-2 shadow-sm transition hover:shadow-md">
             <div className="flex items-center gap-2 text-[#A07830]">
@@ -2584,7 +2625,9 @@ function OverviewTab({
               <span className="text-lg font-bold tabular-nums">{unreadNotificationsCount}</span>
             </div>
             <p className="mt-0.5 text-xs font-semibold text-[#A07830]">Unread Notifications</p>
-            <p className="mt-0.5 text-xs font-bold text-[#6B9E6E]">{momentumArrowLabel}</p>
+            <p className="mt-0.5 text-xs">
+              {renderMomentum(unreadNotificationsCount - (yesterdayUnreadNotificationsCount || 0))}
+            </p>
           </div>
         </div>
       </motion.section>
