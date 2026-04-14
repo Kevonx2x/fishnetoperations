@@ -151,7 +151,7 @@ const STAGE_MOVE_SUGGEST_SLUG: Partial<Record<PipelineStageId, string>> = {
 };
 
 const PANEL_SELECT_CLASS =
-  "mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm";
+  "mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-md";
 
 /** Labels for shared client_documents rows in the pipeline panel */
 const CLIENT_SHARED_DOC_TYPE_LABEL: Record<string, string> = {
@@ -344,7 +344,7 @@ function SortableDealCard({
 
             {menuOpen ? (
               <div
-                className="absolute right-0 top-8 z-50 w-48 rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
+                className="absolute right-0 top-8 z-50 w-48 rounded-xl border border-gray-200 bg-white py-1 text-gray-900 shadow-md"
               >
                 {!menuMoveOpen ? (
                   <>
@@ -1437,7 +1437,7 @@ export function AgentPipelineTab({
                     No client account linked to this deal — link a client to send or request documents.
                   </p>
                 ) : docsPanelFlow === "request" ? (
-                  <div className="mt-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="mt-4 rounded-xl border border-gray-200 bg-white p-3 text-gray-900 shadow-md">
                     <label
                       className="block text-xs font-semibold text-gray-700"
                       htmlFor="panel-request-doc-type"
@@ -1484,7 +1484,7 @@ export function AgentPipelineTab({
                     </button>
                   </div>
                 ) : docsPanelFlow === "send" ? (
-                  <div className="mt-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="mt-4 rounded-xl border border-gray-200 bg-white p-3 text-gray-900 shadow-md">
                     <label
                       className="block text-xs font-semibold text-gray-700"
                       htmlFor="panel-send-doc-type"
@@ -1661,7 +1661,7 @@ export function AgentPipelineTab({
                   onChange={(e) =>
                     setDeclineReasonKey(e.target.value as (typeof DECLINE_REASON_OPTIONS)[number]["key"])
                   }
-                  className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                  className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-md"
                 >
                   {DECLINE_REASON_OPTIONS.map((o) => (
                     <option key={o.key} value={o.key}>
