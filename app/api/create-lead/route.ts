@@ -21,9 +21,10 @@ const viewingSchema = z.object({
 
 const bodySchema = z.discriminatedUnion("source", [contactSchema, viewingSchema]);
 
-/** New leads from contact flow enter as `new`. Viewing requests use pipeline `viewing`. */
+/** New leads from contact flow enter as `new`. Viewing-request leads start at pipeline Lead; agent moves to Viewing manually. */
 const NEW_LEAD_STAGE = "new" as const;
-const VIEWING_PIPELINE_STAGE = "viewing" as const;
+const VIEWING_PIPELINE_STAGE = "Lead" as const;
+const VIEWING_REQUEST_LEAD_STAGE = "active" as const;
 
 function esc(s: string): string {
   return s
@@ -206,7 +207,7 @@ export async function POST(req: Request) {
           .update({
             pipeline_stage: VIEWING_PIPELINE_STAGE,
             viewing_request_id: viewingRequestId,
-            stage: VIEWING_PIPELINE_STAGE,
+            stage: VIEWING_REQUEST_LEAD_STAGE,
           })
           .eq("id", existingLeadId);
         if (updErr) {
@@ -231,7 +232,7 @@ export async function POST(req: Request) {
           agent_id: agentUserId,
           client_id: session.userId,
           source: "viewing_request",
-          stage: VIEWING_PIPELINE_STAGE,
+          stage: VIEWING_REQUEST_LEAD_STAGE,
           pipeline_stage: VIEWING_PIPELINE_STAGE,
           viewing_request_id: viewingRequestId,
           property_id: propertyId,
@@ -258,7 +259,7 @@ export async function POST(req: Request) {
               .update({
                 pipeline_stage: VIEWING_PIPELINE_STAGE,
                 viewing_request_id: viewingRequestId,
-                stage: VIEWING_PIPELINE_STAGE,
+                stage: VIEWING_REQUEST_LEAD_STAGE,
               })
               .eq("id", raceLeadId);
             if (raceUpd) {
