@@ -20,20 +20,33 @@ import { useAuth } from "@/contexts/auth-context";
 import { useStreamChat } from "@/components/chat/stream-chat-provider";
 
 function CustomMessage() {
-  const { isMyMessage, message } = useMessageContext();
+  const { isMyMessage, message, groupStyles, firstOfGroup } = useMessageContext();
   const mine = isMyMessage();
   const createdAt = message.created_at
     ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
+  const showName = !mine && Boolean(message.user?.name) && (firstOfGroup || groupStyles?.includes("top") || groupStyles?.includes("single"));
 
   return (
-    <div className={`bhg-msg ${mine ? 'bhg-msg--mine' : 'bhg-msg--other'}`}>
+    <div
+      className={`bhg-msg ${mine ? 'bhg-msg--mine' : 'bhg-msg--other'}`}
+      style={{
+        display: "flex",
+        flexDirection: mine ? "row-reverse" : "row",
+        alignItems: "flex-end",
+        gap: "8px",
+        padding: "2px 8px",
+        width: "100%",
+      }}
+    >
       {!mine && (
-        <Avatar image={message.user?.image} name={message.user?.name || message.user?.id} />
+        <div style={{ width: 28, height: 28, flexShrink: 0 }}>
+          <Avatar image={message.user?.image} name={message.user?.name || message.user?.id} />
+        </div>
       )}
       <div className="bhg-msg__body">
-        {!mine && message.user?.name && (
-          <span className="bhg-msg__name">{message.user.name}</span>
+        {showName && (
+          <span className="bhg-msg__name">{message.user?.name}</span>
         )}
         <div className="bhg-msg__bubble">
           <MessageText />
@@ -166,7 +179,7 @@ export function AgentChatInbox(_props: {
           display: flex;
           align-items: flex-end;
           gap: 8px;
-          padding: 2px 12px;
+          padding: 2px 8px;
           width: 100%;
         }
         .bhg-msg--mine {
@@ -180,7 +193,7 @@ export function AgentChatInbox(_props: {
         .bhg-msg__body {
           display: flex;
           flex-direction: column;
-          max-width: 65%;
+          max-width: 80%;
         }
         .bhg-msg--mine .bhg-msg__body {
           align-items: flex-end;
@@ -192,14 +205,13 @@ export function AgentChatInbox(_props: {
           font-size: 11px;
           color: #999;
           margin-bottom: 2px;
-          font-family: Inter, sans-serif;
+          padding-left: 4px;
         }
         .bhg-msg__bubble {
-          padding: 8px 14px;
+          padding: 8px 12px;
           border-radius: 18px;
-          font-size: 14px;
-          line-height: 1.5;
-          font-family: Inter, sans-serif;
+          font-size: 13px;
+          line-height: 1.4;
         }
         .bhg-msg--mine .bhg-msg__bubble {
           background-color: #6B9E6E;
@@ -211,14 +223,12 @@ export function AgentChatInbox(_props: {
           color: #2C2C2C;
           border-bottom-left-radius: 4px;
         }
-        .bhg-msg__bubble p {
-          margin: 0 !important;
-        }
+        .bhg-msg__bubble p { margin: 0 !important; }
         .bhg-msg__time {
           font-size: 10px;
           color: #aaa;
           margin-top: 2px;
-          font-family: Inter, sans-serif;
+          padding-right: 4px;
         }
         .bahaygo-stream-chat .str-chat__list {
           padding: 8px 0 !important;
