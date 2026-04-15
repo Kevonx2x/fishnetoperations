@@ -26,11 +26,11 @@ function CustomMessage() {
         flexDirection: mine ? "row-reverse" : "row",
         alignItems: "flex-end",
         gap: "8px",
-        padding: "4px 16px",
+        padding: "4px 8px",
         width: "100%",
       }}
     >
-      {!mine && <Avatar image={message.user?.image} name={message.user?.name} size={32} />}
+      {!mine && <Avatar image={message.user?.image} name={message.user?.name} />}
       <div
         style={{
           maxWidth: "70%",
@@ -44,7 +44,6 @@ function CustomMessage() {
       >
         <MessageText />
       </div>
-      {mine && <Avatar image={message.user?.image} name={message.user?.name} size={32} />}
     </div>
   );
 }
