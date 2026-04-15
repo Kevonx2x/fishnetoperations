@@ -70,7 +70,7 @@ export async function POST(req: Request) {
     ]);
 
     const sorted = [agentId, clientId].sort((a, b) => a.localeCompare(b));
-    const channelId = `${sorted[0]}-${sorted[1]}`;
+    const channelId = `${sorted[0].slice(0, 8)}-${sorted[1].slice(0, 8)}`;
     const meta = body.metadata ?? {};
     const channelData = {
       ...(meta.property_id ? { property_id: meta.property_id } : {}),
@@ -99,6 +99,7 @@ export async function POST(req: Request) {
 
     const channel = stream.channel("messaging", channelId, {
       members: [agentId, clientId],
+      created_by_id: clientId,
       ...channelData,
     });
     try {
