@@ -87,7 +87,7 @@ function AgentChatBody({
   );
 
   return (
-    <div className="flex flex-col md:grid md:grid-cols-[300px_1fr] h-[600px] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] shadow-sm">
+    <div className="h-[calc(100vh-180px)] md:h-[600px] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] shadow-sm flex flex-col md:grid md:grid-cols-[300px_1fr]">
       <div
         className={`w-full shrink-0 border-b border-[#2C2C2C]/10 md:border-b-0 md:border-r md:border-[#2C2C2C]/10 ${
           mobileView === "thread" ? "max-md:hidden" : ""
