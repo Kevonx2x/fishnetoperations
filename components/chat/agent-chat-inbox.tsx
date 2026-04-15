@@ -76,7 +76,10 @@ function AgentChannelPreview(props: ChannelPreviewUIComponentProps) {
   return (
     <button
       type="button"
-      onClick={onSelect}
+      onClick={() => {
+        console.log("[agent-chat-inbox] select channel", channel.id);
+        onSelect?.();
+      }}
       className={cn(
         "flex w-full items-center gap-3 border-b border-[#2C2C2C]/10 px-4 py-3 text-left transition hover:bg-white/80",
         active ? "bg-white" : "bg-transparent",
