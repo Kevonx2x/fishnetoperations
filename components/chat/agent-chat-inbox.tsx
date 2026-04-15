@@ -19,30 +19,23 @@ import { useStreamChat } from "@/components/chat/stream-chat-provider";
 function CustomMessage() {
   const { isMyMessage, message } = useMessageContext();
   const mine = isMyMessage();
+  const createdAt = message.created_at
+    ? new Date(message.created_at as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '';
+
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: mine ? "row-reverse" : "row",
-        alignItems: "flex-end",
-        gap: "8px",
-        padding: "4px 8px",
-        width: "100%",
-      }}
-    >
-      {!mine && <Avatar image={message.user?.image} name={message.user?.name} />}
-      <div
-        style={{
-          maxWidth: "70%",
-          backgroundColor: mine ? "#6B9E6E" : "#F0F0F0",
-          color: mine ? "white" : "#2C2C2C",
-          borderRadius: mine ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-          padding: "8px 14px",
-          fontSize: "14px",
-          lineHeight: "1.5",
-        }}
-      >
-        <MessageText />
+    <div className={`bhg-msg ${mine ? 'bhg-msg--mine' : 'bhg-msg--other'}`}>
+      {!mine && (
+        <Avatar image={message.user?.image} name={message.user?.name || message.user?.id} />
+      )}
+      <div className="bhg-msg__body">
+        {!mine && message.user?.name && (
+          <span className="bhg-msg__name">{message.user.name}</span>
+        )}
+        <div className="bhg-msg__bubble">
+          <MessageText />
+        </div>
+        {createdAt && <span className="bhg-msg__time">{createdAt}</span>}
       </div>
     </div>
   );
@@ -76,31 +69,69 @@ export function AgentChatInbox(_props: {
   return (
     <div className="bahaygo-stream-chat h-[600px] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 shadow-sm">
       <style jsx global>{`
+        .bhg-msg {
+          display: flex;
+          align-items: flex-end;
+          gap: 8px;
+          padding: 2px 12px;
+          width: 100%;
+        }
+        .bhg-msg--mine {
+          flex-direction: row-reverse;
+          justify-content: flex-start;
+        }
+        .bhg-msg--other {
+          flex-direction: row;
+          justify-content: flex-start;
+        }
+        .bhg-msg__body {
+          display: flex;
+          flex-direction: column;
+          max-width: 65%;
+        }
+        .bhg-msg--mine .bhg-msg__body {
+          align-items: flex-end;
+        }
+        .bhg-msg--other .bhg-msg__body {
+          align-items: flex-start;
+        }
+        .bhg-msg__name {
+          font-size: 11px;
+          color: #999;
+          margin-bottom: 2px;
+          font-family: Inter, sans-serif;
+        }
+        .bhg-msg__bubble {
+          padding: 8px 14px;
+          border-radius: 18px;
+          font-size: 14px;
+          line-height: 1.5;
+          font-family: Inter, sans-serif;
+        }
+        .bhg-msg--mine .bhg-msg__bubble {
+          background-color: #6B9E6E;
+          color: white;
+          border-bottom-right-radius: 4px;
+        }
+        .bhg-msg--other .bhg-msg__bubble {
+          background-color: #F0F0F0;
+          color: #2C2C2C;
+          border-bottom-left-radius: 4px;
+        }
+        .bhg-msg__bubble p {
+          margin: 0 !important;
+        }
+        .bhg-msg__time {
+          font-size: 10px;
+          color: #aaa;
+          margin-top: 2px;
+          font-family: Inter, sans-serif;
+        }
         .bahaygo-stream-chat .str-chat__list {
-          padding: 16px !important;
-          display: flex !important;
-          flex-direction: column !important;
+          padding: 8px 0 !important;
         }
-        .bahaygo-stream-chat .str-chat__message-simple {
-          display: flex !important;
-          width: 100% !important;
-          justify-content: flex-start !important;
-        }
-        .bahaygo-stream-chat .str-chat__message--me {
-          justify-content: flex-end !important;
-        }
-        .bahaygo-stream-chat .str-chat__message-inner {
-          max-width: 70% !important;
-        }
-        .bahaygo-stream-chat .str-chat__message--me .str-chat__message-inner {
-          align-items: flex-end !important;
-        }
-        .bahaygo-stream-chat .str-chat__message--me .str-chat__message-bubble {
-          background-color: #6B9E6E !important;
-          color: white !important;
-        }
-        .bahaygo-stream-chat .str-chat__message-bubble {
-          border-radius: 18px !important;
+        .bahaygo-stream-chat .str-chat__li {
+          padding: 0 !important;
         }
       `}</style>
       <Chat client={client} theme="messaging light">
