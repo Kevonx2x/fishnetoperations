@@ -703,9 +703,12 @@ export function MaddenTopNav() {
                           </Link>
                           {role === "client" && user?.id ? (
                             <Link
-                              href={`/clients/${user.id}?tab=messages`}
+                              href={`/clients/${user.id}`}
                               className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                              onClick={() => setAccountOpen(false)}
+                              onClick={() => {
+                                setAccountOpen(false);
+                                window.dispatchEvent(new CustomEvent("openMessagesTab"));
+                              }}
                             >
                               <MessageSquare className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
                               Messages

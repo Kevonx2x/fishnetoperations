@@ -1421,10 +1421,8 @@ function ClientPublicProfilePageInner() {
               </h2>
 
               {desktopMessagesTab ? (
-                <div className="mt-4 h-[600px] w-full">
-                  <StreamChatProvider>
-                    <ClientChatView initialChannelId={searchParams.get("channel")} />
-                  </StreamChatProvider>
+                <div className="mt-4 h-[600px] w-full rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 text-sm font-semibold text-[#2C2C2C]/70 shadow-sm">
+                  Please open Messages from your profile dashboard.
                 </div>
               ) : !isOwn && !canSeeWishlist ? (
                 <div className="mt-8 rounded-2xl border border-[#D4A843]/40 bg-gradient-to-br from-[#FAF8F4] to-white p-8 text-center shadow-sm">

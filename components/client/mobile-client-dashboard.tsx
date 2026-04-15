@@ -766,6 +766,13 @@ export function MobileClientDashboard() {
     if (ch) setStreamChannelId(ch);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => setMainTab("messages");
+    window.addEventListener("openMessagesTab", handler as EventListener);
+    return () => window.removeEventListener("openMessagesTab", handler as EventListener);
+  }, []);
+
   const feed = useClientActivityFeed(user?.id);
   const {
     loading,

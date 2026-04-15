@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Bell, Home } from "lucide-react";
+import { Bell, Home, MessageSquare } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +21,7 @@ export function ClientMobileBottomNav({
 }) {
   const initial = fullName.trim().slice(0, 1).toUpperCase() || "?";
   const profileHref = `/clients/${encodeURIComponent(userId)}`;
+  const messagesHref = `/clients/${encodeURIComponent(userId)}?tab=messages`;
   const profileActive = pathname.startsWith("/clients/");
 
   const Item = ({
@@ -61,6 +62,7 @@ export function ClientMobileBottomNav({
           ) : null}
         </span>
       </Item>
+      <Item href={messagesHref} label="Messages" icon={MessageSquare} active={false} />
       <Link
         href={profileHref}
         className={cn(
