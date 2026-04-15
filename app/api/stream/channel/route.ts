@@ -89,7 +89,7 @@ export async function POST(req: Request) {
       if (Object.keys(channelData).length > 0) {
         try {
           const ch = stream.channel("messaging", channelId);
-          await ch.updatePartial({ set: channelData });
+          await ch.updatePartial({ set: channelData as Record<string, unknown> });
         } catch {
           // best-effort metadata update
         }
