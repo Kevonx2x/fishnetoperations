@@ -1,10 +1,53 @@
 "use client";
 
 import { useMemo } from "react";
-import { Channel, ChannelList, Chat, MessageInput, MessageList, Window } from "stream-chat-react";
+import {
+  Avatar,
+  Channel,
+  ChannelList,
+  Chat,
+  MessageInput,
+  MessageList,
+  MessageText,
+  Window,
+  useMessageContext,
+} from "stream-chat-react";
 import "stream-chat-react/dist/css/v2/index.css";
 import { useAuth } from "@/contexts/auth-context";
 import { useStreamChat } from "@/components/chat/stream-chat-provider";
+
+function CustomMessage() {
+  const { isMyMessage, message } = useMessageContext();
+  const mine = isMyMessage();
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: mine ? "row-reverse" : "row",
+        alignItems: "flex-end",
+        gap: "8px",
+        padding: "4px 16px",
+        width: "100%",
+      }}
+    >
+      {!mine && <Avatar image={message.user?.image} name={message.user?.name} size={32} />}
+      <div
+        style={{
+          maxWidth: "70%",
+          backgroundColor: mine ? "#6B9E6E" : "#F0F0F0",
+          color: mine ? "white" : "#2C2C2C",
+          borderRadius: mine ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+          padding: "8px 14px",
+          fontSize: "14px",
+          lineHeight: "1.5",
+        }}
+      >
+        <MessageText />
+      </div>
+      {mine && <Avatar image={message.user?.image} name={message.user?.name} size={32} />}
+    </div>
+  );
+}
 
 export function ClientChatView(_props: {
   initialChannelId?: string | null;
@@ -33,33 +76,31 @@ export function ClientChatView(_props: {
   return (
     <div className="bahaygo-stream-chat h-[600px] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 shadow-sm">
       <style jsx global>{`
-        .bahaygo-stream-chat {
-          --str-chat__primary-color: #6b9e6e;
-          --str-chat__active-primary-color: #5d8a60;
-          --str-chat__background-color: #faf8f4;
-          --str-chat__secondary-background-color: #ffffff;
-          --str-chat__own-message-bubble-background-color: #6b9e6e;
-          --str-chat__own-message-bubble-color: #ffffff;
-          --str-chat__font-family: Inter, sans-serif;
-        }
-        .bahaygo-stream-chat .str-chat__avatar {
+        .bahaygo-stream-chat .str-chat__list {
+          padding: 16px !important;
           display: flex !important;
-          visibility: visible !important;
+          flex-direction: column !important;
         }
-        .bahaygo-stream-chat .str-chat__avatar img {
+        .bahaygo-stream-chat .str-chat__message-simple {
+          display: flex !important;
           width: 100% !important;
-          height: 100% !important;
-          object-fit: cover !important;
-          border-radius: 9999px !important;
+          justify-content: flex-start !important;
         }
-        .bahaygo-stream-chat .str-chat__input-flat {
-          min-height: 56px !important;
-          padding: 12px 16px !important;
-          font-size: 15px !important;
+        .bahaygo-stream-chat .str-chat__message--me {
+          justify-content: flex-end !important;
         }
-        .bahaygo-stream-chat .str-chat__textarea textarea {
-          min-height: 40px !important;
-          font-size: 15px !important;
+        .bahaygo-stream-chat .str-chat__message-inner {
+          max-width: 70% !important;
+        }
+        .bahaygo-stream-chat .str-chat__message--me .str-chat__message-inner {
+          align-items: flex-end !important;
+        }
+        .bahaygo-stream-chat .str-chat__message--me .str-chat__message-bubble {
+          background-color: #6B9E6E !important;
+          color: white !important;
+        }
+        .bahaygo-stream-chat .str-chat__message-bubble {
+          border-radius: 18px !important;
         }
       `}</style>
       <Chat client={client} theme="messaging light">
@@ -74,7 +115,7 @@ export function ClientChatView(_props: {
           <div className="flex-1">
             <Channel>
               <Window>
-                <MessageList />
+                <MessageList Message={CustomMessage} />
                 <MessageInput />
               </Window>
             </Channel>
