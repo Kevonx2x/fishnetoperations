@@ -287,7 +287,7 @@ export function ClientChatView(_props: {
   }
 
   return (
-    <div className="bahaygo-stream-chat relative z-0 flex w-full flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm h-[calc(100vh-200px)] md:h-[600px] md:min-h-0 md:bg-transparent">
+    <div className="bahaygo-stream-chat relative z-0 flex w-full h-full flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm md:h-[600px] md:min-h-0 md:bg-transparent">
       <style jsx global>{`
         .bhg-msg {
           display: flex;

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeft,
   Bell,
   Bookmark,
   Calendar,
@@ -1132,11 +1133,19 @@ export function MobileClientDashboard() {
             <SavedPinsTab savedRows={savedRowsPinnedActive} likes={likes} pins={pins} engagement={engagement} />
           </div>
         ) : mainTab === "messages" ? (
-          <StreamChatProvider>
-            <div className="fixed inset-0 z-[9999] bg-white overflow-hidden">
-              <ClientChatView initialChannelId={streamChannelId} />
+          <div className="fixed inset-0 z-[9999] flex flex-col bg-white overflow-hidden">
+            <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
+              <button type="button" onClick={() => setMainTab("all")} className="p-1">
+                <ArrowLeft className="h-5 w-5 text-[#2C2C2C]" />
+              </button>
+              <span className="font-semibold text-[#2C2C2C]">Messages</span>
             </div>
-          </StreamChatProvider>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <StreamChatProvider>
+                <ClientChatView initialChannelId={streamChannelId} />
+              </StreamChatProvider>
+            </div>
+          </div>
         ) : mainTab === "likes" ? (
           <div>
             <ListingSubTabs mode={listingMode} onChange={setListingMode} />
