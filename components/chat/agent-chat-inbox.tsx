@@ -114,34 +114,22 @@ function AgentChatBody({
         />
       </div>
       <div className={`min-h-0 flex flex-1 flex-col ${mobileView === "list" ? "max-md:hidden" : ""}`}>
-        <Channel>
-          <div className="flex shrink-0 items-center gap-2 border-b border-[#2C2C2C]/10 bg-white px-2 py-2 md:hidden">
-            <button
-              type="button"
-              onClick={handleBackToList}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#2C2C2C] transition hover:bg-black/5"
-              aria-label="Back to conversations"
-            >
-              <ArrowLeft className="h-5 w-5" strokeWidth={2} />
+        <div className="flex flex-col h-full">
+          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 md:hidden">
+            <button type="button" onClick={handleBackToList}>
+              <ArrowLeft className="h-5 w-5" />
             </button>
-            <Avatar
-              image={peerUser?.image}
-              name={peerUser?.name || peerUser?.id || ""}
-              className="h-9 w-9 [&_.str-chat__avatar-fallback]:text-sm"
-            />
-            <span className="min-w-0 flex-1 truncate font-sans text-sm font-semibold text-[#2C2C2C]">
-              {peerUser?.name?.trim() || peerUser?.id || "Conversation"}
-            </span>
+            <span className="font-semibold">{peerUser?.name?.trim() || peerUser?.id || "Conversation"}</span>
           </div>
-          <Window>
-            <div className="flex min-h-0 flex-1 flex-col bg-white">
-              <div className="min-h-0 flex-1 max-md:overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <Channel>
+              <Window>
                 <MessageList Message={CustomMessage} />
-              </div>
-              <MessageInput />
-            </div>
-          </Window>
-        </Channel>
+                <MessageInput />
+              </Window>
+            </Channel>
+          </div>
+        </div>
       </div>
     </div>
   );
