@@ -21,6 +21,7 @@ import {
   Mail,
   MapPin,
   MoreHorizontal,
+  MessageSquare,
   Pencil,
   Plus,
   Star,
@@ -53,7 +54,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { StartChatButton } from "@/components/chat/start-chat-button";
 
 type AgentRow = {
   id: string;
@@ -761,7 +761,12 @@ export default function AgentProfilePage() {
     [authLoading, user],
   );
 
-  const onMessageAgent = useCallback(async () => {
+  const onMessageAgent = useCallback(async (opts?: {
+    propertyId?: string | null;
+    propertyName?: string | null;
+    propertyPrice?: string | null;
+    propertyImage?: string | null;
+  }) => {
     if (authLoading || messageBusy) return;
     if (!user?.id) {
       router.push("/login");
@@ -770,11 +775,21 @@ export default function AgentProfilePage() {
     if (!agent?.user_id || user.id === agent.user_id) return;
     setMessageBusy(true);
     try {
+      const metadata = {
+        property_id: opts?.propertyId ?? null,
+        property_name: opts?.propertyName ?? null,
+        property_price: opts?.propertyPrice ?? null,
+        property_image: opts?.propertyImage ?? null,
+      };
       const res = await fetch("/api/stream/channel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ agent_id: agent.user_id, client_id: user.id }),
+        body: JSON.stringify({
+          agent_user_id: agent.user_id,
+          client_user_id: user.id,
+          metadata,
+        }),
       });
       const json = (await res.json().catch(() => ({}))) as { channel_id?: string; error?: string };
       if (!res.ok || !json.channel_id) {
@@ -949,6 +964,7 @@ export default function AgentProfilePage() {
                         disabled={authLoading || messageBusy}
                         className="flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-6 py-3 font-medium text-white disabled:opacity-50"
                       >
+                        <MessageSquare className="mr-2 h-4 w-4 shrink-0" aria-hidden />
                         Message
                       </button>
                     ) : null}
@@ -1347,6 +1363,22 @@ export default function AgentProfilePage() {
                                     <Mail className="h-3.5 w-3.5" />
                                     Contact Agent
                                   </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      void onMessageAgent({
+                                        propertyId: p.id,
+                                        propertyName: title,
+                                        propertyPrice: formatPropertyPriceDisplay(p.price, p.status),
+                                        propertyImage: p.image_url ?? null,
+                                      })
+                                    }
+                                    disabled={authLoading || messageBusy}
+                                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-[#5d8a60] disabled:opacity-50 sm:w-auto"
+                                  >
+                                    <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                                    Message
+                                  </button>
                                   {p.is_presale ? (
                                     <Link
                                       href={`/properties/${encodeURIComponent(p.id)}#presale-interest`}
@@ -1585,7 +1617,22 @@ export default function AgentProfilePage() {
                                                             >
                                                               {leadAdded ? "✓ Lead Added" : "+ Add as Lead"}
                                                             </button>
-                                                            <StartChatButton agentId={agent.user_id} clientId={u.id} />
+                                                            <button
+                                                              type="button"
+                                                              onClick={() =>
+                                                                void onMessageAgent({
+                                                                  propertyId: p.id,
+                                                                  propertyName: title,
+                                                                  propertyPrice: formatPropertyPriceDisplay(p.price, p.status),
+                                                                  propertyImage: p.image_url ?? null,
+                                                                })
+                                                              }
+                                                              disabled={messageBusy}
+                                                              className="rounded-full bg-[#6B9E6E] px-6 py-3 font-medium text-white disabled:opacity-50"
+                                                            >
+                                                              <MessageSquare className="mr-2 inline-block h-4 w-4 align-[-2px]" aria-hidden />
+                                                              Message
+                                                            </button>
                                                             </div>
                                                           </>
                                                         ) : null}

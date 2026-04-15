@@ -10,17 +10,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let body: { agent_id?: string; client_id?: string };
+    let body: {
+      agent_id?: string;
+      client_id?: string;
+      agent_user_id?: string;
+      client_user_id?: string;
+      metadata?: {
+        property_id?: string | null;
+        property_name?: string | null;
+        property_price?: string | null;
+        property_image?: string | null;
+      };
+    };
     try {
-      body = (await req.json()) as { agent_id?: string; client_id?: string };
+      body = (await req.json()) as typeof body;
     } catch {
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
-    const agentId = body.agent_id?.trim();
-    const clientId = body.client_id?.trim();
+    const agentId = (body.agent_user_id ?? body.agent_id)?.trim();
+    const clientId = (body.client_user_id ?? body.client_id)?.trim();
     if (!agentId || !clientId) {
-      return NextResponse.json({ error: "agent_id and client_id are required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "agent_user_id and client_user_id are required" },
+        { status: 400 },
+      );
     }
 
     if (agentId === clientId) {
@@ -57,6 +71,13 @@ export async function POST(req: Request) {
 
     const sorted = [agentId, clientId].sort((a, b) => a.localeCompare(b));
     const channelId = `${sorted[0]}-${sorted[1]}`;
+    const meta = body.metadata ?? {};
+    const channelData = {
+      ...(meta.property_id ? { property_id: meta.property_id } : {}),
+      ...(meta.property_name ? { property_name: meta.property_name } : {}),
+      ...(meta.property_price ? { property_price: meta.property_price } : {}),
+      ...(meta.property_image ? { property_image: meta.property_image } : {}),
+    };
 
     const existing = await stream.queryChannels(
       { type: "messaging", id: channelId },
@@ -65,11 +86,20 @@ export async function POST(req: Request) {
     );
 
     if (existing.length > 0) {
+      if (Object.keys(channelData).length > 0) {
+        try {
+          const ch = stream.channel("messaging", channelId);
+          await ch.updatePartial({ set: channelData });
+        } catch {
+          // best-effort metadata update
+        }
+      }
       return NextResponse.json({ channel_id: channelId });
     }
 
     const channel = stream.channel("messaging", channelId, {
       members: [agentId, clientId],
+      ...channelData,
     });
     try {
       await channel.create();
