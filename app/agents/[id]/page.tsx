@@ -25,7 +25,6 @@ import {
   Plus,
   Star,
   Trophy,
-  ChevronDown,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
@@ -54,14 +53,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-
-const ENGAGEMENT_MESSAGE_PRESETS = [
-  "Hi! I saw you liked my listing. Would you like to schedule a viewing?",
-  "Hi! Are you still interested in this property? I'd love to help.",
-  "Hi! I noticed you saved my listing. Let me know if you have any questions!",
-  "Hi! This property is still available. Want to book a viewing this week?",
-] as const;
+import { StartChatButton } from "@/components/chat/start-chat-button";
 
 type AgentRow = {
   id: string;
@@ -385,9 +377,6 @@ export default function AgentProfilePage() {
   /** Own listing cards: which face is shown; `likes` / `pins` = back side with that list. */
   const [listingFlipById, setListingFlipById] = useState<Record<string, "front" | "likes" | "pins">>({});
   const [markingStatus, setMarkingStatus] = useState(false);
-  const [engagementMessageDraft, setEngagementMessageDraft] = useState<Record<string, string>>({});
-  const [engagementMessageSentBanner, setEngagementMessageSentBanner] = useState<Record<string, boolean>>({});
-  const [engagementMessageBannerFading, setEngagementMessageBannerFading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -1558,148 +1547,7 @@ export default function AgentProfilePage() {
                                                             >
                                                               {leadAdded ? "✓ Lead Added" : "+ Add as Lead"}
                                                             </button>
-                                                            <Popover>
-                                                              <PopoverTrigger asChild>
-                                                                <button
-                                                                  type="button"
-                                                                  className="inline-flex items-center justify-center gap-0.5 rounded-lg bg-[#6B9E6E] px-3 py-1 text-xs font-semibold text-white"
-                                                                >
-                                                                  Message
-                                                                  <ChevronDown className="h-3 w-3 shrink-0 opacity-90" />
-                                                                </button>
-                                                              </PopoverTrigger>
-                                                                  <PopoverContent
-                                                                    align="end"
-                                                                    side="bottom"
-                                                                    className="w-[min(calc(100vw-2rem),18rem)] bg-white p-3 text-gray-900 shadow-md ring-1 ring-gray-200"
-                                                                  >
-                                                                    {engagementMessageSentBanner[leadKey] ? (
-                                                                      <div
-                                                                        className={`mb-3 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-800 transition-opacity duration-300 ${
-                                                                          engagementMessageBannerFading[leadKey]
-                                                                            ? "opacity-0"
-                                                                            : "opacity-100"
-                                                                        }`}
-                                                                      >
-                                                                        ✅ Message sent to {label}!
-                                                                      </div>
-                                                                    ) : null}
-                                                                    <p className="text-[10px] font-bold uppercase tracking-wide text-gray-900">
-                                                                      Quick messages
-                                                                    </p>
-                                                                    <div className="mt-2 space-y-1">
-                                                                      {ENGAGEMENT_MESSAGE_PRESETS.map((msg) => (
-                                                                        <button
-                                                                          key={msg}
-                                                                          type="button"
-                                                                          onClick={() => {
-                                                                            setEngagementMessageDraft((prev) => ({
-                                                                              ...prev,
-                                                                              [leadKey]: msg,
-                                                                            }));
-                                                                          }}
-                                                                          className="w-full rounded-xl border border-gray-200 bg-[#FAF8F4] px-2 py-2 text-left text-xs font-medium text-gray-800"
-                                                                        >
-                                                                          {msg}
-                                                                        </button>
-                                                                      ))}
-                                                                    </div>
-                                                                    <div className="mt-3 border-t border-gray-200 pt-3">
-                                                                      <div className="flex items-center gap-2">
-                                                                        <input
-                                                                          type="text"
-                                                                          value={engagementMessageDraft[leadKey] ?? ""}
-                                                                          onChange={(e) =>
-                                                                            setEngagementMessageDraft((prev) => ({
-                                                                              ...prev,
-                                                                              [leadKey]: e.target.value,
-                                                                            }))
-                                                                          }
-                                                                          placeholder="Write your own message…"
-                                                                          className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-2 text-xs text-gray-900 placeholder:text-gray-500"
-                                                                        />
-                                                                        <button
-                                                                          type="button"
-                                                                          className="shrink-0 rounded-lg p-2 text-gray-900 hover:bg-gray-100"
-                                                                          aria-label="Edit message"
-                                                                        >
-                                                                          <Pencil className="h-4 w-4" />
-                                                                        </button>
-                                                                      </div>
-                                                                      <button
-                                                                        type="button"
-                                                                        disabled={!engagementMessageDraft[leadKey]?.trim()}
-                                                                        onClick={() => {
-                                                                          void (async () => {
-                                                                            if (!agent) return;
-                                                                            const msg = engagementMessageDraft[leadKey];
-                                                                            if (!msg?.trim()) return;
-                                                                            const res = await fetch(
-                                                                              "/api/agent/engagement-notify-client",
-                                                                              {
-                                                                                method: "POST",
-                                                                                headers: {
-                                                                                  "Content-Type": "application/json",
-                                                                                },
-                                                                                body: JSON.stringify({
-                                                                                  propertyId: p.id,
-                                                                                  recipientUserId: u.id,
-                                                                                  message: msg,
-                                                                                  agentFullName: agent.name,
-                                                                                }),
-                                                                              },
-                                                                            );
-                                                                            const data = (await res
-                                                                              .json()
-                                                                              .catch(() => null)) as {
-                                                                              success?: boolean;
-                                                                              error?: { message?: string };
-                                                                            } | null;
-                                                                            if (!res.ok || !data?.success) {
-                                                                              toast.error(
-                                                                                data?.error?.message ??
-                                                                                  "Could not send message.",
-                                                                              );
-                                                                              return;
-                                                                            }
-                                                                            setEngagementMessageSentBanner((prev) => ({
-                                                                              ...prev,
-                                                                              [leadKey]: true,
-                                                                            }));
-                                                                            setEngagementMessageBannerFading((prev) => ({
-                                                                              ...prev,
-                                                                              [leadKey]: false,
-                                                                            }));
-                                                                            setEngagementMessageDraft((prev) => {
-                                                                              const next = { ...prev };
-                                                                              delete next[leadKey];
-                                                                              return next;
-                                                                            });
-                                                                            window.setTimeout(() => {
-                                                                              setEngagementMessageBannerFading((prev) => ({
-                                                                                ...prev,
-                                                                                [leadKey]: true,
-                                                                              }));
-                                                                            }, 2700);
-                                                                            window.setTimeout(() => {
-                                                                              setEngagementMessageSentBanner((prev) => ({
-                                                                                ...prev,
-                                                                                [leadKey]: false,
-                                                                              }));
-                                                                              setEngagementMessageBannerFading((prev) => ({
-                                                                                ...prev,
-                                                                                [leadKey]: false,
-                                                                              }));
-                                                                            }, 3000);
-                                                                          })();
-                                                                        }}
-                                                                        className="mt-3 w-full rounded-full bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white disabled:pointer-events-none disabled:opacity-50"
-                                                                      >
-                                                                        Send Message
-                                                                      </button>
-                                                                    </div>
-                                                                  </PopoverContent>
-                                                                </Popover>
+                                                            <StartChatButton agentId={agent.user_id} clientId={u.id} />
                                                             </div>
                                                           </>
                                                         ) : null}

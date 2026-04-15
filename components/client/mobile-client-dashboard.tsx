@@ -19,6 +19,7 @@ import {
   LayoutGrid,
   Lock,
   MapPin,
+  MessageSquare,
   Pencil,
   Pin,
   Search,
@@ -73,6 +74,8 @@ import {
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { ClientChatView } from "@/components/chat/client-chat-view";
+import { StreamChatProvider } from "@/components/chat/stream-chat-provider";
 
 const FEED_CARD_CLASS =
   "rounded-2xl border border-gray-100 bg-white text-gray-900 shadow-md transition-transform duration-150 active:scale-95 md:hover:shadow-lg";
@@ -179,7 +182,7 @@ export function filterFeedGroupedByActiveEngagement(
     .filter((g) => g.items.length > 0);
 }
 
-type MainTab = "my_profile" | "all" | "pins" | "likes" | "badges" | "documents";
+type MainTab = "my_profile" | "all" | "pins" | "messages" | "likes" | "badges" | "documents";
 
 const BADGE_UNLOCK_PILL: Record<BadgeSlug, string> = {
   "first-save": "Save 1 property",
@@ -751,8 +754,17 @@ export function MobileClientDashboard() {
   const pathname = usePathname();
 
   const [mainTab, setMainTab] = useState<MainTab>("all");
+  const [streamChannelId, setStreamChannelId] = useState<string | null>(null);
   const [listingMode, setListingMode] = useState<ListingMode>("rent");
   const [viewBusyUrl, setViewBusyUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("tab") === "messages") setMainTab("messages");
+    const ch = sp.get("channel");
+    if (ch) setStreamChannelId(ch);
+  }, []);
 
   const feed = useClientActivityFeed(user?.id);
   const {
@@ -932,6 +944,7 @@ export function MobileClientDashboard() {
               ["all", "All", LayoutGrid],
               ["pins", "Pins", Pin],
               ["likes", "Likes", Heart],
+              ["messages", "Messages", MessageSquare],
               ["badges", "Badges", Star],
               ["documents", "Documents", FileText],
             ] as const
@@ -1111,6 +1124,10 @@ export function MobileClientDashboard() {
             <ListingSubTabs mode={listingMode} onChange={setListingMode} />
             <SavedPinsTab savedRows={savedRowsPinnedActive} likes={likes} pins={pins} engagement={engagement} />
           </div>
+        ) : mainTab === "messages" ? (
+          <StreamChatProvider>
+            <ClientChatView initialChannelId={streamChannelId} />
+          </StreamChatProvider>
         ) : mainTab === "likes" ? (
           <div>
             <ListingSubTabs mode={listingMode} onChange={setListingMode} />

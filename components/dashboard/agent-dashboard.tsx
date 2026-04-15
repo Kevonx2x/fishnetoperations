@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
   LayoutList,
   Loader2,
+  MessageSquare,
   MoreHorizontal,
   Settings,
     Sparkles,
@@ -30,6 +31,8 @@ import { AgentBillingTab } from "@/components/dashboard/agent-billing-tab";
 import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
 import { AgentPipelineTab, type PipelineStageId } from "@/components/dashboard/agent-pipeline-tab";
+import { AgentChatInbox } from "@/components/chat/agent-chat-inbox";
+import { StreamChatProvider } from "@/components/chat/stream-chat-provider";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
@@ -81,6 +84,7 @@ import { formatRelativeTime } from "@/lib/relative-time";
 type Tab =
   | "overview"
   | "pipeline"
+  | "messages"
   | "listings"
   | "profile"
   | "analytics"
@@ -492,6 +496,7 @@ export function AgentDashboard() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [tab, setTab] = useState<Tab>("pipeline");
+  const [streamChannelId, setStreamChannelId] = useState<string | null>(null);
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [paymentBannerTier, setPaymentBannerTier] = useState<string | null>(null);
@@ -504,9 +509,12 @@ export function AgentDashboard() {
     const editProp = sp.get("editProperty");
     if (editProp) pendingEditPropertyIdRef.current = editProp;
     const raw = sp.get("tab");
+    const ch = sp.get("channel");
+    if (ch) setStreamChannelId(ch);
     const allowed: Tab[] = [
       "overview",
       "pipeline",
+      "messages",
       "listings",
       "profile",
       "analytics",
@@ -1485,6 +1493,7 @@ export function AgentDashboard() {
   const allTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "overview", label: "Overview", icon: <LayoutDashboard className="h-5 w-5" /> },
     { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-5 w-5" /> },
+    { id: "messages", label: "Messages", icon: <MessageSquare className="h-5 w-5" /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" /> },
     { id: "listings", label: "Listings", icon: <LayoutList className="h-5 w-5" /> },
     { id: "billing", label: "Billing", icon: <CreditCard className="h-5 w-5" /> },
@@ -1496,7 +1505,7 @@ export function AgentDashboard() {
     : allTabs.filter((t) => t.id !== "pipeline" && t.id !== "listings");
 
   const mobilePrimaryTabIds: Tab[] = identityVerified ? ["overview", "pipeline", "listings"] : ["overview"];
-  const mobileMoreTabIds: Tab[] = ["analytics", "billing", "profile"];
+  const mobileMoreTabIds: Tab[] = ["messages", "analytics", "billing", "profile"];
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
@@ -1609,6 +1618,11 @@ export function AgentDashboard() {
                     if (row) setSelectedLead(row);
                   }}
                 />
+              )}
+              {tab === "messages" && user && (
+                <StreamChatProvider>
+                  <AgentChatInbox initialChannelId={streamChannelId} />
+                </StreamChatProvider>
               )}
               {tab === "analytics" && (
                 <AgentAnalyticsTab leads={leads} viewings={viewings} agent={agent} />
