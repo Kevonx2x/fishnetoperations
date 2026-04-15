@@ -26,8 +26,6 @@ import {
   type ClientPreferenceFields,
 } from "@/lib/client-profile-preferences";
 import { ClientMyDocumentsSidePanel } from "@/components/clients/client-my-documents-side-panel";
-import { ClientChatView } from "@/components/chat/client-chat-view";
-import { StreamChatProvider } from "@/components/chat/stream-chat-provider";
 import { MobileClientDashboard } from "@/components/client/mobile-client-dashboard";
 import { parseClientDocRequestParams } from "@/components/settings/client-documents-panel";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -891,21 +889,7 @@ function ClientPublicProfilePageInner() {
     notFound();
   }
 
-  if (
-    clientProfile &&
-    isOwn &&
-    profile?.role === "client" &&
-    isMobile
-  ) {
-    if (searchParams.get("tab") === "messages") {
-      return (
-        <div className="fixed inset-0 z-[9999] bg-white overflow-hidden">
-          <StreamChatProvider>
-            <ClientChatView initialChannelId={searchParams.get("channel")} />
-          </StreamChatProvider>
-        </div>
-      );
-    }
+  if (clientProfile && isOwn && profile?.role === "client" && isMobile) {
     return <MobileClientDashboard />;
   }
 

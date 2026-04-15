@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Bell,
   Bookmark,
   Calendar,
@@ -20,7 +19,6 @@ import {
   LayoutGrid,
   Lock,
   MapPin,
-  MessageSquare,
   Pencil,
   Pin,
   Search,
@@ -50,7 +48,6 @@ import {
   pickPropertyImage,
   normalizeBadgeSlug,
   metaStr,
-  stripPhoneDigits,
   oneProperty,
   BADGE_ORDER,
   type ListingMode,
@@ -61,7 +58,6 @@ import {
   type ClientDocRow,
   type SharedDocRow,
   type BadgeSlug,
-  type ClientPrefsRow,
   type FeedNotificationRow,
   type TimeBucket,
 } from "@/hooks/use-client-activity-feed";
@@ -75,8 +71,6 @@ import {
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { ClientChatView } from "@/components/chat/client-chat-view";
-import { StreamChatProvider } from "@/components/chat/stream-chat-provider";
 
 const FEED_CARD_CLASS =
   "rounded-2xl border border-gray-100 bg-white text-gray-900 shadow-md transition-transform duration-150 active:scale-95 md:hover:shadow-lg";
@@ -183,7 +177,7 @@ export function filterFeedGroupedByActiveEngagement(
     .filter((g) => g.items.length > 0);
 }
 
-type MainTab = "my_profile" | "all" | "pins" | "messages" | "likes" | "badges" | "documents";
+type MainTab = "my_profile" | "all" | "pins" | "likes" | "badges" | "documents";
 
 const BADGE_UNLOCK_PILL: Record<BadgeSlug, string> = {
   "first-save": "Save 1 property",
@@ -755,24 +749,8 @@ export function MobileClientDashboard() {
   const pathname = usePathname();
 
   const [mainTab, setMainTab] = useState<MainTab>("all");
-  const [streamChannelId, setStreamChannelId] = useState<string | null>(null);
   const [listingMode, setListingMode] = useState<ListingMode>("rent");
   const [viewBusyUrl, setViewBusyUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const sp = new URLSearchParams(window.location.search);
-    if (sp.get("tab") === "messages") setMainTab("messages");
-    const ch = sp.get("channel");
-    if (ch) setStreamChannelId(ch);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handler = () => setMainTab("messages");
-    window.addEventListener("openMessagesTab", handler as EventListener);
-    return () => window.removeEventListener("openMessagesTab", handler as EventListener);
-  }, []);
 
   const feed = useClientActivityFeed(user?.id);
   const {
