@@ -65,21 +65,13 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
           token,
         );
       }
-
-      if (cancelled) {
-        await chat.disconnectUser().catch(() => {});
-        return;
-      }
-
       clientRef.current = chat;
-      setClient(chat);
+      if (!cancelled) setClient(chat);
     })();
 
     return () => {
       cancelled = true;
-      const c = clientRef.current;
       clientRef.current = null;
-      void c?.disconnectUser().catch(() => {});
       setClient(null);
     };
   }, [authLoading, user?.id, user?.email, supabase]);
