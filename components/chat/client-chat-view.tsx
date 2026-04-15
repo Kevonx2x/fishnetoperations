@@ -163,10 +163,12 @@ function AirbnbMessage(props: MessageUIComponentProps) {
 }
 
 function AirbnbMessageInput() {
-  const { text, handleChange, handleSubmit } = useMessageInputContext();
+  const { handleSubmit } = useMessageInputContext();
+  const [inputText, setInputText] = useState("");
   const submitMessage = (e?: React.BaseSyntheticEvent) => {
     e?.preventDefault?.();
     void handleSubmit(e ?? ({} as React.BaseSyntheticEvent));
+    setInputText("");
   };
   return (
     <form
@@ -174,8 +176,8 @@ function AirbnbMessageInput() {
       className="flex items-center gap-2 border-t border-[#2C2C2C]/10 bg-white px-3 py-3"
     >
       <input
-        value={text}
-        onChange={handleChange}
+        value={inputText}
+        onChange={(e) => setInputText(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
             submitMessage(e);
