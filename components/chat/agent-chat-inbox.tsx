@@ -20,7 +20,7 @@ function CustomMessage() {
   const { isMyMessage, message } = useMessageContext();
   const mine = isMyMessage();
   const createdAt = message.created_at
-    ? new Date(message.created_at as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
 
   return (
