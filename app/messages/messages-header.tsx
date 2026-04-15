@@ -7,7 +7,7 @@ export function MessagesHeader() {
   const router = useRouter();
 
   return (
-    <header className="flex shrink-0 items-center gap-3 border-b border-[#E5E5E5] bg-white px-4 py-3">
+    <header className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
       <button type="button" onClick={() => router.back()} className="p-1" aria-label="Back">
         <ArrowLeft className="h-5 w-5 text-[#2C2C2C]" />
       </button>

@@ -81,6 +81,15 @@ function AgentChatBody({
     return null;
   }, [channel, userId]);
 
+  const peerOnline = useMemo(() => {
+    const peerId = peerUser?.id;
+    const members = channel?.state?.members;
+    if (!peerId || !members) return false;
+    const member = (members as Record<string, { user?: { id?: string; online?: boolean } }>)[peerId];
+    if (member?.user?.id === peerId) return Boolean(member.user.online);
+    return Object.values(members).some((m) => m.user?.id === peerId && Boolean(m.user?.online));
+  }, [channel, peerUser?.id]);
+
   const handleBackToList = useCallback(() => {
     setActiveChannel(undefined);
     setMobileView("list");
@@ -109,6 +118,9 @@ function AgentChatBody({
           mobileView === "thread" ? "max-md:hidden" : ""
         }`}
       >
+        <div className="flex items-center px-4 py-3 border-b border-gray-200 bg-white md:hidden">
+          <span className="font-serif text-xl font-semibold text-[#2C2C2C]">Messages</span>
+        </div>
         <ChannelList
           filters={filters}
           sort={sort}
@@ -122,6 +134,12 @@ function AgentChatBody({
             <button type="button" onClick={handleBackToList}>
               <ArrowLeft className="h-5 w-5" />
             </button>
+            <span className="relative">
+              <Avatar image={peerUser?.image} name={peerUser?.name || peerUser?.id || ""} className="h-8 w-8 [&_.str-chat__avatar-fallback]:text-sm" />
+              {peerOnline ? (
+                <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-400" aria-hidden />
+              ) : null}
+            </span>
             <span className="font-semibold">{peerUser?.name?.trim() || peerUser?.id || "Conversation"}</span>
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
