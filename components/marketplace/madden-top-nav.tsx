@@ -675,6 +675,14 @@ export function MaddenTopNav() {
                             Agent Dashboard
                           </Link>
                           <Link
+                            href="/dashboard/agent?tab=messages"
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <MessageSquare className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
+                            Messages
+                          </Link>
+                          <Link
                             href="/dashboard/agent?tab=pipeline"
                             className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                             onClick={() => setAccountOpen(false)}

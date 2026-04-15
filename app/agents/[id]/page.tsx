@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -238,6 +238,7 @@ function engagementRoleBadgeLabel(role: string | null | undefined): string {
 export default function AgentProfilePage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
+  const router = useRouter();
   const { user, profile, loading: authLoading } = useAuth();
 
   const [agent, setAgent] = useState<AgentRow | null>(null);
@@ -268,6 +269,7 @@ export default function AgentProfilePage() {
   }, [agent]);
 
   const isOwnProfile = Boolean(user?.id && agent?.user_id && user.id === agent.user_id);
+  const [messageBusy, setMessageBusy] = useState(false);
 
   const [followerCount, setFollowerCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -759,6 +761,32 @@ export default function AgentProfilePage() {
     [authLoading, user],
   );
 
+  const onMessageAgent = useCallback(async () => {
+    if (authLoading || messageBusy) return;
+    if (!user?.id) {
+      router.push("/login");
+      return;
+    }
+    if (!agent?.user_id || user.id === agent.user_id) return;
+    setMessageBusy(true);
+    try {
+      const res = await fetch("/api/stream/channel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ agent_id: agent.user_id, client_id: user.id }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { channel_id?: string; error?: string };
+      if (!res.ok || !json.channel_id) {
+        toast.error(json.error || "Could not start chat");
+        return;
+      }
+      router.push(`/clients/${user.id}?tab=messages&channel=${encodeURIComponent(json.channel_id)}`);
+    } finally {
+      setMessageBusy(false);
+    }
+  }, [agent?.user_id, authLoading, messageBusy, router, user?.id]);
+
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#2C2C2C]">
       {!loading && !error && agent && isOwnProfile && agent.verification_status !== "verified" ? (
@@ -914,6 +942,16 @@ export default function AgentProfilePage() {
                       <Mail className="h-4 w-4" />
                       Contact
                     </button>
+                    {!isOwnProfile ? (
+                      <button
+                        type="button"
+                        onClick={() => void onMessageAgent()}
+                        disabled={authLoading || messageBusy}
+                        className="flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-6 py-3 font-medium text-white disabled:opacity-50"
+                      >
+                        Message
+                      </button>
+                    ) : null}
                   </div>
                   {agent ? (
                     <ReportProfileButton reportedUserId={agent.user_id} disabled={isOwnProfile} />
