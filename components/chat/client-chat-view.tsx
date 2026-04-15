@@ -1,11 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ComponentProps } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type ComponentProps,
+} from "react";
 import { ArrowLeft } from "lucide-react";
 import {
   Avatar,
   Channel,
   ChannelList,
+  ChannelListMessenger,
   ChannelPreviewMessenger,
   Chat,
   MessageInput,
@@ -25,11 +33,11 @@ function CustomMessage() {
   const { isMyMessage, message } = useMessageContext();
   const mine = isMyMessage();
   const createdAt = message.created_at
-    ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : '';
+    ? new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "";
 
   return (
-    <div className={`bhg-msg ${mine ? 'bhg-msg--mine' : 'bhg-msg--other'}`}>
+    <div className={`bhg-msg ${mine ? "bhg-msg--mine" : "bhg-msg--other"}`}>
       {!mine && (
         <Avatar image={message.user?.image} name={message.user?.name || message.user?.id} />
       )}
@@ -43,6 +51,84 @@ function CustomMessage() {
         {createdAt && <span className="bhg-msg__time">{createdAt}</span>}
       </div>
     </div>
+  );
+}
+
+type ChannelListShellProps = ComponentProps<typeof ChannelListMessenger>;
+
+function BahaygoMobileChannelListShell(props: ChannelListShellProps) {
+  const totalUnread = useMemo(() => {
+    const loaded = props.loadedChannels;
+    if (!loaded?.length) return 0;
+    return loaded.reduce((sum, ch) => {
+      try {
+        return sum + ch.countUnread();
+      } catch {
+        return sum;
+      }
+    }, 0);
+  }, [props.loadedChannels]);
+
+  return (
+    <div className="flex h-full min-h-0 flex-1 flex-col bg-white md:bg-transparent">
+      <header className="relative z-10 flex shrink-0 items-center justify-between border-b border-[#ECECEC] bg-white px-4 py-3 md:hidden">
+        <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">Chats</h2>
+        {totalUnread > 0 ? (
+          <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-[#E85D8C] px-2 text-xs font-semibold text-white">
+            {totalUnread > 99 ? "99+" : totalUnread}
+          </span>
+        ) : null}
+      </header>
+      <div className="min-h-0 flex-1 max-md:overflow-y-auto md:min-h-0 md:flex-1 md:overflow-visible">
+        <ChannelListMessenger {...props} />
+      </div>
+    </div>
+  );
+}
+
+function BahaygoMobileChannelRow(
+  props: ComponentProps<typeof ChannelPreviewMessenger> & { onOpenThread: () => void },
+) {
+  const { displayImage, displayTitle, latestMessagePreview, lastMessage, onSelect, onOpenThread, unread } =
+    props;
+
+  const timeLabel = lastMessage?.created_at
+    ? new Date(lastMessage.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "";
+
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-label={displayTitle ? `Open chat with ${displayTitle}` : "Open chat"}
+      aria-selected={props.active}
+      className={cn(
+        "relative z-0 flex w-full items-start gap-3 border-b border-[#EFEFEF] bg-white px-4 py-3 text-left transition-colors hover:bg-[#FAFAFA]",
+        unread && unread >= 1 && "bg-[#FAFAFA]",
+      )}
+      onClick={(e) => {
+        onSelect?.(e);
+        if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+          onOpenThread();
+        }
+      }}
+    >
+      <Avatar
+        image={displayImage}
+        name={displayTitle || ""}
+        className="h-12 w-12 shrink-0 [&_.str-chat__avatar-fallback]:text-base"
+      />
+      <div className="min-w-0 flex-1 pt-0.5">
+        <p className="truncate font-sans text-sm font-semibold text-[#2C2C2C]">{displayTitle}</p>
+        <div className="mt-0.5 truncate text-sm text-gray-500">{latestMessagePreview}</div>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1 self-start pt-0.5">
+        {timeLabel ? <span className="text-xs text-gray-400">{timeLabel}</span> : null}
+        {unread && unread >= 1 ? (
+          <span className="h-2 w-2 rounded-full bg-[#6B9E6E]" aria-hidden />
+        ) : null}
+      </div>
+    </button>
   );
 }
 
@@ -88,19 +174,14 @@ function ClientChatBody({
     };
   }, [isDesktop, channel, client, filters, sort, setActiveChannel]);
 
-  const channelPreviewMessengerProps = useCallback(
-    (props: ComponentProps<typeof ChannelPreviewMessenger>) => (
-      <ChannelPreviewMessenger
-        {...props}
-        onSelect={(event) => {
-          props.onSelect?.(event);
-          if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
-            setMobileView("thread");
-          }
-        }}
-      />
-    ),
-    [],
+  const channelPreviewForViewport = useCallback(
+    (p: ComponentProps<typeof ChannelPreviewMessenger>) => {
+      if (isDesktop) {
+        return <ChannelPreviewMessenger {...p} />;
+      }
+      return <BahaygoMobileChannelRow {...p} onOpenThread={() => setMobileView("thread")} />;
+    },
+    [isDesktop],
   );
 
   const peerUser = useMemo(() => {
@@ -118,12 +199,16 @@ function ClientChatBody({
     setMobileView("list");
   }, [setActiveChannel]);
 
+  const channelListShell = useCallback((listProps: ChannelListShellProps) => {
+    return <BahaygoMobileChannelListShell {...listProps} />;
+  }, []);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col md:h-full">
       <div className="flex min-h-0 flex-1 flex-col md:h-full md:flex-row">
         <div
           className={cn(
-            "flex min-h-0 w-full shrink-0 flex-col border-b border-[#2C2C2C]/10 md:w-[300px] md:border-b-0 md:border-r md:border-[#2C2C2C]/10",
+            "relative z-0 flex min-h-0 w-full shrink-0 flex-col border-b border-[#2C2C2C]/10 md:z-auto md:w-[300px] md:border-b-0 md:border-r md:border-[#2C2C2C]/10",
             mobileView === "thread" && "max-md:hidden",
           )}
         >
@@ -132,41 +217,39 @@ function ClientChatBody({
             sort={sort}
             options={{ state: true, presence: true, limit: 30 }}
             setActiveChannelOnMount={false}
-            Preview={channelPreviewMessengerProps}
+            sendChannelsToList
+            List={channelListShell}
+            Preview={channelPreviewForViewport}
           />
         </div>
         <div
           className={cn(
-            "flex min-h-0 flex-1 flex-col",
+            "relative z-0 flex min-h-0 flex-1 flex-col bg-white md:z-auto md:bg-transparent",
             mobileView === "list" && "max-md:hidden",
           )}
         >
           <Channel>
             <Window>
-              <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-2 border-b border-[#2C2C2C]/10 px-2 py-2 md:hidden">
+              <div className="relative isolate z-0 flex min-h-0 flex-1 flex-col bg-white md:bg-transparent">
+                <div className="relative z-10 grid shrink-0 grid-cols-[2.5rem_1fr_2.5rem] items-center border-b border-[#ECECEC] bg-white px-1 py-2.5 md:hidden">
                   <button
                     type="button"
                     onClick={handleBackToList}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#2C2C2C] transition hover:bg-[#2C2C2C]/10"
+                    className="grid h-10 w-10 place-items-center rounded-full text-[#2C2C2C] transition hover:bg-black/5"
                     aria-label="Back to conversations"
                   >
                     <ArrowLeft className="h-5 w-5" strokeWidth={2} />
                   </button>
-                  <Avatar
-                    image={peerUser?.image}
-                    name={peerUser?.name || peerUser?.id || ""}
-                    className="h-9 w-9 [&_.str-chat__avatar-fallback]:text-sm"
-                  />
-                  <span className="min-w-0 flex-1 truncate font-sans text-sm font-semibold text-[#2C2C2C]">
-                    {peerUser?.name?.trim() || peerUser?.id || "Conversation"}
+                  <span className="min-w-0 truncate text-center font-sans text-sm font-semibold text-[#2C2C2C]">
+                    {peerUser?.name?.trim() || peerUser?.id || "Chat"}
                   </span>
+                  <span aria-hidden className="inline-block w-10" />
                 </div>
-                <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="min-h-0 flex-1 max-md:overflow-y-auto">
+                <div className="relative z-0 flex min-h-0 flex-1 flex-col bg-white md:bg-transparent">
+                  <div className="min-h-0 flex-1 max-md:overflow-y-auto bg-white max-md:bg-white">
                     <MessageList Message={CustomMessage} />
                   </div>
-                  <div className="shrink-0 pb-16 md:pb-0">
+                  <div className="relative z-10 shrink-0 border-t border-[#ECECEC] bg-white pb-20 md:z-auto md:border-t-0 md:border-transparent md:bg-transparent md:pb-0">
                     <MessageInput />
                   </div>
                 </div>
@@ -204,7 +287,7 @@ export function ClientChatView(_props: {
   }
 
   return (
-    <div className="bahaygo-stream-chat flex h-[500px] w-full flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 shadow-sm md:h-[600px] md:min-h-0">
+    <div className="bahaygo-stream-chat relative z-0 flex h-[500px] w-full flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm md:h-[600px] md:min-h-0 md:bg-transparent">
       <style jsx global>{`
         .bhg-msg {
           display: flex;
@@ -246,13 +329,13 @@ export function ClientChatView(_props: {
           font-family: Inter, sans-serif;
         }
         .bhg-msg--mine .bhg-msg__bubble {
-          background-color: #6B9E6E;
+          background-color: #6b9e6e;
           color: white;
           border-bottom-right-radius: 4px;
         }
         .bhg-msg--other .bhg-msg__bubble {
-          background-color: #F0F0F0;
-          color: #2C2C2C;
+          background-color: #f0f0f0;
+          color: #2c2c2c;
           border-bottom-left-radius: 4px;
         }
         .bhg-msg__bubble p {
@@ -269,6 +352,29 @@ export function ClientChatView(_props: {
         }
         .bahaygo-stream-chat .str-chat__li {
           padding: 0 !important;
+        }
+        @media (max-width: 767px) {
+          .bahaygo-stream-chat .str-chat__message-input {
+            border: none !important;
+            box-shadow: none !important;
+            background: #fff !important;
+          }
+          .bahaygo-stream-chat .str-chat__send-button {
+            background-color: #6b9e6e !important;
+            border-radius: 9999px !important;
+            width: 40px !important;
+            height: 40px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border: none !important;
+          }
+          .bahaygo-stream-chat .str-chat__send-button:not(:disabled) svg path {
+            fill: #fff !important;
+          }
+          .bahaygo-stream-chat .str-chat__send-button:disabled {
+            opacity: 0.45 !important;
+          }
         }
       `}</style>
       <Chat client={client} theme="messaging light">
