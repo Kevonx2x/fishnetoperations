@@ -1504,8 +1504,8 @@ export function AgentDashboard() {
     ? allTabs
     : allTabs.filter((t) => t.id !== "pipeline" && t.id !== "listings");
 
-  const mobilePrimaryTabIds: Tab[] = identityVerified ? ["overview", "pipeline", "listings"] : ["overview"];
-  const mobileMoreTabIds: Tab[] = ["messages", "analytics", "billing", "profile"];
+  const mobilePrimaryTabIds: Tab[] = identityVerified ? ["overview", "pipeline", "messages"] : ["overview"];
+  const mobileMoreTabIds: Tab[] = ["listings", "analytics", "billing", "profile"];
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">

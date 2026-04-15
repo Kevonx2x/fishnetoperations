@@ -15,14 +15,12 @@ export default async function MessagesPage() {
   }
 
   return (
-    <div className="h-screen w-full bg-white">
-      <div className="flex h-screen flex-col">
-        <MessagesHeader />
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <StreamChatProvider>
-            <ClientChatView />
-          </StreamChatProvider>
-        </div>
+    <div className="w-full bg-white">
+      <MessagesHeader />
+      <div className="h-[calc(100vh-120px)] overflow-hidden">
+        <StreamChatProvider>
+          <ClientChatView />
+        </StreamChatProvider>
       </div>
     </div>
   );
