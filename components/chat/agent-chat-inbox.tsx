@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type ComponentProps } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
 import { ArrowLeft } from "lucide-react";
 import {
   Avatar,
@@ -13,6 +13,7 @@ import {
   MessageText,
   Window,
   useChatContext,
+  useChannelStateContext,
   useMessageContext,
 } from "stream-chat-react";
 import "stream-chat-react/dist/css/v2/index.css";
@@ -68,6 +69,7 @@ function AgentChatBody({
 }) {
   const { channel, setActiveChannel } = useChatContext();
   const [mobileView, setMobileView] = useState<"list" | "thread">("list");
+  const [channelLoading, setChannelLoading] = useState(false);
 
   const peerUser = useMemo(() => {
     const members = channel?.state?.members;
@@ -91,7 +93,8 @@ function AgentChatBody({
         onSelect={(event) => {
           props.onSelect?.(event);
           if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
-            setMobileView("thread");
+            setChannelLoading(true);
+            window.setTimeout(() => setMobileView("thread"), 300);
           }
         }}
       />
@@ -124,14 +127,45 @@ function AgentChatBody({
           <div className="flex-1 min-h-0 overflow-hidden">
             <Channel>
               <Window>
-                <MessageList Message={CustomMessage} />
-                <MessageInput />
+                <AgentThreadInner
+                  channelLoading={channelLoading}
+                  onLoaded={() => setChannelLoading(false)}
+                />
               </Window>
             </Channel>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function AgentThreadInner({
+  channelLoading,
+  onLoaded,
+}: {
+  channelLoading: boolean;
+  onLoaded: () => void;
+}) {
+  const { loading } = useChannelStateContext();
+
+  useEffect(() => {
+    if (!loading) onLoaded();
+  }, [loading, onLoaded]);
+
+  if (channelLoading || loading) {
+    return (
+      <div className="flex h-full min-h-[240px] items-center justify-center bg-white">
+        <div className="h-20 w-20 animate-pulse rounded-2xl bg-gray-100" />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <MessageList Message={CustomMessage} />
+      <MessageInput />
+    </>
   );
 }
 
