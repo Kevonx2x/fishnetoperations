@@ -101,7 +101,7 @@ function AgentChannelPreview(props: ChannelPreviewUIComponentProps) {
           {lastAt ? <span className="shrink-0 text-[11px] font-medium text-[#2C2C2C]/45">{lastAt}</span> : null}
         </div>
         <div className="mt-0.5 flex items-center justify-between gap-2">
-          <p className="truncate text-xs text-[#2C2C2C]/65">{latestMessagePreview}</p>
+          <span className="truncate text-xs text-[#2C2C2C]/65">{latestMessagePreview}</span>
           {(unread ?? 0) > 0 ? <span className="ml-2 h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E]" /> : null}
         </div>
       </div>
@@ -111,6 +111,7 @@ function AgentChannelPreview(props: ChannelPreviewUIComponentProps) {
 
 function AirbnbMessage(props: MessageUIComponentProps) {
   const { message } = props;
+  if (!message || !message.user) return null;
   const { user } = useAuth();
   const currentUserId = user?.id ?? "";
   const mine = message.user?.id === currentUserId;
