@@ -161,20 +161,28 @@ function AirbnbMessage(props: MessageUIComponentProps) {
 }
 
 function AirbnbMessageInput() {
-  const { handleSubmit, text, setText } = useMessageInputContext();
+  const { text, handleChange, handleSubmit } = useMessageInputContext();
   return (
     <form
-      onSubmit={handleSubmit}
       className="flex items-center gap-2 border-t border-[#2C2C2C]/10 bg-white px-3 py-3"
     >
       <input
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={handleChange}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            void handleSubmit();
+          }
+        }}
         placeholder="Type a message"
         className="h-11 flex-1 rounded-full border border-[#2C2C2C]/15 bg-white px-4 text-sm font-medium text-[#2C2C2C] outline-none focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/30"
       />
       <button
-        type="submit"
+        type="button"
+        onClick={() => {
+          void handleSubmit();
+        }}
         className="inline-flex h-11 items-center justify-center rounded-full bg-[#6B9E6E] px-5 text-sm font-semibold text-white hover:bg-[#5d8a60]"
       >
         Send
