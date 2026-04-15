@@ -952,7 +952,6 @@ export function MobileClientDashboard() {
               ["all", "All", LayoutGrid],
               ["pins", "Pins", Pin],
               ["likes", "Likes", Heart],
-              ["messages", "Messages", MessageSquare],
               ["badges", "Badges", Star],
               ["documents", "Documents", FileText],
             ] as const

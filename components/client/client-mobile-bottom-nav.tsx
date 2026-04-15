@@ -21,7 +21,7 @@ export function ClientMobileBottomNav({
 }) {
   const initial = fullName.trim().slice(0, 1).toUpperCase() || "?";
   const profileHref = `/clients/${encodeURIComponent(userId)}`;
-  const messagesHref = `/clients/${encodeURIComponent(userId)}?tab=messages`;
+  const messagesHref = `/messages`;
   const profileActive = pathname.startsWith("/clients/");
 
   const Item = ({
