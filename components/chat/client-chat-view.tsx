@@ -42,6 +42,25 @@ export function ClientChatView(_props: {
           --str-chat__own-message-bubble-color: #ffffff;
           --str-chat__font-family: Inter, sans-serif;
         }
+        .bahaygo-stream-chat .str-chat__avatar {
+          display: flex !important;
+          visibility: visible !important;
+        }
+        .bahaygo-stream-chat .str-chat__avatar img {
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover !important;
+          border-radius: 9999px !important;
+        }
+        .bahaygo-stream-chat .str-chat__input-flat {
+          min-height: 56px !important;
+          padding: 12px 16px !important;
+          font-size: 15px !important;
+        }
+        .bahaygo-stream-chat .str-chat__textarea textarea {
+          min-height: 40px !important;
+          font-size: 15px !important;
+        }
       `}</style>
       <Chat client={client} theme="messaging light">
         <div className="flex h-[600px]">
