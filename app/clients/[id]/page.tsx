@@ -899,9 +899,11 @@ function ClientPublicProfilePageInner() {
   ) {
     if (searchParams.get("tab") === "messages") {
       return (
-        <StreamChatProvider>
-          <ClientChatView initialChannelId={searchParams.get("channel")} />
-        </StreamChatProvider>
+        <div className="fixed inset-0 z-[9999] bg-white overflow-hidden">
+          <StreamChatProvider>
+            <ClientChatView initialChannelId={searchParams.get("channel")} />
+          </StreamChatProvider>
+        </div>
       );
     }
     return <MobileClientDashboard />;
