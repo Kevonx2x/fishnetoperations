@@ -1,15 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useState, type ComponentProps } from "react";
+import { ArrowLeft } from "lucide-react";
 import {
   Avatar,
   Channel,
   ChannelList,
+  ChannelPreviewMessenger,
   Chat,
   MessageInput,
   MessageList,
   MessageText,
   Window,
+  useChatContext,
   useMessageContext,
 } from "stream-chat-react";
 import "stream-chat-react/dist/css/v2/index.css";
@@ -36,6 +39,96 @@ function CustomMessage() {
           <MessageText />
         </div>
         {createdAt && <span className="bhg-msg__time">{createdAt}</span>}
+      </div>
+    </div>
+  );
+}
+
+function AgentChatBody({
+  filters,
+  sort,
+  userId,
+}: {
+  filters: Record<string, unknown>;
+  sort: Record<string, unknown>;
+  userId: string;
+}) {
+  const { channel, setActiveChannel } = useChatContext();
+  const [mobileView, setMobileView] = useState<"list" | "thread">("list");
+
+  const peerUser = useMemo(() => {
+    const members = channel?.state?.members;
+    if (!members) return null;
+    for (const m of Object.values(members)) {
+      const id = m.user?.id;
+      if (id && id !== userId) return m.user ?? null;
+    }
+    return null;
+  }, [channel, userId]);
+
+  const handleBackToList = useCallback(() => {
+    setActiveChannel(undefined);
+    setMobileView("list");
+  }, [setActiveChannel]);
+
+  const channelPreviewMessengerProps = useCallback(
+    (props: ComponentProps<typeof ChannelPreviewMessenger>) => (
+      <ChannelPreviewMessenger
+        {...props}
+        onSelect={(event) => {
+          props.onSelect?.(event);
+          if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+            setMobileView("thread");
+          }
+        }}
+      />
+    ),
+    [],
+  );
+
+  return (
+    <div className="flex flex-col md:grid md:grid-cols-[300px_1fr] h-[600px] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] shadow-sm">
+      <div
+        className={`w-full shrink-0 border-b border-[#2C2C2C]/10 md:border-b-0 md:border-r md:border-[#2C2C2C]/10 ${
+          mobileView === "thread" ? "max-md:hidden" : ""
+        }`}
+      >
+        <ChannelList
+          filters={filters}
+          sort={sort}
+          options={{ state: true, presence: true, limit: 30 }}
+          Preview={channelPreviewMessengerProps}
+        />
+      </div>
+      <div className={`min-h-0 flex flex-1 flex-col ${mobileView === "list" ? "max-md:hidden" : ""}`}>
+        <Channel>
+          <div className="flex shrink-0 items-center gap-2 border-b border-[#2C2C2C]/10 bg-white px-2 py-2 md:hidden">
+            <button
+              type="button"
+              onClick={handleBackToList}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#2C2C2C] transition hover:bg-black/5"
+              aria-label="Back to conversations"
+            >
+              <ArrowLeft className="h-5 w-5" strokeWidth={2} />
+            </button>
+            <Avatar
+              image={peerUser?.image}
+              name={peerUser?.name || peerUser?.id || ""}
+              className="h-9 w-9 [&_.str-chat__avatar-fallback]:text-sm"
+            />
+            <span className="min-w-0 flex-1 truncate font-sans text-sm font-semibold text-[#2C2C2C]">
+              {peerUser?.name?.trim() || peerUser?.id || "Conversation"}
+            </span>
+          </div>
+          <Window>
+            <div className="flex min-h-0 flex-1 flex-col bg-white">
+              <div className="min-h-0 flex-1 max-md:overflow-y-auto">
+                <MessageList Message={CustomMessage} />
+              </div>
+              <MessageInput />
+            </div>
+          </Window>
+        </Channel>
       </div>
     </div>
   );
@@ -135,23 +228,7 @@ export function AgentChatInbox(_props: {
         }
       `}</style>
       <Chat client={client} theme="messaging light">
-        <div className="flex h-[600px]">
-          <div className="w-[300px] shrink-0 border-r border-[#2C2C2C]/10">
-            <ChannelList
-              filters={filters}
-              sort={sort}
-              options={{ state: true, presence: true, limit: 30 }}
-            />
-          </div>
-          <div className="flex-1">
-            <Channel>
-              <Window>
-                <MessageList Message={CustomMessage} />
-                <MessageInput />
-              </Window>
-            </Channel>
-          </div>
-        </div>
+        <AgentChatBody filters={filters} sort={sort} userId={user.id} />
       </Chat>
     </div>
   );
