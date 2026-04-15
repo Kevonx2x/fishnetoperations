@@ -1126,7 +1126,9 @@ export function MobileClientDashboard() {
           </div>
         ) : mainTab === "messages" ? (
           <StreamChatProvider>
-            <ClientChatView initialChannelId={streamChannelId} />
+            <div className="fixed inset-0 z-[9999] bg-white overflow-hidden">
+              <ClientChatView initialChannelId={streamChannelId} />
+            </div>
           </StreamChatProvider>
         ) : mainTab === "likes" ? (
           <div>

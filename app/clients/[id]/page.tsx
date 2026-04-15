@@ -1421,7 +1421,7 @@ function ClientPublicProfilePageInner() {
               </h2>
 
               {desktopMessagesTab ? (
-                <div className="mt-8 min-h-screen">
+                <div className="mt-4 h-[600px] w-full">
                   <StreamChatProvider>
                     <ClientChatView initialChannelId={searchParams.get("channel")} />
                   </StreamChatProvider>
