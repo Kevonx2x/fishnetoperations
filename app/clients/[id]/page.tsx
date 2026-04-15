@@ -907,15 +907,12 @@ function ClientPublicProfilePageInner() {
     return <MobileClientDashboard />;
   }
 
-  if (clientProfile && isOwn && profile?.role === "client" && !isMobile) {
-    if (searchParams.get("tab") === "messages") {
-      return (
-        <StreamChatProvider>
-          <ClientChatView initialChannelId={searchParams.get("channel")} />
-        </StreamChatProvider>
-      );
-    }
-  }
+  const desktopMessagesTab =
+    Boolean(clientProfile) &&
+    isOwn &&
+    profile?.role === "client" &&
+    !isMobile &&
+    searchParams.get("tab") === "messages";
 
   const displayName = clientProfile?.full_name?.trim() || "Member";
   const memberSince = clientProfile?.created_at
@@ -1421,7 +1418,13 @@ function ClientPublicProfilePageInner() {
                   : "My Home Wishlist"}
               </h2>
 
-              {!isOwn && !canSeeWishlist ? (
+              {desktopMessagesTab ? (
+                <div className="mt-8 min-h-screen">
+                  <StreamChatProvider>
+                    <ClientChatView initialChannelId={searchParams.get("channel")} />
+                  </StreamChatProvider>
+                </div>
+              ) : !isOwn && !canSeeWishlist ? (
                 <div className="mt-8 rounded-2xl border border-[#D4A843]/40 bg-gradient-to-br from-[#FAF8F4] to-white p-8 text-center shadow-sm">
                   <Lock className="mx-auto h-10 w-10 text-[#D4A843]" aria-hidden />
                   <p className="mt-4 font-serif text-lg font-bold text-[#2C2C2C]">
