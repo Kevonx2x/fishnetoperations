@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type React from "react";
 import {
   Channel,
   ChannelList,
@@ -162,8 +163,13 @@ function AirbnbMessage(props: MessageUIComponentProps) {
 
 function AirbnbMessageInput() {
   const { text, handleChange, handleSubmit } = useMessageInputContext();
+  const submitMessage = (e?: React.BaseSyntheticEvent) => {
+    e?.preventDefault?.();
+    void handleSubmit(e ?? ({} as React.BaseSyntheticEvent));
+  };
   return (
     <form
+      onSubmit={submitMessage}
       className="flex items-center gap-2 border-t border-[#2C2C2C]/10 bg-white px-3 py-3"
     >
       <input
@@ -171,18 +177,15 @@ function AirbnbMessageInput() {
         onChange={handleChange}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            void handleSubmit();
+            submitMessage(e);
           }
         }}
         placeholder="Type a message"
         className="h-11 flex-1 rounded-full border border-[#2C2C2C]/15 bg-white px-4 text-sm font-medium text-[#2C2C2C] outline-none focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/30"
       />
       <button
-        type="button"
-        onClick={() => {
-          void handleSubmit();
-        }}
+        type="submit"
+        onClick={submitMessage}
         className="inline-flex h-11 items-center justify-center rounded-full bg-[#6B9E6E] px-5 text-sm font-semibold text-white hover:bg-[#5d8a60]"
       >
         Send
