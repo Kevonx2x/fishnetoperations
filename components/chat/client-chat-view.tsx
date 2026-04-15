@@ -246,10 +246,10 @@ function ClientChatBody({
                   <span aria-hidden className="inline-block w-10" />
                 </div>
                 <div className="relative z-0 flex min-h-0 flex-1 flex-col bg-white md:bg-transparent">
-                  <div className="min-h-0 flex-1 max-md:overflow-y-auto bg-white max-md:bg-white">
+                  <div className="min-h-0 flex-1 overflow-y-auto bg-white max-md:bg-white">
                     <MessageList Message={CustomMessage} />
                   </div>
-                  <div className="relative z-10 shrink-0 border-t border-[#ECECEC] bg-white pb-16 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:z-auto md:border-t-0 md:border-transparent md:bg-transparent md:pb-0">
+                  <div className="relative z-10 shrink-0 border-t border-[#ECECEC] bg-white max-md:sticky max-md:bottom-0 pb-16 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:z-auto md:border-t-0 md:border-transparent md:bg-transparent md:pb-0">
                     <MessageInput />
                   </div>
                 </div>
@@ -287,7 +287,7 @@ export function ClientChatView(_props: {
   }
 
   return (
-    <div className="bahaygo-stream-chat relative z-0 flex w-full h-full flex-col overflow-hidden bg-white md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-sm md:h-[600px] md:min-h-0 md:bg-transparent">
+    <div className="bahaygo-stream-chat relative z-0 w-full overflow-hidden overscroll-contain h-[calc(100dvh-104px-env(safe-area-inset-bottom))] md:flex md:h-[600px] md:min-h-0 md:flex-col md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:bg-transparent md:shadow-sm">
       <style jsx global>{`
         .bhg-msg {
           display: flex;
