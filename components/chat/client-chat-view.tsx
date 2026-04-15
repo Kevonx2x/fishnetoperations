@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type React from "react";
 import {
   Channel,
   ChannelList,
@@ -163,33 +162,32 @@ function AirbnbMessage(props: MessageUIComponentProps) {
 }
 
 function AirbnbMessageInput() {
-  const { handleSubmit } = useMessageInputContext();
-  const [inputText, setInputText] = useState("");
-  const submitMessage = (e?: React.BaseSyntheticEvent) => {
-    e?.preventDefault?.();
-    void handleSubmit(e ?? ({} as React.BaseSyntheticEvent));
-    setInputText("");
-  };
+  const messageInput = useMessageInputContext() as any;
+
   return (
     <form
-      onSubmit={submitMessage}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void messageInput.handleSubmit();
+      }}
       className="flex items-center gap-2 border-t border-[#2C2C2C]/10 bg-white px-3 py-3"
     >
-      <input
-        value={inputText}
-        onChange={(e) => setInputText(e.target.value)}
+      <textarea
+        value={messageInput.text}
+        onChange={messageInput.handleChange}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
-            submitMessage(e);
+            e.preventDefault();
+            void messageInput.handleSubmit();
           }
         }}
+        rows={1}
         placeholder="Type a message"
-        className="h-11 flex-1 rounded-full border border-[#2C2C2C]/15 bg-white px-4 text-sm font-medium text-[#2C2C2C] outline-none focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/30"
+        className="h-11 flex-1 resize-none rounded-full border border-[#2C2C2C]/15 bg-white px-4 py-3 text-sm font-medium text-[#2C2C2C] outline-none focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/30"
       />
       <button
         type="submit"
-        onClick={submitMessage}
-        className="inline-flex h-11 items-center justify-center rounded-full bg-[#6B9E6E] px-5 text-sm font-semibold text-white hover:bg-[#5d8a60]"
+        className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] px-5 text-sm font-semibold text-white hover:bg-[#5d8a60]"
       >
         Send
       </button>
@@ -247,7 +245,7 @@ export function ClientChatView({
       `}</style>
 
       <Chat client={client} theme="messaging light">
-        <div className="grid min-h-[70vh] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] shadow-sm md:grid-cols-[360px_1fr]">
+        <div className="grid h-[600px] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] shadow-sm md:grid-cols-[360px_1fr]">
           <div className="border-b border-[#2C2C2C]/10 bg-white md:border-b-0 md:border-r">
             <div className="p-4">
               <input
@@ -284,7 +282,7 @@ export function ClientChatView({
             </div>
           </div>
 
-          <div className="min-h-[70vh] bg-[#FAF8F4]">
+          <div className="h-[600px] bg-[#FAF8F4]">
             <Channel EmptyPlaceholder={<ClientEmptyThread />}>
               <Window>
                 <PropertyContextCard />
