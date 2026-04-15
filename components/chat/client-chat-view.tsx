@@ -249,7 +249,7 @@ function ClientChatBody({
                   <div className="min-h-0 flex-1 max-md:overflow-y-auto bg-white max-md:bg-white">
                     <MessageList Message={CustomMessage} />
                   </div>
-                  <div className="relative z-10 shrink-0 border-t border-[#ECECEC] bg-white pb-20 md:z-auto md:border-t-0 md:border-transparent md:bg-transparent md:pb-0">
+                  <div className="relative z-10 shrink-0 border-t border-[#ECECEC] bg-white pb-16 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:z-auto md:border-t-0 md:border-transparent md:bg-transparent md:pb-0">
                     <MessageInput />
                   </div>
                 </div>
@@ -287,7 +287,7 @@ export function ClientChatView(_props: {
   }
 
   return (
-    <div className="bahaygo-stream-chat relative z-0 flex h-[500px] w-full flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm md:h-[600px] md:min-h-0 md:bg-transparent">
+    <div className="bahaygo-stream-chat relative z-0 flex w-full flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm h-[calc(100vh-200px)] md:h-[600px] md:min-h-0 md:bg-transparent">
       <style jsx global>{`
         .bhg-msg {
           display: flex;
