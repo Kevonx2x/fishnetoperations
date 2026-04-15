@@ -276,6 +276,28 @@ export function AgentChatInbox(_props: {
         .bahaygo-stream-chat .str-chat__li {
           padding: 0 !important;
         }
+        .bahaygo-stream-chat .str-chat__channel-list {
+          background: #FAF8F4 !important;
+        }
+        .bahaygo-stream-chat .str-chat__channel {
+          background: #FAF8F4 !important;
+        }
+        .bahaygo-stream-chat .str-chat__message-input {
+          background: #FAF8F4 !important;
+        }
+        .bahaygo-stream-chat .str-chat__send-button {
+          background-color: #6B9E6E !important;
+          border-radius: 9999px !important;
+        }
+        .bahaygo-stream-chat .str-chat__send-button:hover {
+          background-color: #5d8a60 !important;
+        }
+        .bahaygo-stream-chat .str-chat__send-button svg path {
+          fill: white !important;
+        }
+        .bahaygo-stream-chat {
+          background: #FAF8F4 !important;
+        }
       `}</style>
       <Chat client={client} theme="messaging light">
         <AgentChatBody filters={filters} sort={sort} userId={user.id} />

@@ -55,14 +55,16 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
       }
 
       const chat = StreamChat.getInstance(apiKey);
-      await chat.connectUser(
-        {
-          id: user.id,
-          name: (profile?.full_name as string | undefined)?.trim() || user.email || "User",
-          image: (profile?.avatar_url as string | undefined)?.trim() || undefined,
-        },
-        token,
-      );
+      if (chat.userID !== user.id) {
+        await chat.connectUser(
+          {
+            id: user.id,
+            name: (profile?.full_name as string | undefined)?.trim() || user.email || "User",
+            image: (profile?.avatar_url as string | undefined)?.trim() || undefined,
+          },
+          token,
+        );
+      }
 
       if (cancelled) {
         await chat.disconnectUser().catch(() => {});

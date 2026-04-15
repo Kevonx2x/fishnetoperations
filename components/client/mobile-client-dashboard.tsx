@@ -1131,12 +1131,6 @@ export function MobileClientDashboard() {
             <ListingSubTabs mode={listingMode} onChange={setListingMode} />
             <SavedPinsTab savedRows={savedRowsPinnedActive} likes={likes} pins={pins} engagement={engagement} />
           </div>
-        ) : mainTab === "messages" ? (
-          <div style={{ height: "calc(100vh - 180px)" }}>
-            <StreamChatProvider>
-              <ClientChatView initialChannelId={streamChannelId} />
-            </StreamChatProvider>
-          </div>
         ) : mainTab === "likes" ? (
           <div>
             <ListingSubTabs mode={listingMode} onChange={setListingMode} />
