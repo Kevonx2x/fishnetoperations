@@ -41,13 +41,25 @@ import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { listingListedLabel } from "@/lib/listing-listed-time";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
-import { cn } from "@/lib/utils";
+import { cn, getOptimizedImageUrl, LISTING_PHOTO_BLUR_DATA_URL } from "@/lib/utils";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { roomUrlsFor } from "@/lib/marketplace-property";
+
+const LISTING_IMAGE_SIZES = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" as const;
+
+function firstBrowseListingThumbKey(
+  rows: { key: string; items: DbProperty[] }[],
+): string | undefined {
+  for (const r of rows) {
+    const first = r.items[0];
+    if (first) return `${r.key}-${first.id}`;
+  }
+  return undefined;
+}
 
 const FEATURED_CITIES: {
   key: string;
@@ -1641,7 +1653,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       </motion.div>
                     ) : (
                       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        {sortedAllRows.map((p) => (
+                        {sortedAllRows.map((p, i) => (
                           <NewlyListedCard
                             key={`result-${p.id}`}
                             property={p}
@@ -1667,6 +1679,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             grid
                             viewerUserId={user?.id ?? null}
                             verifiedListingAgent={viewerVerifiedListingAgent}
+                            listingImageLoadEager={i === 0}
                           />
                         ))}
                       </div>
@@ -1851,12 +1864,16 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   >
                     <div className="relative h-48 w-full bg-black/5 lg:h-64">
                       <Image
-                        src={featuredPhotos[0] ?? featuredHomeProperty.image_url}
+                        src={getOptimizedImageUrl(
+                          featuredPhotos[0] ?? featuredHomeProperty.image_url,
+                        )}
                         alt={featuredHomeProperty.name ?? featuredHomeProperty.location}
                         fill
                         quality={95}
                         className="object-cover"
-                        sizes="(max-width: 768px) 100vw, 42rem"
+                        sizes={LISTING_IMAGE_SIZES}
+                        placeholder="blur"
+                        blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
                         loading="lazy"
                       />
                       {featuredHomeIsAdminFeatured ? (
@@ -2096,6 +2113,7 @@ export function NewlyListedCard({
   viewerUserId,
   compact,
   verifiedListingAgent,
+  listingImageLoadEager,
 }: {
   property: DbProperty;
   roomUrls: string[];
@@ -2114,6 +2132,8 @@ export function NewlyListedCard({
   compact?: boolean;
   /** Logged-in viewer is approved + verified agent (homepage co-list CTA). */
   verifiedListingAgent?: boolean;
+  /** First listing thumbnail in browse/search results uses eager loading. */
+  listingImageLoadEager?: boolean;
 }) {
   const listedLabel = listingListedLabel(property.created_at);
   const isDualListing =
@@ -2125,7 +2145,7 @@ export function NewlyListedCard({
       : property.status === "both"
         ? "Sale & Rent"
         : "For Sale";
-  const img = roomUrls[roomIdx] ?? roomUrls[0] ?? property.image_url;
+  const img = getOptimizedImageUrl(roomUrls[roomIdx] ?? roomUrls[0] ?? property.image_url);
 
   const { profile } = useAuth();
   const router = useRouter();
@@ -2160,8 +2180,10 @@ export function NewlyListedCard({
           fill
           quality={92}
           className="object-cover"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          loading="lazy"
+          sizes={LISTING_IMAGE_SIZES}
+          placeholder="blur"
+          blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
+          loading={listingImageLoadEager ? "eager" : "lazy"}
         />
         <button
           type="button"
@@ -2592,6 +2614,7 @@ function PropertyRows({
   viewerVerifiedListingAgent: boolean;
   listingsOnboardingHref: string;
 }) {
+  const eagerListingThumbKey = useMemo(() => firstBrowseListingThumbKey(rows), [rows]);
   const first = rows.slice(0, 4);
   const rest = rows.slice(4);
 
@@ -2614,6 +2637,7 @@ function PropertyRows({
             onOpenPropertyZoom={onOpenPropertyZoom}
             viewerVerifiedListingAgent={viewerVerifiedListingAgent}
             listingsOnboardingHref={listingsOnboardingHref}
+            eagerListingThumbKey={eagerListingThumbKey}
           />
           {i < first.length - 1 ? (
             <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
@@ -2658,6 +2682,7 @@ function PropertyRows({
                   onOpenPropertyZoom={onOpenPropertyZoom}
                   viewerVerifiedListingAgent={viewerVerifiedListingAgent}
                   listingsOnboardingHref={listingsOnboardingHref}
+                  eagerListingThumbKey={eagerListingThumbKey}
                 />
                 <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
               </div>
@@ -2862,6 +2887,7 @@ function RowCarousel({
   onOpenPropertyZoom,
   viewerVerifiedListingAgent,
   listingsOnboardingHref,
+  eagerListingThumbKey,
 }: {
   rowKey: string;
   title: string;
@@ -2877,6 +2903,7 @@ function RowCarousel({
   onOpenPropertyZoom: (p: DbProperty) => void;
   viewerVerifiedListingAgent: boolean;
   listingsOnboardingHref: string;
+  eagerListingThumbKey?: string;
 }) {
   const scroll = (dir: "prev" | "next") => {
     const el = rowRefs.current[rowKey];
@@ -2930,6 +2957,7 @@ function RowCarousel({
             viewerUserId={viewerUserId}
             compact
             verifiedListingAgent={viewerVerifiedListingAgent}
+            listingImageLoadEager={eagerListingThumbKey === `${rowKey}-${p.id}`}
           />
         ))}
         {Array.from({ length: fillerCount }).map((_, i) => (

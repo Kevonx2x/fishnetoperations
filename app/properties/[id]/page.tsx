@@ -24,7 +24,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { coListLimitForTier, listingLimitForTier } from "@/lib/agent-listing-limits";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
-import { cn } from "@/lib/utils";
+import { cn, getOptimizedImageUrl, LISTING_PHOTO_BLUR_DATA_URL } from "@/lib/utils";
 import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 
 type ListingAgentProfile = {
@@ -32,6 +32,8 @@ type ListingAgentProfile = {
   full_name: string | null;
   avatar_url: string | null;
 } | null;
+
+const LISTING_IMAGE_SIZES = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" as const;
 
 type PropertyRow = {
   id: string;
@@ -294,7 +296,9 @@ export default function PropertyPage() {
     if (!property || allPhotos.length > 0) return "";
     const u = String(property.image_url ?? "").trim();
     if (!u) return "";
-    return cloudinaryTransformUrl(cloudinaryPropertyPhotoDisplayUrl(u), "c_fill,w_1600,h_900,q_auto,f_auto");
+    return getOptimizedImageUrl(
+      cloudinaryTransformUrl(cloudinaryPropertyPhotoDisplayUrl(u), "c_fill,w_1600,h_900,q_auto,f_auto"),
+    );
   }, [property, allPhotos.length]);
   /** Hero image URL; thumbnails call setActivePhoto(url). */
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
@@ -323,7 +327,9 @@ export default function PropertyPage() {
       activePhoto && allPhotos.some((u) => String(u).trim() === String(activePhoto).trim())
         ? activePhoto
         : allPhotos[0];
-    return cloudinaryTransformUrl(String(raw).trim(), "c_fill,w_1600,h_900,q_auto,f_auto");
+    return getOptimizedImageUrl(
+      cloudinaryTransformUrl(String(raw).trim(), "c_fill,w_1600,h_900,q_auto,f_auto"),
+    );
   }, [allPhotos, activePhoto]);
 
   const openLightbox = () => {
@@ -533,10 +539,12 @@ export default function PropertyPage() {
                           src={noGalleryFallbackHeroSrc}
                           alt={property.location}
                           fill
-                          sizes="100vw"
+                          sizes={LISTING_IMAGE_SIZES}
                           loading="eager"
                           className="absolute inset-0 h-full w-full object-cover"
                           priority
+                          placeholder="blur"
+                          blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
                         />
                       </div>
                     ) : (
@@ -557,10 +565,12 @@ export default function PropertyPage() {
                             src={heroDisplaySrc}
                             alt={property.location}
                             fill
-                            sizes="100vw"
+                            sizes={LISTING_IMAGE_SIZES}
                             loading="eager"
                             className="absolute inset-0 h-full w-full object-cover"
                             priority
+                            placeholder="blur"
+                            blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
                           />
                         </button>
                         <div
@@ -647,9 +657,11 @@ export default function PropertyPage() {
                       {allPhotos.length > 1 ? (
                         <div className="mt-3 flex w-full gap-3 overflow-x-auto pb-2 scrollbar-hide">
                           {allPhotos.map((url, i) => {
-                            const thumbSrc = cloudinaryTransformUrl(
-                              String(url).trim(),
-                              "c_fill,w_240,h_160,q_auto,f_auto",
+                            const thumbSrc = getOptimizedImageUrl(
+                              cloudinaryTransformUrl(
+                                String(url).trim(),
+                                "c_fill,w_240,h_160,q_auto,f_auto",
+                              ),
                             );
                             return (
                               <button
@@ -666,8 +678,11 @@ export default function PropertyPage() {
                                   src={thumbSrc}
                                   alt=""
                                   fill
-                                  sizes="120px"
+                                  sizes={LISTING_IMAGE_SIZES}
                                   className="object-cover"
+                                  placeholder="blur"
+                                  blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
+                                  loading={i === 0 ? "eager" : "lazy"}
                                 />
                               </button>
                             );
@@ -1081,9 +1096,11 @@ function PropertyPhotoLightbox({
 
   if (typeof document === "undefined") return null;
 
-  const mobileSrc = cloudinaryTransformUrl(
-    String(photos[index] ?? photos[0]).trim(),
-    "c_limit,w_1600,h_1600,q_auto,f_auto",
+  const mobileSrc = getOptimizedImageUrl(
+    cloudinaryTransformUrl(
+      String(photos[index] ?? photos[0]).trim(),
+      "c_limit,w_1600,h_1600,q_auto,f_auto",
+    ),
   );
 
   const shell = (
@@ -1123,8 +1140,11 @@ function PropertyPhotoLightbox({
               alt=""
               fill
               className="object-contain"
-              sizes="100vw"
+              sizes={LISTING_IMAGE_SIZES}
               priority
+              placeholder="blur"
+              blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
+              loading="eager"
             />
           ) : null}
         </div>
@@ -1177,7 +1197,9 @@ function PropertyPhotoLightbox({
             </button>
             <div className="grid grid-cols-2 gap-3 px-10">
               {photos.map((url, i) => {
-                const src = cloudinaryTransformUrl(String(url).trim(), "c_fill,w_800,h_800,q_auto,f_auto");
+                const src = getOptimizedImageUrl(
+                  cloudinaryTransformUrl(String(url).trim(), "c_fill,w_800,h_800,q_auto,f_auto"),
+                );
                 return (
                   <div
                     key={`${i}-${url}`}
@@ -1186,7 +1208,16 @@ function PropertyPhotoLightbox({
                       i === index ? "ring-[#6B9E6E]" : "ring-transparent",
                     )}
                   >
-                    <Image src={src} alt="" fill className="object-cover" sizes="(max-width: 1024px) 50vw, 400px" />
+                    <Image
+                      src={src}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes={LISTING_IMAGE_SIZES}
+                      placeholder="blur"
+                      blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
+                      loading={i === 0 ? "eager" : "lazy"}
+                    />
                   </div>
                 );
               })}
