@@ -50,6 +50,41 @@ async function findExistingLeadIdForViewingDedupe(
   return id != null ? Number(id) : null;
 }
 
+function isLeadsClientAgentPropertyDedupeViolation(err: {
+  code?: string;
+  message?: string;
+  details?: string | null;
+}): boolean {
+  if (String(err.code) !== "23505") return false;
+  const blob = `${err.message ?? ""} ${err.details ?? ""}`;
+  return blob.includes("leads_client_agent_property_dedupe_idx");
+}
+
+/** Same filters as findExistingLeadIdForViewingDedupe; uses limit(1) if maybeSingle did not return a row. */
+async function resolveExistingLeadIdAfterDedupeInsert(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  clientId: string,
+  agentUserId: string,
+  propertyId: string | null,
+): Promise<number | null> {
+  const fromMaybe = await findExistingLeadIdForViewingDedupe(admin, clientId, agentUserId, propertyId);
+  if (fromMaybe != null) return fromMaybe;
+  let q = admin.from("leads").select("id").eq("client_id", clientId).eq("agent_id", agentUserId);
+  if (propertyId) {
+    q = q.eq("property_id", propertyId);
+  } else {
+    q = q.is("property_id", null);
+  }
+  const { data, error } = await q.limit(1);
+  if (error) {
+    console.warn("[create-viewing-request] resolveExistingLeadIdAfterDedupeInsert failed", error);
+    return null;
+  }
+  const row = (data as { id?: number }[] | null)?.[0];
+  const id = row?.id;
+  return id != null ? Number(id) : null;
+}
+
 async function notifyAgentNewLead(
   admin: ReturnType<typeof createSupabaseAdmin>,
   args: {
@@ -326,8 +361,8 @@ export async function POST(req: Request) {
         code: insErr.code,
         details: insErr.details,
       });
-      if (insErr.code === "23505") {
-        const raceLeadId = await findExistingLeadIdForViewingDedupe(
+      if (isLeadsClientAgentPropertyDedupeViolation(insErr)) {
+        const raceLeadId = await resolveExistingLeadIdAfterDedupeInsert(
           admin,
           session.userId,
           agentUserId,
@@ -351,10 +386,9 @@ export async function POST(req: Request) {
           });
           return ok({ viewing_request_id: viewingRequestId, lead_id: raceLeadId });
         }
-        await notifyAgentNewLead(admin, {
-          ...notifyArgs,
-          leadId: 0,
-        });
+        console.warn(
+          "[create-viewing-request] duplicate on leads_client_agent_property_dedupe_idx but existing row not found",
+        );
         return ok({ viewing_request_id: viewingRequestId, lead_id: null });
       }
       return fail("DATABASE_ERROR", insErr.message, 500);

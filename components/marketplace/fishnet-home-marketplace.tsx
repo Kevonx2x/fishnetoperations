@@ -41,7 +41,7 @@ import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { listingListedLabel } from "@/lib/listing-listed-time";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
-import { cn, getOptimizedImageUrl, LISTING_PHOTO_BLUR_DATA_URL } from "@/lib/utils";
+import { cn, getOptimizedImageUrl } from "@/lib/utils";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
@@ -1872,8 +1872,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         quality={95}
                         className="object-cover"
                         sizes={LISTING_IMAGE_SIZES}
-                        placeholder="blur"
-                        blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
                         loading="lazy"
                       />
                       {featuredHomeIsAdminFeatured ? (
@@ -2181,8 +2179,6 @@ export function NewlyListedCard({
           quality={92}
           className="object-cover"
           sizes={LISTING_IMAGE_SIZES}
-          placeholder="blur"
-          blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
           loading={listingImageLoadEager ? "eager" : "lazy"}
         />
         <button

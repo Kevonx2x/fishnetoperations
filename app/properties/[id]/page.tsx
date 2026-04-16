@@ -24,7 +24,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { coListLimitForTier, listingLimitForTier } from "@/lib/agent-listing-limits";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
-import { cn, getOptimizedImageUrl, LISTING_PHOTO_BLUR_DATA_URL } from "@/lib/utils";
+import { cn, getOptimizedImageUrl } from "@/lib/utils";
 import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 
 type ListingAgentProfile = {
@@ -543,8 +543,6 @@ export default function PropertyPage() {
                           loading="eager"
                           className="absolute inset-0 h-full w-full object-cover"
                           priority
-                          placeholder="blur"
-                          blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
                         />
                       </div>
                     ) : (
@@ -569,8 +567,6 @@ export default function PropertyPage() {
                             loading="eager"
                             className="absolute inset-0 h-full w-full object-cover"
                             priority
-                            placeholder="blur"
-                            blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
                           />
                         </button>
                         <div
@@ -680,8 +676,6 @@ export default function PropertyPage() {
                                   fill
                                   sizes={LISTING_IMAGE_SIZES}
                                   className="object-cover"
-                                  placeholder="blur"
-                                  blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
                                   loading={i === 0 ? "eager" : "lazy"}
                                 />
                               </button>
@@ -1142,8 +1136,6 @@ function PropertyPhotoLightbox({
               className="object-contain"
               sizes={LISTING_IMAGE_SIZES}
               priority
-              placeholder="blur"
-              blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
               loading="eager"
             />
           ) : null}
@@ -1214,8 +1206,6 @@ function PropertyPhotoLightbox({
                       fill
                       className="object-cover"
                       sizes={LISTING_IMAGE_SIZES}
-                      placeholder="blur"
-                      blurDataURL={LISTING_PHOTO_BLUR_DATA_URL}
                       loading={i === 0 ? "eager" : "lazy"}
                     />
                   </div>
