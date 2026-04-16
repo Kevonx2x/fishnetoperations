@@ -649,6 +649,7 @@ export function AgentDashboard() {
   const [sessionDashboardKind, setSessionDashboardKind] = useState<"agent" | "team_member">("agent");
   const [teamMemberSetupError, setTeamMemberSetupError] = useState<string | null>(null);
   const [leads, setLeads] = useState<LeadRow[]>([]);
+  const [pipelineBadgeRefreshKey, setPipelineBadgeRefreshKey] = useState(0);
   const [viewings, setViewings] = useState<ViewingRow[]>([]);
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [selectedLead, setSelectedLead] = useState<LeadRow | null>(null);
@@ -1083,6 +1084,11 @@ export function AgentDashboard() {
     setPropertiesLoadVersion((v) => v + 1);
   }, [supabase, user?.id]);
 
+  const refreshAfterPipelineChange = useCallback(async () => {
+    await loadData();
+    setPipelineBadgeRefreshKey((k) => k + 1);
+  }, [loadData]);
+
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
@@ -1215,7 +1221,12 @@ export function AgentDashboard() {
     return { pct, checks };
   }, [agent, properties.length]);
 
-  const newLeadsCount = useMemo(() => leads.filter((l) => l.stage === "new").length, [leads]);
+  const pipelineSidebarBadgeCount = useMemo(() => {
+    return leads.filter((l) => {
+      const ps = String(l.pipeline_stage ?? "").trim().toLowerCase();
+      return ps !== "declined" && ps !== "closed";
+    }).length;
+  }, [leads, pipelineBadgeRefreshKey]);
 
   const pipelinePropertyLabel = useCallback(
     (propertyId: string | null) => {
@@ -1823,9 +1834,9 @@ export function AgentDashboard() {
               >
                 <span className="text-[#6B9E6E]">{t.icon}</span>
                 {t.label}
-                {t.id === "pipeline" && newLeadsCount > 0 ? (
+                {t.id === "pipeline" && pipelineSidebarBadgeCount > 0 ? (
                   <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                    {newLeadsCount}
+                    {pipelineSidebarBadgeCount}
                   </span>
                 ) : null}
               </button>
@@ -1901,7 +1912,7 @@ export function AgentDashboard() {
                   supabase={supabase}
                   pipelineAgentId={agent.id}
                   clientDocsSharedWithUserId={isTeamMemberView ? agent.user_id : undefined}
-                  onRefresh={loadData}
+                  onRefresh={refreshAfterPipelineChange}
                   onOpenLeadDetails={(leadId) => {
                     const row = leads.find((x) => x.id === leadId);
                     if (row) setSelectedLead(row);
