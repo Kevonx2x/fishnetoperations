@@ -1,13 +1,19 @@
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { leadAccessibleBySession, resolveTeamMemberSupervisorUserId } from "@/lib/team-member-lead-access";
 
 export async function POST(req: Request) {
   const session = await getSessionProfile();
   if (!session?.userId) {
     return Response.json({ error: "Sign in required" }, { status: 401 });
   }
-  if (session.role !== "agent" && session.role !== "admin" && session.role !== "broker") {
+  if (
+    session.role !== "agent" &&
+    session.role !== "admin" &&
+    session.role !== "broker" &&
+    session.role !== "team_member"
+  ) {
     return Response.json({ error: "Not allowed" }, { status: 403 });
   }
 
@@ -36,11 +42,18 @@ export async function POST(req: Request) {
   if (typeof agentIdForm !== "string" || !agentIdForm.trim()) {
     return Response.json({ error: "agent_id required" }, { status: 400 });
   }
-  if (agentIdForm.trim() !== session.userId && session.role !== "admin") {
-    return Response.json({ error: "Invalid agent" }, { status: 403 });
-  }
 
   const sb = await createSupabaseServerClient();
+  const supervisorUserId =
+    session.role === "team_member" ? await resolveTeamMemberSupervisorUserId(sb, session.userId) : null;
+  if (session.role === "team_member" && !supervisorUserId) {
+    return Response.json({ error: "Not a team member" }, { status: 403 });
+  }
+  const effectiveAgentUserId =
+    session.role === "team_member" ? supervisorUserId! : session.userId;
+  if (agentIdForm.trim() !== effectiveAgentUserId && session.role !== "admin") {
+    return Response.json({ error: "Invalid agent" }, { status: 403 });
+  }
   const { data: lead, error: leadErr } = await sb
     .from("leads")
     .select("id, agent_id, broker_id")
@@ -56,9 +69,7 @@ export async function POST(req: Request) {
 
   const agentId = (lead as { agent_id: string | null }).agent_id;
   const brokerId = (lead as { broker_id: string | null }).broker_id;
-  const uid = session.userId;
-  const allowed =
-    session.role === "admin" || agentId === uid || brokerId === uid;
+  const allowed = leadAccessibleBySession(session, agentId, brokerId, supervisorUserId);
   if (!allowed) {
     return Response.json({ error: "Not your lead" }, { status: 403 });
   }

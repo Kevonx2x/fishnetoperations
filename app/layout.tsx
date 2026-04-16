@@ -45,6 +45,7 @@ function SiteFooter() {
           <div className="flex flex-col gap-6 sm:flex-row sm:gap-12">
             <div className="space-y-2 text-sm font-semibold text-[#2C2C2C]/70">
               <a className="block hover:text-[#2C2C2C]" href="/about">About</a>
+              <a className="block hover:text-[#2C2C2C]" href="/faq">FAQ</a>
               <a className="block hover:text-[#2C2C2C]" href="/pricing">Pricing</a>
               <a className="block hover:text-[#2C2C2C]" href="/blog">Blog</a>
               <a className="block hover:text-[#2C2C2C]" href="/contact">Contact</a>

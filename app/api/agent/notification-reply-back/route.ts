@@ -1,14 +1,28 @@
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { propertyAddressLabel } from "@/lib/property-address-label";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveTeamMemberSupervisorUserId } from "@/lib/team-member-lead-access";
 
 export async function POST(req: Request) {
   const session = await getSessionProfile();
   if (!session?.userId) {
     return Response.json({ error: "Sign in required" }, { status: 401 });
   }
-  if (session.role !== "agent" && session.role !== "broker" && session.role !== "admin") {
+  if (
+    session.role !== "agent" &&
+    session.role !== "broker" &&
+    session.role !== "admin" &&
+    session.role !== "team_member"
+  ) {
     return Response.json({ error: "Not allowed" }, { status: 403 });
+  }
+
+  const sbAuth = await createSupabaseServerClient();
+  const supervisorUserId =
+    session.role === "team_member" ? await resolveTeamMemberSupervisorUserId(sbAuth, session.userId) : null;
+  if (session.role === "team_member" && !supervisorUserId) {
+    return Response.json({ error: "Not a team member" }, { status: 403 });
   }
 
   let body: { reply_to_notification_id?: unknown; message?: unknown };
@@ -53,7 +67,10 @@ export async function POST(req: Request) {
     metadata: Record<string, unknown> | null;
   };
 
-  if (c.user_id !== session.userId && session.role !== "admin") {
+  const ownsNotification =
+    c.user_id === session.userId ||
+    (session.role === "team_member" && supervisorUserId && c.user_id === supervisorUserId);
+  if (!ownsNotification && session.role !== "admin") {
     return Response.json({ error: "Not your notification" }, { status: 403 });
   }
 
@@ -86,10 +103,12 @@ export async function POST(req: Request) {
     propertyAddressLabel(prop as { name?: string | null; location?: string | null } | null) ||
     "Property";
 
+  const agentUserIdForDisplay =
+    session.role === "team_member" && supervisorUserId ? supervisorUserId : session.userId;
   const { data: agentRow } = await admin
     .from("agents")
     .select("name")
-    .eq("user_id", session.userId)
+    .eq("user_id", agentUserIdForDisplay)
     .maybeSingle();
 
   const agentName = (agentRow as { name?: string | null } | null)?.name?.trim() || session.email || "Your agent";
@@ -108,7 +127,7 @@ export async function POST(req: Request) {
       metadata: {
         property_id: propertyId || null,
         property_name: propertyName,
-        from_agent_user_id: session.userId,
+        from_agent_user_id: agentUserIdForDisplay,
       },
     })
     .select("id")

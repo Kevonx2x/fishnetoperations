@@ -21,6 +21,8 @@ import { useDataConsentGate } from "@/components/legal/data-consent-modal";
 import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
 import { applyBahayGoTheme, BAHAYGO_THEME_KEY } from "@/components/bahaygo-theme-provider";
 import { uploadVerificationImageToCloudinary } from "@/lib/upload-verification-image-cloudinary";
+import { labelForClientDocType } from "@/lib/client-documents";
+import { formatRelativeTime } from "@/lib/relative-time";
 
 const COUNTRY_OPTIONS = [
   "Philippines",
@@ -169,18 +171,28 @@ const ROLE_OPTIONS: {
   },
 ];
 
-type SettingsTabId = "profile" | "account" | "notifications" | "verification";
+type SettingsTabId = "profile" | "account" | "notifications" | "documents" | "verification";
 
 const TAB_LABEL: Record<SettingsTabId, string> = {
   profile: "Profile",
   account: "Account",
   notifications: "Notifications",
+  documents: "Documents",
   verification: "Verification",
+};
+
+type SettingsClientDocRow = {
+  id: string;
+  file_name: string | null;
+  file_url: string;
+  created_at: string;
+  document_type: string;
 };
 
 function visibleTabsForRole(role: ProfileRole): SettingsTabId[] {
   const core: SettingsTabId[] = ["profile", "account", "notifications"];
   if (role === "agent" || role === "broker") return [...core, "verification"];
+  if (role === "client") return [...core, "documents"];
   return core;
 }
 
@@ -427,6 +439,9 @@ function SettingsPageInner() {
   const [notifMsg, setNotifMsg] = useState("");
   const [roleMsg, setRoleMsg] = useState("");
   const [pendingRole, setPendingRole] = useState<Exclude<ProfileRole, "admin"> | null>(null);
+  const [clientDocs, setClientDocs] = useState<SettingsClientDocRow[]>([]);
+  const [clientDocsLoading, setClientDocsLoading] = useState(false);
+  const [clientDocViewBusyUrl, setClientDocViewBusyUrl] = useState<string | null>(null);
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -735,6 +750,51 @@ function SettingsPageInner() {
     },
     [router],
   );
+
+  const openClientDocument = useCallback(async (fileUrl: string) => {
+    setClientDocViewBusyUrl(fileUrl);
+    try {
+      const res = await fetch("/api/client/get-document-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ file_url: fileUrl }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { signedUrl?: string; error?: string };
+      if (!res.ok || !json.signedUrl) {
+        toast.error(json.error ?? "Could not open document");
+        return;
+      }
+      window.open(json.signedUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setClientDocViewBusyUrl(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "documents" || currentRole !== "client" || !user?.id) return;
+    let cancelled = false;
+    setClientDocsLoading(true);
+    void (async () => {
+      const { data, error } = await supabase
+        .from("client_documents")
+        .select("id, file_name, file_url, created_at, document_type")
+        .eq("client_id", user.id)
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        console.error(error);
+        toast.error(error.message);
+        setClientDocs([]);
+      } else {
+        setClientDocs((data ?? []) as SettingsClientDocRow[]);
+      }
+      setClientDocsLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, currentRole, user?.id, supabase]);
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1853,6 +1913,50 @@ function SettingsPageInner() {
             >
               {savingNotif ? "Saving…" : "Save notification settings"}
             </button>
+          </div>
+        ) : null}
+
+        {activeTab === "documents" && currentRole === "client" && user?.id ? (
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">Documents</h2>
+            <p className="mt-1 text-sm text-[#2C2C2C]/50">
+              Files you&apos;ve uploaded for your BahayGo profile (valid ID, proof of funds, visa,
+              etc.).
+            </p>
+            {clientDocsLoading ? (
+              <p className="mt-6 text-sm text-[#2C2C2C]/55">Loading…</p>
+            ) : clientDocs.length === 0 ? (
+              <p className="mt-6 text-sm text-[#2C2C2C]/55">No documents uploaded yet.</p>
+            ) : (
+              <ul className="mt-6 space-y-3">
+                {clientDocs.map((doc) => {
+                  const displayName =
+                    doc.file_name?.trim() || labelForClientDocType(doc.document_type);
+                  const uploadedLabel = formatRelativeTime(doc.created_at);
+                  return (
+                    <li
+                      key={doc.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 bg-[#FAFAFA] px-4 py-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-[#2C2C2C]">{displayName}</p>
+                        <p className="mt-0.5 text-xs text-[#2C2C2C]/50">
+                          {uploadedLabel ? `Uploaded ${uploadedLabel}` : "Uploaded recently"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={clientDocViewBusyUrl === doc.file_url}
+                        onClick={() => void openClientDocument(doc.file_url)}
+                        className="shrink-0 rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#5d8a60] disabled:opacity-50"
+                      >
+                        {clientDocViewBusyUrl === doc.file_url ? "Opening…" : "View"}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         ) : null}
 

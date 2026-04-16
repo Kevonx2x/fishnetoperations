@@ -23,7 +23,7 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
 
   const raw = profile?.role;
   const role: ProfileRole =
-    raw === "admin" || raw === "broker" || raw === "agent" || raw === "client"
+    raw === "admin" || raw === "broker" || raw === "agent" || raw === "client" || raw === "team_member"
       ? raw
       : "client";
 

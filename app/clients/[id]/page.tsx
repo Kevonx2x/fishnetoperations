@@ -1379,17 +1379,6 @@ function ClientPublicProfilePageInner() {
             </aside>
 
             <main className="min-w-0 flex-1 lg:w-[70%]">
-              {isOwn ? (
-                <div className="mb-4 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setDocumentsPanelOpen(true)}
-                    className="flex cursor-pointer items-center gap-1 text-sm font-medium text-[#6B9E6E]"
-                  >
-                    Documents <span aria-hidden>→</span>
-                  </button>
-                </div>
-              ) : null}
               <h2 className="font-serif text-3xl font-semibold text-[#2C2C2C]">
                 {isOwn
                   ? ownMainTab === "all"

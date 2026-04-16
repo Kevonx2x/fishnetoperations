@@ -480,31 +480,32 @@ export type { PropertyEngagement } from "@/hooks/use-property-engagement";
 
 const WELCOME_BANNER_DISMISSED_KEY = "welcome_banner_dismissed";
 
+/** Condensed FAQ for the homepage (foreign buyers & general). Full list lives on `/faq`. */
 const HOMEPAGE_FAQ_ITEMS = [
   {
-    question: "How is the BahayGo agent score calculated?",
+    question: "Can foreigners buy property in the Philippines?",
     answer:
-      "Agent scores are calculated out of 10.0 based on four factors: verified closings (50%), response time to leads (20%), profile completeness (15%), and PRC license verification (15%). Scores update automatically as agents close more deals and improve their response time.",
+      "Foreign nationals cannot own land in the Philippines but can own condominium units as long as foreign ownership in the building does not exceed 40 percent. They can also own structures built on leased land.",
   },
   {
-    question: "How are agents verified on BahayGo?",
+    question: "What taxes apply when buying property in the Philippines?",
     answer:
-      "Every agent on BahayGo must submit their PRC (Professional Regulation Commission) license number, a photo of their license ID, and a selfie for identity matching. Our team manually reviews each submission within 24 hours. Only approved agents receive the Verified Agent badge and can post listings.",
+      "Buyers typically pay Documentary Stamp Tax of 1.5 percent, Transfer Tax of 0.5 to 0.75 percent, Registration Fee of approximately 0.25 percent, and notarial fees. Sellers pay Capital Gains Tax of 6 percent.",
   },
   {
-    question: "Is BahayGo free for buyers and renters?",
+    question: "What is the difference between a condo and a house and lot?",
     answer:
-      "Yes. BahayGo is completely free for clients looking to buy, rent, or inquire about properties. You can search listings, contact verified agents, save properties to your wishlist, and request viewings at no cost. Agents and brokers pay for listing plans.",
+      "A condominium unit is individual ownership of a unit within a shared building. A house and lot is ownership of both the structure and the land it sits on. Foreigners can own condos but not land.",
   },
   {
-    question: "How does BahayGo prevent scams?",
+    question: "How does BahayGo verify agents?",
     answer:
-      "BahayGo only allows PRC-licensed and manually verified agents to post listings. All listings are tied to a verified agent account. Clients can report suspicious listings directly from the property page. Our admin team reviews all reports and can suspend agents immediately. We maintain a zero-scam policy.",
+      "All agents on BahayGo submit their PRC license number, a selfie with their ID, and go through admin approval before being listed. You can identify verified agents by the Verified badge on their profile.",
   },
   {
-    question: "Legal Disclosure",
+    question: "Can I rent instead of buy as a foreigner?",
     answer:
-      "BahayGo is a real estate technology platform and is not a licensed real estate broker, agent, or brokerage. We do not represent buyers, sellers, landlords, or tenants in any transaction. All property listings are posted by independent licensed real estate professionals who are solely responsible for the accuracy of their listings. BahayGo does not guarantee the availability, accuracy, or legality of any listing. Users are advised to conduct their own due diligence before entering into any real estate transaction. For any legal concerns, please contact support@bahaygo.com.",
+      "Yes. Foreigners can freely rent property in the Philippines with no restrictions. Long term leases of up to 50 years renewable for another 25 years are available.",
   },
 ] as const;
 
@@ -525,7 +526,9 @@ function HomepageFaqSection({
       <h2 id="homepage-faq-heading" className="text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
         Frequently Asked Questions
       </h2>
-      <p className="mt-2 text-center text-sm text-[#2C2C2C]/70">Everything you need to know about BahayGo</p>
+      <p className="mt-2 text-center text-sm font-medium text-[#2C2C2C]/70">
+        Common questions for buying and renting in the Philippines.
+      </p>
       <div className="mt-8">
         {HOMEPAGE_FAQ_ITEMS.map((item, index) => {
           const isOpen = openFaqIndex === index;
@@ -540,7 +543,7 @@ function HomepageFaqSection({
                 <span>{item.question}</span>
                 <ChevronDown
                   className={cn(
-                    "h-5 w-5 shrink-0 text-[#2C2C2C] transition-transform duration-200",
+                    "h-5 w-5 shrink-0 text-[#6B9E6E] transition-transform duration-200",
                     isOpen && "rotate-180",
                   )}
                   aria-hidden
@@ -555,13 +558,21 @@ function HomepageFaqSection({
                     transition={{ duration: 0.2, ease: "easeInOut" }}
                     className="overflow-hidden"
                   >
-                    <p className="pb-4 text-sm leading-relaxed text-gray-500">{item.answer}</p>
+                    <p className="pb-4 text-sm leading-relaxed text-[#2C2C2C]/70">{item.answer}</p>
                   </motion.div>
                 ) : null}
               </AnimatePresence>
             </div>
           );
         })}
+      </div>
+      <div className="mt-8 flex justify-center">
+        <Link
+          href="/faq"
+          className="inline-flex rounded-full border-2 border-[#6B9E6E] bg-white px-6 py-2.5 text-sm font-semibold text-[#6B9E6E] shadow-sm transition hover:bg-[#6B9E6E]/10"
+        >
+          View All FAQs
+        </Link>
       </div>
     </section>
   );

@@ -85,7 +85,9 @@ type Tab =
   | "overview"
   | "pipeline"
   | "messages"
+  | "documents"
   | "listings"
+  | "team"
   | "profile"
   | "analytics"
   | "notifications"
@@ -490,9 +492,103 @@ function normalizeEditListingStatus(
   return "active";
 }
 
+type DealDocumentListRow = {
+  id: string;
+  lead_id: number;
+  document_type: string | null;
+  file_name: string | null;
+  status: string | null;
+  created_at: string | null;
+};
+
+function AgentDashboardDocumentsTab({
+  leads,
+  supabase,
+}: {
+  leads: LeadRow[];
+  supabase: ReturnType<typeof createSupabaseBrowserClient>;
+}) {
+  const [rows, setRows] = useState<DealDocumentListRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const ids = leads.map((l) => l.id).filter((id): id is number => typeof id === "number");
+    if (ids.length === 0) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("deal_documents")
+        .select("id, lead_id, document_type, file_name, status, created_at")
+        .in("lead_id", ids)
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        toast.error(error.message);
+        setRows([]);
+      } else {
+        setRows((data ?? []) as DealDocumentListRow[]);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [leads, supabase]);
+
+  const leadName = (leadId: number) => leads.find((l) => l.id === leadId)?.name ?? `Lead #${leadId}`;
+
+  return (
+    <div className="font-sans">
+      <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">Documents</h2>
+      <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/55">
+        Deal documents across your pipeline leads.
+      </p>
+      {loading ? (
+        <div className="mt-10 flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" aria-hidden />
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="mt-10 text-center text-sm font-semibold text-[#2C2C2C]/55">No documents yet.</p>
+      ) : (
+        <div className="mt-8 overflow-x-auto rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+          <table className="w-full min-w-[520px] text-left text-sm">
+            <thead className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4] text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+              <tr>
+                <th className="px-4 py-3">Lead</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">File</th>
+                <th className="px-4 py-3">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-b border-[#2C2C2C]/5 last:border-0">
+                  <td className="px-4 py-3 font-semibold text-[#2C2C2C]">{leadName(r.lead_id)}</td>
+                  <td className="px-4 py-3 text-[#2C2C2C]/70">{r.document_type ?? "—"}</td>
+                  <td className="px-4 py-3 text-[#2C2C2C]/70">{r.file_name ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    <span className="rounded-full bg-[#6B9E6E]/15 px-2.5 py-0.5 text-xs font-semibold text-[#2C2C2C]">
+                      {r.status ?? "—"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AgentDashboard() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, role: authProfileRole } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [tab, setTab] = useState<Tab>("pipeline");
@@ -515,7 +611,9 @@ export function AgentDashboard() {
       "overview",
       "pipeline",
       "messages",
+      "documents",
       "listings",
+      "team",
       "profile",
       "analytics",
       "notifications",
@@ -547,6 +645,9 @@ export function AgentDashboard() {
   }, [paymentBannerTier, showAlert]);
 
   const [loaded, setLoaded] = useState(false);
+  /** Mirrors `profiles.role` for this session; drives team-member-only navigation. */
+  const [sessionDashboardKind, setSessionDashboardKind] = useState<"agent" | "team_member">("agent");
+  const [teamMemberSetupError, setTeamMemberSetupError] = useState<string | null>(null);
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [viewings, setViewings] = useState<ViewingRow[]>([]);
   const [properties, setProperties] = useState<PropertyRow[]>([]);
@@ -635,6 +736,146 @@ export function AgentDashboard() {
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
+    setTeamMemberSetupError(null);
+
+    const { data: profileRow } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+    const accountRole = ((profileRow as { role?: string | null } | null)?.role ?? "").trim();
+    setSessionDashboardKind(accountRole === "team_member" ? "team_member" : "agent");
+
+    if (accountRole === "team_member") {
+      const { data: tm, error: tmErr } = await supabase
+        .from("team_members")
+        .select("agent_id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .maybeSingle();
+      if (tmErr || !(tm as { agent_id?: string } | null)?.agent_id) {
+        setAgent(null);
+        setLeads([]);
+        setProperties([]);
+        setViewings([]);
+        setProfileViewsCount(0);
+        setPendingDealDocumentsCount(0);
+        setUnreadNotificationsCount(0);
+        setYesterdayNewLeadsCount(0);
+        setYesterdayPendingDocumentsCount(0);
+        setYesterdayUnreadNotificationsCount(0);
+        setPropertiesLoadVersion((v) => v + 1);
+        setLoaded(true);
+        setTeamMemberSetupError(tmErr?.message ?? "No active team assignment found.");
+        return;
+      }
+
+      const agentTableId = (tm as { agent_id: string }).agent_id;
+      const { data: a } = await supabase
+        .from("agents")
+        .select(
+          "id, user_id, name, email, phone, bio, license_number, license_expiry, image_url, status, verified, broker_id, specialties, service_areas, social_links, age, years_experience, languages_spoken, response_time, closings, score, listing_tier, availability_schedule, availability, updated_at, verification_status",
+        )
+        .eq("id", agentTableId)
+        .maybeSingle();
+      setAgent((a as AgentRow | null) ?? null);
+      setLoaded(true);
+      if (!a) {
+        setLeads([]);
+        setProperties([]);
+        setViewings([]);
+        setProfileViewsCount(0);
+        setPendingDealDocumentsCount(0);
+        setUnreadNotificationsCount(0);
+        setYesterdayNewLeadsCount(0);
+        setYesterdayPendingDocumentsCount(0);
+        setYesterdayUnreadNotificationsCount(0);
+        setPropertiesLoadVersion((v) => v + 1);
+        setTeamMemberSetupError("Supervising agent profile could not be loaded.");
+        return;
+      }
+
+      if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
+        const supervisorUserId = (a as AgentRow).user_id;
+        const [{ data: ld }, unreadRes] = await Promise.all([
+          supabase
+            .from("leads")
+            .select(
+              "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, closing_notes, property_id, created_at, updated_at, client_id",
+            )
+            .eq("agent_id", supervisorUserId)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("notifications")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .is("read_at", null),
+        ]);
+        const leadRows = (ld as LeadRow[]) ?? [];
+        setLeads(leadRows);
+        setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
+        setProperties([]);
+        setViewings([]);
+        setProfileViewsCount(0);
+
+        const now = new Date();
+        const startToday = new Date(now);
+        startToday.setHours(0, 0, 0, 0);
+        const startYesterday = new Date(startToday);
+        startYesterday.setDate(startToday.getDate() - 1);
+        const startTodayIso = startToday.toISOString();
+        const startYesterdayIso = startYesterday.toISOString();
+
+        const yLeadRes = await supabase
+          .from("leads")
+          .select("id", { count: "exact", head: true })
+          .eq("agent_id", supervisorUserId)
+          .gte("created_at", startYesterdayIso)
+          .lt("created_at", startTodayIso);
+        setYesterdayNewLeadsCount(yLeadRes.error ? 0 : (yLeadRes.count ?? 0));
+
+        const leadIds = leadRows.map((l) => l.id).filter((id): id is number => typeof id === "number");
+        if (leadIds.length === 0) {
+          setPendingDealDocumentsCount(0);
+          setYesterdayPendingDocumentsCount(0);
+          setYesterdayUnreadNotificationsCount(0);
+        } else {
+          const ddRes = await supabase
+            .from("deal_documents")
+            .select("id", { count: "exact", head: true })
+            .in("lead_id", leadIds)
+            .eq("status", "pending");
+          setPendingDealDocumentsCount(ddRes.error ? 0 : (ddRes.count ?? 0));
+
+          const yDocsRes = await supabase
+            .from("deal_documents")
+            .select("id", { count: "exact", head: true })
+            .in("lead_id", leadIds)
+            .eq("status", "pending")
+            .gte("created_at", startYesterdayIso)
+            .lt("created_at", startTodayIso);
+          setYesterdayPendingDocumentsCount(yDocsRes.error ? 0 : (yDocsRes.count ?? 0));
+
+          const yUnreadRes = await supabase
+            .from("notifications")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .is("read_at", null)
+            .gte("created_at", startYesterdayIso)
+            .lt("created_at", startTodayIso);
+          setYesterdayUnreadNotificationsCount(yUnreadRes.error ? 0 : (yUnreadRes.count ?? 0));
+        }
+      } else {
+        setLeads([]);
+        setProperties([]);
+        setViewings([]);
+        setProfileViewsCount(0);
+        setPendingDealDocumentsCount(0);
+        setUnreadNotificationsCount(0);
+        setYesterdayNewLeadsCount(0);
+        setYesterdayPendingDocumentsCount(0);
+        setYesterdayUnreadNotificationsCount(0);
+      }
+      setPropertiesLoadVersion((v) => v + 1);
+      return;
+    }
+
     const { data: a } = await supabase
       .from("agents")
       .select(
@@ -857,8 +1098,11 @@ export function AgentDashboard() {
     }
   }, [paymentBannerTier, loadData]);
 
+  const identityVerified = agent?.verification_status === "verified";
+  const isTeamMemberView = sessionDashboardKind === "team_member";
+
   useEffect(() => {
-    if (!agent?.user_id) return;
+    if (!agent?.user_id || isTeamMemberView) return;
     const uid = agent.user_id;
     void (async () => {
       try {
@@ -875,17 +1119,32 @@ export function AgentDashboard() {
         /* score recalc is best-effort */
       }
     })();
-  }, [agent?.user_id]);
+  }, [agent?.user_id, isTeamMemberView]);
 
   useEffect(() => {
-    if (!agent) return;
-    if (agent.verification_status !== "verified" && (tab === "pipeline" || tab === "listings")) {
+    if (!agent || isTeamMemberView) return;
+    if (
+      agent.verification_status !== "verified" &&
+      (tab === "pipeline" || tab === "listings" || tab === "team")
+    ) {
       setTab("overview");
     }
-  }, [agent, tab]);
+  }, [agent, tab, isTeamMemberView]);
 
   useEffect(() => {
-    if (!agent) return;
+    if (!isTeamMemberView && tab === "documents") {
+      setTab("pipeline");
+    }
+  }, [isTeamMemberView, tab]);
+
+  useEffect(() => {
+    if (!isTeamMemberView) return;
+    const allowed: Tab[] = ["pipeline", "messages", "documents"];
+    if (!allowed.includes(tab)) setTab("pipeline");
+  }, [isTeamMemberView, tab]);
+
+  useEffect(() => {
+    if (!agent || authProfileRole === "team_member") return;
     const sl = (agent.social_links ?? {}) as Record<string, string>;
     const spec = splitCsv(agent.specialties);
     const langs = splitCsv(agent.languages_spoken);
@@ -905,9 +1164,7 @@ export function AgentDashboard() {
       linkedin: sl.linkedin ?? "",
       website: sl.website ?? "",
     });
-  }, [agent]);
-
-  const identityVerified = agent?.verification_status === "verified";
+  }, [agent, authProfileRole]);
 
   const ownedListingCount = useMemo(
     () => properties.filter((p) => !p.isCoHost).length,
@@ -938,12 +1195,12 @@ export function AgentDashboard() {
   };
 
   useEffect(() => {
-    if (authLoading || !user?.id || !agent?.id) return;
+    if (authLoading || !user?.id || !agent?.id || isTeamMemberView) return;
     void fetch("/api/agent/check-listing-expiry-notifications", {
       method: "POST",
       credentials: "include",
     });
-  }, [authLoading, user?.id, agent?.id]);
+  }, [authLoading, user?.id, agent?.id, isTeamMemberView]);
 
   const profileComplete = useMemo(() => {
     if (!agent) return { pct: 0, checks: [] as { ok: boolean; label: string }[] };
@@ -1472,6 +1729,19 @@ export function AgentDashboard() {
   }
 
   if (!agent) {
+    if (isTeamMemberView && teamMemberSetupError) {
+      return (
+        <div className="min-h-screen bg-[#FAF8F4] px-4 py-16 font-sans">
+          <div className="mx-auto max-w-lg rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 shadow-sm">
+            <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">Team dashboard</h1>
+            <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/65">{teamMemberSetupError}</p>
+            <p className="mt-3 text-sm text-[#2C2C2C]/55">
+              Ask your supervising agent to send a new invite, or contact support if this persists.
+            </p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-[#FAF8F4] px-4 py-16">
         <div className="mx-auto max-w-lg rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 shadow-sm">
@@ -1496,16 +1766,28 @@ export function AgentDashboard() {
     { id: "messages", label: "Messages", icon: <MessageSquare className="h-5 w-5" /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" /> },
     { id: "listings", label: "Listings", icon: <LayoutList className="h-5 w-5" /> },
+    { id: "team", label: "Team", icon: <Users className="h-5 w-5" /> },
     { id: "billing", label: "Billing", icon: <CreditCard className="h-5 w-5" /> },
     { id: "notifications", label: "Notifications", icon: <Bell className="h-5 w-5" /> },
     { id: "profile", label: "Profile", icon: <Settings className="h-5 w-5" /> },
   ];
-  const tabs = identityVerified
-    ? allTabs
-    : allTabs.filter((t) => t.id !== "pipeline" && t.id !== "listings");
+  const teamMemberNavTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-5 w-5" /> },
+    { id: "messages", label: "Messages", icon: <MessageSquare className="h-5 w-5" /> },
+    { id: "documents", label: "Documents", icon: <FileText className="h-5 w-5" /> },
+  ];
+  const tabs = isTeamMemberView
+    ? teamMemberNavTabs
+    : identityVerified
+      ? allTabs
+      : allTabs.filter((t) => t.id !== "pipeline" && t.id !== "listings" && t.id !== "team");
 
-  const mobilePrimaryTabIds: Tab[] = identityVerified ? ["overview", "pipeline", "messages"] : ["overview"];
-  const mobileMoreTabIds: Tab[] = ["listings", "analytics", "billing", "profile"];
+  const mobilePrimaryTabIds: Tab[] = isTeamMemberView
+    ? ["pipeline", "messages", "documents"]
+    : identityVerified
+      ? ["overview", "pipeline", "messages"]
+      : ["overview"];
+  const mobileMoreTabIds: Tab[] = isTeamMemberView ? [] : ["listings", "team", "analytics", "billing", "profile"];
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
@@ -1558,6 +1840,11 @@ export function AgentDashboard() {
         </aside>
 
         <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-10 md:pb-10">
+          {isTeamMemberView ? (
+            <p className="mb-4 rounded-xl border border-[#6B9E6E]/35 bg-[#6B9E6E]/10 px-4 py-3 font-sans text-sm font-semibold text-[#2C2C2C]">
+              You are logged in as a team member of {agent.name}.
+            </p>
+          ) : null}
           {msg ? (
             <p className="mb-4 rounded-xl border border-[#D4A843]/30 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]">
               {msg}
@@ -1597,7 +1884,7 @@ export function AgentDashboard() {
                   }}
                 />
               )}
-              {tab === "pipeline" && identityVerified && (
+              {tab === "pipeline" && (identityVerified || isTeamMemberView) && (
                 <AgentPipelineTab
                   leads={leads.map((l) => ({
                     id: l.id,
@@ -1612,6 +1899,8 @@ export function AgentDashboard() {
                   }))}
                   propertyLabel={pipelinePropertyLabel}
                   supabase={supabase}
+                  pipelineAgentId={agent.id}
+                  clientDocsSharedWithUserId={isTeamMemberView ? agent.user_id : undefined}
                   onRefresh={loadData}
                   onOpenLeadDetails={(leadId) => {
                     const row = leads.find((x) => x.id === leadId);
@@ -1624,8 +1913,21 @@ export function AgentDashboard() {
                   <AgentChatInbox initialChannelId={streamChannelId} />
                 </StreamChatProvider>
               )}
+              {tab === "documents" && isTeamMemberView && (
+                <AgentDashboardDocumentsTab leads={leads} supabase={supabase} />
+              )}
               {tab === "analytics" && (
                 <AgentAnalyticsTab leads={leads} viewings={viewings} agent={agent} />
+              )}
+              {tab === "team" && identityVerified && user && agent && !isTeamMemberView && (
+                <AgentDashboardTeamTab
+                  agentId={agent.id}
+                  supabase={supabase}
+                  onGoToBilling={() => {
+                    setTab("billing");
+                    setMoreDrawerOpen(false);
+                  }}
+                />
               )}
               {tab === "listings" && identityVerified && (
                 <ListingsTab
@@ -1738,22 +2040,26 @@ export function AgentDashboard() {
             </button>
           );
         })}
-        <button
-          type="button"
-          onClick={() => setMoreDrawerOpen(true)}
-          className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[10px] font-bold ${
-            moreDrawerOpen || mobileMoreTabIds.includes(tab) ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
-          }`}
-        >
-          <span
-            className={
+        {mobileMoreTabIds.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setMoreDrawerOpen(true)}
+            className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[10px] font-bold ${
               moreDrawerOpen || mobileMoreTabIds.includes(tab) ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
-            }
+            }`}
           >
-            <MoreHorizontal className="h-5 w-5" />
-          </span>
-          More
-        </button>
+            <span
+              className={
+                moreDrawerOpen || mobileMoreTabIds.includes(tab) ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
+              }
+            >
+              <MoreHorizontal className="h-5 w-5" />
+            </span>
+            More
+          </button>
+        ) : (
+          <div className="min-w-0 flex-1" aria-hidden />
+        )}
       </nav>
 
       <AnimatePresence>
@@ -3594,6 +3900,438 @@ function ListingsTab({
                 {saving ? "Saving…" : "Save listing"}
               </button>
             </motion.form>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+type AgentSubscriptionTierRow = {
+  tier: string;
+  status: string | null;
+  expires_at: string | null;
+};
+
+type DashboardTeamRosterRow = {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+  phone: string | null;
+  status: string | null;
+  created_at: string;
+};
+
+const MANAGED_TEAM_ROLES = [
+  "Co-Agent",
+  "Admin Assistant",
+  "Virtual Assistant",
+  "Marketing",
+  "Other",
+] as const;
+
+function initialsForTeamMemberName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  const a = parts[0][0];
+  const b = parts[parts.length - 1][0];
+  return `${a ?? ""}${b ?? ""}`.toUpperCase() || "?";
+}
+
+function hasTeamTabPaidPlanFromSubscriptions(rows: AgentSubscriptionTierRow[]): boolean {
+  const now = Date.now();
+  for (const r of rows) {
+    const st = (r.status ?? "active").toLowerCase();
+    if (st !== "active") continue;
+    if (r.expires_at && new Date(r.expires_at).getTime() < now) continue;
+    const t = normalizeListingTier(r.tier);
+    if (t === "pro" || t === "featured" || t === "broker") return true;
+  }
+  return false;
+}
+
+function AgentDashboardTeamTab({
+  agentId,
+  supabase,
+  onGoToBilling,
+}: {
+  agentId: string;
+  supabase: ReturnType<typeof createSupabaseBrowserClient>;
+  onGoToBilling: () => void;
+}) {
+  const [subLoading, setSubLoading] = useState(true);
+  const [paidPlan, setPaidPlan] = useState(false);
+  const [members, setMembers] = useState<DashboardTeamRosterRow[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [role, setRole] = useState<string>(MANAGED_TEAM_ROLES[0]);
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [revokeBusyId, setRevokeBusyId] = useState<string | null>(null);
+  const [resendBusyId, setResendBusyId] = useState<string | null>(null);
+
+  const loadSubscriptions = useCallback(async () => {
+    setSubLoading(true);
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("tier,status,expires_at,created_at")
+      .eq("agent_id", agentId)
+      .order("created_at", { ascending: false });
+    setSubLoading(false);
+    if (error) {
+      console.error(error);
+      setPaidPlan(false);
+      return;
+    }
+    setPaidPlan(hasTeamTabPaidPlanFromSubscriptions((data ?? []) as AgentSubscriptionTierRow[]));
+  }, [agentId, supabase]);
+
+  const loadMembers = useCallback(async () => {
+    setMembersLoading(true);
+    const { data, error } = await supabase
+      .from("team_members")
+      .select("id, name, role, email, phone, status, created_at")
+      .eq("agent_id", agentId)
+      .order("created_at", { ascending: false });
+    setMembersLoading(false);
+    if (error) {
+      toast.error(error.message);
+      setMembers([]);
+      return;
+    }
+    setMembers((data ?? []) as DashboardTeamRosterRow[]);
+  }, [agentId, supabase]);
+
+  useEffect(() => {
+    void loadSubscriptions();
+  }, [loadSubscriptions]);
+
+  useEffect(() => {
+    if (!paidPlan) {
+      setMembers([]);
+      return;
+    }
+    void loadMembers();
+  }, [paidPlan, loadMembers]);
+
+  const resetAddForm = () => {
+    setFullName("");
+    setRole(MANAGED_TEAM_ROLES[0]);
+    setEmail("");
+    setPhone("");
+  };
+
+  const saveMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const nm = fullName.trim();
+    const em = email.trim();
+    if (!nm) {
+      toast.error("Enter full name.");
+      return;
+    }
+    if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+      toast.error("Enter a valid email.");
+      return;
+    }
+    setSaveBusy(true);
+    try {
+      const res = await fetch("/api/agent/invite-team-member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: nm,
+          email: em,
+          role,
+          phone: phone.trim() || null,
+          agent_id: agentId,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: unknown;
+        error?: { message?: string };
+      };
+      setSaveBusy(false);
+      if (!res.ok || json.success === false) {
+        toast.error(json.error?.message ?? "Could not send invitation");
+        return;
+      }
+      toast.success(`Invitation sent to ${em}`);
+      resetAddForm();
+      setAddOpen(false);
+      void loadMembers();
+    } catch {
+      setSaveBusy(false);
+      toast.error("Could not send invitation");
+    }
+  };
+
+  const resendInvite = async (m: DashboardTeamRosterRow) => {
+    setResendBusyId(m.id);
+    try {
+      const res = await fetch("/api/agent/invite-team-member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: m.name.trim(),
+          email: m.email.trim(),
+          role: m.role,
+          phone: m.phone?.trim() || null,
+          agent_id: agentId,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok || json.success === false) {
+        toast.error(json.error?.message ?? "Could not resend invitation");
+        return;
+      }
+      toast.success(`Invitation sent to ${m.email.trim()}`);
+      void loadMembers();
+    } catch {
+      toast.error("Could not resend invitation");
+    } finally {
+      setResendBusyId(null);
+    }
+  };
+
+  const revokeAccess = async (m: DashboardTeamRosterRow) => {
+    setRevokeBusyId(m.id);
+    try {
+      const res = await fetch("/api/agent/revoke-team-member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ team_member_id: m.id }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
+      if (!res.ok || json.success === false) {
+        toast.error(json.error?.message ?? "Could not revoke access");
+        return;
+      }
+      toast.success("Access revoked");
+      void loadMembers();
+    } catch {
+      toast.error("Could not revoke access");
+    } finally {
+      setRevokeBusyId(null);
+    }
+  };
+
+  if (subLoading) {
+    return (
+      <div className="flex min-h-[240px] items-center justify-center font-sans">
+        <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" aria-hidden />
+      </div>
+    );
+  }
+
+  if (!paidPlan) {
+    return (
+      <div className="mx-auto max-w-lg rounded-2xl border border-[#2C2C2C]/10 bg-white p-10 text-center font-sans shadow-sm">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[#6B9E6E]">
+          <House className="h-8 w-8" aria-hidden />
+        </div>
+        <h2 className="mt-6 font-serif text-2xl font-bold text-[#2C2C2C]">My Team</h2>
+        <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/60">
+          Upgrade to Pro to unlock team management
+        </p>
+        <button
+          type="button"
+          onClick={onGoToBilling}
+          className="mt-8 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5d8a60]"
+        >
+          Go to Billing
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl font-sans">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">My Team</h2>
+        <button
+          type="button"
+          onClick={() => setAddOpen(true)}
+          className="shrink-0 rounded-full bg-[#6B9E6E] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5d8a60]"
+        >
+          Add Member
+        </button>
+      </div>
+
+      {membersLoading ? (
+        <div className="mt-10 flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" aria-hidden />
+        </div>
+      ) : members.length === 0 ? (
+        <p className="mt-10 text-center text-sm font-semibold text-[#2C2C2C]/55">
+          No team members yet. Add your first member.
+        </p>
+      ) : (
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          {members.map((m) => {
+            const st = (m.status ?? "").toLowerCase();
+            return (
+              <div
+                key={m.id}
+                className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm"
+              >
+                <div className="flex gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] text-sm font-bold text-white">
+                    {initialsForTeamMemberName(m.name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-[#2C2C2C]">{m.name}</p>
+                      {st === "pending" ? (
+                        <span className="rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-700">
+                          Invited
+                        </span>
+                      ) : st === "active" ? (
+                        <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                          Active
+                        </span>
+                      ) : st === "revoked" ? (
+                        <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                          Revoked
+                        </span>
+                      ) : null}
+                    </div>
+                    <span className="mt-1 inline-block rounded-full bg-[#6B9E6E]/15 px-2.5 py-0.5 text-xs font-semibold text-[#2C2C2C]">
+                      {m.role}
+                    </span>
+                    <p className="mt-2 text-sm text-gray-500">{m.email}</p>
+                    <p className="text-sm text-gray-500">{m.phone?.trim() || "—"}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {st === "pending" ? (
+                        <button
+                          type="button"
+                          disabled={resendBusyId === m.id}
+                          onClick={() => void resendInvite(m)}
+                          className="rounded-full border border-[#6B9E6E]/40 bg-white px-3 py-1.5 text-xs font-semibold text-[#6B9E6E] hover:bg-[#6B9E6E]/10 disabled:opacity-50"
+                        >
+                          {resendBusyId === m.id ? "Sending…" : "Resend Invite"}
+                        </button>
+                      ) : null}
+                      {st === "active" ? (
+                        <button
+                          type="button"
+                          disabled={revokeBusyId === m.id}
+                          onClick={() => void revokeAccess(m)}
+                          className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {revokeBusyId === m.id ? "Revoking…" : "Revoke Access"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {addOpen ? (
+          <motion.div
+            key="team-add-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45 p-4 sm:items-center"
+            onClick={() => {
+              setAddOpen(false);
+              resetAddForm();
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 16 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-6 shadow-2xl"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="font-serif text-xl font-bold text-[#2C2C2C]">Add team member</h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddOpen(false);
+                    resetAddForm();
+                  }}
+                  className="rounded-lg p-1 text-[#2C2C2C]/55 hover:bg-white"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <form onSubmit={(e) => void saveMember(e)} className="mt-6 space-y-4">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Full Name
+                  <input
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
+                    autoComplete="name"
+                  />
+                </label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Role
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
+                  >
+                    {MANAGED_TEAM_ROLES.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Email
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
+                    autoComplete="email"
+                  />
+                </label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Phone
+                  <input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
+                    autoComplete="tel"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={saveBusy}
+                  className="mt-2 w-full rounded-full bg-[#6B9E6E] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5d8a60] disabled:opacity-50"
+                >
+                  {saveBusy ? "Sending…" : "Send invitation"}
+                </button>
+              </form>
+            </motion.div>
           </motion.div>
         ) : null}
       </AnimatePresence>

@@ -4,6 +4,7 @@ import { getSessionProfile } from "@/lib/admin-api-auth";
 import { PROPERTY_ADDRESS_FALLBACK, propertyAddressLabel } from "@/lib/property-address-label";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { leadAccessibleBySession, resolveTeamMemberSupervisorUserId } from "@/lib/team-member-lead-access";
 
 const STAGES = ["lead", "viewing", "offer", "reservation", "closed"] as const;
 
@@ -56,7 +57,12 @@ export async function POST(request: NextRequest) {
     if (!session?.userId) {
       return fail("UNAUTHORIZED", "Sign in required", 401);
     }
-    if (session.role !== "agent" && session.role !== "admin" && session.role !== "broker") {
+    if (
+      session.role !== "agent" &&
+      session.role !== "admin" &&
+      session.role !== "broker" &&
+      session.role !== "team_member"
+    ) {
       return fail("FORBIDDEN", "Not allowed", 403);
     }
 
@@ -73,6 +79,11 @@ export async function POST(request: NextRequest) {
 
     const sb = await createSupabaseServerClient();
     const uid = session.userId;
+    const supervisorUserId =
+      session.role === "team_member" ? await resolveTeamMemberSupervisorUserId(sb, uid) : null;
+    if (session.role === "team_member" && !supervisorUserId) {
+      return fail("FORBIDDEN", "Not a team member", 403);
+    }
 
     const { data: lead, error: fetchErr } = await sb
       .from("leads")
@@ -85,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     const agentId = (lead as { agent_id: string | null }).agent_id;
     const brokerId = (lead as { broker_id: string | null }).broker_id;
-    const allowed = session.role === "admin" || agentId === uid || brokerId === uid;
+    const allowed = leadAccessibleBySession(session, agentId, brokerId, supervisorUserId);
     if (!allowed) {
       return fail("FORBIDDEN", "Not your lead", 403);
     }

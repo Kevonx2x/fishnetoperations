@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { leadAccessibleBySession, resolveTeamMemberSupervisorUserId } from "@/lib/team-member-lead-access";
 
 const STAGES = ["lead", "viewing", "offer", "reservation", "closed"] as const;
 
@@ -11,7 +12,12 @@ export async function PATCH(request: NextRequest) {
     if (!session?.userId) {
       return fail("UNAUTHORIZED", "Sign in required", 401);
     }
-    if (session.role !== "agent" && session.role !== "admin" && session.role !== "broker") {
+    if (
+      session.role !== "agent" &&
+      session.role !== "admin" &&
+      session.role !== "broker" &&
+      session.role !== "team_member"
+    ) {
       return fail("FORBIDDEN", "Not allowed", 403);
     }
 
@@ -34,6 +40,11 @@ export async function PATCH(request: NextRequest) {
 
     const sb = await createSupabaseServerClient();
     const uid = session.userId;
+    const supervisorUserId =
+      session.role === "team_member" ? await resolveTeamMemberSupervisorUserId(sb, uid) : null;
+    if (session.role === "team_member" && !supervisorUserId) {
+      return fail("FORBIDDEN", "Not a team member", 403);
+    }
 
     const { data: rows, error: fetchErr } = await sb
       .from("leads")
@@ -46,8 +57,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     for (const r of rows as { id: number; agent_id: string | null; broker_id: string | null; pipeline_stage: string }[]) {
-      const allowed =
-        session.role === "admin" || r.agent_id === uid || r.broker_id === uid;
+      const allowed = leadAccessibleBySession(session, r.agent_id, r.broker_id, supervisorUserId);
       if (!allowed) {
         return fail("FORBIDDEN", "Not your lead", 403);
       }

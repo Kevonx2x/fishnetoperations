@@ -33,7 +33,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function normalizeRole(r: string | null | undefined): ProfileRole {
-  if (r === "admin" || r === "broker" || r === "agent" || r === "client") {
+  if (r === "admin" || r === "broker" || r === "agent" || r === "client" || r === "team_member") {
     return r;
   }
   return "client";

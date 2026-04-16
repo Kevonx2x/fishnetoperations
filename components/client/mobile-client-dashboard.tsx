@@ -177,7 +177,7 @@ export function filterFeedGroupedByActiveEngagement(
     .filter((g) => g.items.length > 0);
 }
 
-type MainTab = "my_profile" | "all" | "pins" | "likes" | "badges" | "documents";
+type MainTab = "my_profile" | "all" | "pins" | "likes" | "badges";
 
 const BADGE_UNLOCK_PILL: Record<BadgeSlug, string> = {
   "first-save": "Save 1 property",
@@ -750,7 +750,6 @@ export function MobileClientDashboard() {
 
   const [mainTab, setMainTab] = useState<MainTab>("all");
   const [listingMode, setListingMode] = useState<ListingMode>("rent");
-  const [viewBusyUrl, setViewBusyUrl] = useState<string | null>(null);
 
   const feed = useClientActivityFeed(user?.id);
   const {
@@ -762,8 +761,6 @@ export function MobileClientDashboard() {
     badges,
     savedRows,
     likeRows,
-    ownDocs,
-    sharedDocs,
     unreadCount,
     feedGrouped,
     feedAgentMeta,
@@ -866,25 +863,6 @@ export function MobileClientDashboard() {
     [likeRowsFiltered, likes],
   );
 
-  const openOwnDocument = async (file_url: string) => {
-    setViewBusyUrl(file_url);
-    try {
-      const res = await fetch("/api/client/get-document-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ file_url }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { signedUrl?: string; error?: string };
-      if (!res.ok || !json.signedUrl) {
-        return;
-      }
-      window.open(json.signedUrl, "_blank", "noopener,noreferrer");
-    } finally {
-      setViewBusyUrl(null);
-    }
-  };
-
   const first = firstNameFromFull(fullName);
 
   if (authLoading || !user) {
@@ -931,7 +909,6 @@ export function MobileClientDashboard() {
               ["pins", "Pins", Pin],
               ["likes", "Likes", Heart],
               ["badges", "Badges", Star],
-              ["documents", "Documents", FileText],
             ] as const
           ).map(([id, label, Icon]) => {
             const active = mainTab === id;
@@ -1116,14 +1093,7 @@ export function MobileClientDashboard() {
           </div>
         ) : mainTab === "badges" ? (
           <BadgesTab badges={badges} />
-        ) : (
-          <DocumentsTab
-            ownDocs={ownDocs}
-            sharedDocs={sharedDocs}
-            viewBusyUrl={viewBusyUrl}
-            onViewOwn={openOwnDocument}
-          />
-        )}
+        ) : null}
       </main>
 
       <ClientMobileBottomNav

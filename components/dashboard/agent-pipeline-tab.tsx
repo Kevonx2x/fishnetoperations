@@ -592,12 +592,18 @@ export function AgentPipelineTab({
   supabase,
   onRefresh,
   onOpenLeadDetails,
+  /** `agents.id` for the listing agent whose pipeline is shown (supervisor when logged in as team_member). */
+  pipelineAgentId,
+  /** When set (team member view), client documents shared with this user id are loaded (supervising agent). */
+  clientDocsSharedWithUserId,
 }: {
   leads: PipelineLeadRow[];
   propertyLabel: (propertyId: string | null) => string;
   supabase: SupabaseClient;
   onRefresh: () => void;
   onOpenLeadDetails: (leadId: number) => void;
+  pipelineAgentId: string;
+  clientDocsSharedWithUserId?: string;
 }) {
   const [declineDeal, setDeclineDeal] = useState<PipelineLeadRow | null>(null);
   const [declineReasonKey, setDeclineReasonKey] =
@@ -813,8 +819,8 @@ export function AgentPipelineTab({
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        const agentUserId = user?.id;
-        if (!agentUserId) {
+        const shareUid = clientDocsSharedWithUserId?.trim() || user?.id;
+        if (!shareUid) {
           setClientDocRows([]);
           return;
         }
@@ -823,7 +829,7 @@ export function AgentPipelineTab({
           .from("client_documents")
           .select("id, document_type, file_url, file_name, created_at, status")
           .eq("client_id", lead.client_id)
-          .contains("shared_with", [agentUserId]);
+          .contains("shared_with", [shareUid]);
 
         if (clientErr) {
           toast.error(clientErr.message);
@@ -835,7 +841,7 @@ export function AgentPipelineTab({
         setDocsLoading(false);
       }
     },
-    [supabase],
+    [supabase, clientDocsSharedWithUserId],
   );
 
   const openDocs = (lead: PipelineLeadRow) => {
@@ -884,36 +890,6 @@ export function AgentPipelineTab({
     }
   };
 
-  const getCurrentAgentId = useCallback(async (): Promise<string | null> => {
-    const {
-      data: { user },
-      error: authErr,
-    } = await supabase.auth.getUser();
-    if (authErr) {
-      toast.error(authErr.message);
-      return null;
-    }
-    if (!user?.id || !user.email) {
-      toast.error("Sign in required");
-      return null;
-    }
-    const { data: agent, error: agentErr } = await supabase
-      .from("agents")
-      .select("id")
-      .eq("email", user.email)
-      .maybeSingle();
-    if (agentErr) {
-      toast.error(agentErr.message);
-      return null;
-    }
-    const agentId = (agent as { id?: string } | null)?.id;
-    if (!agentId) {
-      toast.error("Agent record not found for current user");
-      return null;
-    }
-    return agentId;
-  }, [supabase]);
-
   const submitPanelRequestFlow = async () => {
     if (!docsLead?.client_id) return;
     const meta = panelDocSlug ? PANEL_DOC_BY_SLUG[panelDocSlug] : undefined;
@@ -921,8 +897,6 @@ export function AgentPipelineTab({
       toast.error("Select a document type.");
       return;
     }
-    const agentId = await getCurrentAgentId();
-    if (!agentId) return;
     setRequestFlowBusy(true);
     try {
       const res = await fetch("/api/agent/pipeline-deal-document-flow", {
@@ -931,7 +905,7 @@ export function AgentPipelineTab({
         credentials: "include",
         body: JSON.stringify({
           lead_id: docsLead.id,
-          agent_id: agentId,
+          agent_id: pipelineAgentId,
           mode: "request",
           document_type: meta.slug,
           document_name: meta.label,
@@ -970,8 +944,6 @@ export function AgentPipelineTab({
       toast.error("Upload a file before sending.");
       return;
     }
-    const agentId = await getCurrentAgentId();
-    if (!agentId) return;
     setSendFlowBusy(true);
     try {
       const res = await fetch("/api/agent/pipeline-deal-document-flow", {
@@ -980,7 +952,7 @@ export function AgentPipelineTab({
         credentials: "include",
         body: JSON.stringify({
           lead_id: docsLead.id,
-          agent_id: agentId,
+          agent_id: pipelineAgentId,
           mode: "send",
           document_type: meta.slug,
           document_name: meta.label,

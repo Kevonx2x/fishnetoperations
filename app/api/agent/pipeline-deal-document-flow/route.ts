@@ -1,5 +1,7 @@
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { leadAccessibleBySession, resolveTeamMemberSupervisorUserId } from "@/lib/team-member-lead-access";
 import { isClientDocumentType, type ClientDocumentTypeKey } from "@/lib/client-documents";
 
 const STAGE_IDS = ["lead", "viewing", "offer", "reservation", "closed"] as const;
@@ -33,8 +35,20 @@ export async function POST(req: Request) {
   if (!session?.userId) {
     return Response.json({ error: "Sign in required" }, { status: 401 });
   }
-  if (session.role !== "agent" && session.role !== "broker" && session.role !== "admin") {
+  if (
+    session.role !== "agent" &&
+    session.role !== "broker" &&
+    session.role !== "admin" &&
+    session.role !== "team_member"
+  ) {
     return Response.json({ error: "Not allowed" }, { status: 403 });
+  }
+
+  const sbAuth = await createSupabaseServerClient();
+  const supervisorUserId =
+    session.role === "team_member" ? await resolveTeamMemberSupervisorUserId(sbAuth, session.userId) : null;
+  if (session.role === "team_member" && !supervisorUserId) {
+    return Response.json({ error: "Not a team member" }, { status: 403 });
   }
 
   let body: {
@@ -113,7 +127,7 @@ export async function POST(req: Request) {
   const clientId = (lead as { client_id: string | null }).client_id;
   const uid = session.userId;
 
-  const allowed = session.role === "admin" || agentId === uid || brokerId === uid;
+  const allowed = leadAccessibleBySession(session, agentId, brokerId, supervisorUserId);
   if (!allowed) {
     return Response.json({ error: "Not your lead" }, { status: 403 });
   }
@@ -128,21 +142,39 @@ export async function POST(req: Request) {
   const requestedAgentId = typeof body.agent_id === "string" ? body.agent_id.trim() : "";
   const targetAgentUserId = agentId || uid;
 
-  const sessionEmail = session.email?.trim() ?? "";
-  if (!sessionEmail) {
-    return Response.json({ error: "Missing agent email in session" }, { status: 400 });
-  }
-  const { data: agentByEmail, error: agentLookupErr } = await admin
-    .from("agents")
-    .select("id")
-    .eq("email", sessionEmail)
-    .maybeSingle();
-  if (agentLookupErr) {
-    return Response.json({ error: agentLookupErr.message }, { status: 500 });
-  }
-  const agentRowId = (agentByEmail as { id?: string } | null)?.id;
-  if (!agentRowId) {
-    return Response.json({ error: "Agent record not found for current user" }, { status: 400 });
+  let agentRowId: string;
+  if (session.role === "team_member" && supervisorUserId) {
+    const { data: supAgent, error: supErr } = await admin
+      .from("agents")
+      .select("id")
+      .eq("user_id", supervisorUserId)
+      .maybeSingle();
+    if (supErr) {
+      return Response.json({ error: supErr.message }, { status: 500 });
+    }
+    const sid = (supAgent as { id?: string } | null)?.id;
+    if (!sid) {
+      return Response.json({ error: "Agent record not found for supervising agent" }, { status: 400 });
+    }
+    agentRowId = sid;
+  } else {
+    const sessionEmail = session.email?.trim() ?? "";
+    if (!sessionEmail) {
+      return Response.json({ error: "Missing agent email in session" }, { status: 400 });
+    }
+    const { data: agentByEmail, error: agentLookupErr } = await admin
+      .from("agents")
+      .select("id")
+      .eq("email", sessionEmail)
+      .maybeSingle();
+    if (agentLookupErr) {
+      return Response.json({ error: agentLookupErr.message }, { status: 500 });
+    }
+    const aid = (agentByEmail as { id?: string } | null)?.id;
+    if (!aid) {
+      return Response.json({ error: "Agent record not found for current user" }, { status: 400 });
+    }
+    agentRowId = aid;
   }
   const dealAgentId = requestedAgentId || agentRowId;
 

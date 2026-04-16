@@ -1,5 +1,7 @@
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { leadAccessibleBySession, resolveTeamMemberSupervisorUserId } from "@/lib/team-member-lead-access";
 
 const SIGNED_SEC = 3600;
 
@@ -8,8 +10,20 @@ export async function POST(req: Request) {
   if (!session?.userId) {
     return Response.json({ error: "Sign in required" }, { status: 401 });
   }
-  if (session.role !== "agent" && session.role !== "broker" && session.role !== "admin") {
+  if (
+    session.role !== "agent" &&
+    session.role !== "broker" &&
+    session.role !== "admin" &&
+    session.role !== "team_member"
+  ) {
     return Response.json({ error: "Not allowed" }, { status: 403 });
+  }
+
+  const sb = await createSupabaseServerClient();
+  const supervisorUserId =
+    session.role === "team_member" ? await resolveTeamMemberSupervisorUserId(sb, session.userId) : null;
+  if (session.role === "team_member" && !supervisorUserId) {
+    return Response.json({ error: "Not a team member" }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => ({}))) as { file_url?: unknown };
@@ -62,9 +76,7 @@ export async function POST(req: Request) {
 
   const agentId = (lead as { agent_id: string | null }).agent_id;
   const brokerId = (lead as { broker_id: string | null }).broker_id;
-  const uid = session.userId;
-  const allowed =
-    session.role === "admin" || agentId === uid || brokerId === uid;
+  const allowed = leadAccessibleBySession(session, agentId, brokerId, supervisorUserId);
   if (!allowed) {
     return Response.json({ error: "Not your lead" }, { status: 403 });
   }
