@@ -11,7 +11,16 @@ type TeamMemberRow = {
   role: string;
   user_id: string | null;
   agent_id: string | null;
-  trial_start_date: string | null;
+  start_date: string | null;
+  department: string | null;
+  employment_type: string | null;
+  rate_amount: number | null;
+  currency: string | null;
+  rate_period: string | null;
+  hr_notes: string | null;
+  equity_pct: number | null;
+  employment_status: string | null;
+  admin_added_by: string | null;
 };
 
 type ProfileRow = {
@@ -81,7 +90,9 @@ export async function GET() {
     const admin = createSupabaseAdmin();
     const { data: tmRows, error: tmErr } = await admin
       .from("team_members")
-      .select("id, created_at, name, email, role, user_id, agent_id, trial_start_date")
+      .select(
+        "id, created_at, name, email, role, user_id, agent_id, start_date, department, employment_type, rate_amount, currency, rate_period, hr_notes, equity_pct, employment_status, admin_added_by",
+      )
       .is("agent_id", null)
       .order("created_at", { ascending: false });
 

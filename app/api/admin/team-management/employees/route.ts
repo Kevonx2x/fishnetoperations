@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
-const INTERNAL_ROLES = ["owner", "co_founder", "va_admin"] as const;
+const DEPARTMENTS = new Set(["Engineering", "Sales", "Marketing", "Operations", "Design", "Other"]);
+const EMP_TYPES = new Set(["Full Time", "Part Time", "Contractor", "Intern"]);
+const CURRENCIES = new Set(["USD", "PHP"]);
+const PERIODS = new Set(["Hourly", "Monthly", "Annual"]);
 
 export async function POST(req: Request) {
   try {
@@ -14,14 +17,52 @@ export async function POST(req: Request) {
     const body = (await req.json()) as Record<string, unknown>;
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const role = typeof body.role === "string" ? body.role.trim() : "";
-    const trialRaw = typeof body.trial_start_date === "string" ? body.trial_start_date.trim() : "";
+    const department = typeof body.department === "string" ? body.department.trim() : "";
+    const employment_type = typeof body.employment_type === "string" ? body.employment_type.trim() : "";
+    const currency = typeof body.currency === "string" ? body.currency.trim().toUpperCase() : "PHP";
+    const rate_period = typeof body.rate_period === "string" ? body.rate_period.trim() : "";
+    const startRaw = typeof body.start_date === "string" ? body.start_date.trim() : "";
+    const hr_notes =
+      body.hr_notes === null || typeof body.hr_notes === "string" ? (body.hr_notes as string | null) : null;
 
-    if (!name || !INTERNAL_ROLES.includes(role as (typeof INTERNAL_ROLES)[number])) {
-      return NextResponse.json({ error: "Invalid name or role." }, { status: 400 });
+    const rateRaw = body.rate_amount;
+    const rate_amount =
+      typeof rateRaw === "number" && Number.isFinite(rateRaw)
+        ? rateRaw
+        : typeof rateRaw === "string" && rateRaw.trim() !== ""
+          ? Number.parseFloat(rateRaw)
+          : NaN;
+
+    const equityRaw = body.equity_pct;
+    let equity_pct = 0;
+    if (typeof equityRaw === "number" && Number.isFinite(equityRaw)) {
+      equity_pct = Math.max(0, equityRaw);
+    } else if (typeof equityRaw === "string" && equityRaw.trim() !== "") {
+      const e = Number.parseFloat(equityRaw);
+      if (Number.isFinite(e)) equity_pct = Math.max(0, e);
     }
 
-    const trial_start_date =
-      trialRaw && /^\d{4}-\d{2}-\d{2}$/.test(trialRaw) ? trialRaw : new Date().toISOString().slice(0, 10);
+    if (!name || !role || role.length > 120) {
+      return NextResponse.json({ error: "Invalid name or role." }, { status: 400 });
+    }
+    if (!DEPARTMENTS.has(department)) {
+      return NextResponse.json({ error: "Invalid department." }, { status: 400 });
+    }
+    if (!EMP_TYPES.has(employment_type)) {
+      return NextResponse.json({ error: "Invalid employment type." }, { status: 400 });
+    }
+    if (!CURRENCIES.has(currency)) {
+      return NextResponse.json({ error: "Invalid currency." }, { status: 400 });
+    }
+    if (!PERIODS.has(rate_period)) {
+      return NextResponse.json({ error: "Invalid rate period." }, { status: 400 });
+    }
+    if (!startRaw || !/^\d{4}-\d{2}-\d{2}$/.test(startRaw)) {
+      return NextResponse.json({ error: "Invalid start date." }, { status: 400 });
+    }
+    if (!Number.isFinite(rate_amount) || rate_amount < 0) {
+      return NextResponse.json({ error: "Invalid rate / salary amount." }, { status: 400 });
+    }
 
     const slug = name
       .toLowerCase()
@@ -37,12 +78,22 @@ export async function POST(req: Request) {
         name,
         email,
         role,
-        trial_start_date,
-        created_by: denied.userId,
         agent_id: null,
         status: "active",
+        start_date: startRaw,
+        department,
+        employment_type,
+        rate_amount,
+        currency,
+        rate_period,
+        hr_notes: hr_notes?.trim() || null,
+        equity_pct,
+        employment_status: "Trial",
+        admin_added_by: denied.userId,
       })
-      .select("id, created_at, name, email, role, user_id, agent_id, trial_start_date")
+      .select(
+        "id, created_at, name, email, role, user_id, agent_id, start_date, department, employment_type, rate_amount, currency, rate_period, hr_notes, equity_pct, employment_status, admin_added_by",
+      )
       .single();
 
     if (error) {

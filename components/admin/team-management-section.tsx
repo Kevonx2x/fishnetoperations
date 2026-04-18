@@ -37,10 +37,34 @@ export type TeamManagementEmployee = {
   role: string;
   user_id: string | null;
   agent_id: string | null;
-  trial_start_date: string | null;
+  start_date: string | null;
+  department: string | null;
+  employment_type: string | null;
+  rate_amount: number | null;
+  currency: string | null;
+  rate_period: string | null;
+  hr_notes: string | null;
+  equity_pct: number | null;
+  employment_status: string | null;
+  admin_added_by: string | null;
   profile: ProfileLite;
   deliverables: EmployeeDeliverable[];
 };
+
+const HR_DEPARTMENTS = [
+  "Engineering",
+  "Sales",
+  "Marketing",
+  "Operations",
+  "Design",
+  "Other",
+] as const;
+
+const HR_EMPLOYMENT_TYPES = ["Full Time", "Part Time", "Contractor", "Intern"] as const;
+
+const HR_CURRENCIES = ["USD", "PHP"] as const;
+
+const HR_RATE_PERIODS = ["Hourly", "Monthly", "Annual"] as const;
 
 function priorityBadgeClass(p: string): string {
   if (p === "Critical") return "bg-red-200 text-red-900 ring-1 ring-red-300/60";
@@ -48,30 +72,61 @@ function priorityBadgeClass(p: string): string {
   return "bg-[#bbf7d0] text-green-900 ring-1 ring-[#6B9E6E]/35";
 }
 
-function roleBadgeLabel(role: string): string {
-  if (role === "co_founder") return "Co-Founder";
-  if (role === "va_admin") return "VA Admin";
-  if (role === "owner") return "Owner";
-  return role;
+function formatLongStartDate(startDate: string | null, createdAt: string): string {
+  const raw = (startDate ?? createdAt).slice(0, 10);
+  const d = new Date(`${raw}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
-function trialDayProgress(trialStartIso: string | null, createdAt: string): { day: number; remaining: number; pct: number } {
-  const startStr = trialStartIso?.slice(0, 10) ?? createdAt.slice(0, 10);
-  const start = new Date(`${startStr}T12:00:00`);
-  const now = new Date();
-  const ms = now.getTime() - start.getTime();
-  const dayFloat = Math.floor(ms / (24 * 60 * 60 * 1000));
-  const day = Math.max(0, Math.min(30, dayFloat + 1));
-  const remaining = Math.max(0, 30 - dayFloat);
-  const pct = Math.min(100, Math.max(0, (dayFloat / 30) * 100));
-  return { day, remaining, pct };
+function daysSinceStart(startDate: string | null, createdAt: string): number {
+  const raw = (startDate ?? createdAt).slice(0, 10);
+  const start = new Date(`${raw}T12:00:00`);
+  if (Number.isNaN(start.getTime())) return 0;
+  return Math.max(0, Math.floor((Date.now() - start.getTime()) / 86400000));
+}
+
+function workStatusBadgeClass(status: string): string {
+  if (status === "Trial") return "bg-[#D4A843]/22 text-[#8a6d32] ring-1 ring-[#D4A843]/45";
+  if (status === "Active") return "bg-[#6B9E6E]/18 text-[#2C5F32] ring-1 ring-[#6B9E6E]/40";
+  if (status === "Terminated") return "bg-red-100 text-red-800 ring-1 ring-red-200";
+  if (status === "On Leave") return "bg-[#2C2C2C]/10 text-[#2C2C2C]/70 ring-1 ring-[#2C2C2C]/15";
+  return "bg-[#2C2C2C]/08 text-[#2C2C2C]/60 ring-1 ring-[#2C2C2C]/10";
+}
+
+function formatCompensation(emp: TeamManagementEmployee): string {
+  const amt = emp.rate_amount;
+  const cur = emp.currency ?? "PHP";
+  const per = emp.rate_period ?? "";
+  if (amt == null || Number.isNaN(Number(amt))) return "—";
+  const n = Number(amt);
+  const formatted = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n);
+  const sym = cur === "USD" ? "$" : "₱";
+  const suffix =
+    per === "Hourly" ? "/hr" : per === "Monthly" ? "/mo" : per === "Annual" ? "/yr" : "";
+  return `${sym}${formatted}${suffix}`;
+}
+
+function emptyAddForm() {
+  return {
+    name: "",
+    role: "",
+    department: "Engineering" as (typeof HR_DEPARTMENTS)[number],
+    employment_type: "Full Time" as (typeof HR_EMPLOYMENT_TYPES)[number],
+    rate_amount: "",
+    currency: "PHP" as (typeof HR_CURRENCIES)[number],
+    rate_period: "Monthly" as (typeof HR_RATE_PERIODS)[number],
+    start_date: "",
+    hr_notes: "",
+    equity_pct: "",
+  };
 }
 
 export function TeamManagementSection() {
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<TeamManagementEmployee[]>([]);
   const [addOpen, setAddOpen] = useState(false);
-  const [addForm, setAddForm] = useState({ name: "", role: "co_founder", trial_start_date: "" });
+  const [addForm, setAddForm] = useState(emptyAddForm);
   const [addSaving, setAddSaving] = useState(false);
   const [openWeek, setOpenWeek] = useState<Record<string, boolean>>({});
   const [openNotesId, setOpenNotesId] = useState<string | null>(null);
@@ -128,10 +183,34 @@ export function TeamManagementSection() {
 
   const submitAddEmployee = async () => {
     const name = addForm.name.trim();
+    const role = addForm.role.trim();
     if (!name) {
-      toast.error("Name is required.");
+      toast.error("Full name is required.");
       return;
     }
+    if (!role) {
+      toast.error("Role is required.");
+      return;
+    }
+    if (!addForm.start_date) {
+      toast.error("Start date is required.");
+      return;
+    }
+    const rate = Number.parseFloat(addForm.rate_amount);
+    if (!Number.isFinite(rate) || rate < 0) {
+      toast.error("Enter a valid rate / salary (0 or greater).");
+      return;
+    }
+    let equity = 0;
+    if (addForm.equity_pct.trim()) {
+      const e = Number.parseFloat(addForm.equity_pct);
+      if (!Number.isFinite(e) || e < 0) {
+        toast.error("Equity % must be a valid number.");
+        return;
+      }
+      equity = e;
+    }
+
     setAddSaving(true);
     try {
       const res = await fetch("/api/admin/team-management/employees", {
@@ -140,8 +219,15 @@ export function TeamManagementSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          role: addForm.role,
-          trial_start_date: addForm.trial_start_date || new Date().toISOString().slice(0, 10),
+          role,
+          department: addForm.department,
+          employment_type: addForm.employment_type,
+          rate_amount: rate,
+          currency: addForm.currency,
+          rate_period: addForm.rate_period,
+          start_date: addForm.start_date,
+          hr_notes: addForm.hr_notes.trim() || null,
+          equity_pct: equity,
         }),
       });
       const json = (await res.json()) as { error?: string };
@@ -151,7 +237,7 @@ export function TeamManagementSection() {
       }
       toast.success("Employee added.");
       setAddOpen(false);
-      setAddForm({ name: "", role: "co_founder", trial_start_date: "" });
+      setAddForm(emptyAddForm());
       await load();
     } finally {
       setAddSaving(false);
@@ -227,12 +313,15 @@ export function TeamManagementSection() {
         <div>
           <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">Team Management</h2>
           <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
-            30-day onboarding plans, deliverables, and progress (admin only).
+            HR records, onboarding plans, and deliverables (admin only).
           </p>
         </div>
         <button
           type="button"
-          onClick={() => setAddOpen(true)}
+          onClick={() => {
+            setAddForm(emptyAddForm());
+            setAddOpen(true);
+          }}
           className="inline-flex items-center gap-2 rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white shadow-sm ring-1 ring-[#D4A843]/30 hover:bg-[#5d8a60]"
         >
           <Plus className="h-4 w-4" aria-hidden />
@@ -249,83 +338,121 @@ export function TeamManagementSection() {
       ) : (
         <div className="space-y-8">
           {employees.map((emp) => {
-            const displayName = emp.profile?.full_name?.trim() || emp.name;
+            const displayName = emp.name.trim() || emp.profile?.full_name?.trim() || "Employee";
             const avatarUrl = emp.profile?.avatar_url?.trim() || null;
-            const { day, remaining, pct } = trialDayProgress(emp.trial_start_date, emp.created_at);
+            const tenureDays = daysSinceStart(emp.start_date, emp.created_at);
             const total = emp.deliverables.length;
             const done = emp.deliverables.filter((d) => d.is_complete).length;
             const completionPct = total > 0 ? Math.round((done / total) * 100) : 0;
+            const status = emp.employment_status ?? "Trial";
+            const equity = Number(emp.equity_pct ?? 0);
 
             return (
               <article
                 key={emp.id}
-                className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm ring-1 ring-[#D4A843]/15"
+                className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-[0_1px_3px_rgba(44,44,44,0.06)]"
               >
-                <header className="border-b border-[#2C2C2C]/08 bg-[#FAF8F4] px-5 py-5 sm:px-6">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <header className="border-b border-[#2C2C2C]/08 bg-[#FAF8F4] px-5 py-5 sm:px-7">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex min-w-0 gap-4">
-                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[#2C2C2C]/10 ring-2 ring-[#D4A843]/40">
+                      <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
                         {avatarUrl ? (
-                          <Image src={avatarUrl} alt="" fill className="object-cover" sizes="64px" unoptimized />
+                          <Image src={avatarUrl} alt="" fill className="object-cover" sizes="72px" unoptimized />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center font-serif text-xl font-bold text-[#6B9E6E]">
+                          <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/12 font-serif text-2xl font-semibold text-[#6B9E6E]">
                             {displayName.slice(0, 1).toUpperCase()}
                           </div>
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <h3 className="font-serif text-xl font-bold text-[#2C2C2C]">{displayName}</h3>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-[#6B9E6E]/15 px-3 py-0.5 text-xs font-bold text-[#2C2C2C] ring-1 ring-[#6B9E6E]/30">
-                            {roleBadgeLabel(emp.role)}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <h3 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C]">
+                            {displayName}
+                          </h3>
+                          <span
+                            className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${workStatusBadgeClass(status)}`}
+                          >
+                            {status}
                           </span>
-                          {emp.profile?.role ? (
-                            <span className="rounded-full bg-[#D4A843]/20 px-2.5 py-0.5 text-[11px] font-bold text-[#8a6d32]">
-                              Profile: {emp.profile.role}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#2C2C2C]/12">
+                            {emp.role}
+                          </span>
+                          {emp.department ? (
+                            <span className="rounded-md bg-[#6B9E6E]/10 px-2.5 py-1 text-xs font-semibold text-[#2C2C2C] ring-1 ring-[#6B9E6E]/25">
+                              {emp.department}
                             </span>
                           ) : null}
                         </div>
-                        <p className="mt-2 text-xs font-semibold text-[#2C2C2C]/55">
-                          Trial start:{" "}
-                          <span className="text-[#2C2C2C]">
-                            {new Date(`${(emp.trial_start_date ?? emp.created_at).slice(0, 10)}T12:00:00`).toLocaleDateString()}
-                          </span>
-                        </p>
+                        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                          <div className="rounded-lg border border-[#2C2C2C]/08 bg-white/80 px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                              Employment
+                            </p>
+                            <p className="mt-0.5 font-semibold text-[#2C2C2C]">{emp.employment_type ?? "—"}</p>
+                          </div>
+                          <div className="rounded-lg border border-[#2C2C2C]/08 bg-white/80 px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                              Compensation
+                            </p>
+                            <p className="mt-0.5 font-semibold tabular-nums text-[#2C2C2C]">{formatCompensation(emp)}</p>
+                          </div>
+                          <div className="rounded-lg border border-[#2C2C2C]/08 bg-white/80 px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                              Start date
+                            </p>
+                            <p className="mt-0.5 font-semibold text-[#2C2C2C]">
+                              {formatLongStartDate(emp.start_date, emp.created_at)}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-[#2C2C2C]/08 bg-white/80 px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                              Tenure
+                            </p>
+                            <p className="mt-0.5 font-semibold text-[#2C2C2C]">
+                              {tenureDays} day{tenureDays === 1 ? "" : "s"} since start
+                            </p>
+                          </div>
+                        </div>
+                        {equity > 0 ? (
+                          <p className="mt-3 text-xs font-semibold text-[#8a6d32]">
+                            Equity: <span className="tabular-nums">{equity}%</span>
+                          </p>
+                        ) : null}
+                        {emp.hr_notes?.trim() ? (
+                          <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[#2C2C2C]/60">
+                            <span className="font-bold text-[#2C2C2C]/45">HR notes: </span>
+                            {emp.hr_notes.trim()}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
-                    <div className="w-full max-w-md shrink-0 space-y-2 sm:pt-1">
-                      <div className="flex items-end justify-between gap-2 text-xs font-bold">
-                        <span className="text-[#2C2C2C]/60">Day {Math.min(30, day)} of 30</span>
-                        <span className="text-[#6B9E6E]">{remaining} days remaining</span>
-                      </div>
-                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#2C2C2C]/10">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-[#6B9E6E] to-[#D4A843] transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <p className="text-right text-xs font-bold text-[#2C2C2C]/70">
-                        Overall completion:{" "}
-                        <span className="text-[#6B9E6E]">{completionPct}%</span>
+                    <div className="flex w-full shrink-0 flex-col items-stretch gap-2 border-t border-[#2C2C2C]/08 pt-4 lg:w-52 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+                      <p className="text-center text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45 lg:text-left">
+                        Plan progress
+                      </p>
+                      <p className="text-center font-serif text-2xl font-bold text-[#6B9E6E] lg:text-left">
+                        {completionPct}%
                         {total > 0 ? (
-                          <span className="font-semibold text-[#2C2C2C]/45"> ({done}/{total})</span>
+                          <span className="ml-1 text-sm font-semibold text-[#2C2C2C]/45">
+                            ({done}/{total})
+                          </span>
                         ) : null}
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => downloadPlan(emp)}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2 text-xs font-bold text-[#2C2C2C] shadow-sm hover:border-[#6B9E6E]/35"
+                      >
+                        <Download className="h-3.5 w-3.5" aria-hidden />
+                        Download Plan
+                      </button>
                     </div>
-                  </div>
-                  <div className="mt-4 flex flex-wrap justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => downloadPlan(emp)}
-                      className="inline-flex items-center gap-2 rounded-full border border-[#2C2C2C]/12 bg-white px-4 py-2 text-xs font-bold text-[#2C2C2C] shadow-sm hover:border-[#6B9E6E]/40"
-                    >
-                      <Download className="h-3.5 w-3.5" aria-hidden />
-                      Download Plan
-                    </button>
                   </div>
                 </header>
 
-                <div className="divide-y divide-[#2C2C2C]/08 bg-white px-3 py-2 sm:px-4">
+                <div className="divide-y divide-[#2C2C2C]/08 bg-white px-3 py-2 sm:px-5">
                   {([1, 2, 3, 4] as const).map((week) => {
                     const wkKey = `${emp.id}-w${week}`;
                     const open = !!openWeek[wkKey];
@@ -446,7 +573,7 @@ export function TeamManagementSection() {
                   })}
                 </div>
 
-                <footer className="border-t border-[#2C2C2C]/08 bg-[#FAF8F4] px-5 py-4 sm:px-6">
+                <footer className="border-t border-[#2C2C2C]/08 bg-[#FAF8F4] px-5 py-4 sm:px-7">
                   <h4 className="font-serif text-sm font-bold text-[#2C2C2C]">What They Unlock</h4>
                   {isEmmanuel(emp.name) || isEmmanuel(displayName) ? (
                     <ul className="mt-2 list-inside list-disc space-y-1 text-sm font-semibold text-[#2C2C2C]/80">
@@ -471,44 +598,142 @@ export function TeamManagementSection() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-xl"
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-xl sm:p-8"
           >
-            <h3 className="font-serif text-lg font-bold text-[#2C2C2C]">Add employee</h3>
+            <h3 className="font-serif text-xl font-bold text-[#2C2C2C]">Add employee</h3>
             <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
-              Creates an internal team row and trial start. Add deliverables per week after save.
+              Create an internal HR record. Deliverables can be added per week after the employee is saved.
             </p>
-            <div className="mt-4 space-y-3">
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Name
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45 sm:col-span-2">
+                Full name
                 <input
                   value={addForm.name}
                   onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 text-sm font-semibold"
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-[#FAF8F4]/40 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
+                />
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45 sm:col-span-2">
+                Role
+                <input
+                  type="text"
+                  value={addForm.role}
+                  onChange={(e) => setAddForm((f) => ({ ...f, role: e.target.value }))}
+                  placeholder="e.g. Frontend Engineer, Sales Executive"
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-[#FAF8F4]/40 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
                 />
               </label>
               <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Role
+                Department
                 <select
-                  value={addForm.role}
-                  onChange={(e) => setAddForm((f) => ({ ...f, role: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 text-sm font-semibold"
+                  value={addForm.department}
+                  onChange={(e) =>
+                    setAddForm((f) => ({ ...f, department: e.target.value as (typeof HR_DEPARTMENTS)[number] }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
                 >
-                  <option value="owner">Owner</option>
-                  <option value="co_founder">Co-Founder</option>
-                  <option value="va_admin">VA Admin</option>
+                  {HR_DEPARTMENTS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Trial start date
+                Employment type
+                <select
+                  value={addForm.employment_type}
+                  onChange={(e) =>
+                    setAddForm((f) => ({
+                      ...f,
+                      employment_type: e.target.value as (typeof HR_EMPLOYMENT_TYPES)[number],
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
+                >
+                  {HR_EMPLOYMENT_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Rate / salary
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={addForm.rate_amount}
+                  onChange={(e) => setAddForm((f) => ({ ...f, rate_amount: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
+                />
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Currency
+                <select
+                  value={addForm.currency}
+                  onChange={(e) =>
+                    setAddForm((f) => ({ ...f, currency: e.target.value as (typeof HR_CURRENCIES)[number] }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
+                >
+                  {HR_CURRENCIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Period
+                <select
+                  value={addForm.rate_period}
+                  onChange={(e) =>
+                    setAddForm((f) => ({ ...f, rate_period: e.target.value as (typeof HR_RATE_PERIODS)[number] }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
+                >
+                  {HR_RATE_PERIODS.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Start date
                 <input
                   type="date"
-                  value={addForm.trial_start_date}
-                  onChange={(e) => setAddForm((f) => ({ ...f, trial_start_date: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 text-sm font-semibold"
+                  value={addForm.start_date}
+                  onChange={(e) => setAddForm((f) => ({ ...f, start_date: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
+                />
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Equity % <span className="font-normal normal-case text-[#2C2C2C]/45">(optional)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.0001"
+                  value={addForm.equity_pct}
+                  onChange={(e) => setAddForm((f) => ({ ...f, equity_pct: e.target.value }))}
+                  placeholder="0"
+                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
+                />
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45 sm:col-span-2">
+                Notes <span className="font-normal normal-case text-[#2C2C2C]/45">(optional)</span>
+                <textarea
+                  value={addForm.hr_notes}
+                  onChange={(e) => setAddForm((f) => ({ ...f, hr_notes: e.target.value }))}
+                  rows={3}
+                  placeholder="Onboarding context, reporting line, equipment, etc."
+                  className="mt-1 w-full resize-y rounded-lg border border-[#2C2C2C]/12 bg-[#FAF8F4]/40 px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#2C2C2C]/35 focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
                 />
               </label>
             </div>
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-8 flex justify-end gap-2 border-t border-[#2C2C2C]/08 pt-5">
               <button
                 type="button"
                 onClick={() => setAddOpen(false)}
@@ -520,9 +745,9 @@ export function TeamManagementSection() {
                 type="button"
                 disabled={addSaving}
                 onClick={() => void submitAddEmployee()}
-                className="rounded-full bg-[#6B9E6E] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                className="rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
               >
-                {addSaving ? "Saving…" : "Create"}
+                {addSaving ? "Saving…" : "Create record"}
               </button>
             </div>
           </motion.div>
