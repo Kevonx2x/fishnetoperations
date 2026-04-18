@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 
 function SiteFooter() {
   return (
-    <footer className="mt-auto border-t border-[#2C2C2C]/10 bg-[#FAF8F4]">
+    <footer id="bahaygo-site-footer" className="mt-auto border-t border-[#2C2C2C]/10 bg-[#FAF8F4]">
       <div className="mx-auto max-w-6xl px-4 py-12">
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
           <div>

@@ -5,8 +5,8 @@ const CLOUDINARY_HOST = "res.cloudinary.com"
 const UPLOAD_SEGMENT = "/upload/"
 
 /**
- * For `res.cloudinary.com` image URLs, inserts `f_auto,q_auto,w_800` immediately after `/upload/`.
- * Other URLs are returned unchanged.
+ * For `res.cloudinary.com` URLs, inserts `f_auto/` right after `/upload/` when not already present.
+ * Other URLs are returned unchanged (trimmed).
  */
 export function getOptimizedImageUrl(url: string): string {
   const trimmed = (url ?? "").trim()
@@ -17,9 +17,9 @@ export function getOptimizedImageUrl(url: string): string {
     const idx = u.pathname.indexOf(UPLOAD_SEGMENT)
     if (idx === -1) return trimmed
     const afterUpload = u.pathname.slice(idx + UPLOAD_SEGMENT.length)
-    if (afterUpload.startsWith("f_auto,q_auto,w_800/")) return trimmed
+    if (afterUpload.startsWith("f_auto/") || afterUpload.startsWith("f_auto,")) return trimmed
     const prefix = u.pathname.slice(0, idx + UPLOAD_SEGMENT.length)
-    u.pathname = `${prefix}f_auto,q_auto,w_800/${afterUpload}`
+    u.pathname = `${prefix}f_auto/${afterUpload}`
     return u.toString()
   } catch {
     return trimmed

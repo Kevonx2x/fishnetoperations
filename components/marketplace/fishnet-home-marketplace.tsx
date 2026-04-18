@@ -41,7 +41,7 @@ import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { listingListedLabel } from "@/lib/listing-listed-time";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
-import { cn, getOptimizedImageUrl } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
@@ -1864,9 +1864,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   >
                     <div className="relative h-48 w-full bg-black/5 lg:h-64">
                       <Image
-                        src={getOptimizedImageUrl(
-                          featuredPhotos[0] ?? featuredHomeProperty.image_url,
-                        )}
+                        src={String(
+                          featuredPhotos[0] ?? featuredHomeProperty.image_url ?? "",
+                        ).trim()}
                         alt={featuredHomeProperty.name ?? featuredHomeProperty.location}
                         fill
                         quality={95}
@@ -2143,7 +2143,7 @@ export function NewlyListedCard({
       : property.status === "both"
         ? "Sale & Rent"
         : "For Sale";
-  const img = getOptimizedImageUrl(roomUrls[roomIdx] ?? roomUrls[0] ?? property.image_url);
+  const img = String(roomUrls[roomIdx] ?? roomUrls[0] ?? property.image_url ?? "").trim();
 
   const { profile } = useAuth();
   const router = useRouter();

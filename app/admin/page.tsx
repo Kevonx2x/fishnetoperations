@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Eye, EyeOff, X } from "lucide-react";
 import { toast } from "sonner";
+import { TeamManagementSection } from "@/components/admin/team-management-section";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
@@ -491,6 +492,7 @@ export default function AdminPage() {
     | "coagent"
     | "hiring"
     | "teamMembers"
+    | "teamManagement"
     | "outreach"
     | "profileReports"
     | "vaReports"
@@ -2389,6 +2391,19 @@ export default function AdminPage() {
               Team
             </button>
           ) : null}
+          {profile?.role === "admin" ? (
+            <button
+              type="button"
+              onClick={() => setAdminSection("teamManagement")}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                adminSection === "teamManagement"
+                  ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                  : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+              }`}
+            >
+              Team Management
+            </button>
+          ) : null}
           {isAdminSectionVisible("outreach") ? (
           <button
             type="button"
@@ -2588,6 +2603,19 @@ export default function AdminPage() {
                 }`}
               >
                 Team
+              </button>
+            ) : null}
+            {profile?.role === "admin" ? (
+              <button
+                type="button"
+                onClick={() => setAdminSection("teamManagement")}
+                className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                  adminSection === "teamManagement"
+                    ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                    : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                Team Management
               </button>
             ) : null}
             {isAdminSectionVisible("outreach") ? (
@@ -4287,6 +4315,10 @@ export default function AdminPage() {
               </div>
             ) : null}
           </div>
+        ) : null}
+
+        {adminSection === "teamManagement" && profile?.role === "admin" ? (
+          <TeamManagementSection />
         ) : null}
 
         {adminSection === "vaReports" && (

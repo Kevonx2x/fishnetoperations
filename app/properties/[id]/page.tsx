@@ -10,7 +10,6 @@ import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagement";
-import { cloudinaryPropertyPhotoDisplayUrl } from "@/lib/cloudinary-property-photo-url";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { recordRecentlyViewedPropertyId } from "@/lib/recently-viewed";
 import { CoListVerificationRequiredModal } from "@/components/marketplace/co-list-verification-required-modal";
@@ -24,7 +23,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { coListLimitForTier, listingLimitForTier } from "@/lib/agent-listing-limits";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
-import { cn, getOptimizedImageUrl } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 
 type ListingAgentProfile = {
@@ -81,34 +80,11 @@ function buildAllPhotos(property: PropertyRow): string[] {
     .slice()
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     .map((x) => String(x.url || "").trim())
-    .filter((u) => u.length > 0)
-    .map((u) => cloudinaryPropertyPhotoDisplayUrl(u));
+    .filter((u) => u.length > 0);
 }
 
-/** Inserts Cloudinary transforms before the version segment (v123/…). Non-Cloudinary URLs unchanged. */
 function isValidMapCoordinate(n: unknown): n is number {
   return typeof n === "number" && Number.isFinite(n);
-}
-
-function cloudinaryTransformUrl(url: string, transform: string): string {
-  if (!url || !/res\.cloudinary\.com/.test(url)) return url;
-  try {
-    const u = new URL(url);
-    const path = u.pathname;
-    let m = path.match(/^(.*\/image\/upload\/)(v\d+\/.+)$/);
-    if (m) {
-      u.pathname = `${m[1]}${transform}/${m[2]}`;
-      return u.toString();
-    }
-    m = path.match(/^(.*\/image\/upload\/)([^/]+\/)(v\d+\/.+)$/);
-    if (m) {
-      u.pathname = `${m[1]}${transform}/${m[3]}`;
-      return u.toString();
-    }
-  } catch {
-    /* keep original */
-  }
-  return url;
 }
 
 export default function PropertyPage() {
@@ -120,6 +96,7 @@ export default function PropertyPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0);
   const [showViewingModal, setShowViewingModal] = useState(false);
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [selectedViewingAgentUserId, setSelectedViewingAgentUserId] = useState<string | null>(null);
@@ -296,9 +273,7 @@ export default function PropertyPage() {
     if (!property || allPhotos.length > 0) return "";
     const u = String(property.image_url ?? "").trim();
     if (!u) return "";
-    return getOptimizedImageUrl(
-      cloudinaryTransformUrl(cloudinaryPropertyPhotoDisplayUrl(u), "c_fill,w_1600,h_900,q_auto,f_auto"),
-    );
+    return u;
   }, [property, allPhotos.length]);
   /** Hero image URL; thumbnails call setActivePhoto(url). */
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
@@ -327,15 +302,23 @@ export default function PropertyPage() {
       activePhoto && allPhotos.some((u) => String(u).trim() === String(activePhoto).trim())
         ? activePhoto
         : allPhotos[0];
-    return getOptimizedImageUrl(
-      cloudinaryTransformUrl(String(raw).trim(), "c_fill,w_1600,h_900,q_auto,f_auto"),
-    );
+    return String(raw).trim();
   }, [allPhotos, activePhoto]);
 
-  const openLightbox = () => {
-    if (allPhotos.length === 0) return;
-    setLightboxOpen(true);
-  };
+  const openLightbox = useCallback(
+    (startIndex?: number) => {
+      if (allPhotos.length === 0) return;
+      const n = allPhotos.length;
+      let i = heroIndex;
+      if (typeof startIndex === "number" && Number.isFinite(startIndex)) {
+        const r = Math.trunc(startIndex);
+        if (r >= 0 && r < n) i = r;
+      }
+      setLightboxInitialIndex(i);
+      setLightboxOpen(true);
+    },
+    [allPhotos.length, heroIndex],
+  );
   const connectedAgents = useMemo(() => {
     if (!property) return [];
     const raw = property.property_agents ?? [];
@@ -555,7 +538,7 @@ export default function PropertyPage() {
                       <div className="relative h-80 w-full overflow-hidden rounded-2xl lg:h-[500px]">
                         <button
                           type="button"
-                          onClick={() => openLightbox()}
+                          onClick={() => openLightbox(heroIndex)}
                           className="absolute inset-0 block"
                           aria-label={`Open photo ${heroIndex + 1}`}
                         >
@@ -642,7 +625,7 @@ export default function PropertyPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => openLightbox()}
+                          onClick={() => openLightbox(heroIndex)}
                           className="absolute bottom-3 right-3 z-10 flex items-center gap-2 rounded-full bg-white px-5 py-3 text-base font-semibold text-[#2C2C2C] shadow-lg ring-1 ring-[#2C2C2C]/10"
                           aria-label="View all photos"
                         >
@@ -653,17 +636,15 @@ export default function PropertyPage() {
                       {allPhotos.length > 1 ? (
                         <div className="mt-3 flex w-full gap-3 overflow-x-auto pb-2 scrollbar-hide">
                           {allPhotos.map((url, i) => {
-                            const thumbSrc = getOptimizedImageUrl(
-                              cloudinaryTransformUrl(
-                                String(url).trim(),
-                                "c_fill,w_240,h_160,q_auto,f_auto",
-                              ),
-                            );
+                            const thumbSrc = String(url).trim();
                             return (
                               <button
                                 key={`${i}-${url}`}
                                 type="button"
-                                onClick={() => setActivePhoto(String(url).trim())}
+                                onClick={() => {
+                                  setActivePhoto(String(url).trim());
+                                  openLightbox(i);
+                                }}
                                 className={cn(
                                   "relative h-[80px] w-[120px] flex-shrink-0 cursor-pointer overflow-hidden rounded-xl",
                                   i === heroIndex ? "border-2 border-solid border-[#D4A843]" : "border-0",
@@ -910,7 +891,8 @@ export default function PropertyPage() {
             {lightboxOpen && allPhotos.length > 0 ? (
               <PropertyPhotoLightbox
                 photos={allPhotos}
-                title={property.name?.trim() || property.location}
+                initialIndex={lightboxInitialIndex}
+                galleryLabel={property.name?.trim() || property.location}
                 onClose={() => setLightboxOpen(false)}
               />
             ) : null}
@@ -1027,14 +1009,16 @@ function PropertyLocationMapSection({ lat, lng }: { lat: number; lng: number }) 
 
 function PropertyPhotoLightbox({
   photos,
-  title,
+  initialIndex,
+  galleryLabel,
   onClose,
 }: {
   photos: string[];
-  title: string;
+  initialIndex: number;
+  galleryLabel: string;
   onClose: () => void;
 }) {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(initialIndex);
   const touchStartX = useRef<number | null>(null);
 
   const goPrev = useCallback(() => {
@@ -1046,8 +1030,8 @@ function PropertyPhotoLightbox({
   }, [photos.length]);
 
   useEffect(() => {
-    setIndex(0);
-  }, [photos]);
+    setIndex(initialIndex);
+  }, [initialIndex]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1090,132 +1074,89 @@ function PropertyPhotoLightbox({
 
   if (typeof document === "undefined") return null;
 
-  const mobileSrc = getOptimizedImageUrl(
-    cloudinaryTransformUrl(
-      String(photos[index] ?? photos[0]).trim(),
-      "c_limit,w_1600,h_1600,q_auto,f_auto",
-    ),
-  );
+  const currentSrc = String(photos[index] ?? photos[0] ?? "").trim();
+  const countLabel = photos.length > 0 ? `${index + 1} of ${photos.length}` : "";
 
   const shell = (
-    <>
-      {/* Mobile: full-screen swipe viewer */}
-      <div
-        className="fixed inset-0 z-50 flex h-full w-full flex-col bg-black md:hidden"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="property-photo-lightbox-title-mobile"
-      >
-        <div className="grid shrink-0 grid-cols-3 items-center gap-2 px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <div />
-          <p
-            id="property-photo-lightbox-title-mobile"
-            className="text-center text-sm text-white"
-          >
-            {photos.length > 0 ? `${index + 1} of ${photos.length}` : ""}
-          </p>
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-black"
+      role="dialog"
+      aria-modal="true"
+      aria-label={galleryLabel ? `${galleryLabel} — ${countLabel}` : countLabel}
+    >
+      <div className="relative z-30 grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-4">
+        <div aria-hidden />
+        <p className="min-w-0 text-center text-base font-semibold tabular-nums text-white">{countLabel}</p>
+        <div className="flex justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="justify-self-end rounded-full p-2 text-white hover:bg-white/10"
+            className="rounded-full p-2 text-white hover:bg-white/10"
             aria-label="Close"
           >
-            <X className="h-9 w-9" strokeWidth={2} />
+            <X className="h-12 w-12" strokeWidth={2} />
           </button>
-        </div>
-        <div
-          className="relative min-h-0 flex-1 touch-pan-x"
-          onTouchStart={onTouchStart}
-          onTouchEnd={onTouchEnd}
-        >
-          {photos.length > 0 ? (
-            <Image
-              src={mobileSrc}
-              alt=""
-              fill
-              className="object-contain"
-              sizes={LISTING_IMAGE_SIZES}
-              priority
-              loading="eager"
-            />
-          ) : null}
         </div>
       </div>
 
-      {/* Desktop: modal + 2-column grid */}
-      <div className="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4 md:flex" role="presentation">
+      <div className="relative flex min-h-0 flex-1 w-full touch-pan-x">
         <button
           type="button"
-          className="absolute inset-0 cursor-default"
-          aria-label="Close"
+          className="absolute inset-0 z-0 cursor-default bg-black"
+          aria-label="Close gallery"
           onClick={onClose}
         />
         <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="property-photo-lightbox-title"
-          className="relative z-[1] flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-14 pb-8 pt-0 sm:px-20"
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
         >
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#2C2C2C]/10 px-4 py-3">
-            <p id="property-photo-lightbox-title" className="min-w-0 truncate text-sm font-semibold text-[#2C2C2C]">
-              {title}
-            </p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="shrink-0 rounded-full p-2 text-[#2C2C2C] hover:bg-black/5"
-              aria-label="Close"
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
-          <div className="relative min-h-0 flex-1 overflow-y-auto p-4">
-            <button
-              type="button"
-              onClick={goPrev}
-              className="absolute left-2 top-1/2 z-[2] -translate-y-1/2 rounded-full bg-white/95 p-2.5 text-[#2C2C2C] shadow-md ring-1 ring-black/10 hover:bg-white"
-              aria-label="Previous photo"
-            >
-              <ChevronLeft className="h-6 w-6" />
-            </button>
-            <button
-              type="button"
-              onClick={goNext}
-              className="absolute right-2 top-1/2 z-[2] -translate-y-1/2 rounded-full bg-white/95 p-2.5 text-[#2C2C2C] shadow-md ring-1 ring-black/10 hover:bg-white"
-              aria-label="Next photo"
-            >
-              <ChevronRight className="h-6 w-6" />
-            </button>
-            <div className="grid grid-cols-2 gap-3 px-10">
-              {photos.map((url, i) => {
-                const src = getOptimizedImageUrl(
-                  cloudinaryTransformUrl(String(url).trim(), "c_fill,w_800,h_800,q_auto,f_auto"),
-                );
-                return (
-                  <div
-                    key={`${i}-${url}`}
-                    className={cn(
-                      "relative aspect-square overflow-hidden rounded-xl ring-2 ring-offset-2 transition-shadow",
-                      i === index ? "ring-[#6B9E6E]" : "ring-transparent",
-                    )}
-                  >
-                    <Image
-                      src={src}
-                      alt=""
-                      fill
-                      className="object-cover"
-                      sizes={LISTING_IMAGE_SIZES}
-                      loading={i === 0 ? "eager" : "lazy"}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+          <div
+            className="pointer-events-auto relative h-full w-full max-h-full max-w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {photos.length > 0 ? (
+              <Image
+                src={currentSrc}
+                alt=""
+                fill
+                className="object-contain"
+                sizes="100vw"
+                priority
+                loading="eager"
+              />
+            ) : null}
           </div>
         </div>
+
+        {photos.length > 1 ? (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                goPrev();
+              }}
+              className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/95 p-3 text-[#2C2C2C] shadow-lg ring-1 ring-black/15 hover:bg-white sm:left-4 sm:p-4"
+              aria-label="Previous photo"
+            >
+              <ChevronLeft className="h-8 w-8 sm:h-10 sm:w-10" strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                goNext();
+              }}
+              className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/95 p-3 text-[#2C2C2C] shadow-lg ring-1 ring-black/15 hover:bg-white sm:right-4 sm:p-4"
+              aria-label="Next photo"
+            >
+              <ChevronRight className="h-8 w-8 sm:h-10 sm:w-10" strokeWidth={2} />
+            </button>
+          </>
+        ) : null}
       </div>
-    </>
+    </div>
   );
   return createPortal(shell, document.body);
 }
