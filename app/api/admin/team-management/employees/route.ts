@@ -24,6 +24,14 @@ export async function POST(req: Request) {
     const startRaw = typeof body.start_date === "string" ? body.start_date.trim() : "";
     const hr_notes =
       body.hr_notes === null || typeof body.hr_notes === "string" ? (body.hr_notes as string | null) : null;
+    const work_email =
+      body.work_email === null || typeof body.work_email === "string"
+        ? (typeof body.work_email === "string" ? body.work_email.trim() || null : null)
+        : undefined;
+    const personal_email =
+      body.personal_email === null || typeof body.personal_email === "string"
+        ? (typeof body.personal_email === "string" ? body.personal_email.trim() || null : null)
+        : undefined;
 
     const rateRaw = body.rate_amount;
     const rate_amount =
@@ -72,27 +80,31 @@ export async function POST(req: Request) {
     const email = `${slug}.${crypto.randomUUID().slice(0, 8)}@onboarding.bahaygo.internal`;
 
     const admin = createSupabaseAdmin();
+    const insertRow: Record<string, unknown> = {
+      name,
+      email,
+      role,
+      agent_id: null,
+      status: "active",
+      start_date: startRaw,
+      department,
+      employment_type,
+      rate_amount,
+      currency,
+      rate_period,
+      hr_notes: hr_notes?.trim() || null,
+      equity_pct,
+      employment_status: "Trial",
+      admin_added_by: denied.userId,
+    };
+    if (work_email !== undefined) insertRow.work_email = work_email;
+    if (personal_email !== undefined) insertRow.personal_email = personal_email;
+
     const { data, error } = await admin
       .from("team_members")
-      .insert({
-        name,
-        email,
-        role,
-        agent_id: null,
-        status: "active",
-        start_date: startRaw,
-        department,
-        employment_type,
-        rate_amount,
-        currency,
-        rate_period,
-        hr_notes: hr_notes?.trim() || null,
-        equity_pct,
-        employment_status: "Trial",
-        admin_added_by: denied.userId,
-      })
+      .insert(insertRow)
       .select(
-        "id, created_at, name, email, role, user_id, agent_id, start_date, department, employment_type, rate_amount, currency, rate_period, hr_notes, equity_pct, employment_status, admin_added_by",
+        "id, created_at, name, email, role, user_id, agent_id, start_date, end_date, department, employment_type, rate_amount, currency, rate_period, hr_notes, equity_pct, equity_vesting_years, equity_cliff_months, employment_status, admin_added_by, work_email, personal_email, onboarding_checklist",
       )
       .single();
 

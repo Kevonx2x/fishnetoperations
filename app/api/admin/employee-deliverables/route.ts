@@ -26,6 +26,29 @@ export async function PATCH(req: Request) {
     }
 
     const admin = createSupabaseAdmin();
+    const { data: delRow, error: delFetchErr } = await admin
+      .from("employee_deliverables")
+      .select("employee_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (delFetchErr) {
+      return NextResponse.json({ error: delFetchErr.message }, { status: 500 });
+    }
+    if (!delRow?.employee_id) {
+      return NextResponse.json({ error: "Deliverable not found." }, { status: 404 });
+    }
+    const { data: tm, error: tmErr } = await admin
+      .from("team_members")
+      .select("employment_status")
+      .eq("id", delRow.employee_id)
+      .maybeSingle();
+    if (tmErr) {
+      return NextResponse.json({ error: tmErr.message }, { status: 500 });
+    }
+    if (tm?.employment_status === "Terminated") {
+      return NextResponse.json({ error: "Deliverables are locked for terminated employees." }, { status: 403 });
+    }
+
     const { data, error } = await admin
       .from("employee_deliverables")
       .update(patch)
@@ -71,6 +94,18 @@ export async function POST(req: Request) {
     }
 
     const admin = createSupabaseAdmin();
+    const { data: tm, error: tmErr } = await admin
+      .from("team_members")
+      .select("employment_status")
+      .eq("id", employee_id)
+      .maybeSingle();
+    if (tmErr) {
+      return NextResponse.json({ error: tmErr.message }, { status: 500 });
+    }
+    if (tm?.employment_status === "Terminated") {
+      return NextResponse.json({ error: "Deliverables are locked for terminated employees." }, { status: 403 });
+    }
+
     const { data, error } = await admin
       .from("employee_deliverables")
       .insert({

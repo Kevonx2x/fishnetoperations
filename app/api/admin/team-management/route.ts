@@ -12,6 +12,7 @@ type TeamMemberRow = {
   user_id: string | null;
   agent_id: string | null;
   start_date: string | null;
+  end_date: string | null;
   department: string | null;
   employment_type: string | null;
   rate_amount: number | null;
@@ -19,8 +20,13 @@ type TeamMemberRow = {
   rate_period: string | null;
   hr_notes: string | null;
   equity_pct: number | null;
+  equity_vesting_years: number | null;
+  equity_cliff_months: number | null;
   employment_status: string | null;
   admin_added_by: string | null;
+  work_email: string | null;
+  personal_email: string | null;
+  onboarding_checklist: Record<string, unknown> | null;
 };
 
 type ProfileRow = {
@@ -91,7 +97,7 @@ export async function GET() {
     const { data: tmRows, error: tmErr } = await admin
       .from("team_members")
       .select(
-        "id, created_at, name, email, role, user_id, agent_id, start_date, department, employment_type, rate_amount, currency, rate_period, hr_notes, equity_pct, employment_status, admin_added_by",
+        "id, created_at, name, email, role, user_id, agent_id, start_date, end_date, department, employment_type, rate_amount, currency, rate_period, hr_notes, equity_pct, equity_vesting_years, equity_cliff_months, employment_status, admin_added_by, work_email, personal_email, onboarding_checklist",
       )
       .is("agent_id", null)
       .order("created_at", { ascending: false });
