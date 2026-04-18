@@ -43,6 +43,8 @@ type DeliverableRow = {
   deliverable_text: string;
   priority: string;
   is_complete: boolean;
+  status: string;
+  admin_note: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -79,6 +81,8 @@ async function seedEmmanuelIfNeeded(
     deliverable_text: d.deliverable_text,
     priority: d.priority,
     is_complete: false,
+    status: "not_started" as const,
+    admin_note: null as string | null,
     notes: null as string | null,
   }));
 

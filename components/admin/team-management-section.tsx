@@ -1,7 +1,19 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Download, Mail, Pencil, Plus, Trash2, UserX } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  ChevronDown,
+  Clock,
+  Download,
+  Eye,
+  Mail,
+  Pencil,
+  Plus,
+  Trash2,
+  UserX,
+} from "lucide-react";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -17,6 +29,13 @@ type ProfileLite = {
   role: string | null;
 } | null;
 
+export type DeliverableWorkflowStatus =
+  | "not_started"
+  | "submitted"
+  | "pending_review"
+  | "approved"
+  | "changes_requested";
+
 export type EmployeeDeliverable = {
   id: string;
   employee_id: string;
@@ -24,10 +43,26 @@ export type EmployeeDeliverable = {
   deliverable_text: string;
   priority: "Critical" | "High" | "Medium" | "Low";
   is_complete: boolean;
+  status: DeliverableWorkflowStatus | string;
+  admin_note: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
 };
+
+function deliverableApproved(d: EmployeeDeliverable): boolean {
+  if (d.status === "approved") return true;
+  if (!d.status && d.is_complete) return true;
+  return false;
+}
+
+function adminDeliverableStatusLabel(status: string): string {
+  if (status === "submitted" || status === "pending_review") return "Pending review";
+  if (status === "approved") return "Approved";
+  if (status === "changes_requested") return "Changes requested";
+  if (status === "not_started") return "Not started";
+  return status;
+}
 
 export type TeamManagementEmployee = {
   id: string;
@@ -267,7 +302,7 @@ function buildProgressEmailHtml(
   displayName: string,
 ): string {
   const total = emp.deliverables.length;
-  const done = emp.deliverables.filter((d) => d.is_complete).length;
+  const done = emp.deliverables.filter((d) => deliverableApproved(d)).length;
   const pend = total - done;
   let closing = "";
   if (tone === "Encouraging") {
@@ -287,8 +322,8 @@ function buildProgressEmailHtml(
       const lines = items
         .map(
           (d) =>
-            `<li style="color:${d.is_complete ? "#2C5F32" : "#888888"}">${escapeHtml(d.deliverable_text)} — ${
-              d.is_complete ? "Done" : "Pending"
+            `<li style="color:${deliverableApproved(d) ? "#2C5F32" : "#888888"}">${escapeHtml(d.deliverable_text)} — ${
+              deliverableApproved(d) ? "Done" : "Pending"
             }</li>`,
         )
         .join("");
@@ -299,8 +334,8 @@ function buildProgressEmailHtml(
   const summary = emp.deliverables
     .map(
       (d) =>
-        `<li style="color:${d.is_complete ? "#2C5F32" : "#888888"}">${escapeHtml(d.deliverable_text)} — ${
-          d.is_complete ? "Done" : "Pending"
+        `<li style="color:${deliverableApproved(d) ? "#2C5F32" : "#888888"}">${escapeHtml(d.deliverable_text)} — ${
+          deliverableApproved(d) ? "Done" : "Pending"
         }</li>`,
     )
     .join("");
@@ -421,6 +456,8 @@ export function TeamManagementSection() {
   >({});
   const [internalNoteDraft, setInternalNoteDraft] = useState<Record<string, string>>({});
   const [internalNoteBusy, setInternalNoteBusy] = useState<string | null>(null);
+  const [requestChangesFor, setRequestChangesFor] = useState<string | null>(null);
+  const [requestChangesDraft, setRequestChangesDraft] = useState<Record<string, string>>({});
 
   const [editForm, setEditForm] = useState<EditFormState>(() => emptyEditForm());
 
@@ -516,7 +553,15 @@ export function TeamManagementSection() {
     setOpenWeek((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const patchDeliverable = async (id: string, patch: { is_complete?: boolean; notes?: string | null }) => {
+  const patchDeliverable = async (
+    id: string,
+    patch: {
+      is_complete?: boolean;
+      notes?: string | null;
+      status?: string;
+      admin_note?: string | null;
+    },
+  ) => {
     const res = await fetch("/api/admin/employee-deliverables", {
       method: "PATCH",
       credentials: "include",
@@ -649,7 +694,8 @@ export function TeamManagementSection() {
       week_number: d.week_number,
       deliverable_text: d.deliverable_text,
       priority: d.priority,
-      is_complete: d.is_complete,
+      is_complete: deliverableApproved(d),
+      status: d.status,
       notes: d.notes,
     }));
     try {
@@ -932,7 +978,7 @@ export function TeamManagementSection() {
             const avatarUrl = emp.profile?.avatar_url?.trim() || null;
             const tenureDays = daysSinceStart(emp.start_date, emp.created_at);
             const total = emp.deliverables.length;
-            const done = emp.deliverables.filter((d) => d.is_complete).length;
+            const done = emp.deliverables.filter((d) => deliverableApproved(d)).length;
             const completionPct = total > 0 ? Math.round((done / total) * 100) : 0;
             const status = emp.employment_status ?? "Trial";
             const equity = Number(emp.equity_pct ?? 0);
@@ -1256,6 +1302,9 @@ export function TeamManagementSection() {
                               <ul className="space-y-2 px-2 pb-4 pt-1">
                                 {rows.map((d) => {
                                   const notesOpen = openNotesId === d.id;
+                                  const st = (d.status as string) || (d.is_complete ? "approved" : "not_started");
+                                  const awaiting = st === "submitted" || st === "pending_review";
+                                  const approved = deliverableApproved(d);
                                   return (
                                     <li
                                       key={d.id}
@@ -1264,15 +1313,17 @@ export function TeamManagementSection() {
                                       <div className="flex flex-wrap items-start gap-2 sm:flex-nowrap">
                                         <input
                                           type="checkbox"
-                                          checked={d.is_complete}
-                                          disabled={locked}
-                                          onChange={(e) => void patchDeliverable(d.id, { is_complete: e.target.checked })}
+                                          checked={approved}
+                                          disabled={locked || awaiting}
+                                          onChange={(e) =>
+                                            void patchDeliverable(d.id, { is_complete: e.target.checked })
+                                          }
                                           className="mt-1 h-4 w-4 shrink-0 rounded border-[#2C2C2C]/25 text-[#6B9E6E] focus:ring-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-40"
-                                          aria-label="Mark complete"
+                                          aria-label="Approved"
                                         />
                                         <p
                                           className={`min-w-0 flex-1 text-sm font-semibold leading-snug ${
-                                            d.is_complete ? "text-[#2C2C2C]/45 line-through" : "text-[#2C2C2C]"
+                                            approved ? "text-[#2C2C2C]/45 line-through" : "text-[#2C2C2C]"
                                           }`}
                                         >
                                           {d.deliverable_text}
@@ -1283,6 +1334,19 @@ export function TeamManagementSection() {
                                           )}`}
                                         >
                                           {d.priority}
+                                        </span>
+                                        <span
+                                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                                            awaiting
+                                              ? "bg-[#fef08a] text-[#713f12] ring-1 ring-[#D4A843]/40"
+                                              : st === "approved"
+                                                ? "bg-[#6B9E6E]/18 text-[#2C5F32] ring-1 ring-[#6B9E6E]/35"
+                                                : st === "changes_requested"
+                                                  ? "bg-orange-100 text-orange-900 ring-1 ring-orange-200"
+                                                  : "bg-[#2C2C2C]/08 text-[#2C2C2C]/60 ring-1 ring-[#2C2C2C]/10"
+                                          }`}
+                                        >
+                                          {adminDeliverableStatusLabel(st)}
                                         </span>
                                         <button
                                           type="button"
@@ -1302,6 +1366,77 @@ export function TeamManagementSection() {
                                           </motion.span>
                                         </button>
                                       </div>
+                                      {awaiting && !locked ? (
+                                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => void patchDeliverable(d.id, { status: "approved" })}
+                                            className="rounded-lg bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#5d8a60]"
+                                          >
+                                            Approve
+                                          </button>
+                                          {requestChangesFor === d.id ? (
+                                            <>
+                                              <input
+                                                value={requestChangesDraft[d.id] ?? ""}
+                                                onChange={(e) =>
+                                                  setRequestChangesDraft((prev) => ({
+                                                    ...prev,
+                                                    [d.id]: e.target.value,
+                                                  }))
+                                                }
+                                                placeholder="Feedback for the team member…"
+                                                className="min-w-[160px] flex-1 rounded-lg border border-[#2C2C2C]/12 bg-white px-2 py-1.5 text-xs font-medium text-[#2C2C2C]"
+                                              />
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const t = (requestChangesDraft[d.id] ?? "").trim();
+                                                  if (!t) {
+                                                    toast.error("Enter feedback before sending.");
+                                                    return;
+                                                  }
+                                                  void patchDeliverable(d.id, {
+                                                    status: "changes_requested",
+                                                    admin_note: t,
+                                                  });
+                                                  setRequestChangesFor(null);
+                                                }}
+                                                className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-orange-700"
+                                              >
+                                                Send
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => setRequestChangesFor(null)}
+                                                className="text-xs font-bold text-[#2C2C2C]/55 underline"
+                                              >
+                                                Cancel
+                                              </button>
+                                            </>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setRequestChangesFor(d.id);
+                                                setRequestChangesDraft((prev) => ({
+                                                  ...prev,
+                                                  [d.id]: prev[d.id] ?? "",
+                                                }));
+                                              }}
+                                              className="rounded-lg border border-orange-300 bg-orange-50 px-3 py-1.5 text-xs font-bold text-orange-900 hover:bg-orange-100"
+                                            >
+                                              Request changes
+                                            </button>
+                                          )}
+                                        </div>
+                                      ) : null}
+                                      {st === "changes_requested" && d.admin_note?.trim() ? (
+                                        <p className="mt-2 text-xs font-semibold text-orange-800">
+                                          <span className="font-bold text-orange-900">Latest feedback: </span>
+                                          {d.admin_note.trim()}
+                                        </p>
+                                      ) : null}
                                       <AnimatePresence initial={false}>
                                         {notesOpen ? (
                                           <motion.div

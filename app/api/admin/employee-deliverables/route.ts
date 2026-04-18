@@ -4,6 +4,14 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const PRIORITIES = ["Critical", "High", "Medium", "Low"] as const;
 
+const DELIVERABLE_STATUSES = new Set([
+  "not_started",
+  "submitted",
+  "pending_review",
+  "approved",
+  "changes_requested",
+]);
+
 export async function PATCH(req: Request) {
   try {
     const denied = await requireAdminSession();
@@ -18,7 +26,20 @@ export async function PATCH(req: Request) {
     }
 
     const patch: Record<string, unknown> = {};
-    if (typeof body.is_complete === "boolean") patch.is_complete = body.is_complete;
+    if (typeof body.status === "string") {
+      const s = body.status.trim();
+      if (!DELIVERABLE_STATUSES.has(s)) {
+        return NextResponse.json({ error: "Invalid status." }, { status: 400 });
+      }
+      patch.status = s;
+      patch.is_complete = s === "approved";
+    } else if (typeof body.is_complete === "boolean") {
+      patch.is_complete = body.is_complete;
+      patch.status = body.is_complete ? "approved" : "not_started";
+    }
+    if (body.admin_note === null || typeof body.admin_note === "string") {
+      patch.admin_note = typeof body.admin_note === "string" ? body.admin_note.trim() || null : null;
+    }
     if (body.notes === null || typeof body.notes === "string") patch.notes = body.notes;
 
     if (Object.keys(patch).length === 0) {
@@ -114,6 +135,8 @@ export async function POST(req: Request) {
         deliverable_text,
         priority,
         is_complete: false,
+        status: "not_started",
+        admin_note: null,
         notes: null,
       })
       .select("*")

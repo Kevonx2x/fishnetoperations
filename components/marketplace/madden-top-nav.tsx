@@ -22,7 +22,7 @@ import {
   LayoutDashboard,
   LogOut,
   MapPin,
-  MessageSquare,
+  CheckSquare,
   Palmtree,
   Search,
   Settings,
@@ -572,6 +572,15 @@ export function MaddenTopNav() {
                   My Profile
                 </Link>
               ) : null}
+              {role === "team_member" && user.id ? (
+                <Link
+                  href="/dashboard/agent"
+                  className="hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-[#2C2C2C]/75 transition hover:bg-white/80 hover:text-[#2C2C2C] sm:inline-flex"
+                >
+                  <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                  My Profile
+                </Link>
+              ) : null}
               <Link
                 href="/notifications"
                 className="relative inline-flex rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm transition hover:bg-[#FAF8F4]"
@@ -648,6 +657,16 @@ export function MaddenTopNav() {
                         <p className="mt-0.5 truncate text-xs text-[#2C2C2C]/40">{user.email ?? ""}</p>
                       </div>
                       <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
+                      {role === "team_member" ? (
+                        <Link
+                          href="/my-plan"
+                          className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                          onClick={() => setAccountOpen(false)}
+                        >
+                          <CheckSquare className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                          My Plan
+                        </Link>
+                      ) : null}
                       <Link
                         href={
                           role === "client" && user?.id
@@ -656,7 +675,9 @@ export function MaddenTopNav() {
                               ? `/agents/${agentNav.id}`
                               : role === "broker" && brokerNav
                                 ? `/brokers/${brokerNav.id}`
-                                : "/settings"
+                                : role === "team_member"
+                                  ? "/dashboard/agent"
+                                  : "/settings"
                         }
                         className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                         onClick={() => setAccountOpen(false)}
@@ -845,6 +866,26 @@ export function MaddenTopNav() {
                   <Building2 className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
                   My Profile
                 </Link>
+              ) : null}
+              {user && role === "team_member" ? (
+                <>
+                  <Link
+                    href="/dashboard/agent"
+                    onClick={closeMobileNav}
+                    className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
+                  >
+                    <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                    My Profile
+                  </Link>
+                  <Link
+                    href="/my-plan"
+                    onClick={closeMobileNav}
+                    className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
+                  >
+                    <CheckSquare className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                    My Plan
+                  </Link>
+                </>
               ) : null}
               <MobileNavSection title="Agents" entries={agentsEntries} onNavigate={closeMobileNav} />
               <MobileNavSection title="Brokers" entries={brokersEntries} onNavigate={closeMobileNav} />

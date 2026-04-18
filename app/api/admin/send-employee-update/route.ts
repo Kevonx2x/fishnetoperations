@@ -4,7 +4,7 @@ import { requireAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const ONBOARDING_EMAIL_SUFFIX = "@onboarding.bahaygo.internal";
-const FROM = "BahayGo <ceo@bahaygo.com>";
+const FROM = "BahayGo <ceo@contact.bahaygo.com>";
 
 type TmRow = {
   id: string;
