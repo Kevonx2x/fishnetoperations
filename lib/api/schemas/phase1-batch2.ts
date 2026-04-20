@@ -72,7 +72,19 @@ export const registerAgentSchema = z.object({
     }),
   email: z.string().email(),
   bio: z.string().max(5000).optional().nullable(),
-  broker_id: z.string().uuid().optional().nullable(),
+  broker_id: z.preprocess(
+    (v) => {
+      if (v === undefined || v === null) return null;
+      if (typeof v === "string" && v.trim() === "") return null;
+      return typeof v === "string" ? v.trim() : v;
+    },
+    z.union([
+      z.null(),
+      z.string().uuid(
+        "broker_id must be the UUID of an approved brokerage from the list (not the company name). Omit or use null for an independent agent.",
+      ),
+    ]),
+  ),
   prc_document_url: z.string().optional(),
   selfie_url: z.string().optional(),
 });

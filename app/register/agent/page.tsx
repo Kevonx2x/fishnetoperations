@@ -17,6 +17,7 @@ import {
   validatePhoneField,
 } from "@/lib/validation/agent-registration";
 import { uploadVerificationImageToCloudinary } from "@/lib/upload-verification-image-cloudinary";
+import { brokerIdForAgentApi, isBrokerUuidString } from "@/lib/validation/broker-id";
 
 const supabase = createSupabaseBrowser();
 
@@ -213,6 +214,21 @@ function PrcLicenseInput({
 
 type ApprovedBroker = { id: string; company_name: string };
 
+function normalizeApprovedBrokerRows(raw: unknown): ApprovedBroker[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ApprovedBroker[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const o = row as Record<string, unknown>;
+    const id = o.id;
+    const label = o.company_name ?? o.name;
+    if (typeof id !== "string" || !isBrokerUuidString(id)) continue;
+    if (typeof label !== "string" || !label.trim()) continue;
+    out.push({ id: id.trim(), company_name: label.trim() });
+  }
+  return out;
+}
+
 type FieldErrors = Partial<
   Record<
     | "name"
@@ -373,10 +389,17 @@ export default function RegisterAgentPage() {
   useEffect(() => {
     void (async () => {
       const res = await fetch("/api/v1/brokers");
-      const json = (await res.json()) as { success?: boolean; data?: ApprovedBroker[] };
-      if (json.success && Array.isArray(json.data)) setBrokers(json.data);
+      const json = (await res.json()) as { success?: boolean; data?: unknown };
+      if (json.success && json.data !== undefined) {
+        setBrokers(normalizeApprovedBrokerRows(json.data));
+      }
     })();
   }, []);
+
+  useEffect(() => {
+    const t = brokerId.trim();
+    if (t && !isBrokerUuidString(t)) setBrokerId("");
+  }, [brokerId]);
 
   const validateVerificationFiles = (de: FieldErrors) => {
     if (!prcFile) {
@@ -450,7 +473,7 @@ export default function RegisterAgentPage() {
         phone: phone.trim(),
         email: contactEmail.trim(),
         bio: bio.trim() || null,
-        broker_id: brokerId || null,
+        broker_id: brokerIdForAgentApi(brokerId),
         ...(prc_document_url !== undefined && selfie_url !== undefined
           ? { prc_document_url, selfie_url }
           : {}),
@@ -710,7 +733,7 @@ export default function RegisterAgentPage() {
                   onChange={(e) => setBrokerId(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400"
                 >
-                  <option value="">Independent / none</option>
+                  <option value="">Independent Agent</option>
                   {brokers.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.company_name}
@@ -869,7 +892,7 @@ export default function RegisterAgentPage() {
                   onChange={(e) => setBrokerId(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400"
                 >
-                  <option value="">Independent / none</option>
+                  <option value="">Independent Agent</option>
                   {brokers.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.company_name}
