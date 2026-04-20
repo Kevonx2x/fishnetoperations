@@ -1443,15 +1443,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 Tap a city to filter listings
               </p>
             </div>
-            {neighborhoodFilter ? (
-              <button
-                type="button"
-                onClick={() => setNeighborhoodFilter(null)}
-                className="shrink-0 self-center text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C] sm:self-auto"
-              >
-                Clear filter
-              </button>
-            ) : null}
           </div>
           <div className="relative -mx-4 mt-6">
             <button
@@ -1488,9 +1479,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         onClick={() => selectCityFilter(c.key)}
                         className={`group relative flex w-[130px] shrink-0 flex-col overflow-hidden rounded-2xl border text-left shadow-md transition hover:scale-[1.02] lg:w-[160px] ${
                           active
-                            ? "border-[#D4A843] ring-2 ring-[#D4A843]/45"
+                            ? "border-[#6B9E6E] ring-2 ring-[#6B9E6E]/35"
                             : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
                         }`}
+                        style={{
+                          opacity: neighborhoodFilter && !active ? 0.4 : 1,
+                          transition: "opacity 200ms ease",
+                        }}
                       >
                         <div className="relative h-[110px] w-full shrink-0 overflow-hidden lg:h-[130px]">
                           <Image
@@ -1552,71 +1547,65 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           <>
             {/* PROPERTY LISTING SECTION (controlled by Buy/Rent toggle) */}
             <section id="listings">
-              {!neighborhoodFilter ? (
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    {activeFilterChips(filters, sortMode, {
-                      clearPrice: () =>
-                        setFilters((s) => ({ ...s, minPrice: 0, maxPrice: HOMEPAGE_FILTER_MAX_PRICE })),
-                      clearBeds: () => setFilters((s) => ({ ...s, beds: "any" })),
-                      clearBaths: () => setFilters((s) => ({ ...s, baths: "any" })),
-                      clearType: () => setFilters((s) => ({ ...s, propertyType: "any" })),
-                      clearSort: () => setSortMode("newest"),
-                    }).map((chip) => (
-                      <button
-                        key={chip.key}
-                        type="button"
-                        onClick={chip.onRemove}
-                        className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-neutral-50"
-                      >
-                        {chip.label}
-                        <span className="text-[#2C2C2C]/35">×</span>
-                      </button>
-                    ))}
-                    {countActiveFilters(filters, sortMode) > 0 ? (
-                      <button
-                        type="button"
-                        onClick={() => clearFiltersAndBrowse()}
-                        className="text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
-                      >
-                        Clear All
-                      </button>
-                    ) : null}
-                  </div>
-
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  {activeFilterChips(filters, sortMode, {
+                    clearPrice: () => setFilters((s) => ({ ...s, minPrice: 0, maxPrice: HOMEPAGE_FILTER_MAX_PRICE })),
+                    clearBeds: () => setFilters((s) => ({ ...s, beds: "any" })),
+                    clearBaths: () => setFilters((s) => ({ ...s, baths: "any" })),
+                    clearType: () => setFilters((s) => ({ ...s, propertyType: "any" })),
+                    clearSort: () => setSortMode("newest"),
+                  }).map((chip) => (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      onClick={chip.onRemove}
+                      className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-neutral-50"
+                    >
+                      {chip.label}
+                      <span className="text-[#2C2C2C]/35">×</span>
+                    </button>
+                  ))}
+                  {countActiveFilters(filters, sortMode) > 0 ? (
                     <button
                       type="button"
-                      onClick={() => setFiltersOpen((v) => !v)}
-                      className="relative inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50"
+                      onClick={() => clearFiltersAndBrowse()}
+                      className="text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
                     >
-                      <Filter className="h-4 w-4" />
-                      Filters
-                      {countActiveFilters(filters, sortMode) > 0 ? (
-                        <span
-                          className="absolute right-2.5 top-2 h-2 w-2 rounded-full bg-[#6B9E6E]"
-                          aria-hidden
-                        />
-                      ) : null}
+                      Clear All
                     </button>
-
-                    <select
-                      value={sortMode}
-                      onChange={(e) => setSortMode(e.target.value as SortMode)}
-                      className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50 focus-visible:outline-none"
-                      aria-label="Sort"
-                    >
-                      <option value="newest">Newest</option>
-                      <option value="price_low">Price Low-High</option>
-                      <option value="price_high">Price High-Low</option>
-                      <option value="most_beds">Most Beds</option>
-                    </select>
-                  </div>
+                  ) : null}
                 </div>
-              ) : null}
+
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFiltersOpen((v) => !v)}
+                    className="relative inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50"
+                  >
+                    <Filter className="h-4 w-4" />
+                    Filters
+                    {countActiveFilters(filters, sortMode) > 0 ? (
+                      <span className="absolute right-2.5 top-2 h-2 w-2 rounded-full bg-[#6B9E6E]" aria-hidden />
+                    ) : null}
+                  </button>
+
+                  <select
+                    value={sortMode}
+                    onChange={(e) => setSortMode(e.target.value as SortMode)}
+                    className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50 focus-visible:outline-none"
+                    aria-label="Sort"
+                  >
+                    <option value="newest">Newest</option>
+                    <option value="price_low">Price Low-High</option>
+                    <option value="price_high">Price High-Low</option>
+                    <option value="most_beds">Most Beds</option>
+                  </select>
+                </div>
+              </div>
 
               <AnimatePresence initial={false}>
-                {(filtersOpen || neighborhoodFilter !== null) ? (
+                {filtersOpen ? (
                   <motion.div
                     key="filters"
                     initial={{ opacity: 0, y: -6 }}
@@ -1826,6 +1815,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             viewerUserId={user?.id ?? null}
                             verifiedListingAgent={viewerVerifiedListingAgent}
                             listingImageLoadEager={i === 0}
+                          />
+                        ))}
+                        {Array.from({ length: Math.max(0, 4 - sortedAllRows.length) }).map((_, i) => (
+                          <ListingsComingSoonPlaceholderCard
+                            key={`grid-placeholder-${i}`}
+                            cardWidthClass="w-full"
+                            href={user ? "/register/agent" : "/auth/signup"}
                           />
                         ))}
                       </div>
