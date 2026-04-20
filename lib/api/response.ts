@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 export type ApiSuccess<T> = { success: true; data: T };
 export type ApiErrorBody = {
   success: false;
-  error: { code: string; message: string; details?: unknown };
+  error: { code: string; message: string; field?: string; details?: unknown };
 };
 
 export function ok<T>(data: T, status = 200): NextResponse<ApiSuccess<T>> {
@@ -16,13 +16,27 @@ export function fail(
   message: string,
   status = 400,
   details?: unknown,
+  field?: string,
 ): NextResponse<ApiErrorBody> {
   return NextResponse.json(
-    { success: false, error: { code, message, details } },
+    {
+      success: false,
+      error: {
+        code,
+        message,
+        ...(field ? { field } : {}),
+        details,
+      },
+    },
     { status },
   );
 }
 
 export function fromZodError(e: ZodError): NextResponse<ApiErrorBody> {
-  return fail("VALIDATION_ERROR", "Invalid request body or query", 422, e.flatten());
+  const flat = e.flatten();
+  const first = e.issues[0];
+  const field =
+    first && first.path.length > 0 ? first.path.map(String).join(".") : undefined;
+  const message = first?.message ?? "Invalid request body or query";
+  return fail("VALIDATION_ERROR", message, 422, { fieldErrors: flat.fieldErrors, formErrors: flat.formErrors }, field);
 }

@@ -8,6 +8,7 @@ import {
   validatePhilippinePhoneInput,
   isPhilippinePhoneMode,
 } from "@/lib/phone-ph";
+import { compactPhoneForE164, E164_INVALID_MESSAGE, isE164Compact } from "@/lib/validation/e164-phone";
 
 type Props = {
   id?: string;
@@ -39,10 +40,18 @@ export function PhPhoneInput({
   const genId = useId();
   const id = idProp ?? `ph-phone-${genId.replace(/:/g, "")}`;
 
-  const error =
-    value.trim() && isPhilippinePhoneMode(value)
-      ? validatePhilippinePhoneInput(value)
-      : null;
+  const error = (() => {
+    const t = value.trim();
+    if (!t || t === "+63") return null;
+    if (isPhilippinePhoneMode(value)) return validatePhilippinePhoneInput(value);
+    if (t.startsWith("+")) {
+      return isE164Compact(value) ? null : E164_INVALID_MESSAGE;
+    }
+    if (compactPhoneForE164(t).length > 0) {
+      return "Include a country code with + (e.g. +63 for Philippines).";
+    }
+    return null;
+  })();
 
   return (
     <div className={cn("space-y-1", className)}>

@@ -58,6 +58,8 @@ export async function POST(request: NextRequest) {
           "VALIDATION_ERROR",
           "Selected brokerage is invalid or not yet approved",
           422,
+          undefined,
+          "broker_id",
         );
       }
     }

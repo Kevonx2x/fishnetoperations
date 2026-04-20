@@ -1,3 +1,5 @@
+import { E164_INVALID_MESSAGE, isE164Compact } from "@/lib/validation/e164-phone";
+
 /** PRC-AG-YYYY-XXXXX (9 digits after PRC-AG-) */
 export function formatPrcLicenseInput(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 9);
@@ -74,8 +76,17 @@ export function validateLicenseExpiry(isoDate: string): string | null {
 }
 
 export function validatePhoneField(formatted: string): string | null {
-  const d = phMobileDigits(formatted);
-  if (d.length !== 10) return "Enter a 10-digit mobile number (+63 9XX XXX XXXX).";
-  if (!d.startsWith("9")) return "Philippine mobile numbers start with 9.";
-  return null;
+  const t = formatted.trim();
+  if (!t) return "Phone is required.";
+  if (t.startsWith("+63")) {
+    const d = phMobileDigits(t);
+    if (d.length !== 10) return "Enter a 10-digit Philippine mobile number (+63 9XX XXX XXXX).";
+    if (!d.startsWith("9")) return "Philippine mobile numbers start with 9.";
+    return null;
+  }
+  if (t.startsWith("+")) {
+    if (!isE164Compact(t)) return E164_INVALID_MESSAGE;
+    return null;
+  }
+  return "Include a country code with + (e.g. +63 for Philippines).";
 }

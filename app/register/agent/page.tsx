@@ -225,10 +225,107 @@ type FieldErrors = Partial<
     | "regEmail"
     | "prcUpload"
     | "selfieUpload"
+    | "bio"
+    | "brokerId"
     | "form",
     string
   >
 >;
+
+type RegisterAgentApiJson = {
+  success?: boolean;
+  error?: {
+    code?: string;
+    message?: string;
+    field?: string;
+    details?: {
+      fieldErrors?: Record<string, string[] | undefined>;
+      formErrors?: string[];
+    };
+  };
+};
+
+function firstFieldMessage(arr: string[] | undefined): string {
+  return arr?.[0] ?? "";
+}
+
+function applyRegisterAgentApiErrors(
+  json: RegisterAgentApiJson,
+  layout: "guest" | "signed-in",
+  setAuthFieldErrors: (e: FieldErrors) => void,
+  setDetailErrors: (e: FieldErrors) => void,
+  setSubmitError: (s: string) => void,
+) {
+  const err = json.error;
+  const fe = err?.details?.fieldErrors;
+  const formErrs = err?.details?.formErrors?.filter(Boolean) ?? [];
+  const auth: FieldErrors = {};
+  const detail: FieldErrors = {};
+  const unmapped: string[] = [];
+
+  const push = (apiKey: string, message: string) => {
+    if (!message) return;
+    switch (apiKey) {
+      case "name":
+        if (layout === "guest") auth.name = message;
+        else detail.name = message;
+        break;
+      case "email":
+        if (layout === "guest") auth.email = message;
+        else detail.regEmail = message;
+        break;
+      case "license_number":
+        detail.licenseNumber = message;
+        break;
+      case "license_expiry":
+        detail.licenseExpiry = message;
+        break;
+      case "phone":
+        detail.phone = message;
+        break;
+      case "bio":
+        detail.bio = message;
+        break;
+      case "broker_id":
+        detail.brokerId = message;
+        break;
+      case "prc_document_url":
+        detail.prcUpload = message;
+        break;
+      case "selfie_url":
+        detail.selfieUpload = message;
+        break;
+      default:
+        unmapped.push(message);
+    }
+  };
+
+  if (fe && Object.keys(fe).length > 0) {
+    for (const [k, arr] of Object.entries(fe)) {
+      const m = firstFieldMessage(arr);
+      if (m) push(k, m);
+    }
+  } else if (err?.field && err.message) {
+    push(err.field, err.message);
+  }
+
+  if (formErrs.length) {
+    unmapped.push(...formErrs);
+  }
+
+  if (Object.keys(auth).length === 0 && Object.keys(detail).length === 0) {
+    const parts = [...unmapped, err?.message].filter(Boolean) as string[];
+    setSubmitError(parts.length ? parts.join(" ") : "Registration failed");
+    setAuthFieldErrors({});
+    setDetailErrors({});
+    return;
+  }
+
+  const tail = unmapped.length ? ` ${unmapped.join(" ")}` : "";
+  setSubmitError(tail.trim() ? tail.trim() : "");
+  setAuthFieldErrors(auth);
+  setDetailErrors(detail);
+}
 
 export default function RegisterAgentPage() {
   const { showAlert } = useGlobalAlert();
@@ -320,7 +417,11 @@ export default function RegisterAgentPage() {
     return Object.keys(ae).length === 0 && Object.keys(de).length === 0;
   };
 
-  const submitAgentRegistration = async (contactEmail: string, userId: string) => {
+  const submitAgentRegistration = async (
+    contactEmail: string,
+    userId: string,
+    layout: "guest" | "signed-in",
+  ): Promise<boolean> => {
     if (!prcFile || !selfieFile) {
       throw new Error("PRC license photo and selfie are required.");
     }
@@ -355,15 +456,19 @@ export default function RegisterAgentPage() {
           : {}),
       }),
     });
-    const json = (await res.json()) as {
-      success?: boolean;
-      error?: { message?: string };
-    };
+    const json = (await res.json()) as RegisterAgentApiJson;
     if (!res.ok || !json.success) {
+      const validation =
+        res.status === 422 || json.error?.code === "VALIDATION_ERROR";
+      if (validation && json.error) {
+        applyRegisterAgentApiErrors(json, layout, setAuthFieldErrors, setDetailErrors, setSubmitError);
+        return false;
+      }
       throw new Error(json.error?.message || "Registration failed");
     }
     setDone(true);
     showAlert("🎉 Application submitted! We'll review your details within 24 hours.", "success");
+    return true;
   };
 
   const handleGuestCombinedRegister = async (ev: React.FormEvent) => {
@@ -406,7 +511,11 @@ export default function RegisterAgentPage() {
         setSubmitBusy(false);
         return;
       }
-      await submitAgentRegistration(email.trim(), session.user.id);
+      const submitted = await submitAgentRegistration(email.trim(), session.user.id, "guest");
+      if (!submitted) {
+        setSubmitBusy(false);
+        return;
+      }
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Registration failed");
     }
@@ -450,7 +559,11 @@ export default function RegisterAgentPage() {
     if (!validateDetailForm()) return;
     setSubmitBusy(true);
     try {
-      await submitAgentRegistration(regEmail.trim(), session.user.id);
+      const submitted = await submitAgentRegistration(regEmail.trim(), session.user.id, "signed-in");
+      if (!submitted) {
+        setSubmitBusy(false);
+        return;
+      }
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Registration failed");
     }
@@ -604,6 +717,7 @@ export default function RegisterAgentPage() {
                     </option>
                   ))}
                 </select>
+                {detailErrors.brokerId ? <p className="mt-1 text-sm text-red-600">{detailErrors.brokerId}</p> : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 Bio (optional)
@@ -613,6 +727,7 @@ export default function RegisterAgentPage() {
                   rows={4}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
                 />
+                {detailErrors.bio ? <p className="mt-1 text-sm text-red-600">{detailErrors.bio}</p> : null}
               </label>
 
               {authNotice ? (
@@ -761,6 +876,7 @@ export default function RegisterAgentPage() {
                     </option>
                   ))}
                 </select>
+                {detailErrors.brokerId ? <p className="mt-1 text-sm text-red-600">{detailErrors.brokerId}</p> : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 Bio (optional)
@@ -770,6 +886,7 @@ export default function RegisterAgentPage() {
                   rows={4}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
                 />
+                {detailErrors.bio ? <p className="mt-1 text-sm text-red-600">{detailErrors.bio}</p> : null}
               </label>
               {submitError && <p className="text-sm text-red-600">{submitError}</p>}
               <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-700">

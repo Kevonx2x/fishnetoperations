@@ -6,6 +6,84 @@ import { createSupabaseBrowser } from "@/lib/supabase-browser";
 
 const supabase = createSupabaseBrowser();
 
+type BrokerFieldKey =
+  | "name"
+  | "company_name"
+  | "license_number"
+  | "license_expiry"
+  | "phone"
+  | "email"
+  | "website"
+  | "logo_url"
+  | "bio";
+
+type BrokerFieldErrors = Partial<Record<BrokerFieldKey, string>>;
+
+type RegisterBrokerApiJson = {
+  success?: boolean;
+  error?: {
+    code?: string;
+    message?: string;
+    field?: string;
+    details?: {
+      fieldErrors?: Record<string, string[] | undefined>;
+      formErrors?: string[];
+    };
+  };
+};
+
+function applyBrokerApiErrors(
+  json: RegisterBrokerApiJson,
+  setFieldErrors: (e: BrokerFieldErrors) => void,
+  setSubmitError: (s: string) => void,
+) {
+  const err = json.error;
+  const fe = err?.details?.fieldErrors;
+  const formErrs = err?.details?.formErrors?.filter(Boolean) ?? [];
+  const mapped: BrokerFieldErrors = {};
+  const unmapped: string[] = [];
+
+  const push = (apiKey: string, message: string) => {
+    if (!message) return;
+    const keys: BrokerFieldKey[] = [
+      "name",
+      "company_name",
+      "license_number",
+      "license_expiry",
+      "phone",
+      "email",
+      "website",
+      "logo_url",
+      "bio",
+    ];
+    if (keys.includes(apiKey as BrokerFieldKey)) {
+      mapped[apiKey as BrokerFieldKey] = message;
+    } else {
+      unmapped.push(message);
+    }
+  };
+
+  if (fe && Object.keys(fe).length > 0) {
+    for (const [k, arr] of Object.entries(fe)) {
+      const m = arr?.[0] ?? "";
+      if (m) push(k, m);
+    }
+  } else if (err?.field && err.message) {
+    push(err.field, err.message);
+  }
+
+  if (formErrs.length) unmapped.push(...formErrs);
+
+  if (Object.keys(mapped).length === 0) {
+    const parts = [...unmapped, err?.message].filter(Boolean) as string[];
+    setFieldErrors({});
+    setSubmitError(parts.length ? parts.join(" ") : "Registration failed");
+  } else {
+    setSubmitError(unmapped.length ? unmapped.join(" ") : "");
+    setFieldErrors(mapped);
+  }
+}
+
 export default function RegisterBrokerPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,6 +104,7 @@ export default function RegisterBrokerPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<BrokerFieldErrors>({});
   const [done, setDone] = useState(false);
 
   const refreshSession = async () => {
@@ -106,6 +185,7 @@ export default function RegisterBrokerPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError("");
+    setFieldErrors({});
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -135,11 +215,15 @@ export default function RegisterBrokerPage() {
           bio: bio.trim() || null,
         }),
       });
-      const json = (await res.json()) as {
-        success?: boolean;
-        error?: { message?: string };
-      };
+      const json = (await res.json()) as RegisterBrokerApiJson;
       if (!res.ok || !json.success) {
+        const validation =
+          res.status === 422 || json.error?.code === "VALIDATION_ERROR";
+        if (validation && json.error) {
+          applyBrokerApiErrors(json, setFieldErrors, setSubmitError);
+          setSubmitBusy(false);
+          return;
+        }
         throw new Error(json.error?.message || "Registration failed");
       }
       setDone(true);
@@ -273,6 +357,7 @@ export default function RegisterBrokerPage() {
                   onChange={(e) => setName(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
                 />
+                {fieldErrors.name ? <p className="mt-1 text-sm text-red-600">{fieldErrors.name}</p> : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 Company name
@@ -282,6 +367,9 @@ export default function RegisterBrokerPage() {
                   onChange={(e) => setCompanyName(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
                 />
+                {fieldErrors.company_name ? (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.company_name}</p>
+                ) : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 PRC / license number
@@ -291,6 +379,9 @@ export default function RegisterBrokerPage() {
                   onChange={(e) => setLicenseNumber(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
                 />
+                {fieldErrors.license_number ? (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.license_number}</p>
+                ) : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 License expiry
@@ -300,6 +391,9 @@ export default function RegisterBrokerPage() {
                   onChange={(e) => setLicenseExpiry(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
                 />
+                {fieldErrors.license_expiry ? (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.license_expiry}</p>
+                ) : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 Phone
@@ -308,6 +402,7 @@ export default function RegisterBrokerPage() {
                   onChange={(e) => setPhone(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
                 />
+                {fieldErrors.phone ? <p className="mt-1 text-sm text-red-600">{fieldErrors.phone}</p> : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 Public email
@@ -318,6 +413,7 @@ export default function RegisterBrokerPage() {
                   onChange={(e) => setRegEmail(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
                 />
+                {fieldErrors.email ? <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p> : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 Website (optional)
@@ -328,6 +424,7 @@ export default function RegisterBrokerPage() {
                   placeholder="https://"
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
                 />
+                {fieldErrors.website ? <p className="mt-1 text-sm text-red-600">{fieldErrors.website}</p> : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 Logo upload (optional)
@@ -337,6 +434,7 @@ export default function RegisterBrokerPage() {
                   onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
                   className="mt-1 w-full text-sm text-gray-600"
                 />
+                {fieldErrors.logo_url ? <p className="mt-1 text-sm text-red-600">{fieldErrors.logo_url}</p> : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 Bio (optional)
@@ -346,6 +444,7 @@ export default function RegisterBrokerPage() {
                   rows={4}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
                 />
+                {fieldErrors.bio ? <p className="mt-1 text-sm text-red-600">{fieldErrors.bio}</p> : null}
               </label>
               {submitError && <p className="text-sm text-red-600">{submitError}</p>}
               <button

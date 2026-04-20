@@ -1,13 +1,30 @@
 import { z } from "zod";
+import {
+  compactPhoneForE164,
+  E164_COMPACT_REGEX,
+  E164_INVALID_MESSAGE,
+} from "@/lib/validation/e164-phone";
 
 const PRC_LICENSE = /^PRC-AG-\d{4}-\d{5}$/;
+
+function phNationalFromCompact(compact: string): string | null {
+  if (!compact.startsWith("+63")) return null;
+  let d = compact.slice(1).replace(/\D/g, "");
+  if (d.startsWith("63")) d = d.slice(2);
+  if (d.startsWith("0")) d = d.slice(1);
+  return d.length ? d.slice(0, 10) : null;
+}
 
 export const registerBrokerSchema = z.object({
   name: z.string().min(1).max(200),
   company_name: z.string().min(1).max(200),
   license_number: z.string().min(1).max(100),
   license_expiry: z.string().optional().nullable(),
-  phone: z.string().max(50).optional().nullable(),
+  phone: z.preprocess((v) => {
+    if (v === null || v === undefined) return null;
+    if (typeof v !== "string" || v.trim() === "") return null;
+    return compactPhoneForE164(v);
+  }, z.union([z.null(), z.string().regex(E164_COMPACT_REGEX, E164_INVALID_MESSAGE)])),
   email: z.string().email(),
   website: z.string().max(500).optional().nullable(),
   logo_url: z.string().max(2000).optional().nullable(),
@@ -36,12 +53,23 @@ export const registerAgentSchema = z.object({
   phone: z
     .string()
     .min(1, "Phone is required")
-    .refine((s) => {
-      let d = s.replace(/\D/g, "");
-      if (d.startsWith("63")) d = d.slice(2);
-      if (d.startsWith("0")) d = d.slice(1);
-      return d.length === 10 && d.startsWith("9");
-    }, "Phone must be +63 9XX XXX XXXX (10 digits)"),
+    .transform((s) => compactPhoneForE164(s))
+    .superRefine((compact, ctx) => {
+      if (!E164_COMPACT_REGEX.test(compact)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: E164_INVALID_MESSAGE });
+        return;
+      }
+      const national = phNationalFromCompact(compact);
+      if (national !== null) {
+        if (national.length !== 10 || !national.startsWith("9")) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              "Philippine (+63) mobile numbers must be 9XXXXXXXXX (10 digits starting with 9 after +63).",
+          });
+        }
+      }
+    }),
   email: z.string().email(),
   bio: z.string().max(5000).optional().nullable(),
   broker_id: z.string().uuid().optional().nullable(),
