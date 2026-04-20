@@ -9,6 +9,8 @@ export type DbProperty = {
   created_at: string;
   name: string | null;
   location: string;
+  /** Canonical city/area for Featured Locations grouping; see `normalizeCity` in lib/normalize-city.ts. */
+  city?: string | null;
   price: string;
   sqft: string;
   beds: number;

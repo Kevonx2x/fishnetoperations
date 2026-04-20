@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { normalizeCity } from "@/lib/normalize-city";
 
 type RouteCtx = { params: Promise<{ id: string }> };
 
@@ -34,7 +35,11 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
     }
 
     const update: Record<string, string | number | null> = {};
-    if (typeof rest.location === "string") update.location = rest.location;
+    if (typeof rest.location === "string") {
+      const loc = rest.location.trim();
+      update.location = loc;
+      update.city = normalizeCity(loc);
+    }
     if (typeof rest.price === "string") update.price = rest.price;
     if (typeof rest.sqft === "string") update.sqft = rest.sqft;
     if (typeof rest.image_url === "string") update.image_url = rest.image_url;

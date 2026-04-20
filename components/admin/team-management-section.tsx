@@ -21,6 +21,7 @@ import {
   EMMANUEL_UNLOCK_REWARDS,
   ONBOARDING_WEEK_TITLES,
 } from "@/lib/emmanuel-onboarding-seed";
+import { getDefaultDeliverableTaskNotes } from "@/lib/deliverable-task-note-templates";
 
 type ProfileLite = {
   id: string;
@@ -1351,11 +1352,18 @@ export function TeamManagementSection() {
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            setOpenNotesId((id) => (id === d.id ? null : d.id));
-                                            setNoteDrafts((prev) => ({
-                                              ...prev,
-                                              [d.id]: prev[d.id] ?? d.notes ?? "",
-                                            }));
+                                            if (openNotesId === d.id) {
+                                              setOpenNotesId(null);
+                                              return;
+                                            }
+                                            setOpenNotesId(d.id);
+                                            setNoteDrafts((prev) => {
+                                              if (prev[d.id] !== undefined) return prev;
+                                              const saved = (d.notes ?? "").trim();
+                                              if (saved) return { ...prev, [d.id]: d.notes ?? "" };
+                                              const template = getDefaultDeliverableTaskNotes(d.deliverable_text);
+                                              return { ...prev, [d.id]: template ?? "" };
+                                            });
                                           }}
                                           className="shrink-0 rounded-lg p-1 text-[#2C2C2C]/45 hover:bg-white hover:text-[#2C2C2C]"
                                           aria-expanded={notesOpen}

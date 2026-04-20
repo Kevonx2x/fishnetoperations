@@ -73,6 +73,7 @@ import {
   validateListingPriceDisplay,
   validateSqft,
 } from "@/lib/validation/listing-form";
+import { normalizeCity } from "@/lib/normalize-city";
 import { ServiceAreasMultiInput } from "@/components/ui/service-areas-multi-input";
 import {
   NotificationCard,
@@ -912,7 +913,7 @@ export function AgentDashboard() {
         supabase
           .from("properties")
           .select(
-            "id, name, location, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at",
           )
           .eq("listed_by", user.id)
           .order("created_at", { ascending: false }),
@@ -1028,7 +1029,7 @@ export function AgentDashboard() {
         const { data: co } = await supabase
           .from("properties")
           .select(
-            "id, name, location, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at",
           )
           .in("id", coIds)
           .order("created_at", { ascending: false });
@@ -1599,6 +1600,7 @@ export function AgentDashboard() {
       .insert({
         name: listingForm.name.trim() || null,
         location: listingForm.location.trim(),
+        city: normalizeCity(listingForm.location.trim()),
         price: priceNum != null ? String(priceNum) : "",
         listing_type: listingTypeColumnForApi(isPs, lt),
         rent_price:

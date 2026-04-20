@@ -4,6 +4,7 @@ import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { logActivity, upsertListingEditedActivity } from "@/lib/activity-log";
+import { normalizeCity } from "@/lib/normalize-city";
 
 const PROPERTY_TYPES = [
   "House",
@@ -109,11 +110,14 @@ export async function POST(req: Request) {
     const turn = parsed.data.turnover_date?.trim() || null;
     const units = parsed.data.unit_types?.length ? parsed.data.unit_types : null;
 
+    const locTrimmed = parsed.data.location.trim();
+
     const { error: updErr } = await sb
       .from("properties")
       .update({
         name: parsed.data.name?.trim() || null,
-        location: parsed.data.location.trim(),
+        location: locTrimmed,
+        city: normalizeCity(locTrimmed),
         price: priceStr,
         listing_type: listingType,
         rent_price: rentPriceForDb,

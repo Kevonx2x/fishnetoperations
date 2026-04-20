@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAgentLiveAvailabilityFromPropertyRows } from "@/hooks/use-agent-live-availability";
@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
+import { propertyCanonicalCity } from "@/lib/normalize-city";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { roomUrlsFor } from "@/lib/marketplace-property";
@@ -65,61 +66,73 @@ const FEATURED_CITIES: {
   key: string;
   label: string;
   imageUrl: string;
-  match: (location: string) => boolean;
+  /** Listings: canonical city from `propertyCanonicalCity` (uses `properties.city` when set). */
+  match: (canonicalCity: string) => boolean;
+  /** Agent directory: loose match on service-areas free text (unchanged behavior). */
+  matchServiceArea: (serviceAreasText: string) => boolean;
 }[] = [
   {
     key: "BGC",
     label: "BGC",
     imageUrl: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=300&h=200&fit=crop",
-    match: (loc) => loc.toLowerCase().includes("bgc"),
+    match: (canon) => featuredMatchCanon(canon, "BGC", "BGC"),
+    matchServiceArea: (loc) => loc.toLowerCase().includes("bgc"),
   },
   {
     key: "Makati",
     label: "Makati",
     imageUrl: "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=300&h=200&fit=crop",
-    match: (loc) => loc.toLowerCase().includes("makati"),
+    match: (canon) => featuredMatchCanon(canon, "Makati", "Makati"),
+    matchServiceArea: (loc) => loc.toLowerCase().includes("makati"),
   },
   {
     key: "Cebu City",
     label: "Cebu City",
     imageUrl: "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=300&h=200&fit=crop",
-    match: (loc) => /cebu/i.test(loc),
+    match: (canon) => featuredMatchCanon(canon, "Cebu City", "Cebu City"),
+    matchServiceArea: (loc) => /cebu/i.test(loc),
   },
   {
     key: "Davao",
     label: "Davao",
     imageUrl: "https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=300&h=200&fit=crop",
-    match: (loc) => /davao/i.test(loc),
+    match: (canon) => featuredMatchCanon(canon, "Davao", "Davao"),
+    matchServiceArea: (loc) => /davao/i.test(loc),
   },
   {
     key: "Ortigas",
     label: "Ortigas",
     imageUrl: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=300&h=200&fit=crop",
-    match: (loc) => loc.toLowerCase().includes("ortigas"),
+    match: (canon) => featuredMatchCanon(canon, "Ortigas", "Ortigas"),
+    matchServiceArea: (loc) => loc.toLowerCase().includes("ortigas"),
   },
   {
     key: "Tagaytay",
     label: "Tagaytay",
     imageUrl: "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=300&h=200&fit=crop",
-    match: (loc) => /tagaytay/i.test(loc),
+    match: (canon) => featuredMatchCanon(canon, "Tagaytay", "Tagaytay"),
+    matchServiceArea: (loc) => /tagaytay/i.test(loc),
   },
   {
     key: "Pasig",
     label: "Pasig",
     imageUrl: "https://images.unsplash.com/photo-1444084316824-dc26d6657664?w=400",
-    match: (loc) => /pasig/i.test(loc),
+    match: (canon) => featuredMatchCanon(canon, "Pasig", "Pasig"),
+    matchServiceArea: (loc) => /pasig/i.test(loc),
   },
   {
     key: "Mandaluyong",
     label: "Mandaluyong",
     imageUrl: "https://images.unsplash.com/photo-1555899434-94d1368aa7af?w=400",
-    match: (loc) => /mandaluyong/i.test(loc),
+    match: (canon) => featuredMatchCanon(canon, "Mandaluyong", "Mandaluyong"),
+    matchServiceArea: (loc) => /mandaluyong/i.test(loc),
   },
   {
     key: "Quezon City",
     label: "Quezon City",
     imageUrl: "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=400",
-    match: (loc) => {
+    match: (canon) => featuredMatchCanon(canon, "Quezon City", "Quezon City"),
+    matchServiceArea: (loc) => {
       const l = loc.toLowerCase();
       return l.includes("quezon city") || /\bqc\b/.test(l);
     },
@@ -128,54 +141,73 @@ const FEATURED_CITIES: {
     key: "Alabang",
     label: "Alabang",
     imageUrl: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400",
-    match: (loc) => /alabang|muntinlupa/i.test(loc),
+    match: (canon) => featuredMatchCanon(canon, "Alabang", "Alabang"),
+    matchServiceArea: (loc) => /alabang|muntinlupa/i.test(loc),
   },
   {
     key: "Pasay",
     label: "Pasay",
     imageUrl: "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=400",
-    match: (loc) => /pasay/i.test(loc),
+    match: (canon) => featuredMatchCanon(canon, "Pasay", "Pasay"),
+    matchServiceArea: (loc) => /pasay/i.test(loc),
   },
   {
     key: "Paranaque",
     label: "Parañaque",
     imageUrl: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=400",
-    match: (loc) => /parañaque|paranaque/i.test(loc),
+    match: (canon) => featuredMatchCanon(canon, "Parañaque", "Paranaque"),
+    matchServiceArea: (loc) => /parañaque|paranaque/i.test(loc),
   },
   {
     key: "Las Pinas",
     label: "Las Piñas",
     imageUrl: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400",
-    match: (loc) => /las\s*piñas|las\s*pinas|laspiñas/i.test(loc),
+    match: (canon) => featuredMatchCanon(canon, "Las Piñas", "Las Pinas"),
+    matchServiceArea: (loc) => /las\s*piñas|las\s*pinas|laspiñas/i.test(loc),
   },
   {
     key: "Antipolo",
     label: "Antipolo",
     imageUrl: "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=400",
-    match: (loc) => /antipolo/i.test(loc),
+    match: (canon) => featuredMatchCanon(canon, "Antipolo", "Antipolo"),
+    matchServiceArea: (loc) => /antipolo/i.test(loc),
   },
   {
     key: "Batangas",
     label: "Batangas",
     imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400",
-    match: (loc) => /batangas/i.test(loc),
+    match: (canon) => featuredMatchCanon(canon, "Batangas", "Batangas"),
+    matchServiceArea: (loc) => /batangas/i.test(loc),
   },
   {
     key: "Iloilo",
     label: "Iloilo",
     imageUrl: "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=400",
-    match: (loc) => /iloilo/i.test(loc),
+    match: (canon) => featuredMatchCanon(canon, "Iloilo", "Iloilo"),
+    matchServiceArea: (loc) => /iloilo/i.test(loc),
   },
   {
     key: "Bacolod",
     label: "Bacolod",
     imageUrl: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400",
-    match: (loc) => /bacolod/i.test(loc),
+    match: (canon) => featuredMatchCanon(canon, "Bacolod", "Bacolod"),
+    matchServiceArea: (loc) => /bacolod/i.test(loc),
   },
 ];
 
+/** Triplicate city strip for seamless infinite horizontal scroll (see Featured Locations section). */
+const FEATURED_LOCATIONS_LOOP_COPIES = 3;
+
 function stripDiacritics(s: string) {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Featured Locations card: compare persisted/derived canonical city to this card. */
+function featuredMatchCanon(canon: string, label: string, key: string) {
+  const n = stripDiacritics(canon).trim().toLowerCase();
+  return (
+    n === stripDiacritics(label).trim().toLowerCase() || n === stripDiacritics(key).trim().toLowerCase()
+  );
 }
 
 /** When the search box exactly matches a featured city label/key, use its match() rules. */
@@ -733,12 +765,18 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const topAgentsRef = useRef<HTMLDivElement | null>(null);
+  const featuredLocationsScrollRef = useRef<HTMLDivElement | null>(null);
+  const featuredLocationsSetWidthPxRef = useRef(0);
+  const featuredLocationsLoopReadyRef = useRef(false);
+  const featuredLocationsJumpGuardRef = useRef(false);
+  /** When not false, next commit should sync the marketplace URL from a featured-location card click. */
+  const pendingFeaturedLocationUrlSyncRef = useRef<string | false>(false);
 
   const loadProperties = useCallback(async () => {
     setLoading(true);
     setError(null);
     const selectQ = `
-          id, created_at, name, location, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
+          id, created_at, name, location, city, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
           is_presale, developer_name, turnover_date, unit_types,
           property_photos (url, sort_order, created_at),
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
@@ -850,6 +888,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     [mode, router],
   );
 
+  useEffect(() => {
+    if (pendingFeaturedLocationUrlSyncRef.current === false) return;
+    const q = pendingFeaturedLocationUrlSyncRef.current;
+    pendingFeaturedLocationUrlSyncRef.current = false;
+    syncMarketplaceUrl(q);
+  }, [neighborhoodFilter, search, syncMarketplaceUrl]);
+
   const applyLocationSearch = useCallback(() => {
     const trimmed = search.trim();
     if (!trimmed) {
@@ -926,7 +971,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     );
     if (neighborhoodFilter) {
       const city = FEATURED_CITIES.find((c) => c.key === neighborhoodFilter);
-      if (city) return base.filter((p) => city.match(p.location));
+      if (city) return base.filter((p) => city.match(propertyCanonicalCity(p)));
       return base.filter((p) => neighborhoodKey(p.location) === neighborhoodFilter);
     }
     const q = search.trim().toLowerCase();
@@ -942,7 +987,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     );
     const m = new Map<string, number>();
     for (const c of FEATURED_CITIES) {
-      m.set(c.key, base.filter((p) => c.match(p.location)).length);
+      m.set(c.key, base.filter((p) => c.match(propertyCanonicalCity(p))).length);
     }
     return m;
   }, [properties, mode]);
@@ -1089,7 +1134,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       .filter((a) => {
         const t = a.serviceAreasText?.trim();
         if (!t) return false;
-        return cityFilterMeta.match(t);
+        return cityFilterMeta.matchServiceArea(t);
       })
       .sort((a, b) => b.score - a.score)
       .slice(0, 12);
@@ -1105,6 +1150,83 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     const step = Math.max(300, Math.round(el.clientWidth * 0.75));
     el.scrollBy({ left: dir === "next" ? step : -step, behavior: "smooth" });
   };
+
+  const scrollFeaturedLocations = useCallback((dir: "prev" | "next") => {
+    const el = featuredLocationsScrollRef.current;
+    if (!el) return;
+    const track = el.firstElementChild as HTMLElement | null;
+    let step: number;
+    if (track && track.children.length > 1) {
+      const a = track.children[0] as HTMLElement;
+      const b = track.children[1] as HTMLElement;
+      step = Math.max(1, b.offsetLeft - a.offsetLeft);
+    } else {
+      step = Math.max(300, Math.round(el.clientWidth * 0.85));
+    }
+    el.scrollBy({ left: dir === "next" ? step : -step, behavior: "smooth" });
+  }, []);
+
+  useLayoutEffect(() => {
+    const scrollEl = featuredLocationsScrollRef.current;
+    if (!scrollEl) return;
+    const track = scrollEl.firstElementChild as HTMLElement | null;
+    if (!track) return;
+
+    const onScroll = () => {
+      if (featuredLocationsJumpGuardRef.current) return;
+      const w = featuredLocationsSetWidthPxRef.current;
+      if (w <= 0) return;
+      const { scrollLeft } = scrollEl;
+      if (scrollLeft >= 2 * w - 2) {
+        featuredLocationsJumpGuardRef.current = true;
+        scrollEl.scrollTo({ left: scrollLeft - w, behavior: "auto" });
+        requestAnimationFrame(() => {
+          featuredLocationsJumpGuardRef.current = false;
+        });
+      } else if (scrollLeft <= 2) {
+        featuredLocationsJumpGuardRef.current = true;
+        scrollEl.scrollTo({ left: scrollLeft + w, behavior: "auto" });
+        requestAnimationFrame(() => {
+          featuredLocationsJumpGuardRef.current = false;
+        });
+      }
+    };
+
+    const apply = () => {
+      const total = track.scrollWidth;
+      if (total <= 0) return;
+      const setW = total / FEATURED_LOCATIONS_LOOP_COPIES;
+      if (setW <= 0) return;
+      featuredLocationsSetWidthPxRef.current = setW;
+      if (!featuredLocationsLoopReadyRef.current) {
+        scrollEl.scrollLeft = setW;
+        featuredLocationsLoopReadyRef.current = true;
+        return;
+      }
+      let guard = 0;
+      while (scrollEl.scrollLeft >= 2 * setW - 1 && guard < 12) {
+        scrollEl.scrollTo({ left: scrollEl.scrollLeft - setW, behavior: "auto" });
+        guard += 1;
+      }
+      guard = 0;
+      while (scrollEl.scrollLeft <= 1 && guard < 12) {
+        scrollEl.scrollTo({ left: scrollEl.scrollLeft + setW, behavior: "auto" });
+        guard += 1;
+      }
+    };
+
+    scrollEl.addEventListener("scroll", onScroll, { passive: true });
+    apply();
+    const ro = new ResizeObserver(() => {
+      apply();
+    });
+    ro.observe(track);
+    ro.observe(scrollEl);
+    return () => {
+      ro.disconnect();
+      scrollEl.removeEventListener("scroll", onScroll);
+    };
+  }, [cityListingCounts]);
 
   const hasActiveSearchOrFilters = useMemo(() => {
     if (search.trim().length > 0 || neighborhoodFilter !== null) return true;
@@ -1134,18 +1256,17 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   };
 
   const selectCityFilter = (key: string) => {
-    setNeighborhoodFilter((prev) => {
-      if (prev === key) {
-        setSearch("");
-        syncMarketplaceUrl("");
-        return null;
-      }
+    if (neighborhoodFilter === key) {
+      pendingFeaturedLocationUrlSyncRef.current = "";
+      setNeighborhoodFilter(null);
+      setSearch("");
+    } else {
       const city = FEATURED_CITIES.find((c) => c.key === key);
       const label = city?.label ?? key;
+      pendingFeaturedLocationUrlSyncRef.current = label;
+      setNeighborhoodFilter(key);
       setSearch(label);
-      syncMarketplaceUrl(label);
-      return key;
-    });
+    }
     setListingViewMode("results");
     requestAnimationFrame(() => {
       document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1332,44 +1453,69 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               </button>
             ) : null}
           </div>
-          <div className="mt-6 overflow-x-auto px-4 scrollbar-hide lg:px-0">
-            <div className="flex w-max gap-3 pb-2 sm:gap-4 lg:mx-auto lg:max-w-full lg:justify-center">
-              {FEATURED_CITIES.map((c) => {
-                const count = cityListingCounts.get(c.key) ?? 0;
-                const active = neighborhoodFilter === c.key;
-                return (
-                  <button
-                    key={c.key}
-                    type="button"
-                    onClick={() => selectCityFilter(c.key)}
-                    className={`group relative flex w-[130px] shrink-0 flex-col overflow-hidden rounded-2xl border text-left shadow-md transition hover:scale-[1.02] lg:w-[160px] ${
-                      active
-                        ? "border-[#D4A843] ring-2 ring-[#D4A843]/45"
-                        : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
-                    }`}
-                  >
-                    <div className="relative h-[110px] w-full shrink-0 overflow-hidden lg:h-[130px]">
-                      <Image
-                        src={c.imageUrl}
-                        alt=""
-                        fill
-                        className="object-cover transition duration-500 group-hover:scale-105"
-                        sizes="(min-width: 1024px) 160px, 130px"
-                        loading="lazy"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-2 lg:p-2.5">
-                        <p className="text-xs font-bold text-white drop-shadow-sm lg:font-serif lg:text-base lg:font-bold lg:drop-shadow-sm">
-                          {c.label}
-                        </p>
-                        <p className="mt-0.5 text-[10px] font-semibold text-white/90 lg:text-[11px]">
-                          {count} {count === 1 ? "listing" : "listings"}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+          <div className="relative -mx-4 mt-6">
+            <button
+              type="button"
+              onClick={() => scrollFeaturedLocations("prev")}
+              className="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow-md md:flex"
+              aria-label="Scroll left"
+            >
+              <ChevronLeft className="h-5 w-5 text-[#2C2C2C]" />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollFeaturedLocations("next")}
+              className="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow-md md:flex"
+              aria-label="Scroll right"
+            >
+              <ChevronRight className="h-5 w-5 text-[#2C2C2C]" />
+            </button>
+            <div
+              ref={featuredLocationsScrollRef}
+              className="min-w-0 overflow-x-auto overflow-y-hidden px-1 pb-2 scrollbar-hide md:px-10"
+              style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
+            >
+              <div className="flex w-max flex-nowrap justify-start gap-3 sm:gap-4">
+                {Array.from({ length: FEATURED_LOCATIONS_LOOP_COPIES }, (_, copyIdx) =>
+                  FEATURED_CITIES.map((c) => {
+                    const count = cityListingCounts.get(c.key) ?? 0;
+                    const active = neighborhoodFilter === c.key;
+                    return (
+                      <button
+                        key={`fl-${copyIdx}-${c.key}`}
+                        type="button"
+                        tabIndex={copyIdx === 1 ? undefined : -1}
+                        onClick={() => selectCityFilter(c.key)}
+                        className={`group relative flex w-[130px] shrink-0 flex-col overflow-hidden rounded-2xl border text-left shadow-md transition hover:scale-[1.02] lg:w-[160px] ${
+                          active
+                            ? "border-[#D4A843] ring-2 ring-[#D4A843]/45"
+                            : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
+                        }`}
+                      >
+                        <div className="relative h-[110px] w-full shrink-0 overflow-hidden lg:h-[130px]">
+                          <Image
+                            src={c.imageUrl}
+                            alt=""
+                            fill
+                            className="object-cover transition duration-500 group-hover:scale-105"
+                            sizes="(min-width: 1024px) 160px, 130px"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
+                          <div className="absolute bottom-0 left-0 right-0 p-2 lg:p-2.5">
+                            <p className="text-xs font-bold text-white drop-shadow-sm lg:font-serif lg:text-base lg:font-bold lg:drop-shadow-sm">
+                              {c.label}
+                            </p>
+                            <p className="mt-0.5 text-[10px] font-semibold text-white/90 lg:text-[11px]">
+                              {count} {count === 1 ? "listing" : "listings"}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  }),
+                ).flat()}
+              </div>
             </div>
           </div>
         </div>

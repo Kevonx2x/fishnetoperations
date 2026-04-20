@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { normalizeCity } from "@/lib/normalize-city";
 
 export async function POST(req: Request) {
   try {
@@ -35,10 +36,12 @@ export async function POST(req: Request) {
       typeof listed_by === "string" && listed_by.length > 0 ? listed_by : null;
 
     const supabase = createSupabaseAdmin();
+    const loc = typeof location === "string" ? location.trim() : "";
     const { data, error } = await supabase
       .from("properties")
       .insert({
-        location,
+        location: loc,
+        city: normalizeCity(loc),
         price,
         sqft,
         beds: Math.round(beds),
