@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { usePinnedPropertyIds, usePropertyLikes } from "@/hooks/use-property-engagement";
 import type { ProfileRole } from "@/lib/auth-roles";
+import { isAdminPanelRole } from "@/lib/auth-roles";
 import { listingListedLabel } from "@/lib/listing-listed-time";
 import {
   formatBudgetRangePhp,
@@ -251,7 +252,7 @@ function ClientPublicProfilePageInner() {
 
   const clientId = rawId;
   const isOwn = Boolean(user?.id && user.id === clientId);
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = isAdminPanelRole(profile?.role);
   const isMobile = useIsMobile();
 
   const likes = usePropertyLikes();
@@ -532,7 +533,7 @@ function ClientPublicProfilePageInner() {
         setViewerAgent(ag);
 
         const own = uid === clientId;
-        const admin = profile?.role === "admin";
+        const admin = isAdminPanelRole(profile?.role);
         const tierOk =
           ag &&
           ag.verified &&

@@ -52,7 +52,7 @@ function LoginForm() {
           dest = "/dashboard/agent";
         } else if (role === "client") {
           dest = "/";
-        } else if (role === "admin" || role === "broker") {
+        } else if (role === "admin" || role === "ops_admin" || role === "broker") {
           dest = pathForRole(role);
         } else {
           dest = "/?welcome=true";

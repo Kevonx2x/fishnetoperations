@@ -1,5 +1,5 @@
 import { fail, ok } from "@/lib/api/response";
-import { requireAdminSession } from "@/lib/admin-api-auth";
+import { requireFullAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const STATUSES = new Set(["New", "Interviewed", "Hired", "Rejected"]);
@@ -8,7 +8,7 @@ export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const denied = await requireAdminSession();
+  const denied = await requireFullAdminSession();
   if (denied === "unauthorized") {
     return fail("UNAUTHORIZED", "Admin sign-in required", 401);
   }

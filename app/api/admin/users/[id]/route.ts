@@ -5,7 +5,7 @@ import { requireAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const patchSchema = z.object({
-  role: z.enum(["admin", "broker", "agent", "client"]),
+  role: z.enum(["admin", "ops_admin", "broker", "agent", "client"]),
 });
 
 type Ctx = { params: Promise<{ id: string }> };

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createLeadSchema } from "@/lib/api/schemas/phase1";
 import { fail, fromZodError, ok } from "@/lib/api/response";
+import { isAdminPanelRole } from "@/lib/auth-roles";
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { logActivity } from "@/lib/activity-log";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
@@ -59,7 +60,7 @@ export async function GET() {
       return fail("UNAUTHORIZED", "Sign in to list leads", 401);
     }
 
-    if (session.role === "admin") {
+    if (isAdminPanelRole(session.role)) {
       const adminSb = createSupabaseAdmin();
       const { data, error } = await adminSb
         .from("leads")

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { fail, fromZodError, ok } from "@/lib/api/response";
+import { isAdminPanelRole } from "@/lib/auth-roles";
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -24,8 +25,12 @@ export async function PATCH(request: NextRequest) {
     return fail("BAD_REQUEST", "Invalid JSON", 400);
   }
 
-  if (session.role === "admin") {
-    return fail("FORBIDDEN", "Admins cannot change role here; use the admin dashboard.", 403);
+  if (isAdminPanelRole(session.role)) {
+    return fail(
+      "FORBIDDEN",
+      "Admin accounts cannot change role here; use the admin dashboard.",
+      403,
+    );
   }
 
   const sb = await createSupabaseServerClient();

@@ -1,4 +1,5 @@
 import { fail, ok } from "@/lib/api/response";
+import { isAdminPanelRole } from "@/lib/auth-roles";
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -10,7 +11,7 @@ export async function GET() {
       return fail("UNAUTHORIZED", "Sign in to view activity", 401);
     }
 
-    if (session.role === "admin") {
+    if (isAdminPanelRole(session.role)) {
       const sb = createSupabaseAdmin();
       const { data, error } = await sb
         .from("activity_log")

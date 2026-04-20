@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
+import { isAdminPanelRole } from "@/lib/auth-roles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
@@ -763,7 +764,7 @@ export function MaddenTopNav() {
                           </Link>
                         </>
                       ) : null}
-                      {role === "admin" ? (
+                      {isAdminPanelRole(role) ? (
                         <>
                           <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
                           <Link

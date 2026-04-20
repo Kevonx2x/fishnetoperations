@@ -1,10 +1,10 @@
 import { fail, ok } from "@/lib/api/response";
-import { requireAdminSession } from "@/lib/admin-api-auth";
+import { requireFullAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const SUPER_ADMIN_EMAIL = "ron.business101@gmail.com";
 
-function requireCredentialsAccess(denied: Awaited<ReturnType<typeof requireAdminSession>>) {
+function requireCredentialsAccess(denied: Awaited<ReturnType<typeof requireFullAdminSession>>) {
   if (denied === "unauthorized") return fail("UNAUTHORIZED", "Admin sign-in required", 401);
   if ((denied.email ?? "").toLowerCase() !== SUPER_ADMIN_EMAIL) {
     return fail("FORBIDDEN", "Credentials vault is restricted", 403);
@@ -13,7 +13,7 @@ function requireCredentialsAccess(denied: Awaited<ReturnType<typeof requireAdmin
 }
 
 export async function GET() {
-  const denied = await requireAdminSession();
+  const denied = await requireFullAdminSession();
   const block = requireCredentialsAccess(denied);
   if (block) return block;
 
@@ -36,7 +36,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const denied = await requireAdminSession();
+  const denied = await requireFullAdminSession();
   const block = requireCredentialsAccess(denied);
   if (block) return block;
 

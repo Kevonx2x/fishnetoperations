@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { patchLeadSchema } from "@/lib/api/schemas/phase1";
 import { fail, fromZodError, ok } from "@/lib/api/response";
+import { isAdminPanelRole } from "@/lib/auth-roles";
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { logActivity } from "@/lib/activity-log";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
@@ -20,7 +21,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     const parsed = patchLeadSchema.safeParse(body);
     if (!parsed.success) return fromZodError(parsed.error);
 
-    const isAdmin = session.role === "admin";
+    const isAdmin = isAdminPanelRole(session.role);
     const sb = isAdmin ? createSupabaseAdmin() : await createSupabaseServerClient();
 
     const { data, error } = await sb

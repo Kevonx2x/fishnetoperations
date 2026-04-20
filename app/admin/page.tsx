@@ -6,6 +6,7 @@ import { ChevronDown, Eye, EyeOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { TeamManagementSection } from "@/components/admin/team-management-section";
 import { useAuth } from "@/contexts/auth-context";
+import { isAdminPanelRole, isFullAdminRole } from "@/lib/auth-roles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 
@@ -698,7 +699,7 @@ export default function AdminPage() {
   }>({ loading: true, role: null });
 
   useEffect(() => {
-    if (!user?.email || profile?.role !== "admin") {
+    if (!user?.email || !isAdminPanelRole(profile?.role)) {
       setTeamAccess({ loading: false, role: null });
       return;
     }
@@ -720,30 +721,51 @@ export default function AdminPage() {
   }, [user?.email, profile?.role, supabase]);
 
   /** full = credentials + manual; cofounder = all but those; va = outreach + VA reports + hiring only */
+  const isOpsAdminUser = profile?.role === "ops_admin";
+
   const adminNavKind = useMemo(() => {
     const email = (user?.email ?? "").trim().toLowerCase();
     if (email === CREDENTIALS_SUPER_ADMIN_EMAIL) return "full" as const;
+    if (profile?.role === "ops_admin") return "cofounder" as const;
     if (teamAccess.loading) return "cofounder" as const;
     if (teamAccess.role === "owner") return "full" as const;
     if (teamAccess.role === "va_admin") return "va" as const;
     return "cofounder" as const;
-  }, [user?.email, teamAccess.loading, teamAccess.role]);
+  }, [user?.email, profile?.role, teamAccess.loading, teamAccess.role]);
 
-  const canSeeCredentials = adminNavKind === "full";
-  const canSeeManual = adminNavKind === "full";
+  const canSeeCredentials = adminNavKind === "full" && isFullAdminRole(profile?.role);
+  const canSeeManual = adminNavKind === "full" && isFullAdminRole(profile?.role);
 
   const isAdminSectionVisible = useCallback(
     (section: typeof adminSection): boolean => {
+      if (isOpsAdminUser) {
+        if (
+          section === "credentials" ||
+          section === "manual" ||
+          section === "vaReports" ||
+          section === "hiring"
+        ) {
+          return false;
+        }
+        return true;
+      }
       if (adminNavKind === "full") return true;
       if (adminNavKind === "va") {
         return section === "outreach" || section === "vaReports" || section === "hiring";
       }
       return section !== "credentials" && section !== "manual";
     },
-    [adminNavKind],
+    [adminNavKind, isOpsAdminUser],
   );
 
-  const canSeeTeamTab = adminNavKind !== "va";
+  const canSeeTeamTab = isOpsAdminUser || adminNavKind !== "va";
+
+  useEffect(() => {
+    if (!isOpsAdminUser) return;
+    if (["credentials", "manual", "vaReports", "hiring"].includes(adminSection)) {
+      setAdminSection("leads");
+    }
+  }, [isOpsAdminUser, adminSection]);
 
   const [teamMembersRows, setTeamMembersRows] = useState<TeamMemberRow[]>([]);
   const [teamMembersLoading, setTeamMembersLoading] = useState(false);
@@ -1856,45 +1878,45 @@ export default function AdminPage() {
   useEffect(() => {
     // Note: avoid calling setState synchronously in effect body (lint rule).
     // Queue the initial loads as microtasks once admin session is present.
-    if (user?.id && profile?.role === "admin") {
+    if (user?.id && isAdminPanelRole(profile?.role)) {
       queueMicrotask(() => {
         fetchLeads();
         fetchProperties();
         void fetchVerification();
         void fetchAllAgents();
         void fetchCoAgentRequests();
-        void fetchApplicants();
+        if (isFullAdminRole(profile?.role)) void fetchApplicants();
         void fetchProfileReports();
       });
     }
   }, [user?.id, profile?.role]);
 
   useEffect(() => {
-    if (user?.id && profile?.role === "admin" && adminSection === "users") {
+    if (user?.id && isAdminPanelRole(profile?.role) && adminSection === "users") {
       void fetchUsers();
     }
   }, [user?.id, profile?.role, adminSection]);
 
   useEffect(() => {
-    if (user?.id && profile?.role === "admin" && adminSection === "coagent") {
+    if (user?.id && isAdminPanelRole(profile?.role) && adminSection === "coagent") {
       void fetchCoAgentRequests();
     }
   }, [user?.id, profile?.role, adminSection]);
 
   useEffect(() => {
-    if (user?.id && profile?.role === "admin" && adminSection === "agents") {
+    if (user?.id && isAdminPanelRole(profile?.role) && adminSection === "agents") {
       void fetchAllAgents();
     }
   }, [user?.id, profile?.role, adminSection]);
 
   useEffect(() => {
-    if (user?.id && profile?.role === "admin" && adminSection === "hiring") {
+    if (user?.id && isFullAdminRole(profile?.role) && adminSection === "hiring") {
       void fetchApplicants();
     }
   }, [user?.id, profile?.role, adminSection]);
 
   useEffect(() => {
-    if (user?.id && profile?.role === "admin" && adminSection === "outreach") {
+    if (user?.id && isAdminPanelRole(profile?.role) && adminSection === "outreach") {
       const t = setTimeout(() => void fetchVaLeads(), 350);
       return () => clearTimeout(t);
     }
@@ -1908,13 +1930,13 @@ export default function AdminPage() {
   ]);
 
   useEffect(() => {
-    if (user?.id && profile?.role === "admin" && adminSection === "vaReports") {
+    if (user?.id && isFullAdminRole(profile?.role) && adminSection === "vaReports") {
       void fetchVaReports();
     }
   }, [user?.id, profile?.role, adminSection]);
 
   useEffect(() => {
-    if (user?.id && profile?.role === "admin" && adminSection === "profileReports") {
+    if (user?.id && isAdminPanelRole(profile?.role) && adminSection === "profileReports") {
       void fetchProfileReports();
     }
   }, [user?.id, profile?.role, adminSection]);
@@ -1922,7 +1944,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (
       user?.id &&
-      profile?.role === "admin" &&
+      isAdminPanelRole(profile?.role) &&
       adminSection === "credentials" &&
       canSeeCredentials
     ) {
@@ -1931,25 +1953,25 @@ export default function AdminPage() {
   }, [user?.id, profile?.role, adminSection, canSeeCredentials]);
 
   useEffect(() => {
-    if (adminSection === "credentials" && profile?.role === "admin" && user?.email && !canSeeCredentials) {
+    if (adminSection === "credentials" && isAdminPanelRole(profile?.role) && user?.email && !canSeeCredentials) {
       setAdminSection("leads");
     }
   }, [adminSection, canSeeCredentials, profile?.role, user?.email]);
 
   useEffect(() => {
-    if (adminSection === "manual" && profile?.role === "admin" && user?.email && !canSeeManual) {
+    if (adminSection === "manual" && isAdminPanelRole(profile?.role) && user?.email && !canSeeManual) {
       setAdminSection("leads");
     }
   }, [adminSection, canSeeManual, profile?.role, user?.email]);
 
   useEffect(() => {
-    if (adminSection === "teamMembers" && profile?.role === "admin" && user?.email && !canSeeTeamTab) {
+    if (adminSection === "teamMembers" && isAdminPanelRole(profile?.role) && user?.email && !canSeeTeamTab) {
       setAdminSection("leads");
     }
   }, [adminSection, canSeeTeamTab, profile?.role, user?.email]);
 
   useEffect(() => {
-    if (profile?.role !== "admin" || !user?.email) return;
+    if (!isAdminPanelRole(profile?.role) || !user?.email) return;
     if (adminNavKind !== "va") return;
     if (!["outreach", "vaReports", "hiring"].includes(adminSection)) {
       setAdminSection("outreach");
@@ -1957,7 +1979,7 @@ export default function AdminPage() {
   }, [adminNavKind, adminSection, profile?.role, user?.email]);
 
   useEffect(() => {
-    if (user?.id && profile?.role === "admin" && adminSection === "teamMembers" && canSeeTeamTab) {
+    if (user?.id && isAdminPanelRole(profile?.role) && adminSection === "teamMembers" && canSeeTeamTab) {
       void fetchTeamMembers();
     }
   }, [user?.id, profile?.role, adminSection, canSeeTeamTab, fetchTeamMembers]);
@@ -2225,13 +2247,13 @@ export default function AdminPage() {
     );
   }
 
-  if (!user || profile?.role !== "admin") {
+  if (!user || !isAdminPanelRole(profile?.role)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#FAF8F4] p-6">
         <div className="max-w-sm rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center shadow-sm">
           <h1 className="mb-2 text-lg font-semibold text-[#2C2C2C]">Admin access</h1>
           <p className="mb-6 text-sm text-[#2C2C2C]/55">
-            Sign in with an account that has the admin role.
+            Sign in with an account that has the admin or operations admin role.
           </p>
           <Link
             href="/auth/login?next=/admin"
@@ -2391,7 +2413,7 @@ export default function AdminPage() {
               Team
             </button>
           ) : null}
-          {profile?.role === "admin" ? (
+          {isAdminPanelRole(profile?.role) ? (
             <button
               type="button"
               onClick={() => setAdminSection("teamManagement")}
@@ -2605,7 +2627,7 @@ export default function AdminPage() {
                 Team
               </button>
             ) : null}
-            {profile?.role === "admin" ? (
+            {isAdminPanelRole(profile?.role) ? (
               <button
                 type="button"
                 onClick={() => setAdminSection("teamManagement")}
@@ -2778,6 +2800,7 @@ export default function AdminPage() {
                               <option value="agent">agent</option>
                               <option value="broker">broker</option>
                               <option value="admin">admin</option>
+                              <option value="ops_admin">ops_admin</option>
                             </select>
                           </td>
                           <td className="px-4 py-3 text-xs text-[#2C2C2C]/50">
@@ -4317,8 +4340,8 @@ export default function AdminPage() {
           </div>
         ) : null}
 
-        {adminSection === "teamManagement" && profile?.role === "admin" ? (
-          <TeamManagementSection />
+        {adminSection === "teamManagement" && isAdminPanelRole(profile?.role) ? (
+          <TeamManagementSection showCompensation={isFullAdminRole(profile?.role)} />
         ) : null}
 
         {adminSection === "vaReports" && (

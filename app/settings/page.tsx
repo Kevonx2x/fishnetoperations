@@ -10,7 +10,7 @@ import { SettingsAvatarUpload } from "@/components/settings/avatar-upload";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
 import type { ProfileRole } from "@/lib/auth-roles";
-import { pathForRole } from "@/lib/auth-roles";
+import { isAdminPanelRole, pathForRole } from "@/lib/auth-roles";
 import { formatLicenseDate, isLicenseExpiringWithinDays } from "@/lib/license-expiry";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -665,7 +665,7 @@ function SettingsPageInner() {
   }, [authLoading, supabase, user?.id]);
 
   useEffect(() => {
-    if (!profile || profile.role === "admin") return;
+    if (!profile || isAdminPanelRole(profile.role)) return;
     const r = profile.role;
     if (r === "client" || r === "agent" || r === "broker") {
       setPendingRole(r);
@@ -673,7 +673,7 @@ function SettingsPageInner() {
   }, [profile]);
 
   const currentRole = profile?.role ?? "client";
-  const isAdmin = currentRole === "admin";
+  const isAdmin = isAdminPanelRole(currentRole);
   const visibleTabs = useMemo(() => visibleTabsForRole(currentRole), [currentRole]);
 
   const profileFormSnapshot = useMemo(() => {
@@ -1129,7 +1129,7 @@ function SettingsPageInner() {
   };
 
   const saveRole = async () => {
-    if (!user?.id || !pendingRole || profile?.role === "admin") return;
+    if (!user?.id || !pendingRole || isAdminPanelRole(profile?.role)) return;
     setRoleMsg("");
     setRoleSaving(true);
     try {

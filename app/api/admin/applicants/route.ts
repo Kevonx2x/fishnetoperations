@@ -1,5 +1,5 @@
 import { fail, ok } from "@/lib/api/response";
-import { requireAdminSession } from "@/lib/admin-api-auth";
+import { requireFullAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const STATUSES = new Set(["New", "Interviewed", "Hired", "Rejected"]);
@@ -16,7 +16,7 @@ export type ApplicantRow = {
 };
 
 export async function GET() {
-  const denied = await requireAdminSession();
+  const denied = await requireFullAdminSession();
   if (denied === "unauthorized") {
     return fail("UNAUTHORIZED", "Admin sign-in required", 401);
   }
@@ -35,7 +35,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const denied = await requireAdminSession();
+  const denied = await requireFullAdminSession();
   if (denied === "unauthorized") {
     return fail("UNAUTHORIZED", "Admin sign-in required", 401);
   }

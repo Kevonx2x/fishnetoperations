@@ -427,7 +427,12 @@ function emptyAddForm() {
   };
 }
 
-export function TeamManagementSection() {
+export type TeamManagementSectionProps = {
+  /** When false (ops_admin), salary / equity UI and aggregates are hidden; saves keep existing compensation server-side. */
+  showCompensation?: boolean;
+};
+
+export function TeamManagementSection({ showCompensation = true }: TeamManagementSectionProps) {
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<TeamManagementEmployee[]>([]);
   const [addOpen, setAddOpen] = useState(false);
@@ -599,13 +604,15 @@ export function TeamManagementSection() {
       toast.error("Start date is required.");
       return;
     }
-    const rate = Number.parseFloat(addForm.rate_amount);
-    if (!Number.isFinite(rate) || rate < 0) {
-      toast.error("Enter a valid rate / salary (0 or greater).");
-      return;
+    const rate = showCompensation ? Number.parseFloat(addForm.rate_amount) : 0;
+    if (showCompensation) {
+      if (!Number.isFinite(rate) || rate < 0) {
+        toast.error("Enter a valid rate / salary (0 or greater).");
+        return;
+      }
     }
     let equity = 0;
-    if (addForm.equity_pct.trim()) {
+    if (showCompensation && addForm.equity_pct.trim()) {
       const e = Number.parseFloat(addForm.equity_pct);
       if (!Number.isFinite(e) || e < 0) {
         toast.error("Equity % must be a valid number.");
@@ -626,11 +633,11 @@ export function TeamManagementSection() {
           department: addForm.department,
           employment_type: addForm.employment_type,
           rate_amount: rate,
-          currency: addForm.currency,
-          rate_period: addForm.rate_period,
+          currency: showCompensation ? addForm.currency : "USD",
+          rate_period: showCompensation ? addForm.rate_period : "Monthly",
           start_date: addForm.start_date,
           hr_notes: addForm.hr_notes.trim() || null,
-          equity_pct: equity,
+          equity_pct: showCompensation ? equity : 0,
           work_email: addForm.work_email.trim() || null,
           personal_email: addForm.personal_email.trim() || null,
         }),
@@ -763,25 +770,35 @@ export function TeamManagementSection() {
       toast.error("Name and role are required.");
       return;
     }
-    const rate = Number.parseFloat(editForm.rate_amount);
-    if (!Number.isFinite(rate) || rate < 0) {
-      toast.error("Enter a valid rate.");
-      return;
-    }
+    let rate = 0;
     let equity = 0;
-    if (editForm.equity_pct.trim()) {
-      const e = Number.parseFloat(editForm.equity_pct);
-      if (!Number.isFinite(e) || e < 0) {
-        toast.error("Invalid equity %.");
+    let vy = Number(editEmp.equity_vesting_years ?? 4);
+    let cm = Number(editEmp.equity_cliff_months ?? 12);
+    if (showCompensation) {
+      rate = Number.parseFloat(editForm.rate_amount);
+      if (!Number.isFinite(rate) || rate < 0) {
+        toast.error("Enter a valid rate.");
         return;
       }
-      equity = e;
-    }
-    const vy = Number.parseFloat(editForm.equity_vesting_years);
-    const cm = Number.parseInt(editForm.equity_cliff_months, 10);
-    if (!Number.isFinite(vy) || vy <= 0 || vy > 20 || !Number.isInteger(cm) || cm < 0 || cm > 48) {
-      toast.error("Invalid vesting schedule.");
-      return;
+      if (editForm.equity_pct.trim()) {
+        const e = Number.parseFloat(editForm.equity_pct);
+        if (!Number.isFinite(e) || e < 0) {
+          toast.error("Invalid equity %.");
+          return;
+        }
+        equity = e;
+      }
+      vy = Number.parseFloat(editForm.equity_vesting_years);
+      cm = Number.parseInt(editForm.equity_cliff_months, 10);
+      if (!Number.isFinite(vy) || vy <= 0 || vy > 20 || !Number.isInteger(cm) || cm < 0 || cm > 48) {
+        toast.error("Invalid vesting schedule.");
+        return;
+      }
+    } else {
+      rate = Number(editEmp.rate_amount ?? 0);
+      equity = Number(editEmp.equity_pct ?? 0);
+      vy = Number(editEmp.equity_vesting_years ?? 4);
+      cm = Number(editEmp.equity_cliff_months ?? 12);
     }
     setEditSaving(true);
     try {
@@ -791,8 +808,8 @@ export function TeamManagementSection() {
         department: editForm.department,
         employment_type: editForm.employment_type,
         rate_amount: rate,
-        currency: editForm.currency,
-        rate_period: editForm.rate_period,
+        currency: showCompensation ? editForm.currency : editEmp.currency ?? "USD",
+        rate_period: showCompensation ? editForm.rate_period : editEmp.rate_period ?? "Monthly",
         start_date: editForm.start_date || null,
         end_date: editForm.end_date.trim() || null,
         employment_status: editForm.employment_status,
@@ -888,7 +905,9 @@ export function TeamManagementSection() {
     if (!st?.loaded) void fetchNotes(empId, 0);
   };
 
-  const totalPayrollUsd = employees.reduce((s, e) => s + monthlyUsdEquivalent(e), 0);
+  const totalPayrollUsd = showCompensation
+    ? employees.reduce((s, e) => s + monthlyUsdEquivalent(e), 0)
+    : 0;
   const countTrial = employees.filter((e) => (e.employment_status ?? "Trial") === "Trial").length;
   const countActive = employees.filter((e) => (e.employment_status ?? "") === "Active").length;
 
@@ -898,7 +917,8 @@ export function TeamManagementSection() {
         <div>
           <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">Team Management</h2>
           <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
-            HR records, onboarding plans, and deliverables (admin only).
+            HR records, onboarding plans, and deliverables
+            {showCompensation ? " (admin only)." : " (operations admin — compensation hidden)."}
           </p>
         </div>
         <button
@@ -922,7 +942,9 @@ export function TeamManagementSection() {
         </p>
       ) : (
         <div className="space-y-6">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div
+            className={`grid gap-3 sm:grid-cols-2 ${showCompensation ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}
+          >
             <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-3 shadow-sm">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">Total employees</p>
               <p className="mt-1 font-serif text-2xl font-bold text-[#2C2C2C]">{employees.length}</p>
@@ -935,10 +957,14 @@ export function TeamManagementSection() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C5F32]">Active</p>
               <p className="mt-1 font-serif text-2xl font-bold text-[#6B9E6E]">{countActive}</p>
             </div>
-            <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-3 shadow-sm">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">Monthly payroll (est. USD)</p>
-              <p className="mt-1 font-serif text-2xl font-bold text-[#2C2C2C]">{formatUsd(totalPayrollUsd)}</p>
-            </div>
+            {showCompensation ? (
+              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-3 shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Monthly payroll (est. USD)
+                </p>
+                <p className="mt-1 font-serif text-2xl font-bold text-[#2C2C2C]">{formatUsd(totalPayrollUsd)}</p>
+              </div>
+            ) : null}
           </div>
 
           {groupByDepartment(employees).map(({ dept, members }) => {
@@ -1090,19 +1116,25 @@ export function TeamManagementSection() {
                             </span>
                           ) : null}
                         </div>
-                        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                        <div
+                          className={`mt-4 grid gap-3 text-sm sm:grid-cols-2 ${showCompensation ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}
+                        >
                           <div className="rounded-lg border border-[#2C2C2C]/08 bg-white/80 px-3 py-2">
                             <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                               Employment
                             </p>
                             <p className="mt-0.5 font-semibold text-[#2C2C2C]">{emp.employment_type ?? "—"}</p>
                           </div>
-                          <div className="rounded-lg border border-[#2C2C2C]/08 bg-white/80 px-3 py-2">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                              Compensation
-                            </p>
-                            <p className="mt-0.5 font-semibold tabular-nums text-[#2C2C2C]">{formatCompensation(emp)}</p>
-                          </div>
+                          {showCompensation ? (
+                            <div className="rounded-lg border border-[#2C2C2C]/08 bg-white/80 px-3 py-2">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                                Compensation
+                              </p>
+                              <p className="mt-0.5 font-semibold tabular-nums text-[#2C2C2C]">
+                                {formatCompensation(emp)}
+                              </p>
+                            </div>
+                          ) : null}
                           <div className="rounded-lg border border-[#2C2C2C]/08 bg-white/80 px-3 py-2">
                             <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                               Start date
@@ -1131,7 +1163,7 @@ export function TeamManagementSection() {
                             <p className="mt-0.5 font-semibold text-[#2C2C2C]">{emp.personal_email?.trim() || "—"}</p>
                           </div>
                         </div>
-                        {equity > 0 ? (
+                        {showCompensation && equity > 0 ? (
                           <div className="mt-3">
                             <p className="text-xs font-semibold text-[#8a6d32]">
                               Equity: <span className="tabular-nums">{equity}%</span>
@@ -1730,49 +1762,56 @@ export function TeamManagementSection() {
                   ))}
                 </select>
               </label>
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Rate / salary
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={addForm.rate_amount}
-                  onChange={(e) => setAddForm((f) => ({ ...f, rate_amount: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
-                />
-              </label>
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Currency
-                <select
-                  value={addForm.currency}
-                  onChange={(e) =>
-                    setAddForm((f) => ({ ...f, currency: e.target.value as (typeof HR_CURRENCIES)[number] }))
-                  }
-                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
-                >
-                  {HR_CURRENCIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Period
-                <select
-                  value={addForm.rate_period}
-                  onChange={(e) =>
-                    setAddForm((f) => ({ ...f, rate_period: e.target.value as (typeof HR_RATE_PERIODS)[number] }))
-                  }
-                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
-                >
-                  {HR_RATE_PERIODS.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {showCompensation ? (
+                <>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Rate / salary
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={addForm.rate_amount}
+                      onChange={(e) => setAddForm((f) => ({ ...f, rate_amount: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
+                    />
+                  </label>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Currency
+                    <select
+                      value={addForm.currency}
+                      onChange={(e) =>
+                        setAddForm((f) => ({ ...f, currency: e.target.value as (typeof HR_CURRENCIES)[number] }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
+                    >
+                      {HR_CURRENCIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Period
+                    <select
+                      value={addForm.rate_period}
+                      onChange={(e) =>
+                        setAddForm((f) => ({
+                          ...f,
+                          rate_period: e.target.value as (typeof HR_RATE_PERIODS)[number],
+                        }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
+                    >
+                      {HR_RATE_PERIODS.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : null}
               <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
                 Start date
                 <input
@@ -1782,18 +1821,20 @@ export function TeamManagementSection() {
                   className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
                 />
               </label>
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Equity % <span className="font-normal normal-case text-[#2C2C2C]/45">(optional)</span>
-                <input
-                  type="number"
-                  min={0}
-                  step="0.0001"
-                  value={addForm.equity_pct}
-                  onChange={(e) => setAddForm((f) => ({ ...f, equity_pct: e.target.value }))}
-                  placeholder="0"
-                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
-                />
-              </label>
+              {showCompensation ? (
+                <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Equity % <span className="font-normal normal-case text-[#2C2C2C]/45">(optional)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.0001"
+                    value={addForm.equity_pct}
+                    onChange={(e) => setAddForm((f) => ({ ...f, equity_pct: e.target.value }))}
+                    placeholder="0"
+                    className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-[#2C2C2C] focus:border-[#6B9E6E] focus:outline-none focus:ring-1 focus:ring-[#6B9E6E]"
+                  />
+                </label>
+              ) : null}
               <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45 sm:col-span-2">
                 Work email <span className="font-normal normal-case text-[#2C2C2C]/45">(optional)</span>
                 <input
@@ -1933,49 +1974,53 @@ export function TeamManagementSection() {
                   className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
                 />
               </label>
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Rate / salary
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={editForm.rate_amount}
-                  onChange={(e) => setEditForm((f) => ({ ...f, rate_amount: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-[#2C2C2C]"
-                />
-              </label>
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Currency
-                <select
-                  value={editForm.currency}
-                  onChange={(e) =>
-                    setEditForm((f) => ({ ...f, currency: e.target.value as EditFormState["currency"] }))
-                  }
-                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
-                >
-                  {HR_CURRENCIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Period
-                <select
-                  value={editForm.rate_period}
-                  onChange={(e) =>
-                    setEditForm((f) => ({ ...f, rate_period: e.target.value as EditFormState["rate_period"] }))
-                  }
-                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
-                >
-                  {HR_RATE_PERIODS.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {showCompensation ? (
+                <>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Rate / salary
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={editForm.rate_amount}
+                      onChange={(e) => setEditForm((f) => ({ ...f, rate_amount: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-[#2C2C2C]"
+                    />
+                  </label>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Currency
+                    <select
+                      value={editForm.currency}
+                      onChange={(e) =>
+                        setEditForm((f) => ({ ...f, currency: e.target.value as EditFormState["currency"] }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
+                    >
+                      {HR_CURRENCIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Period
+                    <select
+                      value={editForm.rate_period}
+                      onChange={(e) =>
+                        setEditForm((f) => ({ ...f, rate_period: e.target.value as EditFormState["rate_period"] }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
+                    >
+                      {HR_RATE_PERIODS.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : null}
               <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
                 Start date
                 <input
@@ -1985,37 +2030,41 @@ export function TeamManagementSection() {
                   className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
                 />
               </label>
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Equity %
-                <input
-                  type="number"
-                  min={0}
-                  step="0.0001"
-                  value={editForm.equity_pct}
-                  onChange={(e) => setEditForm((f) => ({ ...f, equity_pct: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-[#2C2C2C]"
-                />
-              </label>
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Vesting years
-                <input
-                  type="number"
-                  step="0.25"
-                  value={editForm.equity_vesting_years}
-                  onChange={(e) => setEditForm((f) => ({ ...f, equity_vesting_years: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
-                />
-              </label>
-              <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Cliff (months)
-                <input
-                  type="number"
-                  min={0}
-                  value={editForm.equity_cliff_months}
-                  onChange={(e) => setEditForm((f) => ({ ...f, equity_cliff_months: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
-                />
-              </label>
+              {showCompensation ? (
+                <>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Equity %
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.0001"
+                      value={editForm.equity_pct}
+                      onChange={(e) => setEditForm((f) => ({ ...f, equity_pct: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-[#2C2C2C]"
+                    />
+                  </label>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Vesting years
+                    <input
+                      type="number"
+                      step="0.25"
+                      value={editForm.equity_vesting_years}
+                      onChange={(e) => setEditForm((f) => ({ ...f, equity_vesting_years: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
+                    />
+                  </label>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                    Cliff (months)
+                    <input
+                      type="number"
+                      min={0}
+                      value={editForm.equity_cliff_months}
+                      onChange={(e) => setEditForm((f) => ({ ...f, equity_cliff_months: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
+                    />
+                  </label>
+                </>
+              ) : null}
               <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45 sm:col-span-2">
                 Work email
                 <input

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isAdminPanelRole } from "@/lib/auth-roles";
 
 /**
  * For a `team_member` profile, returns the supervising listing agent's profile id (`agents.user_id`)
@@ -30,7 +31,7 @@ export function leadAccessibleBySession(
   leadBrokerProfileId: string | null,
   supervisorProfileUserId: string | null,
 ): boolean {
-  if (session.role === "admin") return true;
+  if (isAdminPanelRole(session.role)) return true;
   if (leadBrokerProfileId && leadBrokerProfileId === session.userId) return true;
   if (leadAgentProfileId && leadAgentProfileId === session.userId) return true;
   if (

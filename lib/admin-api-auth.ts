@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { ProfileRole } from "@/lib/auth-roles";
+import { isAdminPanelRole, type ProfileRole } from "@/lib/auth-roles";
 
 export type SessionProfile = {
   userId: string;
@@ -23,7 +23,12 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
 
   const raw = profile?.role;
   const role: ProfileRole =
-    raw === "admin" || raw === "broker" || raw === "agent" || raw === "client" || raw === "team_member"
+    raw === "admin" ||
+    raw === "ops_admin" ||
+    raw === "broker" ||
+    raw === "agent" ||
+    raw === "client" ||
+    raw === "team_member"
       ? raw
       : "client";
 
@@ -34,7 +39,16 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
   };
 }
 
+/** Admin dashboard: full admin or operations admin (see UI for ops-only restrictions). */
 export async function requireAdminSession(): Promise<SessionProfile | "unauthorized"> {
+  const session = await getSessionProfile();
+  if (!session) return "unauthorized";
+  if (!isAdminPanelRole(session.role)) return "unauthorized";
+  return session;
+}
+
+/** Sensitive admin APIs (credentials vault, VA reports, hiring). */
+export async function requireFullAdminSession(): Promise<SessionProfile | "unauthorized"> {
   const session = await getSessionProfile();
   if (!session) return "unauthorized";
   if (session.role !== "admin") return "unauthorized";

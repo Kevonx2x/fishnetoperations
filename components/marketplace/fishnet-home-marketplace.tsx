@@ -321,7 +321,7 @@ type AgentRowWithProfile = {
 function shouldIncludeAgentDirectoryRow(row: unknown): boolean {
   const r = row as AgentRowWithProfile;
   const prof = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
-  if (prof?.role === "admin") return false;
+  if (prof?.role === "admin" || prof?.role === "ops_admin") return false;
   if ((r.name ?? "").trim().toLowerCase() === "ron admin") return false;
   const em = (r.email ?? "").toLowerCase();
   if (em.includes("ron.business101")) return false;
