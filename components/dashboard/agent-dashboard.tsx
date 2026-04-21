@@ -1774,20 +1774,20 @@ export function AgentDashboard() {
   }
 
   const allTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "overview", label: "Overview", icon: <LayoutDashboard className="h-5 w-5" /> },
-    { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-5 w-5" /> },
-    { id: "messages", label: "Messages", icon: <MessageSquare className="h-5 w-5" /> },
-    { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" /> },
-    { id: "listings", label: "Listings", icon: <LayoutList className="h-5 w-5" /> },
-    { id: "team", label: "Team", icon: <Users className="h-5 w-5" /> },
-    { id: "billing", label: "Billing", icon: <CreditCard className="h-5 w-5" /> },
-    { id: "notifications", label: "Notifications", icon: <Bell className="h-5 w-5" /> },
-    { id: "profile", label: "Profile", icon: <Settings className="h-5 w-5" /> },
+    { id: "overview", label: "Overview", icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
+    { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-[18px] w-[18px]" /> },
+    { id: "messages", label: "Messages", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
+    { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-[18px] w-[18px]" /> },
+    { id: "listings", label: "Listings", icon: <LayoutList className="h-[18px] w-[18px]" /> },
+    { id: "team", label: "Team", icon: <Users className="h-[18px] w-[18px]" /> },
+    { id: "billing", label: "Billing", icon: <CreditCard className="h-[18px] w-[18px]" /> },
+    { id: "notifications", label: "Notifications", icon: <Bell className="h-[18px] w-[18px]" /> },
+    { id: "profile", label: "Profile", icon: <Settings className="h-[18px] w-[18px]" /> },
   ];
   const teamMemberNavTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-5 w-5" /> },
-    { id: "messages", label: "Messages", icon: <MessageSquare className="h-5 w-5" /> },
-    { id: "documents", label: "Documents", icon: <FileText className="h-5 w-5" /> },
+    { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-[18px] w-[18px]" /> },
+    { id: "messages", label: "Messages", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
+    { id: "documents", label: "Documents", icon: <FileText className="h-[18px] w-[18px]" /> },
   ];
   const tabs = isTeamMemberView
     ? teamMemberNavTabs
@@ -1806,19 +1806,19 @@ export function AgentDashboard() {
     <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
       <div className="mx-auto flex max-w-6xl flex-col md:flex-row">
         {/* Desktop sidebar */}
-        <aside className="hidden w-[232px] shrink-0 border-r border-[#2C2C2C]/10 bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-screen md:flex-col md:px-3 md:py-6">
-          <div className="mb-8 flex items-center gap-3 px-2">
-            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-[#D4A843]/35">
+        <aside className="hidden w-[180px] shrink-0 border-r border-[#2C2C2C]/10 bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-screen md:flex-col md:px-2 md:py-5">
+          <div className="mb-5 flex items-center gap-2 px-1">
+            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-[#D4A843]/35">
               {agent.image_url ? (
-                <SupabasePublicImage src={agent.image_url} alt="" fill className="object-cover" sizes="48px" />
+                <SupabasePublicImage src={agent.image_url} alt="" fill className="object-cover" sizes="40px" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/20 text-lg font-bold text-[#2C2C2C]">
+                <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/20 text-sm font-bold text-[#2C2C2C]">
                   {agent.name.slice(0, 1)}
                 </div>
               )}
             </div>
             <div className="min-w-0">
-              <p className="truncate font-semibold text-[#2C2C2C]">{agent.name}</p>
+              <p className="truncate text-[13px] font-semibold leading-tight text-[#2C2C2C]">{agent.name}</p>
               <VerifiedAgentBadge show={agent.verification_status === "verified"} />
             </div>
           </div>
@@ -1828,7 +1828,7 @@ export function AgentDashboard() {
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-semibold transition ${
+                className={`flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition ${
                   tab === t.id
                     ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
                     : "text-[#2C2C2C]/65 hover:bg-white/80"
@@ -1846,7 +1846,7 @@ export function AgentDashboard() {
           </nav>
           <Link
             href="/"
-            className="mt-auto px-3 py-2 text-[13px] font-semibold text-[#2C2C2C]/55 hover:text-[#2C2C2C]"
+            className="mt-auto px-2 py-2 text-sm font-semibold text-[#2C2C2C]/55 hover:text-[#2C2C2C]"
           >
             ← Back to site
           </Link>
