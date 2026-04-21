@@ -2307,13 +2307,13 @@ export function NewlyListedCard({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md",
+        "flex min-h-[480px] flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md lg:min-h-[520px]",
         grid
           ? gridCardClassName ?? "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]"
           : cn(cardWidthClass ?? "w-[240px]", "shrink-0"),
       )}
     >
-      <div className="relative h-44 w-full overflow-hidden bg-neutral-900 lg:h-52">
+      <div className="relative h-44 w-full shrink-0 overflow-hidden bg-neutral-900 lg:h-52">
         <Image
           src={img}
           alt={property.name ?? property.location}
@@ -2520,14 +2520,9 @@ export function NewlyListedCard({
             {property.developer_name.trim()}
           </p>
         ) : null}
-        {property.is_presale && property.turnover_date ? (
-          <p className={`mt-0.5 text-[#2C2C2C]/50 ${compact ? "text-[10px]" : "text-[11px]"}`}>
-            Turnover: {new Date(`${property.turnover_date}T12:00:00`).getFullYear()}
-          </p>
-        ) : null}
       </div>
 
-      <div className="relative z-10 flex min-h-[64px] max-h-[80px] shrink-0 flex-col justify-start overflow-hidden bg-white px-3 py-2">
+      <div className="relative z-10 mt-auto flex min-h-[64px] max-h-[80px] shrink-0 flex-col justify-start overflow-hidden bg-white px-3 py-2">
         {connectedAgents.length === 0 ? (
           <div className="flex min-h-[40px] flex-1 items-center justify-center">
             <p className="text-center text-xs text-gray-400">No agent assigned</p>
