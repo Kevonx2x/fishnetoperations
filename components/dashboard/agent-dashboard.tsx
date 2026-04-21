@@ -3482,21 +3482,30 @@ function ListingsTab({
                 ) : null}
               </div>
               <div className="p-4">
-                <p className="font-semibold text-[#2C2C2C]">{p.location}</p>
                 {p.status === "both" ? (
-                  <div className="mt-1 space-y-0.5">
-                    <p className="font-serif text-base font-bold text-[#2C2C2C]">
-                      {formatListingPricePhp(p.price, "for_sale")}
+                  <div className="space-y-0.5">
+                    <p className="truncate font-serif text-base font-bold text-[#2C2C2C]">
+                      Sale {formatListingPricePhp(p.price, "for_sale")}
                     </p>
-                    <p className="font-serif text-sm font-bold text-[#2C2C2C]/85">
-                      {formatListingPricePhp(p.rent_price ?? "", "for_rent")}
+                    <p className="truncate font-serif text-sm font-bold text-[#2C2C2C]/85">
+                      Rent {formatListingPricePhp(p.rent_price ?? "", "for_rent")}
                     </p>
                   </div>
                 ) : (
-                  <p className="mt-1 font-serif text-lg font-bold text-[#2C2C2C]">
+                  <p className="truncate font-serif text-lg font-bold text-[#2C2C2C]">
                     {formatListingPricePhp(p.price, p.status === "for_rent" ? "for_rent" : "for_sale")}
                   </p>
                 )}
+
+                <p className="mt-2 line-clamp-2 text-sm font-bold leading-snug text-[#2C2C2C]">
+                  {(p.name ?? "").trim() || p.location}
+                </p>
+                <p className="mt-1 truncate text-xs text-[#6B6B6B]">
+                  {(p.beds ? `${p.beds} beds` : "Studio")} · {p.baths} baths · {p.sqft} sqft
+                </p>
+                <p className="mt-1 flex items-start gap-1 truncate text-xs text-[#6B6B6B]">
+                  <span className="min-w-0 flex-1 truncate">{p.location}</span>
+                </p>
               </div>
             </Link>
             {!p.isCoHost && propertyExpiryBadgeInfo(p.expires_at)?.showRenew ? (

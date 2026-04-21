@@ -2259,7 +2259,6 @@ export function NewlyListedCard({
   compact,
   verifiedListingAgent,
   listingImageLoadEager,
-  featuredPicksCard,
 }: {
   property: DbProperty;
   roomUrls: string[];
@@ -2280,8 +2279,6 @@ export function NewlyListedCard({
   verifiedListingAgent?: boolean;
   /** First listing thumbnail in browse/search results uses eager loading. */
   listingImageLoadEager?: boolean;
-  /** Featured Picks row: omit developer line for uniform card layout. */
-  featuredPicksCard?: boolean;
 }) {
   const listedLabel = listingListedLabel(property.created_at);
   const isDualListing =
@@ -2523,11 +2520,6 @@ export function NewlyListedCard({
             <span className="min-w-0 flex-1 truncate leading-snug">{property.location}</span>
           </p>
         </div>
-        {!featuredPicksCard && property.is_presale && property.developer_name?.trim() ? (
-          <p className={`mt-1 text-[#2C2C2C]/80 ${compact ? "text-[11px]" : "text-xs"}`}>
-            {property.developer_name.trim()}
-          </p>
-        ) : null}
       </div>
 
       <div className="relative z-10 mt-auto flex min-h-[56px] max-h-[76px] shrink-0 flex-col justify-start overflow-hidden bg-white px-3 py-1.5">
@@ -2585,7 +2577,7 @@ export function NewlyListedCard({
                 type="button"
                 disabled
                 aria-disabled="true"
-                className="mt-1 w-full shrink-0 cursor-default rounded-full border border-gray-100 bg-transparent py-1.5 text-center text-xs text-gray-400 opacity-80 disabled:cursor-default"
+                className="mt-1 w-full shrink-0 cursor-default rounded-full border border-gray-100 bg-transparent py-1.5 text-center text-xs text-gray-400 opacity-50 disabled:cursor-default"
               >
                 {verifiedListingAgent ? "Request to co-list" : "No other agents on this listing"}
               </button>
@@ -3104,7 +3096,6 @@ function RowCarousel({
             compact
             verifiedListingAgent={viewerVerifiedListingAgent}
             listingImageLoadEager={eagerListingThumbKey === `${rowKey}-${p.id}`}
-            featuredPicksCard={isFeaturedPicksRow}
           />
         ))}
         {Array.from({ length: fillerCount }).map((_, i) => (
