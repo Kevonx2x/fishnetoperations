@@ -26,6 +26,7 @@ import { Eye, FileText, Loader2, MoreHorizontal, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
 import { formatRelativeTime } from "@/lib/relative-time";
+import { cn } from "@/lib/utils";
 
 export const PIPELINE_STAGES = [
   { id: "lead", label: "Lead" },
@@ -208,15 +209,49 @@ function stageBadgeClass(stage: PipelineStageId): string {
     case "lead":
       return "bg-[#2C2C2C]/10 text-[#2C2C2C]/80";
     case "viewing":
-      return "bg-blue-100 text-blue-900";
+      return "bg-[#6B9E6E]/15 text-[#2d5a30]";
     case "offer":
       return "bg-[#D4A843]/25 text-[#8a6d32]";
     case "reservation":
-      return "bg-purple-100 text-purple-900";
+      return "bg-[#6B9E6E]/22 text-[#2d5a30]";
     case "closed":
       return "bg-[#6B9E6E]/20 text-[#2d5a30]";
     default:
       return "bg-[#2C2C2C]/10 text-[#2C2C2C]/80";
+  }
+}
+
+function stageColumnHeaderClass(stage: PipelineStageId): string {
+  switch (stage) {
+    case "lead":
+      return "bg-white";
+    case "viewing":
+      return "bg-[#6B9E6E]/10";
+    case "offer":
+      return "bg-[#D4A843]/12";
+    case "reservation":
+      return "bg-[#6B9E6E]/16";
+    case "closed":
+      return "bg-[#6B9E6E] text-white";
+    default:
+      return "bg-white";
+  }
+}
+
+function stageDotClass(stage: PipelineStageId): string {
+  switch (stage) {
+    case "lead":
+      return "bg-[#2C2C2C]/35";
+    case "viewing":
+      return "bg-[#6B9E6E]/70";
+    case "offer":
+      return "bg-[#D4A843]";
+    case "reservation":
+      return "bg-[#6B9E6E]";
+    case "closed":
+      return "bg-[#6B9E6E]";
+    default:
+      return "bg-[#2C2C2C]/35";
   }
 }
 
@@ -271,6 +306,268 @@ function parsePriceToNumber(raw: unknown): number | null {
     return Number.isFinite(n) ? n : null;
   }
   return null;
+}
+
+function KanbanDealCard({
+  deal,
+  indexInStage,
+  propertyLabel,
+  dealValueLine,
+  onOpenDocs,
+  onBeginStageMove,
+  stageMovePrompt,
+  onStageMovePromptSkip,
+  onStageMovePromptYes,
+  menuOpenId,
+  setMenuOpenId,
+  menuMoveOpen,
+  setMenuMoveOpen,
+  menuWrapRef,
+  onOpenLeadDetails,
+  onRequestNotes,
+  onRequestDocuments,
+  onRequestDecline,
+  onMoveToStage,
+  moveBusyId,
+}: {
+  deal: PipelineLeadRow;
+  indexInStage: number;
+  propertyLabel: (propertyId: string | null) => string;
+  dealValueLine: string | null;
+  onOpenDocs: (lead: PipelineLeadRow) => void;
+  onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
+  stageMovePrompt: {
+    lead: PipelineLeadRow;
+    targetStage: PipelineStageId;
+    kind: "advance" | "jump";
+  } | null;
+  onStageMovePromptSkip: () => void;
+  onStageMovePromptYes: (lead: PipelineLeadRow, targetStage: PipelineStageId) => void;
+  menuOpenId: number | null;
+  setMenuOpenId: (id: number | null) => void;
+  menuMoveOpen: boolean;
+  setMenuMoveOpen: (v: boolean) => void;
+  menuWrapRef: React.RefObject<HTMLDivElement | null>;
+  onOpenLeadDetails: (leadId: number) => void;
+  onRequestNotes: (lead: PipelineLeadRow) => void;
+  onRequestDocuments: (lead: PipelineLeadRow) => void;
+  onRequestDecline: (lead: PipelineLeadRow) => void;
+  onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
+  moveBusyId: number | null;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: String(deal.id),
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  const next = nextStage(deal.pipeline_stage);
+  const propLine = propertyLabel(deal.property_id);
+  const moveLabel = MOVE_TO_LABEL[deal.pipeline_stage];
+  const isHot = indexInStage === 0;
+  const menuOpen = menuOpenId === deal.id;
+  const updatedIso = (deal.updated_at ?? deal.created_at) as string;
+  const updatedAtLabel = formatRelativeTime(updatedIso);
+  const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative">
+      <div
+        className={cn(
+          "rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm transition",
+          isDragging && "scale-[1.02] shadow-xl",
+        )}
+        onClick={() => onOpenLeadDetails(deal.id)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") onOpenLeadDetails(deal.id);
+        }}
+      >
+        <div className="touch-none" {...attributes} {...listeners}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex min-w-0 flex-1 items-start gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-xs font-bold text-[#6B9E6E]">
+                {clientInitials(deal.name)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", stageDotClass(deal.pipeline_stage))} />
+                  <p className="truncate text-sm font-bold text-[#2C2C2C]">{deal.name}</p>
+                </div>
+                <p className="mt-0.5 truncate text-[11px] font-semibold text-[#2C2C2C]/55">
+                  {deal.property_id ? propLine : propLine}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  {dealValueLine ? (
+                    <span className="text-xs font-bold text-[#D4A843]">{dealValueLine}</span>
+                  ) : null}
+                  <span className="text-[10px] font-semibold text-[#2C2C2C]/40">Updated {updatedAtLabel}</span>
+                  {isHot ? (
+                    <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
+                      Hot
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <div
+              ref={menuOpen ? menuWrapRef : undefined}
+              className="pointer-events-auto relative shrink-0"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                aria-label="More options"
+                aria-expanded={menuOpen}
+                onClick={() => {
+                  setMenuMoveOpen(false);
+                  setMenuOpenId(menuOpen ? null : deal.id);
+                }}
+                className="rounded-lg p-1.5 text-[#2C2C2C]/45 hover:bg-black/5 hover:text-[#2C2C2C]/70"
+              >
+                <MoreHorizontal className="h-5 w-5" />
+              </button>
+
+              {menuOpen ? (
+                <div className="absolute right-0 top-8 z-50 w-48 rounded-xl border border-gray-200 bg-white py-1 text-gray-900 shadow-md">
+                  {!menuMoveOpen ? (
+                    <>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          onOpenLeadDetails(deal.id);
+                          setMenuOpenId(null);
+                        }}
+                      >
+                        View Details
+                      </button>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          onRequestNotes(deal);
+                          setMenuOpenId(null);
+                        }}
+                      >
+                        Edit Notes
+                      </button>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          onRequestDocuments(deal);
+                          setMenuOpenId(null);
+                        }}
+                      >
+                        Request Documents
+                      </button>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          onRequestDecline(deal);
+                          setMenuOpenId(null);
+                          setMenuMoveOpen(false);
+                        }}
+                      >
+                        Decline & Archive
+                      </button>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                          onClick={() => setMenuMoveOpen(true)}
+                        >
+                          Move to…
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="max-h-56 overflow-y-auto py-1">
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-gray-500 hover:bg-gray-50"
+                        onClick={() => setMenuMoveOpen(false)}
+                      >
+                        ← Back
+                      </button>
+                      {otherStages.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          disabled={moveBusyId === deal.id}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
+                          onClick={() => {
+                            onBeginStageMove(deal, s.id, "jump");
+                            setMenuOpenId(null);
+                            setMenuMoveOpen(false);
+                          }}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-2 flex items-center justify-between gap-2" onPointerDown={(e) => e.stopPropagation()}>
+          {next && moveLabel ? (
+            <button
+              type="button"
+              onClick={() => onBeginStageMove(deal, next, "advance")}
+              className="rounded-full bg-[#6B9E6E] px-3 py-1 text-[11px] font-bold text-white hover:bg-[#5a8a5d]"
+            >
+              → {moveLabel}
+            </button>
+          ) : (
+            <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-bold text-[#6B9E6E]">
+              ✓ Closed
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => onOpenDocs(deal)}
+            className="rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
+          >
+            View Docs
+          </button>
+        </div>
+
+        {stageMovePrompt?.lead.id === deal.id ? (
+          <div className="mt-2 rounded-xl border border-gray-200 bg-amber-50/90 p-3 shadow-sm">
+            <p className="text-xs font-semibold text-gray-800">Suggest requesting a document for this stage?</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#5d8a60]"
+                onClick={() => onStageMovePromptYes(stageMovePrompt.lead, stageMovePrompt.targetStage)}
+              >
+                Yes, Request It
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                onClick={onStageMovePromptSkip}
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 function SortableDealCard({
@@ -620,6 +917,7 @@ export function AgentPipelineTab({
   }, [leads]);
 
   const [dealValueByPropertyId, setDealValueByPropertyId] = useState<Record<string, string>>({});
+  const [dealValueNumberByPropertyId, setDealValueNumberByPropertyId] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const ids = [
@@ -642,9 +940,11 @@ export function AgentPipelineTab({
       if (cancelled) return;
       if (error) {
         setDealValueByPropertyId({});
+        setDealValueNumberByPropertyId({});
         return;
       }
       const next: Record<string, string> = {};
+      const nextN: Record<string, number> = {};
       for (const row of (data ?? []) as {
         id: string;
         price: unknown;
@@ -658,9 +958,11 @@ export function AgentPipelineTab({
         const raw = isRent ? row.rent_price : row.price;
         const n = parsePriceToNumber(raw);
         if (!n) continue;
+        nextN[row.id] = n;
         next[row.id] = `${formatPesoCompact(n)}${isRent ? "/mo" : ""}`;
       }
       setDealValueByPropertyId(next);
+      setDealValueNumberByPropertyId(nextN);
     })();
     return () => {
       cancelled = true;
@@ -776,6 +1078,41 @@ export function AgentPipelineTab({
   const baseSorted = useMemo(() => {
     return deals.filter((d) => d.pipeline_stage === filterStage).sort(sortDealsInStage);
   }, [deals, filterStage]);
+
+  const dealsByStage = useMemo(() => {
+    const m: Record<PipelineStageId, PipelineLeadRow[]> = {
+      lead: [],
+      viewing: [],
+      offer: [],
+      reservation: [],
+      closed: [],
+    };
+    for (const d of deals) m[d.pipeline_stage].push(d);
+    for (const s of STAGE_ORDER) m[s] = m[s].slice().sort(sortDealsInStage);
+    return m;
+  }, [deals]);
+
+  const stageTotals = useMemo(() => {
+    const out: Record<PipelineStageId, { count: number; total: number }> = {
+      lead: { count: 0, total: 0 },
+      viewing: { count: 0, total: 0 },
+      offer: { count: 0, total: 0 },
+      reservation: { count: 0, total: 0 },
+      closed: { count: 0, total: 0 },
+    };
+    for (const s of STAGE_ORDER) {
+      const list = dealsByStage[s];
+      out[s].count = list.length;
+      let sum = 0;
+      for (const d of list) {
+        if (!d.property_id) continue;
+        const n = dealValueNumberByPropertyId[d.property_id];
+        if (typeof n === "number" && Number.isFinite(n)) sum += n;
+      }
+      out[s].total = sum;
+    }
+    return out;
+  }, [dealsByStage, dealValueNumberByPropertyId]);
 
   const displayDeals = useMemo(() => {
     if (!optimisticOrderIds) return baseSorted;
@@ -1164,7 +1501,7 @@ export function AgentPipelineTab({
         </p>
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 lg:hidden">
         <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">Pipeline overview</p>
         <div className="-mx-1 overflow-x-auto pb-1 scrollbar-hide">
           <div className="relative flex min-w-[min(100%,520px)] items-center justify-between gap-1 px-1 sm:min-w-0 sm:gap-0">
@@ -1218,7 +1555,7 @@ export function AgentPipelineTab({
         </p>
       </div>
 
-      <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 scrollbar-hide">
+      <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 scrollbar-hide lg:hidden">
         {PIPELINE_STAGES.map((s) => {
           const active = filterStage === s.id;
           return (
@@ -1241,7 +1578,8 @@ export function AgentPipelineTab({
         })}
       </div>
 
-      <div className="touch-pan-y space-y-3 overflow-y-auto overscroll-contain max-h-[calc(100vh-280px)] md:max-h-none md:overflow-visible md:touch-auto">
+      {/* Mobile / tablet: keep current stacked view */}
+      <div className="touch-pan-y space-y-3 overflow-y-auto overscroll-contain max-h-[calc(100vh-280px)] md:max-h-none md:overflow-visible md:touch-auto lg:hidden">
         {displayDeals.length === 0 ? (
           <p className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center text-sm font-semibold text-[#2C2C2C]/45">
             No deals at this stage.
@@ -1292,6 +1630,161 @@ export function AgentPipelineTab({
             </SortableContext>
           </DndContext>
         )}
+      </div>
+
+      {/* Desktop: Pipedrive-style kanban columns */}
+      <div className="hidden lg:block">
+        <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-[#2C2C2C]/10 px-5 py-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#2C2C2C]/50">Deals</p>
+              <p className="mt-1 font-serif text-lg font-bold text-[#2C2C2C]">Pipeline board</p>
+            </div>
+            <p className="text-xs font-semibold text-[#2C2C2C]/55">Drag to reorder within a stage</p>
+          </div>
+
+          <div className="overflow-x-auto bg-[#FAF8F4] px-3 py-3 scrollbar-hide">
+            <div className="flex w-max min-w-full items-stretch gap-0">
+              {STAGE_ORDER.map((stage, idx) => {
+                const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
+                const list = dealsByStage[stage];
+                const total = stageTotals[stage]?.total ?? 0;
+                const count = stageTotals[stage]?.count ?? list.length;
+                const ids = list.map((d) => String(d.id));
+                const showTotal = total > 0;
+
+                return (
+                  <div
+                    key={stage}
+                    className={cn(
+                      "w-[320px] shrink-0 px-3",
+                      idx > 0 && "border-l border-[#2C2C2C]/10",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "sticky top-0 z-10 rounded-2xl border border-[#2C2C2C]/10 px-4 py-3 shadow-sm",
+                        stageColumnHeaderClass(stage),
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={cn("h-2.5 w-2.5 rounded-full", stageDotClass(stage))} />
+                            <p className={cn("truncate font-serif text-base font-bold", stage === "closed" ? "text-white" : "text-[#2C2C2C]")}>
+                              {label}
+                            </p>
+                          </div>
+                          <p className={cn("mt-1 text-xs font-semibold", stage === "closed" ? "text-white/80" : "text-[#2C2C2C]/55")}>
+                            {count} deal{count === 1 ? "" : "s"}
+                            {showTotal ? ` · ${formatPesoCompact(total)}` : ""}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "shrink-0 rounded-full px-2.5 py-1 text-xs font-bold tabular-nums",
+                            stage === "closed"
+                              ? "bg-white/15 text-white"
+                              : "bg-white text-[#2C2C2C]/70 ring-1 ring-[#2C2C2C]/10",
+                          )}
+                        >
+                          {count}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 min-h-[24px]">
+                      {list.length === 0 ? (
+                        <p className="rounded-xl border border-dashed border-[#2C2C2C]/15 bg-white/70 px-3 py-4 text-center text-xs font-semibold text-[#2C2C2C]/45">
+                          No deals
+                        </p>
+                      ) : (
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={(e) => {
+                            const { active, over } = e;
+                            if (!over || active.id === over.id) return;
+                            // Restrict reorder to within this stage column
+                            if (!ids.includes(String(active.id)) || !ids.includes(String(over.id))) return;
+                            const oldIndex = ids.findIndex((id) => String(id) === String(active.id));
+                            const newIndex = ids.findIndex((id) => String(id) === String(over.id));
+                            if (oldIndex < 0 || newIndex < 0) return;
+                            const newOrder = arrayMove(ids, oldIndex, newIndex).map((x) => Number(x));
+                            setOptimisticOrderIds(newOrder);
+                            void (async () => {
+                              try {
+                                const res = await fetch("/api/agent/pipeline-reorder", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  credentials: "include",
+                                  body: JSON.stringify({ pipeline_stage: stage, lead_ids: newOrder }),
+                                });
+                                const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+                                if (!res.ok) {
+                                  toast.error(json?.error?.message ?? "Could not save order");
+                                  return;
+                                }
+                                onRefresh();
+                              } finally {
+                                setOptimisticOrderIds(null);
+                              }
+                            })();
+                          }}
+                        >
+                          <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+                            <div className="space-y-2 pb-2">
+                              {list.map((deal, i) => (
+                                <KanbanDealCard
+                                  key={deal.id}
+                                  deal={deal}
+                                  indexInStage={i}
+                                  propertyLabel={propertyLabel}
+                                  dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
+                                  onOpenDocs={openDocs}
+                                  onBeginStageMove={beginStageMove}
+                                  stageMovePrompt={stageMovePrompt}
+                                  onStageMovePromptSkip={onStageMovePromptSkip}
+                                  onStageMovePromptYes={onStageMovePromptYes}
+                                  menuOpenId={menuOpenId}
+                                  setMenuOpenId={setMenuOpenId}
+                                  menuMoveOpen={menuMoveOpen}
+                                  setMenuMoveOpen={setMenuMoveOpen}
+                                  menuWrapRef={menuWrapRef}
+                                  onOpenLeadDetails={onOpenLeadDetails}
+                                  onRequestNotes={(d) => {
+                                    setNotesLead(d);
+                                    setNotesDraft(d.closing_notes ?? "");
+                                  }}
+                                  onRequestDocuments={(d) => {
+                                    if (!d.client_id) {
+                                      toast.error("This lead is not linked to a client account yet.");
+                                      return;
+                                    }
+                                    setRequestDocsLead(d);
+                                    setReqDocSelections({
+                                      valid_id: false,
+                                      proof_of_funds: false,
+                                      visa: false,
+                                      other: false,
+                                    });
+                                  }}
+                                  onRequestDecline={(d) => setDeclineDeal(d)}
+                                  onMoveToStage={moveDealToStage}
+                                  moveBusyId={moveToStageBusyId}
+                                />
+                              ))}
+                            </div>
+                          </SortableContext>
+                        </DndContext>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
       <AnimatePresence>
