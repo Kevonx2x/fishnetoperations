@@ -1634,155 +1634,157 @@ export function AgentPipelineTab({
 
       {/* Desktop: Pipedrive-style kanban columns */}
       <div className="hidden lg:block">
-        <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-[#2C2C2C]/10 px-5 py-4">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#2C2C2C]/50">Deals</p>
-              <p className="mt-1 font-serif text-lg font-bold text-[#2C2C2C]">Pipeline board</p>
-            </div>
-            <p className="text-xs font-semibold text-[#2C2C2C]/55">Drag to reorder within a stage</p>
-          </div>
+        <div className="-mx-1 overflow-x-auto bg-[#FAF8F4] px-3 py-3 scrollbar-hide">
+          <div className="flex w-max min-w-full items-stretch gap-0">
+            {STAGE_ORDER.map((stage, idx) => {
+              const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
+              const list = dealsByStage[stage];
+              const total = stageTotals[stage]?.total ?? 0;
+              const count = stageTotals[stage]?.count ?? list.length;
+              const ids = list.map((d) => String(d.id));
+              const showTotal = total > 0;
 
-          <div className="overflow-x-auto bg-[#FAF8F4] px-3 py-3 scrollbar-hide">
-            <div className="flex w-max min-w-full items-stretch gap-0">
-              {STAGE_ORDER.map((stage, idx) => {
-                const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
-                const list = dealsByStage[stage];
-                const total = stageTotals[stage]?.total ?? 0;
-                const count = stageTotals[stage]?.count ?? list.length;
-                const ids = list.map((d) => String(d.id));
-                const showTotal = total > 0;
-
-                return (
+              return (
+                <div
+                  key={stage}
+                  className={cn(
+                    "w-[320px] shrink-0 px-3",
+                    idx > 0 && "border-l border-[#2C2C2C]/10",
+                  )}
+                >
                   <div
-                    key={stage}
                     className={cn(
-                      "w-[320px] shrink-0 px-3",
-                      idx > 0 && "border-l border-[#2C2C2C]/10",
+                      "sticky top-0 z-10 rounded-2xl border border-[#2C2C2C]/10 px-4 py-3 shadow-sm",
+                      stageColumnHeaderClass(stage),
                     )}
                   >
-                    <div
-                      className={cn(
-                        "sticky top-0 z-10 rounded-2xl border border-[#2C2C2C]/10 px-4 py-3 shadow-sm",
-                        stageColumnHeaderClass(stage),
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className={cn("h-2.5 w-2.5 rounded-full", stageDotClass(stage))} />
-                            <p className={cn("truncate font-serif text-base font-bold", stage === "closed" ? "text-white" : "text-[#2C2C2C]")}>
-                              {label}
-                            </p>
-                          </div>
-                          <p className={cn("mt-1 text-xs font-semibold", stage === "closed" ? "text-white/80" : "text-[#2C2C2C]/55")}>
-                            {count} deal{count === 1 ? "" : "s"}
-                            {showTotal ? ` · ${formatPesoCompact(total)}` : ""}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={cn("h-2.5 w-2.5 rounded-full", stageDotClass(stage))} />
+                          <p
+                            className={cn(
+                              "truncate font-serif text-base font-bold",
+                              stage === "closed" ? "text-white" : "text-[#2C2C2C]",
+                            )}
+                          >
+                            {label}
                           </p>
                         </div>
-                        <span
+                        <p
                           className={cn(
-                            "shrink-0 rounded-full px-2.5 py-1 text-xs font-bold tabular-nums",
-                            stage === "closed"
-                              ? "bg-white/15 text-white"
-                              : "bg-white text-[#2C2C2C]/70 ring-1 ring-[#2C2C2C]/10",
+                            "mt-1 text-xs font-semibold",
+                            stage === "closed" ? "text-white/80" : "text-[#2C2C2C]/55",
                           )}
                         >
-                          {count}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 min-h-[24px]">
-                      {list.length === 0 ? (
-                        <p className="rounded-xl border border-dashed border-[#2C2C2C]/15 bg-white/70 px-3 py-4 text-center text-xs font-semibold text-[#2C2C2C]/45">
-                          No deals
+                          {count} deal{count === 1 ? "" : "s"}
+                          {showTotal ? ` · ${formatPesoCompact(total)}` : ""}
                         </p>
-                      ) : (
-                        <DndContext
-                          sensors={sensors}
-                          collisionDetection={closestCenter}
-                          onDragEnd={(e) => {
-                            const { active, over } = e;
-                            if (!over || active.id === over.id) return;
-                            // Restrict reorder to within this stage column
-                            if (!ids.includes(String(active.id)) || !ids.includes(String(over.id))) return;
-                            const oldIndex = ids.findIndex((id) => String(id) === String(active.id));
-                            const newIndex = ids.findIndex((id) => String(id) === String(over.id));
-                            if (oldIndex < 0 || newIndex < 0) return;
-                            const newOrder = arrayMove(ids, oldIndex, newIndex).map((x) => Number(x));
-                            setOptimisticOrderIds(newOrder);
-                            void (async () => {
-                              try {
-                                const res = await fetch("/api/agent/pipeline-reorder", {
-                                  method: "PATCH",
-                                  headers: { "Content-Type": "application/json" },
-                                  credentials: "include",
-                                  body: JSON.stringify({ pipeline_stage: stage, lead_ids: newOrder }),
-                                });
-                                const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-                                if (!res.ok) {
-                                  toast.error(json?.error?.message ?? "Could not save order");
-                                  return;
-                                }
-                                onRefresh();
-                              } finally {
-                                setOptimisticOrderIds(null);
-                              }
-                            })();
-                          }}
-                        >
-                          <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-                            <div className="space-y-2 pb-2">
-                              {list.map((deal, i) => (
-                                <KanbanDealCard
-                                  key={deal.id}
-                                  deal={deal}
-                                  indexInStage={i}
-                                  propertyLabel={propertyLabel}
-                                  dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
-                                  onOpenDocs={openDocs}
-                                  onBeginStageMove={beginStageMove}
-                                  stageMovePrompt={stageMovePrompt}
-                                  onStageMovePromptSkip={onStageMovePromptSkip}
-                                  onStageMovePromptYes={onStageMovePromptYes}
-                                  menuOpenId={menuOpenId}
-                                  setMenuOpenId={setMenuOpenId}
-                                  menuMoveOpen={menuMoveOpen}
-                                  setMenuMoveOpen={setMenuMoveOpen}
-                                  menuWrapRef={menuWrapRef}
-                                  onOpenLeadDetails={onOpenLeadDetails}
-                                  onRequestNotes={(d) => {
-                                    setNotesLead(d);
-                                    setNotesDraft(d.closing_notes ?? "");
-                                  }}
-                                  onRequestDocuments={(d) => {
-                                    if (!d.client_id) {
-                                      toast.error("This lead is not linked to a client account yet.");
-                                      return;
-                                    }
-                                    setRequestDocsLead(d);
-                                    setReqDocSelections({
-                                      valid_id: false,
-                                      proof_of_funds: false,
-                                      visa: false,
-                                      other: false,
-                                    });
-                                  }}
-                                  onRequestDecline={(d) => setDeclineDeal(d)}
-                                  onMoveToStage={moveDealToStage}
-                                  moveBusyId={moveToStageBusyId}
-                                />
-                              ))}
-                            </div>
-                          </SortableContext>
-                        </DndContext>
-                      )}
+                      </div>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full px-2.5 py-1 text-xs font-bold tabular-nums",
+                          stage === "closed"
+                            ? "bg-white/15 text-white"
+                            : "bg-white text-[#2C2C2C]/70 ring-1 ring-[#2C2C2C]/10",
+                        )}
+                      >
+                        {count}
+                      </span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  <div className="mt-3 min-h-[24px]">
+                    {list.length === 0 ? (
+                      <p className="rounded-xl border border-dashed border-[#2C2C2C]/15 bg-white/70 px-3 py-4 text-center text-xs font-semibold text-[#2C2C2C]/45">
+                        No deals
+                      </p>
+                    ) : (
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(e) => {
+                          const { active, over } = e;
+                          if (!over || active.id === over.id) return;
+                          // Restrict reorder to within this stage column
+                          if (!ids.includes(String(active.id)) || !ids.includes(String(over.id))) return;
+                          const oldIndex = ids.findIndex((id) => String(id) === String(active.id));
+                          const newIndex = ids.findIndex((id) => String(id) === String(over.id));
+                          if (oldIndex < 0 || newIndex < 0) return;
+                          const newOrder = arrayMove(ids, oldIndex, newIndex).map((x) => Number(x));
+                          setOptimisticOrderIds(newOrder);
+                          void (async () => {
+                            try {
+                              const res = await fetch("/api/agent/pipeline-reorder", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                credentials: "include",
+                                body: JSON.stringify({ pipeline_stage: stage, lead_ids: newOrder }),
+                              });
+                              const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+                              if (!res.ok) {
+                                toast.error(json?.error?.message ?? "Could not save order");
+                                return;
+                              }
+                              onRefresh();
+                            } finally {
+                              setOptimisticOrderIds(null);
+                            }
+                          })();
+                        }}
+                      >
+                        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+                          <div className="space-y-2 pb-2">
+                            {list.map((deal, i) => (
+                              <KanbanDealCard
+                                key={deal.id}
+                                deal={deal}
+                                indexInStage={i}
+                                propertyLabel={propertyLabel}
+                                dealValueLine={
+                                  deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null
+                                }
+                                onOpenDocs={openDocs}
+                                onBeginStageMove={beginStageMove}
+                                stageMovePrompt={stageMovePrompt}
+                                onStageMovePromptSkip={onStageMovePromptSkip}
+                                onStageMovePromptYes={onStageMovePromptYes}
+                                menuOpenId={menuOpenId}
+                                setMenuOpenId={setMenuOpenId}
+                                menuMoveOpen={menuMoveOpen}
+                                setMenuMoveOpen={setMenuMoveOpen}
+                                menuWrapRef={menuWrapRef}
+                                onOpenLeadDetails={onOpenLeadDetails}
+                                onRequestNotes={(d) => {
+                                  setNotesLead(d);
+                                  setNotesDraft(d.closing_notes ?? "");
+                                }}
+                                onRequestDocuments={(d) => {
+                                  if (!d.client_id) {
+                                    toast.error("This lead is not linked to a client account yet.");
+                                    return;
+                                  }
+                                  setRequestDocsLead(d);
+                                  setReqDocSelections({
+                                    valid_id: false,
+                                    proof_of_funds: false,
+                                    visa: false,
+                                    other: false,
+                                  });
+                                }}
+                                onRequestDecline={(d) => setDeclineDeal(d)}
+                                onMoveToStage={moveDealToStage}
+                                moveBusyId={moveToStageBusyId}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
