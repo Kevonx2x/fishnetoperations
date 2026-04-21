@@ -359,48 +359,53 @@ function HomeTopAgentCard({
   extra?: AgentHomeExtra;
 }) {
   const scoreRight = scoreDecimalOnTenHome(agent.score);
-  const yearsLine =
-    extra?.yearsExperience != null && Number.isFinite(extra.yearsExperience) && extra.yearsExperience >= 0
-      ? `${extra.yearsExperience} years experience`
-      : null;
-  const langsLine = extra?.languagesSpoken?.trim() ? extra.languagesSpoken.trim() : null;
+  const rawYears = extra?.yearsExperience;
+  const experienceLine =
+    rawYears != null && Number.isFinite(rawYears) && rawYears >= 0 && rawYears > 0
+      ? `${rawYears} ${rawYears === 1 ? "year" : "years"} experience`
+      : "New agent";
+  const languagesLine = extra?.languagesSpoken?.trim() ? extra.languagesSpoken.trim() : "Not specified";
+  const closingsN =
+    typeof agent.closings === "number" && Number.isFinite(agent.closings) && agent.closings >= 0
+      ? agent.closings
+      : 0;
 
   return (
-    <div className="group flex min-h-0 w-full min-w-[160px] max-w-[300px] shrink-0 flex-col rounded-2xl border border-[#2C2C2C]/10 bg-white p-3 shadow-md transition-all duration-200 ease-in-out will-change-transform hover:-translate-y-1 hover:scale-[1.02] hover:border-[#2C2C2C]/15 hover:shadow-xl lg:w-[300px]">
-      <div className="flex min-h-0 flex-col items-center">
+    <div className="group flex min-h-[340px] w-full min-w-[160px] max-w-[300px] shrink-0 flex-col rounded-2xl border border-[#2C2C2C]/10 bg-white p-3 shadow-md transition-all duration-200 ease-in-out will-change-transform hover:-translate-y-1 hover:scale-[1.02] hover:border-[#2C2C2C]/15 hover:shadow-xl lg:w-[300px]">
+      <div className="flex min-h-0 flex-1 flex-col items-center">
         <div className="relative mx-auto h-14 w-14 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
           <AgentAvatarFill name={agent.name} imageUrl={agent.image} sizes="56px" textClassName="text-base" />
         </div>
         <div className="mt-2 flex w-full flex-col items-center px-0.5 text-center">
-          <p className="line-clamp-2 w-full text-sm font-bold text-[#2C2C2C]">{agent.name}</p>
-          {scoreRight ? (
-            <span className="mt-0.5 text-xs text-gray-500">⭐ {scoreRight}</span>
-          ) : null}
+          <p className="line-clamp-2 min-h-[2.5rem] w-full text-sm font-bold leading-snug text-[#2C2C2C]">
+            {agent.name}
+          </p>
+          <p className="mt-0.5 min-h-[1.25rem] text-xs tabular-nums text-gray-500">
+            {scoreRight ? `⭐ ${scoreRight}` : "⭐ —"}
+          </p>
         </div>
         {agent.verified ? (
-          <span className="mt-1 inline-flex shrink-0 items-center rounded-full bg-[#6B9E6E] px-2 py-0.5 text-[10px] font-semibold text-white">
+          <span className="mt-1 inline-flex h-6 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] px-2 py-0.5 text-[10px] font-semibold text-white">
             Verified
           </span>
-        ) : null}
-        <p className="mt-2 text-xs text-center text-gray-500">{agent.closings} closings</p>
-        {yearsLine ? <p className="mt-1 text-center text-[11px] text-gray-500">{yearsLine}</p> : null}
-        {langsLine ? <p className="mt-0.5 text-center text-[11px] text-gray-500">{langsLine}</p> : null}
-        {extra?.serviceAreaPills && extra.serviceAreaPills.length > 0 ? (
-          <div className="mt-2 flex flex-wrap justify-center gap-1.5 px-1">
-            {extra.serviceAreaPills.map((area) => (
-              <span
-                key={area}
-                className="rounded-full bg-[#6B9E6E]/12 px-2 py-0.5 text-[10px] font-semibold text-[#6B9E6E]"
-              >
-                {area}
-              </span>
-            ))}
-          </div>
-        ) : null}
+        ) : (
+          <span className="mt-1 inline-flex h-6 shrink-0 items-center justify-center rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold text-gray-600">
+            Unverified
+          </span>
+        )}
+        <p className="mt-2 min-h-[1rem] text-xs tabular-nums text-gray-500">
+          {closingsN} {closingsN === 1 ? "closing" : "closings"}
+        </p>
+        <p className="mt-1 line-clamp-2 min-h-[2.75rem] w-full text-center text-[11px] leading-snug text-gray-500">
+          {experienceLine}
+        </p>
+        <p className="mt-0.5 line-clamp-2 min-h-[2.75rem] w-full text-center text-[11px] leading-snug text-gray-500">
+          {languagesLine}
+        </p>
       </div>
       <Link
         href={`/agents/${encodeURIComponent(agent.id)}`}
-        className="mt-3 inline-flex w-full items-center justify-center rounded-full border-2 border-[#6B9E6E] bg-white px-4 py-2 text-sm font-semibold text-[#6B9E6E] transition-colors hover:bg-[#6B9E6E]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A843] focus-visible:ring-offset-2"
+        className="mt-3 inline-flex w-full shrink-0 items-center justify-center rounded-full border-2 border-[#6B9E6E] bg-white px-4 py-2 text-sm font-semibold text-[#6B9E6E] transition-colors hover:bg-[#6B9E6E]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A843] focus-visible:ring-offset-2"
       >
         View Profile
       </Link>
@@ -2254,6 +2259,7 @@ export function NewlyListedCard({
   compact,
   verifiedListingAgent,
   listingImageLoadEager,
+  featuredPicksCard,
 }: {
   property: DbProperty;
   roomUrls: string[];
@@ -2274,6 +2280,8 @@ export function NewlyListedCard({
   verifiedListingAgent?: boolean;
   /** First listing thumbnail in browse/search results uses eager loading. */
   listingImageLoadEager?: boolean;
+  /** Featured Picks row: omit developer line for uniform card layout. */
+  featuredPicksCard?: boolean;
 }) {
   const listedLabel = listingListedLabel(property.created_at);
   const isDualListing =
@@ -2307,7 +2315,7 @@ export function NewlyListedCard({
   return (
     <div
       className={cn(
-        "flex min-h-[480px] flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md lg:min-h-[520px]",
+        "flex min-h-[412px] flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md lg:min-h-[448px]",
         grid
           ? gridCardClassName ?? "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]"
           : cn(cardWidthClass ?? "w-[240px]", "shrink-0"),
@@ -2471,7 +2479,7 @@ export function NewlyListedCard({
       </div>
 
       <div
-        className={`flex flex-col gap-0 border-t border-[#2C2C2C]/10 bg-white ${compact ? "px-3 py-2.5" : "px-3 py-3 sm:px-4"}`}
+        className={`flex flex-col gap-0 border-t border-[#2C2C2C]/10 bg-white ${compact ? "px-3 py-2" : "px-3 py-3 sm:px-4"}`}
       >
         <div className={`min-h-[28px] shrink-0 overflow-hidden ${isDualListing ? "" : "h-[28px]"}`}>
           {isDualListing ? (
@@ -2515,14 +2523,14 @@ export function NewlyListedCard({
             <span className="min-w-0 flex-1 truncate leading-snug">{property.location}</span>
           </p>
         </div>
-        {property.is_presale && property.developer_name?.trim() ? (
+        {!featuredPicksCard && property.is_presale && property.developer_name?.trim() ? (
           <p className={`mt-1 text-[#2C2C2C]/80 ${compact ? "text-[11px]" : "text-xs"}`}>
             {property.developer_name.trim()}
           </p>
         ) : null}
       </div>
 
-      <div className="relative z-10 mt-auto flex min-h-[64px] max-h-[80px] shrink-0 flex-col justify-start overflow-hidden bg-white px-3 py-2">
+      <div className="relative z-10 mt-auto flex min-h-[56px] max-h-[76px] shrink-0 flex-col justify-start overflow-hidden bg-white px-3 py-1.5">
         {connectedAgents.length === 0 ? (
           <div className="flex min-h-[40px] flex-1 items-center justify-center">
             <p className="text-center text-xs text-gray-400">No agent assigned</p>
@@ -2573,9 +2581,14 @@ export function NewlyListedCard({
                 See {moreAgentCount} more agent{moreAgentCount === 1 ? "" : "s"} →
               </button>
             ) : (
-              <p className="mt-1 w-full shrink-0 rounded-full border border-gray-100 py-1.5 text-center text-xs text-gray-300">
-                No other agents on this listing
-              </p>
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="mt-1 w-full shrink-0 cursor-default rounded-full border border-gray-100 bg-transparent py-1.5 text-center text-xs text-gray-400 opacity-80 disabled:cursor-default"
+              >
+                {verifiedListingAgent ? "Request to co-list" : "No other agents on this listing"}
+              </button>
             )}
           </div>
         )}
@@ -2995,7 +3008,7 @@ function MoreAgentsComingSoonCard() {
     >
       <Link
         href="/register/agent"
-        className="flex min-h-[240px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-4 py-8 text-center shadow-sm transition hover:bg-[#F4F1EA] md:min-h-0"
+        className="flex min-h-[340px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-4 py-8 text-center shadow-sm transition hover:bg-[#F4F1EA] md:min-h-[340px]"
       >
         <UserPlus className="mb-3 h-11 w-11 text-[#6B9E6E]" strokeWidth={1.5} aria-hidden />
         <h3 className="font-serif text-lg font-bold tracking-tight text-[#2C2C2C]">More Agents Coming Soon</h3>
@@ -3091,6 +3104,7 @@ function RowCarousel({
             compact
             verifiedListingAgent={viewerVerifiedListingAgent}
             listingImageLoadEager={eagerListingThumbKey === `${rowKey}-${p.id}`}
+            featuredPicksCard={isFeaturedPicksRow}
           />
         ))}
         {Array.from({ length: fillerCount }).map((_, i) => (
