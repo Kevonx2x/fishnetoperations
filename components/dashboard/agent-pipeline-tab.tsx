@@ -902,6 +902,8 @@ export function AgentPipelineTab({
   pipelineAgentId: string;
   clientDocsSharedWithUserId?: string;
 }) {
+  const kanbanScrollRef = useRef<HTMLDivElement | null>(null);
+  const [kanbanFadeRight, setKanbanFadeRight] = useState(false);
   const [declineDeal, setDeclineDeal] = useState<PipelineLeadRow | null>(null);
   const [declineReasonKey, setDeclineReasonKey] =
     useState<(typeof DECLINE_REASON_OPTIONS)[number]["key"]>("unavailable");
@@ -1492,6 +1494,26 @@ export function AgentPipelineTab({
 
   const sortableIds = useMemo(() => displayDeals.map((d) => String(d.id)), [displayDeals]);
 
+  useEffect(() => {
+    const el = kanbanScrollRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      const hasOverflow = maxScroll > 1;
+      const atEnd = el.scrollLeft >= maxScroll - 1;
+      setKanbanFadeRight(hasOverflow && !atEnd);
+    };
+
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [deals.length, dealValueByPropertyId]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -1634,7 +1656,17 @@ export function AgentPipelineTab({
 
       {/* Desktop: Pipedrive-style kanban columns */}
       <div className="hidden lg:block">
-        <div className="-mx-1 overflow-x-auto bg-[#FAF8F4] px-3 py-3 scrollbar-hide">
+        <div className="relative -mx-1">
+          {kanbanFadeRight ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 z-20 w-10 bg-gradient-to-l from-[#FAF8F4] to-transparent"
+            />
+          ) : null}
+          <div
+            ref={kanbanScrollRef}
+            className="overflow-x-auto bg-[#FAF8F4] px-3 py-3 scrollbar-hide"
+          >
           <div className="flex w-max min-w-full items-stretch gap-0">
             {STAGE_ORDER.map((stage, idx) => {
               const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
@@ -1787,6 +1819,7 @@ export function AgentPipelineTab({
             })}
           </div>
         </div>
+      </div>
       </div>
 
       <AnimatePresence>
