@@ -5,10 +5,11 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const bodySchema = z.object({
   propertyId: z.string().uuid(),
+  message: z.string().max(2000).optional(),
 });
 
 /**
- * After a co-agent request is created, notify all admins (service role).
+ * After a co-agent request is created, notify the listing agent (service role).
  * Caller must be the requesting agent (session matches agents row).
  */
 export async function POST(req: Request) {
@@ -58,36 +59,37 @@ export async function POST(req: Request) {
 
     const { data: prop } = await sb
       .from("properties")
-      .select("name, location")
+      .select("name, location, listed_by")
       .eq("id", parsed.data.propertyId)
       .maybeSingle();
 
     const propertyName = prop?.name?.trim() || prop?.location || "a property";
     const agentName = agentRow.name?.trim() || "An agent";
 
-    const { data: admins, error: adminsErr } = await sb.from("profiles").select("id").eq("role", "admin");
-    if (adminsErr) {
-      return fail("DATABASE_ERROR", adminsErr.message, 500);
-    }
-
-    const rows = (admins ?? []).map((p) => ({
-      user_id: p.id,
-      type: "co_agent_request" as const,
-      title: "New Co-Agent Request",
-      body: `${agentName} wants to represent ${propertyName}`,
-      metadata: { link: "/admin" },
-    }));
-
-    if (rows.length === 0) {
+    const listingAgentUserId = typeof prop?.listed_by === "string" ? prop.listed_by : "";
+    if (!listingAgentUserId) {
       return ok({ notified: 0 });
     }
 
-    const { error: insErr } = await sb.from("notifications").insert(rows);
+    const msg = parsed.data.message?.trim();
+    const body = msg
+      ? `${agentName} requested to co-list ${propertyName}: “${msg}”`
+      : `${agentName} requested to co-list ${propertyName}`;
+
+    const { error: insErr } = await sb.from("notifications").insert([
+      {
+        user_id: listingAgentUserId,
+        type: "co_agent_request" as const,
+        title: "Co-list Request",
+        body,
+        metadata: { link: `/properties/${parsed.data.propertyId}` },
+      },
+    ]);
     if (insErr) {
       return fail("DATABASE_ERROR", insErr.message, 500);
     }
 
-    return ok({ notified: rows.length });
+    return ok({ notified: 1 });
   } catch (e) {
     return fail(
       "INTERNAL_ERROR",

@@ -46,6 +46,8 @@ import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { propertyCanonicalCity } from "@/lib/normalize-city";
+import { CoListRequestModal } from "@/components/marketplace/co-list-request-modal";
+import { toast } from "sonner";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { roomUrlsFor } from "@/lib/marketplace-property";
@@ -2295,6 +2297,9 @@ export function NewlyListedCard({
   const { profile } = useAuth();
   const router = useRouter();
   const agentEngagementLocked = profile?.role === "agent";
+  const [coListOpen, setCoListOpen] = useState(false);
+  const [coListError, setCoListError] = useState<string | null>(null);
+  const [coListSubmitting, setCoListSubmitting] = useState(false);
 
   const firstAgent = connectedAgents[0] ?? null;
   const moreAgentCount = Math.max(0, connectedAgents.length - 1);
@@ -2309,6 +2314,12 @@ export function NewlyListedCard({
   const showEngagementRow = showEng || agentEngagementLocked;
 
   const titleLine = property.name?.trim() || property.location;
+  const canRequestCoList =
+    profile?.role === "agent" &&
+    !!verifiedListingAgent &&
+    !!viewerUserId &&
+    !!property.listed_by &&
+    viewerUserId !== property.listed_by;
   return (
     <div
       className={cn(
@@ -2573,18 +2584,82 @@ export function NewlyListedCard({
                 See {moreAgentCount} more agent{moreAgentCount === 1 ? "" : "s"} →
               </button>
             ) : (
-              <button
-                type="button"
-                disabled
-                aria-disabled="true"
-                className="mt-1 w-full shrink-0 cursor-default rounded-full border border-gray-100 bg-transparent py-1.5 text-center text-xs text-gray-400 opacity-50 disabled:cursor-default"
-              >
-                {verifiedListingAgent ? "Request to co-list" : "No other agents on this listing"}
-              </button>
+              canRequestCoList ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCoListError(null);
+                    setCoListOpen(true);
+                  }}
+                  className="mt-1 w-full shrink-0 rounded-full border border-[#2C2C2C]/15 bg-white py-1.5 text-center text-xs font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4]"
+                >
+                  Request to co-list
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  className="mt-1 w-full shrink-0 cursor-default rounded-full border border-gray-100 bg-transparent py-1.5 text-center text-xs text-gray-400 opacity-50 disabled:cursor-default"
+                >
+                  {verifiedListingAgent ? "Request to co-list" : "No other agents on this listing"}
+                </button>
+              )
             )}
           </div>
         )}
       </div>
+      <CoListRequestModal
+        open={coListOpen}
+        onClose={() => setCoListOpen(false)}
+        propertyTitle={property.name?.trim() || property.location}
+        submitting={coListSubmitting}
+        error={coListError}
+        onSubmit={async (message) => {
+          if (!property?.id || !viewerUserId) return;
+          setCoListError(null);
+          setCoListSubmitting(true);
+          const { data: agentRow, error: agentErr } = await supabase
+            .from("agents")
+            .select("id, status, license_number, verification_status")
+            .eq("user_id", viewerUserId)
+            .maybeSingle();
+          if (agentErr || !agentRow?.id) {
+            setCoListSubmitting(false);
+            setCoListError(agentErr?.message || "Could not load agent profile.");
+            return;
+          }
+          if (agentRow.status !== "approved" || !String(agentRow.license_number ?? "").trim()) {
+            setCoListSubmitting(false);
+            setCoListError("Only approved agents can request co-listing.");
+            return;
+          }
+          if (agentRow.verification_status !== "verified") {
+            setCoListSubmitting(false);
+            setCoListError("Verification required to co-list.");
+            return;
+          }
+          const { error } = await supabase.from("co_agent_requests").insert({
+            property_id: property.id,
+            agent_id: agentRow.id,
+          });
+          if (error) {
+            setCoListSubmitting(false);
+            setCoListError(error.message);
+            return;
+          }
+          void fetch("/api/notify-co-agent-request", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ propertyId: property.id, message: message.trim() ? message.trim() : undefined }),
+          }).catch(() => {});
+          setCoListSubmitting(false);
+          setCoListOpen(false);
+          toast.success("Co-list request sent");
+        }}
+      />
     </div>
   );
 }

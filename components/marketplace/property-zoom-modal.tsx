@@ -13,6 +13,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { AgentSlotPlaceholderModal } from "@/components/marketplace/agent-slot-placeholder";
 import { CoListVerificationRequiredModal } from "@/components/marketplace/co-list-verification-required-modal";
+import { CoListRequestModal } from "@/components/marketplace/co-list-request-modal";
 import { ViewingAgentPickerModal } from "@/components/marketplace/viewing-agent-picker-modal";
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
 import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
@@ -23,6 +24,7 @@ import { ONLY_CLIENTS_CAN_LIKE_OR_PIN, type PropertyEngagement } from "@/hooks/u
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type Props = {
   property: DbProperty;
@@ -151,6 +153,7 @@ function AgentsList({
   listedByUserId,
   verifiedListingAgent,
   onVerificationRequired,
+  onRequestCoList,
 }: {
   modalAgents: MarketplaceAgent[];
   placeholderSlots: number;
@@ -164,6 +167,7 @@ function AgentsList({
   listedByUserId: string | null;
   verifiedListingAgent: boolean;
   onVerificationRequired?: () => void;
+  onRequestCoList?: () => void;
 }) {
   return (
     <ul className="space-y-3">
@@ -233,6 +237,13 @@ function AgentsList({
             </div>
             <AgentSlotPlaceholderModal
               onLinkClick={onClose}
+              onRequestCoList={
+                onRequestCoList
+                  ? () => {
+                      onRequestCoList();
+                    }
+                  : undefined
+              }
               propertyId={propertyId}
               verifiedListingAgent={verifiedListingAgent}
               listedByUserId={listedByUserId}
@@ -473,6 +484,9 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
     verification_status: string | null;
   } | null>(null);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [coListOpen, setCoListOpen] = useState(false);
+  const [coListError, setCoListError] = useState<string | null>(null);
+  const [coListSubmitting, setCoListSubmitting] = useState(false);
   const [showViewingModal, setShowViewingModal] = useState(false);
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [selectedViewingAgentUserId, setSelectedViewingAgentUserId] = useState<string | null>(null);
@@ -528,6 +542,9 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
 
   const verifiedListingAgent = Boolean(
     viewerAgentMeta?.status === "approved" && viewerAgentMeta?.verification_status === "verified",
+  );
+  const canRequestCoList = Boolean(
+    profile?.role === "agent" && verifiedListingAgent && user?.id && property.listed_by && user.id !== property.listed_by,
   );
 
   const agentEngagementLocked = profile?.role === "agent";
@@ -673,6 +690,14 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
                 listedByUserId={property.listed_by ?? null}
                 verifiedListingAgent={verifiedListingAgent}
                 onVerificationRequired={() => setShowVerificationModal(true)}
+                onRequestCoList={
+                  canRequestCoList
+                    ? () => {
+                        setCoListError(null);
+                        setCoListOpen(true);
+                      }
+                    : undefined
+                }
                 onContactAgent={(a) => {
                   setContactModalAgent(a);
                   setShowContactModal(true);
@@ -718,6 +743,14 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
                   listedByUserId={property.listed_by ?? null}
                   verifiedListingAgent={verifiedListingAgent}
                   onVerificationRequired={() => setShowVerificationModal(true)}
+                  onRequestCoList={
+                    canRequestCoList
+                      ? () => {
+                          setCoListError(null);
+                          setCoListOpen(true);
+                        }
+                      : undefined
+                  }
                   onContactAgent={(a) => {
                     setContactModalAgent(a);
                     setShowContactModal(true);
@@ -771,6 +804,56 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
       propertyTitle={propertyTitle}
     />
     <CoListVerificationRequiredModal open={showVerificationModal} onClose={() => setShowVerificationModal(false)} />
+    <CoListRequestModal
+      open={coListOpen}
+      onClose={() => setCoListOpen(false)}
+      propertyTitle={propertyTitle}
+      submitting={coListSubmitting}
+      error={coListError}
+      onSubmit={async (message) => {
+        if (!user?.id) return;
+        setCoListError(null);
+        setCoListSubmitting(true);
+        const { data: agentRow, error: agentErr } = await supabase
+          .from("agents")
+          .select("id, status, license_number, verification_status")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (agentErr || !agentRow?.id) {
+          setCoListSubmitting(false);
+          setCoListError(agentErr?.message || "Could not load agent profile.");
+          return;
+        }
+        if (agentRow.status !== "approved" || !String(agentRow.license_number ?? "").trim()) {
+          setCoListSubmitting(false);
+          setCoListError("Only approved agents can request co-listing.");
+          return;
+        }
+        if (agentRow.verification_status !== "verified") {
+          setCoListSubmitting(false);
+          setCoListError("Verification required to co-list.");
+          return;
+        }
+        const { error } = await supabase.from("co_agent_requests").insert({
+          property_id: property.id,
+          agent_id: agentRow.id,
+        });
+        if (error) {
+          setCoListSubmitting(false);
+          setCoListError(error.message);
+          return;
+        }
+        void fetch("/api/notify-co-agent-request", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ propertyId: property.id, message: message.trim() ? message.trim() : undefined }),
+        }).catch(() => {});
+        setCoListSubmitting(false);
+        setCoListOpen(false);
+        toast.success("Co-list request sent");
+      }}
+    />
     </>
   );
 }

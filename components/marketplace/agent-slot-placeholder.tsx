@@ -12,6 +12,8 @@ export function useShowListingAgentPlaceholderLink(): boolean {
 type AgentSlotPlaceholderProps = {
   /** Card carousel: stop click from opening property zoom */
   onLinkClick?: (e: React.MouseEvent) => void;
+  /** When provided, open co-list request modal (no redirect). */
+  onRequestCoList?: (e: React.MouseEvent) => void;
   propertyId?: string;
   /** Approved + verified agent: show co-list CTA (homepage cards). */
   verifiedListingAgent?: boolean;
@@ -25,6 +27,7 @@ type AgentSlotPlaceholderProps = {
 /** Two-line placeholder for property cards and zoom modal agent lists (sage ? circle is separate). */
 export function AgentSlotPlaceholder({
   onLinkClick,
+  onRequestCoList,
   propertyId,
   verifiedListingAgent,
   listedByUserId,
@@ -46,13 +49,27 @@ export function AgentSlotPlaceholder({
   if (verifiedListingAgent && propertyId) {
     return (
       <div className="min-w-0 flex-1">
-        <Link
-          href={`/properties/${encodeURIComponent(propertyId)}`}
-          className="text-[10px] font-semibold text-[#6B9E6E] hover:underline"
-          onClick={onLinkClick}
-        >
-          Want to co-list? →
-        </Link>
+        {onRequestCoList ? (
+          <button
+            type="button"
+            className="text-left text-[10px] font-semibold text-[#6B9E6E] hover:underline"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onRequestCoList(e);
+            }}
+          >
+            Want to co-list? →
+          </button>
+        ) : (
+          <Link
+            href={`/properties/${encodeURIComponent(propertyId)}`}
+            className="text-[10px] font-semibold text-[#6B9E6E] hover:underline"
+            onClick={onLinkClick}
+          >
+            Want to co-list? →
+          </Link>
+        )}
       </div>
     );
   }
@@ -94,6 +111,7 @@ type AgentSlotPlaceholderModalProps = AgentSlotPlaceholderProps & {
 /** Zoom modal: slightly larger second line */
 export function AgentSlotPlaceholderModal({
   onLinkClick,
+  onRequestCoList,
   propertyId,
   verifiedListingAgent,
   listedByUserId,
@@ -116,13 +134,27 @@ export function AgentSlotPlaceholderModal({
     return (
       <div className="min-w-0 flex-1">
         <p className="font-semibold text-[#2C2C2C]/70">Want to represent this property?</p>
-        <Link
-          href={`/properties/${encodeURIComponent(propertyId)}`}
-          onClick={onLinkClick}
-          className="mt-1 inline-block text-xs font-semibold text-[#6B9E6E] hover:underline"
-        >
-          Request to Co-List →
-        </Link>
+        {onRequestCoList ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onRequestCoList(e);
+            }}
+            className="mt-1 inline-block cursor-pointer text-left text-xs font-semibold text-[#6B9E6E] hover:underline"
+          >
+            Request to Co-List →
+          </button>
+        ) : (
+          <Link
+            href={`/properties/${encodeURIComponent(propertyId)}`}
+            onClick={onLinkClick}
+            className="mt-1 inline-block text-xs font-semibold text-[#6B9E6E] hover:underline"
+          >
+            Request to Co-List →
+          </Link>
+        )}
       </div>
     );
   }

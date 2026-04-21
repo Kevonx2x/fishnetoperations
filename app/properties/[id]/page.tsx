@@ -19,12 +19,14 @@ import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewi
 import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
 import { AgentAvailabilityBadge } from "@/components/marketplace/agent-availability-badge";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
+import { CoListRequestModal } from "@/components/marketplace/co-list-request-modal";
 import { useAuth } from "@/contexts/auth-context";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { coListLimitForTier, listingLimitForTier } from "@/lib/agent-listing-limits";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { cn } from "@/lib/utils";
 import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
+import { toast } from "sonner";
 
 type ListingAgentProfile = {
   id: string;
@@ -377,7 +379,7 @@ export default function PropertyPage() {
     return true;
   }, [isLoggedIn, profile?.role, myAgent, isConnectedAsAgent, hasPendingCoRequest, property?.listed_by, user?.id]);
 
-  const requestCoAgentJoin = async () => {
+  const requestCoAgentJoin = async (message: string) => {
     if (!property?.id || !myAgent?.id) return;
     if (myAgent.verification_status !== "verified") return;
     setCoAgentMsg(null);
@@ -402,8 +404,9 @@ export default function PropertyPage() {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ propertyId: property.id }),
+      body: JSON.stringify({ propertyId: property.id, message: message.trim() ? message.trim() : undefined }),
     }).catch(() => {});
+    toast.success("Co-list request sent");
   };
 
   const similar = useMemo(() => {
@@ -860,6 +863,34 @@ export default function PropertyPage() {
                       </button>
                     </>
                   )}
+
+                  {showCoAgentPendingBanner ? (
+                    <div className="mt-4 rounded-xl border border-[#D4A843]/35 bg-[#FFF9F0] px-4 py-3">
+                      <p className="text-xs font-semibold text-[#2C2C2C]/70">
+                        Co-list request sent — pending review.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {showCoAgentRequestButton ? (
+                    <button
+                      type="button"
+                      onClick={() => setCoAgentConfirmOpen(true)}
+                      className="mt-4 w-full rounded-full border-2 border-[#2C2C2C] bg-white px-5 py-3 text-sm font-bold text-[#2C2C2C] shadow-sm transition-colors hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
+                    >
+                      Request to Co-List
+                    </button>
+                  ) : null}
+
+                  {showCoListNeedsVerificationPanel ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowVerificationModal(true)}
+                      className="mt-4 w-full rounded-full border border-[#6B9E6E]/40 bg-white px-5 py-3 text-sm font-semibold text-[#6B9E6E] shadow-sm hover:bg-[#6B9E6E]/10"
+                    >
+                      Complete verification to co-list →
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </aside>
@@ -920,53 +951,14 @@ export default function PropertyPage() {
               open={showVerificationModal}
               onClose={() => setShowVerificationModal(false)}
             />
-            {coAgentConfirmOpen ? (
-              <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" role="presentation">
-                <button
-                  type="button"
-                  className="absolute inset-0 bg-black/50"
-                  aria-label="Close"
-                  onClick={() => setCoAgentConfirmOpen(false)}
-                />
-                <div
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="co-agent-confirm-title"
-                  className="relative z-[201] w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-2xl"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <h2
-                    id="co-agent-confirm-title"
-                    className="font-serif text-lg font-bold leading-snug text-[#2C2C2C]"
-                  >
-                    Request to co-list?
-                  </h2>
-                  <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/75">
-                    Request to co-list{" "}
-                    <span className="text-[#2C2C2C]">{property.name?.trim() || property.location}</span>? BahayGo
-                    admin will review your credentials and approve your request. Once approved you will appear as a
-                    listing agent on this property.
-                  </p>
-                  <div className="mt-6 flex flex-wrap justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setCoAgentConfirmOpen(false)}
-                      className="rounded-full border border-[#2C2C2C]/15 px-4 py-2 text-sm font-semibold text-[#2C2C2C]/75"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void requestCoAgentJoin()}
-                      disabled={coAgentSubmitting}
-                      className="rounded-full bg-[#2C2C2C] px-5 py-2 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-60"
-                    >
-                      {coAgentSubmitting ? "Sending…" : "Confirm"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
+            <CoListRequestModal
+              open={coAgentConfirmOpen}
+              onClose={() => setCoAgentConfirmOpen(false)}
+              propertyTitle={property.name?.trim() || property.location}
+              submitting={coAgentSubmitting}
+              error={coAgentMsg}
+              onSubmit={(message) => requestCoAgentJoin(message)}
+            />
           </>
         )}
 
