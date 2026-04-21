@@ -1804,7 +1804,7 @@ export function AgentDashboard() {
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
-      <div className="mx-auto flex max-w-6xl flex-col md:flex-row">
+      <div className="flex w-full flex-col md:flex-row">
         {/* Desktop sidebar */}
         <aside className="hidden w-[180px] shrink-0 border-r border-[#2C2C2C]/10 bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-screen md:flex-col md:px-2 md:py-5">
           <div className="mb-5 flex items-center gap-2 px-1">
