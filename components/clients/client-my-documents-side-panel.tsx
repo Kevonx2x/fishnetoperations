@@ -45,7 +45,10 @@ function parseReqTypesFromLink(link: unknown): string[] {
   }
 }
 
-function propertyLabel(name: string | null | undefined, location: string | null | undefined): string {
+function propertyLabel(
+  name: string | null | undefined,
+  location: string | null | undefined,
+): string {
   const n = name?.trim();
   const l = location?.trim();
   if (n && l) return `${n} · ${l}`;
@@ -65,7 +68,10 @@ export function ClientMyDocumentsSidePanel({
   supabase: SupabaseClient;
   searchParams: URLSearchParams;
 }) {
-  const docRequest = useMemo(() => parseClientDocRequestParams(searchParams), [searchParams]);
+  const docRequest = useMemo(
+    () => parseClientDocRequestParams(searchParams),
+    [searchParams],
+  );
   const [tab, setTab] = useState<TabId>("my-docs");
 
   const [rows, setRows] = useState<ClientDocRow[]>([]);
@@ -86,12 +92,15 @@ export function ClientMyDocumentsSidePanel({
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [uploadPct, setUploadPct] = useState(0);
   const [viewBusyId, setViewBusyId] = useState<string | null>(null);
-  const [deleteConfirmType, setDeleteConfirmType] = useState<ClientDocumentTypeKey | null>(null);
+  const [deleteConfirmType, setDeleteConfirmType] =
+    useState<ClientDocumentTypeKey | null>(null);
   const [unshareBusy, setUnshareBusy] = useState<string | null>(null);
   const [shareBusy, setShareBusy] = useState<string | null>(null);
   const [uploadShareBusy, setUploadShareBusy] = useState<string | null>(null);
   const [sendBackBusy, setSendBackBusy] = useState<string | null>(null);
-  const [pendingSendFile, setPendingSendFile] = useState<Record<string, File | null>>({});
+  const [pendingSendFile, setPendingSendFile] = useState<
+    Record<string, File | null>
+  >({});
 
   const { ensureConsent, dataConsentModal } = useDataConsentGate();
 
@@ -107,7 +116,11 @@ export function ClientMyDocumentsSidePanel({
   }, [open]);
 
   useEffect(() => {
-    if (open && docRequest.requestAgentId && docRequest.requestedTypes?.length) {
+    if (
+      open &&
+      docRequest.requestAgentId &&
+      docRequest.requestedTypes?.length
+    ) {
       setTab("from-agent");
     }
   }, [open, docRequest.requestAgentId, docRequest.requestedTypes]);
@@ -116,7 +129,9 @@ export function ClientMyDocumentsSidePanel({
     setLoadingDocs(true);
     const { data, error } = await supabase
       .from("client_documents")
-      .select("id, document_type, file_url, file_name, shared_with, status, created_at")
+      .select(
+        "id, document_type, file_url, file_name, shared_with, status, created_at",
+      )
       .eq("client_id", userId);
 
     if (error) {
@@ -182,7 +197,8 @@ export function ClientMyDocumentsSidePanel({
       if (!m || typeof m !== "object") continue;
       const lid = (m as { lead_id?: unknown }).lead_id;
       if (typeof lid === "number" && Number.isFinite(lid)) leadIds.add(lid);
-      else if (typeof lid === "string" && /^\d+$/.test(lid)) leadIds.add(parseInt(lid, 10));
+      else if (typeof lid === "string" && /^\d+$/.test(lid))
+        leadIds.add(parseInt(lid, 10));
     }
 
     if (leadIds.size === 0) {
@@ -205,7 +221,10 @@ export function ClientMyDocumentsSidePanel({
       ),
     ];
 
-    let propsById: Record<string, { name: string | null; location: string | null }> = {};
+    let propsById: Record<
+      string,
+      { name: string | null; location: string | null }
+    > = {};
     if (propIds.length > 0) {
       const { data: props } = await supabase
         .from("properties")
@@ -220,14 +239,20 @@ export function ClientMyDocumentsSidePanel({
       }
     }
 
-    const map: Record<string, { propertyLabel: string; agentId: string | null }> = {};
+    const map: Record<
+      string,
+      { propertyLabel: string; agentId: string | null }
+    > = {};
     for (const l of (leads ?? []) as {
       id: number;
       property_id: string | null;
       agent_id: string | null;
     }[]) {
       const pid = l.property_id;
-      const pl = pid && propsById[pid] ? propertyLabel(propsById[pid].name, propsById[pid].location) : "Property inquiry";
+      const pl =
+        pid && propsById[pid]
+          ? propertyLabel(propsById[pid].name, propsById[pid].location)
+          : "Property inquiry";
       map[String(l.id)] = { propertyLabel: pl, agentId: l.agent_id };
     }
     setLeadInfoById(map);
@@ -236,7 +261,9 @@ export function ClientMyDocumentsSidePanel({
 
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
-    const res = await fetch("/api/client/document-activity", { credentials: "include" });
+    const res = await fetch("/api/client/document-activity", {
+      credentials: "include",
+    });
     const json = (await res.json().catch(() => ({}))) as {
       entries?: { id: string; created_at: string; message: string }[];
       error?: string;
@@ -267,11 +294,15 @@ export function ClientMyDocumentsSidePanel({
 
   const rowByType = useMemo(() => {
     const m = new Map<string, ClientDocRow & { created_at?: string }>();
-    for (const r of rows) m.set(r.document_type, r as ClientDocRow & { created_at?: string });
+    for (const r of rows)
+      m.set(r.document_type, r as ClientDocRow & { created_at?: string });
     return m;
   }, [rows]);
 
-  const uploadWithProgress = (documentType: ClientDocumentTypeKey, file: File) => {
+  const uploadWithProgress = (
+    documentType: ClientDocumentTypeKey,
+    file: File,
+  ) => {
     const fd = new FormData();
     fd.set("file", file);
     fd.set("document_type", documentType);
@@ -288,7 +319,10 @@ export function ClientMyDocumentsSidePanel({
         resolve(
           new Response(xhr.responseText, {
             status: xhr.status,
-            headers: { "Content-Type": xhr.getResponseHeader("Content-Type") || "application/json" },
+            headers: {
+              "Content-Type":
+                xhr.getResponseHeader("Content-Type") || "application/json",
+            },
           }),
         );
       };
@@ -323,7 +357,10 @@ export function ClientMyDocumentsSidePanel({
     ensureConsent(() => void runUpload(documentType, file));
   };
 
-  const shareWithAgent = async (agentUserId: string, documentTypes: ClientDocumentTypeKey[]) => {
+  const shareWithAgent = async (
+    agentUserId: string,
+    documentTypes: ClientDocumentTypeKey[],
+  ) => {
     const key = `${agentUserId}:${documentTypes.join(",")}`;
     setShareBusy(key);
     try {
@@ -331,7 +368,10 @@ export function ClientMyDocumentsSidePanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ agent_user_id: agentUserId, document_types: documentTypes }),
+        body: JSON.stringify({
+          agent_user_id: agentUserId,
+          document_types: documentTypes,
+        }),
       });
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -347,7 +387,11 @@ export function ClientMyDocumentsSidePanel({
     }
   };
 
-  const uploadAndShare = (agentUserId: string, documentType: ClientDocumentTypeKey, file: File) => {
+  const uploadAndShare = (
+    agentUserId: string,
+    documentType: ClientDocumentTypeKey,
+    file: File,
+  ) => {
     ensureConsent(async () => {
       if (file.size > 10 * 1024 * 1024) {
         toast.error("File must be 10MB or smaller.");
@@ -368,9 +412,14 @@ export function ClientMyDocumentsSidePanel({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ agent_user_id: agentUserId, document_types: [documentType] }),
+          body: JSON.stringify({
+            agent_user_id: agentUserId,
+            document_types: [documentType],
+          }),
         });
-        const shareJson = (await shareRes.json().catch(() => ({}))) as { error?: string };
+        const shareJson = (await shareRes.json().catch(() => ({}))) as {
+          error?: string;
+        };
         if (!shareRes.ok) {
           toast.error(shareJson.error ?? "Could not share");
           return;
@@ -396,7 +445,10 @@ export function ClientMyDocumentsSidePanel({
         credentials: "include",
         body: JSON.stringify({ file_url: fileUrl }),
       });
-      const json = (await res.json().catch(() => ({}))) as { signedUrl?: string; error?: string };
+      const json = (await res.json().catch(() => ({}))) as {
+        signedUrl?: string;
+        error?: string;
+      };
       if (!res.ok || !json.signedUrl) {
         toast.error(json.error ?? "Could not open document");
         return;
@@ -430,14 +482,20 @@ export function ClientMyDocumentsSidePanel({
     await loadHistory();
   };
 
-  const unshare = async (documentType: ClientDocumentTypeKey, agentUserId: string) => {
+  const unshare = async (
+    documentType: ClientDocumentTypeKey,
+    agentUserId: string,
+  ) => {
     setUnshareBusy(`${documentType}:${agentUserId}`);
     try {
       const res = await fetch("/api/client/unshare-document", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ document_type: documentType, agent_user_id: agentUserId }),
+        body: JSON.stringify({
+          document_type: documentType,
+          agent_user_id: agentUserId,
+        }),
       });
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -452,7 +510,12 @@ export function ClientMyDocumentsSidePanel({
     }
   };
 
-  const sendDocumentToAgent = (notifId: string, agentUserId: string, leadId: number | null, file: File) => {
+  const sendDocumentToAgent = (
+    notifId: string,
+    agentUserId: string,
+    leadId: number | null,
+    file: File,
+  ) => {
     ensureConsent(async () => {
       if (file.size > 10 * 1024 * 1024) {
         toast.error("File must be 10MB or smaller.");
@@ -484,8 +547,12 @@ export function ClientMyDocumentsSidePanel({
     });
   };
 
-  const requestNotifications = notifications.filter((n) => n.type === "document_request");
-  const sharedNotifications = notifications.filter((n) => n.type === "document_shared");
+  const requestNotifications = notifications.filter(
+    (n) => n.type === "document_request",
+  );
+  const sharedNotifications = notifications.filter(
+    (n) => n.type === "document_shared",
+  );
 
   return (
     <>
@@ -520,8 +587,12 @@ export function ClientMyDocumentsSidePanel({
                 >
                   <X className="h-5 w-5" />
                 </button>
-                <h2 className="pr-10 font-serif text-xl text-[#2C2C2C]">Document Center</h2>
-                <p className="mt-1 text-sm text-gray-500">Manage and share your documents</p>
+                <h2 className="pr-10 font-serif text-xl text-[#2C2C2C]">
+                  Document Center
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Manage and share your documents
+                </p>
 
                 <div className="mt-5 flex gap-6 border-b border-gray-100">
                   {(
@@ -562,25 +633,36 @@ export function ClientMyDocumentsSidePanel({
                                 style={{ width: `${uploadPct}%` }}
                               />
                             </div>
-                            <p className="mt-1 text-xs text-gray-400">Uploading… {uploadPct}%</p>
+                            <p className="mt-1 text-xs text-gray-400">
+                              Uploading… {uploadPct}%
+                            </p>
                           </div>
                         ) : null}
                         {CLIENT_DOCUMENT_TYPES.map(({ key, label }) => {
                           const row = rowByType.get(key);
                           const uploadedAt = row?.created_at
-                            ? new Date(row.created_at).toLocaleDateString(undefined, {
-                                dateStyle: "medium",
-                              })
+                            ? new Date(row.created_at).toLocaleDateString(
+                                undefined,
+                                {
+                                  dateStyle: "medium",
+                                },
+                              )
                             : null;
 
                           return (
                             <div key={key} className="mb-3">
                               {!row ? (
                                 <div className="rounded-xl border-2 border-dashed border-gray-200 p-6 text-center">
-                                  <p className="mb-1 text-sm font-medium text-[#2C2C2C]">{label}</p>
-                                  <p className="text-xs text-gray-400">No document uploaded</p>
+                                  <p className="mb-1 text-sm font-medium text-[#2C2C2C]">
+                                    {label}
+                                  </p>
+                                  <p className="text-xs text-gray-400">
+                                    No document uploaded
+                                  </p>
                                   <label className="mt-3 inline-flex cursor-pointer rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-medium text-white hover:bg-[#5d8a60] disabled:opacity-50">
-                                    {uploadingKey === key ? `Uploading… ${uploadPct}%` : "Upload"}
+                                    {uploadingKey === key
+                                      ? `Uploading… ${uploadPct}%`
+                                      : "Upload"}
                                     <input
                                       type="file"
                                       accept="image/*,application/pdf"
@@ -597,7 +679,9 @@ export function ClientMyDocumentsSidePanel({
                               ) : (
                                 <div className="rounded-xl border border-gray-100 p-4">
                                   <div className="flex items-start justify-between gap-2">
-                                    <span className="text-sm font-medium text-[#2C2C2C]">{label}</span>
+                                    <span className="text-sm font-medium text-[#2C2C2C]">
+                                      {label}
+                                    </span>
                                     <span className="rounded-full bg-[#6B9E6E]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#6B9E6E]">
                                       Uploaded
                                     </span>
@@ -606,16 +690,22 @@ export function ClientMyDocumentsSidePanel({
                                     {row.file_name ?? row.file_url}
                                   </p>
                                   {uploadedAt ? (
-                                    <p className="mt-0.5 text-xs text-gray-300">{uploadedAt}</p>
+                                    <p className="mt-0.5 text-xs text-gray-300">
+                                      {uploadedAt}
+                                    </p>
                                   ) : null}
                                   <div className="mt-3 flex flex-wrap gap-2">
                                     <button
                                       type="button"
                                       disabled={viewBusyId === row.file_url}
-                                      onClick={() => void viewDocument(row.file_url)}
+                                      onClick={() =>
+                                        void viewDocument(row.file_url)
+                                      }
                                       className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-[#2C2C2C] hover:bg-gray-50 disabled:opacity-50"
                                     >
-                                      {viewBusyId === row.file_url ? "…" : "View"}
+                                      {viewBusyId === row.file_url
+                                        ? "…"
+                                        : "View"}
                                     </button>
                                     <label className="cursor-pointer rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-[#2C2C2C] hover:bg-gray-50">
                                       Replace
@@ -644,18 +734,30 @@ export function ClientMyDocumentsSidePanel({
                                     <div className="mt-3 border-t border-gray-50 pt-3">
                                       <p className="text-xs text-gray-400">
                                         Shared with:{" "}
-                                        {(row.shared_with ?? []).map((aid) => namesById[aid] ?? "Agent").join(", ")}
+                                        {(row.shared_with ?? [])
+                                          .map(
+                                            (aid) => namesById[aid] ?? "Agent",
+                                          )
+                                          .join(", ")}
                                       </p>
                                       <ul className="mt-2 space-y-1">
                                         {(row.shared_with ?? []).map((aid) => (
-                                          <li key={aid} className="flex items-center justify-between gap-2">
+                                          <li
+                                            key={aid}
+                                            className="flex items-center justify-between gap-2"
+                                          >
                                             <span className="text-xs text-gray-500">
-                                              {namesById[aid] ?? aid.slice(0, 8)}
+                                              {namesById[aid] ??
+                                                aid.slice(0, 8)}
                                             </span>
                                             <button
                                               type="button"
-                                              disabled={unshareBusy === `${key}:${aid}`}
-                                              onClick={() => void unshare(key, aid)}
+                                              disabled={
+                                                unshareBusy === `${key}:${aid}`
+                                              }
+                                              onClick={() =>
+                                                void unshare(key, aid)
+                                              }
                                               className="text-xs font-medium text-red-400 hover:underline disabled:opacity-50"
                                             >
                                               Unshare
@@ -668,18 +770,24 @@ export function ClientMyDocumentsSidePanel({
 
                                   {deleteConfirmType === key ? (
                                     <div className="mt-3 rounded-lg border border-red-100 bg-red-50/50 p-3">
-                                      <p className="text-sm font-medium text-[#2C2C2C]">Delete this document?</p>
+                                      <p className="text-sm font-medium text-[#2C2C2C]">
+                                        Delete this document?
+                                      </p>
                                       <div className="mt-2 flex gap-2">
                                         <button
                                           type="button"
-                                          onClick={() => void deleteDocument(key)}
+                                          onClick={() =>
+                                            void deleteDocument(key)
+                                          }
                                           className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
                                         >
                                           Yes
                                         </button>
                                         <button
                                           type="button"
-                                          onClick={() => setDeleteConfirmType(null)}
+                                          onClick={() =>
+                                            setDeleteConfirmType(null)
+                                          }
                                           className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-[#2C2C2C]"
                                         >
                                           No
@@ -699,17 +807,22 @@ export function ClientMyDocumentsSidePanel({
 
                 {tab === "from-agent" ? (
                   <div>
-                    {docRequest.requestAgentId && docRequest.requestAgentName ? (
+                    {docRequest.requestAgentId &&
+                    docRequest.requestAgentName ? (
                       <div className="mb-4 rounded-xl border border-[#6B9E6E]/30 bg-[#6B9E6E]/5 px-3 py-2 text-sm text-[#2C2C2C]">
-                        <span className="font-semibold">{docRequest.requestAgentName}</span> requested
-                        documents — respond below.
+                        <span className="font-semibold">
+                          {docRequest.requestAgentName}
+                        </span>{" "}
+                        requested documents — respond below.
                       </div>
                     ) : null}
 
                     <h3 className="font-serif text-lg font-semibold text-[#2C2C2C]">
                       Documents from your agents
                     </h3>
-                    <p className="mt-1 text-sm text-gray-500">Review and respond to agent requests</p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Review and respond to agent requests
+                    </p>
 
                     {loadingFromAgent ? (
                       <p className="mt-6 text-sm text-gray-400">Loading…</p>
@@ -719,7 +832,9 @@ export function ClientMyDocumentsSidePanel({
                           Requested from you
                         </p>
                         {requestNotifications.length === 0 ? (
-                          <p className="mt-2 text-sm text-gray-400">No pending requests</p>
+                          <p className="mt-2 text-sm text-gray-400">
+                            No pending requests
+                          </p>
                         ) : (
                           requestNotifications.map((n) => {
                             const m = (n.metadata ?? {}) as {
@@ -728,52 +843,86 @@ export function ClientMyDocumentsSidePanel({
                               agent_user_id?: unknown;
                               document_types?: unknown;
                             };
-                            const link = typeof m.link === "string" ? m.link : "";
+                            const link =
+                              typeof m.link === "string" ? m.link : "";
                             const typesFromMeta = m.document_types;
                             const types = Array.isArray(typesFromMeta)
                               ? typesFromMeta
-                                  .map((t) => (typeof t === "string" ? t.trim() : ""))
-                                  .filter((t): t is ClientDocumentTypeKey => isClientDocumentType(t))
+                                  .map((t) =>
+                                    typeof t === "string" ? t.trim() : "",
+                                  )
+                                  .filter((t): t is ClientDocumentTypeKey =>
+                                    isClientDocumentType(t),
+                                  )
                               : parseReqTypesFromLink(link);
                             const leadIdRaw = m.lead_id;
                             const leadId =
                               typeof leadIdRaw === "number"
                                 ? leadIdRaw
-                                : typeof leadIdRaw === "string" && /^\d+$/.test(leadIdRaw)
+                                : typeof leadIdRaw === "string" &&
+                                    /^\d+$/.test(leadIdRaw)
                                   ? parseInt(leadIdRaw, 10)
                                   : null;
                             const agentUserId =
-                              typeof m.agent_user_id === "string" ? m.agent_user_id.trim() : "";
-                            const leadKey = leadId != null ? String(leadId) : "";
-                            const info = leadKey ? leadInfoById[leadKey] : undefined;
+                              typeof m.agent_user_id === "string"
+                                ? m.agent_user_id.trim()
+                                : "";
+                            const leadKey =
+                              leadId != null ? String(leadId) : "";
+                            const info = leadKey
+                              ? leadInfoById[leadKey]
+                              : undefined;
                             const propertyName = info?.propertyLabel ?? "—";
 
                             return (
-                              <div key={n.id} className="mt-3 rounded-xl border border-gray-200 p-4">
-                                <p className="font-medium text-[#2C2C2C]">{n.title}</p>
-                                <p className="mt-1 text-sm text-gray-500">{propertyName}</p>
-                                {n.body ? <p className="mt-1 text-xs text-gray-400">{n.body}</p> : null}
+                              <div
+                                key={n.id}
+                                className="mt-3 rounded-xl border border-gray-200 p-4"
+                              >
+                                <p className="font-medium text-[#2C2C2C]">
+                                  {n.title}
+                                </p>
+                                <p className="mt-1 text-sm text-gray-500">
+                                  {propertyName}
+                                </p>
+                                {n.body ? (
+                                  <p className="mt-1 text-xs text-gray-400">
+                                    {n.body}
+                                  </p>
+                                ) : null}
                                 <p className="mt-2 text-xs text-gray-300">
-                                  {new Date(n.created_at).toLocaleString(undefined, {
-                                    dateStyle: "medium",
-                                    timeStyle: "short",
-                                  })}
+                                  {new Date(n.created_at).toLocaleString(
+                                    undefined,
+                                    {
+                                      dateStyle: "medium",
+                                      timeStyle: "short",
+                                    },
+                                  )}
                                 </p>
                                 {!agentUserId ? (
-                                  <p className="mt-2 text-xs text-amber-700">Missing agent reference.</p>
+                                  <p className="mt-2 text-xs text-amber-700">
+                                    Missing agent reference.
+                                  </p>
                                 ) : types.length === 0 ? (
                                   <p className="mt-2 text-xs text-gray-400">
-                                    Open the link in this notification email or refresh — requested document types
-                                    could not be loaded.
+                                    Open the link in this notification email or
+                                    refresh — requested document types could not
+                                    be loaded.
                                   </p>
                                 ) : (
                                   <ul className="mt-3 space-y-2">
                                     {types
-                                      .filter((dt): dt is ClientDocumentTypeKey => isClientDocumentType(dt))
+                                      .filter(
+                                        (dt): dt is ClientDocumentTypeKey =>
+                                          isClientDocumentType(dt),
+                                      )
                                       .map((dt) => {
                                         const docRow = rowByType.get(dt);
-                                        const busyShare = shareBusy === `${agentUserId}:${dt}`;
-                                        const busyUp = uploadShareBusy === `${agentUserId}:${dt}`;
+                                        const busyShare =
+                                          shareBusy === `${agentUserId}:${dt}`;
+                                        const busyUp =
+                                          uploadShareBusy ===
+                                          `${agentUserId}:${dt}`;
                                         return (
                                           <li
                                             key={dt}
@@ -786,23 +935,41 @@ export function ClientMyDocumentsSidePanel({
                                               <button
                                                 type="button"
                                                 disabled={busyShare}
-                                                onClick={() => void shareWithAgent(agentUserId, [dt])}
+                                                onClick={() =>
+                                                  void shareWithAgent(
+                                                    agentUserId,
+                                                    [dt],
+                                                  )
+                                                }
                                                 className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#5d8a60] disabled:opacity-50"
                                               >
-                                                {busyShare ? "…" : "Share with agent"}
+                                                {busyShare
+                                                  ? "…"
+                                                  : "Share with agent"}
                                               </button>
                                             ) : (
                                               <label className="cursor-pointer rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#5d8a60] disabled:opacity-50">
-                                                {busyUp ? "…" : "Upload & Share"}
+                                                {busyUp
+                                                  ? "…"
+                                                  : "Upload & Share"}
                                                 <input
                                                   type="file"
                                                   accept="image/*,application/pdf"
                                                   className="sr-only"
-                                                  disabled={busyUp || uploadingKey !== null}
+                                                  disabled={
+                                                    busyUp ||
+                                                    uploadingKey !== null
+                                                  }
                                                   onChange={(e) => {
-                                                    const f = e.target.files?.[0];
+                                                    const f =
+                                                      e.target.files?.[0];
                                                     e.target.value = "";
-                                                    if (f) uploadAndShare(agentUserId, dt, f);
+                                                    if (f)
+                                                      uploadAndShare(
+                                                        agentUserId,
+                                                        dt,
+                                                        f,
+                                                      );
                                                   }}
                                                 />
                                               </label>
@@ -821,59 +988,78 @@ export function ClientMyDocumentsSidePanel({
                           Sent to you
                         </p>
                         {sharedNotifications.length === 0 ? (
-                          <p className="mt-2 text-sm text-gray-400">No documents from agents yet</p>
+                          <p className="mt-2 text-sm text-gray-400">
+                            No documents from agents yet
+                          </p>
                         ) : (
                           sharedNotifications.map((n) => {
                             const m = (n.metadata ?? {}) as {
-                              signed_url?: unknown;
+                              file_url?: unknown;
                               file_name?: unknown;
                               lead_id?: unknown;
                               agent_name?: unknown;
                               deal_document_id?: unknown;
                             };
-                            const signedUrl =
-                              typeof m.signed_url === "string" ? m.signed_url.trim() : "";
+                            const fileUrl =
+                              typeof m.file_url === "string"
+                                ? m.file_url.trim()
+                                : "";
                             const fileName =
-                              typeof m.file_name === "string" ? m.file_name : "Document";
+                              typeof m.file_name === "string"
+                                ? m.file_name
+                                : "Document";
                             const leadIdRaw = m.lead_id;
                             const leadId =
                               typeof leadIdRaw === "number"
                                 ? leadIdRaw
-                                : typeof leadIdRaw === "string" && /^\d+$/.test(leadIdRaw)
+                                : typeof leadIdRaw === "string" &&
+                                    /^\d+$/.test(leadIdRaw)
                                   ? parseInt(leadIdRaw, 10)
                                   : null;
-                            const leadKey = leadId != null ? String(leadId) : "";
-                            const info = leadKey ? leadInfoById[leadKey] : undefined;
+                            const leadKey =
+                              leadId != null ? String(leadId) : "";
+                            const info = leadKey
+                              ? leadInfoById[leadKey]
+                              : undefined;
                             const agentUserId = info?.agentId ?? "";
                             const agentName =
-                              typeof m.agent_name === "string" && m.agent_name.trim()
+                              typeof m.agent_name === "string" &&
+                              m.agent_name.trim()
                                 ? m.agent_name.trim()
                                 : "Your agent";
 
                             return (
-                              <div key={n.id} className="mt-3 rounded-xl border border-gray-200 p-4">
-                                <p className="font-medium text-[#2C2C2C]">{n.title}</p>
+                              <div
+                                key={n.id}
+                                className="mt-3 rounded-xl border border-gray-200 p-4"
+                              >
+                                <p className="font-medium text-[#2C2C2C]">
+                                  {n.title}
+                                </p>
                                 <p className="mt-1 text-sm text-gray-600">
                                   {agentName} · {fileName}
                                 </p>
                                 <p className="mt-2 text-xs text-gray-300">
-                                  {new Date(n.created_at).toLocaleString(undefined, {
-                                    dateStyle: "medium",
-                                    timeStyle: "short",
-                                  })}
+                                  {new Date(n.created_at).toLocaleString(
+                                    undefined,
+                                    {
+                                      dateStyle: "medium",
+                                      timeStyle: "short",
+                                    },
+                                  )}
                                 </p>
                                 <div className="mt-3 flex flex-wrap gap-2">
-                                  {signedUrl ? (
+                                  {fileUrl ? (
                                     <>
                                       <button
                                         type="button"
-                                        onClick={() => viewSignedUrl(signedUrl)}
+                                        onClick={() => viewSignedUrl(fileUrl)}
                                         className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#5d8a60]"
                                       >
                                         View Document
                                       </button>
                                       <a
-                                        href={signedUrl}
+                                        href={fileUrl}
                                         download={fileName}
                                         className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-[#2C2C2C] hover:bg-gray-50"
                                       >
@@ -881,29 +1067,47 @@ export function ClientMyDocumentsSidePanel({
                                       </a>
                                     </>
                                   ) : (
-                                    <p className="text-xs text-gray-400">No preview link available</p>
+                                    <p className="text-xs text-gray-400">
+                                      No preview link available
+                                    </p>
                                   )}
                                 </div>
 
                                 {agentUserId ? (
                                   <div className="mt-4 border-t border-gray-100 pt-4">
-                                    <p className="text-sm font-medium text-[#2C2C2C]">Send a document back</p>
-                                    <p className="mt-1 text-xs text-gray-400">Any file type, max 10MB</p>
+                                    <p className="text-sm font-medium text-[#2C2C2C]">
+                                      Send a document back
+                                    </p>
+                                    <p className="mt-1 text-xs text-gray-400">
+                                      Any file type, max 10MB
+                                    </p>
                                     <input
                                       type="file"
                                       className="mt-2 w-full text-xs text-gray-600 file:mr-2 file:rounded-full file:border-0 file:bg-gray-100 file:px-3 file:py-1"
                                       onChange={(e) => {
                                         const f = e.target.files?.[0] ?? null;
                                         e.target.value = "";
-                                        setPendingSendFile((p) => ({ ...p, [n.id]: f }));
+                                        setPendingSendFile((p) => ({
+                                          ...p,
+                                          [n.id]: f,
+                                        }));
                                       }}
                                     />
                                     <button
                                       type="button"
-                                      disabled={!pendingSendFile[n.id] || sendBackBusy === n.id}
+                                      disabled={
+                                        !pendingSendFile[n.id] ||
+                                        sendBackBusy === n.id
+                                      }
                                       onClick={() => {
                                         const f = pendingSendFile[n.id];
-                                        if (f) sendDocumentToAgent(n.id, agentUserId, leadId, f);
+                                        if (f)
+                                          sendDocumentToAgent(
+                                            n.id,
+                                            agentUserId,
+                                            leadId,
+                                            f,
+                                          );
                                       }}
                                       className="mt-3 w-full rounded-full bg-[#6B9E6E] px-4 py-2 text-sm font-medium text-white hover:bg-[#5d8a60] disabled:opacity-50"
                                     >
@@ -924,24 +1128,36 @@ export function ClientMyDocumentsSidePanel({
 
                 {tab === "history" ? (
                   <div>
-                    <h3 className="font-serif text-lg font-semibold text-[#2C2C2C]">Document Activity</h3>
+                    <h3 className="font-serif text-lg font-semibold text-[#2C2C2C]">
+                      Document Activity
+                    </h3>
                     {loadingHistory ? (
                       <p className="mt-4 text-sm text-gray-400">Loading…</p>
                     ) : historyEntries.length === 0 ? (
-                      <p className="mt-4 text-sm text-gray-400">No document activity yet</p>
+                      <p className="mt-4 text-sm text-gray-400">
+                        No document activity yet
+                      </p>
                     ) : (
                       <div className="relative mt-6 pl-4">
-                        <div className="absolute bottom-2 left-[7px] top-2 w-px bg-gray-200" aria-hidden />
+                        <div
+                          className="absolute bottom-2 left-[7px] top-2 w-px bg-gray-200"
+                          aria-hidden
+                        />
                         <ul className="space-y-0">
                           {historyEntries.map((e) => (
                             <li key={e.id} className="relative pb-6 pl-4">
                               <span className="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-[#6B9E6E]" />
-                              <p className="text-sm text-[#2C2C2C]">{e.message}</p>
+                              <p className="text-sm text-[#2C2C2C]">
+                                {e.message}
+                              </p>
                               <p className="mt-1 text-xs text-gray-400">
-                                {new Date(e.created_at).toLocaleString(undefined, {
-                                  dateStyle: "medium",
-                                  timeStyle: "short",
-                                })}
+                                {new Date(e.created_at).toLocaleString(
+                                  undefined,
+                                  {
+                                    dateStyle: "medium",
+                                    timeStyle: "short",
+                                  },
+                                )}
                               </p>
                             </li>
                           ))}

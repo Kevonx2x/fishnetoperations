@@ -21,7 +21,7 @@ import {
   MessageSquare,
   MoreHorizontal,
   Settings,
-    Sparkles,
+  Sparkles,
   User,
   Users,
   X,
@@ -30,7 +30,10 @@ import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { AgentBillingTab } from "@/components/dashboard/agent-billing-tab";
 import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
-import { AgentPipelineTab, type PipelineStageId } from "@/components/dashboard/agent-pipeline-tab";
+import {
+  AgentPipelineTab,
+  type PipelineStageId,
+} from "@/components/dashboard/agent-pipeline-tab";
 import { AgentChatInbox } from "@/components/chat/agent-chat-inbox";
 import { StreamChatProvider } from "@/components/chat/stream-chat-provider";
 import { useAuth } from "@/contexts/auth-context";
@@ -54,7 +57,10 @@ import { ImportListingModal } from "@/components/dashboard/import-listing-modal"
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
-import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
+import {
+  isPhilippinePhoneMode,
+  validatePhilippinePhoneInput,
+} from "@/lib/phone-ph";
 import { formatListingPricePhp } from "@/lib/format-listing-price";
 import { cn } from "@/lib/utils";
 import {
@@ -191,9 +197,20 @@ const EDIT_PROPERTY_TYPES = [
   "Presale",
 ] as const;
 
-const PRESALE_UNIT_TYPE_OPTIONS = ["Studio", "1BR", "2BR", "3BR", "4BR+"] as const;
+const PRESALE_UNIT_TYPE_OPTIONS = [
+  "Studio",
+  "1BR",
+  "2BR",
+  "3BR",
+  "4BR+",
+] as const;
 
-const EDIT_LISTING_STATUSES = ["active", "under_offer", "sold", "off_market"] as const;
+const EDIT_LISTING_STATUSES = [
+  "active",
+  "under_offer",
+  "sold",
+  "off_market",
+] as const;
 
 const DEFAULT_LISTING_IMAGE =
   "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&h=800&fit=crop";
@@ -225,7 +242,9 @@ function buildEditListingImageUrls(
     .map((r) => r.url?.trim())
     .filter((u): u is string => Boolean(u));
 
-  const mainNorm = imageUrl?.trim() ? normalizeListingImageUrl(imageUrl.trim()) : "";
+  const mainNorm = imageUrl?.trim()
+    ? normalizeListingImageUrl(imageUrl.trim())
+    : "";
   const mainOriginal = imageUrl?.trim() || "";
 
   if (urlsFromDb.length > 0 && mainNorm) {
@@ -290,13 +309,21 @@ function computeListingCompleteness(
   const photosOk = imageUrls.filter((u) => u?.trim()).length >= 1;
   const priceOk =
     form.listing_type === "both"
-      ? !validateListingPriceDisplay(form.price) && !validateListingPriceDisplay(form.rent_price ?? "")
+      ? !validateListingPriceDisplay(form.price) &&
+        !validateListingPriceDisplay(form.rent_price ?? "")
       : !validateListingPriceDisplay(form.price);
   const locationOk = form.location.trim().length > 0;
   const typeOk = Boolean(form.property_type?.trim());
   const bedsBathsOk =
-    !validateBedsBaths(form.beds, "Beds") && !validateBedsBaths(form.baths, "Baths");
-  const requiredCount = [photosOk, priceOk, locationOk, typeOk, bedsBathsOk].filter(Boolean).length;
+    !validateBedsBaths(form.beds, "Beds") &&
+    !validateBedsBaths(form.baths, "Baths");
+  const requiredCount = [
+    photosOk,
+    priceOk,
+    locationOk,
+    typeOk,
+    bedsBathsOk,
+  ].filter(Boolean).length;
   const descWords = form.description.trim().split(/\s+/).filter(Boolean).length;
   const descRec = descWords >= 50;
   const titleRec = form.name.trim().length > 0;
@@ -324,13 +351,13 @@ function ListingCompletenessAside({
   return (
     <aside className="w-full shrink-0 lg:sticky lg:top-0 lg:w-52">
       <div className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">Publishing checklist</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+          Publishing checklist
+        </p>
         <div className="mt-2">
           <div className="flex items-center justify-between text-[10px] font-bold text-[#2C2C2C]/55">
             <span>Required</span>
-            <span>
-              {c.requiredCount}/5 required fields
-            </span>
+            <span>{c.requiredCount}/5 required fields</span>
           </div>
           <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-black/10">
             <div
@@ -339,50 +366,84 @@ function ListingCompletenessAside({
             />
           </div>
         </div>
-        <p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">Required</p>
+        <p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+          Required
+        </p>
         <ul className="mt-1 space-y-1.5">
           <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/85">
             {c.photosOk ? (
-              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+              <Check
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600"
+                aria-hidden
+              />
             ) : (
-              <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" aria-hidden />
+              <X
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500"
+                aria-hidden
+              />
             )}
             <span>At least 1 photo</span>
           </li>
           <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/85">
             {c.priceOk ? (
-              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+              <Check
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600"
+                aria-hidden
+              />
             ) : (
-              <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" aria-hidden />
+              <X
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500"
+                aria-hidden
+              />
             )}
             <span>Price</span>
           </li>
           <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/85">
             {c.locationOk ? (
-              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+              <Check
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600"
+                aria-hidden
+              />
             ) : (
-              <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" aria-hidden />
+              <X
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500"
+                aria-hidden
+              />
             )}
             <span>Location</span>
           </li>
           <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/85">
             {c.typeOk ? (
-              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+              <Check
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600"
+                aria-hidden
+              />
             ) : (
-              <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" aria-hidden />
+              <X
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500"
+                aria-hidden
+              />
             )}
             <span>Property type</span>
           </li>
           <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/85">
             {c.bedsBathsOk ? (
-              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+              <Check
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600"
+                aria-hidden
+              />
             ) : (
-              <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" aria-hidden />
+              <X
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500"
+                aria-hidden
+              />
             )}
             <span>Beds & baths</span>
           </li>
         </ul>
-        <p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">Recommended</p>
+        <p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+          Recommended
+        </p>
         <ul className="mt-1 space-y-1.5">
           <li className="flex items-start gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/80">
             <span className="mt-0.5 shrink-0">{c.descRec ? "✅" : "⚠️"}</span>
@@ -402,8 +463,23 @@ function ListingCompletenessAside({
   );
 }
 
-const LANGUAGE_OPTIONS = ["English", "Filipino", "Mandarin", "Hokkien", "Spanish", "Bisaya", "Ilocano"] as const;
-const SPECIALTY_OPTIONS = ["Luxury", "Condo", "House & Lot", "Commercial", "Rental", "Farm"] as const;
+const LANGUAGE_OPTIONS = [
+  "English",
+  "Filipino",
+  "Mandarin",
+  "Hokkien",
+  "Spanish",
+  "Bisaya",
+  "Ilocano",
+] as const;
+const SPECIALTY_OPTIONS = [
+  "Luxury",
+  "Condo",
+  "House & Lot",
+  "Commercial",
+  "Rental",
+  "Farm",
+] as const;
 
 function propertyPriceToFormDisplay(price: PropertyRow["price"]): string {
   if (typeof price === "number" && Number.isFinite(price)) {
@@ -430,7 +506,10 @@ function splitServiceAreas(s: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
-function listingStatusForApi(isPresale: boolean, lt: EditListingForm["listing_type"]): "for_sale" | "for_rent" | "both" {
+function listingStatusForApi(
+  isPresale: boolean,
+  lt: EditListingForm["listing_type"],
+): "for_sale" | "for_rent" | "both" {
   if (isPresale) return "for_sale";
   if (lt === "both") return "both";
   if (lt === "rent") return "for_rent";
@@ -475,7 +554,9 @@ function labelForStage(stage: string): string {
   return LEAD_STAGE_OPTIONS.find((o) => o.value === stage)?.label ?? stage;
 }
 
-function editFormPriceString(price: PropertyRow["price"] | null | undefined): string {
+function editFormPriceString(
+  price: PropertyRow["price"] | null | undefined,
+): string {
   if (price === null || price === undefined) return "";
   if (typeof price === "number" && Number.isFinite(price)) return String(price);
   const s = String(price).trim();
@@ -513,7 +594,9 @@ function AgentDashboardDocumentsTab({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const ids = leads.map((l) => l.id).filter((id): id is number => typeof id === "number");
+    const ids = leads
+      .map((l) => l.id)
+      .filter((id): id is number => typeof id === "number");
     if (ids.length === 0) {
       setRows([]);
       setLoading(false);
@@ -541,20 +624,28 @@ function AgentDashboardDocumentsTab({
     };
   }, [leads, supabase]);
 
-  const leadName = (leadId: number) => leads.find((l) => l.id === leadId)?.name ?? `Lead #${leadId}`;
+  const leadName = (leadId: number) =>
+    leads.find((l) => l.id === leadId)?.name ?? `Lead #${leadId}`;
 
   return (
     <div className="font-sans">
-      <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">Documents</h2>
+      <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">
+        Documents
+      </h2>
       <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/55">
         Deal documents across your pipeline leads.
       </p>
       {loading ? (
         <div className="mt-10 flex justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" aria-hidden />
+          <Loader2
+            className="h-8 w-8 animate-spin text-[#6B9E6E]"
+            aria-hidden
+          />
         </div>
       ) : rows.length === 0 ? (
-        <p className="mt-10 text-center text-sm font-semibold text-[#2C2C2C]/55">No documents yet.</p>
+        <p className="mt-10 text-center text-sm font-semibold text-[#2C2C2C]/55">
+          No documents yet.
+        </p>
       ) : (
         <div className="mt-8 overflow-x-auto rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
           <table className="w-full min-w-[520px] text-left text-sm">
@@ -568,10 +659,19 @@ function AgentDashboardDocumentsTab({
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-b border-[#2C2C2C]/5 last:border-0">
-                  <td className="px-4 py-3 font-semibold text-[#2C2C2C]">{leadName(r.lead_id)}</td>
-                  <td className="px-4 py-3 text-[#2C2C2C]/70">{r.document_type ?? "—"}</td>
-                  <td className="px-4 py-3 text-[#2C2C2C]/70">{r.file_name ?? "—"}</td>
+                <tr
+                  key={r.id}
+                  className="border-b border-[#2C2C2C]/5 last:border-0"
+                >
+                  <td className="px-4 py-3 font-semibold text-[#2C2C2C]">
+                    {leadName(r.lead_id)}
+                  </td>
+                  <td className="px-4 py-3 text-[#2C2C2C]/70">
+                    {r.document_type ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 text-[#2C2C2C]/70">
+                    {r.file_name ?? "—"}
+                  </td>
                   <td className="px-4 py-3">
                     <span className="rounded-full bg-[#6B9E6E]/15 px-2.5 py-0.5 text-xs font-semibold text-[#2C2C2C]">
                       {r.status ?? "—"}
@@ -596,7 +696,9 @@ export function AgentDashboard() {
   const [streamChannelId, setStreamChannelId] = useState<string | null>(null);
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [agent, setAgent] = useState<AgentRow | null>(null);
-  const [paymentBannerTier, setPaymentBannerTier] = useState<string | null>(null);
+  const [paymentBannerTier, setPaymentBannerTier] = useState<string | null>(
+    null,
+  );
   /** Set from `?editProperty=` on /dashboard/agent; applied after listings load (see propertiesLoadVersion). */
   const pendingEditPropertyIdRef = useRef<string | null>(null);
 
@@ -632,7 +734,11 @@ export function AgentDashboard() {
       sp.delete("payment");
       sp.delete("tier");
       const qs = sp.toString();
-      window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+      window.history.replaceState(
+        {},
+        "",
+        `${window.location.pathname}${qs ? `?${qs}` : ""}`,
+      );
     }
   }, []);
 
@@ -642,13 +748,20 @@ export function AgentDashboard() {
     if (!paymentBannerTier || paymentAlertShownRef.current) return;
     paymentAlertShownRef.current = true;
     const tier = normalizeListingTier(paymentBannerTier);
-    showAlert(`🎉 Welcome to ${TIER_LABEL[tier]}! Your account has been upgraded.`, "success");
+    showAlert(
+      `🎉 Welcome to ${TIER_LABEL[tier]}! Your account has been upgraded.`,
+      "success",
+    );
   }, [paymentBannerTier, showAlert]);
 
   const [loaded, setLoaded] = useState(false);
   /** Mirrors `profiles.role` for this session; drives team-member-only navigation. */
-  const [sessionDashboardKind, setSessionDashboardKind] = useState<"agent" | "team_member">("agent");
-  const [teamMemberSetupError, setTeamMemberSetupError] = useState<string | null>(null);
+  const [sessionDashboardKind, setSessionDashboardKind] = useState<
+    "agent" | "team_member"
+  >("agent");
+  const [teamMemberSetupError, setTeamMemberSetupError] = useState<
+    string | null
+  >(null);
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [pipelineBadgeRefreshKey, setPipelineBadgeRefreshKey] = useState(0);
   const [viewings, setViewings] = useState<ViewingRow[]>([]);
@@ -656,14 +769,22 @@ export function AgentDashboard() {
   const [selectedLead, setSelectedLead] = useState<LeadRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
-  const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null);
-  const [leavingPropertyId, setLeavingPropertyId] = useState<string | null>(null);
+  const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(
+    null,
+  );
+  const [leavingPropertyId, setLeavingPropertyId] = useState<string | null>(
+    null,
+  );
   const [profileViewsCount, setProfileViewsCount] = useState(0);
   const [pendingDealDocumentsCount, setPendingDealDocumentsCount] = useState(0);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [yesterdayNewLeadsCount, setYesterdayNewLeadsCount] = useState(0);
-  const [yesterdayPendingDocumentsCount, setYesterdayPendingDocumentsCount] = useState(0);
-  const [yesterdayUnreadNotificationsCount, setYesterdayUnreadNotificationsCount] = useState(0);
+  const [yesterdayPendingDocumentsCount, setYesterdayPendingDocumentsCount] =
+    useState(0);
+  const [
+    yesterdayUnreadNotificationsCount,
+    setYesterdayUnreadNotificationsCount,
+  ] = useState(0);
 
   const [profileForm, setProfileForm] = useState({
     name: "",
@@ -683,11 +804,15 @@ export function AgentDashboard() {
 
   const [listingOpen, setListingOpen] = useState(false);
   const [listingLimitModalOpen, setListingLimitModalOpen] = useState(false);
-  const [listingLimitModalKind, setListingLimitModalKind] = useState<"owned" | "coList">("owned");
-  const [listingPublishDisclosureOpen, setListingPublishDisclosureOpen] = useState(false);
+  const [listingLimitModalKind, setListingLimitModalKind] = useState<
+    "owned" | "coList"
+  >("owned");
+  const [listingPublishDisclosureOpen, setListingPublishDisclosureOpen] =
+    useState(false);
   const [editWarningOpen, setEditWarningOpen] = useState(false);
   const [editFormOpen, setEditFormOpen] = useState(false);
-  const [pendingEditProperty, setPendingEditProperty] = useState<PropertyRow | null>(null);
+  const [pendingEditProperty, setPendingEditProperty] =
+    useState<PropertyRow | null>(null);
   const [editPropertyId, setEditPropertyId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditListingForm>({
     name: "",
@@ -725,8 +850,12 @@ export function AgentDashboard() {
     source_url: null as string | null,
     source_hash: null as string | null,
   });
-  const [listingFormErrors, setListingFormErrors] = useState<Record<string, string>>({});
-  const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
+  const [listingFormErrors, setListingFormErrors] = useState<
+    Record<string, string>
+  >({});
+  const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>(
+    {},
+  );
   const editListingCompleteness = useMemo(
     () => computeListingCompleteness(editForm, editListingImages),
     [editForm, editListingImages],
@@ -740,9 +869,17 @@ export function AgentDashboard() {
     if (!user?.id) return;
     setTeamMemberSetupError(null);
 
-    const { data: profileRow } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-    const accountRole = ((profileRow as { role?: string | null } | null)?.role ?? "").trim();
-    setSessionDashboardKind(accountRole === "team_member" ? "team_member" : "agent");
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    const accountRole = (
+      (profileRow as { role?: string | null } | null)?.role ?? ""
+    ).trim();
+    setSessionDashboardKind(
+      accountRole === "team_member" ? "team_member" : "agent",
+    );
 
     if (accountRole === "team_member") {
       const { data: tm, error: tmErr } = await supabase
@@ -764,7 +901,9 @@ export function AgentDashboard() {
         setYesterdayUnreadNotificationsCount(0);
         setPropertiesLoadVersion((v) => v + 1);
         setLoaded(true);
-        setTeamMemberSetupError(tmErr?.message ?? "No active team assignment found.");
+        setTeamMemberSetupError(
+          tmErr?.message ?? "No active team assignment found.",
+        );
         return;
       }
 
@@ -789,11 +928,16 @@ export function AgentDashboard() {
         setYesterdayPendingDocumentsCount(0);
         setYesterdayUnreadNotificationsCount(0);
         setPropertiesLoadVersion((v) => v + 1);
-        setTeamMemberSetupError("Supervising agent profile could not be loaded.");
+        setTeamMemberSetupError(
+          "Supervising agent profile could not be loaded.",
+        );
         return;
       }
 
-      if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
+      if (
+        a.status === "approved" &&
+        (a as AgentRow).verification_status === "verified"
+      ) {
         const supervisorUserId = (a as AgentRow).user_id;
         const [{ data: ld }, unreadRes] = await Promise.all([
           supabase
@@ -811,7 +955,9 @@ export function AgentDashboard() {
         ]);
         const leadRows = (ld as LeadRow[]) ?? [];
         setLeads(leadRows);
-        setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
+        setUnreadNotificationsCount(
+          unreadRes.error ? 0 : (unreadRes.count ?? 0),
+        );
         setProperties([]);
         setViewings([]);
         setProfileViewsCount(0);
@@ -832,7 +978,9 @@ export function AgentDashboard() {
           .lt("created_at", startTodayIso);
         setYesterdayNewLeadsCount(yLeadRes.error ? 0 : (yLeadRes.count ?? 0));
 
-        const leadIds = leadRows.map((l) => l.id).filter((id): id is number => typeof id === "number");
+        const leadIds = leadRows
+          .map((l) => l.id)
+          .filter((id): id is number => typeof id === "number");
         if (leadIds.length === 0) {
           setPendingDealDocumentsCount(0);
           setYesterdayPendingDocumentsCount(0);
@@ -852,7 +1000,9 @@ export function AgentDashboard() {
             .eq("status", "pending")
             .gte("created_at", startYesterdayIso)
             .lt("created_at", startTodayIso);
-          setYesterdayPendingDocumentsCount(yDocsRes.error ? 0 : (yDocsRes.count ?? 0));
+          setYesterdayPendingDocumentsCount(
+            yDocsRes.error ? 0 : (yDocsRes.count ?? 0),
+          );
 
           const yUnreadRes = await supabase
             .from("notifications")
@@ -861,7 +1011,9 @@ export function AgentDashboard() {
             .is("read_at", null)
             .gte("created_at", startYesterdayIso)
             .lt("created_at", startTodayIso);
-          setYesterdayUnreadNotificationsCount(yUnreadRes.error ? 0 : (yUnreadRes.count ?? 0));
+          setYesterdayUnreadNotificationsCount(
+            yUnreadRes.error ? 0 : (yUnreadRes.count ?? 0),
+          );
         }
       } else {
         setLeads([]);
@@ -901,8 +1053,18 @@ export function AgentDashboard() {
       return;
     }
 
-    if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
-      const [{ data: ld }, { data: owned }, { data: paRows }, vwRes, viewsRes, unreadRes] = await Promise.all([
+    if (
+      a.status === "approved" &&
+      (a as AgentRow).verification_status === "verified"
+    ) {
+      const [
+        { data: ld },
+        { data: owned },
+        { data: paRows },
+        vwRes,
+        viewsRes,
+        unreadRes,
+      ] = await Promise.all([
         supabase
           .from("leads")
           .select(
@@ -917,7 +1079,10 @@ export function AgentDashboard() {
           )
           .eq("listed_by", user.id)
           .order("created_at", { ascending: false }),
-        supabase.from("property_agents").select("property_id").eq("agent_id", a.id),
+        supabase
+          .from("property_agents")
+          .select("property_id")
+          .eq("agent_id", a.id),
         supabase
           .from("viewing_requests")
           .select("*")
@@ -957,7 +1122,9 @@ export function AgentDashboard() {
       setYesterdayNewLeadsCount(yLeadRes.error ? 0 : (yLeadRes.count ?? 0));
 
       // Deal documents: count pending docs across this agent's leads.
-      const leadIds = leadRows.map((l) => l.id).filter((id): id is number => typeof id === "number");
+      const leadIds = leadRows
+        .map((l) => l.id)
+        .filter((id): id is number => typeof id === "number");
       if (leadIds.length === 0) {
         setPendingDealDocumentsCount(0);
         setYesterdayPendingDocumentsCount(0);
@@ -977,7 +1144,9 @@ export function AgentDashboard() {
           .eq("status", "pending")
           .gte("created_at", startYesterdayIso)
           .lt("created_at", startTodayIso);
-        setYesterdayPendingDocumentsCount(yDocsRes.error ? 0 : (yDocsRes.count ?? 0));
+        setYesterdayPendingDocumentsCount(
+          yDocsRes.error ? 0 : (yDocsRes.count ?? 0),
+        );
 
         const yUnreadRes = await supabase
           .from("notifications")
@@ -986,42 +1155,55 @@ export function AgentDashboard() {
           .is("read_at", null)
           .gte("created_at", startYesterdayIso)
           .lt("created_at", startTodayIso);
-        setYesterdayUnreadNotificationsCount(yUnreadRes.error ? 0 : (yUnreadRes.count ?? 0));
+        setYesterdayUnreadNotificationsCount(
+          yUnreadRes.error ? 0 : (yUnreadRes.count ?? 0),
+        );
       }
 
-      const ownedList = ((owned ?? []) as Record<string, unknown>[]).map((raw) => {
-        const p = raw as Record<string, unknown>;
-        return {
-          id: String(p.id),
-          name: (p.name as string | null) ?? null,
-          location: String(p.location ?? ""),
-          price: p.price as string | number,
-          rent_price: p.rent_price as string | number | null | undefined,
-          listing_type: (p.listing_type as PropertyRow["listing_type"]) ?? null,
-          image_url: String(p.image_url ?? ""),
-          status: p.status as PropertyRow["status"],
-          beds: typeof p.beds === "number" ? p.beds : Number(p.beds) || 0,
-          baths: typeof p.baths === "number" ? p.baths : Number(p.baths) || 0,
-          sqft: p.sqft != null ? String(p.sqft) : "",
-          description: (p.description as string | null) ?? null,
-          property_type: (p.property_type as string | null) ?? null,
-          listing_status: (p.listing_status as PropertyRow["listing_status"]) ?? "active",
-          is_presale: Boolean(p.is_presale),
-          developer_name: (p.developer_name as string | null) ?? null,
-          turnover_date: p.turnover_date != null ? String(p.turnover_date).slice(0, 10) : null,
-          unit_types: Array.isArray(p.unit_types) ? (p.unit_types as string[]) : [],
-          isCoHost: false as const,
-          expires_at:
-            p.expires_at != null && typeof p.expires_at === "string"
-              ? p.expires_at
-              : p.expires_at != null
-                ? String(p.expires_at)
+      const ownedList = ((owned ?? []) as Record<string, unknown>[]).map(
+        (raw) => {
+          const p = raw as Record<string, unknown>;
+          return {
+            id: String(p.id),
+            name: (p.name as string | null) ?? null,
+            location: String(p.location ?? ""),
+            price: p.price as string | number,
+            rent_price: p.rent_price as string | number | null | undefined,
+            listing_type:
+              (p.listing_type as PropertyRow["listing_type"]) ?? null,
+            image_url: String(p.image_url ?? ""),
+            status: p.status as PropertyRow["status"],
+            beds: typeof p.beds === "number" ? p.beds : Number(p.beds) || 0,
+            baths: typeof p.baths === "number" ? p.baths : Number(p.baths) || 0,
+            sqft: p.sqft != null ? String(p.sqft) : "",
+            description: (p.description as string | null) ?? null,
+            property_type: (p.property_type as string | null) ?? null,
+            listing_status:
+              (p.listing_status as PropertyRow["listing_status"]) ?? "active",
+            is_presale: Boolean(p.is_presale),
+            developer_name: (p.developer_name as string | null) ?? null,
+            turnover_date:
+              p.turnover_date != null
+                ? String(p.turnover_date).slice(0, 10)
                 : null,
-        };
-      });
+            unit_types: Array.isArray(p.unit_types)
+              ? (p.unit_types as string[])
+              : [],
+            isCoHost: false as const,
+            expires_at:
+              p.expires_at != null && typeof p.expires_at === "string"
+                ? p.expires_at
+                : p.expires_at != null
+                  ? String(p.expires_at)
+                  : null,
+          };
+        },
+      );
       const ownedIds = new Set(ownedList.map((p) => p.id));
       const coIds = [
-        ...new Set((paRows ?? []).map((r) => (r as { property_id: string }).property_id)),
+        ...new Set(
+          (paRows ?? []).map((r) => (r as { property_id: string }).property_id),
+        ),
       ].filter((id) => !ownedIds.has(id));
 
       let cohosted: PropertyRow[] = [];
@@ -1041,7 +1223,8 @@ export function AgentDashboard() {
             location: String(p.location ?? ""),
             price: p.price as string | number,
             rent_price: p.rent_price as string | number | null | undefined,
-            listing_type: (p.listing_type as PropertyRow["listing_type"]) ?? null,
+            listing_type:
+              (p.listing_type as PropertyRow["listing_type"]) ?? null,
             image_url: String(p.image_url ?? ""),
             status: p.status as PropertyRow["status"],
             beds: typeof p.beds === "number" ? p.beds : Number(p.beds) || 0,
@@ -1049,11 +1232,17 @@ export function AgentDashboard() {
             sqft: p.sqft != null ? String(p.sqft) : "",
             description: (p.description as string | null) ?? null,
             property_type: (p.property_type as string | null) ?? null,
-            listing_status: (p.listing_status as PropertyRow["listing_status"]) ?? "active",
+            listing_status:
+              (p.listing_status as PropertyRow["listing_status"]) ?? "active",
             is_presale: Boolean(p.is_presale),
             developer_name: (p.developer_name as string | null) ?? null,
-            turnover_date: p.turnover_date != null ? String(p.turnover_date).slice(0, 10) : null,
-            unit_types: Array.isArray(p.unit_types) ? (p.unit_types as string[]) : [],
+            turnover_date:
+              p.turnover_date != null
+                ? String(p.turnover_date).slice(0, 10)
+                : null,
+            unit_types: Array.isArray(p.unit_types)
+              ? (p.unit_types as string[])
+              : [],
             isCoHost: true as const,
             expires_at:
               p.expires_at != null && typeof p.expires_at === "string"
@@ -1118,9 +1307,14 @@ export function AgentDashboard() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: uid }),
         });
-        const json = (await res.json()) as { success?: boolean; data?: { score: number } };
+        const json = (await res.json()) as {
+          success?: boolean;
+          data?: { score: number };
+        };
         if (json.success && json.data && typeof json.data.score === "number") {
-          setAgent((prev) => (prev ? { ...prev, score: json.data!.score } : null));
+          setAgent((prev) =>
+            prev ? { ...prev, score: json.data!.score } : null,
+          );
         }
       } catch {
         /* score recalc is best-effort */
@@ -1161,9 +1355,14 @@ export function AgentDashboard() {
       phone: agent.phone ?? "",
       bio: agent.bio ?? "",
       age: agent.age != null ? String(agent.age) : "",
-      yearsExperience: agent.years_experience != null ? String(agent.years_experience) : "",
-      languages: langs.filter((x) => (LANGUAGE_OPTIONS as readonly string[]).includes(x)),
-      specialties: spec.filter((x) => (SPECIALTY_OPTIONS as readonly string[]).includes(x)),
+      yearsExperience:
+        agent.years_experience != null ? String(agent.years_experience) : "",
+      languages: langs.filter((x) =>
+        (LANGUAGE_OPTIONS as readonly string[]).includes(x),
+      ),
+      specialties: spec.filter((x) =>
+        (SPECIALTY_OPTIONS as readonly string[]).includes(x),
+      ),
       serviceAreaTags: areas,
       serviceAreaDraft: "",
       instagram: sl.instagram ?? "",
@@ -1178,8 +1377,14 @@ export function AgentDashboard() {
     [properties],
   );
 
-  const listingLimit = useMemo(() => listingLimitForTier(agent?.listing_tier), [agent?.listing_tier]);
-  const coListLimit = useMemo(() => coListLimitForTier(agent?.listing_tier), [agent?.listing_tier]);
+  const listingLimit = useMemo(
+    () => listingLimitForTier(agent?.listing_tier),
+    [agent?.listing_tier],
+  );
+  const coListLimit = useMemo(
+    () => coListLimitForTier(agent?.listing_tier),
+    [agent?.listing_tier],
+  );
   const coListedCount = useMemo(
     () => properties.filter((p) => p.isCoHost).length,
     [properties],
@@ -1189,7 +1394,9 @@ export function AgentDashboard() {
     !isUnlimitedOwned(agent?.listing_tier) &&
     ownedListingCount >= listingLimit;
   const atCoListLimit =
-    identityVerified && !isUnlimitedCoList(agent?.listing_tier) && coListedCount >= coListLimit;
+    identityVerified &&
+    !isUnlimitedCoList(agent?.listing_tier) &&
+    coListedCount >= coListLimit;
 
   const openNewListingFlow = () => {
     if (atListingLimit) {
@@ -1210,11 +1417,15 @@ export function AgentDashboard() {
   }, [authLoading, user?.id, agent?.id, isTeamMemberView]);
 
   const profileComplete = useMemo(() => {
-    if (!agent) return { pct: 0, checks: [] as { ok: boolean; label: string }[] };
+    if (!agent)
+      return { pct: 0, checks: [] as { ok: boolean; label: string }[] };
     const checks = [
       { ok: !!agent.image_url?.trim(), label: "Profile photo" },
       { ok: !!(agent.bio && agent.bio.trim().length > 20), label: "Bio" },
-      { ok: !!(agent.specialties && agent.specialties.trim().length > 0), label: "Specialties" },
+      {
+        ok: !!(agent.specialties && agent.specialties.trim().length > 0),
+        label: "Specialties",
+      },
       { ok: properties.length >= 1, label: "At least one listing" },
     ];
     const done = checks.filter((c) => c.ok).length;
@@ -1224,7 +1435,9 @@ export function AgentDashboard() {
 
   const pipelineSidebarBadgeCount = useMemo(() => {
     return leads.filter((l) => {
-      const ps = String(l.pipeline_stage ?? "").trim().toLowerCase();
+      const ps = String(l.pipeline_stage ?? "")
+        .trim()
+        .toLowerCase();
       return ps !== "declined" && ps !== "closed";
     }).length;
   }, [leads, pipelineBadgeRefreshKey]);
@@ -1233,7 +1446,9 @@ export function AgentDashboard() {
     (propertyId: string | null) => {
       if (!propertyId) return "General inquiry";
       const p = properties.find((x) => x.id === propertyId);
-      return (p?.name?.trim() || p?.location || "Property").trim() || "Property";
+      return (
+        (p?.name?.trim() || p?.location || "Property").trim() || "Property"
+      );
     },
     [properties],
   );
@@ -1241,7 +1456,12 @@ export function AgentDashboard() {
   const responseRatePct = useMemo(() => {
     const total = leads.length;
     if (total <= 0) return 0;
-    const responded = leads.filter((l) => String(l.stage ?? "").trim().toLowerCase() !== "new").length;
+    const responded = leads.filter(
+      (l) =>
+        String(l.stage ?? "")
+          .trim()
+          .toLowerCase() !== "new",
+    ).length;
     if (!Number.isFinite(responded) || responded <= 0) return 0;
     return Math.round((responded / total) * 100);
   }, [leads]);
@@ -1257,7 +1477,9 @@ export function AgentDashboard() {
       linkedin: profileForm.linkedin.trim() || undefined,
       website: profileForm.website.trim() || undefined,
     };
-    const ageN = profileForm.age.trim() ? Number.parseInt(profileForm.age.replace(/\D/g, ""), 10) : null;
+    const ageN = profileForm.age.trim()
+      ? Number.parseInt(profileForm.age.replace(/\D/g, ""), 10)
+      : null;
     const yexpN = profileForm.yearsExperience.trim()
       ? Number.parseInt(profileForm.yearsExperience.replace(/\D/g, ""), 10)
       : null;
@@ -1282,12 +1504,23 @@ export function AgentDashboard() {
         name: profileForm.name.trim(),
         phone: phTrim || null,
         bio: bioTrim || null,
-        specialties: profileForm.specialties.length ? profileForm.specialties.join(", ") : null,
-        service_areas: profileForm.serviceAreaTags.length ? profileForm.serviceAreaTags.join("; ") : null,
-        languages_spoken: profileForm.languages.length ? profileForm.languages.join(", ") : null,
-        age: ageN != null && Number.isFinite(ageN) && ageN >= 18 && ageN <= 80 ? ageN : null,
+        specialties: profileForm.specialties.length
+          ? profileForm.specialties.join(", ")
+          : null,
+        service_areas: profileForm.serviceAreaTags.length
+          ? profileForm.serviceAreaTags.join("; ")
+          : null,
+        languages_spoken: profileForm.languages.length
+          ? profileForm.languages.join(", ")
+          : null,
+        age:
+          ageN != null && Number.isFinite(ageN) && ageN >= 18 && ageN <= 80
+            ? ageN
+            : null,
         years_experience:
-          yexpN != null && Number.isFinite(yexpN) && yexpN >= 0 && yexpN <= 50 ? yexpN : null,
+          yexpN != null && Number.isFinite(yexpN) && yexpN >= 0 && yexpN <= 50
+            ? yexpN
+            : null,
         social_links,
       })
       .eq("user_id", user.id);
@@ -1306,18 +1539,25 @@ export function AgentDashboard() {
     setMsg("");
     const ext = file.name.split(".").pop() || "jpg";
     const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("agent-avatars").upload(path, file, {
-      upsert: true,
-      contentType: file.type || "image/jpeg",
-    });
+    const { error: upErr } = await supabase.storage
+      .from("agent-avatars")
+      .upload(path, file, {
+        upsert: true,
+        contentType: file.type || "image/jpeg",
+      });
     if (upErr) {
       setSaving(false);
       setMsg(upErr.message);
       return;
     }
-    const { data: pub } = supabase.storage.from("agent-avatars").getPublicUrl(path);
+    const { data: pub } = supabase.storage
+      .from("agent-avatars")
+      .getPublicUrl(path);
     const url = pub.publicUrl;
-    const { error } = await supabase.from("agents").update({ image_url: url }).eq("user_id", user.id);
+    const { error } = await supabase
+      .from("agents")
+      .update({ image_url: url })
+      .eq("user_id", user.id);
     setSaving(false);
     if (error) {
       setMsg(error.message);
@@ -1328,12 +1568,17 @@ export function AgentDashboard() {
   };
 
   const updateLeadStage = async (leadId: number, stage: string) => {
-    const { error } = await supabase.from("leads").update({ stage }).eq("id", leadId);
+    const { error } = await supabase
+      .from("leads")
+      .update({ stage })
+      .eq("id", leadId);
     if (error) {
       setMsg(error.message);
       return;
     }
-    setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, stage } : l)));
+    setLeads((prev) =>
+      prev.map((l) => (l.id === leadId ? { ...l, stage } : l)),
+    );
     setSelectedLead((s) => (s && s.id === leadId ? { ...s, stage } : s));
   };
 
@@ -1342,11 +1587,43 @@ export function AgentDashboard() {
     if (!confirm("Are you sure? This cannot be undone.")) return;
     setDeletingPropertyId(propertyId);
     const orderedDeletes = [
-      { label: "co_agent_requests", run: () => supabase.from("co_agent_requests").delete().eq("property_id", propertyId) },
-      { label: "property_agents", run: () => supabase.from("property_agents").delete().eq("property_id", propertyId) },
-      { label: "property_photos", run: () => supabase.from("property_photos").delete().eq("property_id", propertyId) },
-      { label: "viewing_requests", run: () => supabase.from("viewing_requests").delete().eq("property_id", propertyId) },
-      { label: "leads", run: () => supabase.from("leads").delete().eq("property_id", propertyId) },
+      {
+        label: "co_agent_requests",
+        run: () =>
+          supabase
+            .from("co_agent_requests")
+            .delete()
+            .eq("property_id", propertyId),
+      },
+      {
+        label: "property_agents",
+        run: () =>
+          supabase
+            .from("property_agents")
+            .delete()
+            .eq("property_id", propertyId),
+      },
+      {
+        label: "property_photos",
+        run: () =>
+          supabase
+            .from("property_photos")
+            .delete()
+            .eq("property_id", propertyId),
+      },
+      {
+        label: "viewing_requests",
+        run: () =>
+          supabase
+            .from("viewing_requests")
+            .delete()
+            .eq("property_id", propertyId),
+      },
+      {
+        label: "leads",
+        run: () =>
+          supabase.from("leads").delete().eq("property_id", propertyId),
+      },
     ] as const;
     for (const step of orderedDeletes) {
       const { error } = await step.run();
@@ -1356,7 +1633,11 @@ export function AgentDashboard() {
         return;
       }
     }
-    const { error } = await supabase.from("properties").delete().eq("id", propertyId).eq("listed_by", user.id);
+    const { error } = await supabase
+      .from("properties")
+      .delete()
+      .eq("id", propertyId)
+      .eq("listed_by", user.id);
     setDeletingPropertyId(null);
     if (error) {
       setMsg(error.message);
@@ -1368,7 +1649,12 @@ export function AgentDashboard() {
 
   const leaveListing = async (propertyId: string) => {
     if (!agent?.id) return;
-    if (!confirm("Leave this co-listing? You will no longer appear on this property.")) return;
+    if (
+      !confirm(
+        "Leave this co-listing? You will no longer appear on this property.",
+      )
+    )
+      return;
     setLeavingPropertyId(propertyId);
     const { error } = await supabase
       .from("property_agents")
@@ -1395,16 +1681,25 @@ export function AgentDashboard() {
           .eq("property_id", propertyId);
         if (loadId !== editListingPhotosLoadIdRef.current) return;
         if (photoErr) {
-          toast.error("Could not load extra photos. Main image and other fields are still editable.");
+          toast.error(
+            "Could not load extra photos. Main image and other fields are still editable.",
+          );
         }
         const rowsForListing = (photoRows ?? []).filter(
-          (row) => String((row as { property_id?: string }).property_id ?? "") === propertyId,
+          (row) =>
+            String((row as { property_id?: string }).property_id ?? "") ===
+            propertyId,
         );
         const pt = (p.property_type ?? "House").trim();
-        const safeType = EDIT_PROPERTY_TYPES.includes(pt as (typeof EDIT_PROPERTY_TYPES)[number])
+        const safeType = EDIT_PROPERTY_TYPES.includes(
+          pt as (typeof EDIT_PROPERTY_TYPES)[number],
+        )
           ? pt
           : "House";
-        const imageUrls = buildEditListingImageUrls(p.image_url, rowsForListing as PropertyPhotoRow[]);
+        const imageUrls = buildEditListingImageUrls(
+          p.image_url,
+          rowsForListing as PropertyPhotoRow[],
+        );
         if (loadId !== editListingPhotosLoadIdRef.current) return;
         setEditPropertyId(propertyId);
         setEditFormErrors({});
@@ -1427,7 +1722,9 @@ export function AgentDashboard() {
           listing_status: normalizeEditListingStatus(p.listing_status),
           description: p.description ?? "",
           developer_name: p.developer_name?.trim() ?? "",
-          turnover_date: p.turnover_date ? String(p.turnover_date).slice(0, 10) : "",
+          turnover_date: p.turnover_date
+            ? String(p.turnover_date).slice(0, 10)
+            : "",
           unit_types: Array.isArray(p.unit_types) ? [...p.unit_types] : [],
         });
         setEditListingImages(imageUrls);
@@ -1457,7 +1754,11 @@ export function AgentDashboard() {
         const sp = new URLSearchParams(window.location.search);
         sp.delete("editProperty");
         const qs = sp.toString();
-        window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+        window.history.replaceState(
+          {},
+          "",
+          `${window.location.pathname}${qs ? `?${qs}` : ""}`,
+        );
       }
       return;
     }
@@ -1467,7 +1768,11 @@ export function AgentDashboard() {
       if (sp.has("editProperty")) {
         sp.delete("editProperty");
         const qs = sp.toString();
-        window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+        window.history.replaceState(
+          {},
+          "",
+          `${window.location.pathname}${qs ? `?${qs}` : ""}`,
+        );
       }
     }
   }, [propertiesLoadVersion, properties, user?.id, openEditFormFromProperty]);
@@ -1479,7 +1784,9 @@ export function AgentDashboard() {
         .from("property_agents")
         .select("agent_id")
         .eq("property_id", p.id);
-      const others = (pa ?? []).filter((row) => (row as { agent_id: string }).agent_id !== agent.id);
+      const others = (pa ?? []).filter(
+        (row) => (row as { agent_id: string }).agent_id !== agent.id,
+      );
       if (others.length > 0) {
         setPendingEditProperty(p);
         setEditWarningOpen(true);
@@ -1494,7 +1801,10 @@ export function AgentDashboard() {
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!editPropertyId) return;
-      if (!computeListingCompleteness(editForm, editListingImages).requiredComplete) {
+      if (
+        !computeListingCompleteness(editForm, editListingImages)
+          .requiredComplete
+      ) {
         toast.error("Complete required fields to publish");
         return;
       }
@@ -1514,9 +1824,12 @@ export function AgentDashboard() {
       const ba = validateBedsBaths(editForm.baths, "Baths");
       if (ba) errs.baths = ba;
       if (editForm.property_type === "Presale") {
-        if (!editForm.developer_name.trim()) errs.developer_name = "Developer name is required.";
-        if (!editForm.turnover_date.trim()) errs.turnover_date = "Expected turnover date is required.";
-        if (editForm.unit_types.length === 0) errs.unit_types = "Select at least one unit type.";
+        if (!editForm.developer_name.trim())
+          errs.developer_name = "Developer name is required.";
+        if (!editForm.turnover_date.trim())
+          errs.turnover_date = "Expected turnover date is required.";
+        if (editForm.unit_types.length === 0)
+          errs.unit_types = "Select at least one unit type.";
       }
       if (Object.keys(errs).length > 0) {
         setEditFormErrors(errs);
@@ -1527,7 +1840,9 @@ export function AgentDashboard() {
         const beds = Number(editForm.beds.replace(/\D/g, "")) || 0;
         const baths = Number(editForm.baths.replace(/\D/g, "")) || 0;
         const imageUrls =
-          editListingImages.length > 0 ? editListingImages : [DEFAULT_LISTING_IMAGE];
+          editListingImages.length > 0
+            ? editListingImages
+            : [DEFAULT_LISTING_IMAGE];
         const isPs = editForm.property_type === "Presale";
         const lt = editForm.listing_type;
         const rentForApi =
@@ -1590,11 +1905,14 @@ export function AgentDashboard() {
     setMsg("");
     const beds = Number(listingForm.beds.replace(/\D/g, "")) || 0;
     const baths = Number(listingForm.baths.replace(/\D/g, "")) || 0;
-    const mainImageUrl = listingForm.listingImageUrls[0]?.trim() || DEFAULT_LISTING_IMAGE;
+    const mainImageUrl =
+      listingForm.listingImageUrls[0]?.trim() || DEFAULT_LISTING_IMAGE;
     const isPs = listingForm.property_type === "Presale";
     const lt = listingForm.listing_type;
     const rentNum = parseListingPricePesos(listingForm.rent_price);
-    const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(
+      Date.now() + 60 * 24 * 60 * 60 * 1000,
+    ).toISOString();
     const { data: newProperty, error } = await supabase
       .from("properties")
       .insert({
@@ -1634,7 +1952,11 @@ export function AgentDashboard() {
       .single();
     setSaving(false);
     if (error) {
-      if (/row-level security|violates row-level security policy/i.test(error.message)) {
+      if (
+        /row-level security|violates row-level security policy/i.test(
+          error.message,
+        )
+      ) {
         setListingLimitModalKind("owned");
         setListingLimitModalOpen(true);
         setMsg("");
@@ -1649,7 +1971,9 @@ export function AgentDashboard() {
         agent_id: agent.id,
       });
       if (linkErr && linkErr.code !== "23505") {
-        setMsg(`Listing saved, but connected-agent link failed: ${linkErr.message}`);
+        setMsg(
+          `Listing saved, but connected-agent link failed: ${linkErr.message}`,
+        );
       }
     }
     if (newProperty?.id && listingForm.listingImageUrls.length > 1) {
@@ -1658,7 +1982,9 @@ export function AgentDashboard() {
         url,
         sort_order: i,
       }));
-      const { error: phErr } = await supabase.from("property_photos").insert(extras);
+      const { error: phErr } = await supabase
+        .from("property_photos")
+        .insert(extras);
       if (phErr) {
         setMsg(`Listing saved, but extra photos failed: ${phErr.message}`);
       }
@@ -1691,7 +2017,10 @@ export function AgentDashboard() {
   const createListing = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id) return;
-    if (!computeListingCompleteness(listingForm, listingForm.listingImageUrls).requiredComplete) {
+    if (
+      !computeListingCompleteness(listingForm, listingForm.listingImageUrls)
+        .requiredComplete
+    ) {
       toast.error("Complete required fields to publish");
       return;
     }
@@ -1717,9 +2046,12 @@ export function AgentDashboard() {
     const ba = validateBedsBaths(listingForm.baths, "Baths");
     if (ba) errs.baths = ba;
     if (listingForm.property_type === "Presale") {
-      if (!listingForm.developer_name.trim()) errs.developer_name = "Developer name is required.";
-      if (!listingForm.turnover_date.trim()) errs.turnover_date = "Expected turnover date is required.";
-      if (listingForm.unit_types.length === 0) errs.unit_types = "Select at least one unit type.";
+      if (!listingForm.developer_name.trim())
+        errs.developer_name = "Developer name is required.";
+      if (!listingForm.turnover_date.trim())
+        errs.turnover_date = "Expected turnover date is required.";
+      if (listingForm.unit_types.length === 0)
+        errs.unit_types = "Select at least one unit type.";
     }
     if (Object.keys(errs).length > 0) {
       setListingFormErrors(errs);
@@ -1746,10 +2078,15 @@ export function AgentDashboard() {
       return (
         <div className="min-h-screen bg-[#FAF8F4] px-4 py-16 font-sans">
           <div className="mx-auto max-w-lg rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 shadow-sm">
-            <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">Team dashboard</h1>
-            <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/65">{teamMemberSetupError}</p>
+            <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">
+              Team dashboard
+            </h1>
+            <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/65">
+              {teamMemberSetupError}
+            </p>
             <p className="mt-3 text-sm text-[#2C2C2C]/55">
-              Ask your supervising agent to send a new invite, or contact support if this persists.
+              Ask your supervising agent to send a new invite, or contact
+              support if this persists.
             </p>
           </div>
         </div>
@@ -1758,7 +2095,9 @@ export function AgentDashboard() {
     return (
       <div className="min-h-screen bg-[#FAF8F4] px-4 py-16">
         <div className="mx-auto max-w-lg rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 shadow-sm">
-          <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">Agent dashboard</h1>
+          <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">
+            Agent dashboard
+          </h1>
           <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/55">
             No agent profile is linked to this account yet.
           </p>
@@ -1774,33 +2113,86 @@ export function AgentDashboard() {
   }
 
   const allTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "overview", label: "Overview", icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
-    { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-[18px] w-[18px]" /> },
-    { id: "messages", label: "Messages", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
-    { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-[18px] w-[18px]" /> },
-    { id: "listings", label: "Listings", icon: <LayoutList className="h-[18px] w-[18px]" /> },
-    { id: "team", label: "Team", icon: <Users className="h-[18px] w-[18px]" /> },
-    { id: "billing", label: "Billing", icon: <CreditCard className="h-[18px] w-[18px]" /> },
-    { id: "notifications", label: "Notifications", icon: <Bell className="h-[18px] w-[18px]" /> },
-    { id: "profile", label: "Profile", icon: <Settings className="h-[18px] w-[18px]" /> },
+    {
+      id: "overview",
+      label: "Overview",
+      icon: <LayoutDashboard className="h-[18px] w-[18px]" />,
+    },
+    {
+      id: "pipeline",
+      label: "Pipeline",
+      icon: <GitBranch className="h-[18px] w-[18px]" />,
+    },
+    {
+      id: "messages",
+      label: "Messages",
+      icon: <MessageSquare className="h-[18px] w-[18px]" />,
+    },
+    {
+      id: "analytics",
+      label: "Analytics",
+      icon: <BarChart3 className="h-[18px] w-[18px]" />,
+    },
+    {
+      id: "listings",
+      label: "Listings",
+      icon: <LayoutList className="h-[18px] w-[18px]" />,
+    },
+    {
+      id: "team",
+      label: "Team",
+      icon: <Users className="h-[18px] w-[18px]" />,
+    },
+    {
+      id: "billing",
+      label: "Billing",
+      icon: <CreditCard className="h-[18px] w-[18px]" />,
+    },
+    {
+      id: "notifications",
+      label: "Notifications",
+      icon: <Bell className="h-[18px] w-[18px]" />,
+    },
+    {
+      id: "profile",
+      label: "Profile",
+      icon: <Settings className="h-[18px] w-[18px]" />,
+    },
   ];
-  const teamMemberNavTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-[18px] w-[18px]" /> },
-    { id: "messages", label: "Messages", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
-    { id: "documents", label: "Documents", icon: <FileText className="h-[18px] w-[18px]" /> },
-  ];
+  const teamMemberNavTabs: { id: Tab; label: string; icon: React.ReactNode }[] =
+    [
+      {
+        id: "pipeline",
+        label: "Pipeline",
+        icon: <GitBranch className="h-[18px] w-[18px]" />,
+      },
+      {
+        id: "messages",
+        label: "Messages",
+        icon: <MessageSquare className="h-[18px] w-[18px]" />,
+      },
+      {
+        id: "documents",
+        label: "Documents",
+        icon: <FileText className="h-[18px] w-[18px]" />,
+      },
+    ];
   const tabs = isTeamMemberView
     ? teamMemberNavTabs
     : identityVerified
       ? allTabs
-      : allTabs.filter((t) => t.id !== "pipeline" && t.id !== "listings" && t.id !== "team");
+      : allTabs.filter(
+          (t) => t.id !== "pipeline" && t.id !== "listings" && t.id !== "team",
+        );
 
   const mobilePrimaryTabIds: Tab[] = isTeamMemberView
     ? ["pipeline", "messages", "documents"]
     : identityVerified
       ? ["overview", "pipeline", "messages"]
       : ["overview"];
-  const mobileMoreTabIds: Tab[] = isTeamMemberView ? [] : ["listings", "team", "analytics", "billing", "profile"];
+  const mobileMoreTabIds: Tab[] = isTeamMemberView
+    ? []
+    : ["listings", "team", "analytics", "billing", "profile"];
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
@@ -1810,7 +2202,13 @@ export function AgentDashboard() {
           <div className="mb-5 flex items-center gap-2 px-1">
             <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-[#D4A843]/35">
               {agent.image_url ? (
-                <SupabasePublicImage src={agent.image_url} alt="" fill className="object-cover" sizes="40px" />
+                <SupabasePublicImage
+                  src={agent.image_url}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="40px"
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/20 text-sm font-bold text-[#2C2C2C]">
                   {agent.name.slice(0, 1)}
@@ -1818,8 +2216,12 @@ export function AgentDashboard() {
               )}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-[13px] font-semibold leading-tight text-[#2C2C2C]">{agent.name}</p>
-              <VerifiedAgentBadge show={agent.verification_status === "verified"} />
+              <p className="truncate text-[13px] font-semibold leading-tight text-[#2C2C2C]">
+                {agent.name}
+              </p>
+              <VerifiedAgentBadge
+                show={agent.verification_status === "verified"}
+              />
             </div>
           </div>
           <nav className="flex flex-1 flex-col gap-1">
@@ -1885,8 +2287,12 @@ export function AgentDashboard() {
                   unreadNotificationsCount={unreadNotificationsCount}
                   pendingDealDocumentsCount={pendingDealDocumentsCount}
                   yesterdayNewLeadsCount={yesterdayNewLeadsCount}
-                  yesterdayPendingDocumentsCount={yesterdayPendingDocumentsCount}
-                  yesterdayUnreadNotificationsCount={yesterdayUnreadNotificationsCount}
+                  yesterdayPendingDocumentsCount={
+                    yesterdayPendingDocumentsCount
+                  }
+                  yesterdayUnreadNotificationsCount={
+                    yesterdayUnreadNotificationsCount
+                  }
                   listingLimit={listingLimit}
                   coListLimit={coListLimit}
                   atListingLimit={atListingLimit}
@@ -1904,7 +2310,8 @@ export function AgentDashboard() {
                     name: l.name,
                     email: l.email,
                     client_id: l.client_id ?? null,
-                    pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,
+                    pipeline_stage: (l.pipeline_stage ??
+                      "lead") as PipelineStageId,
                     property_id: l.property_id ?? null,
                     created_at: l.created_at,
                     pipeline_position: l.pipeline_position ?? null,
@@ -1913,7 +2320,9 @@ export function AgentDashboard() {
                   propertyLabel={pipelinePropertyLabel}
                   supabase={supabase}
                   pipelineAgentId={agent.id}
-                  clientDocsSharedWithUserId={isTeamMemberView ? agent.user_id : undefined}
+                  clientDocsSharedWithUserId={
+                    isTeamMemberView ? agent.user_id : undefined
+                  }
                   onRefresh={refreshAfterPipelineChange}
                   onOpenLeadDetails={(leadId) => {
                     const row = leads.find((x) => x.id === leadId);
@@ -1930,18 +2339,26 @@ export function AgentDashboard() {
                 <AgentDashboardDocumentsTab leads={leads} supabase={supabase} />
               )}
               {tab === "analytics" && (
-                <AgentAnalyticsTab leads={leads} viewings={viewings} agent={agent} />
-              )}
-              {tab === "team" && identityVerified && user && agent && !isTeamMemberView && (
-                <AgentDashboardTeamTab
-                  agentId={agent.id}
-                  supabase={supabase}
-                  onGoToBilling={() => {
-                    setTab("billing");
-                    setMoreDrawerOpen(false);
-                  }}
+                <AgentAnalyticsTab
+                  leads={leads}
+                  viewings={viewings}
+                  agent={agent}
                 />
               )}
+              {tab === "team" &&
+                identityVerified &&
+                user &&
+                agent &&
+                !isTeamMemberView && (
+                  <AgentDashboardTeamTab
+                    agentId={agent.id}
+                    supabase={supabase}
+                    onGoToBilling={() => {
+                      setTab("billing");
+                      setMoreDrawerOpen(false);
+                    }}
+                  />
+                )}
               {tab === "listings" && identityVerified && (
                 <ListingsTab
                   properties={properties}
@@ -2000,7 +2417,9 @@ export function AgentDashboard() {
                 />
               )}
               {tab === "profile" && user && !agent && loaded && (
-                <p className="text-sm font-semibold text-[#2C2C2C]/55">No agent profile found.</p>
+                <p className="text-sm font-semibold text-[#2C2C2C]/55">
+                  No agent profile found.
+                </p>
               )}
             </motion.div>
           </AnimatePresence>
@@ -2042,14 +2461,22 @@ export function AgentDashboard() {
                   aria-hidden
                 />
               ) : null}
-              <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
+              <span
+                className={
+                  tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
+                }
+              >
                 {t.id === "pipeline" ? (
                   <EkgHeartbeatIcon className="h-5 w-5" />
                 ) : (
-                  <span className="inline-flex [&_svg]:h-5 [&_svg]:w-5">{t.icon}</span>
+                  <span className="inline-flex [&_svg]:h-5 [&_svg]:w-5">
+                    {t.icon}
+                  </span>
                 )}
               </span>
-              <span className={t.id === "pipeline" ? "text-xs" : ""}>{t.label}</span>
+              <span className={t.id === "pipeline" ? "text-xs" : ""}>
+                {t.label}
+              </span>
             </button>
           );
         })}
@@ -2058,12 +2485,16 @@ export function AgentDashboard() {
             type="button"
             onClick={() => setMoreDrawerOpen(true)}
             className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[10px] font-bold ${
-              moreDrawerOpen || mobileMoreTabIds.includes(tab) ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
+              moreDrawerOpen || mobileMoreTabIds.includes(tab)
+                ? "text-[#6B9E6E]"
+                : "text-[#2C2C2C]/45"
             }`}
           >
             <span
               className={
-                moreDrawerOpen || mobileMoreTabIds.includes(tab) ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
+                moreDrawerOpen || mobileMoreTabIds.includes(tab)
+                  ? "text-[#6B9E6E]"
+                  : "text-[#2C2C2C]/45"
               }
             >
               <MoreHorizontal className="h-5 w-5" />
@@ -2099,7 +2530,9 @@ export function AgentDashboard() {
               className="absolute bottom-0 left-0 right-0 max-h-[70vh] overflow-y-auto rounded-t-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="text-center text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">More</p>
+              <p className="text-center text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                More
+              </p>
               <div className="mx-auto mt-3 max-w-md space-y-1">
                 {mobileMoreTabIds.map((tid) => {
                   const t = tabs.find((x) => x.id === tid)!;
@@ -2112,10 +2545,18 @@ export function AgentDashboard() {
                         setMoreDrawerOpen(false);
                       }}
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${
-                        tab === t.id ? "bg-[#6B9E6E]/15 text-[#6B9E6E]" : "text-[#2C2C2C]/75 hover:bg-white/80"
+                        tab === t.id
+                          ? "bg-[#6B9E6E]/15 text-[#6B9E6E]"
+                          : "text-[#2C2C2C]/75 hover:bg-white/80"
                       }`}
                     >
-                      <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>{t.icon}</span>
+                      <span
+                        className={
+                          tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
+                        }
+                      >
+                        {t.icon}
+                      </span>
                       {t.label}
                     </button>
                   );
@@ -2154,11 +2595,15 @@ export function AgentDashboard() {
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-6 shadow-2xl"
             >
-              <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Publish listing</h2>
+              <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">
+                Publish listing
+              </h2>
               <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/75">
-                By publishing this listing you confirm that the property information is accurate and complete, you are
-                authorized to list this property on behalf of the owner, and you agree to BahayGo Terms of Service and
-                listing guidelines. BahayGo is not responsible for inaccurate or fraudulent listings.
+                By publishing this listing you confirm that the property
+                information is accurate and complete, you are authorized to list
+                this property on behalf of the owner, and you agree to BahayGo
+                Terms of Service and listing guidelines. BahayGo is not
+                responsible for inaccurate or fraudulent listings.
               </p>
               <div className="mt-6 flex flex-wrap gap-2">
                 <button
@@ -2203,11 +2648,15 @@ export function AgentDashboard() {
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-6 shadow-2xl"
             >
-              <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Edit Shared Listing</h2>
+              <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">
+                Edit Shared Listing
+              </h2>
               <p className="mt-3 text-sm font-semibold leading-relaxed text-[#2C2C2C]/75">
-                You are about to edit a listing that other agents may be connected to. All co-agents will be notified
-                of your changes. Providing false or misleading information may result in account suspension. By continuing
-                you confirm these changes are accurate.
+                You are about to edit a listing that other agents may be
+                connected to. All co-agents will be notified of your changes.
+                Providing false or misleading information may result in account
+                suspension. By continuing you confirm these changes are
+                accurate.
               </p>
               <div className="mt-6 flex flex-wrap gap-2">
                 <button
@@ -2259,7 +2708,9 @@ export function AgentDashboard() {
               className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-6 shadow-2xl"
             >
               <div className="flex items-center justify-between gap-2">
-                <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Edit listing</h2>
+                <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">
+                  Edit listing
+                </h2>
                 <button
                   type="button"
                   onClick={() => {
@@ -2276,290 +2727,348 @@ export function AgentDashboard() {
               </div>
               <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
                 <div className="min-w-0 flex-1 space-y-3">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Property name
-                  <input
-                    value={editForm.name}
-                    maxLength={60}
-                    onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                  />
-                  <p
-                    className={`mt-0.5 text-xs ${
-                      editForm.name.length >= 60
-                        ? "text-red-600"
-                        : editForm.name.length > 50
-                          ? "text-orange-500"
-                          : "text-gray-500"
-                    }`}
-                  >
-                    {editForm.name.length}/60
-                  </p>
-                </label>
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  {editForm.listing_type === "both"
-                    ? "Sale price (₱)"
-                    : editForm.listing_type === "rent"
-                      ? "Monthly rent (₱)"
-                      : "Price (₱)"}
-                  <input
-                    required
-                    value={editForm.price}
-                    onChange={(e) =>
-                      setEditForm((f) => ({ ...f, price: formatPriceInputDigits(e.target.value) }))
-                    }
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                    placeholder="₱12,000,000"
-                  />
-                </label>
-                {editFormErrors.price ? (
-                  <p className="text-sm font-semibold text-red-600">{editFormErrors.price}</p>
-                ) : null}
-                {editForm.listing_type === "both" ? (
                   <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                    Monthly rent (₱)
+                    Property name
+                    <input
+                      value={editForm.name}
+                      maxLength={60}
+                      onChange={(e) =>
+                        setEditForm((f) => ({ ...f, name: e.target.value }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    />
+                    <p
+                      className={`mt-0.5 text-xs ${
+                        editForm.name.length >= 60
+                          ? "text-red-600"
+                          : editForm.name.length > 50
+                            ? "text-orange-500"
+                            : "text-gray-500"
+                      }`}
+                    >
+                      {editForm.name.length}/60
+                    </p>
+                  </label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    {editForm.listing_type === "both"
+                      ? "Sale price (₱)"
+                      : editForm.listing_type === "rent"
+                        ? "Monthly rent (₱)"
+                        : "Price (₱)"}
                     <input
                       required
-                      value={editForm.rent_price}
+                      value={editForm.price}
                       onChange={(e) =>
                         setEditForm((f) => ({
                           ...f,
-                          rent_price: formatPriceInputDigits(e.target.value),
+                          price: formatPriceInputDigits(e.target.value),
                         }))
                       }
                       className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                      placeholder="₱45,000"
+                      placeholder="₱12,000,000"
                     />
                   </label>
-                ) : null}
-                {editFormErrors.rent_price ? (
-                  <p className="text-sm font-semibold text-red-600">{editFormErrors.rent_price}</p>
-                ) : null}
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Location
-                  <PhLocationInput
-                    required
-                    value={editForm.location}
-                    onChange={(v) => setEditForm((f) => ({ ...f, location: v }))}
-                    placeholder="e.g. BGC, Taguig"
-                    className="mt-1 w-full"
-                    inputClassName="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                  />
-                </label>
-                {editFormErrors.location ? (
-                  <p className="text-sm font-semibold text-red-600">{editFormErrors.location}</p>
-                ) : null}
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                    Beds
-                    <input
-                      inputMode="numeric"
-                      value={editForm.beds}
-                      onChange={(e) =>
-                        setEditForm((f) => ({
-                          ...f,
-                          beds: formatDigitsOnly(e.target.value, 2),
-                        }))
-                      }
-                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                    />
-                  </label>
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                    Baths
-                    <input
-                      inputMode="numeric"
-                      value={editForm.baths}
-                      onChange={(e) =>
-                        setEditForm((f) => ({
-                          ...f,
-                          baths: formatDigitsOnly(e.target.value, 2),
-                        }))
-                      }
-                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                    />
-                  </label>
-                </div>
-                {editFormErrors.beds || editFormErrors.baths ? (
-                  <p className="text-sm font-semibold text-red-600">
-                    {[editFormErrors.beds, editFormErrors.baths].filter(Boolean).join(" ")}
-                  </p>
-                ) : null}
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Sqft
-                  <input
-                    inputMode="numeric"
-                    value={editForm.sqft}
-                    onChange={(e) =>
-                      setEditForm((f) => ({ ...f, sqft: formatDigitsOnly(e.target.value, 6) }))
-                    }
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                  />
-                </label>
-                {editFormErrors.sqft ? (
-                  <p className="text-sm font-semibold text-red-600">{editFormErrors.sqft}</p>
-                ) : null}
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Property type
-                  <select
-                    value={editForm.property_type}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setEditForm((f) => ({
-                        ...f,
-                        property_type: v,
-                        listing_type: v === "Presale" ? "sale" : f.listing_type,
-                      }));
-                    }}
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                  >
-                    {EDIT_PROPERTY_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {editForm.property_type === "Presale" ? (
-                  <div className="space-y-3 rounded-xl border border-[#D4A843]/25 bg-[#FAF8F4]/80 p-3">
+                  {editFormErrors.price ? (
+                    <p className="text-sm font-semibold text-red-600">
+                      {editFormErrors.price}
+                    </p>
+                  ) : null}
+                  {editForm.listing_type === "both" ? (
                     <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                      Developer name
+                      Monthly rent (₱)
                       <input
-                        value={editForm.developer_name}
-                        onChange={(e) => setEditForm((f) => ({ ...f, developer_name: e.target.value }))}
-                        className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                         required
+                        value={editForm.rent_price}
+                        onChange={(e) =>
+                          setEditForm((f) => ({
+                            ...f,
+                            rent_price: formatPriceInputDigits(e.target.value),
+                          }))
+                        }
+                        className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                        placeholder="₱45,000"
                       />
                     </label>
-                    {editFormErrors.developer_name ? (
-                      <p className="text-sm font-semibold text-red-600">{editFormErrors.developer_name}</p>
-                    ) : null}
+                  ) : null}
+                  {editFormErrors.rent_price ? (
+                    <p className="text-sm font-semibold text-red-600">
+                      {editFormErrors.rent_price}
+                    </p>
+                  ) : null}
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    Location
+                    <PhLocationInput
+                      required
+                      value={editForm.location}
+                      onChange={(v) =>
+                        setEditForm((f) => ({ ...f, location: v }))
+                      }
+                      placeholder="e.g. BGC, Taguig"
+                      className="mt-1 w-full"
+                      inputClassName="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    />
+                  </label>
+                  {editFormErrors.location ? (
+                    <p className="text-sm font-semibold text-red-600">
+                      {editFormErrors.location}
+                    </p>
+                  ) : null}
+                  <div className="grid grid-cols-2 gap-3">
                     <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                      Expected turnover date
+                      Beds
                       <input
-                        type="date"
-                        value={editForm.turnover_date}
-                        onChange={(e) => setEditForm((f) => ({ ...f, turnover_date: e.target.value }))}
+                        inputMode="numeric"
+                        value={editForm.beds}
+                        onChange={(e) =>
+                          setEditForm((f) => ({
+                            ...f,
+                            beds: formatDigitsOnly(e.target.value, 2),
+                          }))
+                        }
                         className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                        required
                       />
                     </label>
-                    {editFormErrors.turnover_date ? (
-                      <p className="text-sm font-semibold text-red-600">{editFormErrors.turnover_date}</p>
-                    ) : null}
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Unit types</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {PRESALE_UNIT_TYPE_OPTIONS.map((u) => (
-                          <label key={u} className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-[#2C2C2C]">
-                            <input
-                              type="checkbox"
-                              checked={editForm.unit_types.includes(u)}
-                              onChange={() =>
-                                setEditForm((f) => ({
-                                  ...f,
-                                  unit_types: f.unit_types.includes(u)
-                                    ? f.unit_types.filter((x) => x !== u)
-                                    : [...f.unit_types, u],
-                                }))
-                              }
-                              className="rounded border-[#2C2C2C]/20"
-                            />
-                            {u}
-                          </label>
-                        ))}
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                      Baths
+                      <input
+                        inputMode="numeric"
+                        value={editForm.baths}
+                        onChange={(e) =>
+                          setEditForm((f) => ({
+                            ...f,
+                            baths: formatDigitsOnly(e.target.value, 2),
+                          }))
+                        }
+                        className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                      />
+                    </label>
+                  </div>
+                  {editFormErrors.beds || editFormErrors.baths ? (
+                    <p className="text-sm font-semibold text-red-600">
+                      {[editFormErrors.beds, editFormErrors.baths]
+                        .filter(Boolean)
+                        .join(" ")}
+                    </p>
+                  ) : null}
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    Sqft
+                    <input
+                      inputMode="numeric"
+                      value={editForm.sqft}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          sqft: formatDigitsOnly(e.target.value, 6),
+                        }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    />
+                  </label>
+                  {editFormErrors.sqft ? (
+                    <p className="text-sm font-semibold text-red-600">
+                      {editFormErrors.sqft}
+                    </p>
+                  ) : null}
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    Property type
+                    <select
+                      value={editForm.property_type}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setEditForm((f) => ({
+                          ...f,
+                          property_type: v,
+                          listing_type:
+                            v === "Presale" ? "sale" : f.listing_type,
+                        }));
+                      }}
+                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    >
+                      {EDIT_PROPERTY_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {editForm.property_type === "Presale" ? (
+                    <div className="space-y-3 rounded-xl border border-[#D4A843]/25 bg-[#FAF8F4]/80 p-3">
+                      <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                        Developer name
+                        <input
+                          value={editForm.developer_name}
+                          onChange={(e) =>
+                            setEditForm((f) => ({
+                              ...f,
+                              developer_name: e.target.value,
+                            }))
+                          }
+                          className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                          required
+                        />
+                      </label>
+                      {editFormErrors.developer_name ? (
+                        <p className="text-sm font-semibold text-red-600">
+                          {editFormErrors.developer_name}
+                        </p>
+                      ) : null}
+                      <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                        Expected turnover date
+                        <input
+                          type="date"
+                          value={editForm.turnover_date}
+                          onChange={(e) =>
+                            setEditForm((f) => ({
+                              ...f,
+                              turnover_date: e.target.value,
+                            }))
+                          }
+                          className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                          required
+                        />
+                      </label>
+                      {editFormErrors.turnover_date ? (
+                        <p className="text-sm font-semibold text-red-600">
+                          {editFormErrors.turnover_date}
+                        </p>
+                      ) : null}
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                          Unit types
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {PRESALE_UNIT_TYPE_OPTIONS.map((u) => (
+                            <label
+                              key={u}
+                              className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-[#2C2C2C]"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={editForm.unit_types.includes(u)}
+                                onChange={() =>
+                                  setEditForm((f) => ({
+                                    ...f,
+                                    unit_types: f.unit_types.includes(u)
+                                      ? f.unit_types.filter((x) => x !== u)
+                                      : [...f.unit_types, u],
+                                  }))
+                                }
+                                className="rounded border-[#2C2C2C]/20"
+                              />
+                              {u}
+                            </label>
+                          ))}
+                        </div>
                       </div>
+                      {editFormErrors.unit_types ? (
+                        <p className="text-sm font-semibold text-red-600">
+                          {editFormErrors.unit_types}
+                        </p>
+                      ) : null}
                     </div>
-                    {editFormErrors.unit_types ? (
-                      <p className="text-sm font-semibold text-red-600">{editFormErrors.unit_types}</p>
-                    ) : null}
-                  </div>
-                ) : null}
-                <div
-                  className={`rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2 ${
-                    editForm.property_type === "Presale" ? "opacity-50" : ""
-                  }`}
-                >
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                    For Sale / For Rent / Sale &amp; Rent
-                  </p>
-                  <div className="mt-2 grid grid-cols-3 gap-1.5">
-                    <button
-                      type="button"
-                      disabled={editForm.property_type === "Presale"}
-                      onClick={() => setEditForm((f) => ({ ...f, listing_type: "sale" }))}
-                      className={`rounded-full py-2 text-[11px] font-bold ${
-                        editForm.listing_type === "sale"
-                          ? "bg-[#6B9E6E] text-white"
-                          : "bg-[#FAF8F4] text-[#2C2C2C]/45"
-                      }`}
-                    >
-                      For Sale
-                    </button>
-                    <button
-                      type="button"
-                      disabled={editForm.property_type === "Presale"}
-                      onClick={() => setEditForm((f) => ({ ...f, listing_type: "rent" }))}
-                      className={`rounded-full py-2 text-[11px] font-bold ${
-                        editForm.listing_type === "rent"
-                          ? "bg-[#6B9E6E] text-white"
-                          : "bg-[#FAF8F4] text-[#2C2C2C]/45"
-                      }`}
-                    >
-                      For Rent
-                    </button>
-                    <button
-                      type="button"
-                      disabled={editForm.property_type === "Presale"}
-                      onClick={() => setEditForm((f) => ({ ...f, listing_type: "both" }))}
-                      className={`rounded-full py-2 text-[11px] font-bold leading-tight ${
-                        editForm.listing_type === "both"
-                          ? "bg-[#6B9E6E] text-white"
-                          : "bg-[#FAF8F4] text-[#2C2C2C]/45"
-                      }`}
-                    >
-                      Sale &amp; Rent
-                    </button>
-                  </div>
-                </div>
-                <CloudinaryUpload
-                  value={editListingImages}
-                  onUpload={setEditListingImages}
-                  maxFiles={10}
-                  disabled={savingEdit}
-                />
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Description
-                  <textarea
-                    value={editForm.description}
-                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                    rows={4}
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                  />
-                </label>
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Status
-                  <select
-                    value={editForm.listing_status}
-                    onChange={(e) =>
-                      setEditForm((f) => ({
-                        ...f,
-                        listing_status: e.target.value as EditListingForm["listing_status"],
-                      }))
-                    }
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                  ) : null}
+                  <div
+                    className={`rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2 ${
+                      editForm.property_type === "Presale" ? "opacity-50" : ""
+                    }`}
                   >
-                    <option value="active">Active</option>
-                    <option value="under_offer">Under Offer</option>
-                    <option value="sold">Sold</option>
-                    <option value="off_market">Off Market</option>
-                  </select>
-                </label>
+                    <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                      For Sale / For Rent / Sale &amp; Rent
+                    </p>
+                    <div className="mt-2 grid grid-cols-3 gap-1.5">
+                      <button
+                        type="button"
+                        disabled={editForm.property_type === "Presale"}
+                        onClick={() =>
+                          setEditForm((f) => ({ ...f, listing_type: "sale" }))
+                        }
+                        className={`rounded-full py-2 text-[11px] font-bold ${
+                          editForm.listing_type === "sale"
+                            ? "bg-[#6B9E6E] text-white"
+                            : "bg-[#FAF8F4] text-[#2C2C2C]/45"
+                        }`}
+                      >
+                        For Sale
+                      </button>
+                      <button
+                        type="button"
+                        disabled={editForm.property_type === "Presale"}
+                        onClick={() =>
+                          setEditForm((f) => ({ ...f, listing_type: "rent" }))
+                        }
+                        className={`rounded-full py-2 text-[11px] font-bold ${
+                          editForm.listing_type === "rent"
+                            ? "bg-[#6B9E6E] text-white"
+                            : "bg-[#FAF8F4] text-[#2C2C2C]/45"
+                        }`}
+                      >
+                        For Rent
+                      </button>
+                      <button
+                        type="button"
+                        disabled={editForm.property_type === "Presale"}
+                        onClick={() =>
+                          setEditForm((f) => ({ ...f, listing_type: "both" }))
+                        }
+                        className={`rounded-full py-2 text-[11px] font-bold leading-tight ${
+                          editForm.listing_type === "both"
+                            ? "bg-[#6B9E6E] text-white"
+                            : "bg-[#FAF8F4] text-[#2C2C2C]/45"
+                        }`}
+                      >
+                        Sale &amp; Rent
+                      </button>
+                    </div>
+                  </div>
+                  <CloudinaryUpload
+                    value={editListingImages}
+                    onUpload={setEditListingImages}
+                    maxFiles={10}
+                    disabled={savingEdit}
+                  />
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    Description
+                    <textarea
+                      value={editForm.description}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          description: e.target.value,
+                        }))
+                      }
+                      rows={4}
+                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    />
+                  </label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    Status
+                    <select
+                      value={editForm.listing_status}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          listing_status: e.target
+                            .value as EditListingForm["listing_status"],
+                        }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    >
+                      <option value="active">Active</option>
+                      <option value="under_offer">Under Offer</option>
+                      <option value="sold">Sold</option>
+                      <option value="off_market">Off Market</option>
+                    </select>
+                  </label>
                 </div>
-                <ListingCompletenessAside completeness={editListingCompleteness} />
+                <ListingCompletenessAside
+                  completeness={editListingCompleteness}
+                />
               </div>
               <button
                 type="submit"
-                disabled={savingEdit || !editListingCompleteness.requiredComplete}
+                disabled={
+                  savingEdit || !editListingCompleteness.requiredComplete
+                }
                 title={
                   !editListingCompleteness.requiredComplete
                     ? "Complete required fields to publish"
@@ -2644,12 +3153,18 @@ function OverviewTab({
 
   const todayLabel = useMemo(() => {
     const d = new Date();
-    return d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+    return d.toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
   }, []);
 
   const agentScoreOutOfTen = useMemo(() => {
     const s = agent.score;
-    return typeof s === "number" && Number.isFinite(s) ? Math.max(0, Math.min(10, s)) : 0;
+    return typeof s === "number" && Number.isFinite(s)
+      ? Math.max(0, Math.min(10, s))
+      : 0;
   }, [agent.score]);
 
   const ring = useMemo(() => {
@@ -2668,7 +3183,9 @@ function OverviewTab({
   const hasUnrespondedLeadsOver24h = useMemo(() => {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     return leads.some((l) => {
-      const stage = String(l.stage ?? "").trim().toLowerCase();
+      const stage = String(l.stage ?? "")
+        .trim()
+        .toLowerCase();
       if (stage !== "new") return false;
       const t = new Date(l.created_at).getTime();
       return Number.isFinite(t) && t < cutoff;
@@ -2677,18 +3194,38 @@ function OverviewTab({
 
   const actionItems = useMemo(() => {
     const items: { label: string; tab: Tab }[] = [];
-    const closings = typeof agent.closings === "number" && Number.isFinite(agent.closings) ? agent.closings : 0;
+    const closings =
+      typeof agent.closings === "number" && Number.isFinite(agent.closings)
+        ? agent.closings
+        : 0;
     const verified = agent.verification_status === "verified";
     const profilePct = profileComplete.pct ?? 0;
 
-    if (closings === 0) items.push({ label: "Close your first deal to boost your score", tab: "pipeline" });
-    if (!verified) items.push({ label: "Complete PRC verification", tab: "profile" });
-    if (profilePct < 100) items.push({ label: "Complete your profile", tab: "profile" });
-    if (listingsCount < 3) items.push({ label: "Add more listings to increase visibility", tab: "listings" });
-    if (hasUnrespondedLeadsOver24h) items.push({ label: "You have unresponded leads", tab: "pipeline" });
+    if (closings === 0)
+      items.push({
+        label: "Close your first deal to boost your score",
+        tab: "pipeline",
+      });
+    if (!verified)
+      items.push({ label: "Complete PRC verification", tab: "profile" });
+    if (profilePct < 100)
+      items.push({ label: "Complete your profile", tab: "profile" });
+    if (listingsCount < 3)
+      items.push({
+        label: "Add more listings to increase visibility",
+        tab: "listings",
+      });
+    if (hasUnrespondedLeadsOver24h)
+      items.push({ label: "You have unresponded leads", tab: "pipeline" });
 
     return items.slice(0, 3);
-  }, [agent.closings, agent.verification_status, profileComplete.pct, listingsCount, hasUnrespondedLeadsOver24h]);
+  }, [
+    agent.closings,
+    agent.verification_status,
+    profileComplete.pct,
+    listingsCount,
+    hasUnrespondedLeadsOver24h,
+  ]);
 
   const newLeadsToday = useMemo(() => {
     const now = new Date();
@@ -2706,9 +3243,15 @@ function OverviewTab({
       return <span className="text-gray-400">same as yesterday</span>;
     }
     if (delta > 0) {
-      return <span className="font-bold text-[#6B9E6E]">↑ +{delta} from yesterday</span>;
+      return (
+        <span className="font-bold text-[#6B9E6E]">
+          ↑ +{delta} from yesterday
+        </span>
+      );
     }
-    return <span className="font-bold text-red-600">↓ {delta} from yesterday</span>;
+    return (
+      <span className="font-bold text-red-600">↓ {delta} from yesterday</span>
+    );
   }, []);
 
   const actionsAwayFromFive = useMemo(() => {
@@ -2734,10 +3277,23 @@ function OverviewTab({
 
   const pipelineSnapshot = useMemo(() => {
     const active = leads
-      .filter((l) => String(l.stage ?? "").trim().toLowerCase() !== "declined")
-      .filter((l) => String(l.pipeline_stage ?? "lead").trim().toLowerCase() !== "closed")
+      .filter(
+        (l) =>
+          String(l.stage ?? "")
+            .trim()
+            .toLowerCase() !== "declined",
+      )
+      .filter(
+        (l) =>
+          String(l.pipeline_stage ?? "lead")
+            .trim()
+            .toLowerCase() !== "closed",
+      )
       .slice()
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
     return active.slice(0, 2);
   }, [leads]);
 
@@ -2782,50 +3338,70 @@ function OverviewTab({
     [properties],
   );
 
-  const pipelineStageBadgeClass = useCallback((raw: string | null | undefined): string => {
-    const s = String(raw ?? "lead").trim().toLowerCase();
-    if (s === "viewing") return "bg-purple-50 text-purple-700";
-    if (s === "offer") return "bg-yellow-50 text-yellow-700";
-    return "bg-blue-50 text-blue-700";
-  }, []);
+  const pipelineStageBadgeClass = useCallback(
+    (raw: string | null | undefined): string => {
+      const s = String(raw ?? "lead")
+        .trim()
+        .toLowerCase();
+      if (s === "viewing") return "bg-purple-50 text-purple-700";
+      if (s === "offer") return "bg-yellow-50 text-yellow-700";
+      return "bg-blue-50 text-blue-700";
+    },
+    [],
+  );
 
-  const nextStepLabel = useCallback((raw: string | null | undefined): string => {
-    const s = String(raw ?? "lead").trim().toLowerCase();
-    if (s === "viewing") return "Prepare viewing documents";
-    if (s === "offer") return "Send contract";
-    if (s === "reservation") return "Confirm reservation details";
-    return "Follow up with client";
-  }, []);
+  const nextStepLabel = useCallback(
+    (raw: string | null | undefined): string => {
+      const s = String(raw ?? "lead")
+        .trim()
+        .toLowerCase();
+      if (s === "viewing") return "Prepare viewing documents";
+      if (s === "offer") return "Send contract";
+      if (s === "reservation") return "Confirm reservation details";
+      return "Follow up with client";
+    },
+    [],
+  );
 
   const stageIcon = useCallback((raw: string | null | undefined) => {
-    const s = String(raw ?? "lead").trim().toLowerCase();
+    const s = String(raw ?? "lead")
+      .trim()
+      .toLowerCase();
     if (s === "viewing") return <Eye className="h-3 w-3" aria-hidden />;
     if (s === "offer") return <FileText className="h-3 w-3" aria-hidden />;
     if (s === "declined") return <X className="h-3 w-3" aria-hidden />;
     return <User className="h-3 w-3" aria-hidden />;
   }, []);
 
-  const pipelineProgressPct = useCallback((raw: string | null | undefined): number => {
-    const s = String(raw ?? "lead").trim().toLowerCase();
-    if (s === "viewing") return 40;
-    if (s === "offer") return 60;
-    if (s === "reservation") return 80;
-    if (s === "closed") return 100;
-    return 20;
-  }, []);
+  const pipelineProgressPct = useCallback(
+    (raw: string | null | undefined): number => {
+      const s = String(raw ?? "lead")
+        .trim()
+        .toLowerCase();
+      if (s === "viewing") return 40;
+      if (s === "offer") return 60;
+      if (s === "reservation") return 80;
+      if (s === "closed") return 100;
+      return 20;
+    },
+    [],
+  );
 
-  const formatRelative = useCallback((iso: string | null | undefined): string => {
-    const t = iso ? new Date(iso).getTime() : Number.NaN;
-    if (!Number.isFinite(t)) return "—";
-    const ms = Date.now() - t;
-    const min = Math.max(0, Math.floor(ms / (60 * 1000)));
-    if (min < 1) return "just now";
-    if (min < 60) return `${min} min ago`;
-    const hr = Math.floor(min / 60);
-    if (hr < 24) return `${hr} hour${hr === 1 ? "" : "s"} ago`;
-    const day = Math.floor(hr / 24);
-    return `${day} day${day === 1 ? "" : "s"} ago`;
-  }, []);
+  const formatRelative = useCallback(
+    (iso: string | null | undefined): string => {
+      const t = iso ? new Date(iso).getTime() : Number.NaN;
+      if (!Number.isFinite(t)) return "—";
+      const ms = Date.now() - t;
+      const min = Math.max(0, Math.floor(ms / (60 * 1000)));
+      if (min < 1) return "just now";
+      if (min < 60) return `${min} min ago`;
+      const hr = Math.floor(min / 60);
+      if (hr < 24) return `${hr} hour${hr === 1 ? "" : "s"} ago`;
+      const day = Math.floor(hr / 24);
+      return `${day} day${day === 1 ? "" : "s"} ago`;
+    },
+    [],
+  );
 
   return (
     <div>
@@ -2849,8 +3425,12 @@ function OverviewTab({
         className="mb-8"
       >
         <p className="text-sm font-semibold text-[#2C2C2C]">{greeting},</p>
-        <h1 className="mt-1 font-serif text-[32px] font-bold leading-tight text-[#2C2C2C]">{firstName}</h1>
-        <p className="mt-1 text-sm font-semibold text-[#2C2C2C]">{todayLabel}</p>
+        <h1 className="mt-1 font-serif text-[32px] font-bold leading-tight text-[#2C2C2C]">
+          {firstName}
+        </h1>
+        <p className="mt-1 text-sm font-semibold text-[#2C2C2C]">
+          {todayLabel}
+        </p>
       </motion.section>
 
       {/* Section 2 - Agent Score Ring */}
@@ -2886,21 +3466,31 @@ function OverviewTab({
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <p className="font-serif text-4xl font-bold text-[#2C2C2C]">{agentScoreOutOfTen.toFixed(1)}</p>
+                <p className="font-serif text-4xl font-bold text-[#2C2C2C]">
+                  {agentScoreOutOfTen.toFixed(1)}
+                </p>
                 <p className="mt-1 text-xs font-semibold text-gray-500">/ 10</p>
               </div>
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">Agent Score</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+                Agent Score
+              </p>
             </div>
           </div>
 
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Score breakdown</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+              Score breakdown
+            </p>
             <div className="mt-3 flex flex-col gap-2">
               <div className="flex items-center gap-3 rounded-2xl border border-[#6B9E6E] bg-[#F0F7F0] px-4 py-3 shadow-sm">
-                <span className="rounded-full bg-[#6B9E6E] px-2 py-0.5 text-xs font-bold text-white">+1.5 pts</span>
-                <span className="text-sm font-semibold text-[#2C2C2C]">— Close a deal</span>
+                <span className="rounded-full bg-[#6B9E6E] px-2 py-0.5 text-xs font-bold text-white">
+                  +1.5 pts
+                </span>
+                <span className="text-sm font-semibold text-[#2C2C2C]">
+                  — Close a deal
+                </span>
                 <span className="ml-auto rounded-full bg-[#D4A843] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                   Fastest way
                 </span>
@@ -2917,7 +3507,9 @@ function OverviewTab({
                   <span className="rounded-full bg-[#6B9E6E] px-2 py-0.5 text-xs font-bold text-white">
                     {row.pts}
                   </span>
-                  <span className="text-sm font-semibold text-[#2C2C2C]">— {row.label}</span>
+                  <span className="text-sm font-semibold text-[#2C2C2C]">
+                    — {row.label}
+                  </span>
                 </div>
               ))}
             </div>
@@ -2932,34 +3524,56 @@ function OverviewTab({
         transition={{ duration: 0.35, delay: 0.3 }}
         className="mb-8"
       >
-        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">Today at a glance</p>
+        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">
+          Today at a glance
+        </p>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div className="rounded-full border border-[#6B9E6E33] bg-[#F0F7F0] px-4 py-2 shadow-sm transition hover:shadow-md">
             <div className="flex items-center gap-2 text-[#4A7C4E]">
               <Users className="h-4 w-4" aria-hidden />
-              <span className="text-lg font-bold tabular-nums">{newLeadsToday}</span>
+              <span className="text-lg font-bold tabular-nums">
+                {newLeadsToday}
+              </span>
             </div>
-            <p className="mt-0.5 text-xs font-semibold text-[#4A7C4E]">New Leads today</p>
-            <p className="mt-0.5 text-xs">{renderMomentum(newLeadsToday - (yesterdayNewLeadsCount || 0))}</p>
+            <p className="mt-0.5 text-xs font-semibold text-[#4A7C4E]">
+              New Leads today
+            </p>
+            <p className="mt-0.5 text-xs">
+              {renderMomentum(newLeadsToday - (yesterdayNewLeadsCount || 0))}
+            </p>
           </div>
           <div className="rounded-full border border-[#D4A84333] bg-[#FDF8EE] px-4 py-2 shadow-sm transition hover:shadow-md">
             <div className="flex items-center gap-2 text-[#A07830]">
               <FileText className="h-4 w-4" aria-hidden />
-              <span className="text-lg font-bold tabular-nums">{pendingDealDocumentsCount}</span>
+              <span className="text-lg font-bold tabular-nums">
+                {pendingDealDocumentsCount}
+              </span>
             </div>
-            <p className="mt-0.5 text-xs font-semibold text-[#A07830]">Pending Documents</p>
+            <p className="mt-0.5 text-xs font-semibold text-[#A07830]">
+              Pending Documents
+            </p>
             <p className="mt-0.5 text-xs">
-              {renderMomentum(pendingDealDocumentsCount - (yesterdayPendingDocumentsCount || 0))}
+              {renderMomentum(
+                pendingDealDocumentsCount -
+                  (yesterdayPendingDocumentsCount || 0),
+              )}
             </p>
           </div>
           <div className="rounded-full border border-[#D4A84333] bg-[#FDF8EE] px-4 py-2 shadow-sm transition hover:shadow-md">
             <div className="flex items-center gap-2 text-[#A07830]">
               <Bell className="h-4 w-4" aria-hidden />
-              <span className="text-lg font-bold tabular-nums">{unreadNotificationsCount}</span>
+              <span className="text-lg font-bold tabular-nums">
+                {unreadNotificationsCount}
+              </span>
             </div>
-            <p className="mt-0.5 text-xs font-semibold text-[#A07830]">Unread Notifications</p>
+            <p className="mt-0.5 text-xs font-semibold text-[#A07830]">
+              Unread Notifications
+            </p>
             <p className="mt-0.5 text-xs">
-              {renderMomentum(unreadNotificationsCount - (yesterdayUnreadNotificationsCount || 0))}
+              {renderMomentum(
+                unreadNotificationsCount -
+                  (yesterdayUnreadNotificationsCount || 0),
+              )}
             </p>
           </div>
         </div>
@@ -2973,7 +3587,9 @@ function OverviewTab({
         className="mb-8 space-y-3"
       >
         <div className="flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Pipeline Snapshot</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+            Pipeline Snapshot
+          </p>
           <button
             type="button"
             onClick={() => onNavigateTab("pipeline")}
@@ -2984,7 +3600,9 @@ function OverviewTab({
         </div>
         {pipelineSnapshot.length === 0 ? (
           <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-            <p className="text-sm font-semibold text-gray-500">No active leads yet.</p>
+            <p className="text-sm font-semibold text-gray-500">
+              No active leads yet.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -2997,15 +3615,20 @@ function OverviewTab({
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-[#2C2C2C]">{l.name}</p>
+                    <p className="truncate text-sm font-bold text-[#2C2C2C]">
+                      {l.name}
+                    </p>
                     <p className="mt-0.5 truncate text-xs font-semibold text-gray-500">
                       {propertyLabelForLead(l)}
                     </p>
                     {phpPriceLabelForLead(l) ? (
-                      <p className="mt-1 text-xs font-semibold text-[#D4A843]">{phpPriceLabelForLead(l)}</p>
+                      <p className="mt-1 text-xs font-semibold text-[#D4A843]">
+                        {phpPriceLabelForLead(l)}
+                      </p>
                     ) : null}
                     <p className="mt-1 text-xs font-semibold text-gray-400">
-                      Last activity {formatRelative(l.updated_at ?? l.created_at)}
+                      Last activity{" "}
+                      {formatRelative(l.updated_at ?? l.created_at)}
                     </p>
                     <p className="mt-1 text-xs font-medium text-[#6B9E6E]">
                       Next step: {nextStepLabel(l.pipeline_stage)}
@@ -3024,7 +3647,9 @@ function OverviewTab({
                 <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-[#E5E5E5]">
                   <div
                     className="h-2 rounded-full bg-[#6B9E6E] animate-pulse"
-                    style={{ width: `${pipelineProgressPct(l.pipeline_stage)}%` }}
+                    style={{
+                      width: `${pipelineProgressPct(l.pipeline_stage)}%`,
+                    }}
                   />
                 </div>
               </button>
@@ -3040,7 +3665,9 @@ function OverviewTab({
         transition={{ duration: 0.35, delay: 0.5 }}
         className="mb-8"
       >
-        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">YOUR SCORE OVER TIME</p>
+        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">
+          YOUR SCORE OVER TIME
+        </p>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <div className="h-[120px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -3049,9 +3676,18 @@ function OverviewTab({
                   const now = new Date();
                   const months: { label: string; score: number }[] = [];
                   for (let i = 5; i >= 0; i--) {
-                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                    const label = d.toLocaleDateString(undefined, { month: "short" });
-                    const score = Math.max(0, Number((agentScoreOutOfTen - 0.3 * i).toFixed(1)));
+                    const d = new Date(
+                      now.getFullYear(),
+                      now.getMonth() - i,
+                      1,
+                    );
+                    const label = d.toLocaleDateString(undefined, {
+                      month: "short",
+                    });
+                    const score = Math.max(
+                      0,
+                      Number((agentScoreOutOfTen - 0.3 * i).toFixed(1)),
+                    );
                     months.push({ label, score });
                   }
                   return months;
@@ -3069,7 +3705,8 @@ function OverviewTab({
             </ResponsiveContainer>
           </div>
           <p className="mt-3 text-xs text-gray-400">
-            Your score increases when you close deals, respond fast, and stay active.
+            Your score increases when you close deals, respond fast, and stay
+            active.
           </p>
         </div>
       </motion.section>
@@ -3081,12 +3718,20 @@ function OverviewTab({
         transition={{ duration: 0.35, delay: 0.6 }}
         className="mb-8"
       >
-        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">HOW CLIENTS SEE YOU</p>
+        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">
+          HOW CLIENTS SEE YOU
+        </p>
         <div className="max-w-sm rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
               {agent.image_url ? (
-                <SupabasePublicImage src={agent.image_url} alt="" fill className="object-cover" sizes="56px" />
+                <SupabasePublicImage
+                  src={agent.image_url}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="56px"
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/20 text-lg font-bold text-[#2C2C2C]/60">
                   {(agent.name?.trim() || "A").slice(0, 1).toUpperCase()}
@@ -3094,9 +3739,13 @@ function OverviewTab({
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate font-serif text-lg font-semibold text-[#2C2C2C]">{agent.name}</p>
+              <p className="truncate font-serif text-lg font-semibold text-[#2C2C2C]">
+                {agent.name}
+              </p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
-                <VerifiedAgentBadge show={agent.verification_status === "verified"} />
+                <VerifiedAgentBadge
+                  show={agent.verification_status === "verified"}
+                />
                 <span className="text-xs font-semibold text-[#2C2C2C]/60">
                   {agentScoreOutOfTen.toFixed(1)} out of 10
                 </span>
@@ -3138,12 +3787,26 @@ function OverviewTab({
   );
 }
 
-function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function StatCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
   return (
     <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
-      <p className="text-[11px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">{label}</p>
-      <p className="mt-2 font-serif text-2xl font-bold text-[#2C2C2C]">{value}</p>
-      {hint ? <p className="mt-1 text-[10px] font-semibold text-[#D4A843]">{hint}</p> : null}
+      <p className="text-[11px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+        {label}
+      </p>
+      <p className="mt-2 font-serif text-2xl font-bold text-[#2C2C2C]">
+        {value}
+      </p>
+      {hint ? (
+        <p className="mt-1 text-[10px] font-semibold text-[#D4A843]">{hint}</p>
+      ) : null}
     </div>
   );
 }
@@ -3159,7 +3822,11 @@ function propertyExpiryBadgeInfo(expiresAt: string | null | undefined): {
   const now = Date.now();
   const daysLeft = Math.ceil((end - now) / (24 * 60 * 60 * 1000));
   if (end < now) {
-    return { label: "Expired - Renew now", className: "bg-red-100 text-red-900", showRenew: true };
+    return {
+      label: "Expired - Renew now",
+      className: "bg-red-100 text-red-900",
+      showRenew: true,
+    };
   }
   if (daysLeft <= 6) {
     const d = Math.max(1, daysLeft);
@@ -3170,9 +3837,17 @@ function propertyExpiryBadgeInfo(expiresAt: string | null | undefined): {
     };
   }
   if (daysLeft <= 14) {
-    return { label: "Expiring soon", className: "bg-amber-100 text-amber-900", showRenew: true };
+    return {
+      label: "Expiring soon",
+      className: "bg-amber-100 text-amber-900",
+      showRenew: true,
+    };
   }
-  return { label: `Expires in ${daysLeft} days`, className: "bg-emerald-100 text-emerald-900", showRenew: false };
+  return {
+    label: `Expires in ${daysLeft} days`,
+    className: "bg-emerald-100 text-emerald-900",
+    showRenew: false,
+  };
 }
 
 function mapAiPropertyTypeToForm(raw: unknown): string {
@@ -3257,8 +3932,12 @@ function ListingsTab({
 }) {
   const ownedCap = Number.isFinite(listingLimit) ? String(listingLimit) : "∞";
   const coCap = Number.isFinite(coListLimit) ? String(coListLimit) : "∞";
-  const [listingKindFilter, setListingKindFilter] = useState<"all" | "sale" | "rent" | "presale">("all");
-  const [listingEntryMode, setListingEntryMode] = useState<"quick" | "manual">("quick");
+  const [listingKindFilter, setListingKindFilter] = useState<
+    "all" | "sale" | "rent" | "presale"
+  >("all");
+  const [listingEntryMode, setListingEntryMode] = useState<"quick" | "manual">(
+    "quick",
+  );
   const [quickPasteText, setQuickPasteText] = useState("");
   const [analyzingListing, setAnalyzingListing] = useState(false);
   const [showAnalyzeBanner, setShowAnalyzeBanner] = useState(false);
@@ -3266,11 +3945,17 @@ function ListingsTab({
   const [renewingId, setRenewingId] = useState<string | null>(null);
   const [importListingOpen, setImportListingOpen] = useState(false);
   const visibleProperties = useMemo(() => {
-    if (listingKindFilter === "presale") return properties.filter((p) => p.is_presale);
+    if (listingKindFilter === "presale")
+      return properties.filter((p) => p.is_presale);
     if (listingKindFilter === "sale")
-      return properties.filter((p) => (p.status === "for_sale" || p.status === "both") && !p.is_presale);
+      return properties.filter(
+        (p) =>
+          (p.status === "for_sale" || p.status === "both") && !p.is_presale,
+      );
     if (listingKindFilter === "rent")
-      return properties.filter((p) => p.status === "for_rent" || p.status === "both");
+      return properties.filter(
+        (p) => p.status === "for_rent" || p.status === "both",
+      );
     return properties;
   }, [properties, listingKindFilter]);
 
@@ -3347,11 +4032,15 @@ function ListingsTab({
         typeof d.sqft === "number" && Number.isFinite(d.sqft)
           ? Math.round(d.sqft)
           : 1000;
-      const rawLt = String(d.listing_type ?? "sale").toLowerCase().trim();
+      const rawLt = String(d.listing_type ?? "sale")
+        .toLowerCase()
+        .trim();
       const listingType: "sale" | "rent" | "both" =
         rawLt === "rent" ? "rent" : rawLt === "both" ? "both" : "sale";
       const isPs = Boolean(d.is_presale);
-      const propType = isPs ? "Presale" : mapAiPropertyTypeToForm(d.property_type);
+      const propType = isPs
+        ? "Presale"
+        : mapAiPropertyTypeToForm(d.property_type);
 
       setListingForm((f) => ({
         ...f,
@@ -3364,7 +4053,8 @@ function ListingsTab({
         beds: String(bedsN),
         baths: String(bathsN),
         sqft: String(sqftN),
-        description: typeof d.description === "string" ? d.description : f.description,
+        description:
+          typeof d.description === "string" ? d.description : f.description,
         property_type: propType,
         listing_type: propType === "Presale" ? "sale" : listingType,
         developer_name:
@@ -3378,7 +4068,10 @@ function ListingsTab({
       }));
       setShowAnalyzeBanner(true);
       requestAnimationFrame(() => {
-        listingFormFieldsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        listingFormFieldsRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       });
     } finally {
       setAnalyzingListing(false);
@@ -3389,9 +4082,12 @@ function ListingsTab({
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Listings</h1>
+          <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">
+            Listings
+          </h1>
           <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
-            Owned {ownedListingCount}/{ownedCap} · Co-lists {coListedCount}/{coCap}
+            Owned {ownedListingCount}/{ownedCap} · Co-lists {coListedCount}/
+            {coCap}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {(
@@ -3428,7 +4124,10 @@ function ListingsTab({
         ) : (
           <p className="max-w-sm rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-4 py-3 text-xs font-semibold leading-relaxed text-[#2C2C2C]/55">
             Get verified to post listings.{" "}
-            <Link href="/settings?tab=verification" className="font-semibold text-[#6B9E6E] underline">
+            <Link
+              href="/settings?tab=verification"
+              className="font-semibold text-[#6B9E6E] underline"
+            >
               Settings → Verification
             </Link>
           </p>
@@ -3440,9 +4139,18 @@ function ListingsTab({
             key={p.id}
             className="relative overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm transition hover:shadow-md"
           >
-            <Link href={`/properties/${encodeURIComponent(p.id)}`} className="block">
+            <Link
+              href={`/properties/${encodeURIComponent(p.id)}`}
+              className="block"
+            >
               <div className="relative h-40 w-full bg-black/5">
-                <Image src={p.image_url} alt="" fill className="object-cover" sizes="400px" />
+                <Image
+                  src={p.image_url}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="400px"
+                />
                 {p.is_presale ? (
                   <span className="absolute left-2 top-2 rounded-full bg-[#D4A843] px-2 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
                     Presale
@@ -3459,7 +4167,9 @@ function ListingsTab({
                 ) : (
                   <span
                     className={`absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-bold shadow-sm ${
-                      p.status === "for_rent" ? "bg-[#3d6b78] text-white" : "bg-[#6B9E6E] text-white"
+                      p.status === "for_rent"
+                        ? "bg-[#3d6b78] text-white"
+                        : "bg-[#6B9E6E] text-white"
                     }`}
                   >
                     {p.status === "for_rent" ? "For Rent" : "For Sale"}
@@ -3488,12 +4198,16 @@ function ListingsTab({
                       Sale {formatListingPricePhp(p.price, "for_sale")}
                     </p>
                     <p className="truncate font-serif text-sm font-bold text-[#2C2C2C]/85">
-                      Rent {formatListingPricePhp(p.rent_price ?? "", "for_rent")}
+                      Rent{" "}
+                      {formatListingPricePhp(p.rent_price ?? "", "for_rent")}
                     </p>
                   </div>
                 ) : (
                   <p className="truncate font-serif text-lg font-bold text-[#2C2C2C]">
-                    {formatListingPricePhp(p.price, p.status === "for_rent" ? "for_rent" : "for_sale")}
+                    {formatListingPricePhp(
+                      p.price,
+                      p.status === "for_rent" ? "for_rent" : "for_sale",
+                    )}
                   </p>
                 )}
 
@@ -3501,7 +4215,8 @@ function ListingsTab({
                   {(p.name ?? "").trim() || p.location}
                 </p>
                 <p className="mt-1 truncate text-xs text-[#6B6B6B]">
-                  {(p.beds ? `${p.beds} beds` : "Studio")} · {p.baths} baths · {p.sqft} sqft
+                  {p.beds ? `${p.beds} beds` : "Studio"} · {p.baths} baths ·{" "}
+                  {p.sqft} sqft
                 </p>
                 <p className="mt-1 flex items-start gap-1 truncate text-xs text-[#6B6B6B]">
                   <span className="min-w-0 flex-1 truncate">{p.location}</span>
@@ -3527,7 +4242,11 @@ function ListingsTab({
             {!p.isCoHost ? (
               <div className="absolute right-2 top-2 z-10 flex flex-col gap-1.5 sm:flex-row sm:items-center">
                 <div
-                  title={!canAddListing ? "Get verified to manage your listings" : undefined}
+                  title={
+                    !canAddListing
+                      ? "Get verified to manage your listings"
+                      : undefined
+                  }
                   className={!canAddListing ? "cursor-not-allowed" : undefined}
                 >
                   <button
@@ -3538,14 +4257,20 @@ function ListingsTab({
                       void onEditListing(p);
                     }}
                     className={`rounded-full border border-[#6B9E6E]/25 bg-white/95 px-3 py-1.5 text-xs font-bold text-[#2C2C2C] shadow-sm hover:bg-[#6B9E6E]/12 ${
-                      !canAddListing ? "cursor-not-allowed opacity-40 pointer-events-none" : ""
+                      !canAddListing
+                        ? "cursor-not-allowed opacity-40 pointer-events-none"
+                        : ""
                     }`}
                   >
                     Edit
                   </button>
                 </div>
                 <div
-                  title={!canAddListing ? "Get verified to manage your listings" : undefined}
+                  title={
+                    !canAddListing
+                      ? "Get verified to manage your listings"
+                      : undefined
+                  }
                   className={!canAddListing ? "cursor-not-allowed" : undefined}
                 >
                   <button
@@ -3557,7 +4282,9 @@ function ListingsTab({
                       void onDeleteProperty(p.id);
                     }}
                     className={`rounded-full border border-red-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-red-800 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 ${
-                      !canAddListing ? "cursor-not-allowed opacity-40 pointer-events-none" : ""
+                      !canAddListing
+                        ? "cursor-not-allowed opacity-40 pointer-events-none"
+                        : ""
                     }`}
                   >
                     {deletingPropertyId === p.id ? "Deleting…" : "Delete"}
@@ -3602,7 +4329,9 @@ function ListingsTab({
               className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-[#FAF8F4] p-6 shadow-2xl"
             >
               <div className="flex items-center justify-between gap-2">
-                <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">New listing</h2>
+                <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">
+                  New listing
+                </h2>
                 <div className="flex shrink-0 items-center gap-1.5">
                   <button
                     type="button"
@@ -3611,7 +4340,11 @@ function ListingsTab({
                   >
                     Import Listing
                   </button>
-                  <button type="button" onClick={() => setListingOpen(false)} className="rounded-full p-2 hover:bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setListingOpen(false)}
+                    className="rounded-full p-2 hover:bg-white"
+                  >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
@@ -3626,7 +4359,9 @@ function ListingsTab({
                   type="button"
                   onClick={() => setListingEntryMode("quick")}
                   className={`flex-1 rounded-lg py-2 text-xs font-bold transition ${
-                    listingEntryMode === "quick" ? "bg-[#6B9E6E] text-white shadow-sm" : "text-[#2C2C2C]/55"
+                    listingEntryMode === "quick"
+                      ? "bg-[#6B9E6E] text-white shadow-sm"
+                      : "text-[#2C2C2C]/55"
                   }`}
                 >
                   Quick Add
@@ -3635,7 +4370,9 @@ function ListingsTab({
                   type="button"
                   onClick={() => setListingEntryMode("manual")}
                   className={`flex-1 rounded-lg py-2 text-xs font-bold transition ${
-                    listingEntryMode === "manual" ? "bg-[#6B9E6E] text-white shadow-sm" : "text-[#2C2C2C]/55"
+                    listingEntryMode === "manual"
+                      ? "bg-[#6B9E6E] text-white shadow-sm"
+                      : "text-[#2C2C2C]/55"
                   }`}
                 >
                   Manual
@@ -3667,7 +4404,8 @@ function ListingsTab({
               ) : null}
               {showAnalyzeBanner ? (
                 <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-900">
-                  ✅ Listing analyzed! Review the details below and add your photos.
+                  ✅ Listing analyzed! Review the details below and add your
+                  photos.
                 </div>
               ) : null}
               <div
@@ -3675,239 +4413,293 @@ function ListingsTab({
                 className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start"
               >
                 <div className="min-w-0 flex-1 space-y-3">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Location
-                  <PhLocationInput
-                    required
-                    value={listingForm.location}
-                    onChange={(v) => setListingForm((f) => ({ ...f, location: v }))}
-                    placeholder="e.g. BGC, Taguig"
-                    className="mt-1 w-full"
-                    inputClassName="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                  />
-                </label>
-                {listingFormErrors.location ? (
-                  <p className="text-sm font-semibold text-red-600">{listingFormErrors.location}</p>
-                ) : null}
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Title (optional)
-                  <input
-                    value={listingForm.name}
-                    maxLength={60}
-                    onChange={(e) => setListingForm((f) => ({ ...f, name: e.target.value }))}
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
-                  />
-                  <p
-                    className={`mt-0.5 text-xs ${
-                      listingForm.name.length >= 60
-                        ? "text-red-600"
-                        : listingForm.name.length > 50
-                          ? "text-orange-500"
-                          : "text-gray-500"
-                    }`}
-                  >
-                    {listingForm.name.length}/60
-                  </p>
-                </label>
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  {listingForm.listing_type === "both"
-                    ? "Sale price (₱)"
-                    : listingForm.listing_type === "rent"
-                      ? "Monthly rent (₱)"
-                      : "Price (₱)"}
-                  <input
-                    required
-                    value={listingForm.price}
-                    onChange={(e) =>
-                      setListingForm((f) => ({ ...f, price: formatPriceInputDigits(e.target.value) }))
-                    }
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
-                    placeholder="₱1,500,000"
-                  />
-                </label>
-                {listingFormErrors.price ? (
-                  <p className="text-sm font-semibold text-red-600">{listingFormErrors.price}</p>
-                ) : null}
-                {listingForm.listing_type === "both" ? (
                   <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                    Monthly rent (₱)
+                    Location
+                    <PhLocationInput
+                      required
+                      value={listingForm.location}
+                      onChange={(v) =>
+                        setListingForm((f) => ({ ...f, location: v }))
+                      }
+                      placeholder="e.g. BGC, Taguig"
+                      className="mt-1 w-full"
+                      inputClassName="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    />
+                  </label>
+                  {listingFormErrors.location ? (
+                    <p className="text-sm font-semibold text-red-600">
+                      {listingFormErrors.location}
+                    </p>
+                  ) : null}
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    Title (optional)
+                    <input
+                      value={listingForm.name}
+                      maxLength={60}
+                      onChange={(e) =>
+                        setListingForm((f) => ({ ...f, name: e.target.value }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
+                    />
+                    <p
+                      className={`mt-0.5 text-xs ${
+                        listingForm.name.length >= 60
+                          ? "text-red-600"
+                          : listingForm.name.length > 50
+                            ? "text-orange-500"
+                            : "text-gray-500"
+                      }`}
+                    >
+                      {listingForm.name.length}/60
+                    </p>
+                  </label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    {listingForm.listing_type === "both"
+                      ? "Sale price (₱)"
+                      : listingForm.listing_type === "rent"
+                        ? "Monthly rent (₱)"
+                        : "Price (₱)"}
                     <input
                       required
-                      value={listingForm.rent_price}
+                      value={listingForm.price}
                       onChange={(e) =>
                         setListingForm((f) => ({
                           ...f,
-                          rent_price: formatPriceInputDigits(e.target.value),
+                          price: formatPriceInputDigits(e.target.value),
                         }))
                       }
                       className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
-                      placeholder="₱45,000"
+                      placeholder="₱1,500,000"
                     />
                   </label>
-                ) : null}
-                {listingFormErrors.rent_price ? (
-                  <p className="text-sm font-semibold text-red-600">{listingFormErrors.rent_price}</p>
-                ) : null}
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                    Beds
-                    <input
-                      inputMode="numeric"
-                      value={listingForm.beds}
-                      onChange={(e) =>
-                        setListingForm((f) => ({
-                          ...f,
-                          beds: formatDigitsOnly(e.target.value, 2),
-                        }))
-                      }
-                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
-                    />
-                  </label>
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                    Baths
-                    <input
-                      inputMode="numeric"
-                      value={listingForm.baths}
-                      onChange={(e) =>
-                        setListingForm((f) => ({
-                          ...f,
-                          baths: formatDigitsOnly(e.target.value, 2),
-                        }))
-                      }
-                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
-                    />
-                  </label>
-                </div>
-                {listingFormErrors.beds || listingFormErrors.baths ? (
-                  <p className="text-sm font-semibold text-red-600">
-                    {[listingFormErrors.beds, listingFormErrors.baths].filter(Boolean).join(" ")}
-                  </p>
-                ) : null}
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Sqft
-                  <input
-                    inputMode="numeric"
-                    value={listingForm.sqft}
-                    onChange={(e) =>
-                      setListingForm((f) => ({ ...f, sqft: formatDigitsOnly(e.target.value, 6) }))
-                    }
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
-                  />
-                </label>
-                {listingFormErrors.sqft ? (
-                  <p className="text-sm font-semibold text-red-600">{listingFormErrors.sqft}</p>
-                ) : null}
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Property type
-                  <select
-                    value={listingForm.property_type}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setListingForm((f) => ({
-                        ...f,
-                        property_type: v,
-                        listing_type: v === "Presale" ? "sale" : f.listing_type,
-                      }));
-                    }}
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
-                  >
-                    {EDIT_PROPERTY_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {listingForm.property_type === "Presale" ? (
-                  <div className="space-y-3 rounded-xl border border-[#D4A843]/25 bg-[#FAF8F4]/80 p-3">
+                  {listingFormErrors.price ? (
+                    <p className="text-sm font-semibold text-red-600">
+                      {listingFormErrors.price}
+                    </p>
+                  ) : null}
+                  {listingForm.listing_type === "both" ? (
                     <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                      Developer name
+                      Monthly rent (₱)
                       <input
-                        value={listingForm.developer_name}
-                        onChange={(e) => setListingForm((f) => ({ ...f, developer_name: e.target.value }))}
+                        required
+                        value={listingForm.rent_price}
+                        onChange={(e) =>
+                          setListingForm((f) => ({
+                            ...f,
+                            rent_price: formatPriceInputDigits(e.target.value),
+                          }))
+                        }
+                        className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
+                        placeholder="₱45,000"
+                      />
+                    </label>
+                  ) : null}
+                  {listingFormErrors.rent_price ? (
+                    <p className="text-sm font-semibold text-red-600">
+                      {listingFormErrors.rent_price}
+                    </p>
+                  ) : null}
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                      Beds
+                      <input
+                        inputMode="numeric"
+                        value={listingForm.beds}
+                        onChange={(e) =>
+                          setListingForm((f) => ({
+                            ...f,
+                            beds: formatDigitsOnly(e.target.value, 2),
+                          }))
+                        }
                         className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
                       />
                     </label>
-                    {listingFormErrors.developer_name ? (
-                      <p className="text-sm font-semibold text-red-600">{listingFormErrors.developer_name}</p>
-                    ) : null}
                     <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                      Expected turnover date
+                      Baths
                       <input
-                        type="date"
-                        value={listingForm.turnover_date}
-                        onChange={(e) => setListingForm((f) => ({ ...f, turnover_date: e.target.value }))}
+                        inputMode="numeric"
+                        value={listingForm.baths}
+                        onChange={(e) =>
+                          setListingForm((f) => ({
+                            ...f,
+                            baths: formatDigitsOnly(e.target.value, 2),
+                          }))
+                        }
                         className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
                       />
                     </label>
-                    {listingFormErrors.turnover_date ? (
-                      <p className="text-sm font-semibold text-red-600">{listingFormErrors.turnover_date}</p>
-                    ) : null}
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Unit types</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {PRESALE_UNIT_TYPE_OPTIONS.map((u) => (
-                          <label key={u} className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-[#2C2C2C]">
-                            <input
-                              type="checkbox"
-                              checked={listingForm.unit_types.includes(u)}
-                              onChange={() =>
-                                setListingForm((f) => ({
-                                  ...f,
-                                  unit_types: f.unit_types.includes(u)
-                                    ? f.unit_types.filter((x) => x !== u)
-                                    : [...f.unit_types, u],
-                                }))
-                              }
-                              className="rounded border-[#2C2C2C]/20"
-                            />
-                            {u}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                    {listingFormErrors.unit_types ? (
-                      <p className="text-sm font-semibold text-red-600">{listingFormErrors.unit_types}</p>
-                    ) : null}
                   </div>
-                ) : null}
-                <label
-                  className={`text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45 ${
-                    listingForm.property_type === "Presale" ? "opacity-50" : ""
-                  }`}
-                >
-                  Listing type
-                  <select
-                    value={listingForm.listing_type}
-                    disabled={listingForm.property_type === "Presale"}
-                    onChange={(e) =>
-                      setListingForm((f) => ({
-                        ...f,
-                        listing_type: e.target.value as "sale" | "rent" | "both",
-                      }))
-                    }
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
+                  {listingFormErrors.beds || listingFormErrors.baths ? (
+                    <p className="text-sm font-semibold text-red-600">
+                      {[listingFormErrors.beds, listingFormErrors.baths]
+                        .filter(Boolean)
+                        .join(" ")}
+                    </p>
+                  ) : null}
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    Sqft
+                    <input
+                      inputMode="numeric"
+                      value={listingForm.sqft}
+                      onChange={(e) =>
+                        setListingForm((f) => ({
+                          ...f,
+                          sqft: formatDigitsOnly(e.target.value, 6),
+                        }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
+                    />
+                  </label>
+                  {listingFormErrors.sqft ? (
+                    <p className="text-sm font-semibold text-red-600">
+                      {listingFormErrors.sqft}
+                    </p>
+                  ) : null}
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    Property type
+                    <select
+                      value={listingForm.property_type}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setListingForm((f) => ({
+                          ...f,
+                          property_type: v,
+                          listing_type:
+                            v === "Presale" ? "sale" : f.listing_type,
+                        }));
+                      }}
+                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
+                    >
+                      {EDIT_PROPERTY_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {listingForm.property_type === "Presale" ? (
+                    <div className="space-y-3 rounded-xl border border-[#D4A843]/25 bg-[#FAF8F4]/80 p-3">
+                      <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                        Developer name
+                        <input
+                          value={listingForm.developer_name}
+                          onChange={(e) =>
+                            setListingForm((f) => ({
+                              ...f,
+                              developer_name: e.target.value,
+                            }))
+                          }
+                          className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
+                        />
+                      </label>
+                      {listingFormErrors.developer_name ? (
+                        <p className="text-sm font-semibold text-red-600">
+                          {listingFormErrors.developer_name}
+                        </p>
+                      ) : null}
+                      <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                        Expected turnover date
+                        <input
+                          type="date"
+                          value={listingForm.turnover_date}
+                          onChange={(e) =>
+                            setListingForm((f) => ({
+                              ...f,
+                              turnover_date: e.target.value,
+                            }))
+                          }
+                          className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
+                        />
+                      </label>
+                      {listingFormErrors.turnover_date ? (
+                        <p className="text-sm font-semibold text-red-600">
+                          {listingFormErrors.turnover_date}
+                        </p>
+                      ) : null}
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                          Unit types
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {PRESALE_UNIT_TYPE_OPTIONS.map((u) => (
+                            <label
+                              key={u}
+                              className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-[#2C2C2C]"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={listingForm.unit_types.includes(u)}
+                                onChange={() =>
+                                  setListingForm((f) => ({
+                                    ...f,
+                                    unit_types: f.unit_types.includes(u)
+                                      ? f.unit_types.filter((x) => x !== u)
+                                      : [...f.unit_types, u],
+                                  }))
+                                }
+                                className="rounded border-[#2C2C2C]/20"
+                              />
+                              {u}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      {listingFormErrors.unit_types ? (
+                        <p className="text-sm font-semibold text-red-600">
+                          {listingFormErrors.unit_types}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <label
+                    className={`text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45 ${
+                      listingForm.property_type === "Presale"
+                        ? "opacity-50"
+                        : ""
+                    }`}
                   >
-                    <option value="sale">For sale</option>
-                    <option value="rent">For rent</option>
-                    <option value="both">Sale and rent</option>
-                  </select>
-                </label>
-                <CloudinaryUpload
-                  value={listingForm.listingImageUrls}
-                  onUpload={(urls) => setListingForm((f) => ({ ...f, listingImageUrls: urls }))}
-                  maxFiles={10}
-                  disabled={saving}
-                />
-                <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Description
-                  <textarea
-                    value={listingForm.description}
-                    onChange={(e) => setListingForm((f) => ({ ...f, description: e.target.value }))}
-                    rows={4}
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
+                    Listing type
+                    <select
+                      value={listingForm.listing_type}
+                      disabled={listingForm.property_type === "Presale"}
+                      onChange={(e) =>
+                        setListingForm((f) => ({
+                          ...f,
+                          listing_type: e.target.value as
+                            | "sale"
+                            | "rent"
+                            | "both",
+                        }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
+                    >
+                      <option value="sale">For sale</option>
+                      <option value="rent">For rent</option>
+                      <option value="both">Sale and rent</option>
+                    </select>
+                  </label>
+                  <CloudinaryUpload
+                    value={listingForm.listingImageUrls}
+                    onUpload={(urls) =>
+                      setListingForm((f) => ({ ...f, listingImageUrls: urls }))
+                    }
+                    maxFiles={10}
+                    disabled={saving}
                   />
-                </label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    Description
+                    <textarea
+                      value={listingForm.description}
+                      onChange={(e) =>
+                        setListingForm((f) => ({
+                          ...f,
+                          description: e.target.value,
+                        }))
+                      }
+                      rows={4}
+                      className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
+                    />
+                  </label>
                 </div>
                 <ListingCompletenessAside completeness={listingCompleteness} />
               </div>
@@ -3915,7 +4707,9 @@ function ListingsTab({
                 type="submit"
                 disabled={saving || !listingCompleteness.requiredComplete}
                 title={
-                  !listingCompleteness.requiredComplete ? "Complete required fields to publish" : undefined
+                  !listingCompleteness.requiredComplete
+                    ? "Complete required fields to publish"
+                    : undefined
                 }
                 className="mt-6 w-full rounded-full bg-[#2C2C2C] py-3 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -3962,7 +4756,9 @@ function initialsForTeamMemberName(name: string): string {
   return `${a ?? ""}${b ?? ""}`.toUpperCase() || "?";
 }
 
-function hasTeamTabPaidPlanFromSubscriptions(rows: AgentSubscriptionTierRow[]): boolean {
+function hasTeamTabPaidPlanFromSubscriptions(
+  rows: AgentSubscriptionTierRow[],
+): boolean {
   const now = Date.now();
   for (const r of rows) {
     const st = (r.status ?? "active").toLowerCase();
@@ -4009,7 +4805,11 @@ function AgentDashboardTeamTab({
       setPaidPlan(false);
       return;
     }
-    setPaidPlan(hasTeamTabPaidPlanFromSubscriptions((data ?? []) as AgentSubscriptionTierRow[]));
+    setPaidPlan(
+      hasTeamTabPaidPlanFromSubscriptions(
+        (data ?? []) as AgentSubscriptionTierRow[],
+      ),
+    );
   }, [agentId, supabase]);
 
   const loadMembers = useCallback(async () => {
@@ -4165,7 +4965,9 @@ function AgentDashboardTeamTab({
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[#6B9E6E]">
           <House className="h-8 w-8" aria-hidden />
         </div>
-        <h2 className="mt-6 font-serif text-2xl font-bold text-[#2C2C2C]">My Team</h2>
+        <h2 className="mt-6 font-serif text-2xl font-bold text-[#2C2C2C]">
+          My Team
+        </h2>
         <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/60">
           Upgrade to Pro to unlock team management
         </p>
@@ -4183,7 +4985,9 @@ function AgentDashboardTeamTab({
   return (
     <div className="max-w-4xl font-sans">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">My Team</h2>
+        <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">
+          My Team
+        </h2>
         <button
           type="button"
           onClick={() => setAddOpen(true)}
@@ -4195,7 +4999,10 @@ function AgentDashboardTeamTab({
 
       {membersLoading ? (
         <div className="mt-10 flex justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" aria-hidden />
+          <Loader2
+            className="h-8 w-8 animate-spin text-[#6B9E6E]"
+            aria-hidden
+          />
         </div>
       ) : members.length === 0 ? (
         <p className="mt-10 text-center text-sm font-semibold text-[#2C2C2C]/55">
@@ -4235,7 +5042,9 @@ function AgentDashboardTeamTab({
                       {m.role}
                     </span>
                     <p className="mt-2 text-sm text-gray-500">{m.email}</p>
-                    <p className="text-sm text-gray-500">{m.phone?.trim() || "—"}</p>
+                    <p className="text-sm text-gray-500">
+                      {m.phone?.trim() || "—"}
+                    </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {st === "pending" ? (
                         <button
@@ -4254,7 +5063,9 @@ function AgentDashboardTeamTab({
                           onClick={() => void revokeAccess(m)}
                           className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
                         >
-                          {revokeBusyId === m.id ? "Revoking…" : "Revoke Access"}
+                          {revokeBusyId === m.id
+                            ? "Revoking…"
+                            : "Revoke Access"}
                         </button>
                       ) : null}
                     </div>
@@ -4289,7 +5100,9 @@ function AgentDashboardTeamTab({
               className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-6 shadow-2xl"
             >
               <div className="flex items-start justify-between gap-3">
-                <h3 className="font-serif text-xl font-bold text-[#2C2C2C]">Add team member</h3>
+                <h3 className="font-serif text-xl font-bold text-[#2C2C2C]">
+                  Add team member
+                </h3>
                 <button
                   type="button"
                   onClick={() => {
@@ -4302,7 +5115,10 @@ function AgentDashboardTeamTab({
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <form onSubmit={(e) => void saveMember(e)} className="mt-6 space-y-4">
+              <form
+                onSubmit={(e) => void saveMember(e)}
+                className="mt-6 space-y-4"
+              >
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Full Name
                   <input
@@ -4406,7 +5222,8 @@ function MyTeamSection({
     void load();
   }, [load]);
 
-  const atTeamLimit = Number.isFinite(teamMemberLimit) && rows.length >= teamMemberLimit;
+  const atTeamLimit =
+    Number.isFinite(teamMemberLimit) && rows.length >= teamMemberLimit;
 
   const addMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -4445,7 +5262,10 @@ function MyTeamSection({
 
   const remove = async (id: string) => {
     setRemovingId(id);
-    const { error } = await supabase.from("agent_team_members").delete().eq("id", id);
+    const { error } = await supabase
+      .from("agent_team_members")
+      .delete()
+      .eq("id", id);
     setRemovingId(null);
     if (error) {
       toast.error(error.message);
@@ -4462,20 +5282,30 @@ function MyTeamSection({
           <Users className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">My Team</h2>
+          <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">
+            My Team
+          </h2>
           <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/60">
-            Add showing assistants by email. They appear as <span className="text-[#2C2C2C]">Showing Assistant</span>{" "}
-            under you. Invites notify them in-app when their email matches a BahayGo account.
+            Add showing assistants by email. They appear as{" "}
+            <span className="text-[#2C2C2C]">Showing Assistant</span> under you.
+            Invites notify them in-app when their email matches a BahayGo
+            account.
           </p>
           <p className="mt-2 text-xs font-semibold text-[#2C2C2C]/50">
             Team seats: {rows.length}/
-            {Number.isFinite(teamMemberLimit) ? teamMemberLimit : "∞"} on your plan
-            {Number.isFinite(teamMemberLimit) && teamMemberLimit === 0 ? " — upgrade to Pro or higher for seats." : "."}
+            {Number.isFinite(teamMemberLimit) ? teamMemberLimit : "∞"} on your
+            plan
+            {Number.isFinite(teamMemberLimit) && teamMemberLimit === 0
+              ? " — upgrade to Pro or higher for seats."
+              : "."}
           </p>
         </div>
       </div>
 
-      <form onSubmit={(e) => void addMember(e)} className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end">
+      <form
+        onSubmit={(e) => void addMember(e)}
+        className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end"
+      >
         <label className="min-w-0 flex-1 text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
           Email
           <input
@@ -4507,9 +5337,13 @@ function MyTeamSection({
 
       <div className="mt-6 border-t border-[#2C2C2C]/10 pt-4">
         {loading ? (
-          <p className="text-sm font-semibold text-[#2C2C2C]/50">Loading team…</p>
+          <p className="text-sm font-semibold text-[#2C2C2C]/50">
+            Loading team…
+          </p>
         ) : rows.length === 0 ? (
-          <p className="text-sm font-semibold text-[#2C2C2C]/50">No assistants yet.</p>
+          <p className="text-sm font-semibold text-[#2C2C2C]/50">
+            No assistants yet.
+          </p>
         ) : (
           <ul className="space-y-2">
             {rows.map((r) => (
@@ -4518,9 +5352,13 @@ function MyTeamSection({
                 className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-2.5"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-[#2C2C2C]">{r.assistant_email}</p>
+                  <p className="truncate text-sm font-bold text-[#2C2C2C]">
+                    {r.assistant_email}
+                  </p>
                   {r.assistant_name ? (
-                    <p className="truncate text-xs font-semibold text-[#2C2C2C]/55">{r.assistant_name}</p>
+                    <p className="truncate text-xs font-semibold text-[#2C2C2C]/55">
+                      {r.assistant_name}
+                    </p>
                   ) : null}
                   <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-[#6B9E6E]">
                     Showing Assistant · {r.status}
@@ -4599,27 +5437,46 @@ function ProfileTab({
     onAvailabilityMessage("");
     const { error } = await supabase
       .from("agents")
-      .update({ availability: on ? AGENT_AVAILABILITY_NOW : AGENT_AVAILABILITY_OFFLINE })
+      .update({
+        availability: on ? AGENT_AVAILABILITY_NOW : AGENT_AVAILABILITY_OFFLINE,
+      })
       .eq("user_id", userId);
     setAvailSaving(false);
     if (error) {
       onAvailabilityMessage(error.message);
       return;
     }
-    onAvailabilityMessage(on ? "You’re shown as Available Now on listings." : "You’re shown as Offline. Last seen was updated.");
+    onAvailabilityMessage(
+      on
+        ? "You’re shown as Available Now on listings."
+        : "You’re shown as Offline. Last seen was updated.",
+    );
     await onAvailabilitySaved();
   };
 
   return (
     <div>
-      <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Profile settings</h1>
-      <form onSubmit={onSave} className="mt-8 max-w-xl space-y-5 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+      <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">
+        Profile settings
+      </h1>
+      <form
+        onSubmit={onSave}
+        className="mt-8 max-w-xl space-y-5 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm"
+      >
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Photo</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+            Photo
+          </p>
           <div className="mt-2 flex items-center gap-4">
             <div className="relative h-20 w-20 overflow-hidden rounded-full bg-[#EBE6DC] ring-2 ring-[#D4A843]/30">
               {agent.image_url ? (
-                <SupabasePublicImage src={agent.image_url} alt="" fill className="object-cover" sizes="80px" />
+                <SupabasePublicImage
+                  src={agent.image_url}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="80px"
+                />
               ) : null}
             </div>
             <label className="cursor-pointer rounded-full border border-[#6B9E6E] bg-[#6B9E6E]/10 px-4 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/20">
@@ -4638,7 +5495,9 @@ function ProfileTab({
         </div>
         <div className="flex items-center justify-between gap-4 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-4 py-3">
           <div>
-            <p className="text-sm font-bold text-[#2C2C2C]">Show as Available Now</p>
+            <p className="text-sm font-bold text-[#2C2C2C]">
+              Show as Available Now
+            </p>
             <p className="mt-0.5 text-xs font-semibold text-[#2C2C2C]/55">
               When off, buyers see you as Offline with last seen time.
             </p>
@@ -4665,12 +5524,17 @@ function ProfileTab({
           <input
             required
             value={profileForm.name}
-            onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
+            onChange={(e) =>
+              setProfileForm((f) => ({ ...f, name: e.target.value }))
+            }
             className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
           />
         </label>
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45" htmlFor="agent-dash-phone">
+          <label
+            className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45"
+            htmlFor="agent-dash-phone"
+          >
             Phone
           </label>
           <PhPhoneInput
@@ -4682,10 +5546,17 @@ function ProfileTab({
           />
         </div>
         <div className="rounded-xl bg-[#FAF8F4] px-4 py-3 text-sm">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">License (read-only)</p>
-          <p className="mt-1 font-semibold text-[#2C2C2C]">{agent.license_number}</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+            License (read-only)
+          </p>
+          <p className="mt-1 font-semibold text-[#2C2C2C]">
+            {agent.license_number}
+          </p>
           <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
-            Expires: {agent.license_expiry ? formatLicenseDate(agent.license_expiry) : "—"}
+            Expires:{" "}
+            {agent.license_expiry
+              ? formatLicenseDate(agent.license_expiry)
+              : "—"}
           </p>
           <LicenseExpiryBadge licenseExpiry={agent.license_expiry} />
         </div>
@@ -4699,7 +5570,10 @@ function ProfileTab({
               inputMode="numeric"
               value={profileForm.age}
               onChange={(e) =>
-                setProfileForm((f) => ({ ...f, age: e.target.value.replace(/\D/g, "").slice(0, 2) }))
+                setProfileForm((f) => ({
+                  ...f,
+                  age: e.target.value.replace(/\D/g, "").slice(0, 2),
+                }))
               }
               placeholder="18–80"
               className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
@@ -4716,7 +5590,9 @@ function ProfileTab({
               onChange={(e) =>
                 setProfileForm((f) => ({
                   ...f,
-                  yearsExperience: e.target.value.replace(/\D/g, "").slice(0, 2),
+                  yearsExperience: e.target.value
+                    .replace(/\D/g, "")
+                    .slice(0, 2),
                 }))
               }
               placeholder="0–50"
@@ -4725,7 +5601,9 @@ function ProfileTab({
           </label>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Languages spoken</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+            Languages spoken
+          </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {LANGUAGE_OPTIONS.map((lang) => {
               const on = profileForm.languages.includes(lang);
@@ -4752,7 +5630,9 @@ function ProfileTab({
           </div>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Specialties</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+            Specialties
+          </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {SPECIALTY_OPTIONS.map((spec) => {
               const on = profileForm.specialties.includes(spec);
@@ -4779,14 +5659,20 @@ function ProfileTab({
           </div>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Service areas</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+            Service areas
+          </p>
           <div className="mt-2">
             <ServiceAreasMultiInput
               id="profile-service-areas"
               values={profileForm.serviceAreaTags}
-              onChange={(values) => setProfileForm((f) => ({ ...f, serviceAreaTags: values }))}
+              onChange={(values) =>
+                setProfileForm((f) => ({ ...f, serviceAreaTags: values }))
+              }
               draft={profileForm.serviceAreaDraft}
-              onDraftChange={(v) => setProfileForm((f) => ({ ...f, serviceAreaDraft: v }))}
+              onDraftChange={(v) =>
+                setProfileForm((f) => ({ ...f, serviceAreaDraft: v }))
+              }
             />
           </div>
         </div>
@@ -4794,7 +5680,12 @@ function ProfileTab({
           Bio / About
           <textarea
             value={profileForm.bio}
-            onChange={(e) => setProfileForm((f) => ({ ...f, bio: e.target.value.slice(0, 500) }))}
+            onChange={(e) =>
+              setProfileForm((f) => ({
+                ...f,
+                bio: e.target.value.slice(0, 500),
+              }))
+            }
             rows={5}
             maxLength={500}
             className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
@@ -4803,7 +5694,9 @@ function ProfileTab({
             {profileForm.bio.length}/500
           </span>
         </label>
-        <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Social links</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+          Social links
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs font-semibold text-[#2C2C2C]/55 sm:col-span-2">
             Facebook
@@ -4811,7 +5704,9 @@ function ProfileTab({
               type="url"
               placeholder="https://facebook.com/…"
               value={profileForm.facebook}
-              onChange={(e) => setProfileForm((f) => ({ ...f, facebook: e.target.value }))}
+              onChange={(e) =>
+                setProfileForm((f) => ({ ...f, facebook: e.target.value }))
+              }
               className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
             />
           </label>
@@ -4821,7 +5716,9 @@ function ProfileTab({
               type="url"
               placeholder="https://instagram.com/…"
               value={profileForm.instagram}
-              onChange={(e) => setProfileForm((f) => ({ ...f, instagram: e.target.value }))}
+              onChange={(e) =>
+                setProfileForm((f) => ({ ...f, instagram: e.target.value }))
+              }
               className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
             />
           </label>
@@ -4831,7 +5728,9 @@ function ProfileTab({
               type="url"
               placeholder="https://linkedin.com/in/…"
               value={profileForm.linkedin}
-              onChange={(e) => setProfileForm((f) => ({ ...f, linkedin: e.target.value }))}
+              onChange={(e) =>
+                setProfileForm((f) => ({ ...f, linkedin: e.target.value }))
+              }
               className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
             />
           </label>
@@ -4841,7 +5740,9 @@ function ProfileTab({
               type="url"
               placeholder="https://…"
               value={profileForm.website}
-              onChange={(e) => setProfileForm((f) => ({ ...f, website: e.target.value }))}
+              onChange={(e) =>
+                setProfileForm((f) => ({ ...f, website: e.target.value }))
+              }
               className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
             />
           </label>
@@ -4883,7 +5784,9 @@ function AgentNotificationsTab({
   const router = useRouter();
   const [rows, setRows] = useState<NotificationListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [parentById, setParentById] = useState<Record<string, NotificationListItem>>({});
+  const [parentById, setParentById] = useState<
+    Record<string, NotificationListItem>
+  >({});
   const [replyOpenId, setReplyOpenId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [replyBusy, setReplyBusy] = useState(false);
@@ -4893,7 +5796,9 @@ function AgentNotificationsTab({
     void (async () => {
       const { data } = await supabase
         .from("notifications")
-        .select("id, created_at, type, title, body, read_at, metadata, dismissed_by_agent, parent_id, property_name, reply_message")
+        .select(
+          "id, created_at, type, title, body, read_at, metadata, dismissed_by_agent, parent_id, property_name, reply_message",
+        )
         .eq("user_id", userId)
         .eq("dismissed_by_agent", false)
         .order("created_at", { ascending: false })
@@ -4908,13 +5813,21 @@ function AgentNotificationsTab({
   }, [userId, supabase]);
 
   useEffect(() => {
-    const parentIds = [...new Set(rows.map((r) => (r as unknown as { parent_id?: string | null }).parent_id).filter((x): x is string => Boolean(x)))];
+    const parentIds = [
+      ...new Set(
+        rows
+          .map((r) => (r as unknown as { parent_id?: string | null }).parent_id)
+          .filter((x): x is string => Boolean(x)),
+      ),
+    ];
     if (parentIds.length === 0) return;
     let cancelled = false;
     void (async () => {
       const { data } = await supabase
         .from("notifications")
-        .select("id, created_at, type, title, body, read_at, metadata, property_name")
+        .select(
+          "id, created_at, type, title, body, read_at, metadata, property_name",
+        )
         .in("id", parentIds);
       if (cancelled) return;
       const map: Record<string, NotificationListItem> = {};
@@ -4928,7 +5841,10 @@ function AgentNotificationsTab({
     };
   }, [rows, supabase]);
 
-  const markRead = async (n: NotificationListItem, navigateTo?: string | null) => {
+  const markRead = async (
+    n: NotificationListItem,
+    navigateTo?: string | null,
+  ) => {
     if (!n.read_at) {
       const { error } = await supabase
         .from("notifications")
@@ -4936,7 +5852,11 @@ function AgentNotificationsTab({
         .eq("id", n.id)
         .eq("user_id", userId);
       if (error) return;
-      setRows((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)));
+      setRows((prev) =>
+        prev.map((x) =>
+          x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x,
+        ),
+      );
     }
     const href = navigateTo ?? resolveNotificationLink(n.metadata ?? null);
     if (href) router.push(href);
@@ -4944,8 +5864,12 @@ function AgentNotificationsTab({
 
   return (
     <div>
-      <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Notifications</h1>
-      <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Updates from BahayGo and your activity.</p>
+      <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">
+        Notifications
+      </h1>
+      <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+        Updates from BahayGo and your activity.
+      </p>
       {loading ? (
         <p className="mt-8 text-sm font-semibold text-[#2C2C2C]/45">Loading…</p>
       ) : rows.length === 0 ? (
@@ -4962,20 +5886,35 @@ function AgentNotificationsTab({
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-bold text-gray-900">
-                          {((n as unknown as { property_name?: string | null }).property_name ?? "").trim() ||
-                            (n.metadata && typeof n.metadata.property_name === "string" ? n.metadata.property_name : "") ||
+                          {(
+                            (n as unknown as { property_name?: string | null })
+                              .property_name ?? ""
+                          ).trim() ||
+                            (n.metadata &&
+                            typeof n.metadata.property_name === "string"
+                              ? n.metadata.property_name
+                              : "") ||
                             "Property"}
                         </span>
                         <span className="text-xs font-semibold tabular-nums text-[#2C2C2C]/45">
                           {formatRelativeTime(n.created_at)}
                         </span>
                       </div>
-                      <p className="mt-2 font-bold text-[#2C2C2C]">Client Reply</p>
+                      <p className="mt-2 font-bold text-[#2C2C2C]">
+                        Client Reply
+                      </p>
                       <p className="mt-1 text-sm font-medium text-[#2C2C2C]/70">
-                        {((n as unknown as { reply_message?: string | null }).reply_message ?? n.body ?? "").toString()}
+                        {(
+                          (n as unknown as { reply_message?: string | null })
+                            .reply_message ??
+                          n.body ??
+                          ""
+                        ).toString()}
                       </p>
                       {(() => {
-                        const pid = (n as unknown as { parent_id?: string | null }).parent_id ?? "";
+                        const pid =
+                          (n as unknown as { parent_id?: string | null })
+                            .parent_id ?? "";
                         const parent = pid ? parentById[pid] : null;
                         if (!parent) return null;
                         return (
@@ -4983,9 +5922,13 @@ function AgentNotificationsTab({
                             <p className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/55">
                               Original message
                             </p>
-                            <p className="mt-1 text-sm font-semibold text-[#2C2C2C]">{parent.title}</p>
+                            <p className="mt-1 text-sm font-semibold text-[#2C2C2C]">
+                              {parent.title}
+                            </p>
                             {parent.body ? (
-                              <p className="mt-1 text-sm font-medium text-[#2C2C2C]/70">{parent.body}</p>
+                              <p className="mt-1 text-sm font-medium text-[#2C2C2C]/70">
+                                {parent.body}
+                              </p>
                             ) : null}
                           </div>
                         );
@@ -5001,7 +5944,10 @@ function AgentNotificationsTab({
                             .update({ dismissed_by_agent: true })
                             .eq("id", n.id)
                             .eq("user_id", userId);
-                          if (!error) setRows((prev) => prev.filter((x) => x.id !== n.id));
+                          if (!error)
+                            setRows((prev) =>
+                              prev.filter((x) => x.id !== n.id),
+                            );
                         }}
                         className="rounded-full p-2 text-[#2C2C2C]/45 hover:bg-gray-100 hover:text-[#2C2C2C]/70"
                       >
@@ -5036,15 +5982,20 @@ function AgentNotificationsTab({
                             onClick={async () => {
                               setReplyBusy(true);
                               try {
-                                const res = await fetch("/api/agent/notification-reply-back", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  credentials: "include",
-                                  body: JSON.stringify({
-                                    reply_to_notification_id: n.id,
-                                    message: replyText.trim(),
-                                  }),
-                                });
+                                const res = await fetch(
+                                  "/api/agent/notification-reply-back",
+                                  {
+                                    method: "POST",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    credentials: "include",
+                                    body: JSON.stringify({
+                                      reply_to_notification_id: n.id,
+                                      message: replyText.trim(),
+                                    }),
+                                  },
+                                );
                                 if (res.ok) {
                                   setReplyOpenId(null);
                                   setReplyText("");
@@ -5075,7 +6026,11 @@ function AgentNotificationsTab({
                 </div>
               ) : (
                 <div className="relative">
-                  <NotificationCard n={n} onMarkRead={markRead} />
+                  <NotificationCard
+                    n={n}
+                    onMarkRead={markRead}
+                    userRole="agent"
+                  />
                   <button
                     type="button"
                     aria-label="Dismiss notification"
@@ -5086,7 +6041,8 @@ function AgentNotificationsTab({
                         .update({ dismissed_by_agent: true })
                         .eq("id", n.id)
                         .eq("user_id", userId);
-                      if (!error) setRows((prev) => prev.filter((x) => x.id !== n.id));
+                      if (!error)
+                        setRows((prev) => prev.filter((x) => x.id !== n.id));
                     }}
                     className="absolute right-3 top-3 rounded-full p-1.5 text-[#2C2C2C]/45 hover:bg-gray-100 hover:text-[#2C2C2C]/70"
                   >

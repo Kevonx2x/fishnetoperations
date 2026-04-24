@@ -11,6 +11,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   NotificationCard,
   resolveNotificationLink,
+  getNotificationClickHrefWithContext,
   type NotificationListItem,
 } from "@/components/notifications/notification-list";
 import { X } from "lucide-react";
@@ -21,7 +22,9 @@ function dayLabel(iso: string): "today" | "yesterday" | "week" | "older" {
   const now = new Date();
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startD = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diffDays = Math.round((startToday.getTime() - startD.getTime()) / 86400000);
+  const diffDays = Math.round(
+    (startToday.getTime() - startD.getTime()) / 86400000,
+  );
   if (diffDays === 0) return "today";
   if (diffDays === 1) return "yesterday";
   if (diffDays < 7) return "week";
@@ -60,7 +63,8 @@ export default function NotificationsPage() {
       void refreshBottomNavUnread();
     };
     window.addEventListener("bahaygo:notifications-read", onRead);
-    return () => window.removeEventListener("bahaygo:notifications-read", onRead);
+    return () =>
+      window.removeEventListener("bahaygo:notifications-read", onRead);
   }, [refreshBottomNavUnread]);
 
   const load = useCallback(async () => {
@@ -72,7 +76,9 @@ export default function NotificationsPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("notifications")
-      .select("id, created_at, type, title, body, read_at, metadata, dismissed_by_client, parent_id, property_name")
+      .select(
+        "id, created_at, type, title, body, read_at, metadata, dismissed_by_client, parent_id, property_name",
+      )
       .eq("user_id", user.id)
       .eq("dismissed_by_client", false)
       .order("created_at", { ascending: false })
@@ -117,7 +123,10 @@ export default function NotificationsPage() {
     return buckets;
   }, [rows]);
 
-  const markRead = async (n: NotificationListItem, navigateTo?: string | null) => {
+  const markRead = async (
+    n: NotificationListItem,
+    navigateTo?: string | null,
+  ) => {
     if (!user?.id) return;
     if (!n.read_at) {
       const { error } = await supabase
@@ -126,10 +135,17 @@ export default function NotificationsPage() {
         .eq("id", n.id)
         .eq("user_id", user.id);
       if (!error) {
-        setRows((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)));
+        setRows((prev) =>
+          prev.map((x) =>
+            x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x,
+          ),
+        );
       }
     }
-    const href = navigateTo ?? resolveNotificationLink(n.metadata ?? null);
+    let href = navigateTo ?? resolveNotificationLink(n.metadata ?? null);
+    if (!href) {
+      href = getNotificationClickHrefWithContext(n.type, role, pathname);
+    }
     if (href) router.push(href);
   };
 
@@ -148,7 +164,9 @@ export default function NotificationsPage() {
       .eq("user_id", user.id)
       .is("read_at", null);
     if (!error) {
-      setRows((prev) => prev.map((x) => (x.read_at ? x : { ...x, read_at: now })));
+      setRows((prev) =>
+        prev.map((x) => (x.read_at ? x : { ...x, read_at: now })),
+      );
     }
     setMarkingAll(false);
   };
@@ -157,14 +175,20 @@ export default function NotificationsPage() {
     if (!list.length) return null;
     return (
       <section className="mt-8">
-        <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-[#2C2C2C]/45">{label}</h2>
+        <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
+          {label}
+        </h2>
         <ul className="mt-3 space-y-3">
           {list.map((n) => (
             <li key={n.id}>
               {n.type === "agent_message" ? (
                 <AgentMessageClientReplyCard
                   n={n}
-                  clientName={profile?.full_name?.trim() || user?.email?.trim() || "Client"}
+                  clientName={
+                    profile?.full_name?.trim() ||
+                    user?.email?.trim() ||
+                    "Client"
+                  }
                   onDismiss={async () => {
                     if (!user?.id) return;
                     const { error } = await supabase
@@ -172,13 +196,20 @@ export default function NotificationsPage() {
                       .update({ dismissed_by_client: true })
                       .eq("id", n.id)
                       .eq("user_id", user.id);
-                    if (!error) setRows((prev) => prev.filter((x) => x.id !== n.id));
+                    if (!error)
+                      setRows((prev) => prev.filter((x) => x.id !== n.id));
                   }}
                   onSent={() => void load()}
                 />
               ) : (
                 <div className="relative">
-                  <NotificationCard n={n} onMarkRead={markRead} dismissGutter />
+                  <NotificationCard
+                    n={n}
+                    onMarkRead={markRead}
+                    dismissGutter
+                    userRole={role}
+                    currentPath={pathname}
+                  />
                   <button
                     type="button"
                     aria-label="Dismiss notification"
@@ -190,7 +221,8 @@ export default function NotificationsPage() {
                         .update({ dismissed_by_client: true })
                         .eq("id", n.id)
                         .eq("user_id", user.id);
-                      if (!error) setRows((prev) => prev.filter((x) => x.id !== n.id));
+                      if (!error)
+                        setRows((prev) => prev.filter((x) => x.id !== n.id));
                     }}
                     className="absolute right-2 top-2 z-10 rounded-full p-2 text-[#2C2C2C]/45 hover:bg-gray-100 hover:text-[#2C2C2C]/70"
                   >
@@ -221,7 +253,9 @@ export default function NotificationsPage() {
       <div className="min-h-screen bg-white">
         <MaddenTopNav />
         <div className="mx-auto max-w-lg px-4 py-16 text-center">
-          <p className="text-sm font-semibold text-[#2C2C2C]/50">Sign in to see notifications.</p>
+          <p className="text-sm font-semibold text-[#2C2C2C]/50">
+            Sign in to see notifications.
+          </p>
           <Link
             href="/auth/login?next=/notifications"
             className="mt-4 inline-flex rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#5d8a60]"
@@ -243,8 +277,12 @@ export default function NotificationsPage() {
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-serif text-3xl font-semibold text-[#2C2C2C]">Notifications</h1>
-            <p className="mt-1 text-sm text-[#2C2C2C]/55">Updates and activity for your account.</p>
+            <h1 className="font-serif text-3xl font-semibold text-[#2C2C2C]">
+              Notifications
+            </h1>
+            <p className="mt-1 text-sm text-[#2C2C2C]/55">
+              Updates and activity for your account.
+            </p>
           </div>
           <button
             type="button"
@@ -260,8 +298,13 @@ export default function NotificationsPage() {
           <div className="mt-10 h-48 animate-pulse rounded-2xl bg-[#2C2C2C]/5" />
         ) : rows.length === 0 ? (
           <div className="mt-16 rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white py-16 text-center shadow-sm">
-            <Bell className="mx-auto h-12 w-12 text-[#2C2C2C]/25" strokeWidth={1.25} />
-            <p className="mt-4 font-semibold text-[#2C2C2C]/55">No notifications yet</p>
+            <Bell
+              className="mx-auto h-12 w-12 text-[#2C2C2C]/25"
+              strokeWidth={1.25}
+            />
+            <p className="mt-4 font-semibold text-[#2C2C2C]/55">
+              No notifications yet
+            </p>
           </div>
         ) : (
           <>
@@ -303,13 +346,19 @@ function AgentMessageClientReplyCard({
       : null;
   const agentName =
     (typeof meta.agent_name === "string" ? meta.agent_name.trim() : "") ||
-    (typeof meta.from_agent_name === "string" ? meta.from_agent_name.trim() : "") ||
+    (typeof meta.from_agent_name === "string"
+      ? meta.from_agent_name.trim()
+      : "") ||
     (parsed?.[1]?.trim() ?? "") ||
     "Agent";
   const propertyName =
-    (typeof n.metadata?.property_name === "string" ? n.metadata.property_name.trim() : "") ||
+    (typeof n.metadata?.property_name === "string"
+      ? n.metadata.property_name.trim()
+      : "") ||
     ((meta.property_name as string | undefined) ?? "").trim() ||
-    ((n as unknown as { property_name?: string | null }).property_name ?? "").trim() ||
+    (
+      (n as unknown as { property_name?: string | null }).property_name ?? ""
+    ).trim() ||
     (parsed?.[2]?.trim() ?? "") ||
     "Property";
 
@@ -380,11 +429,15 @@ function AgentMessageClientReplyCard({
           </span>
         </div>
         <p className="mt-2 font-bold text-[#2C2C2C]">{n.title}</p>
-        {n.body ? <p className="mt-1 text-sm font-medium text-[#2C2C2C]/70">{n.body}</p> : null}
+        {n.body ? (
+          <p className="mt-1 text-sm font-medium text-[#2C2C2C]/70">{n.body}</p>
+        ) : null}
       </div>
 
       <div className="mt-4 rounded-xl border border-gray-200 bg-[#FAF8F4] p-3">
-        <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/55">Reply</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/55">
+          Reply
+        </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {quick.map((q) => (
             <button
@@ -418,4 +471,3 @@ function AgentMessageClientReplyCard({
     </div>
   );
 }
-

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/relative-time";
+import type { ProfileRole } from "@/lib/auth-roles";
 
 export type NotificationListItem = {
   id: string;
@@ -29,21 +30,31 @@ export function formatNotificationTimeAgo(iso: string): string {
   return formatRelativeTime(iso);
 }
 
-function notificationTypeIcon(type: string): { Icon: LucideIcon; className: string } {
+function notificationTypeIcon(type: string): {
+  Icon: LucideIcon;
+  className: string;
+} {
   const t = type.toLowerCase();
   if (t.includes("verify") || t.includes("approved") || t.includes("license"))
     return { Icon: BadgeCheck, className: "text-[#6B9E6E]" };
-  if (t.includes("like") || t.includes("heart")) return { Icon: Heart, className: "text-red-500" };
-  if (t.includes("pin") || t.includes("save")) return { Icon: Pin, className: "text-[#D4A843]" };
-  if (t === "property_match") return { Icon: Home, className: "text-[#6B9E6E]" };
-  if (t === "lead_created" || t === "new_lead") return { Icon: Sparkles, className: "text-[#D4A843]" };
+  if (t.includes("like") || t.includes("heart"))
+    return { Icon: Heart, className: "text-red-500" };
+  if (t.includes("pin") || t.includes("save"))
+    return { Icon: Pin, className: "text-[#D4A843]" };
+  if (t === "property_match")
+    return { Icon: Home, className: "text-[#6B9E6E]" };
+  if (t === "lead_created" || t === "new_lead")
+    return { Icon: Sparkles, className: "text-[#D4A843]" };
   if (t === "document_request" || t === "document_shared")
     return { Icon: FileText, className: "text-[#6B9E6E]" };
-  if (t === "listing_expiry") return { Icon: Clock, className: "text-amber-600" };
+  if (t === "listing_expiry")
+    return { Icon: Clock, className: "text-amber-600" };
   return { Icon: Bell, className: "text-[#2C2C2C]/50" };
 }
 
-export function resolveNotificationLink(metadata: Record<string, unknown> | null | undefined): string | null {
+export function resolveNotificationLink(
+  metadata: Record<string, unknown> | null | undefined,
+): string | null {
   if (!metadata) return null;
   const link = metadata.link;
   if (typeof link === "string" && link.startsWith("/")) return link;
@@ -68,23 +79,72 @@ export function getNotificationClickHref(type: string): string | null {
   return map[t] ?? null;
 }
 
+/** Action destinations for notification types based on user context */
+export function getNotificationClickHrefWithContext(
+  type: string,
+  userRole?: ProfileRole | null,
+  currentPath?: string,
+): string | null {
+  const t = type.toLowerCase();
+
+  // If we're in a client context (viewing own profile or notifications as client)
+  if (userRole === "client") {
+    // If we're currently viewing a client profile, navigate to the documents tab of that profile
+    if (currentPath?.startsWith("/clients/")) {
+      const clientMap: Record<string, string> = {
+        document_shared: currentPath + "?tab=documents",
+        document_request: currentPath + "?tab=documents",
+      };
+      return clientMap[t] ?? null;
+    }
+    // Otherwise, navigate to the client dashboard documents tab
+    const clientMap: Record<string, string> = {
+      document_shared: "/dashboard/client?tab=documents",
+      document_request: "/dashboard/client?tab=documents",
+    };
+    return clientMap[t] ?? null;
+  }
+
+  // Default to agent behavior
+  return getNotificationClickHref(type);
+}
+
 type NotificationCardProps = {
   n: NotificationListItem;
-  onMarkRead: (n: NotificationListItem, navigateTo?: string | null) => void | Promise<void>;
+  onMarkRead: (
+    n: NotificationListItem,
+    navigateTo?: string | null,
+  ) => void | Promise<void>;
   /** Extra right padding when a dismiss control is overlaid top-right (client notification center). */
   dismissGutter?: boolean;
+  /** User role for context-aware navigation */
+  userRole?: ProfileRole | null;
+  /** Current pathname for context-aware navigation */
+  currentPath?: string;
 };
 
-export function NotificationCard({ n, onMarkRead, dismissGutter }: NotificationCardProps) {
+export function NotificationCard({
+  n,
+  onMarkRead,
+  dismissGutter,
+  userRole,
+  currentPath,
+}: NotificationCardProps) {
   const meta = n.metadata ?? null;
   const metaLink =
-    meta && typeof meta.link === "string" && meta.link.startsWith("/") ? meta.link : null;
-  const clickHref = metaLink ?? getNotificationClickHref(n.type);
+    meta && typeof meta.link === "string" && meta.link.startsWith("/")
+      ? meta.link
+      : null;
+  const clickHref =
+    metaLink ??
+    getNotificationClickHrefWithContext(n.type, userRole, currentPath);
   const clickable = Boolean(clickHref);
   const { Icon, className: iconClass } = notificationTypeIcon(n.type);
   const unread = !n.read_at;
   const documentSharedUrl =
-    n.type === "document_shared" && meta && typeof meta.signed_url === "string" ? meta.signed_url : null;
+    n.type === "document_shared" && meta && typeof meta.signed_url === "string"
+      ? meta.signed_url
+      : null;
 
   const onCardActivate = () => {
     if (!clickable || !clickHref) return;
@@ -122,7 +182,9 @@ export function NotificationCard({ n, onMarkRead, dismissGutter }: NotificationC
         <div className="w-full text-left">
           <span className="block font-bold text-[#2C2C2C]">{n.title}</span>
           {n.body ? (
-            <span className="mt-1 line-clamp-3 block text-sm font-normal text-[#2C2C2C]/65">{n.body}</span>
+            <span className="mt-1 line-clamp-3 block text-sm font-normal text-[#2C2C2C]/65">
+              {n.body}
+            </span>
           ) : null}
         </div>
         {documentSharedUrl ? (

@@ -18,14 +18,19 @@ export type PropertyRow = {
   property_photos?: PropertyPhoto[] | null;
 };
 
-export type SavedJoinRow = { created_at: string; properties: PropertyRow | PropertyRow[] | null };
+export type SavedJoinRow = {
+  created_at: string;
+  properties: PropertyRow | PropertyRow[] | null;
+};
 export type LikeJoinRow = {
   property_id: string;
   created_at: string;
   properties: PropertyRow | PropertyRow[] | null;
 };
 
-export function oneProperty(p: PropertyRow | PropertyRow[] | null | undefined): PropertyRow | null {
+export function oneProperty(
+  p: PropertyRow | PropertyRow[] | null | undefined,
+): PropertyRow | null {
   if (!p) return null;
   return Array.isArray(p) ? (p[0] ?? null) : p;
 }
@@ -43,7 +48,6 @@ export type SharedDocRow = {
   created_at: string;
   metadata: Record<string, unknown> | null;
 };
-
 
 export type BadgeSlug =
   | "first-save"
@@ -76,7 +80,9 @@ export const BADGE_ORDER: BadgeSlug[] = [
 
 const KNOWN_BADGE_SLUGS = new Set<string>(BADGE_ORDER);
 
-export function normalizeBadgeSlug(raw: string | null | undefined): BadgeSlug | null {
+export function normalizeBadgeSlug(
+  raw: string | null | undefined,
+): BadgeSlug | null {
   const t = (raw ?? "").trim();
   return KNOWN_BADGE_SLUGS.has(t) ? (t as BadgeSlug) : null;
 }
@@ -171,7 +177,9 @@ function feedDayKeyUtc(iso: string): string {
  * One card per property per event type per calendar day (UTC): keep the most recent
  * price_drop_al / listing_edited_al by sortAt.
  */
-export function dedupeListingActivityFeedItems(items: FeedUnion[]): FeedUnion[] {
+export function dedupeListingActivityFeedItems(
+  items: FeedUnion[],
+): FeedUnion[] {
   const map = new Map<string, FeedUnion>();
   const rest: FeedUnion[] = [];
   for (const item of items) {
@@ -179,14 +187,17 @@ export function dedupeListingActivityFeedItems(items: FeedUnion[]): FeedUnion[] 
       rest.push(item);
       continue;
     }
-    const eventType = item.kind === "price_drop_al" ? "price_drop" : "listing_edited";
+    const eventType =
+      item.kind === "price_drop_al" ? "price_drop" : "listing_edited";
     const key = `${item.propertyId}|${eventType}|${feedDayKeyUtc(item.sortAt)}`;
     const prev = map.get(key);
     if (!prev || Date.parse(item.sortAt) > Date.parse(prev.sortAt)) {
       map.set(key, item);
     }
   }
-  return [...rest, ...map.values()].sort((a, b) => Date.parse(b.sortAt) - Date.parse(a.sortAt));
+  return [...rest, ...map.values()].sort(
+    (a, b) => Date.parse(b.sortAt) - Date.parse(a.sortAt),
+  );
 }
 
 export type NotifPrefs = {
@@ -199,7 +210,8 @@ export type NotifPrefs = {
 };
 
 export function parseNotifPrefs(raw: unknown): NotifPrefs {
-  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const o =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   return {
     price_drop: o.price_drop !== false,
     new_listing_followed_agent: o.new_listing_followed_agent !== false,
@@ -210,15 +222,21 @@ export function parseNotifPrefs(raw: unknown): NotifPrefs {
   };
 }
 
-export function filterFeedByPrefs(items: FeedUnion[], prefs: NotifPrefs): FeedUnion[] {
+export function filterFeedByPrefs(
+  items: FeedUnion[],
+  prefs: NotifPrefs,
+): FeedUnion[] {
   return items.filter((item) => {
     if (item.kind === "saved_property") return true;
-    if (item.kind === "followed_agent_listing") return prefs.new_listing_followed_agent;
-    if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") return prefs.price_drop;
+    if (item.kind === "followed_agent_listing")
+      return prefs.new_listing_followed_agent;
+    if (item.kind === "price_drop_al" || item.kind === "listing_edited_al")
+      return prefs.price_drop;
     if (item.kind === "badge") return prefs.badge_earned;
     if (item.kind === "badge_earned") return prefs.badge_earned;
     if (item.kind === "agent") return prefs.viewing_request_confirmed;
-    if (item.kind === "viewing_confirmed") return prefs.viewing_request_confirmed;
+    if (item.kind === "viewing_confirmed")
+      return prefs.viewing_request_confirmed;
     return true;
   });
 }
@@ -226,34 +244,52 @@ export function filterFeedByPrefs(items: FeedUnion[], prefs: NotifPrefs): FeedUn
 export function pickPropertyImage(p: PropertyRow): string {
   const photos = p.property_photos;
   if (photos?.length) {
-    const sorted = [...photos].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    const sorted = [...photos].sort(
+      (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+    );
     const u = sorted[0]?.url?.trim();
     if (u) return cloudinaryPropertyPhotoDisplayUrl(u);
   }
   return p.image_url?.trim() || "";
 }
 
-export function stripPhoneDigits(raw: string | null | undefined): string | null {
+export function stripPhoneDigits(
+  raw: string | null | undefined,
+): string | null {
   if (!raw?.trim()) return null;
   const d = raw.replace(/\D/g, "");
   return d.length >= 10 ? d : null;
 }
 
-export function metaStr(m: Record<string, unknown> | null | undefined, key: string): string {
+export function metaStr(
+  m: Record<string, unknown> | null | undefined,
+  key: string,
+): string {
   const v = m?.[key];
   return typeof v === "string" ? v : "";
 }
 
 /** activity_log rows that only reflect client like/pin/save/heart side effects — exclude from listing-update feed. */
-export function activityLogMetadataIndicatesEngagementOnly(m: Record<string, unknown> | null | undefined): boolean {
+export function activityLogMetadataIndicatesEngagementOnly(
+  m: Record<string, unknown> | null | undefined,
+): boolean {
   if (!m) return false;
   const source = String(m.source ?? "").toLowerCase();
   const trigger = String(m.trigger ?? m.triggered_by ?? "").toLowerCase();
   const t = String(m.type ?? "").toLowerCase();
-  if (m.from_engagement === true || m.from_like === true || m.from_pin === true || m.from_save === true || m.from_heart === true) {
+  if (
+    m.from_engagement === true ||
+    m.from_like === true ||
+    m.from_pin === true ||
+    m.from_save === true ||
+    m.from_heart === true
+  ) {
     return true;
   }
-  if (typeof m.engagement === "string" && ["like", "pin", "heart", "save"].includes(m.engagement.toLowerCase())) {
+  if (
+    typeof m.engagement === "string" &&
+    ["like", "pin", "heart", "save"].includes(m.engagement.toLowerCase())
+  ) {
     return true;
   }
   const engagementSources = new Set([
@@ -267,7 +303,12 @@ export function activityLogMetadataIndicatesEngagementOnly(m: Record<string, unk
     "engagement",
     "engagement_notify",
   ]);
-  if (engagementSources.has(source) || engagementSources.has(trigger) || engagementSources.has(t)) return true;
+  if (
+    engagementSources.has(source) ||
+    engagementSources.has(trigger) ||
+    engagementSources.has(t)
+  )
+    return true;
   return false;
 }
 
@@ -315,14 +356,20 @@ export function filterFeedItemsByListingMode(
   statusByPropertyId: Record<string, string>,
 ): FeedUnion[] {
   return items.filter((item) => {
-    if (item.kind === "badge_earned" || item.kind === "badge" || item.kind === "viewing_confirmed") {
+    if (
+      item.kind === "badge_earned" ||
+      item.kind === "badge" ||
+      item.kind === "viewing_confirmed"
+    ) {
       return true;
     }
     if (item.kind === "saved_property" || item.kind === "pin_activity") {
       return propertyMatchesListingMode(item.property, mode);
     }
     if (item.kind === "agent") {
-      return item.property ? propertyMatchesListingMode(item.property, mode) : true;
+      return item.property
+        ? propertyMatchesListingMode(item.property, mode)
+        : true;
     }
     if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") {
       const st = statusByPropertyId[item.propertyId];
@@ -337,12 +384,22 @@ export function filterFeedItemsByListingMode(
   });
 }
 
-export function filterSavedRowsByMode(rows: SavedJoinRow[], mode: ListingMode): SavedJoinRow[] {
-  return rows.filter((r) => propertyMatchesListingMode(oneProperty(r.properties), mode));
+export function filterSavedRowsByMode(
+  rows: SavedJoinRow[],
+  mode: ListingMode,
+): SavedJoinRow[] {
+  return rows.filter((r) =>
+    propertyMatchesListingMode(oneProperty(r.properties), mode),
+  );
 }
 
-export function filterLikeRowsByMode(rows: LikeJoinRow[], mode: ListingMode): LikeJoinRow[] {
-  return rows.filter((r) => propertyMatchesListingMode(oneProperty(r.properties), mode));
+export function filterLikeRowsByMode(
+  rows: LikeJoinRow[],
+  mode: ListingMode,
+): LikeJoinRow[] {
+  return rows.filter((r) =>
+    propertyMatchesListingMode(oneProperty(r.properties), mode),
+  );
 }
 
 export type ClientPrefsRow = {
@@ -368,7 +425,9 @@ export function useClientActivityFeed(userId: string | undefined) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [clientPrefs, setClientPrefs] = useState<ClientPrefsRow | null>(null);
-  const [badges, setBadges] = useState<{ badge_slug: BadgeSlug; earned_at: string }[]>([]);
+  const [badges, setBadges] = useState<
+    { badge_slug: BadgeSlug; earned_at: string }[]
+  >([]);
   const [savedRows, setSavedRows] = useState<SavedJoinRow[]>([]);
   const [likeRows, setLikeRows] = useState<LikeJoinRow[]>([]);
   const [ownDocs, setOwnDocs] = useState<ClientDocRow[]>([]);
@@ -376,10 +435,18 @@ export function useClientActivityFeed(userId: string | undefined) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [feedItems, setFeedItems] = useState<FeedUnion[]>([]);
   const [feedAgentMeta, setFeedAgentMeta] = useState<
-    Record<string, { agentName: string; agentAvatarUrl: string | null; agentId: string | null }>
+    Record<
+      string,
+      {
+        agentName: string;
+        agentAvatarUrl: string | null;
+        agentId: string | null;
+      }
+    >
   >({});
-  const [propertyStatusById, setPropertyStatusById] = useState<Record<string, string>>({});
-
+  const [propertyStatusById, setPropertyStatusById] = useState<
+    Record<string, string>
+  >({});
 
   const loadAll = useCallback(async () => {
     if (!userId) {
@@ -395,10 +462,13 @@ export function useClientActivityFeed(userId: string | undefined) {
     const authUid = authData.user?.id ?? null;
     const uid = authUid ?? userId;
     if (authUid && userId && authUid !== userId) {
-      console.warn("[mobile-client-dashboard] auth user id does not match context userId; using auth session id for queries", {
-        authUserId: authUid,
-        contextUserId: userId,
-      });
+      console.warn(
+        "[mobile-client-dashboard] auth user id does not match context userId; using auth session id for queries",
+        {
+          authUserId: authUid,
+          contextUserId: userId,
+        },
+      );
     }
 
     const [
@@ -418,7 +488,11 @@ export function useClientActivityFeed(userId: string | undefined) {
         )
         .eq("id", uid)
         .maybeSingle(),
-      supabase.from("client_badges").select("badge_slug, earned_at").eq("client_id", uid).order("earned_at", { ascending: false }),
+      supabase
+        .from("client_badges")
+        .select("badge_slug, earned_at")
+        .eq("client_id", uid)
+        .order("earned_at", { ascending: false }),
       supabase
         .from("saved_properties")
         .select(
@@ -469,16 +543,23 @@ export function useClientActivityFeed(userId: string | undefined) {
         .eq("type", "document_shared")
         .order("created_at", { ascending: false })
         .limit(100),
-      supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", uid).is("read_at", null),
+      supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", uid)
+        .is("read_at", null),
       supabase
         .from("notifications")
         .select("id, created_at, type, title, body, metadata")
         .eq("user_id", uid)
-        .in("type", ["client_feed_price_drop", "client_feed_viewing", "viewing_confirmed"])
+        .in("type", [
+          "client_feed_price_drop",
+          "client_feed_viewing",
+          "viewing_confirmed",
+        ])
         .order("created_at", { ascending: false })
         .limit(120),
     ]);
-
     const prow = profileRes.data as {
       full_name?: string | null;
       avatar_url?: string | null;
@@ -521,15 +602,24 @@ export function useClientActivityFeed(userId: string | undefined) {
     }
 
     if (badgesRes.error) {
-      console.error("[mobile-client-dashboard] client_badges query error", badgesRes.error);
+      console.error(
+        "[mobile-client-dashboard] client_badges query error",
+        badgesRes.error,
+      );
     }
-    const rawBadgeRows = (badgesRes.data ?? []) as { badge_slug: string; earned_at: string }[];
+    const rawBadgeRows = (badgesRes.data ?? []) as {
+      badge_slug: string;
+      earned_at: string;
+    }[];
     const normalizedBadges: { badge_slug: BadgeSlug; earned_at: string }[] = [];
     for (const row of rawBadgeRows) {
       const slug = normalizeBadgeSlug(row.badge_slug);
       if (!slug) {
         if ((row.badge_slug ?? "").trim()) {
-          console.warn("[mobile-client-dashboard] client_badges row ignored — unknown badge_slug", row.badge_slug);
+          console.warn(
+            "[mobile-client-dashboard] client_badges row ignored — unknown badge_slug",
+            row.badge_slug,
+          );
         }
         continue;
       }
@@ -549,14 +639,16 @@ export function useClientActivityFeed(userId: string | undefined) {
 
     if (sharedRes.data) {
       const filtered = (sharedRes.data as SharedDocRow[]).filter((r) => {
-        const url = r.metadata && typeof r.metadata.signed_url === "string" ? r.metadata.signed_url : "";
+        const url =
+          r.metadata && typeof r.metadata.file_url === "string"
+            ? r.metadata.file_url
+            : "";
         return Boolean(url?.trim());
       });
       setSharedDocs(filtered);
     } else {
       setSharedDocs([]);
     }
-
     setUnreadCount(typeof notifRes.count === "number" ? notifRes.count : 0);
 
     const feedRows = (feedNotifRes.data ?? []) as FeedNotificationRow[];
@@ -628,14 +720,18 @@ export function useClientActivityFeed(userId: string | undefined) {
 
     for (const n of feedRows) {
       if (n.type === "viewing_confirmed") {
-        built.push({ kind: "viewing_confirmed", sortAt: n.created_at, notification: n });
+        built.push({
+          kind: "viewing_confirmed",
+          sortAt: n.created_at,
+          notification: n,
+        });
         continue;
       }
       const m = n.metadata ?? {};
       if (n.type === "client_feed_viewing") {
         const aid = typeof m.agent_user_id === "string" ? m.agent_user_id : "";
         const pid = typeof m.property_id === "string" ? m.property_id : "";
-        const prop = pid ? propMap.get(pid) ?? null : null;
+        const prop = pid ? (propMap.get(pid) ?? null) : null;
         const metaImg = metaStr(m, "property_image_url");
         const img = metaImg || (prop ? pickPropertyImage(prop) : "") || "";
         const priceRaw = prop?.price ?? "";
@@ -658,7 +754,9 @@ export function useClientActivityFeed(userId: string | undefined) {
         const pidDrop = typeof m.property_id === "string" ? m.property_id : "";
         const propDrop = pidDrop ? propMap.get(pidDrop) : undefined;
         const thumb =
-          metaStr(m, "property_image_url") || (propDrop ? pickPropertyImage(propDrop) : "") || "";
+          metaStr(m, "property_image_url") ||
+          (propDrop ? pickPropertyImage(propDrop) : "") ||
+          "";
         const pName =
           metaStr(m, "property_name")?.trim() ||
           propDrop?.name?.trim() ||
@@ -736,8 +834,9 @@ export function useClientActivityFeed(userId: string | undefined) {
         const oldP = metaStr(meta, "old_price");
         const newP = metaStr(meta, "new_price");
         const propRow = propMap.get(row.entity_id);
-        const thumb =
-          propRow ? pickPropertyImage(propRow) : metaStr(meta, "property_image_url") || "";
+        const thumb = propRow
+          ? pickPropertyImage(propRow)
+          : metaStr(meta, "property_image_url") || "";
         const pName =
           propRow?.name?.trim() || propRow?.location?.trim() || "Listing";
         built.push({
@@ -768,8 +867,9 @@ export function useClientActivityFeed(userId: string | undefined) {
         const meta = row.metadata ?? {};
         if (activityLogMetadataIndicatesEngagementOnly(meta)) continue;
         const propRow = propMap.get(row.entity_id);
-        const thumb =
-          propRow ? pickPropertyImage(propRow) : metaStr(meta, "property_image_url") || "";
+        const thumb = propRow
+          ? pickPropertyImage(propRow)
+          : metaStr(meta, "property_image_url") || "";
         const pName =
           metaStr(meta, "property_name").trim() ||
           propRow?.name?.trim() ||
@@ -788,15 +888,27 @@ export function useClientActivityFeed(userId: string | undefined) {
       }
     }
 
-    const { data: followRows } = await supabase.from("agent_followers").select("agent_id").eq("client_id", uid);
-    const followedAgentIds = [...new Set((followRows ?? []).map((r) => (r as { agent_id: string }).agent_id))];
+    const { data: followRows } = await supabase
+      .from("agent_followers")
+      .select("agent_id")
+      .eq("client_id", uid);
+    const followedAgentIds = [
+      ...new Set(
+        (followRows ?? []).map((r) => (r as { agent_id: string }).agent_id),
+      ),
+    ];
     if (followedAgentIds.length > 0) {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const thirtyDaysAgo = new Date(
+        Date.now() - 30 * 24 * 60 * 60 * 1000,
+      ).toISOString();
       const { data: paRowsFollow } = await supabase
         .from("property_agents")
         .select("property_id, agent_id")
         .in("agent_id", followedAgentIds);
-      const paList = (paRowsFollow ?? []) as { property_id: string; agent_id: string }[];
+      const paList = (paRowsFollow ?? []) as {
+        property_id: string;
+        agent_id: string;
+      }[];
       const propIdsFollow = [...new Set(paList.map((r) => r.property_id))];
       if (propIdsFollow.length > 0) {
         const { data: followProps } = await supabase
@@ -817,7 +929,10 @@ export function useClientActivityFeed(userId: string | undefined) {
           .gte("created_at", thirtyDaysAgo)
           .order("created_at", { ascending: false });
 
-        const agentById = new Map<string, { name: string; image_url: string | null }>();
+        const agentById = new Map<
+          string,
+          { name: string; image_url: string | null }
+        >();
         const { data: agRowsFollow } = await supabase
           .from("agents")
           .select("id, name, image_url")
@@ -839,7 +954,8 @@ export function useClientActivityFeed(userId: string | undefined) {
           if (!p.id) continue;
           const candidates = paByProp.get(p.id) ?? [];
           const chosen =
-            candidates.find((c) => followedAgentIds.includes(c.agent_id)) ?? candidates[0];
+            candidates.find((c) => followedAgentIds.includes(c.agent_id)) ??
+            candidates[0];
           if (!chosen) continue;
           const ag = agentById.get(chosen.agent_id);
           statusRecord[p.id] = p.status;
@@ -860,11 +976,14 @@ export function useClientActivityFeed(userId: string | undefined) {
 
     setPropertyStatusById(statusRecord);
 
-    built.sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime());
+    built.sort(
+      (a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime(),
+    );
     const dedupedFeed = dedupeListingActivityFeedItems(built);
 
     const prefs = parseNotifPrefs(
-      (profileRes.data as { notification_preferences?: unknown } | null)?.notification_preferences,
+      (profileRes.data as { notification_preferences?: unknown } | null)
+        ?.notification_preferences,
     );
     setFeedItems(filterFeedByPrefs(dedupedFeed, prefs));
 
@@ -872,7 +991,10 @@ export function useClientActivityFeed(userId: string | undefined) {
     for (const item of dedupedFeed) {
       if (item.kind === "agent") {
         if (item.propertyId) feedPropIds.add(item.propertyId);
-      } else if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") {
+      } else if (
+        item.kind === "price_drop_al" ||
+        item.kind === "listing_edited_al"
+      ) {
         feedPropIds.add(item.propertyId);
       } else if (item.kind === "saved_property") {
         feedPropIds.add(item.property.id);
@@ -896,17 +1018,29 @@ export function useClientActivityFeed(userId: string | undefined) {
         `,
         )
         .in("property_id", [...feedPropIds]);
-      const fam: Record<string, { agentName: string; agentAvatarUrl: string | null; agentId: string | null }> = {};
+      const fam: Record<
+        string,
+        {
+          agentName: string;
+          agentAvatarUrl: string | null;
+          agentId: string | null;
+        }
+      > = {};
       const seen = new Set<string>();
       for (const row of feedPa ?? []) {
         const r = row as {
           property_id: string;
-          agent: { id?: string | null; name?: string | null; image_url?: string | null } | null;
+          agent: {
+            id?: string | null;
+            name?: string | null;
+            image_url?: string | null;
+          } | null;
         };
         if (seen.has(r.property_id) || !r.agent) continue;
         seen.add(r.property_id);
         fam[r.property_id] = {
-          agentId: typeof r.agent.id === "string" && r.agent.id ? r.agent.id : null,
+          agentId:
+            typeof r.agent.id === "string" && r.agent.id ? r.agent.id : null,
           agentName: r.agent.name?.trim() || "Agent",
           agentAvatarUrl: r.agent.image_url?.trim() || null,
         };
@@ -919,6 +1053,7 @@ export function useClientActivityFeed(userId: string | undefined) {
     setLoading(false);
   }, [supabase, userId]);
 
+  console.log(sharedDocs);
 
   useEffect(() => {
     void loadAll();
@@ -940,7 +1075,9 @@ export function useClientActivityFeed(userId: string | undefined) {
       .map((k) => ({
         bucket: k,
         label: BUCKET_LABEL[k],
-        items: [...groups[k]].sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime()),
+        items: [...groups[k]].sort(
+          (a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime(),
+        ),
       }));
   }, [feedItems]);
 
