@@ -86,7 +86,9 @@ export function truncateTitle(title: string, maxLength: number): string {
 }
 
 /** Property ids for compact feed cards that load `property_photos` thumbnails. */
-export function compactFeedThumbPropertyIdsFromItems(items: FeedUnion[]): string[] {
+export function compactFeedThumbPropertyIdsFromItems(
+  items: FeedUnion[],
+): string[] {
   const ids = new Set<string>();
   for (const item of items) {
     if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") {
@@ -98,18 +100,28 @@ export function compactFeedThumbPropertyIdsFromItems(items: FeedUnion[]): string
 }
 
 function firstPhotoUrlFromPropertyPhotos(
-  photos: { url: string | null; sort_order: number | null }[] | null | undefined,
+  photos:
+    | { url: string | null; sort_order: number | null }[]
+    | null
+    | undefined,
 ): string {
   if (!photos?.length) return "";
-  const sorted = [...photos].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const sorted = [...photos].sort(
+    (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+  );
   const raw = sorted[0]?.url?.trim() ?? "";
   return raw ? cloudinaryPropertyPhotoDisplayUrl(raw) : "";
 }
 
 /** Loads first `property_photos` URL per property (same ordering idea as `pickPropertyImage`). */
-export function useFeedCompactThumbnailMap(propertyIds: readonly string[]): Record<string, string> {
+export function useFeedCompactThumbnailMap(
+  propertyIds: readonly string[],
+): Record<string, string> {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const sortedKey = useMemo(() => [...propertyIds].filter(Boolean).sort().join(","), [propertyIds]);
+  const sortedKey = useMemo(
+    () => [...propertyIds].filter(Boolean).sort().join(","),
+    [propertyIds],
+  );
   const [map, setMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -133,7 +145,9 @@ export function useFeedCompactThumbnailMap(propertyIds: readonly string[]): Reco
       const next: Record<string, string> = {};
       for (const row of (data ?? []) as {
         id: string;
-        property_photos: { url: string | null; sort_order: number | null }[] | null;
+        property_photos:
+          | { url: string | null; sort_order: number | null }[]
+          | null;
       }[]) {
         const url = firstPhotoUrlFromPropertyPhotos(row.property_photos);
         if (url) next[row.id] = url;
@@ -149,12 +163,25 @@ export function useFeedCompactThumbnailMap(propertyIds: readonly string[]): Reco
 }
 
 /** 56×56 `rounded-lg` thumbnail; renders nothing when `src` is empty (no layout gap). */
-function CompactFeedPropertyThumb({ src, alt = "" }: { src: string; alt?: string }) {
+function CompactFeedPropertyThumb({
+  src,
+  alt = "",
+}: {
+  src: string;
+  alt?: string;
+}) {
   const u = src?.trim();
   if (!u) return null;
   return (
     <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-      <Image src={u} alt={alt} fill className="object-cover" sizes="56px" unoptimized />
+      <Image
+        src={u}
+        alt={alt}
+        fill
+        className="object-cover"
+        sizes="56px"
+        unoptimized
+      />
     </div>
   );
 }
@@ -177,7 +204,7 @@ export function filterFeedGroupedByActiveEngagement(
     .filter((g) => g.items.length > 0);
 }
 
-type MainTab = "my_profile" | "all" | "pins" | "likes" | "badges";
+type MainTab = "my_profile" | "all" | "pins" | "likes" | "badges" | "documents";
 
 const BADGE_UNLOCK_PILL: Record<BadgeSlug, string> = {
   "first-save": "Save 1 property",
@@ -187,7 +214,7 @@ const BADGE_UNLOCK_PILL: Record<BadgeSlug, string> = {
   "document-ready": "Upload 3 documents",
   "welcome-home": "Complete your profile with photo and preferences",
   "neighborhood-scout": "View listings in 5 different locations",
-  "committed": "Request 5 or more viewings",
+  committed: "Request 5 or more viewings",
   "in-the-pipeline": "Reach Offer stage in a deal",
   "signed-and-sealed": "Close a deal",
   "document-pro": "Upload 5 or more documents",
@@ -216,7 +243,11 @@ const HEX_CLIP =
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
   if (!m) return null;
-  return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
+  return {
+    r: parseInt(m[1], 16),
+    g: parseInt(m[2], 16),
+    b: parseInt(m[3], 16),
+  };
 }
 
 const BADGE_META: Record<
@@ -410,7 +441,9 @@ function HomepageStyleEngagementButtons({
             disabled={agentEngagementLocked}
             className={cn(
               "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
-              isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
+              isLiked
+                ? "border border-red-200 bg-white"
+                : "border border-gray-200 bg-white/80",
               agentEngagementLocked && "pointer-events-none opacity-50",
             )}
             aria-label={`${engagement.likeCount(propertyId)} likes`}
@@ -418,7 +451,9 @@ function HomepageStyleEngagementButtons({
             <Heart
               className={cn(
                 "h-3.5 w-3.5 shrink-0",
-                isLiked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
+                isLiked
+                  ? "fill-red-500 text-red-500"
+                  : "fill-none text-red-400",
               )}
               aria-hidden
             />
@@ -445,7 +480,9 @@ function HomepageStyleEngagementButtons({
             disabled={agentEngagementLocked}
             className={cn(
               "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
-              isPinned ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
+              isPinned
+                ? "border border-[#D4A843]/40 bg-white"
+                : "border border-gray-200 bg-white/80",
               agentEngagementLocked && "pointer-events-none opacity-50",
             )}
             aria-label={`${engagement.saveCount(propertyId)} saved`}
@@ -453,7 +490,9 @@ function HomepageStyleEngagementButtons({
             <Pin
               className={cn(
                 "h-3.5 w-3.5 shrink-0",
-                isPinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
+                isPinned
+                  ? "fill-[#D4A843] text-[#D4A843]"
+                  : "fill-none text-[#D4A843]",
               )}
               aria-hidden
             />
@@ -482,7 +521,9 @@ function HomepageStyleEngagementButtons({
           }}
           className={cn(
             "inline-flex rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
-            isLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
+            isLiked
+              ? "border border-red-200 bg-white"
+              : "border border-gray-200 bg-white/80",
           )}
           aria-label="Like"
         >
@@ -505,14 +546,18 @@ function HomepageStyleEngagementButtons({
           }}
           className={cn(
             "inline-flex rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
-            isPinned ? "border border-[#D4A843]/40 bg-white" : "border border-gray-200 bg-white/80",
+            isPinned
+              ? "border border-[#D4A843]/40 bg-white"
+              : "border border-gray-200 bg-white/80",
           )}
           aria-label="Save"
         >
           <Pin
             className={cn(
               "h-3.5 w-3.5 shrink-0",
-              isPinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
+              isPinned
+                ? "fill-[#D4A843] text-[#D4A843]"
+                : "fill-none text-[#D4A843]",
             )}
             aria-hidden
           />
@@ -555,10 +600,19 @@ function FeedPhotoOverlay({
       )}
     >
       <Link href={href} className="absolute inset-0 block">
-        <Image src={imageSrc} alt="" fill className="object-cover" sizes="100vw" unoptimized />
+        <Image
+          src={imageSrc}
+          alt=""
+          fill
+          className="object-cover"
+          sizes="100vw"
+          unoptimized
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
         <div className="absolute bottom-2 right-2 rounded-full bg-white/95 px-2.5 py-1 shadow-md ring-1 ring-black/5">
-          <span className="text-sm font-bold text-gray-900">{priceDisplay}</span>
+          <span className="text-sm font-bold text-gray-900">
+            {priceDisplay}
+          </span>
         </div>
       </Link>
       {showEngagementOverlay ? (
@@ -582,11 +636,20 @@ function FeedPhotoOverlay({
 function FeedPropertyThumb56({ src, alt = "" }: { src: string; alt?: string }) {
   const u = src?.trim();
   if (!u) {
-    return <div className="h-14 w-14 shrink-0 rounded-lg bg-gray-200" aria-hidden />;
+    return (
+      <div className="h-14 w-14 shrink-0 rounded-lg bg-gray-200" aria-hidden />
+    );
   }
   return (
     <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-      <Image src={u} alt={alt} fill className="object-cover" sizes="56px" unoptimized />
+      <Image
+        src={u}
+        alt={alt}
+        fill
+        className="object-cover"
+        sizes="56px"
+        unoptimized
+      />
     </div>
   );
 }
@@ -600,7 +663,11 @@ function PinSaveFeedCardHeader({
 }: {
   beforePostedBy: string;
   createdAt: string;
-  agent: { agentId: string | null; agentName: string; agentAvatarUrl: string | null } | null;
+  agent: {
+    agentId: string | null;
+    agentName: string;
+    agentAvatarUrl: string | null;
+  } | null;
   locationLine: string;
   headerBadgeKind: "pin" | "heart" | "both";
 }) {
@@ -614,10 +681,20 @@ function PinSaveFeedCardHeader({
     <div className="flex gap-3">
       {a ? (
         a.agentId ? (
-          <Link href={`/agents/${a.agentId}`} className="relative h-10 w-10 shrink-0 cursor-pointer">
+          <Link
+            href={`/agents/${a.agentId}`}
+            className="relative h-10 w-10 shrink-0 cursor-pointer"
+          >
             <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[#E5E5E5]/60">
               {a.agentAvatarUrl ? (
-                <Image src={a.agentAvatarUrl} alt="" fill className="object-cover" sizes="40px" unoptimized />
+                <Image
+                  src={a.agentAvatarUrl}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="40px"
+                  unoptimized
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/40 text-sm font-bold text-gray-900">
                   {(a.agentName || "A").slice(0, 1).toUpperCase()}
@@ -625,9 +702,16 @@ function PinSaveFeedCardHeader({
               )}
             </div>
             {headerBadgeKind === "both" ? (
-              <div className="absolute -bottom-0.5 -right-0.5 flex items-end" aria-hidden>
+              <div
+                className="absolute -bottom-0.5 -right-0.5 flex items-end"
+                aria-hidden
+              >
                 <span className="relative z-[1] flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md">
-                  <Heart className="h-4 w-4 text-red-500" strokeWidth={2.25} fill="currentColor" />
+                  <Heart
+                    className="h-4 w-4 text-red-500"
+                    strokeWidth={2.25}
+                    fill="currentColor"
+                  />
                 </span>
                 <span className="relative z-[2] -ml-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md">
                   <Pin className="h-4 w-4 text-[#D4A843]" strokeWidth={2.25} />
@@ -645,7 +729,11 @@ function PinSaveFeedCardHeader({
                 className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md"
                 aria-hidden
               >
-                <Heart className="h-4 w-4 text-red-500" strokeWidth={2.25} fill="currentColor" />
+                <Heart
+                  className="h-4 w-4 text-red-500"
+                  strokeWidth={2.25}
+                  fill="currentColor"
+                />
               </span>
             ) : null}
           </Link>
@@ -653,7 +741,14 @@ function PinSaveFeedCardHeader({
           <div className="relative h-10 w-10 shrink-0">
             <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[#E5E5E5]/60">
               {a.agentAvatarUrl ? (
-                <Image src={a.agentAvatarUrl} alt="" fill className="object-cover" sizes="40px" unoptimized />
+                <Image
+                  src={a.agentAvatarUrl}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="40px"
+                  unoptimized
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/40 text-sm font-bold text-gray-900">
                   {(a.agentName || "A").slice(0, 1).toUpperCase()}
@@ -661,21 +756,38 @@ function PinSaveFeedCardHeader({
               )}
             </div>
             {headerBadgeKind === "both" ? (
-              <div className="absolute -bottom-0.5 -right-0.5 flex items-end" aria-hidden>
+              <div
+                className="absolute -bottom-0.5 -right-0.5 flex items-end"
+                aria-hidden
+              >
                 <span className="relative z-[1] flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md">
-                  <Heart className="h-4 w-4 text-red-500" strokeWidth={2.25} fill="currentColor" />
+                  <Heart
+                    className="h-4 w-4 text-red-500"
+                    strokeWidth={2.25}
+                    fill="currentColor"
+                  />
                 </span>
                 <span className="relative z-[2] -ml-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md">
                   <Pin className="h-4 w-4 text-[#D4A843]" strokeWidth={2.25} />
                 </span>
               </div>
             ) : headerBadgeKind === "pin" ? (
-              <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md" aria-hidden>
+              <span
+                className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md"
+                aria-hidden
+              >
                 <Pin className="h-4 w-4 text-[#D4A843]" strokeWidth={2.25} />
               </span>
             ) : headerBadgeKind === "heart" ? (
-              <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md" aria-hidden>
-                <Heart className="h-4 w-4 text-red-500" strokeWidth={2.25} fill="currentColor" />
+              <span
+                className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md"
+                aria-hidden
+              >
+                <Heart
+                  className="h-4 w-4 text-red-500"
+                  strokeWidth={2.25}
+                  fill="currentColor"
+                />
               </span>
             ) : null}
           </div>
@@ -688,19 +800,30 @@ function PinSaveFeedCardHeader({
             <>
               {" posted by "}
               {a.agentId ? (
-                <Link href={`/agents/${a.agentId}`} className="cursor-pointer font-medium text-[#6B9E6E] hover:underline">
+                <Link
+                  href={`/agents/${a.agentId}`}
+                  className="cursor-pointer font-medium text-[#6B9E6E] hover:underline"
+                >
                   {a.agentName}
                 </Link>
               ) : (
-                <span className="font-medium text-[#6B9E6E]">{a.agentName}</span>
+                <span className="font-medium text-[#6B9E6E]">
+                  {a.agentName}
+                </span>
               )}
             </>
           ) : null}
         </p>
-        <p className="mt-0.5 text-xs text-gray-500">{formatNotificationTimeAgo(createdAt)}</p>
+        <p className="mt-0.5 text-xs text-gray-500">
+          {formatNotificationTimeAgo(createdAt)}
+        </p>
         {locationLine.trim() ? (
           <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-            <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+            <MapPin
+              className="h-3 w-3 shrink-0"
+              strokeWidth={2.5}
+              aria-hidden
+            />
             <span className="min-w-0">{locationLine.trim()}</span>
           </p>
         ) : null}
@@ -761,6 +884,8 @@ export function MobileClientDashboard() {
     badges,
     savedRows,
     likeRows,
+    ownDocs,
+    sharedDocs,
     unreadCount,
     feedGrouped,
     feedAgentMeta,
@@ -777,7 +902,10 @@ export function MobileClientDashboard() {
       } else if (item.kind === "agent") {
         const id = item.property?.id;
         if (id) ids.add(id);
-      } else if (item.kind === "price_drop_al" || item.kind === "listing_edited_al") {
+      } else if (
+        item.kind === "price_drop_al" ||
+        item.kind === "listing_edited_al"
+      ) {
         if (item.propertyId) ids.add(item.propertyId);
       }
     }
@@ -793,7 +921,9 @@ export function MobileClientDashboard() {
     return [...ids].map((id) => ({ id }));
   }, [feedItems, savedRows, likeRows]);
 
-  const { engagement } = usePropertyEngagementForProperties(engagementPropertySources);
+  const { engagement } = usePropertyEngagementForProperties(
+    engagementPropertySources,
+  );
 
   const likes = useMemo(
     () => ({
@@ -839,7 +969,8 @@ export function MobileClientDashboard() {
     () => compactFeedThumbPropertyIdsFromItems(compactThumbSourceItems),
     [compactThumbSourceItems],
   );
-  const compactThumbByPropertyId = useFeedCompactThumbnailMap(compactFeedThumbIds);
+  const compactThumbByPropertyId =
+    useFeedCompactThumbnailMap(compactFeedThumbIds);
 
   const savedRowsFiltered = useMemo(
     () => filterSavedRowsByMode(savedRows, listingMode),
@@ -853,7 +984,10 @@ export function MobileClientDashboard() {
       }),
     [savedRowsFiltered, pins],
   );
-  const likeRowsFiltered = useMemo(() => filterLikeRowsByMode(likeRows, listingMode), [likeRows, listingMode]);
+  const likeRowsFiltered = useMemo(
+    () => filterLikeRowsByMode(likeRows, listingMode),
+    [likeRows, listingMode],
+  );
   const likeRowsLikedActive = useMemo(
     () =>
       likeRowsFiltered.filter((r) => {
@@ -884,7 +1018,9 @@ export function MobileClientDashboard() {
           <div className="min-w-0">
             <p className="text-sm font-normal text-[#2C2C2C]">
               {greetingForHour()},{" "}
-              <span className="font-serif text-2xl font-bold text-[#2C2C2C]">{first}</span>
+              <span className="font-serif text-2xl font-bold text-[#2C2C2C]">
+                {first}
+              </span>
             </p>
           </div>
           <Link
@@ -909,6 +1045,7 @@ export function MobileClientDashboard() {
               ["pins", "Pins", Pin],
               ["likes", "Likes", Heart],
               ["badges", "Badges", Star],
+              ["documents", "Documents", FileText],
             ] as const
           ).map(([id, label, Icon]) => {
             const active = mainTab === id;
@@ -924,7 +1061,10 @@ export function MobileClientDashboard() {
                 )}
               >
                 <Icon
-                  className={cn("h-5 w-5 shrink-0", active ? "text-[#6B9E6E]" : "text-gray-400")}
+                  className={cn(
+                    "h-5 w-5 shrink-0",
+                    active ? "text-[#6B9E6E]" : "text-gray-400",
+                  )}
                   strokeWidth={active ? 2.25 : 1.75}
                 />
                 <span className="sr-only">{label}</span>
@@ -965,18 +1105,26 @@ export function MobileClientDashboard() {
               <p className="mt-1 text-sm text-[#2C2C2C]/55">
                 Member since{" "}
                 {createdAt
-                  ? new Date(createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" })
+                  ? new Date(createdAt).toLocaleDateString(undefined, {
+                      month: "long",
+                      year: "numeric",
+                    })
                   : "—"}
               </p>
               <p className="mt-3 text-sm font-semibold text-[#2C2C2C]">
-                <span className="text-[#6B9E6E]">{savedRows.length}</span> properties saved
+                <span className="text-[#6B9E6E]">{savedRows.length}</span>{" "}
+                properties saved
               </p>
-              <p className="mt-1 text-xs text-[#2C2C2C]/45">0 properties viewed · coming soon</p>
+              <p className="mt-1 text-xs text-[#2C2C2C]/45">
+                0 properties viewed · coming soon
+              </p>
             </div>
             {clientPrefs ? (
               <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-serif text-lg font-semibold text-[#2C2C2C]">My Preferences</h3>
+                  <h3 className="font-serif text-lg font-semibold text-[#2C2C2C]">
+                    My Preferences
+                  </h3>
                   <Link
                     href="/settings?tab=profile"
                     className="rounded-lg p-1.5 text-[#6B9E6E] transition hover:bg-[#6B9E6E]/15"
@@ -986,66 +1134,106 @@ export function MobileClientDashboard() {
                   </Link>
                 </div>
                 <div className="mt-3 rounded-lg border border-[#6B9E6E]/30 bg-[#FAF8F4]/80 p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B9E6E]">Location &amp; visa</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B9E6E]">
+                    Location &amp; visa
+                  </p>
                   <p className="mt-1 font-serif text-lg font-bold text-[#2C2C2C]">
                     {clientPrefs.country_of_origin?.trim() || "—"}
                   </p>
                   {isNonFilipinoCountry(clientPrefs.country_of_origin) ? (
                     <div className="mt-2 space-y-1 border-t border-[#2C2C2C]/10 pt-2 text-sm">
                       {clientPrefs.visa_type?.trim() ? (
-                        <p className="font-semibold text-[#2C2C2C]">Visa: {clientPrefs.visa_type.trim()}</p>
+                        <p className="font-semibold text-[#2C2C2C]">
+                          Visa: {clientPrefs.visa_type.trim()}
+                        </p>
                       ) : (
                         <p className="text-[#2C2C2C]/55">Visa not specified</p>
                       )}
                       {clientPrefs.visa_expiry?.trim() ? (
-                        <p className="font-medium text-[#D4A843]">{visaExpiryDisplay(clientPrefs.visa_expiry)}</p>
+                        <p className="font-medium text-[#D4A843]">
+                          {visaExpiryDisplay(clientPrefs.visa_expiry)}
+                        </p>
                       ) : null}
                     </div>
                   ) : null}
                 </div>
                 <dl className="mt-3 space-y-2 text-sm">
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Budget</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                      Budget
+                    </dt>
                     <dd className="font-medium text-[#2C2C2C]">
-                      {clientPrefs.budget_min != null || clientPrefs.budget_max != null
-                        ? formatBudgetRangePhp(clientPrefs.budget_min, clientPrefs.budget_max)
+                      {clientPrefs.budget_min != null ||
+                      clientPrefs.budget_max != null
+                        ? formatBudgetRangePhp(
+                            clientPrefs.budget_min,
+                            clientPrefs.budget_max,
+                          )
                         : "—"}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Looking to</dt>
-                    <dd className="font-medium text-[#2C2C2C]">{lookingToLabel(clientPrefs.looking_to)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Property type</dt>
-                    <dd className="font-medium text-[#2C2C2C]">{clientPrefs.preferred_property_type?.trim() || "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Preferred areas</dt>
-                    <dd className="font-medium text-[#2C2C2C]">{preferredLocationsLabel(clientPrefs.preferred_locations)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Occupants</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                      Looking to
+                    </dt>
                     <dd className="font-medium text-[#2C2C2C]">
-                      {clientPrefs.occupant_count != null ? String(clientPrefs.occupant_count) : "—"}
+                      {lookingToLabel(clientPrefs.looking_to)}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Pets</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                      Property type
+                    </dt>
                     <dd className="font-medium text-[#2C2C2C]">
-                      {clientPrefs.has_pets === true ? "Yes" : clientPrefs.has_pets === false ? "No" : "—"}
+                      {clientPrefs.preferred_property_type?.trim() || "—"}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Move-in timeline</dt>
-                    <dd className="font-medium text-[#2C2C2C]">{clientPrefs.move_in_timeline?.trim() || "—"}</dd>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                      Preferred areas
+                    </dt>
+                    <dd className="font-medium text-[#2C2C2C]">
+                      {preferredLocationsLabel(clientPrefs.preferred_locations)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                      Occupants
+                    </dt>
+                    <dd className="font-medium text-[#2C2C2C]">
+                      {clientPrefs.occupant_count != null
+                        ? String(clientPrefs.occupant_count)
+                        : "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                      Pets
+                    </dt>
+                    <dd className="font-medium text-[#2C2C2C]">
+                      {clientPrefs.has_pets === true
+                        ? "Yes"
+                        : clientPrefs.has_pets === false
+                          ? "No"
+                          : "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                      Move-in timeline
+                    </dt>
+                    <dd className="font-medium text-[#2C2C2C]">
+                      {clientPrefs.move_in_timeline?.trim() || "—"}
+                    </dd>
                   </div>
                   {clientPrefs.agent_notes?.trim() ? (
                     <div>
                       <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
                         Notes for agents
                       </dt>
-                      <dd className="text-sm font-medium leading-snug text-[#2C2C2C]">{clientPrefs.agent_notes.trim()}</dd>
+                      <dd className="text-sm font-medium leading-snug text-[#2C2C2C]">
+                        {clientPrefs.agent_notes.trim()}
+                      </dd>
                     </div>
                   ) : null}
                 </dl>
@@ -1066,7 +1254,9 @@ export function MobileClientDashboard() {
                 </Link>
               </div>
             ) : (
-              <p className="text-center text-sm text-[#6B6B6B]">Loading preferences…</p>
+              <p className="text-center text-sm text-[#6B6B6B]">
+                Loading preferences…
+              </p>
             )}
           </div>
         ) : mainTab === "all" ? (
@@ -1084,15 +1274,34 @@ export function MobileClientDashboard() {
         ) : mainTab === "pins" ? (
           <div>
             <ListingSubTabs mode={listingMode} onChange={setListingMode} />
-            <SavedPinsTab savedRows={savedRowsPinnedActive} likes={likes} pins={pins} engagement={engagement} />
+            <SavedPinsTab
+              savedRows={savedRowsPinnedActive}
+              likes={likes}
+              pins={pins}
+              engagement={engagement}
+            />
           </div>
         ) : mainTab === "likes" ? (
           <div>
             <ListingSubTabs mode={listingMode} onChange={setListingMode} />
-            <LikedPropertiesTab likeRows={likeRowsLikedActive} likes={likes} pins={pins} engagement={engagement} />
+            <LikedPropertiesTab
+              likeRows={likeRowsLikedActive}
+              likes={likes}
+              pins={pins}
+              engagement={engagement}
+            />
           </div>
         ) : mainTab === "badges" ? (
           <BadgesTab badges={badges} />
+        ) : mainTab === "documents" ? (
+          <DocumentsTab
+            ownDocs={ownDocs}
+            sharedDocs={sharedDocs}
+            viewBusyUrl={null}
+            onViewOwn={(file_url) => {
+              window.open(file_url, "_blank", "noopener,noreferrer");
+            }}
+          />
         ) : null}
       </main>
 
@@ -1140,7 +1349,8 @@ export function AllFeedTab({
     }
     return map;
   }, [grouped]);
-  const empty = grouped.length === 0 || grouped.every((g) => g.items.length === 0);
+  const empty =
+    grouped.length === 0 || grouped.every((g) => g.items.length === 0);
 
   if (empty) {
     return (
@@ -1148,7 +1358,9 @@ export function AllFeedTab({
         <div className="grid h-16 w-16 place-items-center rounded-full bg-[#6B9E6E]/20 text-[#6B9E6E]">
           <LayoutGrid className="h-8 w-8" strokeWidth={1.5} />
         </div>
-        <p className="mt-4 text-base font-semibold text-gray-900">Nothing new yet</p>
+        <p className="mt-4 text-base font-semibold text-gray-900">
+          Nothing new yet
+        </p>
         <p className="mt-2 max-w-xs text-sm text-gray-500">
           Save listings, book viewings, and we&apos;ll show updates here.
         </p>
@@ -1160,7 +1372,9 @@ export function AllFeedTab({
     <div className="space-y-8">
       {grouped.map(({ label, items }) => (
         <section key={label}>
-          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500">{label}</h3>
+          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500">
+            {label}
+          </h3>
           <ul className="flex flex-col gap-3">
             {items.map((item) => (
               <li
@@ -1171,7 +1385,8 @@ export function AllFeedTab({
                       ? item.feedKey
                       : item.kind === "followed_agent_listing"
                         ? item.feedKey
-                        : item.kind === "price_drop_al" || item.kind === "listing_edited_al"
+                        : item.kind === "price_drop_al" ||
+                            item.kind === "listing_edited_al"
                           ? item.id
                           : item.kind === "viewing_confirmed"
                             ? item.notification.id
@@ -1190,13 +1405,21 @@ export function AllFeedTab({
                     engagement={engagementForUi}
                   />
                 ) : item.kind === "agent" ? (
-                  <ViewingRequestMediumCard item={item} feedAgentMeta={feedAgentMeta} />
+                  <ViewingRequestMediumCard
+                    item={item}
+                    feedAgentMeta={feedAgentMeta}
+                  />
                 ) : item.kind === "price_drop_al" ? (
-                  <PriceDropMediumCard item={item} compactThumbByPropertyId={compactThumbByPropertyId} />
+                  <PriceDropMediumCard
+                    item={item}
+                    compactThumbByPropertyId={compactThumbByPropertyId}
+                  />
                 ) : item.kind === "listing_edited_al" ? (
                   <ListingEditedActivityCard
                     item={item}
-                    listingEditedCompactIndex={listingEditedOrdinalById.get(item.id) ?? 0}
+                    listingEditedCompactIndex={
+                      listingEditedOrdinalById.get(item.id) ?? 0
+                    }
                     compactThumbByPropertyId={compactThumbByPropertyId}
                   />
                 ) : item.kind === "badge_earned" ? (
@@ -1206,11 +1429,19 @@ export function AllFeedTab({
                     onViewBadges={onViewBadges}
                   />
                 ) : item.kind === "badge" ? (
-                  <BadgeMediumCard n={item.notification} onViewBadges={onViewBadges} />
+                  <BadgeMediumCard
+                    n={item.notification}
+                    onViewBadges={onViewBadges}
+                  />
                 ) : item.kind === "viewing_confirmed" ? (
                   <ViewingConfirmedSmallCard n={item.notification} />
                 ) : item.kind === "followed_agent_listing" ? (
-                  <FollowedAgentListingCard item={item} likes={likes} pins={pins} engagement={engagementForUi} />
+                  <FollowedAgentListingCard
+                    item={item}
+                    likes={likes}
+                    pins={pins}
+                    engagement={engagementForUi}
+                  />
                 ) : (
                   <ListingLikeSmallCard
                     property={item.property}
@@ -1254,7 +1485,13 @@ function FollowedAgentListingCard({
           className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10"
         >
           {agent.image_url ? (
-            <SupabasePublicImage src={agent.image_url} alt="" fill sizes="56px" className="object-cover" />
+            <SupabasePublicImage
+              src={agent.image_url}
+              alt=""
+              fill
+              sizes="56px"
+              className="object-cover"
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center font-serif text-xl font-bold text-[#2C2C2C]/40">
               {agent.name.slice(0, 1)}
@@ -1268,7 +1505,9 @@ function FollowedAgentListingCard({
           >
             {agent.name}
           </Link>
-          <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">New listing</p>
+          <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">
+            New listing
+          </p>
         </div>
       </div>
       {img && pid ? (
@@ -1296,7 +1535,14 @@ function FollowedAgentListingCard({
           {titleDisplay}
         </Link>
       ) : (
-        <p className={cn("text-lg font-bold text-gray-900", img ? "mt-3" : "mt-4")}>{titleDisplay}</p>
+        <p
+          className={cn(
+            "text-lg font-bold text-gray-900",
+            img ? "mt-3" : "mt-4",
+          )}
+        >
+          {titleDisplay}
+        </p>
       )}
       {p.location ? (
         <p className="mt-1 flex items-center gap-1 text-sm text-gray-600">
@@ -1333,7 +1579,11 @@ function SavedPropertyBigCard({
   const price = formatPropertyPriceDisplay(property.price, property.status);
   const ag = feedAgentMeta[pid];
   const agent = ag
-    ? { agentId: ag.agentId, agentName: ag.agentName, agentAvatarUrl: ag.agentAvatarUrl }
+    ? {
+        agentId: ag.agentId,
+        agentName: ag.agentName,
+        agentAvatarUrl: ag.agentAvatarUrl,
+      }
     : null;
 
   return (
@@ -1368,7 +1618,14 @@ function SavedPropertyBigCard({
           {titleDisplay}
         </Link>
       ) : (
-        <p className={cn("text-sm font-semibold text-gray-900", img ? "mt-2" : "mt-3")}>{titleDisplay}</p>
+        <p
+          className={cn(
+            "text-sm font-semibold text-gray-900",
+            img ? "mt-2" : "mt-3",
+          )}
+        >
+          {titleDisplay}
+        </p>
       )}
     </article>
   );
@@ -1381,7 +1638,11 @@ function ViewingRequestMediumCard({
   item: Extract<FeedUnion, { kind: "agent" }>;
   feedAgentMeta: Record<
     string,
-    { agentName: string; agentAvatarUrl: string | null; agentId?: string | null }
+    {
+      agentName: string;
+      agentAvatarUrl: string | null;
+      agentId?: string | null;
+    }
   >;
 }) {
   const n = item.notification;
@@ -1393,14 +1654,23 @@ function ViewingRequestMediumCard({
     "Property";
   const propNameDisplay = truncateTitle(propName, FEED_TITLE_MAX_COMPACT);
   const actionText = (n.title ?? n.body ?? "Viewing activity").trim();
-  const propertyHrefId = metaStr(m, "property_id").trim() || item.property?.id || "";
-  const agentLine = propertyHrefId ? feedAgentMeta[propertyHrefId]?.agentName?.trim() : "";
+  const propertyHrefId =
+    metaStr(m, "property_id").trim() || item.property?.id || "";
+  const agentLine = propertyHrefId
+    ? feedAgentMeta[propertyHrefId]?.agentName?.trim()
+    : "";
   const thumbSrc = item.property
     ? pickPropertyImage(item.property)
     : metaStr(m, "property_image_url").trim();
 
   return (
-    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "relative flex w-full items-start gap-3")}>
+    <article
+      className={cn(
+        FEED_CARD_CLASS,
+        FEED_CARD_PAD_MD,
+        "relative flex w-full items-start gap-3",
+      )}
+    >
       {propertyHrefId ? (
         <Link
           href={`/properties/${encodeURIComponent(propertyHrefId)}`}
@@ -1420,10 +1690,16 @@ function ViewingRequestMediumCard({
         <div className="min-w-0 flex-1">
           <p className="font-bold leading-snug text-gray-900">{actionText}</p>
           <p className="mt-0.5 text-sm text-gray-500">{propNameDisplay}</p>
-          {agentLine ? <p className="mt-1 text-xs font-medium text-[#6B9E6E]">{agentLine}</p> : null}
+          {agentLine ? (
+            <p className="mt-1 text-xs font-medium text-[#6B9E6E]">
+              {agentLine}
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <span className="text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
+          <span className="text-xs text-gray-500">
+            {formatNotificationTimeAgo(n.created_at)}
+          </span>
           <FeedPropertyThumb56 src={thumbSrc} alt="" />
         </div>
       </div>
@@ -1439,7 +1715,10 @@ function PriceDropMediumCard({
   compactThumbByPropertyId: Record<string, string>;
 }) {
   const newPriceDisplay = formatPropertyPriceDisplay(item.newPrice);
-  const propertyNameDisplay = truncateTitle(item.propertyName, FEED_TITLE_MAX_COMPACT);
+  const propertyNameDisplay = truncateTitle(
+    item.propertyName,
+    FEED_TITLE_MAX_COMPACT,
+  );
   const pid = item.propertyId ?? "";
   const photoUrl = pid ? (compactThumbByPropertyId[pid] ?? "") : "";
 
@@ -1450,15 +1729,21 @@ function PriceDropMediumCard({
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-bold text-gray-900">Price drop</p>
-        <p className="mt-0.5 font-semibold text-gray-900">{propertyNameDisplay}</p>
+        <p className="mt-0.5 font-semibold text-gray-900">
+          {propertyNameDisplay}
+        </p>
         <p className="mt-1 text-sm text-gray-500">
-          <span className="line-through">{formatPropertyPriceDisplay(item.oldPrice)}</span>
+          <span className="line-through">
+            {formatPropertyPriceDisplay(item.oldPrice)}
+          </span>
           <span className="mx-1.5">→</span>
           <span className="font-bold text-gray-900">{newPriceDisplay}</span>
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(item.sortAt)}</span>
+        <span className="text-xs text-gray-500">
+          {formatNotificationTimeAgo(item.sortAt)}
+        </span>
         <CompactFeedPropertyThumb src={photoUrl} alt="" />
       </div>
     </>
@@ -1477,7 +1762,17 @@ function PriceDropMediumCard({
       </Link>
     );
   }
-  return <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-center gap-3")}>{inner}</article>;
+  return (
+    <article
+      className={cn(
+        FEED_CARD_CLASS,
+        FEED_CARD_PAD_MD,
+        "flex w-full items-center gap-3",
+      )}
+    >
+      {inner}
+    </article>
+  );
 }
 
 function ListingEditedActivityCard({
@@ -1489,10 +1784,14 @@ function ListingEditedActivityCard({
   listingEditedCompactIndex: number;
   compactThumbByPropertyId: Record<string, string>;
 }) {
-  const propertyNameDisplay = truncateTitle(item.propertyName, FEED_TITLE_MAX_COMPACT);
+  const propertyNameDisplay = truncateTitle(
+    item.propertyName,
+    FEED_TITLE_MAX_COMPACT,
+  );
   const showThumbSlot = listingEditedCompactIndex % 3 !== 1;
   const pid = item.propertyId ?? "";
-  const photoUrl = showThumbSlot && pid ? (compactThumbByPropertyId[pid] ?? "") : "";
+  const photoUrl =
+    showThumbSlot && pid ? (compactThumbByPropertyId[pid] ?? "") : "";
 
   const inner = (
     <>
@@ -1501,11 +1800,17 @@ function ListingEditedActivityCard({
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-bold text-gray-900">Listing updated</p>
-        <p className="mt-0.5 font-semibold text-gray-900">{propertyNameDisplay}</p>
-        <p className="mt-1 text-sm text-gray-500">{item.editedByName} updated details</p>
+        <p className="mt-0.5 font-semibold text-gray-900">
+          {propertyNameDisplay}
+        </p>
+        <p className="mt-1 text-sm text-gray-500">
+          {item.editedByName} updated details
+        </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(item.sortAt)}</span>
+        <span className="text-xs text-gray-500">
+          {formatNotificationTimeAgo(item.sortAt)}
+        </span>
         <CompactFeedPropertyThumb src={photoUrl} alt="" />
       </div>
     </>
@@ -1524,7 +1829,17 @@ function ListingEditedActivityCard({
       </Link>
     );
   }
-  return <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-center gap-3")}>{inner}</article>;
+  return (
+    <article
+      className={cn(
+        FEED_CARD_CLASS,
+        FEED_CARD_PAD_MD,
+        "flex w-full items-center gap-3",
+      )}
+    >
+      {inner}
+    </article>
+  );
 }
 
 function BadgeMediumCard({
@@ -1536,7 +1851,10 @@ function BadgeMediumCard({
 }) {
   const m = n.metadata ?? {};
   const badgeName = metaStr(m, "badge_name").trim() || n.title || "Badge";
-  const desc = metaStr(m, "badge_description").trim() || (n.body ?? "").trim() || "You earned a new badge.";
+  const desc =
+    metaStr(m, "badge_description").trim() ||
+    (n.body ?? "").trim() ||
+    "You earned a new badge.";
   const slug = normalizeBadgeSlug(metaStr(m, "badge_slug"));
   const themed = slug ? BADGE_META[slug] : null;
   const Icon = themed?.Icon ?? Star;
@@ -1569,7 +1887,9 @@ function BadgeMediumCard({
         <p className="mt-0.5 text-sm text-gray-500">{desc}</p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
+        <span className="text-xs text-gray-500">
+          {formatNotificationTimeAgo(n.created_at)}
+        </span>
         <button
           type="button"
           onClick={onViewBadges}
@@ -1623,7 +1943,9 @@ function BadgeEarnedFeedCard({
         <p className="mt-1 text-xs font-medium text-gray-500">{dateLabel}</p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(earned_at)}</span>
+        <span className="text-xs text-gray-500">
+          {formatNotificationTimeAgo(earned_at)}
+        </span>
         <button
           type="button"
           onClick={onViewBadges}
@@ -1640,7 +1962,13 @@ function ViewingConfirmedSmallCard({ n }: { n: FeedNotificationRow }) {
   const title = (n.title ?? "Viewing confirmed").trim();
   const body = (n.body ?? "").trim();
   return (
-    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_SM, "flex items-start gap-3")}>
+    <article
+      className={cn(
+        FEED_CARD_CLASS,
+        FEED_CARD_PAD_SM,
+        "flex items-start gap-3",
+      )}
+    >
       <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/15">
         <Calendar className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
       </div>
@@ -1648,7 +1976,9 @@ function ViewingConfirmedSmallCard({ n }: { n: FeedNotificationRow }) {
         <p className="font-bold text-gray-900">{title}</p>
         {body ? <p className="mt-0.5 text-sm text-gray-500">{body}</p> : null}
       </div>
-      <span className="shrink-0 text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
+      <span className="shrink-0 text-xs text-gray-500">
+        {formatNotificationTimeAgo(n.created_at)}
+      </span>
     </article>
   );
 }
@@ -1683,7 +2013,9 @@ function ListingLikeSmallCard({
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <CompactFeedPropertyThumb src={photoUrl} alt="" />
-        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(createdAt)}</span>
+        <span className="text-xs text-gray-500">
+          {formatNotificationTimeAgo(createdAt)}
+        </span>
       </div>
     </article>
   );
@@ -1717,7 +2049,10 @@ export function LikedPropertiesTab({
         const p = oneProperty(r.properties);
         if (!p) return null;
         const img = pickPropertyImage(p);
-        const listingTitle = truncateTitle(p.name?.trim() || p.location || "Listing", FEED_TITLE_MAX_BIG);
+        const listingTitle = truncateTitle(
+          p.name?.trim() || p.location || "Listing",
+          FEED_TITLE_MAX_BIG,
+        );
         return (
           <div
             key={`like-${r.created_at}-${p.id}`}
@@ -1739,14 +2074,26 @@ export function LikedPropertiesTab({
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-[#2C2C2C]">{listingTitle}</p>
                 <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
-                <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
+                <p className="mt-2 text-base font-bold text-[#6B9E6E]">
+                  {formatPropertyPriceDisplay(p.price, p.status)}
+                </p>
               </div>
               <div className="relative mt-10 h-14 w-14 shrink-0 self-start overflow-hidden rounded-lg bg-[#E5E5E5]/60">
                 {img ? (
-                  <Image src={img} alt="" fill className="object-cover" sizes="56px" unoptimized />
+                  <Image
+                    src={img}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="56px"
+                    unoptimized
+                  />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
-                    <Heart className="h-6 w-6 fill-red-500/30 text-red-400" aria-hidden />
+                    <Heart
+                      className="h-6 w-6 fill-red-500/30 text-red-400"
+                      aria-hidden
+                    />
                   </div>
                 )}
               </div>
@@ -1758,7 +2105,11 @@ export function LikedPropertiesTab({
   );
 }
 
-export function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_at: string }[] }) {
+export function BadgesTab({
+  badges,
+}: {
+  badges: { badge_slug: BadgeSlug; earned_at: string }[];
+}) {
   const earnedMap = useMemo(() => {
     const m = new Map<BadgeSlug, string>();
     for (const b of badges) m.set(b.badge_slug, b.earned_at);
@@ -1800,7 +2151,11 @@ export function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_
                   className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
                   aria-hidden
                 >
-                  <Icon className="h-16 w-16" strokeWidth={1.5} style={watermarkStyle} />
+                  <Icon
+                    className="h-16 w-16"
+                    strokeWidth={1.5}
+                    style={watermarkStyle}
+                  />
                 </div>
 
                 <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
@@ -1813,25 +2168,40 @@ export function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_
                         className="absolute inset-0 flex items-center justify-center"
                         style={{ backgroundColor: accentHex }}
                       >
-                        <Icon className="relative z-[1] h-5 w-5 text-white" strokeWidth={2} aria-hidden />
+                        <Icon
+                          className="relative z-[1] h-5 w-5 text-white"
+                          strokeWidth={2}
+                          aria-hidden
+                        />
                       </div>
                     </div>
                     <span
                       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/25"
                       aria-hidden
                     >
-                      <CheckCircle2 className="h-3.5 w-3.5 text-[#6B9E6E]" strokeWidth={2.5} />
+                      <CheckCircle2
+                        className="h-3.5 w-3.5 text-[#6B9E6E]"
+                        strokeWidth={2.5}
+                      />
                     </span>
                   </div>
 
-                  <p className="mt-3 text-sm font-bold text-white">{meta.label}</p>
-                  <p className="mt-1 text-xs leading-snug text-gray-400">{meta.description}</p>
+                  <p className="mt-3 text-sm font-bold text-white">
+                    {meta.label}
+                  </p>
+                  <p className="mt-1 text-xs leading-snug text-gray-400">
+                    {meta.description}
+                  </p>
 
                   <div className="mt-3 flex items-end justify-between gap-2">
                     <p className="text-xs font-medium text-[#6B9E6E]">
                       Earned {formatNotificationTimeAgo(earnedAt)}
                     </p>
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.25} aria-hidden />
+                    <CheckCircle2
+                      className="h-4 w-4 shrink-0 text-[#6B9E6E]"
+                      strokeWidth={2.25}
+                      aria-hidden
+                    />
                   </div>
                 </div>
               </article>
@@ -1848,14 +2218,24 @@ export function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_
                   className="relative flex h-12 w-12 shrink-0 items-center justify-center bg-[#12161f]"
                   style={{ clipPath: HEX_CLIP }}
                 >
-                  <Lock className="h-5 w-5 text-gray-500" strokeWidth={2} aria-hidden />
+                  <Lock
+                    className="h-5 w-5 text-gray-500"
+                    strokeWidth={2}
+                    aria-hidden
+                  />
                 </div>
               </div>
 
-              <p className="mt-3 text-sm font-bold text-gray-500">{meta.label}</p>
-              <p className="mt-1 text-xs leading-snug text-gray-500">{meta.description}</p>
+              <p className="mt-3 text-sm font-bold text-gray-500">
+                {meta.label}
+              </p>
+              <p className="mt-1 text-xs leading-snug text-gray-500">
+                {meta.description}
+              </p>
 
-              <p className="mt-auto pt-3 text-xs text-gray-500">{BADGE_UNLOCK_PILL[slug]}</p>
+              <p className="mt-auto pt-3 text-xs text-gray-500">
+                {BADGE_UNLOCK_PILL[slug]}
+              </p>
             </article>
           );
         })}
@@ -1892,16 +2272,29 @@ export function SavedPinsTab({
         const p = oneProperty(r.properties);
         if (!p) return null;
         const img = pickPropertyImage(p);
-        const listingTitle = truncateTitle(p.name?.trim() || p.location || "Listing", FEED_TITLE_MAX_BIG);
+        const listingTitle = truncateTitle(
+          p.name?.trim() || p.location || "Listing",
+          FEED_TITLE_MAX_BIG,
+        );
         return (
           <div
             key={`saved-${r.created_at}-${p.id}`}
             className="relative overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-[#E5E5E5]"
           >
-            <Link href={`/properties/${p.id}`} className="relative block transition-all duration-200">
+            <Link
+              href={`/properties/${p.id}`}
+              className="relative block transition-all duration-200"
+            >
               <div className="relative h-[200px] w-full bg-[#E5E5E5]/40">
                 {img ? (
-                  <Image src={img} alt="" fill className="object-cover" sizes="100vw" unoptimized />
+                  <Image
+                    src={img}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="100vw"
+                    unoptimized
+                  />
                 ) : null}
                 <div className="pointer-events-auto absolute right-2 top-2 z-[2] flex gap-1">
                   <HomepageStyleEngagementButtons
@@ -1916,7 +2309,9 @@ export function SavedPinsTab({
               <div className="p-4">
                 <p className="font-semibold text-[#2C2C2C]">{listingTitle}</p>
                 <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
-                <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
+                <p className="mt-2 text-base font-bold text-[#6B9E6E]">
+                  {formatPropertyPriceDisplay(p.price, p.status)}
+                </p>
               </div>
             </Link>
           </div>
@@ -1937,24 +2332,39 @@ export function DocumentsTab({
   viewBusyUrl: string | null;
   onViewOwn: (file_url: string) => void;
 }) {
+  const onViewAgentDocument = (fileUrl: string) => {
+    window.open(fileUrl, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="space-y-10">
       <section>
-        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-[#6B6B6B]">Your uploads</h3>
+        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-[#6B6B6B]">
+          Your uploads
+        </h3>
         {ownDocs.length === 0 ? (
-          <p className="mt-3 text-sm text-[#6B6B6B]">No documents uploaded yet.</p>
+          <p className="mt-3 text-sm text-[#6B6B6B]">
+            No documents uploaded yet.
+          </p>
         ) : (
           <ul className="mt-4 space-y-3">
             {ownDocs.map((d) => (
-              <li key={d.id} className="rounded-2xl bg-white p-4 shadow-lg ring-1 ring-[#E5E5E5]">
+              <li
+                key={d.id}
+                className="rounded-2xl bg-white p-4 shadow-lg ring-1 ring-[#E5E5E5]"
+              >
                 <div className="flex gap-3">
                   <FileText className="mt-0.5 h-5 w-5 shrink-0 text-[#6B9E6E]" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold uppercase tracking-wider text-[#6B6B6B]">
                       {labelForClientDocType(d.document_type)}
                     </p>
-                    <p className="mt-1 font-semibold text-[#2C2C2C]">{d.file_name?.trim() || "Document"}</p>
-                    <p className="mt-1 text-xs text-[#6B6B6B]">{new Date(d.created_at).toLocaleDateString()}</p>
+                    <p className="mt-1 font-semibold text-[#2C2C2C]">
+                      {d.file_name?.trim() || "Document"}
+                    </p>
+                    <p className="mt-1 text-xs text-[#6B6B6B]">
+                      {new Date(d.created_at).toLocaleDateString()}
+                    </p>
                     <button
                       type="button"
                       disabled={viewBusyUrl === d.file_url}
@@ -1972,16 +2382,23 @@ export function DocumentsTab({
       </section>
 
       <section>
-        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-[#6B6B6B]">From Your Agent</h3>
+        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-[#6B6B6B]">
+          From Your Agent
+        </h3>
         {sharedDocs.length === 0 ? (
-          <p className="mt-3 text-sm text-[#6B6B6B]">No shared documents yet.</p>
+          <p className="mt-3 text-sm text-[#6B6B6B]">
+            No shared documents yet.
+          </p>
         ) : (
           <ul className="mt-4 space-y-3">
             {sharedDocs.map((r) => {
               const meta = r.metadata ?? {};
-              const signedUrl = typeof meta.signed_url === "string" ? meta.signed_url : "";
+              const fileUrl =
+                typeof meta.file_url === "string" ? meta.file_url : "";
               const docType =
-                typeof meta.document_type === "string" ? meta.document_type : "Document";
+                typeof meta.document_type === "string"
+                  ? meta.document_type
+                  : "Document";
               const fileName =
                 typeof meta.file_name === "string" && meta.file_name.trim()
                   ? meta.file_name
@@ -1991,24 +2408,33 @@ export function DocumentsTab({
                   ? meta.agent_name
                   : "Agent";
               return (
-                <li key={r.id} className="rounded-2xl bg-white p-4 shadow-lg ring-1 ring-[#E5E5E5]">
+                <li
+                  key={r.id}
+                  className="rounded-2xl bg-white p-4 shadow-lg ring-1 ring-[#E5E5E5]"
+                >
                   <div className="flex gap-3">
                     <FileText className="mt-0.5 h-5 w-5 shrink-0 text-[#6B9E6E]" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold uppercase tracking-wider text-[#6B6B6B]">{docType}</p>
-                      <p className="mt-1 font-semibold text-[#2C2C2C]">{fileName}</p>
+                      <p className="text-xs font-bold uppercase tracking-wider text-[#6B6B6B]">
+                        {docType}
+                      </p>
+                      <p className="mt-1 font-semibold text-[#2C2C2C]">
+                        {fileName}
+                      </p>
                       <p className="mt-1 text-sm text-[#6B6B6B]">
-                        From {agentName} · {new Date(r.created_at).toLocaleDateString()}
+                        From {agentName} ·{" "}
+                        {new Date(r.created_at).toLocaleDateString()}
                       </p>
                       <button
                         type="button"
-                        onClick={() => signedUrl && window.open(signedUrl, "_blank", "noopener,noreferrer")}
+                        onClick={() => onViewAgentDocument(fileUrl)}
                         className="mt-3 rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white shadow"
                       >
                         View
                       </button>
                       <p className="mt-2 text-[11px] font-medium text-[#6B6B6B]">
-                        Link may expire after ~1 hour. Request a new one from your agent if needed.
+                        Link may expire after ~1 hour. Request a new one from
+                        your agent if needed.
                       </p>
                     </div>
                   </div>
@@ -2036,9 +2462,10 @@ function EmptyState({
       <div className="grid h-16 w-16 place-items-center rounded-full bg-[#6B9E6E]/20 text-[#6B9E6E]">
         <Icon className="h-8 w-8" strokeWidth={1.5} />
       </div>
-      <p className="mt-4 font-serif text-lg font-bold text-[#2C2C2C]">{title}</p>
+      <p className="mt-4 font-serif text-lg font-bold text-[#2C2C2C]">
+        {title}
+      </p>
       <p className="mt-2 max-w-xs text-sm text-[#6B6B6B]">{subtitle}</p>
     </div>
   );
 }
-
