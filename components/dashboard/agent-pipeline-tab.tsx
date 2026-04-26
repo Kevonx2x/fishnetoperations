@@ -521,6 +521,7 @@ function KanbanDealCard({
                   ? createPortal(
                       <AnimatePresence>
                         <motion.div
+                          data-kanban-portal-menu="true"
                           initial={{ opacity: 0, y: menuOpenUp ? 4 : -4 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: menuOpenUp ? 4 : -4 }}
@@ -1324,8 +1325,21 @@ export function AgentPipelineTab({
   useEffect(() => {
     if (menuOpenId == null) return;
     const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+
+      // Portal menus render outside `menuWrapRef`, so we must treat them as "inside" clicks.
+      const portalMenu =
+        t instanceof Element ? (t as Element).closest("[data-kanban-portal-menu='true']") : null;
+      if (portalMenu) return;
+
+      // Backdrop overlay is also outside `menuWrapRef` but should not instantly dismiss before item clicks.
+      const backdrop =
+        t instanceof Element ? (t as Element).closest("[data-kanban-menu-backdrop='true']") : null;
+      if (backdrop) return;
+
       const el = menuWrapRef.current;
-      if (el && !el.contains(e.target as Node)) {
+      if (el && !el.contains(t)) {
         setMenuOpenId(null);
         setMenuMoveOpen(false);
       }
@@ -2135,6 +2149,7 @@ export function AgentPipelineTab({
               <button
                 type="button"
                 aria-label="Close menu"
+                data-kanban-menu-backdrop="true"
                 className="absolute inset-0 z-[9000] bg-black/5"
                 onClick={() => {
                   setMenuOpenId(null);
