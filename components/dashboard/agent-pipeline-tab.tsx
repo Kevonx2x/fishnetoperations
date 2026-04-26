@@ -405,9 +405,15 @@ function KanbanDealCard({
   const menuOpen = menuOpenId === deal.id;
   const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
   const stageHex = stageBarHex(deal.pipeline_stage);
+  const anyMenuOpen = menuOpenId != null;
+
+  const styleWithZ = {
+    ...style,
+    zIndex: isDragging ? 50 : menuOpen ? 9998 : style.zIndex,
+  } as const;
 
   return (
-    <div ref={setNodeRef} style={style} className="relative">
+    <div ref={setNodeRef} style={styleWithZ} className="relative">
       <div
         {...attributes}
         {...listeners}
@@ -465,11 +471,17 @@ function KanbanDealCard({
                   type="button"
                   aria-label="More options"
                   aria-expanded={menuOpen}
+                  data-kanban-menu-button="true"
                   onClick={() => {
                     setMenuMoveOpen(false);
                     setMenuOpenId(menuOpen ? null : deal.id);
                   }}
-                  className="rounded-lg p-1.5 text-[#2C2C2C]/45 hover:bg-black/5 hover:text-[#2C2C2C]/70"
+                  className={cn(
+                    "rounded-lg p-1.5 text-[#2C2C2C]/45 focus-visible:outline-none focus-visible:ring-0",
+                    !menuOpen && "hover:bg-black/5 hover:text-[#2C2C2C]/70",
+                    menuOpen && "bg-transparent text-[#2C2C2C]/55",
+                    "active:bg-transparent",
+                  )}
                 >
                   <MoreHorizontal className="h-5 w-5" />
                 </button>
@@ -481,7 +493,7 @@ function KanbanDealCard({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -4 }}
                       transition={{ duration: 0.12 }}
-                      className="absolute right-0 top-8 z-50 w-[200px] max-w-[calc(100vw-24px)] rounded-lg border border-[#E5E5E5] bg-white p-1.5 text-[#2C2C2C] shadow-lg"
+                      className="absolute right-0 top-8 z-[9999] w-[200px] max-w-[calc(100vw-24px)] rounded-lg border border-[#E5E5E5] bg-white p-1.5 text-[#2C2C2C] shadow-lg"
                     >
                       {!menuMoveOpen ? (
                         <div className="space-y-0.5">
@@ -585,14 +597,14 @@ function KanbanDealCard({
             </div>
           </div>
 
-          {/* Row 2: Contact */}
-          <p className="mt-1 truncate text-[12px] font-semibold text-[#888888]">{deal.name}</p>
-          {/* Row 4: Avatar + Price */}
+          {/* Row 2: Price */}
+          <p className="mt-1 text-[13px] font-bold text-[#D4A843]">{dealValueLine ?? "—"}</p>
+          {/* Row 4: Avatar + Contact */}
           <div className="mt-2 flex items-center gap-2">
             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[10px] font-bold text-[#6B9E6E]">
               {clientInitials(deal.name)}
             </div>
-            <span className="text-[13px] font-bold text-[#D4A843]">{dealValueLine ?? "—"}</span>
+            <span className="truncate text-[12px] font-semibold text-[#888888]">{deal.name}</span>
           </div>
         </div>
 
@@ -605,7 +617,10 @@ function KanbanDealCard({
               onMoveToStage(deal, next);
             }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="absolute right-2 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-sm hover:bg-[#5a8a5d]"
+            className={cn(
+              "absolute right-2 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-sm hover:bg-[#5a8a5d]",
+              anyMenuOpen && "opacity-0 pointer-events-none",
+            )}
           >
             <span aria-hidden className="text-base leading-none">
               ›
@@ -2057,8 +2072,31 @@ export function AgentPipelineTab({
           </div>
           <div
             ref={kanbanScrollRef}
-            className="overflow-x-auto bg-[#FAF8F4] px-3 py-3 scrollbar-hide"
+            className="relative isolate overflow-x-auto bg-[#FAF8F4] px-3 py-3 scrollbar-hide"
           >
+            {menuOpenId != null ? (
+              <button
+                type="button"
+                aria-label="Close menu"
+                className="absolute inset-0 z-[9000] bg-black/5"
+                onClick={() => {
+                  setMenuOpenId(null);
+                  setMenuMoveOpen(false);
+                }}
+                onPointerDown={(e) => {
+                  // Prevent underlying card clicks; allow one-click switching to another ⋯ menu.
+                  const x = e.clientX;
+                  const y = e.clientY;
+                  setMenuOpenId(null);
+                  setMenuMoveOpen(false);
+                  requestAnimationFrame(() => {
+                    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+                    const btn = el?.closest?.("[data-kanban-menu-button='true']") as HTMLElement | null;
+                    btn?.click?.();
+                  });
+                }}
+              />
+            ) : null}
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
