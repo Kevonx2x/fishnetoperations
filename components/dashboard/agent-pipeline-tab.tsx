@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   DndContext,
   type DragEndEvent,
@@ -407,6 +408,35 @@ function KanbanDealCard({
   const stageHex = stageBarHex(deal.pipeline_stage);
   const anyMenuOpen = menuOpenId != null;
 
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [menuAnchorRect, setMenuAnchorRect] = useState<DOMRect | null>(null);
+  const [menuOpenUp, setMenuOpenUp] = useState(false);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      setMenuAnchorRect(null);
+      setMenuOpenUp(false);
+      return;
+    }
+
+    const update = () => {
+      const el = menuButtonRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setMenuAnchorRect(rect);
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setMenuOpenUp(spaceBelow < 250);
+    };
+
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [menuOpen]);
+
   const styleWithZ = {
     ...style,
     zIndex: isDragging ? 50 : menuOpen ? 9998 : style.zIndex,
@@ -472,6 +502,7 @@ function KanbanDealCard({
                   aria-label="More options"
                   aria-expanded={menuOpen}
                   data-kanban-menu-button="true"
+                  ref={menuButtonRef}
                   onClick={() => {
                     setMenuMoveOpen(false);
                     setMenuOpenId(menuOpen ? null : deal.id);
@@ -486,107 +517,133 @@ function KanbanDealCard({
                   <MoreHorizontal className="h-5 w-5" />
                 </button>
 
-                <AnimatePresence>
-                  {menuOpen ? (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -4 }}
-                      transition={{ duration: 0.12 }}
-                      className="absolute right-0 top-8 z-[9999] w-[200px] max-w-[calc(100vw-24px)] rounded-lg border border-[#E5E5E5] bg-white p-1.5 text-[#2C2C2C] shadow-lg"
-                    >
-                      {!menuMoveOpen ? (
-                        <div className="space-y-0.5">
-                          <button
-                            type="button"
-                            className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                            onClick={() => {
-                              onOpenLeadDetails(deal.id);
-                              setMenuOpenId(null);
-                            }}
-                          >
-                            <Eye className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]" aria-hidden />
-                            View Details
-                          </button>
-                          <button
-                            type="button"
-                            className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                            onClick={() => {
-                              onRequestNotes(deal);
-                              setMenuOpenId(null);
-                            }}
-                          >
-                            <Pencil className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]" aria-hidden />
-                            Edit Notes
-                          </button>
-                          <button
-                            type="button"
-                            className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                            onClick={() => {
-                              onRequestDocuments(deal);
-                              setMenuOpenId(null);
-                            }}
-                          >
-                            <FileText className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]" aria-hidden />
-                            Request Documents
-                          </button>
-
-                          <div className="my-1 h-px bg-[#EEEEEE]" />
-
-                          <button
-                            type="button"
-                            className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#B85450] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                            onClick={() => {
-                              onRequestDecline(deal);
-                              setMenuOpenId(null);
-                              setMenuMoveOpen(false);
-                            }}
-                          >
-                            <Archive className="h-4 w-4 shrink-0 text-[#B85450]" aria-hidden />
-                            Decline &amp; Archive
-                          </button>
-
-                          <button
-                            type="button"
-                            className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                            onClick={() => setMenuMoveOpen(true)}
-                          >
-                            <ArrowRightCircle className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]" aria-hidden />
-                            Move to…
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="max-h-56 overflow-y-auto">
-                          <button
-                            type="button"
-                            className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12px] font-bold text-[#2C2C2C]/60 transition-colors duration-150 hover:bg-[#F0F4F0]"
-                            onClick={() => setMenuMoveOpen(false)}
-                          >
-                            ← Back
-                          </button>
-                          <div className="mt-1 space-y-0.5">
-                            {otherStages.map((s) => (
+                {menuOpen && menuAnchorRect && typeof document !== "undefined"
+                  ? createPortal(
+                      <AnimatePresence>
+                        <motion.div
+                          initial={{ opacity: 0, y: menuOpenUp ? 4 : -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: menuOpenUp ? 4 : -4 }}
+                          transition={{ duration: 0.12 }}
+                          style={{
+                            position: "fixed",
+                            top: menuOpenUp ? menuAnchorRect.top - 8 : menuAnchorRect.bottom + 8,
+                            left: Math.max(12, Math.min(window.innerWidth - 12 - 200, menuAnchorRect.right - 200)),
+                            transform: menuOpenUp ? "translateY(-100%)" : undefined,
+                          }}
+                          className="z-[9999] w-[200px] max-w-[calc(100vw-24px)] rounded-lg border border-[#E5E5E5] bg-white p-1.5 text-[#2C2C2C] shadow-lg"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {!menuMoveOpen ? (
+                            <div className="space-y-0.5">
                               <button
-                                key={s.id}
                                 type="button"
-                                disabled={moveBusyId === deal.id}
-                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0] disabled:opacity-50"
+                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
-                                  onBeginStageMove(deal, s.id, "jump");
+                                  onOpenLeadDetails(deal.id);
+                                  setMenuOpenId(null);
+                                }}
+                              >
+                                <Eye
+                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                  aria-hidden
+                                />
+                                View Details
+                              </button>
+                              <button
+                                type="button"
+                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                onClick={() => {
+                                  onRequestNotes(deal);
+                                  setMenuOpenId(null);
+                                }}
+                              >
+                                <Pencil
+                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                  aria-hidden
+                                />
+                                Edit Notes
+                              </button>
+                              <button
+                                type="button"
+                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                onClick={() => {
+                                  onRequestDocuments(deal);
+                                  setMenuOpenId(null);
+                                }}
+                              >
+                                <FileText
+                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                  aria-hidden
+                                />
+                                Request Documents
+                              </button>
+
+                              <div className="my-1 h-px bg-[#EEEEEE]" />
+
+                              <button
+                                type="button"
+                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#B85450] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                onClick={() => {
+                                  onRequestDecline(deal);
                                   setMenuOpenId(null);
                                   setMenuMoveOpen(false);
                                 }}
                               >
-                                <ArrowRightCircle className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]" aria-hidden />
-                                {s.label}
+                                <Archive className="h-4 w-4 shrink-0 text-[#B85450]" aria-hidden />
+                                Decline &amp; Archive
                               </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
+
+                              <button
+                                type="button"
+                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                onClick={() => setMenuMoveOpen(true)}
+                              >
+                                <ArrowRightCircle
+                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                  aria-hidden
+                                />
+                                Move to…
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="max-h-56 overflow-y-auto">
+                              <button
+                                type="button"
+                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12px] font-bold text-[#2C2C2C]/60 transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                onClick={() => setMenuMoveOpen(false)}
+                              >
+                                ← Back
+                              </button>
+                              <div className="mt-1 space-y-0.5">
+                                {otherStages.map((s) => (
+                                  <button
+                                    key={s.id}
+                                    type="button"
+                                    disabled={moveBusyId === deal.id}
+                                    className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0] disabled:opacity-50"
+                                    onClick={() => {
+                                      onBeginStageMove(deal, s.id, "jump");
+                                      setMenuOpenId(null);
+                                      setMenuMoveOpen(false);
+                                    }}
+                                  >
+                                    <ArrowRightCircle
+                                      className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                      aria-hidden
+                                    />
+                                    {s.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </motion.div>
+                      </AnimatePresence>,
+                      document.body,
+                    )
+                  : null}
               </div>
 
               {isHot ? (
