@@ -36,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useProfileAvatarUrl } from "@/hooks/use-profile-avatar-url";
 
 function getPeerUser(channel: StreamChannel | undefined, selfId: string) {
   const members = channel?.state?.members;
@@ -58,6 +59,7 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
   const { channel, active, displayTitle, latestMessagePreview, lastMessage, onSelect, selfId } = props;
   const { setActiveChannel, channel: activeChannel } = useChatContext();
   const peer = getPeerUser(channel, selfId);
+  const peerAvatar = useProfileAvatarUrl(peer?.id, peer?.image);
   const title = (displayTitle || peer?.name || peer?.id || "Conversation").trim();
   const preview = previewPlainText(latestMessagePreview, lastMessage);
   const timeSource = lastMessage?.created_at ?? channel.state?.last_message_at;
@@ -115,7 +117,7 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
     >
       <span className="relative shrink-0">
         <Avatar
-          image={peer?.image}
+          image={peerAvatar}
           name={title}
           className="h-11 w-11 [&_.str-chat__avatar-fallback]:text-sm"
         />
@@ -172,6 +174,10 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
 function CustomMessage() {
   const { isMyMessage, message, groupStyles, firstOfGroup, readBy, deliveredTo } = useMessageContext();
   const mine = isMyMessage();
+  const otherAvatar = useProfileAvatarUrl(
+    mine ? undefined : message.user?.id,
+    mine ? undefined : message.user?.image,
+  );
   const createdAt = message.created_at
     ? new Date(message.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
     : "";
@@ -206,7 +212,7 @@ function CustomMessage() {
     >
       {!mine && showAvatar ? (
         <div style={{ width: 28, height: 28, flexShrink: 0 }}>
-          <Avatar image={message.user?.image} name={message.user?.name || message.user?.id} />
+          <Avatar image={otherAvatar} name={message.user?.name || message.user?.id} />
         </div>
       ) : null}
       <div className="bhg-msg__body">
@@ -277,6 +283,7 @@ function MessagingChatBody({
   const channelQueryOptions = useMemo(() => ({ messages: { limit: 20 } }), []);
 
   const peerUser = useMemo(() => getPeerUser(channel, userId), [channel, userId]);
+  const peerAvatar = useProfileAvatarUrl(peerUser?.id, peerUser?.image);
 
   const peerOnline = useMemo(() => {
     const peerId = peerUser?.id;
@@ -333,11 +340,11 @@ function MessagingChatBody({
   return (
     <div className={cn(layoutClassName)}>
       <div
-        className={`flex min-h-0 w-full shrink-0 flex-col border-b border-[#2C2C2C]/10 md:border-b-0 md:border-r md:border-[#2C2C2C]/10 ${
+        className={`flex min-h-0 w-full shrink-0 flex-col border-b border-[rgba(0,0,0,0.06)] md:w-[320px] md:min-w-[320px] md:max-w-[320px] md:border-b-0 md:border-r md:border-[rgba(0,0,0,0.06)] ${
           mobileView === "thread" ? "max-md:hidden" : ""
         }`}
       >
-        <div className="hidden shrink-0 border-b border-[#2C2C2C]/10 bg-white px-4 pb-4 pt-5 md:block">
+        <div className="hidden shrink-0 border-b border-[rgba(0,0,0,0.06)] bg-white px-4 pb-4 pt-5 md:block">
           <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">Messages</h2>
           <div className="mt-3 flex gap-2">
             <label className="relative min-w-0 flex-1">
@@ -367,7 +374,7 @@ function MessagingChatBody({
             </button>
           </div>
         </div>
-        <div className="border-b border-gray-200 bg-white px-4 py-3 md:hidden">
+        <div className="border-b border-[rgba(0,0,0,0.06)] bg-white px-4 py-3 md:hidden">
           <span className="font-serif text-xl font-semibold text-[#2C2C2C]">Messages</span>
           <div className="mt-2 flex gap-2">
             <label className="relative min-w-0 flex-1">
@@ -408,15 +415,17 @@ function MessagingChatBody({
           />
         </div>
       </div>
-      <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${mobileView === "list" ? "max-md:hidden" : ""}`}>
-        <div className="flex h-full min-h-0 flex-col">
-          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 md:hidden">
+      <div
+        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${mobileView === "list" ? "max-md:hidden" : ""}`}
+      >
+        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="flex h-14 shrink-0 items-center gap-3 border-b border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] px-4 md:hidden">
             <button type="button" onClick={handleBackToList} aria-label="Back to conversations">
               <ArrowLeft className="h-5 w-5" />
             </button>
             <span className="relative">
               <Avatar
-                image={peerUser?.image}
+                image={peerAvatar}
                 name={peerUser?.name || peerUser?.id || ""}
                 className="h-8 w-8 [&_.str-chat__avatar-fallback]:text-sm"
               />
@@ -426,7 +435,7 @@ function MessagingChatBody({
             </span>
             <span className="font-semibold">{peerUser?.name?.trim() || peerUser?.id || "Conversation"}</span>
           </div>
-          <div className="min-h-0 flex-1 overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <Channel
               channelQueryOptions={channelQueryOptions}
               {...({
@@ -466,6 +475,7 @@ function MessagingThreadInner({
   }, [loading, onLoaded]);
 
   const peerUser = useMemo(() => getPeerUser(channel, userId), [channel, userId]);
+  const peerAvatar = useProfileAvatarUrl(peerUser?.id, peerUser?.image);
 
   const peerOnline = useMemo(() => {
     const peerId = peerUser?.id;
@@ -488,19 +498,19 @@ function MessagingThreadInner({
 
   if (channelLoading || loading) {
     return (
-      <div className="flex h-full min-h-[240px] items-center justify-center bg-white">
+      <div className="flex h-full min-h-[240px] flex-1 items-center justify-center bg-[#FAF8F4]">
         <div className="h-20 w-20 animate-pulse rounded-2xl bg-gray-100" />
       </div>
     );
   }
 
   return (
-    <>
-      <header className="hidden shrink-0 items-center justify-between border-b border-[#2C2C2C]/10 bg-white px-4 py-3 md:flex">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#FAF8F4]">
+      <header className="hidden h-14 shrink-0 items-center justify-between border-b border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] px-4 md:flex">
         <div className="flex min-w-0 items-center gap-3">
           <span className="relative shrink-0">
             <Avatar
-              image={peerUser?.image}
+              image={peerAvatar}
               name={peerUser?.name || peerUser?.id || "Conversation"}
               className="h-10 w-10 [&_.str-chat__avatar-fallback]:text-sm"
             />
@@ -533,14 +543,18 @@ function MessagingThreadInner({
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
-      <VirtualizedMessageList
-        Message={CustomMessage}
-        shouldGroupByUser
-        returnAllReadData
-        maxTimeBetweenGroupedMessages={120000}
-      />
-      <MessageInput />
-    </>
+      <div className="bhg-chat-scroll min-h-0 flex-1 overflow-y-auto">
+        <VirtualizedMessageList
+          Message={CustomMessage}
+          shouldGroupByUser
+          returnAllReadData
+          maxTimeBetweenGroupedMessages={120000}
+        />
+      </div>
+      <div className="shrink-0 border-t border-[rgba(0,0,0,0.06)] bg-[#FAF8F4]">
+        <MessageInput />
+      </div>
+    </div>
   );
 }
 
@@ -556,7 +570,7 @@ export type BahaygoMessagingInboxProps = {
 export function BahaygoMessagingInbox({
   filters,
   sort,
-  layoutClassName = "h-[calc(100vh-180px)] md:h-[600px] w-full min-h-0 overflow-hidden bg-[#FAF8F4] flex flex-col md:grid md:grid-cols-[320px_1fr]",
+  layoutClassName = "flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-col overflow-hidden bg-[#FAF8F4] md:h-[min(720px,calc(100dvh-9rem))] md:grid md:grid-cols-[320px_minmax(0,1fr)]",
   setActiveChannelOnMount = true,
 }: BahaygoMessagingInboxProps) {
   const client = useStreamChat();

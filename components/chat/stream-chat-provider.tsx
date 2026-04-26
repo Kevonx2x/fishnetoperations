@@ -1,9 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { StreamChat } from "stream-chat";
 import { useAuth } from "@/contexts/auth-context";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const StreamChatContext = createContext<StreamChat | null>(null);
 
@@ -11,10 +10,8 @@ let cachedToken: string | null = null;
 let cachedTokenUserId: string | null = null;
 
 export function StreamChatProvider({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading } = useAuth();
-  const supabase = useRef(createSupabaseBrowserClient()).current;
+  const { user, profile, loading: authLoading } = useAuth();
   const [client, setClient] = useState<StreamChat | null>(null);
-  const clientRef = useRef<StreamChat | null>(null);
 
   useEffect(() => {
     if (authLoading || !user?.id) {
@@ -25,12 +22,6 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
     let cancelled = false;
 
     void (async () => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, avatar_url")
-        .eq("id", user.id)
-        .maybeSingle();
-
       let token = cachedTokenUserId === user.id ? cachedToken : null;
       if (!token) {
         const res = await fetch("/api/stream/token", {
@@ -55,26 +46,26 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
       }
 
       const chat = StreamChat.getInstance(apiKey);
-      if (chat.userID !== user.id) {
-        await chat.connectUser(
-          {
-            id: user.id,
-            name: (profile?.full_name as string | undefined)?.trim() || user.email || "User",
-            image: (profile?.avatar_url as string | undefined)?.trim() || undefined,
-          },
-          token,
-        );
+      const displayName = profile?.full_name?.trim() || user.email || "User";
+      const image = profile?.avatar_url?.trim() || undefined;
+      const streamUser = { id: user.id, name: displayName, image };
+
+      if (chat.userID && chat.userID !== user.id) {
+        await chat.disconnectUser();
       }
-      clientRef.current = chat;
+      if (chat.userID === user.id) {
+        await chat.upsertUser(streamUser);
+      } else {
+        await chat.connectUser(streamUser, token);
+      }
       if (!cancelled) setClient(chat);
     })();
 
     return () => {
       cancelled = true;
-      clientRef.current = null;
       setClient(null);
     };
-  }, [authLoading, user?.id, user?.email, supabase]);
+  }, [authLoading, user?.id, user?.email, profile?.full_name, profile?.avatar_url]);
 
   return <StreamChatContext.Provider value={client}>{children}</StreamChatContext.Provider>;
 }

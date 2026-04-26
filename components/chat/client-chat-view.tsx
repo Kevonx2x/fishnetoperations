@@ -34,7 +34,7 @@ export function ClientChatView(_props: { initialChannelId?: string | null }) {
       filters={filters}
       sort={sort}
       setActiveChannelOnMount={false}
-      layoutClassName="min-h-0 w-full flex-1 overflow-hidden bg-[#FAF8F4] flex flex-col md:grid md:grid-cols-[320px_1fr] h-[calc(100dvh-10rem)] md:h-[min(680px,calc(100dvh-7rem))]"
+      layoutClassName="flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-1 flex-col overflow-hidden bg-[#FAF8F4] md:h-[min(720px,calc(100dvh-9rem))] md:grid md:grid-cols-[320px_minmax(0,1fr)]"
     />
   );
 }

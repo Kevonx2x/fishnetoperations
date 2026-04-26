@@ -37,7 +37,7 @@ export function AgentChatInbox(_props: {
       filters={filters}
       sort={sort}
       setActiveChannelOnMount
-      layoutClassName="h-[calc(100vh-180px)] md:h-[600px] w-full min-h-0 overflow-hidden bg-[#FAF8F4] flex flex-col md:grid md:grid-cols-[320px_1fr]"
+      layoutClassName="flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-col overflow-hidden bg-[#FAF8F4] md:h-[min(720px,calc(100dvh-9rem))] md:grid md:grid-cols-[320px_minmax(0,1fr)]"
     />
   );
 }
