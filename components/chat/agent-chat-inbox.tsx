@@ -26,7 +26,7 @@ export function AgentChatInbox(_props: {
 
   if (!client || !user?.id) {
     return (
-      <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-[#2C2C2C]/10 bg-white font-sans text-sm font-medium text-[#2C2C2C]/55">
+      <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-fg/10 bg-surface-panel font-sans text-sm font-medium text-fg/55">
         Loading messages…
       </div>
     );
@@ -37,7 +37,7 @@ export function AgentChatInbox(_props: {
       filters={filters}
       sort={sort}
       setActiveChannelOnMount
-      layoutClassName="flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-col overflow-hidden bg-[#FAF8F4] md:h-[min(720px,calc(100dvh-9rem))] md:grid md:grid-cols-[320px_minmax(0,1fr)]"
+      layoutClassName="flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-col overflow-hidden bg-surface-page md:h-[min(720px,calc(100dvh-9rem))] md:grid md:grid-cols-[320px_minmax(0,1fr)]"
     />
   );
 }

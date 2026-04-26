@@ -111,8 +111,8 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
       onClick={handleRowClick}
       onKeyDown={handleRowKeyDown}
       className={cn(
-        "group relative flex w-full cursor-pointer items-start gap-3 border-b border-[#2C2C2C]/8 px-3 py-3 text-left outline-none transition-colors hover:bg-black/[0.02] focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/40",
-        active ? "bg-[#2C2C2C]/[0.06]" : "bg-transparent",
+        "group relative flex w-full cursor-pointer items-start gap-3 px-3 py-3 text-left outline-none transition-colors hover:bg-fg/[0.03] focus-visible:ring-2 focus-visible:ring-brand-sage/40",
+        active ? "bg-fg/[0.06]" : "bg-transparent",
       )}
     >
       <span className="relative shrink-0">
@@ -123,19 +123,19 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
         />
         {peerOnline ? (
           <span
-            className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#6B9E6E]"
+            className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-surface-panel bg-brand-sage"
             aria-hidden
           />
         ) : null}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <span className="truncate font-semibold text-[#2C2C2C]">{title}</span>
-          <span className="shrink-0 text-[11px] font-medium tabular-nums text-[#2C2C2C]/45">{timeStr}</span>
+          <span className="truncate font-semibold text-fg">{title}</span>
+          <span className="shrink-0 text-[11px] font-medium tabular-nums text-fg/45">{timeStr}</span>
         </div>
         <div className="mt-0.5 flex items-center gap-1.5">
-          {pinned ? <Pin className="h-3 w-3 shrink-0 text-[#6B9E6E]" aria-hidden /> : null}
-          <p className="truncate text-[13px] leading-snug text-[#2C2C2C]/50">{preview || "No messages yet"}</p>
+          {pinned ? <Pin className="h-3 w-3 shrink-0 text-brand-sage" aria-hidden /> : null}
+          <p className="truncate text-[13px] leading-snug text-fg/50">{preview || "No messages yet"}</p>
         </div>
       </div>
       <div
@@ -150,10 +150,10 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
             e.stopPropagation();
             void togglePin();
           }}
-          className="rounded-md p-1 text-[#2C2C2C]/40 hover:bg-black/[0.04] hover:text-[#6B9E6E]"
+          className="rounded-md p-1 text-fg/40 hover:bg-fg/[0.04] hover:text-brand-sage"
           aria-label={pinned ? "Unpin conversation" : "Pin conversation"}
         >
-          <Pin className={cn("h-4 w-4", pinned && "fill-[#6B9E6E] text-[#6B9E6E]")} />
+          <Pin className={cn("h-4 w-4", pinned && "fill-brand-sage text-brand-sage")} />
         </button>
         <button
           type="button"
@@ -161,7 +161,7 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
             e.stopPropagation();
             void archiveChannel();
           }}
-          className="rounded-md p-1 text-[#2C2C2C]/40 hover:bg-black/[0.04] hover:text-red-500/80"
+          className="rounded-md p-1 text-fg/40 hover:bg-fg/[0.04] hover:text-red-500/80"
           aria-label="Archive conversation"
         >
           <Archive className="h-4 w-4" />
@@ -340,16 +340,16 @@ function MessagingChatBody({
   return (
     <div className={cn(layoutClassName)}>
       <div
-        className={`flex min-h-0 w-full shrink-0 flex-col border-b border-[rgba(0,0,0,0.06)] md:w-[320px] md:min-w-[320px] md:max-w-[320px] md:border-b-0 md:border-r md:border-[rgba(0,0,0,0.06)] ${
+        className={`flex min-h-0 w-full shrink-0 flex-col border-b border-subtle md:w-[320px] md:min-w-[320px] md:max-w-[320px] md:border-b-0 md:border-r md:border-subtle ${
           mobileView === "thread" ? "max-md:hidden" : ""
         }`}
       >
-        <div className="hidden shrink-0 border-b border-[rgba(0,0,0,0.06)] bg-white px-4 pb-4 pt-5 md:block">
-          <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">Messages</h2>
+        <div className="hidden shrink-0 border-b border-subtle bg-surface-page px-4 pb-4 pt-5 md:block">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-fg">Messages</h2>
           <div className="mt-3 flex gap-2">
             <label className="relative min-w-0 flex-1">
               <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2C2C2C]/35"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg/35"
                 aria-hidden
               />
               <input
@@ -357,7 +357,7 @@ function MessagingChatBody({
                 value={listSearch}
                 onChange={(e) => setListSearch(e.target.value)}
                 placeholder="Search conversations..."
-                className="w-full rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] py-2 pl-9 pr-3 text-sm text-[#2C2C2C] outline-none ring-[#6B9E6E]/30 placeholder:text-[#2C2C2C]/40 focus:ring-2"
+                className="w-full rounded-full border border-fg/10 bg-surface-page py-2 pl-9 pr-3 text-sm text-fg outline-none ring-brand-sage/30 placeholder:text-fg/40 focus:ring-2"
               />
             </label>
             <button
@@ -366,20 +366,20 @@ function MessagingChatBody({
               aria-pressed={unreadOnly}
               onClick={() => setUnreadOnly((v) => !v)}
               className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/55 transition-colors hover:bg-[#FAF8F4]",
-                unreadOnly && "border-[#6B9E6E]/40 bg-[#6B9E6E]/10 text-[#6B9E6E]",
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-fg/10 bg-surface-panel text-fg/55 transition-colors hover:bg-surface-page",
+                unreadOnly && "border-brand-sage/40 bg-brand-sage/10 text-brand-sage",
               )}
             >
               <ListFilter className="h-4 w-4" />
             </button>
           </div>
         </div>
-        <div className="border-b border-[rgba(0,0,0,0.06)] bg-white px-4 py-3 md:hidden">
-          <span className="font-serif text-xl font-semibold text-[#2C2C2C]">Messages</span>
+        <div className="border-b border-subtle bg-surface-page px-4 py-3 md:hidden">
+          <span className="font-serif text-xl font-semibold text-fg">Messages</span>
           <div className="mt-2 flex gap-2">
             <label className="relative min-w-0 flex-1">
               <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2C2C2C]/35"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg/35"
                 aria-hidden
               />
               <input
@@ -387,7 +387,7 @@ function MessagingChatBody({
                 value={listSearch}
                 onChange={(e) => setListSearch(e.target.value)}
                 placeholder="Search conversations..."
-                className="w-full rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] py-2 pl-9 pr-3 text-sm text-[#2C2C2C] outline-none placeholder:text-[#2C2C2C]/40"
+                className="w-full rounded-full border border-fg/10 bg-surface-page py-2 pl-9 pr-3 text-sm text-fg outline-none placeholder:text-fg/40"
               />
             </label>
             <button
@@ -396,8 +396,8 @@ function MessagingChatBody({
               aria-pressed={unreadOnly}
               onClick={() => setUnreadOnly((v) => !v)}
               className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/55",
-                unreadOnly && "border-[#6B9E6E]/40 bg-[#6B9E6E]/10 text-[#6B9E6E]",
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-fg/10 bg-surface-panel text-fg/55",
+                unreadOnly && "border-brand-sage/40 bg-brand-sage/10 text-brand-sage",
               )}
             >
               <ListFilter className="h-4 w-4" />
@@ -419,7 +419,7 @@ function MessagingChatBody({
         className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${mobileView === "list" ? "max-md:hidden" : ""}`}
       >
         <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex h-14 shrink-0 items-center gap-3 border-b border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] px-4 md:hidden">
+          <div className="flex h-14 shrink-0 items-center gap-3 border-b border-subtle bg-surface-page px-4 md:hidden">
             <button type="button" onClick={handleBackToList} aria-label="Back to conversations">
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -430,7 +430,7 @@ function MessagingChatBody({
                 className="h-8 w-8 [&_.str-chat__avatar-fallback]:text-sm"
               />
               {peerOnline ? (
-                <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-[#6B9E6E]" aria-hidden />
+                <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-brand-sage" aria-hidden />
               ) : null}
             </span>
             <span className="font-semibold">{peerUser?.name?.trim() || peerUser?.id || "Conversation"}</span>
@@ -498,15 +498,15 @@ function MessagingThreadInner({
 
   if (channelLoading || loading) {
     return (
-      <div className="flex h-full min-h-[240px] flex-1 items-center justify-center bg-[#FAF8F4]">
-        <div className="h-20 w-20 animate-pulse rounded-2xl bg-gray-100" />
+      <div className="flex h-full min-h-[240px] flex-1 items-center justify-center bg-surface-page">
+        <div className="h-20 w-20 animate-pulse rounded-2xl bg-fg/[0.06]" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#FAF8F4]">
-      <header className="hidden h-14 shrink-0 items-center justify-between border-b border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] px-4 md:flex">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page">
+      <header className="hidden h-14 shrink-0 items-center justify-between border-b border-subtle bg-surface-page px-4 md:flex">
         <div className="flex min-w-0 items-center gap-3">
           <span className="relative shrink-0">
             <Avatar
@@ -516,23 +516,23 @@ function MessagingThreadInner({
             />
             {peerOnline ? (
               <span
-                className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#6B9E6E]"
+                className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-surface-panel bg-brand-sage"
                 aria-hidden
               />
             ) : null}
           </span>
           <div className="min-w-0">
-            <p className="truncate font-serif text-lg font-semibold text-[#2C2C2C]">
+            <p className="truncate font-serif text-lg font-semibold text-fg">
               {peerUser?.name?.trim() || peerUser?.id || "Conversation"}
             </p>
-            <p className="text-xs text-[#2C2C2C]/50">{peerOnline ? "Online" : "Offline"}</p>
+            <p className="text-xs text-fg/50">{peerOnline ? "Online" : "Offline"}</p>
           </div>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="rounded-full p-2 text-[#2C2C2C]/55 hover:bg-black/[0.04]"
+              className="rounded-full p-2 text-fg/55 hover:bg-fg/[0.04]"
               aria-label="Conversation menu"
             >
               <MoreHorizontal className="h-5 w-5" />
@@ -551,7 +551,7 @@ function MessagingThreadInner({
           maxTimeBetweenGroupedMessages={120000}
         />
       </div>
-      <div className="shrink-0 border-t border-[rgba(0,0,0,0.06)] bg-[#FAF8F4]">
+      <div className="shrink-0 border-t border-subtle bg-surface-page">
         <MessageInput />
       </div>
     </div>
@@ -570,7 +570,7 @@ export type BahaygoMessagingInboxProps = {
 export function BahaygoMessagingInbox({
   filters,
   sort,
-  layoutClassName = "flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-col overflow-hidden bg-[#FAF8F4] md:h-[min(720px,calc(100dvh-9rem))] md:grid md:grid-cols-[320px_minmax(0,1fr)]",
+  layoutClassName = "flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-col overflow-hidden bg-surface-page md:h-[min(720px,calc(100dvh-9rem))] md:grid md:grid-cols-[320px_minmax(0,1fr)]",
   setActiveChannelOnMount = true,
 }: BahaygoMessagingInboxProps) {
   const client = useStreamChat();
@@ -578,135 +578,14 @@ export function BahaygoMessagingInbox({
 
   if (!client || !user?.id) {
     return (
-      <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-[#2C2C2C]/10 bg-white font-sans text-sm font-medium text-[#2C2C2C]/55">
+      <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-fg/10 bg-surface-panel font-sans text-sm font-medium text-fg/55">
         Loading messages…
       </div>
     );
   }
 
   return (
-    <div className="bahaygo-stream-chat flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#FAF8F4]">
-      <style jsx global>{`
-        .bhg-msg {
-          display: flex;
-          align-items: flex-end;
-          gap: 8px;
-          padding: 4px 8px;
-          width: 100%;
-        }
-        .bhg-msg--tight {
-          padding-top: 0 !important;
-          padding-bottom: 2px !important;
-        }
-        .bhg-msg--mine {
-          flex-direction: row-reverse;
-          justify-content: flex-start;
-        }
-        .bhg-msg--other {
-          flex-direction: row;
-          justify-content: flex-start;
-        }
-        .bhg-msg__body {
-          display: flex;
-          flex-direction: column;
-          max-width: 80%;
-        }
-        .bhg-msg--mine .bhg-msg__body {
-          align-items: flex-end;
-        }
-        .bhg-msg--other .bhg-msg__body {
-          align-items: flex-start;
-        }
-        .bhg-msg__name {
-          font-size: 11px;
-          color: #999;
-          margin-bottom: 2px;
-          padding-left: 4px;
-        }
-        .bhg-msg__bubble {
-          padding: 8px 12px;
-          border-radius: 18px;
-          font-size: 13px;
-          line-height: 1.4;
-        }
-        .bhg-msg--mine .bhg-msg__bubble {
-          background-color: #6b9e6e;
-          color: white;
-          border-bottom-right-radius: 4px;
-        }
-        .bhg-msg--other .bhg-msg__bubble {
-          background-color: #f0f0f0;
-          color: #2c2c2c;
-          border-bottom-left-radius: 4px;
-        }
-        .bhg-msg__bubble p {
-          margin: 0 !important;
-        }
-        .bhg-msg__time {
-          font-size: 10px;
-          color: #aaa;
-          margin-top: 2px;
-          padding-right: 4px;
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-        }
-        .bhg-msg__receipt {
-          font-size: 10px;
-          letter-spacing: -2px;
-          color: rgba(255, 255, 255, 0.85);
-        }
-        .bhg-msg--other .bhg-msg__receipt {
-          color: #aaa;
-        }
-        .bahaygo-stream-chat .str-chat__list {
-          padding: 8px 0 !important;
-        }
-        .bahaygo-stream-chat .str-chat__li {
-          padding: 0 !important;
-        }
-        .bahaygo-stream-chat .str-chat__channel-list {
-          background: #faf8f4 !important;
-          height: 100%;
-          min-height: 0;
-        }
-        .bahaygo-stream-chat .str-chat__channel-list-messenger {
-          height: 100%;
-          min-height: 0;
-          background: transparent !important;
-          border: none !important;
-          box-shadow: none !important;
-        }
-        .bahaygo-stream-chat .str-chat__channel-list-messenger__main {
-          height: 100%;
-          min-height: 0;
-          overflow-y: auto;
-        }
-        .bahaygo-stream-chat .str-chat__channel {
-          background: #faf8f4 !important;
-        }
-        .bahaygo-stream-chat .str-chat__message-input {
-          background: #faf8f4 !important;
-        }
-        .bahaygo-stream-chat .str-chat__send-button {
-          background-color: #6b9e6e !important;
-          border-radius: 9999px !important;
-        }
-        .bahaygo-stream-chat .str-chat__send-button:hover {
-          background-color: #5d8a60 !important;
-        }
-        .bahaygo-stream-chat .str-chat__send-button svg path {
-          fill: white !important;
-        }
-        .bahaygo-stream-chat {
-          background: #faf8f4 !important;
-        }
-        .bahaygo-stream-chat .str-chat__avatar-fallback {
-          background-color: #6b9e6e !important;
-          color: #fff !important;
-          font-weight: 600 !important;
-        }
-      `}</style>
+    <div className="bahaygo-stream-chat flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface-page">
       <div className="flex min-h-0 flex-1 flex-col">
         <Chat client={client} theme="messaging light">
           <MessagingChatBody

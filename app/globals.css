@@ -45,6 +45,16 @@
   --cream: #faf8f4;
   --cream-dark: #ebe6dc;
   --gold: #c9a84c;
+
+  /* Model A messaging — single source of truth (Tailwind: bg-surface-page, border-subtle, text-fg, …) */
+  --surface-page: #faf8f4;
+  --surface-panel: #ffffff;
+  --border-subtle: rgba(0, 0, 0, 0.06);
+  --text-default: #2c2c2c;
+  --text-muted: #888888;
+  --brand-sage: #6b9e6e;
+  --brand-sage-hover: #5d8a60;
+  --brand-gold: #d4a843;
 }
 
 .dark {
@@ -128,6 +138,148 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-surface-page: var(--surface-page);
+  --color-surface-panel: var(--surface-panel);
+  --color-subtle: var(--border-subtle);
+  --color-fg: var(--text-default);
+  --color-fg-muted: var(--text-muted);
+  --color-brand-sage: var(--brand-sage);
+  --color-brand-gold: var(--brand-gold);
+}
+
+@layer components {
+  /* Stream Chat defaults + custom bubbles — scoped so overrides stay in one place */
+  .bahaygo-stream-chat .str-chat__channel-list {
+    background: var(--surface-page) !important;
+    height: 100%;
+    min-height: 0;
+  }
+  .bahaygo-stream-chat .str-chat__channel-list-messenger {
+    height: 100%;
+    min-height: 0;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .bahaygo-stream-chat .str-chat__channel-list-messenger__main {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .bahaygo-stream-chat .str-chat__channel {
+    background: var(--surface-page) !important;
+  }
+  .bahaygo-stream-chat .str-chat__list {
+    background: var(--surface-page) !important;
+    padding: 8px 0 !important;
+  }
+  .bahaygo-stream-chat .str-chat__main-panel {
+    background: var(--surface-page) !important;
+  }
+  .bahaygo-stream-chat .str-chat__container,
+  .bahaygo-stream-chat .str-chat__virtualized-message-list,
+  .bahaygo-stream-chat .str-chat__message-list {
+    background: var(--surface-page) !important;
+  }
+  .bahaygo-stream-chat .str-chat__li {
+    padding: 0 !important;
+  }
+  .bahaygo-stream-chat .str-chat__input-flat {
+    background: var(--surface-page) !important;
+    border-top: 1px solid var(--border-subtle) !important;
+  }
+  .bahaygo-stream-chat .str-chat__message-input {
+    background: var(--surface-page) !important;
+  }
+  .bahaygo-stream-chat .str-chat__send-button {
+    background-color: var(--brand-sage) !important;
+    border-radius: 9999px !important;
+  }
+  .bahaygo-stream-chat .str-chat__send-button:hover {
+    background-color: var(--brand-sage-hover) !important;
+  }
+  .bahaygo-stream-chat .str-chat__send-button svg path {
+    fill: var(--surface-panel) !important;
+  }
+  .bahaygo-stream-chat .str-chat__avatar-fallback {
+    background-color: var(--brand-sage) !important;
+    color: var(--surface-panel) !important;
+    font-weight: 600 !important;
+  }
+
+  .bahaygo-stream-chat .bhg-msg {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 4px 8px;
+    width: 100%;
+  }
+  .bahaygo-stream-chat .bhg-msg--tight {
+    padding-top: 0 !important;
+    padding-bottom: 2px !important;
+  }
+  .bahaygo-stream-chat .bhg-msg--mine {
+    flex-direction: row-reverse;
+    justify-content: flex-start;
+  }
+  .bahaygo-stream-chat .bhg-msg--other {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+  .bahaygo-stream-chat .bhg-msg__body {
+    display: flex;
+    flex-direction: column;
+    max-width: 80%;
+  }
+  .bahaygo-stream-chat .bhg-msg--mine .bhg-msg__body {
+    align-items: flex-end;
+  }
+  .bahaygo-stream-chat .bhg-msg--other .bhg-msg__body {
+    align-items: flex-start;
+  }
+  .bahaygo-stream-chat .bhg-msg__name {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+    padding-left: 4px;
+  }
+  .bahaygo-stream-chat .bhg-msg__bubble {
+    padding: 8px 12px;
+    border-radius: 18px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .bahaygo-stream-chat .bhg-msg--mine .bhg-msg__bubble {
+    background-color: var(--brand-sage);
+    color: var(--surface-panel);
+    border-bottom-right-radius: 4px;
+  }
+  .bahaygo-stream-chat .bhg-msg--other .bhg-msg__bubble {
+    background-color: var(--surface-panel);
+    color: var(--text-default);
+    border-bottom-left-radius: 4px;
+  }
+  .bahaygo-stream-chat .bhg-msg__bubble p {
+    margin: 0 !important;
+  }
+  .bahaygo-stream-chat .bhg-msg__time {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    padding-right: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .bahaygo-stream-chat .bhg-msg__receipt {
+    font-size: 10px;
+    letter-spacing: -2px;
+    color: color-mix(in srgb, var(--surface-panel) 85%, transparent);
+  }
+  .bahaygo-stream-chat .bhg-msg--other .bhg-msg__receipt {
+    color: var(--text-muted);
+  }
 }
 
 @layer base {
