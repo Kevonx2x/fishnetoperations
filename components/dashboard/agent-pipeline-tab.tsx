@@ -9,6 +9,7 @@ import {
   PointerSensor,
   TouchSensor,
   closestCenter,
+  useDroppable,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -95,6 +96,7 @@ export const PIPELINE_DOC_CHECKLIST: Record<PipelineStageId, DocDef[]> = {
 };
 
 const STAGE_ORDER: PipelineStageId[] = ["lead", "viewing", "offer", "reservation", "closed"];
+const KANBAN_STAGE_ORDER: PipelineStageId[] = ["lead", "viewing", "offer", "reservation", "closed"];
 
 function nextStage(s: PipelineStageId): PipelineStageId | null {
   const i = STAGE_ORDER.indexOf(s);
@@ -422,7 +424,7 @@ function KanbanDealCard({
           className="absolute left-0 top-0 h-[3px] w-full rounded-t-lg"
           style={{ backgroundColor: stageHex }}
         />
-        <div className="touch-none" {...attributes} {...listeners}>
+        <div className="touch-none pr-10" {...attributes} {...listeners}>
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 items-start gap-2.5 pt-1">
               <div className="min-w-0 flex-1">
@@ -430,11 +432,6 @@ function KanbanDealCard({
                 <p className="mt-0.5 truncate text-[12px] font-semibold text-[#2C2C2C]/55">{deal.name}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span className="text-[11px] font-semibold text-[#2C2C2C]/40">Updated {updatedAtLabel}</span>
-                  {isHot ? (
-                    <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
-                      Hot
-                    </span>
-                  ) : null}
                 </div>
               </div>
             </div>
@@ -447,13 +444,15 @@ function KanbanDealCard({
             >
               <button
                 type="button"
-                aria-label="Open deal details"
-                onClick={() => onOpenLeadDetails(deal.id)}
+                aria-label="More options"
+                aria-expanded={menuOpen}
+                onClick={() => {
+                  setMenuMoveOpen(false);
+                  setMenuOpenId(menuOpen ? null : deal.id);
+                }}
                 className="rounded-lg p-1.5 text-[#2C2C2C]/45 hover:bg-black/5 hover:text-[#2C2C2C]/70"
               >
-                <span aria-hidden className="text-xl leading-none">
-                  ›
-                </span>
+                <MoreHorizontal className="h-5 w-5" />
               </button>
 
               {menuOpen ? (
@@ -557,6 +556,22 @@ function KanbanDealCard({
           ) : null}
         </div>
 
+        {next ? (
+          <button
+            type="button"
+            aria-label={`Advance to ${PIPELINE_STAGES.find((s) => s.id === next)?.label ?? "next stage"}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onMoveToStage(deal, next);
+            }}
+            className="absolute right-2 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-sm hover:bg-[#5a8a5d]"
+          >
+            <span aria-hidden className="text-base leading-none">
+              ›
+            </span>
+          </button>
+        ) : null}
+
         {stageMovePrompt?.lead.id === deal.id ? (
           <div className="mt-2 rounded-xl border border-gray-200 bg-amber-50/90 p-3 shadow-sm">
             <p className="text-xs font-semibold text-gray-800">Suggest requesting a document for this stage?</p>
@@ -578,6 +593,159 @@ function KanbanDealCard({
             </div>
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+function stageContainerId(stage: PipelineStageId): string {
+  return `stage:${stage}`;
+}
+
+function KanbanStageColumn({
+  stage,
+  idx,
+  label,
+  count,
+  total,
+  showTotal,
+  barHex,
+  ids,
+  list,
+  propertyLabel,
+  dealValueByPropertyId,
+  stageMovePrompt,
+  onStageMovePromptSkip,
+  onStageMovePromptYes,
+  beginStageMove,
+  openDocs,
+  menuOpenId,
+  setMenuOpenId,
+  menuMoveOpen,
+  setMenuMoveOpen,
+  menuWrapRef,
+  onOpenLeadDetails,
+  setNotesLead,
+  setNotesDraft,
+  setRequestDocsLead,
+  setReqDocSelections,
+  setDeclineDeal,
+  moveDealToStage,
+  moveToStageBusyId,
+}: {
+  stage: PipelineStageId;
+  idx: number;
+  label: string;
+  count: number;
+  total: number;
+  showTotal: boolean;
+  barHex: string;
+  ids: string[];
+  list: PipelineLeadRow[];
+  propertyLabel: (propertyId: string | null) => string;
+  dealValueByPropertyId: Record<string, string>;
+  stageMovePrompt: { lead: PipelineLeadRow; targetStage: PipelineStageId; kind: "advance" | "jump" } | null;
+  onStageMovePromptSkip: () => void;
+  onStageMovePromptYes: (lead: PipelineLeadRow, targetStage: PipelineStageId) => void;
+  beginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
+  openDocs: (lead: PipelineLeadRow) => void;
+  menuOpenId: number | null;
+  setMenuOpenId: (id: number | null) => void;
+  menuMoveOpen: boolean;
+  setMenuMoveOpen: (v: boolean) => void;
+  menuWrapRef: React.RefObject<HTMLDivElement | null>;
+  onOpenLeadDetails: (leadId: number) => void;
+  setNotesLead: (d: PipelineLeadRow | null) => void;
+  setNotesDraft: (v: string) => void;
+  setRequestDocsLead: (d: PipelineLeadRow | null) => void;
+  setReqDocSelections: React.Dispatch<
+    React.SetStateAction<{ valid_id: boolean; proof_of_funds: boolean; visa: boolean; other: boolean }>
+  >;
+  setDeclineDeal: (d: PipelineLeadRow | null) => void;
+  moveDealToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
+  moveToStageBusyId: number | null;
+}) {
+  const containerId = stageContainerId(stage);
+  const { setNodeRef, isOver } = useDroppable({ id: containerId });
+  return (
+    <div
+      key={stage}
+      className={cn("min-w-0 flex-1 px-2", idx > 0 && "border-l border-[#2C2C2C]/10")}
+    >
+      <div className="sticky top-0 z-10 overflow-hidden rounded-xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+        <div aria-hidden className="h-[3px] w-full" style={{ backgroundColor: barHex }} />
+        <div className="px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate font-serif text-lg font-bold text-[#2C2C2C]">{label}</p>
+              <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
+                {showTotal ? `${formatPesoCompact(total)} · ` : ""}{count} deal{count === 1 ? "" : "s"}
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-bold tabular-nums text-[#2C2C2C]/70 ring-1 ring-[#2C2C2C]/10">
+              {count}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "mt-3 min-h-[24px] rounded-xl transition-colors",
+          isOver ? "bg-[#6B9E6E]/8" : "bg-transparent",
+        )}
+      >
+        {list.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-[#2C2C2C]/15 bg-white/70 px-3 py-4 text-center text-xs font-semibold text-[#2C2C2C]/45">
+            No deals
+          </p>
+        ) : (
+          <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2 pb-2">
+              {list.map((deal, i) => (
+                <KanbanDealCard
+                  key={deal.id}
+                  deal={deal}
+                  indexInStage={i}
+                  propertyLabel={propertyLabel}
+                  dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
+                  onOpenDocs={openDocs}
+                  onBeginStageMove={beginStageMove}
+                  stageMovePrompt={stageMovePrompt}
+                  onStageMovePromptSkip={onStageMovePromptSkip}
+                  onStageMovePromptYes={onStageMovePromptYes}
+                  menuOpenId={menuOpenId}
+                  setMenuOpenId={setMenuOpenId}
+                  menuMoveOpen={menuMoveOpen}
+                  setMenuMoveOpen={setMenuMoveOpen}
+                  menuWrapRef={menuWrapRef}
+                  onOpenLeadDetails={onOpenLeadDetails}
+                  onRequestNotes={(d) => {
+                    setNotesLead(d);
+                    setNotesDraft(d.closing_notes ?? "");
+                  }}
+                  onRequestDocuments={(d) => {
+                    if (!d.client_id) {
+                      toast.error("This lead is not linked to a client account yet.");
+                      return;
+                    }
+                    setRequestDocsLead(d);
+                    setReqDocSelections({
+                      valid_id: false,
+                      proof_of_funds: false,
+                      visa: false,
+                      other: false,
+                    });
+                  }}
+                  onRequestDecline={(d) => setDeclineDeal(d)}
+                  onMoveToStage={moveDealToStage}
+                  moveBusyId={moveToStageBusyId}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        )}
       </div>
     </div>
   );
@@ -665,7 +833,7 @@ function SortableDealCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative rounded-2xl border border-gray-100 border-l-4 border-l-[#6B9E6E] bg-white p-4 shadow-sm ${
+      className={`relative rounded-2xl border border-gray-100 bg-white p-4 shadow-sm ${
         isDragging ? "scale-105 shadow-xl" : ""
       } ${isArchived ? "opacity-50 grayscale-[30%]" : ""}`}
     >
@@ -1107,6 +1275,30 @@ export function AgentPipelineTab({
     return m;
   }, [deals]);
 
+  const leadById = useMemo(() => {
+    const m = new Map<string, PipelineLeadRow>();
+    for (const d of deals) m.set(String(d.id), d);
+    return m;
+  }, [deals]);
+
+  const [kanbanIdsByStage, setKanbanIdsByStage] = useState<Record<PipelineStageId, string[]>>({
+    lead: [],
+    viewing: [],
+    offer: [],
+    reservation: [],
+    closed: [],
+  });
+
+  useEffect(() => {
+    setKanbanIdsByStage({
+      lead: dealsByStage.lead.map((d) => String(d.id)),
+      viewing: dealsByStage.viewing.map((d) => String(d.id)),
+      offer: dealsByStage.offer.map((d) => String(d.id)),
+      reservation: dealsByStage.reservation.map((d) => String(d.id)),
+      closed: dealsByStage.closed.map((d) => String(d.id)),
+    });
+  }, [dealsByStage]);
+
   const stageTotals = useMemo(() => {
     const out: Record<PipelineStageId, { count: number; total: number }> = {
       lead: { count: 0, total: 0 },
@@ -1445,6 +1637,61 @@ export function AgentPipelineTab({
     }
   };
 
+  const handleKanbanDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    const findStageForId = (id: string): PipelineStageId | null => {
+      for (const s of KANBAN_STAGE_ORDER) {
+        if (kanbanIdsByStage[s].includes(id)) return s;
+      }
+      return null;
+    };
+
+    const fromStage = findStageForId(activeId);
+    if (!fromStage) return;
+
+    const toStage =
+      overId.startsWith("stage:") ? (overId.slice("stage:".length) as PipelineStageId) : findStageForId(overId);
+    if (!toStage || !KANBAN_STAGE_ORDER.includes(toStage)) return;
+
+    if (fromStage === toStage) {
+      const ids = kanbanIdsByStage[fromStage];
+      const oldIndex = ids.indexOf(activeId);
+      const newIndex = ids.indexOf(overId);
+      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
+      const nextIds = arrayMove(ids, oldIndex, newIndex);
+      setKanbanIdsByStage((s) => ({ ...s, [fromStage]: nextIds }));
+      const payload = nextIds.map((x) => Number(x)).filter((n) => Number.isFinite(n));
+      void (async () => {
+        const res = await fetch("/api/agent/pipeline-reorder", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ pipeline_stage: fromStage, lead_ids: payload }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+        if (!res.ok) toast.error(json?.error?.message ?? "Could not save order");
+        else onRefresh();
+      })();
+      return;
+    }
+
+    setKanbanIdsByStage((s) => {
+      const fromIds = s[fromStage].filter((x) => x !== activeId);
+      const toIds = s[toStage];
+      const overIndex = toIds.includes(overId) ? toIds.indexOf(overId) : toIds.length;
+      const nextTo = toIds.slice();
+      nextTo.splice(overIndex, 0, activeId);
+      return { ...s, [fromStage]: fromIds, [toStage]: nextTo };
+    });
+
+    const lead = leadById.get(activeId);
+    if (lead) void moveDealToStage(lead, toStage);
+  };
+
   const saveClosingNotesOnBlur = async () => {
     if (!notesLead) return;
     setNotesSaving(true);
@@ -1763,142 +2010,54 @@ export function AgentPipelineTab({
             ref={kanbanScrollRef}
             className="overflow-x-auto bg-[#FAF8F4] px-3 py-3 scrollbar-hide"
           >
-          <div className="flex w-full min-w-0 items-stretch gap-0">
-            {STAGE_ORDER.map((stage, idx) => {
-              const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
-              const list = dealsByStage[stage];
-              const total = stageTotals[stage]?.total ?? 0;
-              const count = stageTotals[stage]?.count ?? list.length;
-              const ids = list.map((d) => String(d.id));
-              const showTotal = total > 0;
-              const barHex = stageBarHex(stage);
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleKanbanDragEnd}>
+              <div className="flex w-full min-w-0 items-stretch gap-0">
+                {KANBAN_STAGE_ORDER.map((stage, idx) => {
+                  const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
+                  const list = dealsByStage[stage];
+                  const total = stageTotals[stage]?.total ?? 0;
+                  const count = stageTotals[stage]?.count ?? list.length;
+                  const ids = kanbanIdsByStage[stage] ?? list.map((d) => String(d.id));
+                  const showTotal = total > 0;
+                  const barHex = stageBarHex(stage);
 
-              return (
-                <div
-                  key={stage}
-                  className={cn(
-                    "min-w-0 flex-1 px-2",
-                    idx > 0 && "border-l border-[#2C2C2C]/10",
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "sticky top-0 z-10 overflow-hidden rounded-xl border border-[#2C2C2C]/10 bg-white shadow-sm",
-                    )}
-                  >
-                    <div aria-hidden className="h-[3px] w-full" style={{ backgroundColor: barHex }} />
-                    <div className="px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-serif text-lg font-bold text-[#2C2C2C]">{label}</p>
-                        <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
-                          {showTotal ? `${formatPesoCompact(total)} · ` : ""}{count} deal{count === 1 ? "" : "s"}
-                        </p>
-                      </div>
-                      <span
-                        className={cn(
-                          "shrink-0 rounded-full px-2.5 py-1 text-xs font-bold tabular-nums",
-                          "bg-white text-[#2C2C2C]/70 ring-1 ring-[#2C2C2C]/10",
-                        )}
-                      >
-                        {count}
-                      </span>
-                    </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 min-h-[24px]">
-                    {list.length === 0 ? (
-                      <p className="rounded-xl border border-dashed border-[#2C2C2C]/15 bg-white/70 px-3 py-4 text-center text-xs font-semibold text-[#2C2C2C]/45">
-                        No deals
-                      </p>
-                    ) : (
-                      <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={(e) => {
-                          const { active, over } = e;
-                          if (!over || active.id === over.id) return;
-                          // Restrict reorder to within this stage column
-                          if (!ids.includes(String(active.id)) || !ids.includes(String(over.id))) return;
-                          const oldIndex = ids.findIndex((id) => String(id) === String(active.id));
-                          const newIndex = ids.findIndex((id) => String(id) === String(over.id));
-                          if (oldIndex < 0 || newIndex < 0) return;
-                          const newOrder = arrayMove(ids, oldIndex, newIndex).map((x) => Number(x));
-                          setOptimisticOrderIds(newOrder);
-                          void (async () => {
-                            try {
-                              const res = await fetch("/api/agent/pipeline-reorder", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                credentials: "include",
-                                body: JSON.stringify({ pipeline_stage: stage, lead_ids: newOrder }),
-                              });
-                              const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-                              if (!res.ok) {
-                                toast.error(json?.error?.message ?? "Could not save order");
-                                return;
-                              }
-                              onRefresh();
-                            } finally {
-                              setOptimisticOrderIds(null);
-                            }
-                          })();
-                        }}
-                      >
-                        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-                          <div className="space-y-2 pb-2">
-                            {list.map((deal, i) => (
-                              <KanbanDealCard
-                                key={deal.id}
-                                deal={deal}
-                                indexInStage={i}
-                                propertyLabel={propertyLabel}
-                                dealValueLine={
-                                  deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null
-                                }
-                                onOpenDocs={openDocs}
-                                onBeginStageMove={beginStageMove}
-                                stageMovePrompt={stageMovePrompt}
-                                onStageMovePromptSkip={onStageMovePromptSkip}
-                                onStageMovePromptYes={onStageMovePromptYes}
-                                menuOpenId={menuOpenId}
-                                setMenuOpenId={setMenuOpenId}
-                                menuMoveOpen={menuMoveOpen}
-                                setMenuMoveOpen={setMenuMoveOpen}
-                                menuWrapRef={menuWrapRef}
-                                onOpenLeadDetails={onOpenLeadDetails}
-                                onRequestNotes={(d) => {
-                                  setNotesLead(d);
-                                  setNotesDraft(d.closing_notes ?? "");
-                                }}
-                                onRequestDocuments={(d) => {
-                                  if (!d.client_id) {
-                                    toast.error("This lead is not linked to a client account yet.");
-                                    return;
-                                  }
-                                  setRequestDocsLead(d);
-                                  setReqDocSelections({
-                                    valid_id: false,
-                                    proof_of_funds: false,
-                                    visa: false,
-                                    other: false,
-                                  });
-                                }}
-                                onRequestDecline={(d) => setDeclineDeal(d)}
-                                onMoveToStage={moveDealToStage}
-                                moveBusyId={moveToStageBusyId}
-                              />
-                            ))}
-                          </div>
-                        </SortableContext>
-                      </DndContext>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  return (
+                    <KanbanStageColumn
+                      key={stage}
+                      stage={stage}
+                      idx={idx}
+                      label={label}
+                      count={count}
+                      total={total}
+                      showTotal={showTotal}
+                      barHex={barHex}
+                      ids={ids}
+                      list={ids.map((id) => leadById.get(String(id))).filter((d): d is PipelineLeadRow => !!d)}
+                      propertyLabel={propertyLabel}
+                      dealValueByPropertyId={dealValueByPropertyId}
+                      stageMovePrompt={stageMovePrompt}
+                      onStageMovePromptSkip={onStageMovePromptSkip}
+                      onStageMovePromptYes={onStageMovePromptYes}
+                      beginStageMove={beginStageMove}
+                      openDocs={openDocs}
+                      menuOpenId={menuOpenId}
+                      setMenuOpenId={setMenuOpenId}
+                      menuMoveOpen={menuMoveOpen}
+                      setMenuMoveOpen={setMenuMoveOpen}
+                      menuWrapRef={menuWrapRef}
+                      onOpenLeadDetails={onOpenLeadDetails}
+                      setNotesLead={setNotesLead}
+                      setNotesDraft={setNotesDraft}
+                      setRequestDocsLead={setRequestDocsLead}
+                      setReqDocSelections={setReqDocSelections}
+                      setDeclineDeal={setDeclineDeal}
+                      moveDealToStage={moveDealToStage}
+                      moveToStageBusyId={moveToStageBusyId}
+                    />
+                  );
+                })}
+              </div>
+            </DndContext>
         </div>
       </div>
       </div>
