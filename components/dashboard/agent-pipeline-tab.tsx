@@ -1303,7 +1303,12 @@ export function AgentPipelineTab({
     other: false,
   });
   const [requestDocsBusy, setRequestDocsBusy] = useState(false);
+  const [reqOtherDocumentName, setReqOtherDocumentName] = useState("");
   const menuWrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (requestDocsLead) setReqOtherDocumentName("");
+  }, [requestDocsLead?.id]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1871,11 +1876,18 @@ export function AgentPipelineTab({
 
   const sendClientDocumentRequest = async () => {
     if (!requestDocsLead) return;
-    const document_types = CLIENT_DOC_REQUEST_OPTIONS.filter((o) => reqDocSelections[o.key]).map(
-      (o) => o.key,
+    const document_items = CLIENT_DOC_REQUEST_OPTIONS.filter((o) => reqDocSelections[o.key]).map(
+      (o) =>
+        o.key === "other"
+          ? { type: "other" as const, document_name: reqOtherDocumentName.trim() }
+          : { type: o.key },
     );
-    if (document_types.length === 0) {
+    if (document_items.length === 0) {
       toast.error("Select at least one document type.");
+      return;
+    }
+    if (reqDocSelections.other && !reqOtherDocumentName.trim()) {
+      toast.error('Add a name for "Other" before sending.');
       return;
     }
     setRequestDocsBusy(true);
@@ -1884,7 +1896,7 @@ export function AgentPipelineTab({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ lead_id: requestDocsLead.id, document_types }),
+        body: JSON.stringify({ lead_id: requestDocsLead.id, document_items }),
       });
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -2376,6 +2388,20 @@ export function AgentPipelineTab({
                     {opt.label}
                   </label>
                 ))}
+                {reqDocSelections.other ? (
+                  <div className="mt-2 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-3">
+                    <label className="block text-xs font-bold uppercase tracking-wide text-[#888888]">
+                      Custom name (required)
+                    </label>
+                    <input
+                      type="text"
+                      value={reqOtherDocumentName}
+                      onChange={(e) => setReqOtherDocumentName(e.target.value)}
+                      placeholder="e.g. Employment certificate"
+                      className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/20"
+                    />
+                  </div>
+                ) : null}
               </div>
               <div className="mt-6 flex justify-end gap-2">
                 <button

@@ -181,6 +181,9 @@ const TAB_LABEL: Record<SettingsTabId, string> = {
   verification: "Verification",
 };
 
+/** CEO review: client document library in Settings is disabled; agent-requested uploads use Pipeline. */
+const ENABLE_CLIENT_SETTINGS_DOCUMENTS_TAB = false;
+
 type SettingsClientDocRow = {
   id: string;
   file_name: string | null;
@@ -192,7 +195,8 @@ type SettingsClientDocRow = {
 function visibleTabsForRole(role: ProfileRole): SettingsTabId[] {
   const core: SettingsTabId[] = ["profile", "account", "notifications"];
   if (role === "agent" || role === "broker") return [...core, "verification"];
-  if (role === "client") return [...core, "documents"];
+  if (role === "client")
+    return ENABLE_CLIENT_SETTINGS_DOCUMENTS_TAB ? [...core, "documents"] : core;
   return core;
 }
 
@@ -1916,7 +1920,10 @@ function SettingsPageInner() {
           </div>
         ) : null}
 
-        {activeTab === "documents" && currentRole === "client" && user?.id ? (
+        {ENABLE_CLIENT_SETTINGS_DOCUMENTS_TAB &&
+        activeTab === "documents" &&
+        currentRole === "client" &&
+        user?.id ? (
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
             <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">Documents</h2>
             <p className="mt-1 text-sm text-[#2C2C2C]/50">

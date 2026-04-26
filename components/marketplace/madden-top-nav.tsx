@@ -23,6 +23,7 @@ import {
   LogOut,
   MapPin,
   CheckSquare,
+  ClipboardList,
   Palmtree,
   Search,
   Settings,
@@ -562,6 +563,15 @@ export function MaddenTopNav() {
                 >
                   <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
                   My Profile
+                </Link>
+              ) : null}
+              {role === "client" && user.id ? (
+                <Link
+                  href="/dashboard/client/pipeline"
+                  className="hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-[#2C2C2C]/75 transition hover:bg-white/80 hover:text-[#2C2C2C] sm:inline-flex"
+                >
+                  <ClipboardList className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                  Pipeline
                 </Link>
               ) : null}
               {role === "agent" && agentNav ? (

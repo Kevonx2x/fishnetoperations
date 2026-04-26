@@ -353,6 +353,11 @@ export function ClientChatView(_props: {
         .bahaygo-stream-chat .str-chat__li {
           padding: 0 !important;
         }
+        .bahaygo-stream-chat .str-chat__avatar-fallback {
+          background-color: #6b9e6e !important;
+          color: #fff !important;
+          font-weight: 600 !important;
+        }
         @media (max-width: 767px) {
           .bahaygo-stream-chat .str-chat__message-input {
             border: none !important;

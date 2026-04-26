@@ -230,15 +230,13 @@ export async function POST(req: Request) {
 
     const dealDocumentId = (inserted as { id: string } | null)?.id;
     const clientType = mapRequestSlugToClientType(documentType);
-    const typesParam = encodeURIComponent(clientType);
-    const nameParam = encodeURIComponent(agentName);
-    const link = `/clients/${clientId}?reqAgent=${encodeURIComponent(targetAgentUserId)}&reqTypes=${typesParam}&reqAgentName=${nameParam}`;
+    const link = `/dashboard/client/pipeline?lead=${encodeURIComponent(String(leadId))}`;
 
     const { error: nErr } = await admin.from("notifications").insert({
       user_id: clientId,
       type: "document_request",
       title: `Upload requested: ${documentName}`,
-      body: `Your agent asked you to upload “${documentName}” for this deal. Open your profile → Documents to add it.`,
+      body: `Your agent asked you to upload “${documentName}” for this deal. Open Pipeline to add it.`,
       metadata: {
         link,
         lead_id: leadId,
@@ -292,13 +290,13 @@ export async function POST(req: Request) {
   }
 
   const dealDocumentId = (inserted as { id: string } | null)?.id;
-  const link = `/clients/${clientId}`;
+  const link = `/dashboard/client/pipeline?lead=${encodeURIComponent(String(leadId))}`;
 
   const { error: nErr } = await admin.from("notifications").insert({
     user_id: clientId,
     type: "document_shared",
     title: `New document from ${agentName}`,
-    body: `Your agent sent you “${documentName}” to review for this deal. Open your client profile to view it.`,
+    body: `Your agent sent you “${documentName}” to review for this deal. Open Pipeline to view it.`,
     metadata: {
       link,
       lead_id: leadId,

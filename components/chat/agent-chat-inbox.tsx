@@ -315,6 +315,11 @@ export function AgentChatInbox(_props: {
         .bahaygo-stream-chat {
           background: #FAF8F4 !important;
         }
+        .bahaygo-stream-chat .str-chat__avatar-fallback {
+          background-color: #6b9e6e !important;
+          color: #fff !important;
+          font-weight: 600 !important;
+        }
       `}</style>
       <Chat client={client} theme="messaging light">
         <AgentChatBody filters={filters} sort={sort} userId={user.id} />

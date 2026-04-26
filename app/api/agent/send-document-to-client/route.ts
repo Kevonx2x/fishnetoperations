@@ -153,6 +153,7 @@ export async function POST(req: Request) {
     title: "Your agent sent you a document",
     body: "A document has been shared with you for your property inquiry. Tap to view.",
     metadata: {
+      link: `/dashboard/client/pipeline?lead=${encodeURIComponent(String(leadId))}`,
       signed_url: signedUrl,
       document_type: row.document_type,
       file_name: row.file_name ?? null,

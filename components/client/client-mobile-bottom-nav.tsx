@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { Bell, Home } from "lucide-react";
+import { Bell, ClipboardList, Home } from "lucide-react";
 import type { ReactNode } from "react";
+import { ClientAvatar } from "@/components/client/client-avatar";
 import { cn } from "@/lib/utils";
 
 export function ClientMobileBottomNav({
@@ -19,9 +19,9 @@ export function ClientMobileBottomNav({
   fullName: string;
   unreadCount: number;
 }) {
-  const initial = fullName.trim().slice(0, 1).toUpperCase() || "?";
   const profileHref = `/clients/${encodeURIComponent(userId)}`;
   const profileActive = pathname.startsWith("/clients/");
+  const pipelineActive = pathname.startsWith("/dashboard/client/pipeline");
 
   const Item = ({
     href,
@@ -51,6 +51,12 @@ export function ClientMobileBottomNav({
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-[#E5E5E5] bg-white px-1 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <Item href="/" label="Home" icon={Home} active={pathname === "/"} />
+      <Item
+        href="/dashboard/client/pipeline"
+        label="Pipeline"
+        icon={ClipboardList}
+        active={pipelineActive}
+      />
       <Item href="/notifications" label="Notifications" active={pathname.startsWith("/notifications")}>
         <span className="relative">
           <Bell className="h-5 w-5" />
@@ -68,15 +74,7 @@ export function ClientMobileBottomNav({
           profileActive ? "text-[#6B9E6E]" : "text-[#6B6B6B]",
         )}
       >
-        <span className="relative h-7 w-7 overflow-hidden rounded-full bg-[#6B9E6E] ring-2 ring-[#E5E5E5]">
-          {avatarUrl ? (
-            <Image src={avatarUrl} alt="" fill className="object-cover" sizes="28px" unoptimized />
-          ) : (
-            <span className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-white">
-              {initial}
-            </span>
-          )}
-        </span>
+        <ClientAvatar name={fullName} avatarUrl={avatarUrl} sizePx={28} />
         <span className="truncate">Profile</span>
       </Link>
     </nav>
