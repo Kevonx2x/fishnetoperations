@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { Archive, ArrowLeft, ListFilter, MoreHorizontal, Pin, Search } from "lucide-react";
 import type { Channel as StreamChannel, ChannelFilters, ChannelSort, LocalMessage } from "stream-chat";
 import {
@@ -58,14 +67,17 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
   const pinned = Boolean(channel.state?.membership?.pinned_at);
   const peerOnline = Boolean(peer?.online);
 
-  const handleRowClick = (e: React.MouseEvent) => {
+  const handleRowClick = (e: MouseEvent) => {
     onSelect?.(e);
   };
 
-  const stop = (e: React.MouseEvent) => e.stopPropagation();
+  const handleRowKeyDown = (e: KeyboardEvent) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    onSelect?.(e as unknown as MouseEvent);
+  };
 
-  const togglePin = async (e: React.MouseEvent) => {
-    stop(e);
+  const togglePin = async () => {
     try {
       if (pinned) await channel.unpin();
       else await channel.pin();
@@ -74,8 +86,7 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
     }
   };
 
-  const archiveChannel = async (e: React.MouseEvent) => {
-    stop(e);
+  const archiveChannel = async () => {
     try {
       await channel.archive();
       if (activeChannel?.cid === channel.cid) setActiveChannel(undefined);
@@ -85,8 +96,9 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
   };
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onMouseEnter={() => {
         try {
           void channel.watch();
@@ -95,8 +107,9 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
         }
       }}
       onClick={handleRowClick}
+      onKeyDown={handleRowKeyDown}
       className={cn(
-        "group relative flex w-full items-start gap-3 border-b border-[#2C2C2C]/8 px-3 py-3 text-left transition-colors hover:bg-black/[0.02]",
+        "group relative flex w-full cursor-pointer items-start gap-3 border-b border-[#2C2C2C]/8 px-3 py-3 text-left outline-none transition-colors hover:bg-black/[0.02] focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/40",
         active ? "bg-[#2C2C2C]/[0.06]" : "bg-transparent",
       )}
     >
@@ -131,7 +144,10 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
       >
         <button
           type="button"
-          onClick={togglePin}
+          onClick={(e) => {
+            e.stopPropagation();
+            void togglePin();
+          }}
           className="rounded-md p-1 text-[#2C2C2C]/40 hover:bg-black/[0.04] hover:text-[#6B9E6E]"
           aria-label={pinned ? "Unpin conversation" : "Pin conversation"}
         >
@@ -139,14 +155,17 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
         </button>
         <button
           type="button"
-          onClick={archiveChannel}
+          onClick={(e) => {
+            e.stopPropagation();
+            void archiveChannel();
+          }}
           className="rounded-md p-1 text-[#2C2C2C]/40 hover:bg-black/[0.04] hover:text-red-500/80"
           aria-label="Archive conversation"
         >
           <Archive className="h-4 w-4" />
         </button>
       </div>
-    </button>
+    </div>
   );
 }
 
