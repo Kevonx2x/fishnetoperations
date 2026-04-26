@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   type DragEndEvent,
+  type DragStartEvent,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
@@ -409,8 +411,8 @@ function KanbanDealCard({
     <div ref={setNodeRef} style={style} className="relative">
       <div
         className={cn(
-          "rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-sm transition",
-          isDragging && "scale-[1.02] shadow-xl",
+          "relative rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-sm transition",
+          isDragging && "scale-[1.02] rotate-[0.6deg] shadow-xl",
         )}
         onClick={() => onOpenLeadDetails(deal.id)}
         role="button"
@@ -436,124 +438,128 @@ function KanbanDealCard({
               </div>
             </div>
 
-            <div
-              ref={menuOpen ? menuWrapRef : undefined}
-              className="pointer-events-auto relative shrink-0"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                aria-label="More options"
-                aria-expanded={menuOpen}
-                onClick={() => {
-                  setMenuMoveOpen(false);
-                  setMenuOpenId(menuOpen ? null : deal.id);
-                }}
-                className="rounded-lg p-1.5 text-[#2C2C2C]/45 hover:bg-black/5 hover:text-[#2C2C2C]/70"
-              >
-                <MoreHorizontal className="h-5 w-5" />
-              </button>
+            {/* Top-right controls: Hot badge above menu */}
+            <div className="pointer-events-auto relative shrink-0">
+              <div className="absolute right-0 top-0 z-10 flex flex-col items-end gap-1">
+                {isHot ? (
+                  <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
+                    Hot
+                  </span>
+                ) : null}
+                <div
+                  ref={menuOpen ? menuWrapRef : undefined}
+                  className="relative"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    aria-label="More options"
+                    aria-expanded={menuOpen}
+                    onClick={() => {
+                      setMenuMoveOpen(false);
+                      setMenuOpenId(menuOpen ? null : deal.id);
+                    }}
+                    className="rounded-lg p-1.5 text-[#2C2C2C]/45 hover:bg-black/5 hover:text-[#2C2C2C]/70"
+                  >
+                    <MoreHorizontal className="h-5 w-5" />
+                  </button>
 
-              {menuOpen ? (
-                <div className="absolute right-0 top-8 z-50 w-48 rounded-xl border border-gray-200 bg-white py-1 text-gray-900 shadow-md">
-                  {!menuMoveOpen ? (
-                    <>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                        onClick={() => {
-                          onOpenLeadDetails(deal.id);
-                          setMenuOpenId(null);
-                        }}
-                      >
-                        View Details
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                        onClick={() => {
-                          onRequestNotes(deal);
-                          setMenuOpenId(null);
-                        }}
-                      >
-                        Edit Notes
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                        onClick={() => {
-                          onRequestDocuments(deal);
-                          setMenuOpenId(null);
-                        }}
-                      >
-                        Request Documents
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                        onClick={() => {
-                          onRequestDecline(deal);
-                          setMenuOpenId(null);
-                          setMenuMoveOpen(false);
-                        }}
-                      >
-                        Decline & Archive
-                      </button>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                          onClick={() => setMenuMoveOpen(true)}
-                        >
-                          Move to…
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="max-h-56 overflow-y-auto py-1">
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-gray-500 hover:bg-gray-50"
-                        onClick={() => setMenuMoveOpen(false)}
-                      >
-                        ← Back
-                      </button>
-                      {otherStages.map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          disabled={moveBusyId === deal.id}
-                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
-                          onClick={() => {
-                            onBeginStageMove(deal, s.id, "jump");
-                            setMenuOpenId(null);
-                            setMenuMoveOpen(false);
-                          }}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
+                  {menuOpen ? (
+                    <div className="absolute right-0 top-8 z-50 w-48 rounded-xl border border-gray-200 bg-white py-1 text-gray-900 shadow-md">
+                      {!menuMoveOpen ? (
+                        <>
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                            onClick={() => {
+                              onOpenLeadDetails(deal.id);
+                              setMenuOpenId(null);
+                            }}
+                          >
+                            View Details
+                          </button>
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                            onClick={() => {
+                              onRequestNotes(deal);
+                              setMenuOpenId(null);
+                            }}
+                          >
+                            Edit Notes
+                          </button>
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                            onClick={() => {
+                              onRequestDocuments(deal);
+                              setMenuOpenId(null);
+                            }}
+                          >
+                            Request Documents
+                          </button>
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                            onClick={() => {
+                              onRequestDecline(deal);
+                              setMenuOpenId(null);
+                              setMenuMoveOpen(false);
+                            }}
+                          >
+                            Decline & Archive
+                          </button>
+                          <div className="relative">
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                              onClick={() => setMenuMoveOpen(true)}
+                            >
+                              Move to…
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="max-h-56 overflow-y-auto py-1">
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-gray-500 hover:bg-gray-50"
+                            onClick={() => setMenuMoveOpen(false)}
+                          >
+                            ← Back
+                          </button>
+                          {otherStages.map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              disabled={moveBusyId === deal.id}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
+                              onClick={() => {
+                                onBeginStageMove(deal, s.id, "jump");
+                                setMenuOpenId(null);
+                                setMenuMoveOpen(false);
+                              }}
+                            >
+                              {s.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ) : null}
                 </div>
-              ) : null}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-2 flex items-center justify-between gap-2 pt-1">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[11px] font-bold text-[#6B9E6E]">
-              {clientInitials(deal.name)}
-            </div>
-            {dealValueLine ? <span className="text-[14px] font-bold text-[#D4A843]">{dealValueLine}</span> : null}
+        {/* Bottom row: avatar + price (single unified body, no divider) */}
+        <div className="mt-2 flex items-center gap-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[11px] font-bold text-[#6B9E6E]">
+            {clientInitials(deal.name)}
           </div>
-          {isHot ? (
-            <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
-              Hot
-            </span>
-          ) : null}
+          {dealValueLine ? <span className="text-[14px] font-bold text-[#D4A843]">{dealValueLine}</span> : null}
         </div>
 
         {next ? (
@@ -564,7 +570,7 @@ function KanbanDealCard({
               e.stopPropagation();
               onMoveToStage(deal, next);
             }}
-            className="absolute right-2 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-sm hover:bg-[#5a8a5d]"
+            className="absolute right-2 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-sm hover:bg-[#5a8a5d]"
           >
             <span aria-hidden className="text-base leading-none">
               ›
@@ -1085,6 +1091,7 @@ export function AgentPipelineTab({
 }) {
   const kanbanScrollRef = useRef<HTMLDivElement | null>(null);
   const [kanbanFadeRight, setKanbanFadeRight] = useState(false);
+  const [activeKanbanDealId, setActiveKanbanDealId] = useState<string | null>(null);
   const [declineDeal, setDeclineDeal] = useState<PipelineLeadRow | null>(null);
   const [declineReasonKey, setDeclineReasonKey] =
     useState<(typeof DECLINE_REASON_OPTIONS)[number]["key"]>("unavailable");
@@ -1193,13 +1200,13 @@ export function AgentPipelineTab({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        delay: 800,
+        delay: 250,
         tolerance: 5,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 800,
+        delay: 250,
         tolerance: 5,
       },
     }),
@@ -1637,8 +1644,17 @@ export function AgentPipelineTab({
     }
   };
 
+  const handleKanbanDragStart = (event: DragStartEvent) => {
+    setActiveKanbanDealId(event.active?.id ? String(event.active.id) : null);
+  };
+
+  const handleKanbanDragCancel = () => {
+    setActiveKanbanDealId(null);
+  };
+
   const handleKanbanDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveKanbanDealId(null);
     if (!over) return;
     const activeId = String(active.id);
     const overId = String(over.id);
@@ -2010,7 +2026,13 @@ export function AgentPipelineTab({
             ref={kanbanScrollRef}
             className="overflow-x-auto bg-[#FAF8F4] px-3 py-3 scrollbar-hide"
           >
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleKanbanDragEnd}>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleKanbanDragStart}
+              onDragCancel={handleKanbanDragCancel}
+              onDragEnd={handleKanbanDragEnd}
+            >
               <div className="flex w-full min-w-0 items-stretch gap-0">
                 {KANBAN_STAGE_ORDER.map((stage, idx) => {
                   const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
@@ -2057,6 +2079,16 @@ export function AgentPipelineTab({
                   );
                 })}
               </div>
+              <DragOverlay dropAnimation={null}>
+                {activeKanbanDealId ? (
+                  <div className="w-[220px]">
+                    <div className="rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-2xl">
+                      <div className="h-[3px] w-full rounded-t-lg bg-[#6B9E6E]" />
+                      <div className="mt-2 text-[12px] font-semibold text-[#2C2C2C]/60">Moving deal…</div>
+                    </div>
+                  </div>
+                ) : null}
+              </DragOverlay>
             </DndContext>
         </div>
       </div>
