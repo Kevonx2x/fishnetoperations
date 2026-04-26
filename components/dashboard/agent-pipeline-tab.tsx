@@ -390,22 +390,22 @@ function KanbanDealCard({
         <div className="touch-none" {...attributes} {...listeners}>
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 items-start gap-2.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-xs font-bold text-[#6B9E6E]">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[11px] font-bold text-[#6B9E6E]">
                 {clientInitials(deal.name)}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", stageDotClass(deal.pipeline_stage))} />
-                  <p className="truncate text-sm font-bold text-[#2C2C2C]">{deal.name}</p>
+                  <p className="truncate text-[13px] font-bold text-[#2C2C2C]">{deal.name}</p>
                 </div>
-                <p className="mt-0.5 truncate text-[11px] font-semibold text-[#2C2C2C]/55">
+                <p className="mt-0.5 truncate text-sm font-semibold leading-snug text-[#2C2C2C]/75">
                   {deal.property_id ? propLine : propLine}
                 </p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   {dealValueLine ? (
-                    <span className="text-xs font-bold text-[#D4A843]">{dealValueLine}</span>
+                    <span className="text-sm font-bold text-[#D4A843]">{dealValueLine}</span>
                   ) : null}
-                  <span className="text-[10px] font-semibold text-[#2C2C2C]/40">Updated {updatedAtLabel}</span>
+                  <span className="text-[11px] font-semibold text-[#2C2C2C]/40">Updated {updatedAtLabel}</span>
                   {isHot ? (
                     <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
                       Hot
@@ -521,24 +521,24 @@ function KanbanDealCard({
           </div>
         </div>
 
-        <div className="mt-2 flex items-center justify-between gap-2" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2" onPointerDown={(e) => e.stopPropagation()}>
           {next && moveLabel ? (
             <button
               type="button"
               onClick={() => onBeginStageMove(deal, next, "advance")}
-              className="rounded-full bg-[#6B9E6E] px-3 py-1 text-[11px] font-bold text-white hover:bg-[#5a8a5d]"
+              className="rounded-full bg-[#6B9E6E] px-2.5 py-1 text-xs font-bold text-white hover:bg-[#5a8a5d]"
             >
               → {moveLabel}
             </button>
           ) : (
-            <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-bold text-[#6B9E6E]">
+            <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-bold text-[#6B9E6E]">
               ✓ Closed
             </span>
           )}
           <button
             type="button"
             onClick={() => onOpenDocs(deal)}
-            className="rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
+            className="rounded-full border border-[#2C2C2C]/15 bg-white px-2.5 py-1 text-xs font-bold text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
           >
             View Docs
           </button>
@@ -1680,7 +1680,7 @@ export function AgentPipelineTab({
                 <div
                   key={stage}
                   className={cn(
-                    "w-[320px] shrink-0 px-3",
+                    "w-[220px] shrink-0 px-2",
                     idx > 0 && "border-l border-[#2C2C2C]/10",
                   )}
                 >
@@ -1696,7 +1696,7 @@ export function AgentPipelineTab({
                           <span className={cn("h-2.5 w-2.5 rounded-full", stageDotClass(stage))} />
                           <p
                             className={cn(
-                              "truncate font-serif text-base font-bold",
+                              "truncate font-serif text-sm font-bold",
                               stage === "closed" ? "text-white" : "text-[#2C2C2C]",
                             )}
                           >
