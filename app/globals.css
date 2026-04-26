@@ -561,4 +561,107 @@
   .bahaygo-stream-chat .bhg-msg--other .bhg-msg__receipt {
     color: var(--text-muted);
   }
+
+  /* —— Attachments: images, files, link cards (Stream + BahayGo bubble) —— */
+  .bahaygo-stream-chat .str-chat__message-attachment {
+    display: block;
+    margin-top: 4px;
+    overflow: visible;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-attachment-image,
+  .bahaygo-stream-chat .str-chat__message-attachment--image {
+    border-radius: 12px;
+    display: block;
+    max-height: 320px;
+    max-width: 320px;
+    overflow: hidden;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-attachment-image img,
+  .bahaygo-stream-chat .str-chat__message-attachment--image img {
+    border-radius: 12px;
+    display: block;
+    height: auto;
+    max-height: 320px;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-attachment-gallery {
+    border-radius: 12px;
+    max-width: 320px;
+    overflow: hidden;
+  }
+
+  .bahaygo-stream-chat .str-chat__gallery {
+    border-radius: 12px;
+    display: grid;
+    gap: 4px;
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 320px;
+    overflow: hidden;
+  }
+
+  .bahaygo-stream-chat .str-chat__gallery-image img {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-attachment-file--item {
+    align-items: center;
+    background: var(--surface-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    display: flex;
+    gap: 10px;
+    max-width: 320px;
+    padding: 10px 12px;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-attachment-file--item-text {
+    color: var(--text-default);
+    font-size: 14px;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-attachment-card {
+    background: var(--surface-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    max-width: 320px;
+    overflow: hidden;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-attachment-card--header img {
+    display: block;
+    height: auto;
+    width: 100%;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-attachment-card--content {
+    padding: 10px 12px;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-bubble:has(.str-chat__message-attachment) {
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+
+  .bahaygo-stream-chat .str-chat__message--me .str-chat__message-bubble:has(.str-chat__message-attachment) {
+    background: transparent;
+  }
+
+  .bahaygo-stream-chat .bhg-msg__bubble:has(.str-chat__message-attachment) {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .bahaygo-stream-chat .bhg-msg--mine .bhg-msg__bubble:has(.str-chat__message-attachment) {
+    background: transparent;
+  }
 }
