@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { RootLayoutChrome } from "@/components/root-layout-chrome";
 import "./globals.css";
 import { Globe, Link2, Mail, MessageCircle } from "lucide-react";
 
@@ -120,12 +121,17 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-full flex-col">
         <Providers>
-          {children}
-          <div className="min-h-[300px]">
-            <SiteFooter />
-          </div>
+          <RootLayoutChrome
+            footer={
+              <div className="min-h-[300px]">
+                <SiteFooter />
+              </div>
+            }
+          >
+            {children}
+          </RootLayoutChrome>
         </Providers>
       </body>
     </html>

@@ -11,7 +11,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <BahayGoThemeProvider>
       <AuthProvider>
         <GlobalAlertProvider>
-          <EngagementSignInProvider>{children}</EngagementSignInProvider>
+          <EngagementSignInProvider>
+            <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+          </EngagementSignInProvider>
         </GlobalAlertProvider>
         <Toaster position="top-center" richColors closeButton />
       </AuthProvider>
