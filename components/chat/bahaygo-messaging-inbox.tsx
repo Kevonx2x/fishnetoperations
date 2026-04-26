@@ -26,7 +26,6 @@ import {
   useMessageContext,
 } from "stream-chat-react";
 import type { ChannelPreviewUIComponentProps } from "stream-chat-react";
-import "stream-chat-react/dist/css/v2/index.css";
 import { useAuth } from "@/contexts/auth-context";
 import { useStreamChat } from "@/components/chat/stream-chat-provider";
 import {
