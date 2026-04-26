@@ -222,18 +222,22 @@
  * Use --str-chat__* variables on .str-chat; avoid redundant per-class backgrounds.
  */
 @layer stream-overrides {
-  /* Contain the chat so only inner lists scroll — not the dashboard page */
+  /* Full-height flex column; parent (dashboard tab / client main) must pass height down */
   .bahaygo-stream-chat {
     display: flex;
     flex: 1;
     flex-direction: column;
+    height: 100%;
     min-height: 0;
     overflow: hidden;
   }
 
   .bahaygo-stream-chat .str-chat {
-    /* Let the root participate in the dashboard flex chain without a page-level scrollbar */
+    /* Full-height flex column so main-panel + anchored input match dashboard layout */
+    display: flex;
     flex: 1;
+    flex-direction: column;
+    height: 100%;
     min-height: 0;
     min-width: 0;
     overflow: hidden;
@@ -250,8 +254,15 @@
     --str-chat__avatar-size: 36px;
     --str-chat__font-size-md: 15px;
     --str-chat__message-bubble-color: var(--text-default);
-    --str-chat__message-input-background-color: var(--surface-page);
+    --str-chat__message-input-background-color: transparent;
     --str-chat__message-input-border-color: var(--border-subtle);
+    /* Inner field is a custom pill; remove default box from the textarea layer */
+    --str-chat__message-textarea-background-color: transparent;
+    --str-chat__message-textarea-border-block-start: none;
+    --str-chat__message-textarea-border-block-end: none;
+    --str-chat__message-textarea-border-inline-start: none;
+    --str-chat__message-textarea-border-inline-end: none;
+    --str-chat__message-textarea-box-shadow: none;
     --str-chat__message-list-background-color: var(--surface-page);
     --str-chat__own-message-bubble-background-color: var(--brand-sage);
     --str-chat__own-message-bubble-color: var(--surface-panel);
@@ -262,10 +273,18 @@
   }
 
   .bahaygo-stream-chat .str-chat__channel {
+    background: var(--surface-page);
+    display: flex;
     flex: 1;
+    flex-direction: column;
     height: 100%;
+    min-height: 0;
     min-width: 0;
     overflow: hidden;
+  }
+
+  .bahaygo-stream-chat .str-chat__channel-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   }
 
   .bahaygo-stream-chat .str-chat__channel-list {
@@ -285,13 +304,32 @@
   .bahaygo-stream-chat .str-chat__channel-list-messenger__main {
     height: 100%;
     min-height: 0;
-    overflow-y: auto;
     overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+    scrollbar-width: thin;
+  }
+
+  .bahaygo-stream-chat .str-chat__channel-list-messenger__main::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .bahaygo-stream-chat .str-chat__channel-list-messenger__main::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .bahaygo-stream-chat .str-chat__channel-list-messenger__main::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 999px;
+  }
+
+  .bahaygo-stream-chat .str-chat__channel-list-messenger__main::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
   }
 
   .bahaygo-stream-chat .str-chat__container {
     display: flex;
-    flex: 1;
+    flex: 1 1 0%;
     flex-direction: column;
     min-height: 0;
     min-width: 0;
@@ -303,7 +341,7 @@
     flex: 1;
     min-height: 0;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: hidden;
     padding: 8px 24px;
   }
 
@@ -311,18 +349,29 @@
     display: flex;
     flex: 1;
     flex-direction: column;
-    min-width: 0;
+    height: 100%;
     min-height: 0;
+    min-width: 0;
     overflow: hidden;
   }
 
+  /* Window’s single child (thread shell) must fill main-panel so list/input flex works */
+  .bahaygo-stream-chat .str-chat__main-panel > * {
+    display: flex;
+    flex: 1 1 0%;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  /* —— CHAT LAYOUT: 680px message column, left-anchored (no centered blog column) —— */
   .bahaygo-stream-chat .str-chat__list .str-chat__list--main,
   .bahaygo-stream-chat .str-chat__list-content,
   .bahaygo-stream-chat .str-chat__virtual-list {
     box-sizing: border-box;
-    margin-left: auto;
-    margin-right: auto;
-    max-width: 960px;
+    margin-left: 0;
+    margin-right: 0;
+    max-width: none;
     width: 100%;
   }
 
@@ -331,14 +380,14 @@
     display: flex;
     flex: 1;
     flex-direction: column;
-    margin-left: auto;
+    margin-left: 0;
     margin-right: auto;
-    max-width: 960px;
+    max-width: 680px;
     min-height: 0;
     min-width: 0;
     overflow: hidden;
-    padding-left: 24px;
-    padding-right: 24px;
+    padding-left: 32px;
+    padding-right: 16px;
     width: 100%;
   }
 
@@ -351,37 +400,38 @@
     overflow: hidden;
   }
 
-  .bahaygo-stream-chat .str-chat__message-list-scroll {
+  /* Virtuoso keeps `str-chat__message-list-scroll`; we add `str-chat__message-list` in app code so vertical scroll lives on that class only. */
+  .bahaygo-stream-chat .str-chat__message-list-scroll:not(.str-chat__message-list) {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-list {
     flex: 1;
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
-  }
-
-  .bahaygo-stream-chat .str-chat__list,
-  .bahaygo-stream-chat .str-chat__message-list-scroll {
+    overscroll-behavior-y: contain;
+    scroll-behavior: smooth;
     scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
     scrollbar-width: thin;
   }
 
-  .bahaygo-stream-chat .str-chat__list::-webkit-scrollbar,
-  .bahaygo-stream-chat .str-chat__message-list-scroll::-webkit-scrollbar {
+  .bahaygo-stream-chat .str-chat__message-list::-webkit-scrollbar {
     width: 6px;
   }
 
-  .bahaygo-stream-chat .str-chat__list::-webkit-scrollbar-track,
-  .bahaygo-stream-chat .str-chat__message-list-scroll::-webkit-scrollbar-track {
+  .bahaygo-stream-chat .str-chat__message-list::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  .bahaygo-stream-chat .str-chat__list::-webkit-scrollbar-thumb,
-  .bahaygo-stream-chat .str-chat__message-list-scroll::-webkit-scrollbar-thumb {
+  .bahaygo-stream-chat .str-chat__message-list::-webkit-scrollbar-thumb {
     background: rgba(0, 0, 0, 0.15);
-    border-radius: 3px;
+    border-radius: 999px;
   }
 
-  .bahaygo-stream-chat .str-chat__list::-webkit-scrollbar-thumb:hover,
-  .bahaygo-stream-chat .str-chat__message-list-scroll::-webkit-scrollbar-thumb:hover {
+  .bahaygo-stream-chat .str-chat__message-list::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 0, 0, 0.25);
   }
 
@@ -428,17 +478,97 @@
   }
 
   .bahaygo-stream-chat .str-chat__message-input {
+    background: transparent;
+    border-top: none;
+    box-shadow: none;
     box-sizing: border-box;
-    margin-left: auto;
+    flex-shrink: 0;
+    margin-bottom: 0;
+    margin-left: 32px;
     margin-right: auto;
-    max-width: 960px;
-    padding-left: 24px;
-    padding-right: 24px;
+    margin-top: 0;
+    max-width: 600px;
+    padding: 0 16px 0 0;
     width: 100%;
   }
 
+  /* Designed pill: attachment + compositor + send in one field */
+  .bahaygo-stream-chat .str-chat__message-input .str-chat__message-input-inner {
+    align-items: center;
+    background: #f8faf8;
+    border: 1px solid #2f7d5a;
+    border-radius: 999px;
+    box-shadow: none;
+    box-sizing: border-box;
+    gap: 2px;
+    line-height: 1.25;
+    min-height: auto;
+    min-width: 0;
+    padding: 3px 10px;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-input .str-chat__message-input-inner:focus-within {
+    box-shadow: none;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-input .str-chat__message-textarea-container {
+    align-items: stretch;
+  }
+
+  .bahaygo-stream-chat
+    .str-chat__message-input
+    .str-chat__message-textarea-container
+    .str-chat__message-textarea-with-emoji-picker {
+    column-gap: 4px;
+    padding: 0;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-input .str-chat__message-textarea {
+    color: var(--str-chat__text-color, var(--text-default));
+    line-height: 1.25;
+    min-height: 0;
+    padding-block: 0;
+    padding-inline: 0;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-input .str-chat__message-textarea:focus {
+    outline: none;
+  }
+
+  /* Stream default ~45px hit areas make the bar feel oversized */
+  .bahaygo-stream-chat .str-chat__message-input .str-chat__file-input-container {
+    --str-chat-icon-height: 20px;
+    align-items: center;
+    align-self: center;
+    display: flex;
+    height: 32px;
+    justify-content: center;
+    min-height: 32px;
+    min-width: 32px;
+    width: 32px;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-input .str-chat__send-button {
+    height: 28px;
+    min-height: 28px;
+    min-width: 28px;
+    width: 28px;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-input .str-chat__send-button svg {
+    height: 16px;
+    width: 16px;
+  }
+
+  /* Legacy / alternate input shell (harmless if absent) */
   .bahaygo-stream-chat .str-chat__input-flat {
-    border-top: 1px solid var(--str-chat__message-input-border-color, var(--border-subtle));
+    background: transparent;
+    border-top: none;
+    box-shadow: none;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-simple {
+    margin-bottom: 0;
   }
   .bahaygo-stream-chat .str-chat__li {
     padding: 0;
@@ -482,10 +612,10 @@
     margin-top: 0;
   }
   .bahaygo-stream-chat .bhg-msg--gap-same {
-    margin-top: 4px;
+    margin-top: 2px;
   }
   .bahaygo-stream-chat .bhg-msg--gap-turn {
-    margin-top: 16px;
+    margin-top: 12px;
   }
   .bahaygo-stream-chat .str-chat__li:first-child .bhg-msg--gap-same,
   .bahaygo-stream-chat .str-chat__li:first-child .bhg-msg--gap-turn {
@@ -498,6 +628,7 @@
   .bahaygo-stream-chat .bhg-msg--mine {
     flex-direction: row-reverse;
     justify-content: flex-start;
+    max-width: 100%;
   }
   .bahaygo-stream-chat .bhg-msg--other {
     flex-direction: row;

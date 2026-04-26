@@ -8,7 +8,7 @@ import { ClientChatView } from "@/components/chat/client-chat-view";
 function MessagesInner() {
   const searchParams = useSearchParams();
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <StreamChatProvider>
         <ClientChatView initialChannelId={searchParams.get("channel")} />
       </StreamChatProvider>

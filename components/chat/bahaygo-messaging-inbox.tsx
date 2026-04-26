@@ -5,6 +5,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent,
   type MouseEvent,
@@ -358,7 +359,7 @@ function MessagingChatBody({
   return (
     <div className={cn(layoutClassName)}>
       <div
-        className={`flex min-h-0 w-full shrink-0 flex-col border-b border-subtle md:w-[320px] md:min-w-[320px] md:max-w-[320px] md:border-b-0 md:border-r md:border-subtle ${
+        className={`flex h-full min-h-0 w-full shrink-0 flex-col border-b border-subtle md:w-[320px] md:min-w-[320px] md:max-w-[320px] md:border-b-0 md:border-r md:border-subtle ${
           mobileView === "thread" ? "max-md:hidden" : ""
         }`}
       >
@@ -434,7 +435,7 @@ function MessagingChatBody({
         </div>
       </div>
       <div
-        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${mobileView === "list" ? "max-md:hidden" : ""}`}
+        className={`flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${mobileView === "list" ? "max-md:hidden" : ""}`}
       >
         <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
           <div className="flex min-h-14 shrink-0 items-center gap-3 border-b border-subtle bg-surface-page px-4 py-3 md:hidden">
@@ -455,7 +456,7 @@ function MessagingChatBody({
               {peerUser?.name?.trim() || peerUser?.id || "Conversation"}
             </span>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
             <Channel
               channelQueryOptions={channelQueryOptions}
               {...({
@@ -474,6 +475,17 @@ function MessagingChatBody({
           </div>
         </div>
       </div>
+      <aside
+        className="hidden h-full max-h-full min-h-0 w-[300px] shrink-0 flex-col border-l border-subtle bg-surface-page max-md:hidden md:flex"
+        aria-label="Conversation sidebar"
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <h2 className="text-sm font-semibold text-fg/45">Conversation</h2>
+          <p className="mt-1 truncate text-base font-bold tracking-tight text-fg/50">
+            {channel ? peerUser?.name?.trim() || peerUser?.id || "—" : "—"}
+          </p>
+        </div>
+      </aside>
     </div>
   );
 }
@@ -487,12 +499,32 @@ function MessagingThreadInner({
   onLoaded: () => void;
   userId: string;
 }) {
-  const { loading, channel } = useChannelStateContext();
+  const { loading, channel, messages } = useChannelStateContext();
   const { setActiveChannel, channel: activeChannel } = useChatContext();
+  const listScrollHostRef = useRef<HTMLDivElement>(null);
+  const lastMessageId = messages?.length ? messages[messages.length - 1]?.id : null;
 
   useEffect(() => {
     if (!loading) onLoaded();
   }, [loading, onLoaded]);
+
+  /** Stream Virtuoso followOutput can miss edge cases; keep the list scrolled when the tail message changes (send/receive). */
+  useLayoutEffect(() => {
+    if (channelLoading || loading) return;
+    if (!lastMessageId) return;
+    const root = listScrollHostRef.current;
+    if (!root) return;
+    const list =
+      root.querySelector<HTMLElement>(".str-chat__message-list") ??
+      root.querySelector<HTMLElement>(".str-chat__message-list-scroll");
+    if (!list) return;
+    const scrollToEnd = () => {
+      list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
+    };
+    requestAnimationFrame(() => {
+      requestAnimationFrame(scrollToEnd);
+    });
+  }, [channelLoading, loading, lastMessageId]);
 
   const peerUser = useMemo(() => getPeerUser(channel, userId), [channel, userId]);
   const peerAvatar = useProfileAvatarUrl(peerUser?.id, peerUser?.image);
@@ -525,7 +557,7 @@ function MessagingThreadInner({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page">
+    <div className="bhg-chat-panel flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-surface-page">
       <header className="hidden shrink-0 items-center justify-between border-b border-subtle bg-surface-page px-4 py-4 md:flex">
         <div className="flex min-w-0 items-center gap-3">
           <span className="relative shrink-0">
@@ -563,17 +595,20 @@ function MessagingThreadInner({
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
-      <div className="bhg-chat-scroll min-h-0 flex-1 overflow-y-auto">
+      <div ref={listScrollHostRef} className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <VirtualizedMessageList
           Message={CustomMessage}
           shouldGroupByUser
           returnAllReadData
           maxTimeBetweenGroupedMessages={120000}
+          stickToBottomScrollBehavior="smooth"
+          suppressAutoscroll={false}
+          additionalVirtuosoProps={{
+            className: "str-chat__message-list-scroll str-chat__message-list",
+          }}
         />
       </div>
-      <div className="shrink-0 bg-surface-page">
-        <MessageInput />
-      </div>
+      <MessageInput />
     </div>
   );
 }
@@ -590,7 +625,7 @@ export type BahaygoMessagingInboxProps = {
 export function BahaygoMessagingInbox({
   filters,
   sort,
-  layoutClassName = "flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-col overflow-hidden bg-surface-page md:h-[min(720px,calc(100dvh-9rem))] md:grid md:grid-cols-[320px_minmax(0,1fr)]",
+  layoutClassName = "flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page md:h-full md:max-h-full md:min-h-0 md:grid md:grid-cols-[320px_minmax(0,1fr)_300px]",
   setActiveChannelOnMount = true,
 }: BahaygoMessagingInboxProps) {
   const client = useStreamChat();
@@ -605,8 +640,8 @@ export function BahaygoMessagingInbox({
   }
 
   return (
-    <div className="bahaygo-stream-chat flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface-page">
-      <div className="flex min-h-0 flex-1 flex-col">
+    <div className="bahaygo-stream-chat flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface-page">
+      <div className="flex h-full min-h-0 flex-1 flex-col">
         <Chat client={client} theme="messaging light">
           <MessagingChatBody
             filters={filters}

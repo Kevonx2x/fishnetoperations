@@ -1867,14 +1867,16 @@ export function AgentDashboard() {
             </p>
           ) : null}
 
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={tab}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.2 }}
-            >
+          <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={tab}
+                className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2 }}
+              >
               {tab === "overview" && (
                 <OverviewTab
                   agent={agent}
@@ -1925,9 +1927,11 @@ export function AgentDashboard() {
                 />
               )}
               {tab === "messages" && user && (
-                <StreamChatProvider>
-                  <AgentChatInbox initialChannelId={streamChannelId} />
-                </StreamChatProvider>
+                <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                  <StreamChatProvider>
+                    <AgentChatInbox initialChannelId={streamChannelId} />
+                  </StreamChatProvider>
+                </div>
               )}
               {tab === "documents" && isTeamMemberView && (
                 <AgentDashboardDocumentsTab leads={leads} supabase={supabase} />
@@ -2005,8 +2009,9 @@ export function AgentDashboard() {
               {tab === "profile" && user && !agent && loaded && (
                 <p className="text-sm font-semibold text-[#2C2C2C]/55">No agent profile found.</p>
               )}
-            </motion.div>
-          </AnimatePresence>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </main>
       </div>
 
