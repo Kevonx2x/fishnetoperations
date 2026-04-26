@@ -410,7 +410,7 @@ function KanbanDealCard({
         {...attributes}
         {...listeners}
         className={cn(
-          "relative rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-sm transition",
+          "relative rounded-lg border border-[#2C2C2C]/10 border-t-0 bg-white p-3 shadow-sm transition",
           isDragging && "scale-[1.02] rotate-[0.6deg] shadow-xl",
         )}
         onClick={() => onOpenLeadDetails(deal.id)}
@@ -425,137 +425,142 @@ function KanbanDealCard({
           className="absolute left-0 top-0 h-[3px] w-full rounded-t-lg"
           style={{ backgroundColor: stageHex }}
         />
-        <div className="touch-none pr-10">
+        <div className="touch-none pr-10 pt-0.5">
+          {/* Row 1: Title ... Hot + Menu */}
           <div className="flex items-start justify-between gap-2">
-            <div className="flex min-w-0 flex-1 items-start gap-2.5 pt-1">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] font-bold text-[#2C2C2C]">{propLine}</p>
-                <p className="mt-0.5 truncate text-[12px] font-semibold text-[#888888]">{deal.name}</p>
-              </div>
-            </div>
+            <button
+              type="button"
+              className="min-w-0 flex-1 text-left"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenLeadDetails(deal.id);
+              }}
+            >
+              <p className="truncate text-[14px] font-bold leading-snug text-[#2C2C2C]">{propLine}</p>
+            </button>
 
-            {/* Top-right controls: Hot badge above menu */}
-            <div className="pointer-events-auto relative shrink-0">
-              <div className="absolute right-0 top-0 z-10 flex flex-col items-end gap-1">
-                {isHot ? (
-                  <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
-                    Hot
-                  </span>
-                ) : null}
-                <div
-                  ref={menuOpen ? menuWrapRef : undefined}
-                  className="relative"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => e.stopPropagation()}
+            <div className="pointer-events-auto flex shrink-0 items-start gap-1">
+              {isHot ? (
+                <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
+                  Hot
+                </span>
+              ) : null}
+              <div
+                ref={menuOpen ? menuWrapRef : undefined}
+                className="relative"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  aria-label="More options"
+                  aria-expanded={menuOpen}
+                  onClick={() => {
+                    setMenuMoveOpen(false);
+                    setMenuOpenId(menuOpen ? null : deal.id);
+                  }}
+                  className="rounded-lg p-1.5 text-[#2C2C2C]/45 hover:bg-black/5 hover:text-[#2C2C2C]/70"
                 >
-                  <button
-                    type="button"
-                    aria-label="More options"
-                    aria-expanded={menuOpen}
-                    onClick={() => {
-                      setMenuMoveOpen(false);
-                      setMenuOpenId(menuOpen ? null : deal.id);
-                    }}
-                    className="rounded-lg p-1.5 text-[#2C2C2C]/45 hover:bg-black/5 hover:text-[#2C2C2C]/70"
-                  >
-                    <MoreHorizontal className="h-5 w-5" />
-                  </button>
+                  <MoreHorizontal className="h-5 w-5" />
+                </button>
 
-                  {menuOpen ? (
-                    <div className="absolute right-0 top-8 z-50 w-48 rounded-xl border border-gray-200 bg-white py-1 text-gray-900 shadow-md">
-                      {!menuMoveOpen ? (
-                        <>
+                {menuOpen ? (
+                  <div className="absolute right-0 top-8 z-50 w-48 rounded-xl border border-gray-200 bg-white py-1 text-gray-900 shadow-md">
+                    {!menuMoveOpen ? (
+                      <>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                          onClick={() => {
+                            onOpenLeadDetails(deal.id);
+                            setMenuOpenId(null);
+                          }}
+                        >
+                          View Details
+                        </button>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                          onClick={() => {
+                            onRequestNotes(deal);
+                            setMenuOpenId(null);
+                          }}
+                        >
+                          Edit Notes
+                        </button>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                          onClick={() => {
+                            onRequestDocuments(deal);
+                            setMenuOpenId(null);
+                          }}
+                        >
+                          Request Documents
+                        </button>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                          onClick={() => {
+                            onRequestDecline(deal);
+                            setMenuOpenId(null);
+                            setMenuMoveOpen(false);
+                          }}
+                        >
+                          Decline & Archive
+                        </button>
+                        <div className="relative">
                           <button
                             type="button"
                             className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                            onClick={() => {
-                              onOpenLeadDetails(deal.id);
-                              setMenuOpenId(null);
-                            }}
+                            onClick={() => setMenuMoveOpen(true)}
                           >
-                            View Details
+                            Move to…
                           </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="max-h-56 overflow-y-auto py-1">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-gray-500 hover:bg-gray-50"
+                          onClick={() => setMenuMoveOpen(false)}
+                        >
+                          ← Back
+                        </button>
+                        {otherStages.map((s) => (
                           <button
+                            key={s.id}
                             type="button"
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                            disabled={moveBusyId === deal.id}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
                             onClick={() => {
-                              onRequestNotes(deal);
-                              setMenuOpenId(null);
-                            }}
-                          >
-                            Edit Notes
-                          </button>
-                          <button
-                            type="button"
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                            onClick={() => {
-                              onRequestDocuments(deal);
-                              setMenuOpenId(null);
-                            }}
-                          >
-                            Request Documents
-                          </button>
-                          <button
-                            type="button"
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                            onClick={() => {
-                              onRequestDecline(deal);
+                              onBeginStageMove(deal, s.id, "jump");
                               setMenuOpenId(null);
                               setMenuMoveOpen(false);
                             }}
                           >
-                            Decline & Archive
+                            {s.label}
                           </button>
-                          <div className="relative">
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                              onClick={() => setMenuMoveOpen(true)}
-                            >
-                              Move to…
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="max-h-56 overflow-y-auto py-1">
-                          <button
-                            type="button"
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-gray-500 hover:bg-gray-50"
-                            onClick={() => setMenuMoveOpen(false)}
-                          >
-                            ← Back
-                          </button>
-                          {otherStages.map((s) => (
-                            <button
-                              key={s.id}
-                              type="button"
-                              disabled={moveBusyId === deal.id}
-                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
-                              onClick={() => {
-                                onBeginStageMove(deal, s.id, "jump");
-                                setMenuOpenId(null);
-                                setMenuMoveOpen(false);
-                              }}
-                            >
-                              {s.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Bottom row: avatar + price (single unified body, no divider) */}
-        <div className="mt-2 flex items-center gap-2">
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[10px] font-bold text-[#6B9E6E]">
-            {clientInitials(deal.name)}
+          {/* Row 2: Contact */}
+          <p className="mt-1 truncate text-[12px] font-semibold text-[#888888]">{deal.name}</p>
+          {/* Row 4: Avatar + Price */}
+          <div className="mt-2 flex items-center gap-2">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[10px] font-bold text-[#6B9E6E]">
+              {clientInitials(deal.name)}
+            </div>
+            {dealValueLine ? <span className="text-[13px] font-bold text-[#D4A843]">{dealValueLine}</span> : null}
           </div>
-          {dealValueLine ? <span className="text-[14px] font-bold text-[#D4A843]">{dealValueLine}</span> : null}
         </div>
 
         {next ? (
@@ -1197,13 +1202,12 @@ export function AgentPipelineTab({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        delay: 250,
-        tolerance: 5,
+        distance: 5,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 250,
+        delay: 150,
         tolerance: 5,
       },
     }),
