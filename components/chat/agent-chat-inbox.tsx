@@ -9,7 +9,7 @@ import {
   ChannelPreviewMessenger,
   Chat,
   MessageInput,
-  MessageList,
+  VirtualizedMessageList,
   MessageText,
   Window,
   useChatContext,
@@ -70,6 +70,7 @@ function AgentChatBody({
   const { channel, setActiveChannel } = useChatContext();
   const [mobileView, setMobileView] = useState<"list" | "thread">("list");
   const [channelLoading, setChannelLoading] = useState(false);
+  const channelQueryOptions = useMemo(() => ({ messages: { limit: 20 } }), []);
 
   const peerUser = useMemo(() => {
     const members = channel?.state?.members;
@@ -97,22 +98,32 @@ function AgentChatBody({
 
   const channelPreviewMessengerProps = useCallback(
     (props: ComponentProps<typeof ChannelPreviewMessenger>) => (
-      <ChannelPreviewMessenger
-        {...props}
-        onSelect={(event) => {
-          props.onSelect?.(event);
-          if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
-            setChannelLoading(true);
-            window.setTimeout(() => setMobileView("thread"), 300);
+      <div
+        onMouseEnter={() => {
+          try {
+            void props.channel.watch();
+          } catch {
+            // ignore prewarm errors
           }
         }}
-      />
+      >
+        <ChannelPreviewMessenger
+          {...props}
+          onSelect={(event) => {
+            props.onSelect?.(event);
+            if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+              setChannelLoading(true);
+              window.setTimeout(() => setMobileView("thread"), 300);
+            }
+          }}
+        />
+      </div>
     ),
     [],
   );
 
   return (
-    <div className="h-[calc(100vh-180px)] md:h-[600px] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] shadow-sm flex flex-col md:grid md:grid-cols-[300px_1fr]">
+    <div className="h-[calc(100vh-180px)] md:h-[600px] overflow-hidden bg-[#FAF8F4] flex flex-col md:grid md:grid-cols-[300px_1fr]">
       <div
         className={`w-full shrink-0 border-b border-[#2C2C2C]/10 md:border-b-0 md:border-r md:border-[#2C2C2C]/10 ${
           mobileView === "thread" ? "max-md:hidden" : ""
@@ -143,7 +154,13 @@ function AgentChatBody({
             <span className="font-semibold">{peerUser?.name?.trim() || peerUser?.id || "Conversation"}</span>
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
-            <Channel>
+            <Channel
+              channelQueryOptions={channelQueryOptions}
+              {...({
+                newMessageStateUpdateThrottleInterval: 2000,
+                stateUpdateThrottleInterval: 800,
+              } as unknown as Record<string, unknown>)}
+            >
               <Window>
                 <AgentThreadInner
                   channelLoading={channelLoading}
@@ -181,7 +198,7 @@ function AgentThreadInner({
 
   return (
     <>
-      <MessageList Message={CustomMessage} />
+      <VirtualizedMessageList Message={CustomMessage} />
       <MessageInput />
     </>
   );
@@ -213,7 +230,7 @@ export function AgentChatInbox(_props: {
   }
 
   return (
-    <div className="bahaygo-stream-chat h-[600px] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 shadow-sm">
+    <div className="bahaygo-stream-chat h-[600px] overflow-hidden bg-[#FAF8F4]">
       <style jsx global>{`
         .bhg-msg {
           display: flex;
