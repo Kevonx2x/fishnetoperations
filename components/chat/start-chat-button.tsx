@@ -47,7 +47,7 @@ export function StartChatButton({
       if (profile?.role === "agent") {
         router.push(`/dashboard/agent?${q.toString()}`);
       } else {
-        router.push(`/clients/${encodeURIComponent(user.id)}?${q.toString()}`);
+        router.push(`/dashboard/client/messages?${q.toString()}`);
       }
     } finally {
       setBusy(false);

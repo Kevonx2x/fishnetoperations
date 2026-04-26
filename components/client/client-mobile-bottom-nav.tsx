@@ -1,16 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, ClipboardList, Home } from "lucide-react";
-import type { ReactNode } from "react";
-import { ClientAvatar } from "@/components/client/client-avatar";
+import { Bell, GitBranch, LayoutDashboard, MessageSquare, Settings } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const ITEMS: {
+  href: string;
+  label: string;
+  segment: string;
+  Icon: LucideIcon;
+}[] = [
+  { href: "/dashboard/client/overview", label: "Overview", segment: "overview", Icon: LayoutDashboard },
+  { href: "/dashboard/client/pipeline", label: "Pipeline", segment: "pipeline", Icon: GitBranch },
+  { href: "/dashboard/client/messages", label: "Messages", segment: "messages", Icon: MessageSquare },
+  { href: "/dashboard/client/notifications", label: "Notifications", segment: "notifications", Icon: Bell },
+  { href: "/dashboard/client/profile", label: "Profile", segment: "profile", Icon: Settings },
+];
+
+function dashActive(pathname: string, segment: string) {
+  if (segment === "overview") {
+    return pathname === "/dashboard/client" || pathname.startsWith("/dashboard/client/overview");
+  }
+  if (segment === "notifications") {
+    return (
+      pathname.startsWith("/dashboard/client/notifications") || pathname.startsWith("/notifications")
+    );
+  }
+  return pathname.startsWith(`/dashboard/client/${segment}`);
+}
 
 export function ClientMobileBottomNav({
   pathname,
-  userId,
-  avatarUrl,
-  fullName,
+  userId: _userId,
+  avatarUrl: _avatarUrl,
+  fullName: _fullName,
   unreadCount,
 }: {
   pathname: string;
@@ -19,64 +43,31 @@ export function ClientMobileBottomNav({
   fullName: string;
   unreadCount: number;
 }) {
-  const profileHref = `/clients/${encodeURIComponent(userId)}`;
-  const profileActive = pathname.startsWith("/clients/");
-  const pipelineActive = pathname.startsWith("/dashboard/client/pipeline");
-
-  const Item = ({
-    href,
-    label,
-    icon: Icon,
-    active,
-    children,
-  }: {
-    href: string;
-    label: string;
-    icon?: typeof Home;
-    active: boolean;
-    children?: ReactNode;
-  }) => (
-    <Link
-      href={href}
-      className={cn(
-        "relative flex min-w-0 flex-1 flex-col items-center gap-0.5 py-0.5 text-[10px] font-semibold transition-all duration-200",
-        active ? "text-[#6B9E6E]" : "text-[#6B6B6B]",
-      )}
-    >
-      {children ?? (Icon ? <Icon className="h-5 w-5" /> : null)}
-      <span className="truncate">{label}</span>
-    </Link>
-  );
-
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-[#E5E5E5] bg-white px-1 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-      <Item href="/" label="Home" icon={Home} active={pathname === "/"} />
-      <Item
-        href="/dashboard/client/pipeline"
-        label="Pipeline"
-        icon={ClipboardList}
-        active={pipelineActive}
-      />
-      <Item href="/notifications" label="Notifications" active={pathname.startsWith("/notifications")}>
-        <span className="relative">
-          <Bell className="h-5 w-5" />
-          {unreadCount > 0 ? (
-            <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold text-white">
-              {unreadCount > 99 ? "99+" : unreadCount}
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-0.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur">
+      {ITEMS.map(({ href, label, segment, Icon }) => {
+        const active = dashActive(pathname, segment);
+        return (
+          <Link
+            key={href}
+            href={href}
+            className={cn(
+              "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-0.5 text-[9px] font-bold sm:text-[10px]",
+              active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45",
+            )}
+          >
+            {segment === "notifications" && unreadCount > 0 ? (
+              <span className="absolute right-0.5 top-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#D4A843] px-0.5 text-[8px] font-bold text-[#2C2C2C]">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            ) : null}
+            <span className={active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
+              <Icon className="mx-auto h-5 w-5" aria-hidden />
             </span>
-          ) : null}
-        </span>
-      </Item>
-      <Link
-        href={profileHref}
-        className={cn(
-          "relative flex min-w-0 flex-1 flex-col items-center gap-0.5 py-0.5 text-[10px] font-semibold transition-all duration-200",
-          profileActive ? "text-[#6B9E6E]" : "text-[#6B6B6B]",
-        )}
-      >
-        <ClientAvatar name={fullName} avatarUrl={avatarUrl} sizePx={28} />
-        <span className="truncate">Profile</span>
-      </Link>
+            <span className="max-w-[3.75rem] truncate text-center leading-tight">{label}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

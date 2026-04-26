@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
@@ -13,11 +13,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { ClientMobileBottomNav } from "@/components/client/client-mobile-bottom-nav";
-import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { StartChatButton } from "@/components/chat/start-chat-button";
 import { useAuth } from "@/contexts/auth-context";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 type PipelineDeal = {
@@ -392,18 +389,15 @@ function DealCard({
   );
 }
 
-export function ClientPipelinePage() {
-  const router = useRouter();
-  const pathname = usePathname();
+/** Pipeline deals UI; use inside client dashboard layout (or any shell that already authenticates). */
+export function ClientPipelineInner() {
   const searchParams = useSearchParams();
-  const { user, profile, role, loading: authLoading } = useAuth();
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const { user, role, loading: authLoading } = useAuth();
 
   const [deals, setDeals] = useState<PipelineDeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [docsOpen, setDocsOpen] = useState<Record<number, boolean>>({});
-  const [bottomNavUnread, setBottomNavUnread] = useState(0);
 
   const highlightLeadId = useMemo(() => {
     const raw = searchParams.get("lead");
@@ -434,34 +428,6 @@ export function ClientPipelinePage() {
   }, [authLoading, user?.id, role, load]);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user?.id) {
-      router.replace(`/auth/login?next=${encodeURIComponent("/dashboard/client/pipeline")}`);
-      return;
-    }
-    if (role && role !== "client") {
-      router.replace("/");
-    }
-  }, [authLoading, user?.id, role, router]);
-
-  const refreshBottomNavUnread = useCallback(async () => {
-    if (!user?.id) {
-      setBottomNavUnread(0);
-      return;
-    }
-    const { count } = await supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .is("read_at", null);
-    setBottomNavUnread(count ?? 0);
-  }, [user?.id, supabase]);
-
-  useEffect(() => {
-    void refreshBottomNavUnread();
-  }, [refreshBottomNavUnread]);
-
-  useEffect(() => {
     if (!highlightLeadId || loading) return;
     const id = `lead-${highlightLeadId}`;
     window.requestAnimationFrame(() => {
@@ -469,80 +435,51 @@ export function ClientPipelinePage() {
     });
   }, [highlightLeadId, loading, deals.length]);
 
-  useEffect(() => {
-    const onRead = () => void refreshBottomNavUnread();
-    window.addEventListener("bahaygo:notifications-read", onRead);
-    return () => window.removeEventListener("bahaygo:notifications-read", onRead);
-  }, [refreshBottomNavUnread]);
-
   if (authLoading || !user?.id || role !== "client") {
     return (
-      <div className="min-h-screen bg-[#FAF8F4]">
-        <MaddenTopNav />
-        <div className="flex min-h-[40vh] items-center justify-center text-sm font-semibold text-[#2C2C2C]/50">
-          Loading…
-        </div>
+      <div className="flex min-h-[200px] items-center justify-center text-sm font-semibold text-[#2C2C2C]/50">
+        <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" aria-hidden />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4] font-sans text-[#2C2C2C]">
-      <MaddenTopNav />
-      <main className="mx-auto max-w-lg px-4 py-8 pb-28 sm:py-10">
-        <div className="mb-6">
-          <h1 className="font-serif text-3xl font-semibold text-[#2C2C2C]">Pipeline</h1>
-          <p className="mt-1 text-sm text-[#888888]">
-            Track each property you&apos;re pursuing — viewings, documents, and next steps in one
-            place.
-          </p>
+    <div className="w-full max-w-2xl font-sans text-[#2C2C2C]">
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-10 w-10 animate-spin text-[#6B9E6E]" aria-hidden />
         </div>
-
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="h-10 w-10 animate-spin text-[#6B9E6E]" aria-hidden />
-          </div>
-        ) : deals.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white py-16 text-center shadow-sm">
-            <p className="text-sm font-semibold text-[#2C2C2C]/55">
-              No active deals yet. Request a viewing on a listing to see it here.
-            </p>
-            <Link
-              href="/"
-              className="mt-4 inline-flex rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#5a8a5d]"
-            >
-              Browse listings
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {deals.map((deal) => (
-              <DealCard
-                key={deal.lead_id}
-                deal={deal}
-                clientUserId={user.id}
-                expanded={expanded[deal.lead_id] ?? false}
-                onToggleExpand={() =>
-                  setExpanded((s) => ({ ...s, [deal.lead_id]: !(s[deal.lead_id] ?? false) }))
-                }
-                docsOpen={docsOpen[deal.lead_id] ?? false}
-                onToggleDocs={() =>
-                  setDocsOpen((s) => ({ ...s, [deal.lead_id]: !s[deal.lead_id] }))
-                }
-                onUploaded={() => void load()}
-                highlight={highlightLeadId === deal.lead_id}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-      <ClientMobileBottomNav
-        pathname={pathname}
-        userId={user.id}
-        avatarUrl={profile?.avatar_url?.trim() || null}
-        fullName={profile?.full_name?.trim() ?? ""}
-        unreadCount={bottomNavUnread}
-      />
+      ) : deals.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white py-16 text-center shadow-sm">
+          <p className="text-sm font-semibold text-[#2C2C2C]/55">
+            No active deals yet. Request a viewing on a listing to see it here.
+          </p>
+          <Link
+            href="/"
+            className="mt-4 inline-flex rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#5a8a5d]"
+          >
+            Browse listings
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {deals.map((deal) => (
+            <DealCard
+              key={deal.lead_id}
+              deal={deal}
+              clientUserId={user.id}
+              expanded={expanded[deal.lead_id] ?? false}
+              onToggleExpand={() =>
+                setExpanded((s) => ({ ...s, [deal.lead_id]: !(s[deal.lead_id] ?? false) }))
+              }
+              docsOpen={docsOpen[deal.lead_id] ?? false}
+              onToggleDocs={() => setDocsOpen((s) => ({ ...s, [deal.lead_id]: !s[deal.lead_id] }))}
+              onUploaded={() => void load()}
+              highlight={highlightLeadId === deal.lead_id}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

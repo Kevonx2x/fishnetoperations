@@ -51,7 +51,7 @@ function LoginForm() {
         if (role === "agent") {
           dest = "/dashboard/agent";
         } else if (role === "client") {
-          dest = "/";
+          dest = "/dashboard/client/overview";
         } else if (role === "admin" || role === "ops_admin" || role === "broker") {
           dest = pathForRole(role);
         } else {
