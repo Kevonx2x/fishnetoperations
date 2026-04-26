@@ -245,8 +245,29 @@
   background: var(--surface-page) !important;
   padding: 8px 0 !important;
 }
+/* Channel + main panel: flex column so only the message list scrolls and input stays bottom */
+.bahaygo-stream-chat .str-chat__channel {
+  display: flex !important;
+  flex: 1 1 0% !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+.bahaygo-stream-chat .str-chat__container {
+  display: flex !important;
+  flex: 1 1 0% !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
 .bahaygo-stream-chat .str-chat__main-panel {
   background: var(--surface-page) !important;
+  display: flex !important;
+  flex: 1 1 0% !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
 }
 .bahaygo-stream-chat .str-chat__container,
 .bahaygo-stream-chat .str-chat__virtualized-message-list,
@@ -259,6 +280,9 @@
 .bahaygo-stream-chat .str-chat__input-flat {
   background: var(--surface-page) !important;
   border-top: 1px solid var(--border-subtle) !important;
+}
+.bahaygo-stream-chat .bhg-chat-input-wrap .str-chat__input-flat {
+  border-top: none !important;
 }
 .bahaygo-stream-chat .str-chat__message-input {
   background: var(--surface-page) !important;
@@ -293,13 +317,26 @@
 .bahaygo-stream-chat .bhg-msg {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
-  padding: 4px 8px;
+  box-sizing: border-box;
   width: 100%;
+  padding: 0 8px;
+}
+.bahaygo-stream-chat .bhg-msg--gap-start {
+  margin-top: 0;
+}
+.bahaygo-stream-chat .bhg-msg--gap-same {
+  margin-top: 4px;
+}
+.bahaygo-stream-chat .bhg-msg--gap-turn {
+  margin-top: 16px;
+}
+.bahaygo-stream-chat .str-chat__li:first-child .bhg-msg--gap-same,
+.bahaygo-stream-chat .str-chat__li:first-child .bhg-msg--gap-turn {
+  margin-top: 0;
 }
 .bahaygo-stream-chat .bhg-msg--tight {
   padding-top: 0 !important;
-  padding-bottom: 2px !important;
+  padding-bottom: 0 !important;
 }
 .bahaygo-stream-chat .bhg-msg--mine {
   flex-direction: row-reverse;

@@ -171,6 +171,7 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
 }
 
 function CustomMessage() {
+  const { messages: channelMessages } = useChannelStateContext("CustomMessage");
   const { isMyMessage, message, groupStyles, firstOfGroup, readBy, deliveredTo } = useMessageContext();
   const mine = isMyMessage();
   const otherAvatar = useProfileAvatarUrl(
@@ -187,6 +188,20 @@ function CustomMessage() {
   const showAvatar =
     !mine && (firstOfGroup || groupStyles?.includes("top") || groupStyles?.includes("single"));
   const tight = Boolean(groupStyles?.includes("middle") || groupStyles?.includes("bottom"));
+  const messageIndex = useMemo(
+    () => (channelMessages ? channelMessages.findIndex((m) => m.id === message.id) : -1),
+    [channelMessages, message.id],
+  );
+  const prevMessage = messageIndex > 0 && channelMessages ? channelMessages[messageIndex - 1] : undefined;
+  const currentSenderId = message.user?.id;
+  const prevSenderId = prevMessage?.user?.id;
+  const sameSenderAsPrevious =
+    Boolean(currentSenderId && prevSenderId && currentSenderId === prevSenderId);
+  const marginGap = useMemo((): "start" | "same" | "turn" => {
+    if (messageIndex <= 0) return "start";
+    if (sameSenderAsPrevious) return "same";
+    return "turn";
+  }, [messageIndex, sameSenderAsPrevious]);
   const myId = message.user?.id;
   const othersRead = mine && (readBy ?? []).some((u) => u.id && u.id !== myId);
   const othersDelivered = mine && (deliveredTo ?? []).some((u) => u.id && u.id !== myId);
@@ -198,16 +213,17 @@ function CustomMessage() {
 
   return (
     <div
-      className={`bhg-msg ${mine ? "bhg-msg--mine" : "bhg-msg--other"} ${tight ? "bhg-msg--tight" : ""}`}
-      style={{
-        display: "flex",
-        flexDirection: mine ? "row-reverse" : "row",
-        alignItems: "flex-end",
-        gap: showAvatar || mine ? "8px" : "6px",
-        padding: tight ? "0 8px 2px" : "4px 8px",
-        width: "100%",
-        ...(mine ? {} : { paddingLeft: showAvatar ? 8 : 36 }),
-      }}
+      className={cn(
+        "bhg-msg",
+        mine ? "bhg-msg--mine" : "bhg-msg--other",
+        tight && "bhg-msg--tight",
+        marginGap === "start" && "bhg-msg--gap-start",
+        marginGap === "same" && "bhg-msg--gap-same",
+        marginGap === "turn" && "bhg-msg--gap-turn",
+        !mine && (showAvatar ? "pl-2" : "pl-9"),
+        showAvatar || mine ? "gap-2" : "gap-1.5",
+        "w-full",
+      )}
     >
       {!mine && showAvatar ? (
         <div style={{ width: 28, height: 28, flexShrink: 0 }}>
@@ -418,7 +434,7 @@ function MessagingChatBody({
         className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${mobileView === "list" ? "max-md:hidden" : ""}`}
       >
         <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex h-14 shrink-0 items-center gap-3 border-b border-subtle bg-surface-page px-4 md:hidden">
+          <div className="flex min-h-14 shrink-0 items-center gap-3 border-b border-subtle bg-surface-page px-4 py-3 md:hidden">
             <button type="button" onClick={handleBackToList} aria-label="Back to conversations">
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -432,7 +448,9 @@ function MessagingChatBody({
                 <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-brand-sage" aria-hidden />
               ) : null}
             </span>
-            <span className="font-semibold">{peerUser?.name?.trim() || peerUser?.id || "Conversation"}</span>
+            <span className="text-lg font-bold text-fg">
+              {peerUser?.name?.trim() || peerUser?.id || "Conversation"}
+            </span>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <Channel
@@ -504,8 +522,8 @@ function MessagingThreadInner({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page">
-      <header className="hidden h-14 shrink-0 items-center justify-between border-b border-subtle bg-surface-page px-4 md:flex">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-page">
+      <header className="hidden shrink-0 items-center justify-between border-b border-subtle bg-surface-page px-4 py-4 md:flex">
         <div className="flex min-w-0 items-center gap-3">
           <span className="relative shrink-0">
             <Avatar
@@ -521,7 +539,7 @@ function MessagingThreadInner({
             ) : null}
           </span>
           <div className="min-w-0">
-            <p className="truncate font-serif text-lg font-semibold text-fg">
+            <p className="truncate text-xl font-bold text-fg">
               {peerUser?.name?.trim() || peerUser?.id || "Conversation"}
             </p>
             <p className="text-xs text-fg/50">{peerOnline ? "Online" : "Offline"}</p>
@@ -542,16 +560,20 @@ function MessagingThreadInner({
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
-      <div className="bhg-chat-scroll min-h-0 flex-1 overflow-y-auto">
-        <VirtualizedMessageList
-          Message={CustomMessage}
-          shouldGroupByUser
-          returnAllReadData
-          maxTimeBetweenGroupedMessages={120000}
-        />
+      <div className="bhg-chat-scroll min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[720px] px-3 sm:px-4">
+          <VirtualizedMessageList
+            Message={CustomMessage}
+            shouldGroupByUser
+            returnAllReadData
+            maxTimeBetweenGroupedMessages={120000}
+          />
+        </div>
       </div>
-      <div className="shrink-0 border-t border-subtle bg-surface-page">
-        <MessageInput />
+      <div className="bhg-chat-input-wrap shrink-0 border-t border-subtle bg-surface-page">
+        <div className="mx-auto w-full max-w-[720px]">
+          <MessageInput />
+        </div>
       </div>
     </div>
   );
