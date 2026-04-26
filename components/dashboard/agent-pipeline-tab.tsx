@@ -26,6 +26,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { AnimatePresence, motion } from "framer-motion";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  Archive,
+  ArrowRightCircle,
   Eye,
   FileText,
   Filter,
@@ -472,89 +474,107 @@ function KanbanDealCard({
                   <MoreHorizontal className="h-5 w-5" />
                 </button>
 
-                {menuOpen ? (
-                  <div className="absolute right-0 top-8 z-50 w-48 rounded-xl border border-gray-200 bg-white py-1 text-gray-900 shadow-md">
-                    {!menuMoveOpen ? (
-                      <>
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                          onClick={() => {
-                            onOpenLeadDetails(deal.id);
-                            setMenuOpenId(null);
-                          }}
-                        >
-                          View Details
-                        </button>
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                          onClick={() => {
-                            onRequestNotes(deal);
-                            setMenuOpenId(null);
-                          }}
-                        >
-                          Edit Notes
-                        </button>
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                          onClick={() => {
-                            onRequestDocuments(deal);
-                            setMenuOpenId(null);
-                          }}
-                        >
-                          Request Documents
-                        </button>
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                          onClick={() => {
-                            onRequestDecline(deal);
-                            setMenuOpenId(null);
-                            setMenuMoveOpen(false);
-                          }}
-                        >
-                          Decline & Archive
-                        </button>
-                        <div className="relative">
+                <AnimatePresence>
+                  {menuOpen ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.12 }}
+                      className="absolute right-0 top-8 z-50 w-[200px] max-w-[calc(100vw-24px)] rounded-lg border border-[#E5E5E5] bg-white p-1.5 text-[#2C2C2C] shadow-lg"
+                    >
+                      {!menuMoveOpen ? (
+                        <div className="space-y-0.5">
                           <button
                             type="button"
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                            onClick={() => setMenuMoveOpen(true)}
-                          >
-                            Move to…
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="max-h-56 overflow-y-auto py-1">
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-gray-500 hover:bg-gray-50"
-                          onClick={() => setMenuMoveOpen(false)}
-                        >
-                          ← Back
-                        </button>
-                        {otherStages.map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            disabled={moveBusyId === deal.id}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
+                            className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                             onClick={() => {
-                              onBeginStageMove(deal, s.id, "jump");
+                              onOpenLeadDetails(deal.id);
+                              setMenuOpenId(null);
+                            }}
+                          >
+                            <Eye className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]" aria-hidden />
+                            View Details
+                          </button>
+                          <button
+                            type="button"
+                            className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                            onClick={() => {
+                              onRequestNotes(deal);
+                              setMenuOpenId(null);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]" aria-hidden />
+                            Edit Notes
+                          </button>
+                          <button
+                            type="button"
+                            className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                            onClick={() => {
+                              onRequestDocuments(deal);
+                              setMenuOpenId(null);
+                            }}
+                          >
+                            <FileText className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]" aria-hidden />
+                            Request Documents
+                          </button>
+
+                          <div className="my-1 h-px bg-[#EEEEEE]" />
+
+                          <button
+                            type="button"
+                            className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#B85450] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                            onClick={() => {
+                              onRequestDecline(deal);
                               setMenuOpenId(null);
                               setMenuMoveOpen(false);
                             }}
                           >
-                            {s.label}
+                            <Archive className="h-4 w-4 shrink-0 text-[#B85450]" aria-hidden />
+                            Decline &amp; Archive
                           </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : null}
+
+                          <button
+                            type="button"
+                            className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                            onClick={() => setMenuMoveOpen(true)}
+                          >
+                            <ArrowRightCircle className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]" aria-hidden />
+                            Move to…
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="max-h-56 overflow-y-auto">
+                          <button
+                            type="button"
+                            className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12px] font-bold text-[#2C2C2C]/60 transition-colors duration-150 hover:bg-[#F0F4F0]"
+                            onClick={() => setMenuMoveOpen(false)}
+                          >
+                            ← Back
+                          </button>
+                          <div className="mt-1 space-y-0.5">
+                            {otherStages.map((s) => (
+                              <button
+                                key={s.id}
+                                type="button"
+                                disabled={moveBusyId === deal.id}
+                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0] disabled:opacity-50"
+                                onClick={() => {
+                                  onBeginStageMove(deal, s.id, "jump");
+                                  setMenuOpenId(null);
+                                  setMenuMoveOpen(false);
+                                }}
+                              >
+                                <ArrowRightCircle className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]" aria-hidden />
+                                {s.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
               </div>
 
               {isHot ? (
