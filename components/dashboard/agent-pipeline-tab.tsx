@@ -451,15 +451,11 @@ function KanbanDealCard({
               </p>
             </button>
 
-            <div className="pointer-events-auto flex shrink-0 items-start gap-1">
-              {isHot ? (
-                <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
-                  Hot
-                </span>
-              ) : null}
+            <div className="pointer-events-auto shrink-0">
+              {/* Pinned top-right controls */}
               <div
                 ref={menuOpen ? menuWrapRef : undefined}
-                className="relative"
+                className="absolute right-2 top-2 z-10"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -560,6 +556,12 @@ function KanbanDealCard({
                   </div>
                 ) : null}
               </div>
+
+              {isHot ? (
+                <span className="absolute right-9 top-2 z-10 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
+                  Hot
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -1987,15 +1989,6 @@ export function AgentPipelineTab({
               </button>
             </div>
 
-            <button
-              type="button"
-              disabled
-              className="rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-bold text-white shadow-sm opacity-60"
-              title="Manual deal entry coming soon"
-            >
-              + Deal
-            </button>
-
             <div className="flex items-center gap-3">
               <span className="text-sm font-semibold text-[#2C2C2C]/55">
                 {allDealsTotal > 0 ? `${formatPesoCompact(allDealsTotal)} · ` : ""}
@@ -2003,6 +1996,14 @@ export function AgentPipelineTab({
               </span>
 
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled
+                  className="rounded-full bg-[#6B9E6E] px-4 py-2 text-sm font-bold text-white shadow-sm opacity-60"
+                  title="Manual deal entry coming soon"
+                >
+                  + Add Lead
+                </button>
                 <select
                   value={pipelineKey}
                   onChange={(e) => setPipelineKey(e.target.value)}
