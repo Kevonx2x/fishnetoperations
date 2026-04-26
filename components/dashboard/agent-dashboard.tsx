@@ -1341,26 +1341,27 @@ export function AgentDashboard() {
     if (!user?.id) return;
     if (!confirm("Are you sure? This cannot be undone.")) return;
     setDeletingPropertyId(propertyId);
-    const orderedDeletes = [
-      { label: "co_agent_requests", run: () => supabase.from("co_agent_requests").delete().eq("property_id", propertyId) },
-      { label: "property_agents", run: () => supabase.from("property_agents").delete().eq("property_id", propertyId) },
-      { label: "property_photos", run: () => supabase.from("property_photos").delete().eq("property_id", propertyId) },
-      { label: "viewing_requests", run: () => supabase.from("viewing_requests").delete().eq("property_id", propertyId) },
-      { label: "leads", run: () => supabase.from("leads").delete().eq("property_id", propertyId) },
-    ] as const;
-    for (const step of orderedDeletes) {
-      const { error } = await step.run();
-      if (error) {
-        setDeletingPropertyId(null);
-        setMsg(`Could not delete listing (${step.label}): ${error.message}`);
+    try {
+      const res = await fetch("/api/agent/delete-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ property_id: propertyId }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string; ok?: boolean };
+      if (!res.ok) {
+        setMsg(json.error ?? `Could not delete listing (${res.status})`);
         return;
       }
-    }
-    const { error } = await supabase.from("properties").delete().eq("id", propertyId).eq("listed_by", user.id);
-    setDeletingPropertyId(null);
-    if (error) {
-      setMsg(error.message);
+      if (!json.ok) {
+        setMsg("Could not delete listing");
+        return;
+      }
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Could not delete listing");
       return;
+    } finally {
+      setDeletingPropertyId(null);
     }
     setMsg("Listing deleted.");
     await loadData();

@@ -1,0 +1,13 @@
+-- REVIEW-ONLY: optional RLS follow-up (CEO runs manually in Supabase SQL editor if needed)
+--
+-- Context: if any agent-side DELETE on public.leads must work under RLS (not service role),
+-- ensure policies match intended ownership. Production currently includes:
+--   "leads_delete_own_agent" USING (agent_id = auth.uid() or is_admin)
+--
+-- If team members / brokers also need direct DELETE (not recommended; prefer server routes),
+-- expand policies carefully. This file is intentionally a placeholder for review.
+
+-- Example pattern (DO NOT RUN BLINDLY):
+-- create policy "leads_delete_broker" on public.leads
+--   for delete to authenticated
+--   using (broker_id = auth.uid() or public.is_admin());
