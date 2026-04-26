@@ -22,7 +22,19 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { AnimatePresence, motion } from "framer-motion";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Eye, FileText, Loader2, MoreHorizontal, User, X } from "lucide-react";
+import {
+  Eye,
+  FileText,
+  Filter,
+  LayoutGrid,
+  List,
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  RefreshCw,
+  User,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
 import { formatRelativeTime } from "@/lib/relative-time";
@@ -308,6 +320,23 @@ function parsePriceToNumber(raw: unknown): number | null {
   return null;
 }
 
+function stageBarHex(stage: PipelineStageId): string {
+  switch (stage) {
+    case "lead":
+      return "#888888";
+    case "viewing":
+      return "#6B9E6E";
+    case "offer":
+      return "#D4A843";
+    case "reservation":
+      return "#4A7C4E";
+    case "closed":
+      return "#6B9E6E";
+    default:
+      return "#888888";
+  }
+}
+
 function KanbanDealCard({
   deal,
   indexInStage,
@@ -372,12 +401,13 @@ function KanbanDealCard({
   const updatedIso = (deal.updated_at ?? deal.created_at) as string;
   const updatedAtLabel = formatRelativeTime(updatedIso);
   const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
+  const stageHex = stageBarHex(deal.pipeline_stage);
 
   return (
     <div ref={setNodeRef} style={style} className="relative">
       <div
         className={cn(
-          "rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm transition",
+          "rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-sm transition",
           isDragging && "scale-[1.02] shadow-xl",
         )}
         onClick={() => onOpenLeadDetails(deal.id)}
@@ -387,24 +417,18 @@ function KanbanDealCard({
           if (e.key === "Enter" || e.key === " ") onOpenLeadDetails(deal.id);
         }}
       >
+        <div
+          aria-hidden
+          className="absolute left-0 top-0 h-[3px] w-full rounded-t-lg"
+          style={{ backgroundColor: stageHex }}
+        />
         <div className="touch-none" {...attributes} {...listeners}>
           <div className="flex items-start justify-between gap-2">
-            <div className="flex min-w-0 flex-1 items-start gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[11px] font-bold text-[#6B9E6E]">
-                {clientInitials(deal.name)}
-              </div>
+            <div className="flex min-w-0 flex-1 items-start gap-2.5 pt-1">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", stageDotClass(deal.pipeline_stage))} />
-                  <p className="truncate text-[13px] font-bold text-[#2C2C2C]">{deal.name}</p>
-                </div>
-                <p className="mt-0.5 truncate text-sm font-semibold leading-snug text-[#2C2C2C]/75">
-                  {deal.property_id ? propLine : propLine}
-                </p>
+                <p className="truncate text-[14px] font-bold text-[#2C2C2C]">{propLine}</p>
+                <p className="mt-0.5 truncate text-[12px] font-semibold text-[#2C2C2C]/55">{deal.name}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                  {dealValueLine ? (
-                    <span className="text-sm font-bold text-[#D4A843]">{dealValueLine}</span>
-                  ) : null}
                   <span className="text-[11px] font-semibold text-[#2C2C2C]/40">Updated {updatedAtLabel}</span>
                   {isHot ? (
                     <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
@@ -423,15 +447,13 @@ function KanbanDealCard({
             >
               <button
                 type="button"
-                aria-label="More options"
-                aria-expanded={menuOpen}
-                onClick={() => {
-                  setMenuMoveOpen(false);
-                  setMenuOpenId(menuOpen ? null : deal.id);
-                }}
+                aria-label="Open deal details"
+                onClick={() => onOpenLeadDetails(deal.id)}
                 className="rounded-lg p-1.5 text-[#2C2C2C]/45 hover:bg-black/5 hover:text-[#2C2C2C]/70"
               >
-                <MoreHorizontal className="h-5 w-5" />
+                <span aria-hidden className="text-xl leading-none">
+                  ›
+                </span>
               </button>
 
               {menuOpen ? (
@@ -521,27 +543,18 @@ function KanbanDealCard({
           </div>
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2" onPointerDown={(e) => e.stopPropagation()}>
-          {next && moveLabel ? (
-            <button
-              type="button"
-              onClick={() => onBeginStageMove(deal, next, "advance")}
-              className="rounded-full bg-[#6B9E6E] px-2.5 py-1 text-xs font-bold text-white hover:bg-[#5a8a5d]"
-            >
-              → {moveLabel}
-            </button>
-          ) : (
-            <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-bold text-[#6B9E6E]">
-              ✓ Closed
+        <div className="mt-2 flex items-center justify-between gap-2 pt-1">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[11px] font-bold text-[#6B9E6E]">
+              {clientInitials(deal.name)}
+            </div>
+            {dealValueLine ? <span className="text-[14px] font-bold text-[#D4A843]">{dealValueLine}</span> : null}
+          </div>
+          {isHot ? (
+            <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
+              Hot
             </span>
-          )}
-          <button
-            type="button"
-            onClick={() => onOpenDocs(deal)}
-            className="rounded-full border border-[#2C2C2C]/15 bg-white px-2.5 py-1 text-xs font-bold text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
-          >
-            View Docs
-          </button>
+          ) : null}
         </div>
 
         {stageMovePrompt?.lead.id === deal.id ? (
@@ -1116,6 +1129,16 @@ export function AgentPipelineTab({
     return out;
   }, [dealsByStage, dealValueNumberByPropertyId]);
 
+  const allDealsTotal = useMemo(() => {
+    let total = 0;
+    for (const s of STAGE_ORDER) total += stageTotals[s]?.total ?? 0;
+    return total;
+  }, [stageTotals]);
+  const allDealsCount = useMemo(() => deals.length, [deals.length]);
+
+  const [pipelineKey, setPipelineKey] = useState("default");
+  const pipelineOptions = useMemo(() => [{ id: "default", label: "Default Pipeline" }], []);
+
   const displayDeals = useMemo(() => {
     if (!optimisticOrderIds) return baseSorted;
     const set = new Set(baseSorted.map((d) => d.id));
@@ -1663,11 +1686,84 @@ export function AgentPipelineTab({
               className="pointer-events-none absolute inset-y-0 right-0 z-20 w-10 bg-gradient-to-l from-[#FAF8F4] to-transparent"
             />
           ) : null}
+          <div className="mb-3 flex items-center justify-between gap-3 px-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 shadow-sm hover:bg-[#FAF8F4]"
+                aria-label="Kanban view"
+              >
+                <LayoutGrid className="h-4 w-4" aria-hidden />
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 shadow-sm hover:bg-[#FAF8F4]"
+                aria-label="List view"
+              >
+                <List className="h-4 w-4" aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={onRefresh}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 shadow-sm hover:bg-[#FAF8F4]"
+                aria-label="Refresh"
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              disabled
+              className="rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-bold text-white shadow-sm opacity-60"
+              title="Manual deal entry coming soon"
+            >
+              + Deal
+            </button>
+
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-[#2C2C2C]/55">
+                {allDealsTotal > 0 ? `${formatPesoCompact(allDealsTotal)} · ` : ""}
+                {allDealsCount} deal{allDealsCount === 1 ? "" : "s"}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={pipelineKey}
+                  onChange={(e) => setPipelineKey(e.target.value)}
+                  className="rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm"
+                  aria-label="Pipeline"
+                >
+                  {pipelineOptions.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/60 shadow-sm opacity-60"
+                  aria-label="Edit pipeline"
+                >
+                  <Pencil className="h-4 w-4" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/60 shadow-sm opacity-60"
+                  aria-label="Filters"
+                >
+                  <Filter className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+            </div>
+          </div>
           <div
             ref={kanbanScrollRef}
             className="overflow-x-auto bg-[#FAF8F4] px-3 py-3 scrollbar-hide"
           >
-          <div className="flex w-max min-w-full items-stretch gap-0">
+          <div className="flex w-full min-w-0 items-stretch gap-0">
             {STAGE_ORDER.map((stage, idx) => {
               const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
               const list = dealsByStage[stage];
@@ -1675,54 +1771,39 @@ export function AgentPipelineTab({
               const count = stageTotals[stage]?.count ?? list.length;
               const ids = list.map((d) => String(d.id));
               const showTotal = total > 0;
+              const barHex = stageBarHex(stage);
 
               return (
                 <div
                   key={stage}
                   className={cn(
-                    "w-[220px] shrink-0 px-2",
+                    "min-w-0 flex-1 px-2",
                     idx > 0 && "border-l border-[#2C2C2C]/10",
                   )}
                 >
                   <div
                     className={cn(
-                      "sticky top-0 z-10 rounded-2xl border border-[#2C2C2C]/10 px-4 py-3 shadow-sm",
-                      stageColumnHeaderClass(stage),
+                      "sticky top-0 z-10 overflow-hidden rounded-xl border border-[#2C2C2C]/10 bg-white shadow-sm",
                     )}
                   >
+                    <div aria-hidden className="h-[3px] w-full" style={{ backgroundColor: barHex }} />
+                    <div className="px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className={cn("h-2.5 w-2.5 rounded-full", stageDotClass(stage))} />
-                          <p
-                            className={cn(
-                              "truncate font-serif text-sm font-bold",
-                              stage === "closed" ? "text-white" : "text-[#2C2C2C]",
-                            )}
-                          >
-                            {label}
-                          </p>
-                        </div>
-                        <p
-                          className={cn(
-                            "mt-1 text-xs font-semibold",
-                            stage === "closed" ? "text-white/80" : "text-[#2C2C2C]/55",
-                          )}
-                        >
-                          {count} deal{count === 1 ? "" : "s"}
-                          {showTotal ? ` · ${formatPesoCompact(total)}` : ""}
+                        <p className="truncate font-serif text-lg font-bold text-[#2C2C2C]">{label}</p>
+                        <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
+                          {showTotal ? `${formatPesoCompact(total)} · ` : ""}{count} deal{count === 1 ? "" : "s"}
                         </p>
                       </div>
                       <span
                         className={cn(
                           "shrink-0 rounded-full px-2.5 py-1 text-xs font-bold tabular-nums",
-                          stage === "closed"
-                            ? "bg-white/15 text-white"
-                            : "bg-white text-[#2C2C2C]/70 ring-1 ring-[#2C2C2C]/10",
+                          "bg-white text-[#2C2C2C]/70 ring-1 ring-[#2C2C2C]/10",
                         )}
                       >
                         {count}
                       </span>
+                    </div>
                     </div>
                   </div>
 
