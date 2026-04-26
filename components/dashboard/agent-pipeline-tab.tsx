@@ -399,17 +399,16 @@ function KanbanDealCard({
 
   const next = nextStage(deal.pipeline_stage);
   const propLine = propertyLabel(deal.property_id);
-  const moveLabel = MOVE_TO_LABEL[deal.pipeline_stage];
   const isHot = indexInStage === 0;
   const menuOpen = menuOpenId === deal.id;
-  const updatedIso = (deal.updated_at ?? deal.created_at) as string;
-  const updatedAtLabel = formatRelativeTime(updatedIso);
   const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
   const stageHex = stageBarHex(deal.pipeline_stage);
 
   return (
     <div ref={setNodeRef} style={style} className="relative">
       <div
+        {...attributes}
+        {...listeners}
         className={cn(
           "relative rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-sm transition",
           isDragging && "scale-[1.02] rotate-[0.6deg] shadow-xl",
@@ -426,15 +425,12 @@ function KanbanDealCard({
           className="absolute left-0 top-0 h-[3px] w-full rounded-t-lg"
           style={{ backgroundColor: stageHex }}
         />
-        <div className="touch-none pr-10" {...attributes} {...listeners}>
+        <div className="touch-none pr-10">
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 items-start gap-2.5 pt-1">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-bold text-[#2C2C2C]">{propLine}</p>
-                <p className="mt-0.5 truncate text-[12px] font-semibold text-[#2C2C2C]/55">{deal.name}</p>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-semibold text-[#2C2C2C]/40">Updated {updatedAtLabel}</span>
-                </div>
+                <p className="mt-0.5 truncate text-[12px] font-semibold text-[#888888]">{deal.name}</p>
               </div>
             </div>
 
@@ -556,7 +552,7 @@ function KanbanDealCard({
 
         {/* Bottom row: avatar + price (single unified body, no divider) */}
         <div className="mt-2 flex items-center gap-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[11px] font-bold text-[#6B9E6E]">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[10px] font-bold text-[#6B9E6E]">
             {clientInitials(deal.name)}
           </div>
           {dealValueLine ? <span className="text-[14px] font-bold text-[#D4A843]">{dealValueLine}</span> : null}
@@ -570,6 +566,7 @@ function KanbanDealCard({
               e.stopPropagation();
               onMoveToStage(deal, next);
             }}
+            onPointerDown={(e) => e.stopPropagation()}
             className="absolute right-2 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-sm hover:bg-[#5a8a5d]"
           >
             <span aria-hidden className="text-base leading-none">
