@@ -18,6 +18,17 @@ export default function ClientDashboardProfilePage() {
       <ul className="mt-8 max-w-xl space-y-3">
         <li>
           <Link
+            href="/dashboard/client/pipeline"
+            className="block rounded-2xl border border-[#2C2C2C]/10 bg-white px-5 py-4 text-sm font-semibold text-[#2C2C2C] shadow-sm transition hover:border-[#6B9E6E]/40"
+          >
+            Pipeline →
+            <span className="mt-1 block text-xs font-normal text-[#888888]">
+              Viewings, documents, and next steps for each property you&apos;re pursuing
+            </span>
+          </Link>
+        </li>
+        <li>
+          <Link
             href="/settings"
             className="block rounded-2xl border border-[#2C2C2C]/10 bg-white px-5 py-4 text-sm font-semibold text-[#2C2C2C] shadow-sm transition hover:border-[#6B9E6E]/40"
           >

@@ -564,15 +564,6 @@ export function MaddenTopNav() {
                   My Profile
                 </Link>
               ) : null}
-              {role === "client" && user.id ? (
-                <Link
-                  href="/dashboard/client/pipeline"
-                  className="hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-[#2C2C2C]/75 transition hover:bg-white/80 hover:text-[#2C2C2C] sm:inline-flex"
-                >
-                  <GitBranch className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                  Pipeline
-                </Link>
-              ) : null}
               {role === "agent" && agentNav ? (
                 <Link
                   href={`/agents/${agentNav.id}`}
@@ -732,6 +723,16 @@ export function MaddenTopNav() {
                             <Pin className="h-4 w-4 shrink-0 text-[#D4A843]" />
                             Pinned properties
                           </Link>
+                          {role === "client" && user?.id ? (
+                            <Link
+                              href="/dashboard/client/pipeline"
+                              className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                              onClick={() => setAccountOpen(false)}
+                            >
+                              <GitBranch className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                              Pipeline
+                            </Link>
+                          ) : null}
                         </>
                       )}
                       <Link

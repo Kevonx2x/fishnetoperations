@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, GitBranch, LayoutDashboard, MessageSquare, Settings } from "lucide-react";
+import { Bell, Home, Settings } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -11,9 +11,7 @@ const ITEMS: {
   segment: string;
   Icon: LucideIcon;
 }[] = [
-  { href: "/dashboard/client/overview", label: "Overview", segment: "overview", Icon: LayoutDashboard },
-  { href: "/dashboard/client/pipeline", label: "Pipeline", segment: "pipeline", Icon: GitBranch },
-  { href: "/dashboard/client/messages", label: "Messages", segment: "messages", Icon: MessageSquare },
+  { href: "/dashboard/client/overview", label: "Home", segment: "overview", Icon: Home },
   { href: "/dashboard/client/notifications", label: "Notifications", segment: "notifications", Icon: Bell },
   { href: "/dashboard/client/profile", label: "Profile", segment: "profile", Icon: Settings },
 ];
