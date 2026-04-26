@@ -522,7 +522,7 @@ function MessagingThreadInner({
   }
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-page">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page">
       <header className="hidden shrink-0 items-center justify-between border-b border-subtle bg-surface-page px-4 py-4 md:flex">
         <div className="flex min-w-0 items-center gap-3">
           <span className="relative shrink-0">
@@ -560,20 +560,16 @@ function MessagingThreadInner({
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
-      <div className="bhg-chat-scroll min-h-0 min-w-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[720px] px-3 sm:px-4">
-          <VirtualizedMessageList
-            Message={CustomMessage}
-            shouldGroupByUser
-            returnAllReadData
-            maxTimeBetweenGroupedMessages={120000}
-          />
-        </div>
+      <div className="bhg-chat-scroll min-h-0 flex-1 overflow-y-auto">
+        <VirtualizedMessageList
+          Message={CustomMessage}
+          shouldGroupByUser
+          returnAllReadData
+          maxTimeBetweenGroupedMessages={120000}
+        />
       </div>
-      <div className="bhg-chat-input-wrap shrink-0 border-t border-subtle bg-surface-page">
-        <div className="mx-auto w-full max-w-[720px]">
-          <MessageInput />
-        </div>
+      <div className="shrink-0 bg-surface-page">
+        <MessageInput />
       </div>
     </div>
   );
