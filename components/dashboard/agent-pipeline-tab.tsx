@@ -411,7 +411,8 @@ function KanbanDealCard({
         {...listeners}
         className={cn(
           "relative rounded-lg border border-[#2C2C2C]/10 border-t-0 bg-white p-3 shadow-sm transition",
-          isDragging && "scale-[1.02] rotate-[0.6deg] shadow-xl",
+          "cursor-grab",
+          isDragging && "scale-[1.02] rotate-[0.6deg] cursor-grabbing shadow-xl",
         )}
         onClick={() => onOpenLeadDetails(deal.id)}
         role="button"
@@ -437,7 +438,17 @@ function KanbanDealCard({
                 onOpenLeadDetails(deal.id);
               }}
             >
-              <p className="truncate text-[14px] font-bold leading-snug text-[#2C2C2C]">{propLine}</p>
+              <p
+                className="text-[14px] font-bold leading-snug text-[#2C2C2C]"
+                style={{
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {propLine}
+              </p>
             </button>
 
             <div className="pointer-events-auto flex shrink-0 items-start gap-1">
@@ -559,7 +570,7 @@ function KanbanDealCard({
             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[10px] font-bold text-[#6B9E6E]">
               {clientInitials(deal.name)}
             </div>
-            {dealValueLine ? <span className="text-[13px] font-bold text-[#D4A843]">{dealValueLine}</span> : null}
+            <span className="text-[13px] font-bold text-[#D4A843]">{dealValueLine ?? "—"}</span>
           </div>
         </div>
 
