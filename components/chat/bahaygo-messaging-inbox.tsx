@@ -220,14 +220,17 @@ function CustomMessage() {
         marginGap === "start" && "bhg-msg--gap-start",
         marginGap === "same" && "bhg-msg--gap-same",
         marginGap === "turn" && "bhg-msg--gap-turn",
-        !mine && (showAvatar ? "pl-2" : "pl-9"),
-        showAvatar || mine ? "gap-2" : "gap-1.5",
+        !mine && (showAvatar ? "pl-0" : "pl-12"),
         "w-full",
       )}
     >
       {!mine && showAvatar ? (
-        <div style={{ width: 28, height: 28, flexShrink: 0 }}>
-          <Avatar image={otherAvatar} name={message.user?.name || message.user?.id} />
+        <div className="h-9 w-9 shrink-0">
+          <Avatar
+            className="h-9 w-9 [&_.str-chat__avatar-fallback]:text-sm"
+            image={otherAvatar}
+            name={message.user?.name || message.user?.id}
+          />
         </div>
       ) : null}
       <div className="bhg-msg__body">
