@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { TrendingUp } from "lucide-react";
+import { BarChart3, TrendingUp } from "lucide-react";
 
 type LeadRow = {
   id: number;
@@ -154,7 +154,9 @@ export function AgentAnalyticsTab({
   }, [leads, viewings, now, thisMonthStart, lastMonthStart]);
 
   return (
-    <div className="space-y-8">
+    <div className="relative min-h-[420px]">
+      <div className="pointer-events-none select-none blur-[4px]" aria-hidden>
+        <div className="space-y-8">
       <div>
         <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Analytics</h1>
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Performance and pipeline insights.</p>
@@ -256,6 +258,17 @@ export function AgentAnalyticsTab({
             <li className="text-sm font-semibold text-[#2C2C2C]/45">No data yet.</li>
           ) : null}
         </ul>
+      </div>
+        </div>
+      </div>
+      <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
+        <div className="pointer-events-auto max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white/95 p-8 text-center shadow-lg backdrop-blur-sm">
+          <BarChart3 className="mx-auto h-10 w-10 text-[#6B9E6E]" aria-hidden />
+          <h2 className="mt-4 font-serif text-2xl font-bold text-[#2C2C2C]">Analytics — Coming Soon</h2>
+          <p className="mt-2 text-sm font-medium leading-relaxed text-[#2C2C2C]/65">
+            We&apos;re polishing the score and performance system. Check back soon.
+          </p>
+        </div>
       </div>
     </div>
   );

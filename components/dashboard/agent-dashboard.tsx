@@ -1804,10 +1804,10 @@ export function AgentDashboard() {
   const mobileMoreTabIds: Tab[] = isTeamMemberView ? [] : ["listings", "team", "analytics", "billing", "profile"];
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
-      <div className="flex w-full flex-col md:flex-row">
+    <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0">
+      <div className="flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
         {/* Desktop sidebar */}
-        <aside className="hidden w-[180px] shrink-0 border-r border-[#2C2C2C]/10 bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-screen md:flex-col md:px-2 md:py-5">
+        <aside className="hidden w-[180px] shrink-0 border-r border-[#2C2C2C]/10 bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:flex-col md:overflow-y-auto md:px-2 md:py-5">
           <div className="mb-5 flex items-center gap-2 px-1">
             <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-[#D4A843]/35">
               {agent.image_url ? (
@@ -1829,11 +1829,13 @@ export function AgentDashboard() {
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
-                className={`flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition ${
+                className={cn(
+                  "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
+                  t.id === "analytics" && "opacity-55 hover:opacity-80",
                   tab === t.id
                     ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
-                    : "text-[#2C2C2C]/65 hover:bg-white/80"
-                }`}
+                    : "text-[#2C2C2C]/65 hover:bg-white/80",
+                )}
               >
                 <span className="text-[#6B9E6E]">{t.icon}</span>
                 {t.label}
@@ -1853,7 +1855,7 @@ export function AgentDashboard() {
           </Link>
         </aside>
 
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-10 md:pb-10">
+        <main className="min-w-0 flex-1 px-4 py-6 md:h-full md:min-h-0 md:overflow-y-auto md:px-8 md:py-10 md:pb-10">
           {isTeamMemberView ? (
             <p className="mb-4 rounded-xl border border-[#6B9E6E]/35 bg-[#6B9E6E]/10 px-4 py-3 font-sans text-sm font-semibold text-[#2C2C2C]">
               You are logged in as a team member of {agent.name}.
