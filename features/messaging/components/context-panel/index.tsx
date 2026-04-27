@@ -16,8 +16,9 @@ export function ContextPanel(props: { className?: string }) {
   const { channel } = useChatContext();
   const channelData = channel?.data as ChannelPropertyMetadata | undefined;
   const propertyId = (channelData?.property_id ?? "").trim() || null;
+  const channelCid = channel?.cid ?? null;
 
-  const { summary, loading } = usePropertySummary(propertyId);
+  const { summary, loading } = usePropertySummary({ channelCid, propertyIdRaw: propertyId });
 
   if (!channel || !propertyId) {
     return (

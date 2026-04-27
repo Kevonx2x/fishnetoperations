@@ -2,8 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 
 import { fetchPropertySummary, type PropertySummary } from "@/lib/services/property-summary";
 
-export function usePropertySummary(propertyIdRaw: string | null | undefined) {
-  const propertyId = useMemo(() => (propertyIdRaw ?? "").trim() || null, [propertyIdRaw]);
+/**
+ * Fetches and caches property summary data for the active conversation's property id.
+ *
+ * Important: Stream mutates channel objects in-place, so callers must pass stable primitives
+ * (e.g. `channel?.cid`, `propertyId`) and never the channel object itself.
+ */
+export function usePropertySummary(params: { channelCid: string | null; propertyIdRaw: string | null | undefined }) {
+  const propertyId = useMemo(
+    () => (params.propertyIdRaw ?? "").trim() || null,
+    [params.propertyIdRaw],
+  );
   const [cache, setCache] = useState<Record<string, PropertySummary>>({});
   const summary = propertyId ? cache[propertyId] ?? null : null;
   const [loading, setLoading] = useState(false);
@@ -28,7 +37,7 @@ export function usePropertySummary(propertyIdRaw: string | null | undefined) {
       }
     })();
     return () => ac.abort();
-  }, [hasCached, propertyId]);
+  }, [params.channelCid, hasCached, propertyId]);
 
   return { propertyId, summary, loading };
 }

@@ -68,6 +68,7 @@ Data flow:
 |---|---|---|
 | Chat header / context panel show wrong contact after switching | Mixed channel sources: right panel was reading a **prop channel** while header/thread read from Stream context; plus `<Channel>` subtree could stay bound to the previous active channel unless re-keyed. Fix: **read active channel only from `useChatContext()`** and key `<Channel>` by `activeChannel.cid`. | `components/context-panel/index.tsx`, `components/chat-thread/index.tsx` |
 | Messages don't scroll to bottom on send | Virtualized list wrapper + custom scroller classes interfered with Stream’s built-in “stick to bottom” behavior in our layout. Fix: use core `MessageList` for reliable autoscroll. | `components/chat-thread/message-list.tsx` |
+| ChannelList says “You have no channels currently” | ChannelList filter used a different user id than Stream runtime (`client.userID`), so the server query returned 0 channels for the connected user. | `components/*-messages-*.tsx` (filters), `components/conversation-list/index.tsx` |
 | Conversations not switching / snaps back | Deep link effect or desktop auto-select effect re-running and overwriting user selection. | `hooks/use-active-conversation.ts` |
 | Pin/unpin doesn’t update visually | Channel data mutated in place; without event subscription + rerender bump the list won’t resort. | `hooks/use-channel-list.ts`, `components/conversation-list/conversation-preview.tsx` |
 | Archive doesn’t remove from list | Filter mode not excluding archived or list not re-rendering on hidden/visible. | `hooks/use-channel-list.ts` |
@@ -88,6 +89,9 @@ Data flow:
 ### Things to NEVER do
 - Cache contact info in component state (names/avatars/online status)
 - Pass channel as a prop instead of reading from `useChatContext()`
+- Store a channel object in local React state
+- Use `queryChannels` in URL sync (URL sync must use `client.activeChannels` only)
+- Use the channel object in `useEffect`/`useMemo` dependency arrays (use `channel?.cid` instead)
 - Wrap Stream components in flex containers with hard constraints that break their internal layout
 - Use `!important` in CSS overrides
 - Override Stream class names instead of using Stream CSS variables (prefer `--str-chat__*`)

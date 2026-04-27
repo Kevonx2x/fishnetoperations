@@ -12,13 +12,14 @@ export function AgentMessagesInbox(props: { initialChannelId?: string | null }) 
   const { user } = useAuth();
 
   const filters = useMemo((): ChannelFilters => {
-    if (!user?.id) return { type: "messaging", members: { $in: [] as string[] } };
-    return { type: "messaging", members: { $in: [user.id] } };
-  }, [user?.id]);
+    const streamUserId = client?.userID ?? null;
+    if (!streamUserId) return { type: "messaging", members: { $in: [] as string[] } };
+    return { type: "messaging", members: { $in: [streamUserId] } };
+  }, [client?.userID]);
 
   const sort = useMemo(() => ({ last_message_at: -1 as const }), []);
 
-  if (!client || !user?.id) {
+  if (!client || !user?.id || !client.userID) {
     return (
       <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-fg/10 bg-surface-panel font-sans text-sm font-medium text-fg/55">
         Loading messages…

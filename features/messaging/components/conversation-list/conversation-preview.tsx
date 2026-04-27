@@ -35,19 +35,25 @@ export function ConversationPreview(
   const pinned = Boolean(channel.state?.membership?.pinned_at);
   const peerOnline = Boolean(peer?.online);
 
-  const activateChannel = useCallback(() => {
-    if (activeChannel?.cid !== channel.cid) setActiveChannel(channel);
+  const activateChannel = useCallback(async () => {
+    if (activeChannel?.cid === channel.cid) return;
+    try {
+      await channel.watch();
+    } catch {
+      // ignore
+    }
+    setActiveChannel(channel);
   }, [activeChannel?.cid, channel, setActiveChannel]);
 
   const handleRowClick = (e: MouseEvent) => {
-    activateChannel();
+    void activateChannel();
     onSelect?.(e);
   };
 
   const handleRowKeyDown = (e: KeyboardEvent) => {
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
-    activateChannel();
+    void activateChannel();
     onSelect?.(e as unknown as MouseEvent);
   };
 

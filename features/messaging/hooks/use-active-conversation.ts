@@ -1,78 +1,74 @@
 import { useCallback, useEffect, useRef } from "react";
-import type { ChannelFilters, ChannelSort } from "stream-chat";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useChatContext } from "stream-chat-react";
 
 export type UseActiveConversationParams = {
-  filters: ChannelFilters;
-  sort: ChannelSort;
-  /** Channel id (not cid) from deep link (?channel=...) */
-  initialChannelId: string | null;
-  /** When false, allow desktop to auto-select the first channel if none is active. */
-  setActiveChannelOnMount: boolean;
-  isDesktop: boolean;
+  /**
+   * Optional deep link value (from UI integration). This module treats the URL as source-of-truth
+   * on mount only; after that, Stream active channel is the truth and URL updates are one-way.
+   */
+  initialChannelParam: string | null;
 };
 
 /**
- * Single source of truth for setting/maintaining the active conversation.
+ * One-way URL sync helper for Stream active channel.
  *
- * Guarantees:
- * - Deep link (?channel=ID) applies only once, then never “snaps back”.
- * - Optional desktop auto-select of first channel when none is active.
+ * Rules:
+ * - On mount, if `?channel=` exists and `client.activeChannels` already contains it (by cid key or matching id),
+ *   call `setActiveChannel` exactly once.
+ * - On active channel change, update `?channel=` via `replace()` (no history pollution).
+ * - No `queryChannels` lookups. No parallel "selected channel" state.
  */
 export function useActiveConversation(params: UseActiveConversationParams) {
   const { channel, setActiveChannel, client } = useChatContext();
-  const initialSelectionAppliedRef = useRef<string | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const appliedRef = useRef(false);
 
   useEffect(() => {
-    if (params.setActiveChannelOnMount) return;
-    if (!params.isDesktop || channel) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const rows = await client.queryChannels(params.filters, params.sort, {
-          state: true,
-          presence: true,
-          limit: 30,
-        });
-        if (cancelled || !rows[0]) return;
-        setActiveChannel(rows[0]);
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [channel, client, params.filters, params.isDesktop, params.setActiveChannelOnMount, params.sort, setActiveChannel]);
+    if (appliedRef.current) return;
+    if (channel) {
+      appliedRef.current = true;
+      return;
+    }
+
+    const urlParam = (searchParams.get("channel") ?? "").trim();
+    const target = (urlParam || params.initialChannelParam || "").trim();
+    if (!target) return;
+
+    const activeChannels = (client as unknown as { activeChannels?: Record<string, unknown> }).activeChannels as
+      | Record<string, { cid?: string; id?: string } | undefined>
+      | undefined;
+    if (!activeChannels) return;
+
+    const byCid = activeChannels[target];
+    if (byCid && typeof byCid === "object") {
+      appliedRef.current = true;
+      setActiveChannel(byCid as unknown as Parameters<typeof setActiveChannel>[0]);
+      return;
+    }
+
+    const byId = Object.values(activeChannels).find((ch) => ch?.id === target);
+    if (byId) {
+      appliedRef.current = true;
+      setActiveChannel(byId as unknown as Parameters<typeof setActiveChannel>[0]);
+    }
+  }, [channel, client, params.initialChannelParam, searchParams, setActiveChannel]);
 
   useEffect(() => {
-    if (!params.isDesktop) return;
-    const targetId = (params.initialChannelId ?? "").trim();
-    if (!targetId) return;
-    if (initialSelectionAppliedRef.current === targetId) return;
-    if (channel?.id === targetId) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const rows = await client.queryChannels({ type: "messaging", id: targetId }, params.sort, {
-          state: true,
-          presence: true,
-          limit: 1,
-        });
-        if (cancelled || !rows[0]) return;
-        initialSelectionAppliedRef.current = targetId;
-        setActiveChannel(rows[0]);
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [channel?.id, client, params.initialChannelId, params.isDesktop, params.sort, setActiveChannel]);
+    const cid = channel?.cid ?? null;
+    if (!cid) return;
+
+    const current = searchParams.get("channel") ?? "";
+    if (current === cid) return;
+
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("channel", cid);
+    router.replace(`?${next.toString()}`);
+  }, [channel?.cid, router, searchParams]);
 
   const clearActiveConversation = useCallback(() => setActiveChannel(undefined), [setActiveChannel]);
 
-  return { activeChannel: channel, setActiveChannel, clearActiveConversation };
+  return { clearActiveConversation };
 }
 

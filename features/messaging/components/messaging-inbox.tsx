@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { ChannelFilters, ChannelSort } from "stream-chat";
-import { Chat } from "stream-chat-react";
+import { Chat, useChatContext } from "stream-chat-react";
 
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
@@ -63,7 +63,7 @@ export function MessagingInbox({
 function MessagingInboxInner(props: MessagingInboxProps & { selfUserId: string }) {
   const [isDesktop, setIsDesktop] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "thread">("list");
-  const [channelLoading, setChannelLoading] = useState(false);
+  const { channel: activeChannel } = useChatContext();
 
   useLayoutEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -73,21 +73,14 @@ function MessagingInboxInner(props: MessagingInboxProps & { selfUserId: string }
     return () => mq.removeEventListener("change", fn);
   }, []);
 
-  const { activeChannel, clearActiveConversation } = useActiveConversation({
-    filters: props.filters,
-    sort: props.sort,
-    initialChannelId: props.initialChannelId ?? null,
-    setActiveChannelOnMount: props.setActiveChannelOnMount ?? true,
-    isDesktop,
+  const { clearActiveConversation } = useActiveConversation({
+    initialChannelParam: props.initialChannelId ?? null,
   });
 
   useEffect(() => {
     if (isDesktop) return;
-    if (activeChannel) {
-      setChannelLoading(true);
-      window.setTimeout(() => setMobileView("thread"), 250);
-      window.setTimeout(() => setChannelLoading(false), 650);
-    }
+    if (!activeChannel) return;
+    setMobileView("thread");
   }, [activeChannel, isDesktop]);
 
   const layout = useMemo(
@@ -120,8 +113,8 @@ function MessagingInboxInner(props: MessagingInboxProps & { selfUserId: string }
             )}
           >
             <ChatThreadPanel
-              channelLoading={channelLoading}
-              onLoaded={() => setChannelLoading(false)}
+              channelLoading={false}
+              onLoaded={() => {}}
               onBackToList={() => {
                 clearActiveConversation();
                 setMobileView("list");
