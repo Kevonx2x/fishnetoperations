@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Mail, Plus, Save } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -37,7 +38,6 @@ export function AgentLeadTemplatesSection({
   const [emailBody, setEmailBody] = useState("");
   const [savingCustom, setSavingCustom] = useState(false);
   const [sending, setSending] = useState(false);
-  const [msg, setMsg] = useState("");
 
   const reloadCustom = async () => {
     if (!user?.id) return;
@@ -61,7 +61,6 @@ export function AgentLeadTemplatesSection({
     setEmailBody(applyPlaceholders(body));
     setEmailTo(leadEmail?.trim() || "");
     setModalOpen(true);
-    setMsg("");
   };
 
   const openNewCustom = () => {
@@ -69,7 +68,6 @@ export function AgentLeadTemplatesSection({
     setEmailBody("");
     setEmailTo(leadEmail?.trim() || "");
     setModalOpen(true);
-    setMsg("");
   };
 
   const saveCustomTemplate = async () => {
@@ -77,11 +75,10 @@ export function AgentLeadTemplatesSection({
     const title = draftTitle.trim() || "Custom template";
     const body = emailBody.trim();
     if (!body) {
-      setMsg("Add message text first.");
+      toast.error("Add message text first.", { duration: 5000 });
       return;
     }
     setSavingCustom(true);
-    setMsg("");
     const { error } = await supabase.from("agent_templates").insert({
       agent_id: user.id,
       title,
@@ -90,17 +87,16 @@ export function AgentLeadTemplatesSection({
     });
     setSavingCustom(false);
     if (error) {
-      setMsg(error.message);
+      toast.error(error.message, { duration: 5000 });
       return;
     }
     await reloadCustom();
-    setMsg("Template saved.");
+    toast.success("Template saved");
   };
 
   const sendEmail = async () => {
     if (!emailTo.trim() || !emailBody.trim()) return;
     setSending(true);
-    setMsg("");
     try {
       const res = await fetch("/api/agent/lead-email", {
         method: "POST",
@@ -114,14 +110,14 @@ export function AgentLeadTemplatesSection({
       });
       const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: { message?: string } };
       if (!res.ok) {
-        setMsg(json?.error?.message ?? "Could not send email");
+        toast.error(json?.error?.message ?? "Could not send email", { duration: 5000 });
         setSending(false);
         return;
       }
-      setMsg("Email sent.");
+      toast.success("Email sent");
       setModalOpen(false);
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Send failed");
+      toast.error(e instanceof Error ? e.message : "Send failed", { duration: 5000 });
     }
     setSending(false);
   };
@@ -142,9 +138,7 @@ export function AgentLeadTemplatesSection({
           New custom template
         </button>
       </div>
-      {msg && !modalOpen ? (
-        <p className="mt-3 text-sm font-semibold text-[#6B9E6E]">{msg}</p>
-      ) : null}
+      {null}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {PREBUILT.map((t) => (
@@ -217,7 +211,7 @@ export function AgentLeadTemplatesSection({
                   className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                 />
               </label>
-              {msg && <p className="mt-2 text-sm font-semibold text-[#D4A843]">{msg}</p>}
+              {null}
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"

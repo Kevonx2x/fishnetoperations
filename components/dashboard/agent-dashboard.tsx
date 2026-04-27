@@ -658,7 +658,6 @@ export function AgentDashboard() {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [selectedLead, setSelectedLead] = useState<LeadRow | null>(null);
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null);
   const [leavingPropertyId, setLeavingPropertyId] = useState<string | null>(null);
   const [profileViewsCount, setProfileViewsCount] = useState(0);
@@ -1253,7 +1252,6 @@ export function AgentDashboard() {
     e.preventDefault();
     if (!user?.id || !agent) return;
     setSaving(true);
-    setMsg("");
     const social_links = {
       instagram: profileForm.instagram.trim() || undefined,
       facebook: profileForm.facebook.trim() || undefined,
@@ -1267,7 +1265,7 @@ export function AgentDashboard() {
     const bioTrim = profileForm.bio.trim();
     if (bioTrim.length > 500) {
       setSaving(false);
-      setMsg("Bio must be 500 characters or less.");
+      toast.error("Bio must be 500 characters or less.", { duration: 5000 });
       return;
     }
     const phTrim = profileForm.phone.trim();
@@ -1275,7 +1273,7 @@ export function AgentDashboard() {
       const pe = validatePhilippinePhoneInput(phTrim);
       if (pe) {
         setSaving(false);
-        setMsg(pe);
+        toast.error(pe, { duration: 5000 });
         return;
       }
     }
@@ -1296,21 +1294,20 @@ export function AgentDashboard() {
       .eq("user_id", user.id);
     setSaving(false);
     if (error) {
-      setMsg(error.message);
+      toast.error(error.message, { duration: 5000 });
       return;
     }
-    setMsg("Profile saved.");
+    toast.success("Profile saved");
     await loadData();
   };
 
   const uploadAvatar = async (file: File) => {
     if (!user?.id || !agent) return;
     setSaving(true);
-    setMsg("");
     const v = validateAvatarFile(file);
     if (v) {
       setSaving(false);
-      setMsg(v);
+      toast.error(v, { duration: 5000 });
       return;
     }
 
@@ -1322,7 +1319,7 @@ export function AgentDashboard() {
         contentType: file.type || "image/jpeg",
       });
       if (upErr) {
-        setMsg(upErr.message);
+        toast.error(upErr.message, { duration: 5000 });
         return;
       }
 
@@ -1336,7 +1333,7 @@ export function AgentDashboard() {
       if (profErr) throw profErr;
       if (agentErr) throw agentErr;
 
-      setMsg("Photo updated.");
+      toast.success("Photo updated");
       await loadData();
     } finally {
       setSaving(false);
@@ -1346,7 +1343,7 @@ export function AgentDashboard() {
   const updateLeadStage = async (leadId: number, stage: string) => {
     const { error } = await supabase.from("leads").update({ stage }).eq("id", leadId);
     if (error) {
-      setMsg(error.message);
+      toast.error(error.message, { duration: 5000 });
       return;
     }
     setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, stage } : l)));
@@ -1366,20 +1363,20 @@ export function AgentDashboard() {
       });
       const json = (await res.json().catch(() => ({}))) as { error?: string; ok?: boolean };
       if (!res.ok) {
-        setMsg(json.error ?? `Could not delete listing (${res.status})`);
+        toast.error(json.error ?? `Could not delete listing (${res.status})`, { duration: 5000 });
         return;
       }
       if (!json.ok) {
-        setMsg("Could not delete listing");
+        toast.error("Could not delete listing", { duration: 5000 });
         return;
       }
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Could not delete listing");
+      toast.error(e instanceof Error ? e.message : "Could not delete listing", { duration: 5000 });
       return;
     } finally {
       setDeletingPropertyId(null);
     }
-    setMsg("Listing deleted.");
+    toast.success("Listing deleted");
     await loadData();
   };
 
@@ -1394,10 +1391,10 @@ export function AgentDashboard() {
       .eq("agent_id", agent.id);
     setLeavingPropertyId(null);
     if (error) {
-      setMsg(error.message);
+      toast.error(error.message, { duration: 5000 });
       return;
     }
-    setMsg("You left the listing.");
+    toast.success("You left the listing");
     await loadData();
   };
 
@@ -1604,7 +1601,6 @@ export function AgentDashboard() {
     if (!user?.id) return;
     const priceNum = parseListingPricePesos(listingForm.price);
     setSaving(true);
-    setMsg("");
     const beds = Number(listingForm.beds.replace(/\D/g, "")) || 0;
     const baths = Number(listingForm.baths.replace(/\D/g, "")) || 0;
     const mainImageUrl = listingForm.listingImageUrls[0]?.trim() || DEFAULT_LISTING_IMAGE;
@@ -1654,9 +1650,8 @@ export function AgentDashboard() {
       if (/row-level security|violates row-level security policy/i.test(error.message)) {
         setListingLimitModalKind("owned");
         setListingLimitModalOpen(true);
-        setMsg("");
       } else {
-        setMsg(error.message);
+        toast.error(error.message, { duration: 5000 });
       }
       return;
     }
@@ -1666,7 +1661,7 @@ export function AgentDashboard() {
         agent_id: agent.id,
       });
       if (linkErr && linkErr.code !== "23505") {
-        setMsg(`Listing saved, but connected-agent link failed: ${linkErr.message}`);
+        toast.error(`Listing saved, but connected-agent link failed: ${linkErr.message}`, { duration: 5000 });
       }
     }
     if (newProperty?.id && listingForm.listingImageUrls.length > 1) {
@@ -1677,7 +1672,7 @@ export function AgentDashboard() {
       }));
       const { error: phErr } = await supabase.from("property_photos").insert(extras);
       if (phErr) {
-        setMsg(`Listing saved, but extra photos failed: ${phErr.message}`);
+        toast.error(`Listing saved, but extra photos failed: ${phErr.message}`, { duration: 5000 });
       }
     }
     setListingOpen(false);
@@ -1701,7 +1696,7 @@ export function AgentDashboard() {
     });
     setListingFormErrors({});
     await loadData();
-    setMsg("Listing created.");
+    toast.success("Listing created");
     setTab("listings");
   };
 
@@ -1889,11 +1884,7 @@ export function AgentDashboard() {
               You are logged in as a team member of {agent.name}.
             </p>
           ) : null}
-          {msg ? (
-            <p className="mb-4 rounded-xl border border-[#D4A843]/30 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]">
-              {msg}
-            </p>
-          ) : null}
+          {null}
 
           <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
             <AnimatePresence mode="wait">
@@ -2031,7 +2022,7 @@ export function AgentDashboard() {
                   supabase={supabase}
                   userId={user.id}
                   onAvailabilitySaved={loadData}
-                  onAvailabilityMessage={setMsg}
+                  onAvailabilityMessage={(m) => toast.error(m, { duration: 5000 })}
                 />
               )}
               {tab === "profile" && user && !agent && loaded && (
