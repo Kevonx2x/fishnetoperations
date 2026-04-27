@@ -134,6 +134,8 @@ type LeadRow = {
   stage: string;
   pipeline_stage?: string | null;
   pipeline_position?: number | null;
+  pinned?: boolean | null;
+  pinned_at?: string | null;
   closing_notes?: string | null;
   property_id?: string | null;
   created_at: string;
@@ -800,7 +802,7 @@ export function AgentDashboard() {
           supabase
             .from("leads")
             .select(
-              "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, closing_notes, property_id, created_at, updated_at, client_id",
+              "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, created_at, updated_at, client_id",
             )
             .eq("agent_id", supervisorUserId)
             .order("created_at", { ascending: false }),
@@ -907,7 +909,7 @@ export function AgentDashboard() {
         supabase
           .from("leads")
           .select(
-            "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, closing_notes, property_id, created_at, updated_at, client_id",
+            "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, created_at, updated_at, client_id",
           )
           .eq("agent_id", user.id)
           .order("created_at", { ascending: false }),

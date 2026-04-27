@@ -36,6 +36,7 @@ import {
   List,
   Loader2,
   MoreHorizontal,
+  Pin,
   Pencil,
   RefreshCw,
   User,
@@ -43,7 +44,17 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatRelativeTime } from "@/lib/relative-time";
+import { propertyCanonicalCity } from "@/lib/normalize-city";
 import { cn } from "@/lib/utils";
 
 export const PIPELINE_STAGES = [
@@ -67,6 +78,8 @@ export type PipelineLeadRow = {
   created_at: string;
   updated_at?: string | null;
   pipeline_position?: number | null;
+  pinned?: boolean | null;
+  pinned_at?: string | null;
   closing_notes?: string | null;
 };
 
@@ -280,11 +293,110 @@ function normalizeStage(raw: string | null | undefined): PipelineStageId {
   return "lead";
 }
 
-function sortDealsInStage(a: PipelineLeadRow, b: PipelineLeadRow): number {
-  const pa = a.pipeline_position ?? 0;
-  const pb = b.pipeline_position ?? 0;
-  if (pa !== pb) return pa - pb;
-  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+type PipelineSortMode =
+  | "last_activity_desc"
+  | "last_activity_asc"
+  | "date_added_desc"
+  | "date_added_asc"
+  | "name_asc"
+  | "name_desc"
+  | "city_asc"
+  | "city_desc";
+
+type PropertyMeta = { city: string; location: string };
+
+function tsOr0(raw: string | null | undefined): number {
+  const t = raw ? new Date(raw).getTime() : 0;
+  return Number.isFinite(t) ? t : 0;
+}
+
+function leadLastActivityTs(lead: PipelineLeadRow): number {
+  return tsOr0(lead.updated_at ?? lead.created_at);
+}
+
+function leadDateAddedTs(lead: PipelineLeadRow): number {
+  return tsOr0(lead.created_at);
+}
+
+function leadPinnedFirst(a: PipelineLeadRow, b: PipelineLeadRow): number {
+  const ap = Boolean(a.pinned);
+  const bp = Boolean(b.pinned);
+  if (ap !== bp) return ap ? -1 : 1;
+
+  if (ap && bp) {
+    const at = tsOr0(a.pinned_at);
+    const bt = tsOr0(b.pinned_at);
+    if (at !== bt) return bt - at;
+  }
+
+  return 0;
+}
+
+/** Sort deals within a stage. Pinned always win; then apply selected sort; then manual position. */
+function sortDealsInStage(params: {
+  sortMode: PipelineSortMode;
+  propertyMetaById: Record<string, PropertyMeta>;
+}): (a: PipelineLeadRow, b: PipelineLeadRow) => number {
+  const { sortMode, propertyMetaById } = params;
+  return (a, b) => {
+    const pinCmp = leadPinnedFirst(a, b);
+    if (pinCmp !== 0) return pinCmp;
+
+    const propA = a.property_id ? propertyMetaById[a.property_id] : undefined;
+    const propB = b.property_id ? propertyMetaById[b.property_id] : undefined;
+    const cityA = (propA?.city ?? "").toLocaleLowerCase();
+    const cityB = (propB?.city ?? "").toLocaleLowerCase();
+    const nameA = (a.name ?? "").toLocaleLowerCase();
+    const nameB = (b.name ?? "").toLocaleLowerCase();
+
+    switch (sortMode) {
+      case "last_activity_desc": {
+        const d = leadLastActivityTs(b) - leadLastActivityTs(a);
+        if (d !== 0) return d;
+        break;
+      }
+      case "last_activity_asc": {
+        const d = leadLastActivityTs(a) - leadLastActivityTs(b);
+        if (d !== 0) return d;
+        break;
+      }
+      case "date_added_desc": {
+        const d = leadDateAddedTs(b) - leadDateAddedTs(a);
+        if (d !== 0) return d;
+        break;
+      }
+      case "date_added_asc": {
+        const d = leadDateAddedTs(a) - leadDateAddedTs(b);
+        if (d !== 0) return d;
+        break;
+      }
+      case "name_asc": {
+        const d = nameA.localeCompare(nameB);
+        if (d !== 0) return d;
+        break;
+      }
+      case "name_desc": {
+        const d = nameB.localeCompare(nameA);
+        if (d !== 0) return d;
+        break;
+      }
+      case "city_asc": {
+        const d = cityA.localeCompare(cityB);
+        if (d !== 0) return d;
+        break;
+      }
+      case "city_desc": {
+        const d = cityB.localeCompare(cityA);
+        if (d !== 0) return d;
+        break;
+      }
+    }
+
+    const pa = a.pipeline_position ?? 0;
+    const pb = b.pipeline_position ?? 0;
+    if (pa !== pb) return pa - pb;
+    return leadDateAddedTs(b) - leadDateAddedTs(a);
+  };
 }
 
 function nextStepForStage(s: PipelineStageId): string {
@@ -349,6 +461,7 @@ function KanbanDealCard({
   indexInStage,
   propertyLabel,
   dealValueLine,
+  pinned,
   onOpenDocs,
   onBeginStageMove,
   stageMovePrompt,
@@ -363,6 +476,7 @@ function KanbanDealCard({
   onRequestNotes,
   onRequestDocuments,
   onRequestDecline,
+  onTogglePin,
   onMoveToStage,
   moveBusyId,
 }: {
@@ -370,6 +484,7 @@ function KanbanDealCard({
   indexInStage: number;
   propertyLabel: (propertyId: string | null) => string;
   dealValueLine: string | null;
+  pinned: boolean;
   onOpenDocs: (lead: PipelineLeadRow) => void;
   onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
   stageMovePrompt: {
@@ -388,6 +503,7 @@ function KanbanDealCard({
   onRequestNotes: (lead: PipelineLeadRow) => void;
   onRequestDocuments: (lead: PipelineLeadRow) => void;
   onRequestDecline: (lead: PipelineLeadRow) => void;
+  onTogglePin: (lead: PipelineLeadRow) => void;
   onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveBusyId: number | null;
 }) {
@@ -497,6 +613,7 @@ function KanbanDealCard({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
               >
+                {pinned ? <Pin className="absolute -right-0.5 -top-0.5 h-4 w-4 text-[#6B9E6E]" aria-label="Pinned" /> : null}
                 <button
                   type="button"
                   aria-label="More options"
@@ -538,6 +655,20 @@ function KanbanDealCard({
                         >
                           {!menuMoveOpen ? (
                             <div className="space-y-0.5">
+                              <button
+                                type="button"
+                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                onClick={() => {
+                                  onTogglePin(deal);
+                                  setMenuOpenId(null);
+                                }}
+                              >
+                                <Pin
+                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                  aria-hidden
+                                />
+                                {pinned ? "Unpin" : "Pin to top"}
+                              </button>
                               <button
                                 type="button"
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
@@ -744,6 +875,7 @@ function KanbanStageColumn({
   setRequestDocsLead,
   setReqDocSelections,
   setDeclineDeal,
+  onTogglePin,
   moveDealToStage,
   moveToStageBusyId,
 }: {
@@ -776,6 +908,7 @@ function KanbanStageColumn({
     React.SetStateAction<{ valid_id: boolean; proof_of_funds: boolean; visa: boolean; other: boolean }>
   >;
   setDeclineDeal: (d: PipelineLeadRow | null) => void;
+  onTogglePin: (lead: PipelineLeadRow) => void;
   moveDealToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveToStageBusyId: number | null;
 }) {
@@ -824,6 +957,7 @@ function KanbanStageColumn({
                   indexInStage={i}
                   propertyLabel={propertyLabel}
                   dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
+                  pinned={Boolean(deal.pinned)}
                   onOpenDocs={openDocs}
                   onBeginStageMove={beginStageMove}
                   stageMovePrompt={stageMovePrompt}
@@ -853,6 +987,7 @@ function KanbanStageColumn({
                     });
                   }}
                   onRequestDecline={(d) => setDeclineDeal(d)}
+                  onTogglePin={onTogglePin}
                   onMoveToStage={moveDealToStage}
                   moveBusyId={moveToStageBusyId}
                 />
@@ -870,6 +1005,7 @@ function SortableDealCard({
   indexInStage,
   propertyLabel,
   dealValueLine,
+  pinned,
   onOpenDocs,
   onBeginStageMove,
   stageMovePrompt,
@@ -884,6 +1020,7 @@ function SortableDealCard({
   onRequestNotes,
   onRequestDocuments,
   onRequestDecline,
+  onTogglePin,
   onMoveToStage,
   moveBusyId,
 }: {
@@ -891,6 +1028,7 @@ function SortableDealCard({
   indexInStage: number;
   propertyLabel: (propertyId: string | null) => string;
   dealValueLine: string | null;
+  pinned: boolean;
   onOpenDocs: (lead: PipelineLeadRow) => void;
   onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
   stageMovePrompt: {
@@ -909,6 +1047,7 @@ function SortableDealCard({
   onRequestNotes: (lead: PipelineLeadRow) => void;
   onRequestDocuments: (lead: PipelineLeadRow) => void;
   onRequestDecline: (lead: PipelineLeadRow) => void;
+  onTogglePin: (lead: PipelineLeadRow) => void;
   onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveBusyId: number | null;
 }) {
@@ -975,6 +1114,7 @@ function SortableDealCard({
             onPointerDown={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2">
+              {pinned ? <Pin className="h-4 w-4 text-[#6B9E6E]" aria-label="Pinned" /> : null}
               {isHot ? (
                 <div className="flex flex-col items-end">
                   <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-500">
@@ -1003,6 +1143,17 @@ function SortableDealCard({
               >
                 {!menuMoveOpen ? (
                   <>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-semibold hover:bg-gray-50"
+                      onClick={() => {
+                        onTogglePin(deal);
+                        setMenuOpenId(null);
+                      }}
+                    >
+                      <Pin className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
+                      {pinned ? "Unpin" : "Pin to top"}
+                    </button>
                     <button
                       type="button"
                       className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
@@ -1197,6 +1348,40 @@ export function AgentPipelineTab({
   pipelineAgentId: string;
   clientDocsSharedWithUserId?: string;
 }) {
+  const sortStorageKey = useMemo(() => `bhg:pipeline:sort:${pipelineAgentId}`, [pipelineAgentId]);
+  const [sortMode, setSortMode] = useState<PipelineSortMode>("last_activity_desc");
+  const [filterStages, setFilterStages] = useState<PipelineStageId[] | null>(null);
+  const [filterCities, setFilterCities] = useState<string[]>([]);
+  const [optimisticPinById, setOptimisticPinById] = useState<Record<number, { pinned: boolean; pinned_at: string | null }>>({});
+
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem(sortStorageKey);
+      if (!v) return;
+      const allowed: PipelineSortMode[] = [
+        "last_activity_desc",
+        "last_activity_asc",
+        "date_added_desc",
+        "date_added_asc",
+        "name_asc",
+        "name_desc",
+        "city_asc",
+        "city_desc",
+      ];
+      if (allowed.includes(v as PipelineSortMode)) setSortMode(v as PipelineSortMode);
+    } catch {
+      // ignore
+    }
+  }, [sortStorageKey]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(sortStorageKey, sortMode);
+    } catch {
+      // ignore
+    }
+  }, [sortMode, sortStorageKey]);
+
   const kanbanScrollRef = useRef<HTMLDivElement | null>(null);
   const [kanbanFadeRight, setKanbanFadeRight] = useState(false);
   const [activeKanbanDealId, setActiveKanbanDealId] = useState<string | null>(null);
@@ -1216,6 +1401,7 @@ export function AgentPipelineTab({
 
   const [dealValueByPropertyId, setDealValueByPropertyId] = useState<Record<string, string>>({});
   const [dealValueNumberByPropertyId, setDealValueNumberByPropertyId] = useState<Record<string, number>>({});
+  const [propertyMetaById, setPropertyMetaById] = useState<Record<string, PropertyMeta>>({});
 
   useEffect(() => {
     const ids = [
@@ -1233,23 +1419,31 @@ export function AgentPipelineTab({
     void (async () => {
       const { data, error } = await supabase
         .from("properties")
-        .select("id, price, rent_price, listing_type, status")
+        .select("id, city, location, price, rent_price, listing_type, status")
         .in("id", ids);
       if (cancelled) return;
       if (error) {
         setDealValueByPropertyId({});
         setDealValueNumberByPropertyId({});
+        setPropertyMetaById({});
         return;
       }
       const next: Record<string, string> = {};
       const nextN: Record<string, number> = {};
+      const meta: Record<string, PropertyMeta> = {};
       for (const row of (data ?? []) as {
         id: string;
+        city: string | null;
+        location: string | null;
         price: unknown;
         rent_price: unknown;
         listing_type: unknown;
         status: unknown;
       }[]) {
+        const location = String(row.location ?? "").trim();
+        const canonicalCity = propertyCanonicalCity({ city: row.city, location });
+        meta[row.id] = { city: canonicalCity, location };
+
         const lt = String(row.listing_type ?? "").trim().toLowerCase();
         const status = String(row.status ?? "").trim().toLowerCase();
         const isRent = lt === "rent" || status === "for_rent";
@@ -1261,6 +1455,7 @@ export function AgentPipelineTab({
       }
       setDealValueByPropertyId(next);
       setDealValueNumberByPropertyId(nextN);
+      setPropertyMetaById(meta);
     })();
     return () => {
       cancelled = true;
@@ -1305,6 +1500,58 @@ export function AgentPipelineTab({
   const [requestDocsBusy, setRequestDocsBusy] = useState(false);
   const [reqOtherDocumentName, setReqOtherDocumentName] = useState("");
   const menuWrapRef = useRef<HTMLDivElement | null>(null);
+
+  const availableCities = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of deals) {
+      if (!d.property_id) continue;
+      const c = propertyMetaById[d.property_id]?.city ?? "";
+      if (c.trim()) set.add(c.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [deals, propertyMetaById]);
+
+  const activeFilterCount = useMemo(() => {
+    const stageCount = filterStages ? filterStages.length : 0;
+    return stageCount + filterCities.length;
+  }, [filterStages, filterCities.length]);
+
+  const togglePin = useCallback(
+    async (lead: PipelineLeadRow) => {
+      const leadId = lead.id;
+      const nextPinned = !Boolean(lead.pinned);
+      const optimisticAt = nextPinned ? new Date().toISOString() : null;
+      setOptimisticPinById((prev) => ({ ...prev, [leadId]: { pinned: nextPinned, pinned_at: optimisticAt } }));
+      try {
+        const res = await fetch(`/api/agent/leads/${leadId}/pin`, { method: "POST", credentials: "include" });
+        const json = (await res.json().catch(() => ({}))) as {
+          pinned?: boolean;
+          pinned_at?: string | null;
+          error?: string;
+        };
+        if (!res.ok) {
+          toast.error(json.error ?? "Could not update pin");
+          setOptimisticPinById((prev) => {
+            const { [leadId]: _omit, ...rest } = prev;
+            return rest;
+          });
+          return;
+        }
+        setOptimisticPinById((prev) => ({
+          ...prev,
+          [leadId]: { pinned: Boolean(json.pinned), pinned_at: json.pinned_at ?? null },
+        }));
+        void onRefresh();
+      } catch {
+        setOptimisticPinById((prev) => {
+          const { [leadId]: _omit, ...rest } = prev;
+          return rest;
+        });
+        toast.error("Could not update pin");
+      }
+    },
+    [onRefresh],
+  );
 
   useEffect(() => {
     if (requestDocsLead) setReqOtherDocumentName("");
@@ -1390,9 +1637,28 @@ export function AgentPipelineTab({
     return c;
   }, [deals]);
 
+  const effectiveDeals = useMemo(() => {
+    const stageSet = filterStages && filterStages.length > 0 ? new Set(filterStages) : null;
+    const citySet = filterCities.length > 0 ? new Set(filterCities.map((c) => c.toLocaleLowerCase())) : null;
+    return deals
+      .map((d) => {
+        const optimistic = optimisticPinById[d.id];
+        return optimistic ? { ...d, pinned: optimistic.pinned, pinned_at: optimistic.pinned_at } : d;
+      })
+      .filter((d) => (stageSet ? stageSet.has(d.pipeline_stage) : true))
+      .filter((d) => {
+        if (!citySet) return true;
+        if (!d.property_id) return false;
+        const c = (propertyMetaById[d.property_id]?.city ?? "").toLocaleLowerCase();
+        return c ? citySet.has(c) : false;
+      });
+  }, [deals, filterStages, filterCities, optimisticPinById, propertyMetaById]);
+
+  const stageSorter = useMemo(() => sortDealsInStage({ sortMode, propertyMetaById }), [propertyMetaById, sortMode]);
+
   const baseSorted = useMemo(() => {
-    return deals.filter((d) => d.pipeline_stage === filterStage).sort(sortDealsInStage);
-  }, [deals, filterStage]);
+    return effectiveDeals.filter((d) => d.pipeline_stage === filterStage).slice().sort(stageSorter);
+  }, [effectiveDeals, filterStage, stageSorter]);
 
   const dealsByStage = useMemo(() => {
     const m: Record<PipelineStageId, PipelineLeadRow[]> = {
@@ -1402,16 +1668,16 @@ export function AgentPipelineTab({
       reservation: [],
       closed: [],
     };
-    for (const d of deals) m[d.pipeline_stage].push(d);
-    for (const s of STAGE_ORDER) m[s] = m[s].slice().sort(sortDealsInStage);
+    for (const d of effectiveDeals) m[d.pipeline_stage].push(d);
+    for (const s of STAGE_ORDER) m[s] = m[s].slice().sort(stageSorter);
     return m;
-  }, [deals]);
+  }, [effectiveDeals, stageSorter]);
 
   const leadById = useMemo(() => {
     const m = new Map<string, PipelineLeadRow>();
-    for (const d of deals) m.set(String(d.id), d);
+    for (const d of effectiveDeals) m.set(String(d.id), d);
     return m;
-  }, [deals]);
+  }, [effectiveDeals]);
 
   const [kanbanIdsByStage, setKanbanIdsByStage] = useState<Record<PipelineStageId, string[]>>({
     lead: [],
@@ -1458,7 +1724,7 @@ export function AgentPipelineTab({
     for (const s of STAGE_ORDER) total += stageTotals[s]?.total ?? 0;
     return total;
   }, [stageTotals]);
-  const allDealsCount = useMemo(() => deals.length, [deals.length]);
+  const allDealsCount = useMemo(() => effectiveDeals.length, [effectiveDeals.length]);
 
   const [pipelineKey, setPipelineKey] = useState("default");
   const pipelineOptions = useMemo(() => [{ id: "default", label: "Default Pipeline" }], []);
@@ -2034,6 +2300,7 @@ export function AgentPipelineTab({
                   indexInStage={idx}
                   propertyLabel={propertyLabel}
                   dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
+                  pinned={Boolean(deal.pinned)}
                   onOpenDocs={openDocs}
                   onBeginStageMove={beginStageMove}
                   stageMovePrompt={stageMovePrompt}
@@ -2063,6 +2330,7 @@ export function AgentPipelineTab({
                     });
                   }}
                   onRequestDecline={(d) => setDeclineDeal(d)}
+                  onTogglePin={togglePin}
                   onMoveToStage={moveDealToStage}
                   moveBusyId={moveToStageBusyId}
                 />
@@ -2114,6 +2382,116 @@ export function AgentPipelineTab({
               </span>
 
               <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-bold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4]"
+                      aria-label="Sort"
+                    >
+                      Sort
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="min-w-[240px] border border-[#2C2C2C]/10 bg-[#FAF8F4] text-[#2C2C2C]"
+                  >
+                    <DropdownMenuLabel className="text-xs font-bold text-[#2C2C2C]/55">Sort</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {[
+                      ["last_activity_desc", "Last activity (newest → oldest)"],
+                      ["last_activity_asc", "Last activity (oldest → newest)"],
+                      ["date_added_desc", "Date added (newest → oldest)"],
+                      ["date_added_asc", "Date added (oldest → newest)"],
+                      ["name_asc", "Name (A → Z)"],
+                      ["name_desc", "Name (Z → A)"],
+                      ["city_asc", "City (A → Z)"],
+                      ["city_desc", "City (Z → A)"],
+                    ].map(([id, label]) => (
+                      <DropdownMenuItem
+                        key={id}
+                        onClick={() => setSortMode(id as PipelineSortMode)}
+                        className={cn(
+                          "font-semibold hover:bg-[#6B9E6E]/12 focus:bg-[#6B9E6E]/12",
+                          sortMode === id && "text-[#2C5F32]",
+                        )}
+                      >
+                        {label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-bold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4]",
+                        activeFilterCount > 0 && "border-[#6B9E6E]/35 bg-[#6B9E6E]/10 text-[#2C5F32]",
+                      )}
+                      aria-label="Filters"
+                    >
+                      <Filter className="h-4 w-4" aria-hidden />
+                      {activeFilterCount > 0 ? `Filters · ${activeFilterCount}` : "Filters"}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="min-w-[280px] border border-[#2C2C2C]/10 bg-[#FAF8F4] text-[#2C2C2C]"
+                  >
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setFilterCities([]);
+                        setFilterStages(null);
+                      }}
+                      className="font-semibold hover:bg-[#6B9E6E]/12 focus:bg-[#6B9E6E]/12"
+                    >
+                      Reset filters
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+
+                    <DropdownMenuLabel className="text-xs font-bold text-[#2C2C2C]/55">By stage</DropdownMenuLabel>
+                    {PIPELINE_STAGES.map((s) => (
+                      <DropdownMenuCheckboxItem
+                        key={s.id}
+                        checked={filterStages ? filterStages.includes(s.id) : true}
+                        onCheckedChange={(checked) => {
+                          setFilterStages((prev) => {
+                            const cur = prev ?? KANBAN_STAGE_ORDER.slice();
+                            const next = checked ? [...new Set([...cur, s.id])] : cur.filter((x) => x !== s.id);
+                            return next.length === KANBAN_STAGE_ORDER.length ? null : next;
+                          });
+                        }}
+                        className="font-semibold hover:bg-[#6B9E6E]/12 focus:bg-[#6B9E6E]/12"
+                      >
+                        {s.label}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs font-bold text-[#2C2C2C]/55">By city</DropdownMenuLabel>
+                    {availableCities.length === 0 ? (
+                      <div className="px-2.5 py-2 text-xs font-semibold text-[#2C2C2C]/50">No cities found.</div>
+                    ) : (
+                      availableCities.map((c) => (
+                        <DropdownMenuCheckboxItem
+                          key={c}
+                          checked={filterCities.includes(c)}
+                          onCheckedChange={(checked) =>
+                            setFilterCities((prev) =>
+                              checked ? [...new Set([...prev, c])] : prev.filter((x) => x !== c),
+                            )
+                          }
+                          className="font-semibold hover:bg-[#6B9E6E]/12 focus:bg-[#6B9E6E]/12"
+                        >
+                          {c}
+                        </DropdownMenuCheckboxItem>
+                      ))
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 <button
                   type="button"
                   disabled
@@ -2141,14 +2519,6 @@ export function AgentPipelineTab({
                   aria-label="Edit pipeline"
                 >
                   <Pencil className="h-4 w-4" aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/60 shadow-sm opacity-60"
-                  aria-label="Filters"
-                >
-                  <Filter className="h-4 w-4" aria-hidden />
                 </button>
               </div>
             </div>
@@ -2189,7 +2559,10 @@ export function AgentPipelineTab({
               onDragEnd={handleKanbanDragEnd}
             >
               <div className="flex w-full min-w-0 items-stretch gap-0">
-                {KANBAN_STAGE_ORDER.map((stage, idx) => {
+                {(filterStages && filterStages.length > 0
+                  ? KANBAN_STAGE_ORDER.filter((s) => filterStages.includes(s))
+                  : KANBAN_STAGE_ORDER
+                ).map((stage, idx) => {
                   const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
                   const list = dealsByStage[stage];
                   const total = stageTotals[stage]?.total ?? 0;
@@ -2228,6 +2601,7 @@ export function AgentPipelineTab({
                       setRequestDocsLead={setRequestDocsLead}
                       setReqDocSelections={setReqDocSelections}
                       setDeclineDeal={setDeclineDeal}
+                      onTogglePin={togglePin}
                       moveDealToStage={moveDealToStage}
                       moveToStageBusyId={moveToStageBusyId}
                     />
