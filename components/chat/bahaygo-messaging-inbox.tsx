@@ -297,8 +297,8 @@ function MessagingChatBody({
   const [isDesktop, setIsDesktop] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "thread">("list");
   const initialSelectionAppliedRef = useRef<string | null>(null);
-  const [channelListVersion, setChannelListVersion] = useState(0);
-  const bumpChannelListVersion = useCallback(() => setChannelListVersion((v) => v + 1), []);
+  const [channelListKey, setChannelListKey] = useState(0);
+  const bumpChannelListKey = useCallback(() => setChannelListKey((k) => k + 1), []);
 
   useLayoutEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -309,9 +309,9 @@ function MessagingChatBody({
   }, []);
 
   useEffect(() => {
-    // Stream mutates channel membership/data in-place; subscribe so list re-sorts immediately
-    // (both for local actions and other tabs/devices).
-    const handler = () => bumpChannelListVersion();
+    // Stream can mutate channel membership/data in-place without changing the channels array reference.
+    // Forcing a new `key` remounts ChannelList so the list re-sorts and preview rows re-render immediately.
+    const handler = () => bumpChannelListKey();
     client.on("channel.updated", handler);
     client.on("channel.hidden", handler);
     client.on("channel.visible", handler);
@@ -320,7 +320,7 @@ function MessagingChatBody({
       client.off("channel.hidden", handler);
       client.off("channel.visible", handler);
     };
-  }, [bumpChannelListVersion, client]);
+  }, [bumpChannelListKey, client]);
 
   useEffect(() => {
     if (setActiveChannelOnMount) return;
@@ -423,8 +423,7 @@ function MessagingChatBody({
         return bTime - aTime;
       });
     },
-    // channelListVersion forces recomputation when Stream mutates in-place (pin/unpin/archive).
-    [channelListVersion, filterMode, listSearch, userId],
+    [filterMode, listSearch, userId],
   );
 
   const Preview = useCallback(
@@ -432,7 +431,7 @@ function MessagingChatBody({
       <BahaygoChannelPreview
         {...p}
         selfId={userId}
-        onChannelListMutate={bumpChannelListVersion}
+          onChannelListMutate={bumpChannelListKey}
         onSelect={(event) => {
           p.onSelect?.(event);
           if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
@@ -442,7 +441,7 @@ function MessagingChatBody({
         }}
       />
     ),
-    [bumpChannelListVersion, userId],
+    [bumpChannelListKey, userId],
   );
 
   return (
@@ -492,6 +491,7 @@ function MessagingChatBody({
         </div>
         <div className="min-h-0 flex-1 overflow-hidden">
           <ChannelList
+            key={channelListKey}
             filters={filters}
             sort={sort}
             options={{ state: true, presence: true, limit: 30 }}
