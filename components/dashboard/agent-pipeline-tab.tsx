@@ -518,7 +518,6 @@ function KanbanDealCard({
 
   const next = nextStage(deal.pipeline_stage);
   const propLine = propertyLabel(deal.property_id);
-  const isHot = indexInStage === 0;
   const menuOpen = menuOpenId === deal.id;
   const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
   const stageHex = stageBarHex(deal.pipeline_stage);
@@ -581,7 +580,7 @@ function KanbanDealCard({
           style={{ backgroundColor: stageHex }}
         />
         <div className="touch-none pr-10 pt-0.5">
-          {/* Row 1: Title ... Hot + Menu */}
+          {/* Row 1: Title + Menu */}
           <div className="flex items-start justify-between gap-2">
             <button
               type="button"
@@ -778,11 +777,7 @@ function KanbanDealCard({
                   : null}
               </div>
 
-              {isHot ? (
-                <span className="absolute right-9 top-2 z-10 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">
-                  Hot
-                </span>
-              ) : null}
+              {null}
             </div>
           </div>
 
@@ -1063,7 +1058,6 @@ function SortableDealCard({
   const next = nextStage(deal.pipeline_stage);
   const propLine = propertyLabel(deal.property_id);
   const moveLabel = MOVE_TO_LABEL[deal.pipeline_stage];
-  const isHot = indexInStage === 0;
   const menuOpen = menuOpenId === deal.id;
   const isArchived = String((deal as unknown as { pipeline_stage?: unknown }).pipeline_stage ?? "")
     .trim()
@@ -1072,14 +1066,6 @@ function SortableDealCard({
   const updatedMs = new Date(updatedIso).getTime();
   const createdMs = new Date(deal.created_at).getTime();
   const now = Date.now();
-  const recentlyActive = Number.isFinite(updatedMs) && now - updatedMs <= 2 * 60 * 60 * 1000;
-  const longInStage = Number.isFinite(createdMs) && now - createdMs > 3 * 24 * 60 * 60 * 1000;
-  const hotSubtext = recentlyActive
-    ? "Client recently active"
-    : longInStage
-      ? "High priority — needs follow up"
-      : "High engagement";
-
   const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
 
   return (
@@ -1115,14 +1101,7 @@ function SortableDealCard({
           >
             <div className="flex items-center gap-2">
               {pinned ? <Pin className="h-4 w-4 text-[#6B9E6E]" aria-label="Pinned" /> : null}
-              {isHot ? (
-                <div className="flex flex-col items-end">
-                  <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-500">
-                    🔥 Hot
-                  </span>
-                  <span className="mt-0.5 text-[10px] text-gray-400">{hotSubtext}</span>
-                </div>
-              ) : null}
+              {null}
               <button
                 type="button"
                 aria-label="More options"
@@ -2285,7 +2264,7 @@ export function AgentPipelineTab({
       </div>
 
       {/* Mobile / tablet: keep current stacked view */}
-      <div className="touch-pan-y space-y-3 overflow-y-auto overscroll-contain max-h-[calc(100vh-280px)] md:max-h-none md:overflow-visible md:touch-auto lg:hidden">
+      <div className="touch-pan-y space-y-3 overscroll-contain md:touch-auto lg:hidden">
         {displayDeals.length === 0 ? (
           <p className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center text-sm font-semibold text-[#2C2C2C]/45">
             No deals at this stage.
