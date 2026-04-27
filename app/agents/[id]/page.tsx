@@ -796,7 +796,7 @@ export default function AgentProfilePage() {
         toast.error(json.error || "Could not start chat");
         return;
       }
-      router.push(`/clients/${user.id}?tab=messages&channel=${encodeURIComponent(json.channel_id)}`);
+      router.push(`/dashboard/client/messages?channel=${encodeURIComponent(json.channel_id)}`);
     } finally {
       setMessageBusy(false);
     }

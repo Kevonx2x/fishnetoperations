@@ -42,9 +42,9 @@ export function StartChatButton({
         return;
       }
       const q = new URLSearchParams();
-      q.set("tab", "messages");
       q.set("channel", data.channel_id);
       if (profile?.role === "agent") {
+        q.set("tab", "messages");
         router.push(`/dashboard/agent?${q.toString()}`);
       } else {
         router.push(`/dashboard/client/messages?${q.toString()}`);

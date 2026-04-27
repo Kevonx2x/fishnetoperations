@@ -6,7 +6,8 @@ import { notifyAdminNewClientFromSession } from "@/lib/admin-notify-sms";
 import { pathForRole } from "@/lib/auth-roles";
 
 function redirectForAuthenticatedUser(requestUrl: URL, role: string | null | undefined) {
-  const dest = pathForRole(role ?? "client");
+  // Clients always land on the public homepage after login.
+  const dest = role === "client" ? "/" : pathForRole(role ?? "client");
   return NextResponse.redirect(new URL(dest, requestUrl));
 }
 

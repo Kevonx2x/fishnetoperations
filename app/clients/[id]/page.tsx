@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { notFound, useParams, useSearchParams } from "next/navigation";
+import { notFound, useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Calendar, Heart, Home, Lock, MapPin, Pin, Pencil } from "lucide-react";
 import { ViewingAgentPickerModal } from "@/components/marketplace/viewing-agent-picker-modal";
@@ -201,6 +201,7 @@ function overlayLabel(p: PropertyRow): "SOLD" | "OFF MARKET" | null {
 function ClientPublicProfilePageInner() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const rawId = typeof params.id === "string" ? params.id : "";
   const { user, profile, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -887,6 +888,15 @@ function ClientPublicProfilePageInner() {
   );
 
   const pageLoading = profileLoading || authLoading || wishlistLoading;
+
+  // Legacy route: /clients/[id]?tab=messages&channel=... → new unified messages screen.
+  useEffect(() => {
+    if (searchParams.get("tab") !== "messages") return;
+    if (!isOwn || profile?.role !== "client" || isMobile) return;
+    const ch = searchParams.get("channel");
+    const q = ch ? `?channel=${encodeURIComponent(ch)}` : "";
+    router.replace(`/dashboard/client/messages${q}`);
+  }, [isMobile, isOwn, profile?.role, router, searchParams]);
 
   if (!profileLoading && !clientProfile) {
     notFound();
