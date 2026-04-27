@@ -104,6 +104,11 @@ export async function postStreamChannel(req: Request) {
       if (!/already exists|duplicate|exists/i.test(msg)) throw e;
     }
 
+    const verify = await stream.queryChannels({ type: "messaging", id: channelId }, {}, { limit: 1 });
+    if (verify.length === 0) {
+      return NextResponse.json({ error: "Channel did not become visible after create" }, { status: 502 });
+    }
+
     return NextResponse.json({ channel_id: channelId });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Internal error" }, { status: 500 });

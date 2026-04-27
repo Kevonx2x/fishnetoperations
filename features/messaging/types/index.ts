@@ -1,5 +1,7 @@
 import type { Channel as StreamChannel, ChannelMemberResponse, UserResponse } from "stream-chat";
 
+export type { CreateMessagingChannelErrorBody, CreateMessagingChannelResponse } from "./channel-api";
+
 export type ConversationFilterMode = "all" | "unread" | "pinned" | "archived";
 
 export type ChannelPropertyMetadata = {

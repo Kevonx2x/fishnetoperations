@@ -45,7 +45,7 @@ Data flow:
     - **`property-card.tsx`**: Property UI card.
 
 - **hooks/**
-  - **`use-active-conversation.ts`**: Single source of truth for deep-link selection and desktop auto-select behavior.
+  - **`use-active-conversation.ts`**: One-way `?channel=` sync: selects the deep-linked channel via `client.activeChannels`, then `channels.queried` + one-shot `watch()` if the list query has not hydrated yet; updates the URL when the active channel changes.
   - **`use-channel-list.ts`**: Search/filter/sort and Stream event subscriptions (`channel.updated/hidden/visible`) to force list re-render.
   - **`use-property-summary.ts`**: Fetches property metadata and **silences AbortError** (expected on unmount).
 
@@ -98,7 +98,7 @@ Data flow:
 - Cache contact info in component state (names/avatars/online status)
 - Pass channel as a prop instead of reading from `useChatContext()`
 - Store a channel object in local React state
-- Use `queryChannels` in URL sync (URL sync must use `client.activeChannels` only)
+- Poll `queryChannels` in a loop from URL sync (prefer `channels.queried` + `activeChannels`, or a **one-shot** `client.channel("messaging", id).watch()` for the known deep-link id)
 - Use the channel object in `useEffect`/`useMemo` dependency arrays (use `channel?.cid` instead)
 - Never build Stream filters before `client.userID` is ready
 - Never memo Stream filters with an empty dependency array

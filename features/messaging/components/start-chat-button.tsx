@@ -2,9 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/auth-context";
+import type { CreateMessagingChannelErrorBody, CreateMessagingChannelResponse } from "@/features/messaging/types";
 import { cn } from "@/lib/utils";
 
 const STREAM_CHANNEL_ENDPOINT = "/api/stream/channel";
@@ -53,13 +55,15 @@ export function StartChatButton({ agentId, clientId, className, label = DEFAULT_
         }),
         credentials: "include",
       });
-      const data = (await res.json().catch(() => ({}))) as { channel_id?: string; error?: string };
-      if (!res.ok || !data.channel_id) {
-        toast.error(data.error ?? "Could not open chat.");
+      const data: unknown = await res.json().catch(() => ({}));
+      const okBody = data as CreateMessagingChannelResponse;
+      const errBody = data as CreateMessagingChannelErrorBody;
+      if (!res.ok || typeof okBody.channel_id !== "string" || !okBody.channel_id) {
+        toast.error(typeof errBody.error === "string" ? errBody.error : "Could not open chat.");
         return;
       }
       const q = new URLSearchParams();
-      q.set("channel", data.channel_id);
+      q.set("channel", okBody.channel_id);
       if (profile?.role === "agent") {
         q.set("tab", "messages");
         router.push(`${AGENT_DASHBOARD_PATH}?${q.toString()}`);
@@ -77,11 +81,18 @@ export function StartChatButton({ agentId, clientId, className, label = DEFAULT_
       onClick={() => void onClick()}
       disabled={busy}
       className={cn(
-        "inline-flex items-center justify-center rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#5d8a60] disabled:opacity-60",
+        "inline-flex items-center justify-center gap-2 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#5d8a60] disabled:opacity-60",
         className,
       )}
     >
-      {busy ? "Opening…" : label}
+      {busy ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" aria-hidden />
+          Opening chat…
+        </>
+      ) : (
+        label
+      )}
     </button>
   );
 }

@@ -18,6 +18,7 @@ import {
   Heart,
   Pin,
   LayoutGrid,
+  Loader2,
   Mail,
   MapPin,
   MoreHorizontal,
@@ -46,6 +47,7 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { shouldPulseEngagement, writeSeenEngagementCount } from "@/lib/engagement-seen-storage";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
+import type { CreateMessagingChannelErrorBody, CreateMessagingChannelResponse } from "@/features/messaging/types";
 import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagement";
 import { ReportProfileButton } from "@/components/report-profile-button";
 import {
@@ -791,12 +793,14 @@ export default function AgentProfilePage() {
           metadata,
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as { channel_id?: string; error?: string };
-      if (!res.ok || !json.channel_id) {
-        toast.error(json.error || "Could not start chat");
+      const data: unknown = await res.json().catch(() => ({}));
+      const ok = data as CreateMessagingChannelResponse;
+      const err = data as CreateMessagingChannelErrorBody;
+      if (!res.ok || typeof ok.channel_id !== "string" || !ok.channel_id) {
+        toast.error(typeof err.error === "string" ? err.error : "Could not start chat");
         return;
       }
-      router.push(`/dashboard/client/messages?channel=${encodeURIComponent(json.channel_id)}`);
+      router.push(`/dashboard/client/messages?channel=${encodeURIComponent(ok.channel_id)}`);
     } finally {
       setMessageBusy(false);
     }
@@ -1617,10 +1621,14 @@ export default function AgentProfilePage() {
                                                                 })
                                                               }
                                                               disabled={messageBusy}
-                                                              className="rounded-full bg-[#6B9E6E] px-6 py-3 font-medium text-white disabled:opacity-50"
+                                                              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#6B9E6E] px-6 py-3 font-medium text-white disabled:opacity-50"
                                                             >
-                                                              <MessageSquare className="mr-2 inline-block h-4 w-4 align-[-2px]" aria-hidden />
-                                                              Message
+                                                              {messageBusy ? (
+                                                                <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                                                              ) : (
+                                                                <MessageSquare className="h-4 w-4 shrink-0" aria-hidden />
+                                                              )}
+                                                              {messageBusy ? "Opening chat…" : "Message"}
                                                             </button>
                                                             </div>
                                                           </>
