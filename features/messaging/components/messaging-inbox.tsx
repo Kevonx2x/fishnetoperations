@@ -13,8 +13,6 @@ import { useActiveConversation } from "@/features/messaging/hooks/use-active-con
 import { useStreamChat } from "@/features/messaging/components/stream-chat-provider";
 
 export type MessagingInboxProps = {
-  filters: ChannelFilters;
-  sort: ChannelSort;
   /** Root grid area: height, overflow, background, columns */
   layoutClassName?: string;
   /** When false, first channel is selected on desktop via query (client pattern). */
@@ -26,8 +24,6 @@ export type MessagingInboxProps = {
 };
 
 export function MessagingInbox({
-  filters,
-  sort,
   layoutClassName = "flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page md:h-full md:max-h-full md:min-h-0 md:grid md:grid-cols-[320px_minmax(0,1fr)_300px]",
   setActiveChannelOnMount = true,
   initialChannelId = null,
@@ -48,8 +44,6 @@ export function MessagingInbox({
   return (
     <Chat client={client} theme="messaging light">
       <MessagingInboxInner
-        filters={filters}
-        sort={sort}
         layoutClassName={layoutClassName}
         setActiveChannelOnMount={setActiveChannelOnMount}
         initialChannelId={initialChannelId}
@@ -98,8 +92,6 @@ function MessagingInboxInner(props: MessagingInboxProps & { selfUserId: string }
         <div className={layout}>
           <div className={mobileView === "thread" ? "max-md:hidden" : ""}>
             <ConversationListPanel
-              filters={props.filters}
-              sort={props.sort}
               selfUserId={props.selfUserId}
               setActiveChannelOnMount={props.setActiveChannelOnMount ?? true}
               variant={isDesktop ? "desktop" : "mobile"}

@@ -1,8 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
-import type { ChannelFilters } from "stream-chat";
-
 import { MessagingInbox } from "@/features/messaging/components/messaging-inbox";
 import { useAuth } from "@/contexts/auth-context";
 import { useStreamChat } from "@/features/messaging/components/stream-chat-provider";
@@ -10,14 +7,6 @@ import { useStreamChat } from "@/features/messaging/components/stream-chat-provi
 export function AgentMessagesInbox(props: { initialChannelId?: string | null }) {
   const client = useStreamChat();
   const { user } = useAuth();
-
-  const filters = useMemo((): ChannelFilters => {
-    const streamUserId = client?.userID ?? null;
-    if (!streamUserId) return { type: "messaging", members: { $in: [] as string[] } };
-    return { type: "messaging", members: { $in: [streamUserId] } };
-  }, [client?.userID]);
-
-  const sort = useMemo(() => ({ last_message_at: -1 as const }), []);
 
   if (!client || !user?.id || !client.userID) {
     return (
@@ -29,8 +18,6 @@ export function AgentMessagesInbox(props: { initialChannelId?: string | null }) 
 
   return (
     <MessagingInbox
-      filters={filters}
-      sort={sort}
       setActiveChannelOnMount
       initialChannelId={props.initialChannelId ?? null}
       layoutClassName="flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page md:h-full md:max-h-full md:min-h-0 md:grid md:grid-cols-[320px_minmax(0,1fr)_300px]"

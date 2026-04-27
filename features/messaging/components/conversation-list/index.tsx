@@ -1,21 +1,20 @@
 import { useCallback } from "react";
-import type { ChannelFilters, ChannelSort } from "stream-chat";
-import { ChannelList } from "stream-chat-react";
+import { ChannelList, useChatContext } from "stream-chat-react";
 import type { ChannelPreviewUIComponentProps } from "stream-chat-react";
 
 import { ConversationFilter } from "@/features/messaging/components/conversation-list/conversation-filter";
 import { SearchBar } from "@/features/messaging/components/conversation-list/search-bar";
 import { ConversationPreview } from "@/features/messaging/components/conversation-list/conversation-preview";
-import { useChannelList } from "@/features/messaging/hooks/use-channel-list";
+import { CHANNEL_LIST_OPTIONS, CHANNEL_LIST_SORT, useChannelList } from "@/features/messaging/hooks/use-channel-list";
 
 export function ConversationListPanel(props: {
-  filters: ChannelFilters;
-  sort: ChannelSort;
   selfUserId: string;
   setActiveChannelOnMount: boolean;
   variant: "desktop" | "mobile";
 }) {
+  const { client } = useChatContext();
   const {
+    filters,
     channelListKey,
     bumpChannelListKey,
     listSearch,
@@ -23,7 +22,7 @@ export function ConversationListPanel(props: {
     filterMode,
     setFilterMode,
     channelRenderFilterFn,
-  } = useChannelList({ filters: props.filters, sort: props.sort, selfUserId: props.selfUserId });
+  } = useChannelList({ selfUserId: props.selfUserId });
 
   const Preview = useCallback(
     (p: ChannelPreviewUIComponentProps) => (
@@ -37,6 +36,10 @@ export function ConversationListPanel(props: {
   );
 
   const showLargeHeader = props.variant === "desktop";
+
+  if (!filters || !client.userID) {
+    return null;
+  }
 
   return (
     <div className="flex h-full min-h-0 w-full shrink-0 flex-col border-b border-subtle md:border-b-0 md:border-r md:border-subtle md:w-[320px] md:min-w-[320px] md:max-w-[320px]">
@@ -64,10 +67,10 @@ export function ConversationListPanel(props: {
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <ChannelList
-          key={channelListKey}
-          filters={props.filters}
-          sort={props.sort}
-          options={{ state: true, presence: true, limit: 30 }}
+          key={`${client.userID}-${channelListKey}`}
+          filters={filters}
+          sort={CHANNEL_LIST_SORT}
+          options={CHANNEL_LIST_OPTIONS}
           setActiveChannelOnMount={props.setActiveChannelOnMount}
           Preview={Preview}
           channelRenderFilterFn={channelRenderFilterFn}

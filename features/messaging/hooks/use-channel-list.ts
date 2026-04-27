@@ -6,13 +6,15 @@ import type { ConversationFilterMode } from "@/features/messaging/types";
 import { isChannelArchived, isChannelPinned, msFromDateLike, getPeerUser } from "@/features/messaging/lib/channel-helpers";
 
 export type UseChannelListParams = {
-  filters: ChannelFilters;
-  sort: ChannelSort;
   selfUserId: string;
 };
 
+export const CHANNEL_LIST_SORT: ChannelSort = { last_message_at: -1 };
+export const CHANNEL_LIST_OPTIONS = { state: true, presence: true, limit: 30 } as const;
+
 /**
  * Centralized conversation list state:
+ * - Stream-native filters gated on `client.userID`
  * - search + filter mode
  * - client-side render filtering + sorting (pinned first)
  * - forces immediate re-render on Stream channel updates/visibility changes by bumping a key
@@ -21,6 +23,11 @@ export function useChannelList(params: UseChannelListParams) {
   const { client } = useChatContext();
   const [channelListKey, setChannelListKey] = useState(0);
   const bumpChannelListKey = useCallback(() => setChannelListKey((k) => k + 1), []);
+
+  const filters = useMemo((): ChannelFilters | null => {
+    if (!client?.userID) return null;
+    return { type: "messaging", members: { $in: [client.userID] } };
+  }, [client?.userID]);
 
   const [listSearch, setListSearch] = useState("");
   const [filterMode, setFilterMode] = useState<ConversationFilterMode>("all");
@@ -69,6 +76,7 @@ export function useChannelList(params: UseChannelListParams) {
   }, [filterMode, listSearch, params.selfUserId]);
 
   return {
+    filters,
     channelListKey,
     bumpChannelListKey,
     listSearch,
