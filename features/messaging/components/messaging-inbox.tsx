@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { ChannelFilters, ChannelSort } from "stream-chat";
-import { Chat, useChatContext } from "stream-chat-react";
+import { Chat } from "stream-chat-react";
 
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { ConversationListPanel } from "@/features/messaging/components/conversat
 import { ChatThreadPanel } from "@/features/messaging/components/chat-thread";
 import { ContextPanel } from "@/features/messaging/components/context-panel";
 import { useActiveConversation } from "@/features/messaging/hooks/use-active-conversation";
+import { useStreamChat } from "@/features/messaging/components/stream-chat-provider";
 
 export type MessagingInboxProps = {
   filters: ChannelFilters;
@@ -32,9 +33,34 @@ export function MessagingInbox({
   initialChannelId = null,
   showConversationContextPanel = false,
 }: MessagingInboxProps) {
+  const client = useStreamChat();
   const { user } = useAuth();
-  const { client } = useChatContext();
+  const selfUserId = user?.id ?? "";
 
+  if (!client || !selfUserId) {
+    return (
+      <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-fg/10 bg-surface-panel font-sans text-sm font-medium text-fg/55">
+        Loading messages…
+      </div>
+    );
+  }
+
+  return (
+    <Chat client={client} theme="messaging light">
+      <MessagingInboxInner
+        filters={filters}
+        sort={sort}
+        layoutClassName={layoutClassName}
+        setActiveChannelOnMount={setActiveChannelOnMount}
+        initialChannelId={initialChannelId}
+        showConversationContextPanel={showConversationContextPanel}
+        selfUserId={selfUserId}
+      />
+    </Chat>
+  );
+}
+
+function MessagingInboxInner(props: MessagingInboxProps & { selfUserId: string }) {
   const [isDesktop, setIsDesktop] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "thread">("list");
   const [channelLoading, setChannelLoading] = useState(false);
@@ -48,14 +74,13 @@ export function MessagingInbox({
   }, []);
 
   const { activeChannel, clearActiveConversation } = useActiveConversation({
-    filters,
-    sort,
-    initialChannelId,
-    setActiveChannelOnMount,
+    filters: props.filters,
+    sort: props.sort,
+    initialChannelId: props.initialChannelId ?? null,
+    setActiveChannelOnMount: props.setActiveChannelOnMount ?? true,
     isDesktop,
   });
 
-  // When selecting a channel on mobile, show a small loading pulse then switch view.
   useEffect(() => {
     if (isDesktop) return;
     if (activeChannel) {
@@ -65,56 +90,54 @@ export function MessagingInbox({
     }
   }, [activeChannel, isDesktop]);
 
-  const selfUserId = user?.id ?? "";
-
-  const layout = useMemo(() => cn(layoutClassName), [layoutClassName]);
-
-  if (!client || !selfUserId) {
-    return (
-      <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-fg/10 bg-surface-panel font-sans text-sm font-medium text-fg/55">
-        Loading messages…
-      </div>
-    );
-  }
+  const layout = useMemo(
+    () =>
+      cn(
+        props.layoutClassName ??
+          "flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page md:h-full md:max-h-full md:min-h-0 md:grid md:grid-cols-[320px_minmax(0,1fr)_300px]",
+      ),
+    [props.layoutClassName],
+  );
 
   return (
     <div className="bahaygo-stream-chat flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface-page">
       <div className="flex h-full min-h-0 flex-1 flex-col">
-        <Chat client={client} theme="messaging light">
-          <div className={layout}>
-            <div className={mobileView === "thread" ? "max-md:hidden" : ""}>
-              <ConversationListPanel
-                filters={filters}
-                sort={sort}
-                selfUserId={selfUserId}
-                setActiveChannelOnMount={setActiveChannelOnMount}
-                variant={isDesktop ? "desktop" : "mobile"}
-              />
-            </div>
-
-            <div className={cn("flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden", mobileView === "list" ? "max-md:hidden" : "")}>
-              <ChatThreadPanel
-                channelLoading={channelLoading}
-                onLoaded={() => setChannelLoading(false)}
-                onBackToList={() => {
-                  clearActiveConversation();
-                  setMobileView("list");
-                }}
-              />
-            </div>
-
-            <aside
-              className="hidden h-full max-h-full min-h-0 w-[300px] shrink-0 flex-col border-l border-subtle bg-surface-page max-md:hidden md:flex"
-              aria-label="Conversation sidebar"
-            >
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-                {showConversationContextPanel ? (
-                  <ContextPanel channel={activeChannel ?? undefined} />
-                ) : null}
-              </div>
-            </aside>
+        <div className={layout}>
+          <div className={mobileView === "thread" ? "max-md:hidden" : ""}>
+            <ConversationListPanel
+              filters={props.filters}
+              sort={props.sort}
+              selfUserId={props.selfUserId}
+              setActiveChannelOnMount={props.setActiveChannelOnMount ?? true}
+              variant={isDesktop ? "desktop" : "mobile"}
+            />
           </div>
-        </Chat>
+
+          <div
+            className={cn(
+              "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+              mobileView === "list" ? "max-md:hidden" : "",
+            )}
+          >
+            <ChatThreadPanel
+              channelLoading={channelLoading}
+              onLoaded={() => setChannelLoading(false)}
+              onBackToList={() => {
+                clearActiveConversation();
+                setMobileView("list");
+              }}
+            />
+          </div>
+
+          <aside
+            className="hidden h-full max-h-full min-h-0 w-[300px] shrink-0 flex-col border-l border-subtle bg-surface-page max-md:hidden md:flex"
+            aria-label="Conversation sidebar"
+          >
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+              {props.showConversationContextPanel ? <ContextPanel channel={activeChannel ?? undefined} /> : null}
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   );
