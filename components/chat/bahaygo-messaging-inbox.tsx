@@ -70,12 +70,18 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
   const peerOnline = Boolean(peer?.online);
 
   const handleRowClick = (e: MouseEvent) => {
+    if (activeChannel?.cid !== channel.cid) {
+      setActiveChannel(channel);
+    }
     onSelect?.(e);
   };
 
   const handleRowKeyDown = (e: KeyboardEvent) => {
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
+    if (activeChannel?.cid !== channel.cid) {
+      setActiveChannel(channel);
+    }
     onSelect?.(e as unknown as MouseEvent);
   };
 

@@ -103,6 +103,7 @@ function DealCard({
 }) {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
+  const [agentAvatarFailed, setAgentAvatarFailed] = useState(false);
 
   const pendingDocs = deal.documents.filter((d) => d.pending_upload);
   const pendingCount = pendingDocs.length;
@@ -191,7 +192,30 @@ function DealCard({
             <StatusPill label={deal.status_label} />
           </div>
           <p className="mt-1 text-sm font-bold text-[#D4A843]">{deal.property.price}</p>
-          <p className="mt-2 flex flex-wrap items-center gap-1 text-sm font-semibold text-[#2C2C2C]">
+          <p className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-[#2C2C2C]">
+            <span className="relative inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[#6B9E6E] ring-1 ring-black/10">
+              {deal.agent.image_url?.trim() && !agentAvatarFailed ? (
+                <Image
+                  src={deal.agent.image_url}
+                  alt=""
+                  fill
+                  sizes="28px"
+                  className="object-cover"
+                  unoptimized
+                  onError={() => {
+                    console.error("Agent avatar failed to load", {
+                      user_id: deal.agent.user_id,
+                      url: deal.agent.image_url,
+                    });
+                    setAgentAvatarFailed(true);
+                  }}
+                />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-[10px] font-bold text-white">
+                  {deal.agent.name?.trim()?.slice(0, 1)?.toUpperCase() || "?"}
+                </span>
+              )}
+            </span>
             <span>{deal.agent.name}</span>
             {deal.agent.verified ? (
               <span className="inline-flex items-center gap-0.5 text-[#6B9E6E]" title="Verified agent">
