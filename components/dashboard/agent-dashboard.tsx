@@ -1869,7 +1869,14 @@ export function AgentDashboard() {
           </Link>
         </aside>
 
-        <main className="min-w-0 flex-1 px-4 py-6 md:flex md:h-full md:min-h-0 md:flex-col md:overflow-y-auto md:px-8 md:py-10 md:pb-10">
+        <main
+          className={cn(
+            "min-w-0 flex-1 md:flex md:h-full md:min-h-0 md:flex-col",
+            tab === "messages"
+              ? "px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
+              : "px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 md:pb-10",
+          )}
+        >
           {isTeamMemberView ? (
             <p className="mb-4 rounded-xl border border-[#6B9E6E]/35 bg-[#6B9E6E]/10 px-4 py-3 font-sans text-sm font-semibold text-[#2C2C2C]">
               You are logged in as a team member of {agent.name}.

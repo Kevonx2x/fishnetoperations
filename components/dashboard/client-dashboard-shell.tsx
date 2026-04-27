@@ -41,6 +41,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
   const { user, profile, role, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [notifUnread, setNotifUnread] = useState(0);
+  const isMessagesRoute = pathname.startsWith("/dashboard/client/messages");
 
   const refreshUnread = useCallback(async () => {
     if (!user?.id) {
@@ -132,7 +133,14 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
           </Link>
         </aside>
 
-        <main className="min-w-0 flex-1 px-4 py-6 md:flex md:h-full md:min-h-0 md:flex-col md:overflow-y-auto md:px-8 md:py-10 md:pb-10">
+        <main
+          className={cn(
+            "min-w-0 flex-1 md:flex md:h-full md:min-h-0 md:flex-col",
+            isMessagesRoute
+              ? "px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
+              : "px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 md:pb-10",
+          )}
+        >
           {children}
         </main>
       </div>
