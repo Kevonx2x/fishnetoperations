@@ -1821,7 +1821,12 @@ export function AgentDashboard() {
     <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0">
       <div className="flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
         {/* Desktop sidebar */}
-        <aside className="hidden w-[180px] shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:flex-col md:overflow-y-auto md:px-2 md:py-5">
+        <aside
+          className={cn(
+            "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:flex-col md:overflow-y-auto md:px-2 md:py-5",
+            tab === "messages" ? "w-[208px]" : "w-[180px]",
+          )}
+        >
           <div className="mb-5 flex items-center gap-2 px-1">
             <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-[#D4A843]/35">
               {agent.image_url ? (
