@@ -273,6 +273,7 @@ function MessagingChatBody({
   const { channel, setActiveChannel, client } = useChatContext();
   const [isDesktop, setIsDesktop] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "thread">("list");
+  const initialSelectionAppliedRef = useRef<string | null>(null);
 
   useLayoutEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -308,6 +309,9 @@ function MessagingChatBody({
     if (!isDesktop) return;
     const targetId = (initialChannelId ?? "").trim();
     if (!targetId) return;
+    // Deep-link selection should only apply once. After the user clicks a different conversation,
+    // we must not "snap back" to the original URL param.
+    if (initialSelectionAppliedRef.current === targetId) return;
     if (channel?.id === targetId) return;
     let cancelled = false;
     void (async () => {
@@ -318,6 +322,7 @@ function MessagingChatBody({
           limit: 1,
         });
         if (cancelled || !rows[0]) return;
+        initialSelectionAppliedRef.current = targetId;
         setActiveChannel(rows[0]);
       } catch {
         /* ignore */
