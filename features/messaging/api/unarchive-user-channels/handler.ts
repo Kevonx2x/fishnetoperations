@@ -27,31 +27,16 @@ export async function unarchiveUserChannels(params: { userId: string }): Promise
 
   const updated: string[] = [];
   for (const ch of channels) {
-    const type = (ch.type ?? "messaging").trim();
-    const id = (ch.id ?? "").trim();
-    if (!id) continue;
-
-    // Prefer SDK helper if present; otherwise fall back to raw REST call.
-    const channel = stream.channel(type, id);
-    const hasSdkUnarchive =
-      typeof (channel as unknown as { unarchive?: unknown }).unarchive === "function";
-
-    if (hasSdkUnarchive) {
-      await (channel as unknown as { unarchive: (userId: string) => Promise<unknown> }).unarchive(userId);
-    } else {
-      // Fallback: DELETE /channels/{type}/{id}/archive?user_id=...
-      // stream-chat JS exposes low-level HTTP methods; use `delete` when available.
-      const del = (stream as unknown as { delete?: unknown }).delete;
-      if (typeof del !== "function") {
-        throw new Error("Stream SDK does not support unarchive via SDK or raw delete()");
-      }
-      await (stream as unknown as { delete: (url: string, params?: Record<string, unknown>) => Promise<unknown> }).delete(
-        `channels/${encodeURIComponent(type)}/${encodeURIComponent(id)}/archive`,
-        { user_id: userId },
-      );
+    try {
+      // stream-chat@9.x signature: unarchive(opts?: { user_id?: string })
+      await ch.unarchive({ user_id: userId });
+      updated.push(ch.cid);
+    } catch (err) {
+      // Temporary forensic log (no plaintext user id).
+      // Remove after confirming the endpoint works end-to-end.
+      console.error("[unarchive-user-channels] Failed for", ch.cid, err);
+      throw err;
     }
-
-    updated.push(ch.cid);
   }
 
   return { unarchived: updated.length, channels: updated };
