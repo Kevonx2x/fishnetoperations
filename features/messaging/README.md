@@ -68,6 +68,7 @@ Data flow:
 |---|---|---|
 | Chat header / context panel show wrong contact after switching | Mixed channel sources: right panel was reading a **prop channel** while header/thread read from Stream context; plus `<Channel>` subtree could stay bound to the previous active channel unless re-keyed. Fix: **read active channel only from `useChatContext()`** and key `<Channel>` by `activeChannel.cid`. | `components/context-panel/index.tsx`, `components/chat-thread/index.tsx` |
 | Messages don't auto-scroll on open or new message | Parent CSS missing `min-h-0` on the flex child and/or a custom overflow wrapper prevented Stream from controlling its own scroll container. Fix: keep the thread as a flex column with `min-h-0` and **do not wrap `<MessageList />` in a custom overflow-y container**. | `components/chat-thread/index.tsx`, `components/chat-thread/message-list.tsx` |
+| Auto-scroll broken / can't scroll messages | `overflow-y: hidden` on `.str-chat__list` blocks all scrolling and breaks Stream's auto-scroll. | `app/globals.css` (`@layer stream-overrides` → `.str-chat__list`) |
 | Conversation list shows “You have no channels currently” but channels exist | Filters were built before `client.userID` was ready and memoized with an undefined user id, so `ChannelList` queried with `$in: [undefined]` and stayed empty. Fix: **gate filters on `client.userID`** and key `ChannelList` by userID (composited with the event bump key). | `hooks/use-channel-list.ts`, `components/conversation-list/index.tsx` |
 | "You have no channels currently" but channels exist in API response | Channels are archived for the user (`membership.archived_at` set). Stream React `ChannelList` hides archived channels by default. | Admin tool: `/api/admin/stream/unarchive-user-channels` |
 | Conversations not switching / snaps back | Deep link effect or desktop auto-select effect re-running and overwriting user selection. | `hooks/use-active-conversation.ts` |
@@ -105,6 +106,8 @@ Data flow:
 - Never bump multiple competing keys on `ChannelList` (userID is primary; event bump is secondary via a composite key)
 - Never wrap Stream’s `<MessageList />` in a custom div with `overflow-y: auto` — Stream manages its own scroll
 - Never forget `min-h-0` on the flex child that contains `<MessageList />` — without it, scroll calculations break
+- Never set `overflow-y: hidden` on `.str-chat__list` — this is the scroll container; hiding it breaks scrolling and auto-scroll completely
+- Never set `overflow: hidden` on `.str-chat__main-panel-inner` — it must allow the inner list to scroll
 - Wrap Stream components in flex containers with hard constraints that break their internal layout
 - Use `!important` in CSS overrides
 - Override Stream class names instead of using Stream CSS variables (prefer `--str-chat__*`)
