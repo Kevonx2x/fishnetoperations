@@ -36,7 +36,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { useProfileAvatarUrl } from "@/hooks/use-profile-avatar-url";
 
 function getPeerUser(channel: StreamChannel | undefined, selfId: string) {
   const members = channel?.state?.members;
@@ -59,7 +58,7 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
   const { channel, active, displayTitle, latestMessagePreview, lastMessage, onSelect, selfId } = props;
   const { setActiveChannel, channel: activeChannel } = useChatContext();
   const peer = getPeerUser(channel, selfId);
-  const peerAvatar = useProfileAvatarUrl(peer?.id, peer?.image);
+  const peerAvatar = peer?.image;
   const title = (displayTitle || peer?.name || peer?.id || "Conversation").trim();
   const preview = previewPlainText(latestMessagePreview, lastMessage);
   const timeSource = lastMessage?.created_at ?? channel.state?.last_message_at;
@@ -181,10 +180,7 @@ function CustomMessage() {
   const { messages: channelMessages } = useChannelStateContext("CustomMessage");
   const { isMyMessage, message, groupStyles, firstOfGroup, readBy, deliveredTo } = useMessageContext();
   const mine = isMyMessage();
-  const otherAvatar = useProfileAvatarUrl(
-    mine ? undefined : message.user?.id,
-    mine ? undefined : message.user?.image,
-  );
+  const otherAvatar = message.user?.image;
   const createdAt = message.created_at
     ? new Date(message.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
     : "";
@@ -308,7 +304,7 @@ function MessagingChatBody({
   const channelQueryOptions = useMemo(() => ({ messages: { limit: 20 } }), []);
 
   const peerUser = useMemo(() => getPeerUser(channel, userId), [channel, userId]);
-  const peerAvatar = useProfileAvatarUrl(peerUser?.id, peerUser?.image);
+  const peerAvatar = peerUser?.image;
 
   const peerOnline = useMemo(() => {
     const peerId = peerUser?.id;
@@ -533,7 +529,7 @@ function MessagingThreadInner({
   }, [channelLoading, loading, lastMessageId]);
 
   const peerUser = useMemo(() => getPeerUser(channel, userId), [channel, userId]);
-  const peerAvatar = useProfileAvatarUrl(peerUser?.id, peerUser?.image);
+  const peerAvatar = peerUser?.image;
 
   const peerOnline = useMemo(() => {
     const peerId = peerUser?.id;
