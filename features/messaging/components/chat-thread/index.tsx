@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 import { Channel, Window, useChannelStateContext, useChatContext } from "stream-chat-react";
@@ -37,49 +37,12 @@ export function ChatThreadPanel(props: {
 }
 
 function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
-  const { loading, channel, messages } = useChannelStateContext();
+  const { loading, channel } = useChannelStateContext();
   const { setActiveChannel, channel: activeChannel } = useChatContext();
-  const listScrollHostRef = useRef<HTMLDivElement>(null);
-
-  const lastMessageId = messages?.length ? messages[messages.length - 1]?.id : null;
-  const channelCid = channel?.cid ?? null;
 
   useEffect(() => {
     if (!loading) props.onLoaded();
   }, [loading, props]);
-
-  useLayoutEffect(() => {
-    if (props.channelLoading || loading) return;
-    if (!channelCid) return;
-    const root = listScrollHostRef.current;
-    if (!root) return;
-    const list =
-      root.querySelector<HTMLElement>(".str-chat__message-list") ??
-      root.querySelector<HTMLElement>(".str-chat__message-list-scroll");
-    if (!list) return;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        list.scrollTo({ top: list.scrollHeight, behavior: "auto" });
-      });
-    });
-  }, [channelCid, loading, props.channelLoading]);
-
-  useLayoutEffect(() => {
-    if (props.channelLoading || loading) return;
-    if (!lastMessageId) return;
-    const root = listScrollHostRef.current;
-    if (!root) return;
-    const list =
-      root.querySelector<HTMLElement>(".str-chat__message-list") ??
-      root.querySelector<HTMLElement>(".str-chat__message-list-scroll");
-    if (!list) return;
-    const scrollToEnd = () => {
-      list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
-    };
-    requestAnimationFrame(() => {
-      requestAnimationFrame(scrollToEnd);
-    });
-  }, [lastMessageId, loading, props.channelLoading]);
 
   const archiveOpenChannel = useCallback(async () => {
     if (!channel) return;
@@ -100,7 +63,7 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
   }
 
   return (
-    <div className="bhg-chat-panel flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-surface-page">
+    <div className="bhg-chat-panel flex h-full min-h-0 w-full min-w-0 flex-col bg-surface-page">
       <header className="hidden shrink-0 items-center justify-between border-b border-subtle bg-surface-page px-4 py-4 md:flex">
         <ChatHeader className="min-w-0 flex-1 border-b-0 bg-transparent px-0 py-0" />
         <DropdownMenu>
@@ -118,7 +81,7 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
-      <div ref={listScrollHostRef} className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col">
         <MessageList />
       </div>
       <MessageInput />

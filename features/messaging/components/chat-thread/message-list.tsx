@@ -16,6 +16,8 @@ export function MessageList() {
       noGroupByUser={false}
       returnAllReadData
       maxTimeBetweenGroupedMessages={120000}
+      scrolledUpThreshold={50}
+      hideDeletedMessages
     />
   );
 }
