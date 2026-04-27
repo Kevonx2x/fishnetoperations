@@ -74,7 +74,9 @@ function previewPlainText(preview: ReactNode, lastMessage?: LocalMessage) {
   return "";
 }
 
-function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId: string }) {
+function BahaygoChannelPreview(
+  props: ChannelPreviewUIComponentProps & { selfId: string; onChannelListMutate?: () => void },
+) {
   const { channel, active, displayTitle, latestMessagePreview, lastMessage, onSelect, selfId } = props;
   const { setActiveChannel, channel: activeChannel } = useChatContext();
   const peer = getPeerUser(channel, selfId);
@@ -108,6 +110,7 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
     try {
       if (pinned) await channel.unpin();
       else await channel.pin();
+      props.onChannelListMutate?.();
     } catch {
       // ignore permission / network errors
     }
@@ -117,6 +120,7 @@ function BahaygoChannelPreview(props: ChannelPreviewUIComponentProps & { selfId:
     try {
       await channel.archive();
       if (activeChannel?.cid === channel.cid) setActiveChannel(undefined);
+      props.onChannelListMutate?.();
     } catch {
       // ignore
     }
@@ -293,6 +297,8 @@ function MessagingChatBody({
   const [isDesktop, setIsDesktop] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "thread">("list");
   const initialSelectionAppliedRef = useRef<string | null>(null);
+  const [channelListVersion, setChannelListVersion] = useState(0);
+  const bumpChannelListVersion = useCallback(() => setChannelListVersion((v) => v + 1), []);
 
   useLayoutEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -301,6 +307,20 @@ function MessagingChatBody({
     mq.addEventListener("change", fn);
     return () => mq.removeEventListener("change", fn);
   }, []);
+
+  useEffect(() => {
+    // Stream mutates channel membership/data in-place; subscribe so list re-sorts immediately
+    // (both for local actions and other tabs/devices).
+    const handler = () => bumpChannelListVersion();
+    client.on("channel.updated", handler);
+    client.on("channel.hidden", handler);
+    client.on("channel.visible", handler);
+    return () => {
+      client.off("channel.updated", handler);
+      client.off("channel.hidden", handler);
+      client.off("channel.visible", handler);
+    };
+  }, [bumpChannelListVersion, client]);
 
   useEffect(() => {
     if (setActiveChannelOnMount) return;
@@ -403,7 +423,8 @@ function MessagingChatBody({
         return bTime - aTime;
       });
     },
-    [filterMode, listSearch, userId],
+    // channelListVersion forces recomputation when Stream mutates in-place (pin/unpin/archive).
+    [channelListVersion, filterMode, listSearch, userId],
   );
 
   const Preview = useCallback(
@@ -411,6 +432,7 @@ function MessagingChatBody({
       <BahaygoChannelPreview
         {...p}
         selfId={userId}
+        onChannelListMutate={bumpChannelListVersion}
         onSelect={(event) => {
           p.onSelect?.(event);
           if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
@@ -420,7 +442,7 @@ function MessagingChatBody({
         }}
       />
     ),
-    [userId],
+    [bumpChannelListVersion, userId],
   );
 
   return (
