@@ -465,7 +465,38 @@ export function TeamManagementSection({ showCompensation = true }: TeamManagemen
   const [requestChangesFor, setRequestChangesFor] = useState<string | null>(null);
   const [requestChangesDraft, setRequestChangesDraft] = useState<Record<string, string>>({});
 
+  const [streamSyncBusy, setStreamSyncBusy] = useState(false);
+  const [streamSyncResult, setStreamSyncResult] = useState<number | null>(null);
+
   const [editForm, setEditForm] = useState<EditFormState>(() => emptyEditForm());
+
+  const syncAllUsersToStream = useCallback(async () => {
+    setStreamSyncBusy(true);
+    setStreamSyncResult(null);
+    try {
+      const res = await fetch("/api/admin/stream/sync-all-users", {
+        method: "POST",
+        credentials: "include",
+      });
+      const json = (await res.json()) as
+        | { success: true; data: { synced: number } }
+        | { success: false; error?: { message?: string } };
+      if (!res.ok || !("success" in json) || json.success !== true) {
+        const msg =
+          "success" in json && json.success === false
+            ? json.error?.message ?? "Sync failed"
+            : "Sync failed";
+        toast.error(msg);
+        return;
+      }
+      setStreamSyncResult(json.data.synced);
+      toast.success(`Synced ${json.data.synced} users to Stream.`);
+    } catch {
+      toast.error("Sync failed");
+    } finally {
+      setStreamSyncBusy(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -933,6 +964,42 @@ export function TeamManagementSection({ showCompensation = true }: TeamManagemen
           Add Employee
         </button>
       </div>
+
+      <section className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-4 py-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-serif text-lg font-bold tracking-tight text-[#2C2C2C]">Stream Chat Sync</h3>
+            <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+              Force-sync Supabase names and avatars to Stream Chat.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={streamSyncBusy}
+            onClick={syncAllUsersToStream}
+            className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-white shadow-sm ring-1 ${
+              streamSyncBusy
+                ? "cursor-not-allowed bg-[#6B9E6E]/60 ring-[#6B9E6E]/25"
+                : "bg-[#6B9E6E] ring-[#D4A843]/30 hover:bg-[#5d8a60]"
+            }`}
+          >
+            {streamSyncBusy ? (
+              <>
+                <Clock className="h-4 w-4" aria-hidden />
+                Syncing…
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4" aria-hidden />
+                Sync all users to Stream Chat
+              </>
+            )}
+          </button>
+        </div>
+        {streamSyncResult != null ? (
+          <p className="mt-3 text-sm font-semibold text-[#2C5F32]">Synced {streamSyncResult} users.</p>
+        ) : null}
+      </section>
 
       {loading ? (
         <p className="text-sm font-semibold text-[#2C2C2C]/55">Loading team…</p>
