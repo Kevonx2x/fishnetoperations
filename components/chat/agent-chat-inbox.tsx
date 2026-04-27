@@ -18,7 +18,6 @@ export function AgentChatInbox(_props: {
     return {
       type: "messaging",
       members: { $in: [user.id] },
-      archived: false,
     };
   }, [user?.id]);
 

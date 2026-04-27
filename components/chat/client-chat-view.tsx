@@ -15,7 +15,6 @@ export function ClientChatView(props: { initialChannelId?: string | null }) {
     return {
       type: "messaging",
       members: { $in: [user.id] },
-      archived: false,
     };
   }, [user?.id]);
 

@@ -11,7 +11,7 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
-import { Archive, ArrowLeft, ListFilter, MoreHorizontal, Pin, Search } from "lucide-react";
+import { Archive, ArrowLeft, MoreHorizontal, Pin, Search } from "lucide-react";
 import type { Channel as StreamChannel, ChannelFilters, ChannelSort, LocalMessage } from "stream-chat";
 import {
   Avatar,
@@ -30,6 +30,10 @@ import type { ChannelPreviewUIComponentProps } from "stream-chat-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useStreamChat } from "@/components/chat/stream-chat-provider";
 import {
+  ConversationListFilter,
+  type ConversationListFilterMode,
+} from "@/components/chat/conversation-list-filter";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -37,6 +41,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { ConversationContextPanel } from "@/components/chat/conversation-context-panel";
+
+function msFromDateLike(d: unknown): number {
+  if (!d) return 0;
+  if (d instanceof Date) return d.getTime();
+  const t = new Date(String(d)).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function isChannelPinned(ch: StreamChannel): boolean {
+  return Boolean(ch.state?.membership?.pinned_at);
+}
+
+function isChannelArchived(ch: StreamChannel): boolean {
+  return Boolean(ch.state?.membership?.archived_at);
+}
 
 function getPeerUser(channel: StreamChannel | undefined, selfId: string) {
   const members = channel?.state?.members;
@@ -334,7 +353,7 @@ function MessagingChatBody({
   }, [channel?.id, client, initialChannelId, isDesktop, setActiveChannel, sort]);
   const [channelLoading, setChannelLoading] = useState(false);
   const [listSearch, setListSearch] = useState("");
-  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [filterMode, setFilterMode] = useState<ConversationListFilterMode>("all");
   const channelQueryOptions = useMemo(() => ({ messages: { limit: 20 } }), []);
 
   const peerUser = useMemo(() => getPeerUser(channel, userId), [channel, userId]);
@@ -367,12 +386,24 @@ function MessagingChatBody({
           return title.includes(q) || last.includes(q);
         });
       }
-      if (unreadOnly) {
-        out = out.filter((ch) => ch.countUnread() > 0);
-      }
-      return out;
+      // Client-side filter modes (no extra server queries).
+      if (filterMode === "unread") out = out.filter((ch) => ch.countUnread() > 0);
+      else if (filterMode === "pinned") out = out.filter((ch) => isChannelPinned(ch));
+      else if (filterMode === "archived") out = out.filter((ch) => isChannelArchived(ch));
+      else out = out.filter((ch) => !isChannelArchived(ch));
+
+      // Sort pinned conversations to top, then by recency within each group.
+      return [...out].sort((a, b) => {
+        const aPinned = isChannelPinned(a);
+        const bPinned = isChannelPinned(b);
+        if (aPinned && !bPinned) return -1;
+        if (!aPinned && bPinned) return 1;
+        const aTime = msFromDateLike(a.state?.last_message_at);
+        const bTime = msFromDateLike(b.state?.last_message_at);
+        return bTime - aTime;
+      });
     },
-    [listSearch, unreadOnly, userId],
+    [filterMode, listSearch, userId],
   );
 
   const Preview = useCallback(
@@ -415,18 +446,7 @@ function MessagingChatBody({
                 className="w-full rounded-full border border-fg/10 bg-surface-page py-2 pl-9 pr-3 text-sm text-fg outline-none ring-brand-sage/30 placeholder:text-fg/40 focus:ring-2"
               />
             </label>
-            <button
-              type="button"
-              title="Show unread only"
-              aria-pressed={unreadOnly}
-              onClick={() => setUnreadOnly((v) => !v)}
-              className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-fg/10 bg-surface-panel text-fg/55 transition-colors hover:bg-surface-page",
-                unreadOnly && "border-brand-sage/40 bg-brand-sage/10 text-brand-sage",
-              )}
-            >
-              <ListFilter className="h-4 w-4" />
-            </button>
+            <ConversationListFilter value={filterMode} onChange={setFilterMode} />
           </div>
         </div>
         <div className="border-b border-subtle bg-surface-page px-4 py-3 md:hidden">
@@ -445,18 +465,7 @@ function MessagingChatBody({
                 className="w-full rounded-full border border-fg/10 bg-surface-page py-2 pl-9 pr-3 text-sm text-fg outline-none placeholder:text-fg/40"
               />
             </label>
-            <button
-              type="button"
-              title="Show unread only"
-              aria-pressed={unreadOnly}
-              onClick={() => setUnreadOnly((v) => !v)}
-              className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-fg/10 bg-surface-panel text-fg/55",
-                unreadOnly && "border-brand-sage/40 bg-brand-sage/10 text-brand-sage",
-              )}
-            >
-              <ListFilter className="h-4 w-4" />
-            </button>
+            <ConversationListFilter value={filterMode} onChange={setFilterMode} />
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-hidden">
