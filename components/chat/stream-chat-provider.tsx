@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { StreamChat } from "stream-chat";
 import { useAuth } from "@/contexts/auth-context";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const StreamChatContext = createContext<StreamChat | null>(null);
 
@@ -47,7 +48,21 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
 
       const chat = StreamChat.getInstance(apiKey);
       const displayName = profile?.full_name?.trim() || user.email || "User";
-      const image = profile?.avatar_url?.trim() || undefined;
+      let image = profile?.avatar_url?.trim() || undefined;
+      // Agents often store their photo on the `agents` row (image_url), not profiles.avatar_url.
+      if (!image && profile?.role === "agent") {
+        try {
+          const supabase = createSupabaseBrowserClient();
+          const { data: agentRow } = await supabase
+            .from("agents")
+            .select("image_url")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          image = (agentRow?.image_url as string | null | undefined)?.trim() || undefined;
+        } catch {
+          /* ignore - token route still upserts Stream user image */
+        }
+      }
       const streamUser = { id: user.id, name: displayName, image };
 
       if (chat.userID && chat.userID !== user.id) {

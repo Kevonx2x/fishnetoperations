@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     const admin = createSupabaseAdmin();
     const { data: profile, error: profileError } = await admin
       .from("profiles")
-      .select("id, full_name, avatar_url")
+      .select("id, full_name, avatar_url, role")
       .eq("id", userId)
       .maybeSingle();
 
@@ -37,11 +37,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
+    let image =
+      (profile.avatar_url as string | null | undefined)?.trim() || undefined;
+    // Agents often store their photo on the `agents` row (image_url), not profiles.avatar_url.
+    if (!image && (profile as { role?: string | null }).role === "agent") {
+      const { data: agentRow } = await admin
+        .from("agents")
+        .select("image_url")
+        .eq("user_id", userId)
+        .maybeSingle();
+      image = (agentRow?.image_url as string | null | undefined)?.trim() || undefined;
+    }
+
     const stream = getStreamClient();
     await stream.upsertUser({
       id: userId,
       name: (profile.full_name as string | null)?.trim() || session.email || "User",
-      image: (profile.avatar_url as string | null)?.trim() || undefined,
+      image,
     });
 
     const token = stream.createToken(userId);

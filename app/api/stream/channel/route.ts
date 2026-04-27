@@ -46,21 +46,27 @@ export async function POST(req: Request) {
     }
 
     const admin = createSupabaseAdmin();
-    const [{ data: agentProfile }, { data: clientProfile }] = await Promise.all([
+    const [{ data: agentProfile }, { data: clientProfile }, { data: agentRow }] = await Promise.all([
       admin.from("profiles").select("id, full_name, avatar_url").eq("id", agentId).maybeSingle(),
       admin.from("profiles").select("id, full_name, avatar_url").eq("id", clientId).maybeSingle(),
+      admin.from("agents").select("image_url").eq("user_id", agentId).maybeSingle(),
     ]);
 
     if (!agentProfile?.id || !clientProfile?.id) {
       return NextResponse.json({ error: "One or both users were not found" }, { status: 404 });
     }
 
+    const agentImage =
+      (agentProfile.avatar_url as string | null | undefined)?.trim() ||
+      (agentRow?.image_url as string | null | undefined)?.trim() ||
+      undefined;
+
     const stream = getStreamClient();
     await Promise.all([
       stream.upsertUser({
         id: agentId,
         name: (agentProfile.full_name as string | null)?.trim() || "Agent",
-        image: (agentProfile.avatar_url as string | null)?.trim() || undefined,
+        image: agentImage,
       }),
       stream.upsertUser({
         id: clientId,
