@@ -69,6 +69,7 @@ Data flow:
 | Chat header / context panel show wrong contact after switching | Mixed channel sources: right panel was reading a **prop channel** while header/thread read from Stream context; plus `<Channel>` subtree could stay bound to the previous active channel unless re-keyed. Fix: **read active channel only from `useChatContext()`** and key `<Channel>` by `activeChannel.cid`. | `components/context-panel/index.tsx`, `components/chat-thread/index.tsx` |
 | Messages don't scroll to bottom on send | Virtualized list wrapper + custom scroller classes interfered with Stream’s built-in “stick to bottom” behavior in our layout. Fix: use core `MessageList` for reliable autoscroll. | `components/chat-thread/message-list.tsx` |
 | Conversation list shows “You have no channels currently” but channels exist | Filters were built before `client.userID` was ready and memoized with an undefined user id, so `ChannelList` queried with `$in: [undefined]` and stayed empty. Fix: **gate filters on `client.userID`** and key `ChannelList` by userID (composited with the event bump key). | `hooks/use-channel-list.ts`, `components/conversation-list/index.tsx` |
+| "You have no channels currently" but channels exist in API response | Channels are archived for the user (`membership.archived_at` set). Stream React `ChannelList` hides archived channels by default. | Admin tool: `/api/admin/stream/unarchive-user-channels` |
 | Conversations not switching / snaps back | Deep link effect or desktop auto-select effect re-running and overwriting user selection. | `hooks/use-active-conversation.ts` |
 | Pin/unpin doesn’t update visually | Channel data mutated in place; without event subscription + rerender bump the list won’t resort. | `hooks/use-channel-list.ts`, `components/conversation-list/conversation-preview.tsx` |
 | Archive doesn’t remove from list | Filter mode not excluding archived or list not re-rendering on hidden/visible. | `hooks/use-channel-list.ts` |
@@ -85,6 +86,12 @@ Data flow:
 - [React SDK overview](https://getstream.io/chat/docs/sdk/react/)
 - [Theming (CSS variables)](https://getstream.io/chat/docs/sdk/react/theming/global-variables/)
 - [Channel events](https://getstream.io/chat/docs/sdk/react/event_handling/)
+- [Archive / un-archive a channel](https://getstream.io/chat/docs/javascript/channel_unarchive/)
+
+### Things to know about Stream Chat
+- **ChannelList hides archived channels by default**.
+- **`archived_at` is per-membership**, not per-channel — each member can independently archive/unarchive the same channel.
+- To include archived channels in list queries you can filter for them (e.g. `archived: true`) or override the default list behavior.
 
 ### Things to NEVER do
 - Cache contact info in component state (names/avatars/online status)

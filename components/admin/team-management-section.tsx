@@ -469,6 +469,9 @@ export function TeamManagementSection({ showCompensation = true }: TeamManagemen
   const [streamSyncResult, setStreamSyncResult] = useState<number | null>(null);
   const [streamBackfillBusy, setStreamBackfillBusy] = useState(false);
   const [streamBackfillResult, setStreamBackfillResult] = useState<number | null>(null);
+  const [streamUnarchiveBusy, setStreamUnarchiveBusy] = useState(false);
+  const [streamUnarchiveUserId, setStreamUnarchiveUserId] = useState("");
+  const [streamUnarchiveResult, setStreamUnarchiveResult] = useState<number | null>(null);
 
   const [editForm, setEditForm] = useState<EditFormState>(() => emptyEditForm());
 
@@ -526,6 +529,39 @@ export function TeamManagementSection({ showCompensation = true }: TeamManagemen
       setStreamSyncBusy(false);
     }
   }, []);
+
+  const unarchiveUserChannels = useCallback(async () => {
+    const userId = streamUnarchiveUserId.trim();
+    if (!userId) {
+      toast.error("Paste a user_id first.");
+      return;
+    }
+    setStreamUnarchiveBusy(true);
+    setStreamUnarchiveResult(null);
+    try {
+      const res = await fetch("/api/admin/stream/unarchive-user-channels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId }),
+        credentials: "include",
+      });
+      const json = (await res.json().catch(() => ({}))) as
+        | { error?: string }
+        | { unarchived: number; channels: string[] };
+
+      if (!res.ok) {
+        const msg = "error" in json ? json.error : "Could not un-archive channels.";
+        toast.error(msg ?? "Could not un-archive channels.");
+        return;
+      }
+
+      const count = "unarchived" in json ? json.unarchived : 0;
+      setStreamUnarchiveResult(count);
+      toast.success(`Un-archived ${count} channels.`);
+    } finally {
+      setStreamUnarchiveBusy(false);
+    }
+  }, [streamUnarchiveUserId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1055,6 +1091,54 @@ export function TeamManagementSection({ showCompensation = true }: TeamManagemen
         {streamSyncResult != null ? (
           <p className="mt-3 text-sm font-semibold text-[#2C5F32]">Synced {streamSyncResult} users.</p>
         ) : null}
+
+        <div className="mt-5 rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-4 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-serif text-base font-bold tracking-tight text-[#2C2C2C]">Stream Chat Tools</p>
+              <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+                Support tool: un-archive all messaging channels for a user (fixes “no channels” when memberships are archived).
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={streamUnarchiveBusy}
+              onClick={unarchiveUserChannels}
+              className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-white shadow-sm ring-1 ${
+                streamUnarchiveBusy
+                  ? "cursor-not-allowed bg-[#6B9E6E]/60 ring-[#6B9E6E]/25"
+                  : "bg-[#6B9E6E] ring-[#D4A843]/30 hover:bg-[#5d8a60]"
+              }`}
+            >
+              {streamUnarchiveBusy ? (
+                <>
+                  <Clock className="h-4 w-4" aria-hidden />
+                  Un-archiving…
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" aria-hidden />
+                  Un-archive all channels for user
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/55">
+              User ID
+            </label>
+            <input
+              value={streamUnarchiveUserId}
+              onChange={(e) => setStreamUnarchiveUserId(e.target.value)}
+              placeholder="paste user_id (uuid)"
+              className="mt-2 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] outline-none ring-[#6B9E6E]/25 focus:ring-2"
+            />
+            {streamUnarchiveResult != null ? (
+              <p className="mt-2 text-sm font-semibold text-[#2C5F32]">Un-archived {streamUnarchiveResult} channels.</p>
+            ) : null}
+          </div>
+        </div>
       </section>
 
       {loading ? (
