@@ -64,14 +64,15 @@ Data flow:
 
 ### Common bugs and where to look
 
-| Symptom | Where to look | Likely cause |
+| Symptom | Root cause | File to check |
 |---|---|---|
-| Wrong name in chat header | `components/chat-thread/chat-header.tsx` | **Root cause (historical)**: header logic living outside messaging module and/or caching peer data in component state/derived props. Fix pattern: always derive peer from `useChatContext().channel.state.members` per render. |
-| Conversations not switching / snaps back | `hooks/use-active-conversation.ts` | Deep link effect or desktop auto-select effect re-running and overwriting user selection. |
-| Pin/unpin doesn’t update visually | `hooks/use-channel-list.ts`, `components/conversation-list/conversation-preview.tsx` | Missing Stream event subscription or missing rerender bump after pin/archive. |
-| Archive doesn’t remove from list | `hooks/use-channel-list.ts` | Filter mode not excluding archived or list not re-rendering on hidden/visible. |
-| Context panel logs AbortError | `hooks/use-property-summary.ts` | AbortError should be ignored (expected on unmount). |
-| Avatars show initials when photo exists | `components/stream-chat-provider.tsx`, `/api/stream/token` | Stream user `image` not being set/upserted for the user. |
+| Chat header / context panel show wrong contact after switching | Mixed channel sources: right panel was reading a **prop channel** while header/thread read from Stream context; plus `<Channel>` subtree could stay bound to the previous active channel unless re-keyed. Fix: **read active channel only from `useChatContext()`** and key `<Channel>` by `activeChannel.cid`. | `components/context-panel/index.tsx`, `components/chat-thread/index.tsx` |
+| Messages don't scroll to bottom on send | Virtualized list wrapper + custom scroller classes interfered with Stream’s built-in “stick to bottom” behavior in our layout. Fix: use core `MessageList` for reliable autoscroll. | `components/chat-thread/message-list.tsx` |
+| Conversations not switching / snaps back | Deep link effect or desktop auto-select effect re-running and overwriting user selection. | `hooks/use-active-conversation.ts` |
+| Pin/unpin doesn’t update visually | Channel data mutated in place; without event subscription + rerender bump the list won’t resort. | `hooks/use-channel-list.ts`, `components/conversation-list/conversation-preview.tsx` |
+| Archive doesn’t remove from list | Filter mode not excluding archived or list not re-rendering on hidden/visible. | `hooks/use-channel-list.ts` |
+| Context panel logs AbortError | AbortError should be ignored (expected on unmount). | `hooks/use-property-summary.ts` |
+| Avatars show initials when photo exists | Stream user `image` not being set/upserted for the user. | `components/stream-chat-provider.tsx`, `api/token/*` |
 
 ### How to add a new feature (example: “Mute conversation”)
 - Add action UI to `components/conversation-list/conversation-preview.tsx` (or the thread menu in `components/chat-thread/index.tsx`).
@@ -90,4 +91,7 @@ Data flow:
 - Wrap Stream components in flex containers with hard constraints that break their internal layout
 - Use `!important` in CSS overrides
 - Override Stream class names instead of using Stream CSS variables (prefer `--str-chat__*`)
+
+### Code conventions
+- **Line limit**: every file under `features/messaging/` must be **≤ 500 lines**. If a file grows beyond that, split it by responsibility (subcomponents, hooks, or lib helpers).
 

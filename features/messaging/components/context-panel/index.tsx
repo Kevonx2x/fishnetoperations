@@ -1,4 +1,4 @@
-import type { Channel as StreamChannel } from "stream-chat";
+import { useChatContext } from "stream-chat-react";
 
 import { PropertyCard } from "@/features/messaging/components/context-panel/property-card";
 import { usePropertySummary } from "@/features/messaging/hooks/use-property-summary";
@@ -7,13 +7,19 @@ import { cn } from "@/lib/utils";
 
 const EMPTY_STATE = "No property linked to this conversation";
 
-export function ContextPanel(props: { channel: StreamChannel | undefined; className?: string }) {
-  const channelData = props.channel?.data as ChannelPropertyMetadata | undefined;
+/**
+ * Right sidebar panel for the active conversation.
+ * Must read the active channel directly from Stream's `useChatContext()` (never via props)
+ * to avoid stale channel propagation.
+ */
+export function ContextPanel(props: { className?: string }) {
+  const { channel } = useChatContext();
+  const channelData = channel?.data as ChannelPropertyMetadata | undefined;
   const propertyId = (channelData?.property_id ?? "").trim() || null;
 
   const { summary, loading } = usePropertySummary(propertyId);
 
-  if (!props.channel || !propertyId) {
+  if (!channel || !propertyId) {
     return (
       <div className={cn("px-4 py-4", props.className)}>
         <p className="text-sm font-semibold text-fg/45">{EMPTY_STATE}</p>

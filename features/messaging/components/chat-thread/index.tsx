@@ -14,11 +14,13 @@ export function ChatThreadPanel(props: {
   onLoaded: () => void;
   onBackToList: () => void;
 }) {
+  const { channel: activeChannel } = useChatContext();
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <ChatHeader onBack={props.onBackToList} className="md:hidden" />
       <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
         <Channel
+          key={activeChannel?.cid ?? "no-active-channel"}
           channelQueryOptions={{ messages: { limit: 20 } }}
           {...({
             newMessageStateUpdateThrottleInterval: 2000,
