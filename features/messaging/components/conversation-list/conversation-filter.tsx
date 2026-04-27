@@ -1,4 +1,5 @@
-import { ListFilter, Mail, Pin, Archive } from "lucide-react";
+import { Archive, ListFilter, Mail, Pin } from "lucide-react";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -6,10 +7,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import type { ConversationFilterMode } from "@/features/messaging/types";
 
-export type ConversationListFilterMode = "all" | "unread" | "pinned" | "archived";
-
-const LABEL_BY_MODE: Record<ConversationListFilterMode, string> = {
+const LABEL_BY_MODE: Record<ConversationFilterMode, string> = {
   all: "All conversations",
   unread: "Unread only",
   pinned: "Pinned only",
@@ -20,9 +20,9 @@ const LABEL_BY_MODE: Record<ConversationListFilterMode, string> = {
  * Conversation list filter dropdown (client-side only).
  * Controls which channels are visible in the left-hand conversation list.
  */
-export function ConversationListFilter(props: {
-  value: ConversationListFilterMode;
-  onChange: (next: ConversationListFilterMode) => void;
+export function ConversationFilter(props: {
+  value: ConversationFilterMode;
+  onChange: (next: ConversationFilterMode) => void;
   className?: string;
 }) {
   return (

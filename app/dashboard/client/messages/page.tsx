@@ -2,15 +2,15 @@
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { StreamChatProvider } from "@/components/chat/stream-chat-provider";
-import { ClientChatView } from "@/components/chat/client-chat-view";
+import { StreamChatProvider } from "@/features/messaging/components/stream-chat-provider";
+import { ClientMessagesView } from "@/features/messaging/components/client-messages-view";
 
 function MessagesInner() {
   const searchParams = useSearchParams();
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <StreamChatProvider>
-        <ClientChatView initialChannelId={searchParams.get("channel")} />
+        <ClientMessagesView initialChannelId={searchParams.get("channel")} />
       </StreamChatProvider>
     </div>
   );

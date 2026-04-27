@@ -28,8 +28,8 @@ import {
 } from "@/lib/client-profile-preferences";
 import { ClientMyDocumentsSidePanel } from "@/components/clients/client-my-documents-side-panel";
 import { MobileClientDashboard } from "@/components/client/mobile-client-dashboard";
-import { StreamChatProvider } from "@/components/chat/stream-chat-provider";
-import { ClientChatView } from "@/components/chat/client-chat-view";
+import { StreamChatProvider } from "@/features/messaging/components/stream-chat-provider";
+import { ClientMessagesView } from "@/features/messaging/components/client-messages-view";
 import { parseClientDocRequestParams } from "@/components/settings/client-documents-panel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -1409,7 +1409,7 @@ function ClientPublicProfilePageInner() {
               {desktopMessagesTab ? (
                 <div className="mt-4 h-[600px] w-full">
                   <StreamChatProvider>
-                    <ClientChatView initialChannelId={searchParams.get("channel")} />
+                    <ClientMessagesView initialChannelId={searchParams.get("channel")} />
                   </StreamChatProvider>
                 </div>
               ) : !isOwn && !canSeeWishlist ? (

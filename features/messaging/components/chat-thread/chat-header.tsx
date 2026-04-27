@@ -1,49 +1,43 @@
-import { useMemo } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Avatar, useChatContext } from "stream-chat-react";
-import type { Channel as StreamChannel } from "stream-chat";
+
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
+import type { PeerInfo } from "@/features/messaging/types";
 
-type PeerInfo = {
-  id: string;
-  name: string;
-  image?: string;
-  online: boolean;
-};
+function getPeerFromMembers(params: {
+  members: Record<string, { user?: { id?: string; name?: string | null; image?: string | null; online?: boolean } }> | undefined;
+  selfId: string;
+}): PeerInfo | null {
+  const { members, selfId } = params;
+  if (!members || !selfId) return null;
 
-function getPeerFromChannel(channel: StreamChannel, selfId: string): PeerInfo | null {
-  const members = channel.state?.members;
-  if (!members) return null;
   for (const m of Object.values(members)) {
     const u = m.user;
     const id = u?.id;
     if (!id || id === selfId) continue;
-    const name = (u?.name || id).trim();
-    const image = (u?.image || "").trim() || undefined;
-    const online = Boolean(u?.online);
-    return { id, name, image, online };
+    return {
+      id,
+      name: (u?.name || id).trim(),
+      image: (u?.image || "").trim() || undefined,
+      online: Boolean(u?.online),
+    };
   }
+
   return null;
 }
 
-/**
- * Chat thread header that reads the active Stream channel directly from `useChatContext()`.
- * We intentionally avoid caching peer info in component state to prevent stale headers after channel switches.
- */
-export function ChatHeader(props: {
-  /** Optional back button (used on mobile). */
-  onBack?: () => void;
-  className?: string;
-}) {
+export function ChatHeader(props: { onBack?: () => void; className?: string }) {
   const { channel: activeChannel } = useChatContext();
   const { user } = useAuth();
   const selfId = user?.id ?? "";
 
-  const peer = useMemo(() => {
-    if (!activeChannel || !selfId) return null;
-    return getPeerFromChannel(activeChannel, selfId);
-  }, [activeChannel, selfId]);
+  const peer = getPeerFromMembers({
+    members: activeChannel?.state?.members as
+      | Record<string, { user?: { id?: string; name?: string | null; image?: string | null; online?: boolean } }>
+      | undefined,
+    selfId,
+  });
 
   if (!activeChannel || !peer) {
     return (

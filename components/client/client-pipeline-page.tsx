@@ -13,7 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { StartChatButton } from "@/components/chat/start-chat-button";
+import { StartChatButton } from "@/features/messaging/components/start-chat-button";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 

@@ -1,7 +1,6 @@
 import { fail, ok } from "@/lib/api/response";
 import { requireAdminSession } from "@/lib/admin-api-auth";
-import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { getStreamClient } from "@/lib/stream";
+import { syncOneUserToStream } from "@/features/messaging/api/admin-sync-user/handler";
 
 export async function POST(req: Request) {
   const denied = await requireAdminSession();
@@ -21,38 +20,11 @@ export async function POST(req: Request) {
     return fail("MISSING_FIELD", "user_id is required", 400, undefined, "user_id");
   }
 
-  const admin = createSupabaseAdmin();
-  const { data: profile, error: pErr } = await admin
-    .from("profiles")
-    .select("id, full_name, avatar_url, role")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (pErr) {
-    return fail("DATABASE_ERROR", pErr.message, 500);
+  const res = await syncOneUserToStream(userId);
+  if (!res.ok) {
+    if (res.error.code === "NOT_FOUND") return fail("NOT_FOUND", res.error.message, 404);
+    return fail(res.error.code, res.error.message, 500);
   }
-  if (!profile?.id) {
-    return fail("NOT_FOUND", "Profile not found", 404);
-  }
-
-  let image = (profile.avatar_url as string | null | undefined)?.trim() || undefined;
-  if (!image && (profile.role as string | null) === "agent") {
-    const { data: agentRow } = await admin
-      .from("agents")
-      .select("image_url")
-      .eq("user_id", userId)
-      .maybeSingle();
-    image = (agentRow?.image_url as string | null | undefined)?.trim() || undefined;
-  }
-
-  const stream = getStreamClient();
-  const payload = {
-    id: userId,
-    name: (profile.full_name as string | null | undefined)?.trim() || "User",
-    image,
-  };
-
-  await stream.upsertUser(payload);
-  return ok({ ...payload, role: profile.role ?? null });
+  return ok(res.data);
 }
 

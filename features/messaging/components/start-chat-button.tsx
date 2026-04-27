@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 
@@ -30,13 +31,7 @@ type Props = {
  * Starts (or opens) a Stream Chat channel between a client and agent,
  * then routes to the correct messaging UI with that channel selected.
  */
-export function StartChatButton({
-  agentId,
-  clientId,
-  className,
-  label = DEFAULT_LABEL,
-  metadata,
-}: Props) {
+export function StartChatButton({ agentId, clientId, className, label = DEFAULT_LABEL, metadata }: Props) {
   const router = useRouter();
   const { user, profile } = useAuth();
   const [busy, setBusy] = useState(false);
@@ -90,3 +85,4 @@ export function StartChatButton({
     </button>
   );
 }
+

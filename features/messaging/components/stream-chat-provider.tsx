@@ -2,8 +2,10 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { StreamChat } from "stream-chat";
+
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createBrowserStreamClient } from "@/features/messaging/lib/stream-client";
 
 const StreamChatContext = createContext<StreamChat | null>(null);
 
@@ -21,7 +23,6 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
     }
 
     let cancelled = false;
-
     void (async () => {
       let token = cachedTokenUserId === user.id ? cachedToken : null;
       if (!token) {
@@ -31,7 +32,6 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
           body: JSON.stringify({ user_id: user.id }),
           credentials: "include",
         });
-
         if (!res.ok || cancelled) return;
         const data = (await res.json().catch(() => null)) as { token?: string };
         if (!data?.token || cancelled) return;
@@ -40,16 +40,10 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
         cachedTokenUserId = user.id;
       }
 
-      const apiKey = process.env.NEXT_PUBLIC_STREAM_API?.trim();
-      if (!apiKey) {
-        console.error("Missing NEXT_PUBLIC_STREAM_API");
-        return;
-      }
-
-      const chat = StreamChat.getInstance(apiKey);
+      const chat = createBrowserStreamClient();
       const displayName = profile?.full_name?.trim() || user.email || "User";
       let image = profile?.avatar_url?.trim() || undefined;
-      // Agents often store their photo on the `agents` row (image_url), not profiles.avatar_url.
+
       if (!image && profile?.role === "agent") {
         try {
           const supabase = createSupabaseBrowserClient();
@@ -60,19 +54,16 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
             .maybeSingle();
           image = (agentRow?.image_url as string | null | undefined)?.trim() || undefined;
         } catch {
-          /* ignore - token route still upserts Stream user image */
+          /* ignore */
         }
       }
+
       const streamUser = { id: user.id, name: displayName, image };
 
-      if (chat.userID && chat.userID !== user.id) {
-        await chat.disconnectUser();
-      }
-      if (chat.userID === user.id) {
-        await chat.upsertUser(streamUser);
-      } else {
-        await chat.connectUser(streamUser, token);
-      }
+      if (chat.userID && chat.userID !== user.id) await chat.disconnectUser();
+      if (chat.userID === user.id) await chat.upsertUser(streamUser);
+      else await chat.connectUser(streamUser, token);
+
       if (!cancelled) setClient(chat);
     })();
 
@@ -80,7 +71,7 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
       cancelled = true;
       setClient(null);
     };
-  }, [authLoading, user?.id, user?.email, profile?.full_name, profile?.avatar_url]);
+  }, [authLoading, profile?.avatar_url, profile?.full_name, profile?.role, user?.email, user?.id]);
 
   return <StreamChatContext.Provider value={client}>{children}</StreamChatContext.Provider>;
 }
@@ -88,3 +79,4 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
 export function useStreamChat() {
   return useContext(StreamChatContext);
 }
+

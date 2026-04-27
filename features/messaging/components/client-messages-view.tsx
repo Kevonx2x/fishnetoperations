@@ -2,20 +2,18 @@
 
 import { useMemo } from "react";
 import type { ChannelFilters } from "stream-chat";
-import { BahaygoMessagingInbox } from "@/components/chat/bahaygo-messaging-inbox";
-import { useAuth } from "@/contexts/auth-context";
-import { useStreamChat } from "@/components/chat/stream-chat-provider";
 
-export function ClientChatView(props: { initialChannelId?: string | null }) {
+import { MessagingInbox } from "@/features/messaging/components/messaging-inbox";
+import { useAuth } from "@/contexts/auth-context";
+import { useStreamChat } from "@/features/messaging/components/stream-chat-provider";
+
+export function ClientMessagesView(props: { initialChannelId?: string | null }) {
   const client = useStreamChat();
   const { user } = useAuth();
 
   const filters = useMemo((): ChannelFilters => {
     if (!user?.id) return { type: "messaging", members: { $in: [] as string[] } };
-    return {
-      type: "messaging",
-      members: { $in: [user.id] },
-    };
+    return { type: "messaging", members: { $in: [user.id] } };
   }, [user?.id]);
 
   const sort = useMemo(() => ({ last_message_at: -1 as const }), []);
@@ -29,7 +27,7 @@ export function ClientChatView(props: { initialChannelId?: string | null }) {
   }
 
   return (
-    <BahaygoMessagingInbox
+    <MessagingInbox
       filters={filters}
       sort={sort}
       initialChannelId={props.initialChannelId ?? null}
@@ -39,3 +37,4 @@ export function ClientChatView(props: { initialChannelId?: string | null }) {
     />
   );
 }
+

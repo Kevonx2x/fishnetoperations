@@ -31,8 +31,8 @@ import { AgentBillingTab } from "@/components/dashboard/agent-billing-tab";
 import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
 import { AgentPipelineTab, type PipelineStageId } from "@/components/dashboard/agent-pipeline-tab";
-import { AgentChatInbox } from "@/components/chat/agent-chat-inbox";
-import { StreamChatProvider } from "@/components/chat/stream-chat-provider";
+import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
+import { StreamChatProvider } from "@/features/messaging/components/stream-chat-provider";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
@@ -1943,7 +1943,7 @@ export function AgentDashboard() {
               {tab === "messages" && user && (
                 <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                   <StreamChatProvider>
-                    <AgentChatInbox initialChannelId={streamChannelId} />
+                    <AgentMessagesInbox initialChannelId={streamChannelId} />
                   </StreamChatProvider>
                 </div>
               )}
