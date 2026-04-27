@@ -36,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { ConversationContextPanel } from "@/components/chat/conversation-context-panel";
 
 function getPeerUser(channel: StreamChannel | undefined, selfId: string) {
   const members = channel?.state?.members;
@@ -256,12 +257,16 @@ function MessagingChatBody({
   filters,
   sort,
   userId,
+  initialChannelId,
+  showConversationContextPanel,
   setActiveChannelOnMount = true,
   layoutClassName,
 }: {
   filters: ChannelFilters;
   sort: ChannelSort;
   userId: string;
+  initialChannelId: string | null;
+  showConversationContextPanel: boolean;
   setActiveChannelOnMount?: boolean;
   layoutClassName: string;
 }) {
@@ -298,6 +303,30 @@ function MessagingChatBody({
       cancelled = true;
     };
   }, [isDesktop, channel, client, filters, sort, setActiveChannel, setActiveChannelOnMount]);
+
+  useEffect(() => {
+    if (!isDesktop) return;
+    const targetId = (initialChannelId ?? "").trim();
+    if (!targetId) return;
+    if (channel?.id === targetId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const rows = await client.queryChannels({ type: "messaging", id: targetId }, sort, {
+          state: true,
+          presence: true,
+          limit: 1,
+        });
+        if (cancelled || !rows[0]) return;
+        setActiveChannel(rows[0]);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [channel?.id, client, initialChannelId, isDesktop, setActiveChannel, sort]);
   const [channelLoading, setChannelLoading] = useState(false);
   const [listSearch, setListSearch] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -482,10 +511,16 @@ function MessagingChatBody({
         aria-label="Conversation sidebar"
       >
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <h2 className="text-sm font-semibold text-fg/45">Conversation</h2>
-          <p className="mt-1 truncate text-base font-bold tracking-tight text-fg/50">
-            {channel ? peerUser?.name?.trim() || peerUser?.id || "—" : "—"}
-          </p>
+          {showConversationContextPanel ? (
+            <ConversationContextPanel channel={channel} />
+          ) : (
+            <>
+              <h2 className="text-sm font-semibold text-fg/45">Conversation</h2>
+              <p className="mt-1 truncate text-base font-bold tracking-tight text-fg/50">
+                {channel ? peerUser?.name?.trim() || peerUser?.id || "—" : "—"}
+              </p>
+            </>
+          )}
         </div>
       </aside>
     </div>
@@ -505,10 +540,28 @@ function MessagingThreadInner({
   const { setActiveChannel, channel: activeChannel } = useChatContext();
   const listScrollHostRef = useRef<HTMLDivElement>(null);
   const lastMessageId = messages?.length ? messages[messages.length - 1]?.id : null;
+  const channelCid = channel?.cid ?? null;
 
   useEffect(() => {
     if (!loading) onLoaded();
   }, [loading, onLoaded]);
+
+  /** On channel open/switch, jump to the latest message (bottom). */
+  useLayoutEffect(() => {
+    if (channelLoading || loading) return;
+    if (!channelCid) return;
+    const root = listScrollHostRef.current;
+    if (!root) return;
+    const list =
+      root.querySelector<HTMLElement>(".str-chat__message-list") ??
+      root.querySelector<HTMLElement>(".str-chat__message-list-scroll");
+    if (!list) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        list.scrollTo({ top: list.scrollHeight, behavior: "auto" });
+      });
+    });
+  }, [channelCid, channelLoading, loading]);
 
   /** Stream Virtuoso followOutput can miss edge cases; keep the list scrolled when the tail message changes (send/receive). */
   useLayoutEffect(() => {
@@ -622,6 +675,10 @@ export type BahaygoMessagingInboxProps = {
   layoutClassName?: string;
   /** When false, first channel is selected on desktop via query (client pattern). */
   setActiveChannelOnMount?: boolean;
+  /** Custom channel id (not cid) to select when opening from a deep link. */
+  initialChannelId?: string | null;
+  /** Enables the rich property context panel in the right sidebar. */
+  showConversationContextPanel?: boolean;
 };
 
 export function BahaygoMessagingInbox({
@@ -629,6 +686,8 @@ export function BahaygoMessagingInbox({
   sort,
   layoutClassName = "flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page md:h-full md:max-h-full md:min-h-0 md:grid md:grid-cols-[320px_minmax(0,1fr)_300px]",
   setActiveChannelOnMount = true,
+  initialChannelId = null,
+  showConversationContextPanel = false,
 }: BahaygoMessagingInboxProps) {
   const client = useStreamChat();
   const { user } = useAuth();
@@ -649,6 +708,8 @@ export function BahaygoMessagingInbox({
             filters={filters}
             sort={sort}
             userId={user.id}
+            initialChannelId={initialChannelId}
+            showConversationContextPanel={showConversationContextPanel}
             setActiveChannelOnMount={setActiveChannelOnMount}
             layoutClassName={layoutClassName}
           />

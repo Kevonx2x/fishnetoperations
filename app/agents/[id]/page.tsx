@@ -957,17 +957,6 @@ export default function AgentProfilePage() {
                       <Mail className="h-4 w-4" />
                       Contact
                     </button>
-                    {!isOwnProfile ? (
-                      <button
-                        type="button"
-                        onClick={() => void onMessageAgent()}
-                        disabled={authLoading || messageBusy}
-                        className="flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-6 py-3 font-medium text-white disabled:opacity-50"
-                      >
-                        <MessageSquare className="mr-2 h-4 w-4 shrink-0" aria-hidden />
-                        Message
-                      </button>
-                    ) : null}
                   </div>
                   {agent ? (
                     <ReportProfileButton reportedUserId={agent.user_id} disabled={isOwnProfile} />

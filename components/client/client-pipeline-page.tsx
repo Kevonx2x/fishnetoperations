@@ -389,6 +389,12 @@ function DealCard({
             agentId={deal.agent.user_id}
             clientId={clientUserId}
             label="Message Agent"
+            metadata={{
+              property_id: deal.property.id ?? null,
+              property_name: deal.property.title ?? null,
+              property_price: deal.property.price ?? null,
+              property_image: deal.property.hero_image ?? null,
+            }}
             className="rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white hover:bg-[#5a8a5d]"
           />
         ) : null}

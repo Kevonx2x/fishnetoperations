@@ -6,7 +6,7 @@ import { BahaygoMessagingInbox } from "@/components/chat/bahaygo-messaging-inbox
 import { useAuth } from "@/contexts/auth-context";
 import { useStreamChat } from "@/components/chat/stream-chat-provider";
 
-export function ClientChatView(_props: { initialChannelId?: string | null }) {
+export function ClientChatView(props: { initialChannelId?: string | null }) {
   const client = useStreamChat();
   const { user } = useAuth();
 
@@ -33,6 +33,8 @@ export function ClientChatView(_props: { initialChannelId?: string | null }) {
     <BahaygoMessagingInbox
       filters={filters}
       sort={sort}
+      initialChannelId={props.initialChannelId ?? null}
+      showConversationContextPanel
       setActiveChannelOnMount={false}
       layoutClassName="flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page md:h-full md:max-h-full md:min-h-0 md:grid md:grid-cols-[320px_minmax(0,1fr)_300px]"
     />
