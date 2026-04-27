@@ -11,7 +11,7 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
-import { Archive, ArrowLeft, MoreHorizontal, Pin, Search } from "lucide-react";
+import { Archive, MoreHorizontal, Pin, Search } from "lucide-react";
 import type { Channel as StreamChannel, ChannelFilters, ChannelSort, LocalMessage } from "stream-chat";
 import {
   Avatar,
@@ -33,6 +33,7 @@ import {
   ConversationListFilter,
   type ConversationListFilterMode,
 } from "@/components/chat/conversation-list-filter";
+import { ChatHeader } from "@/components/chat/chat-header";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -505,24 +506,7 @@ function MessagingChatBody({
         className={`flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${mobileView === "list" ? "max-md:hidden" : ""}`}
       >
         <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex min-h-14 shrink-0 items-center gap-3 border-b border-subtle bg-surface-page px-4 py-3 md:hidden">
-            <button type="button" onClick={handleBackToList} aria-label="Back to conversations">
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <span className="relative">
-              <Avatar
-                image={peerAvatar}
-                name={peerUser?.name || peerUser?.id || ""}
-                className="h-8 w-8 [&_.str-chat__avatar-fallback]:text-sm"
-              />
-              {peerOnline ? (
-                <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-brand-sage" aria-hidden />
-              ) : null}
-            </span>
-            <span className="text-lg font-bold text-fg">
-              {peerUser?.name?.trim() || peerUser?.id || "Conversation"}
-            </span>
-          </div>
+          <ChatHeader onBack={handleBackToList} className="md:hidden" />
           <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
             <Channel
               channelQueryOptions={channelQueryOptions}
@@ -617,18 +601,6 @@ function MessagingThreadInner({
     });
   }, [channelLoading, loading, lastMessageId]);
 
-  const peerUser = useMemo(() => getPeerUser(channel, userId), [channel, userId]);
-  const peerAvatar = peerUser?.image;
-
-  const peerOnline = useMemo(() => {
-    const peerId = peerUser?.id;
-    const members = channel?.state?.members;
-    if (!peerId || !members) return false;
-    const member = (members as Record<string, { user?: { id?: string; online?: boolean } }>)[peerId];
-    if (member?.user?.id === peerId) return Boolean(member.user.online);
-    return Object.values(members).some((m) => m.user?.id === peerId && Boolean(m.user?.online));
-  }, [channel, peerUser?.id]);
-
   const archiveOpenChannel = useCallback(async () => {
     if (!channel) return;
     try {
@@ -650,32 +622,12 @@ function MessagingThreadInner({
   return (
     <div className="bhg-chat-panel flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-surface-page">
       <header className="hidden shrink-0 items-center justify-between border-b border-subtle bg-surface-page px-4 py-4 md:flex">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="relative shrink-0">
-            <Avatar
-              image={peerAvatar}
-              name={peerUser?.name || peerUser?.id || "Conversation"}
-              className="h-10 w-10 [&_.str-chat__avatar-fallback]:text-sm"
-            />
-            {peerOnline ? (
-              <span
-                className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-surface-panel bg-brand-sage"
-                aria-hidden
-              />
-            ) : null}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-xl font-bold text-fg">
-              {peerUser?.name?.trim() || peerUser?.id || "Conversation"}
-            </p>
-            <p className="text-xs text-fg/50">{peerOnline ? "Online" : "Offline"}</p>
-          </div>
-        </div>
+        <ChatHeader className="min-w-0 flex-1 border-b-0 bg-transparent px-0 py-0" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="rounded-full p-2 text-fg/55 hover:bg-fg/[0.04]"
+              className="hidden rounded-full p-2 text-fg/55 hover:bg-fg/[0.04] md:inline-flex"
               aria-label="Conversation menu"
             >
               <MoreHorizontal className="h-5 w-5" />
