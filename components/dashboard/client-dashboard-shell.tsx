@@ -94,7 +94,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
       <div className="flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
         <aside
           className={cn(
-            "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:flex-col md:overflow-y-auto md:px-2 md:py-5",
+            "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:flex-col md:overflow-hidden md:px-2 md:py-5",
             isMessagesRoute ? "w-[208px]" : "w-[180px]",
           )}
         >

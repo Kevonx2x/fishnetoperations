@@ -26,11 +26,9 @@ import {
   preferredLocationsLabel,
   type ClientPreferenceFields,
 } from "@/lib/client-profile-preferences";
-import { ClientMyDocumentsSidePanel } from "@/components/clients/client-my-documents-side-panel";
 import { MobileClientDashboard } from "@/components/client/mobile-client-dashboard";
 import { StreamChatProvider } from "@/features/messaging/components/stream-chat-provider";
 import { ClientMessagesView } from "@/features/messaging/components/client-messages-view";
-import { parseClientDocRequestParams } from "@/components/settings/client-documents-panel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { ReportProfileButton } from "@/components/report-profile-button";
@@ -48,7 +46,6 @@ import {
 import {
   AllFeedTab,
   BadgesTab,
-  DocumentsTab,
   compactFeedThumbPropertyIdsFromItems,
   filterFeedGroupedByActiveEngagement,
   FEED_TITLE_MAX_BIG,
@@ -181,14 +178,13 @@ function propertyRowFromLikeJoin(
   };
 }
 
-type OwnMainTab = "all" | "pins" | "likes" | "badges" | "documents";
+type OwnMainTab = "all" | "pins" | "likes" | "badges";
 
 const OWN_MAIN_TABS: { id: OwnMainTab; label: string }[] = [
   { id: "all", label: "All" },
   { id: "pins", label: "Pins" },
   { id: "likes", label: "Likes" },
   { id: "badges", label: "Badges" },
-  { id: "documents", label: "Documents" },
 ];
 
 function overlayLabel(p: PropertyRow): "SOLD" | "OFF MARKET" | null {
@@ -246,10 +242,8 @@ function ClientPublicProfilePageInner() {
   const [selectedViewingProperty, setSelectedViewingProperty] = useState<PropertyRow | null>(null);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const [freeAgentWishlistPreview, setFreeAgentWishlistPreview] = useState(false);
-  const [documentsPanelOpen, setDocumentsPanelOpen] = useState(false);
   const [ownMainTab, setOwnMainTab] = useState<OwnMainTab>("all");
   const [ownListingMode, setOwnListingMode] = useState<ListingMode>("rent");
-  const [ownDocViewBusy, setOwnDocViewBusy] = useState<string | null>(null);
 
   const clientId = rawId;
   const isOwn = Boolean(user?.id && user.id === clientId);
@@ -267,8 +261,6 @@ function ClientPublicProfilePageInner() {
     feedGrouped: ownFeedGrouped,
     feedAgentMeta: ownFeedAgentMeta,
     propertyStatusById: ownPropertyStatusById,
-    ownDocs: ownOwnDocs,
-    sharedDocs: ownSharedDocs,
   } = ownActivityFeed;
 
   const ownFeedGroupedFiltered = useMemo(() => {
@@ -323,25 +315,6 @@ function ClientPublicProfilePageInner() {
     return list;
   }, [properties, ownListingMode, pinnedAtByPropertyId, pins]);
 
-  const openOwnDesktopDocument = useCallback(async (file_url: string) => {
-    setOwnDocViewBusy(file_url);
-    try {
-      const res = await fetch("/api/client/get-document-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ file_url }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { signedUrl?: string; error?: string };
-      if (!res.ok || !json.signedUrl) {
-        return;
-      }
-      window.open(json.signedUrl, "_blank", "noopener,noreferrer");
-    } finally {
-      setOwnDocViewBusy(null);
-    }
-  }, []);
-
   const canSeeWishlist = useMemo(() => {
     if (isOwn || isAdmin) return true;
     if (!viewerAgent?.verified || viewerAgent.status !== "approved") return false;
@@ -380,14 +353,6 @@ function ClientPublicProfilePageInner() {
       ? moveInFromRequests
       : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
   }, [moveInFromRequests]);
-
-  useEffect(() => {
-    if (!isOwn) return;
-    const p = parseClientDocRequestParams(searchParams);
-    if (p.requestAgentId && p.requestedTypes && p.requestedTypes.length > 0) {
-      setDocumentsPanelOpen(true);
-    }
-  }, [isOwn, searchParams]);
 
   useEffect(() => {
     if (!UUID_RE.test(clientId)) {
@@ -1593,24 +1558,6 @@ function ClientPublicProfilePageInner() {
                       </div>
                     )
                   ) : null}
-
-                  {ownMainTab === "documents" ? (
-                    ownFeedLoading ? (
-                      <div className="mt-8 space-y-3">
-                        <div className="h-24 animate-pulse rounded-2xl bg-[#E8E6E1]" />
-                        <div className="h-24 animate-pulse rounded-2xl bg-[#E8E6E1]" />
-                      </div>
-                    ) : (
-                      <div className="mt-8 max-w-4xl">
-                        <DocumentsTab
-                          ownDocs={ownOwnDocs}
-                          sharedDocs={ownSharedDocs}
-                          viewBusyUrl={ownDocViewBusy}
-                          onViewOwn={openOwnDesktopDocument}
-                        />
-                      </div>
-                    )
-                  ) : null}
                 </>
               ) : (
                 <>
@@ -1723,15 +1670,6 @@ function ClientPublicProfilePageInner() {
         }
       />
       <SignInViewingPromptModal open={signInPromptOpen} onOpenChange={setSignInPromptOpen} />
-      {isOwn ? (
-        <ClientMyDocumentsSidePanel
-          open={documentsPanelOpen}
-          onClose={() => setDocumentsPanelOpen(false)}
-          userId={clientId}
-          supabase={supabase}
-          searchParams={searchParams}
-        />
-      ) : null}
     </div>
   );
 }
