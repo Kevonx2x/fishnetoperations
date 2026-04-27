@@ -467,8 +467,37 @@ export function TeamManagementSection({ showCompensation = true }: TeamManagemen
 
   const [streamSyncBusy, setStreamSyncBusy] = useState(false);
   const [streamSyncResult, setStreamSyncResult] = useState<number | null>(null);
+  const [streamBackfillBusy, setStreamBackfillBusy] = useState(false);
+  const [streamBackfillResult, setStreamBackfillResult] = useState<number | null>(null);
 
   const [editForm, setEditForm] = useState<EditFormState>(() => emptyEditForm());
+
+  const backfillStreamChannelMetadata = useCallback(async () => {
+    setStreamBackfillBusy(true);
+    setStreamBackfillResult(null);
+    try {
+      const res = await fetch("/api/admin/stream/backfill-channel-metadata", {
+        method: "POST",
+        credentials: "include",
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { success: true; data: { patched: number } }
+        | { success: false; error?: { message?: string } }
+        | null;
+      if (!res.ok || !json || json.success !== true) {
+        const msg =
+          json && json.success === false ? json.error?.message ?? "Backfill failed" : "Backfill failed";
+        toast.error(msg);
+        return;
+      }
+      setStreamBackfillResult(json.data.patched);
+      toast.success(`Patched ${json.data.patched} channels.`);
+    } catch {
+      toast.error("Backfill failed");
+    } finally {
+      setStreamBackfillBusy(false);
+    }
+  }, []);
 
   const syncAllUsersToStream = useCallback(async () => {
     setStreamSyncBusy(true);
@@ -973,29 +1002,56 @@ export function TeamManagementSection({ showCompensation = true }: TeamManagemen
               Force-sync Supabase names and avatars to Stream Chat.
             </p>
           </div>
-          <button
-            type="button"
-            disabled={streamSyncBusy}
-            onClick={syncAllUsersToStream}
-            className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-white shadow-sm ring-1 ${
-              streamSyncBusy
-                ? "cursor-not-allowed bg-[#6B9E6E]/60 ring-[#6B9E6E]/25"
-                : "bg-[#6B9E6E] ring-[#D4A843]/30 hover:bg-[#5d8a60]"
-            }`}
-          >
-            {streamSyncBusy ? (
-              <>
-                <Clock className="h-4 w-4" aria-hidden />
-                Syncing…
-              </>
-            ) : (
-              <>
-                <Check className="h-4 w-4" aria-hidden />
-                Sync all users to Stream Chat
-              </>
-            )}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={streamBackfillBusy}
+              onClick={backfillStreamChannelMetadata}
+              className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-white shadow-sm ring-1 ${
+                streamBackfillBusy
+                  ? "cursor-not-allowed bg-[#6B9E6E]/60 ring-[#6B9E6E]/25"
+                  : "bg-[#6B9E6E] ring-[#D4A843]/30 hover:bg-[#5d8a60]"
+              }`}
+            >
+              {streamBackfillBusy ? (
+                <>
+                  <Clock className="h-4 w-4" aria-hidden />
+                  Backfilling…
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" aria-hidden />
+                  Backfill channel property metadata
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              disabled={streamSyncBusy}
+              onClick={syncAllUsersToStream}
+              className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-white shadow-sm ring-1 ${
+                streamSyncBusy
+                  ? "cursor-not-allowed bg-[#6B9E6E]/60 ring-[#6B9E6E]/25"
+                  : "bg-[#6B9E6E] ring-[#D4A843]/30 hover:bg-[#5d8a60]"
+              }`}
+            >
+              {streamSyncBusy ? (
+                <>
+                  <Clock className="h-4 w-4" aria-hidden />
+                  Syncing…
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" aria-hidden />
+                  Sync all users to Stream Chat
+                </>
+              )}
+            </button>
+          </div>
         </div>
+        {streamBackfillResult != null ? (
+          <p className="mt-2 text-sm font-semibold text-[#2C5F32]">Patched {streamBackfillResult} channels.</p>
+        ) : null}
         {streamSyncResult != null ? (
           <p className="mt-3 text-sm font-semibold text-[#2C5F32]">Synced {streamSyncResult} users.</p>
         ) : null}

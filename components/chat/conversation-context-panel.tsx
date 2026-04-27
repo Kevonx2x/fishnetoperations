@@ -66,14 +66,21 @@ export function ConversationContextPanel(props: {
     if (!propertyId) return;
     if (hasCached) return;
     const ac = new AbortController();
-    setLoading(true);
     void (async () => {
-      const res = await fetchPropertySummary(propertyId, { signal: ac.signal });
-      if (ac.signal.aborted) return;
-      if (res.ok) {
-        setCache((prev) => ({ ...prev, [propertyId]: res.data }));
+      try {
+        setLoading(true);
+        const res = await fetchPropertySummary(propertyId, { signal: ac.signal });
+        if (ac.signal.aborted) return;
+        if (res.ok) {
+          setCache((prev) => ({ ...prev, [propertyId]: res.data }));
+        }
+      } catch (err) {
+        // Abort errors are expected during fast navigation/unmounts; don't log them.
+        if (err instanceof Error && err.name === "AbortError") return;
+        console.error("Failed to load property summary:", err);
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
       }
-      setLoading(false);
     })();
     return () => ac.abort();
   }, [hasCached, propertyId]);
