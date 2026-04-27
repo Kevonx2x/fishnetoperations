@@ -185,6 +185,26 @@ export default function PropertyPage() {
         setProperty(null);
       } else {
         const next = (data ?? null) as unknown as PropertyRow | null;
+        // Avatar source of truth is profiles.avatar_url; keep a safety-net fallback for legacy agent photos.
+        if (
+          next?.listed_by &&
+          next?.listing_agent &&
+          !String(next.listing_agent.avatar_url ?? "").trim()
+        ) {
+          try {
+            const { data: agentRow } = await supabase
+              .from("agents")
+              .select("image_url")
+              .eq("user_id", next.listed_by)
+              .maybeSingle();
+            const fallback = (agentRow?.image_url as string | null | undefined)?.trim() || "";
+            if (fallback && next.listing_agent) {
+              (next.listing_agent as { avatar_url?: string | null }).avatar_url = fallback;
+            }
+          } catch {
+            /* ignore */
+          }
+        }
         setProperty(next);
         if (next?.id) recordRecentlyViewedPropertyId(next.id);
       }

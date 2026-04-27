@@ -57,6 +57,7 @@ import { PhPhoneInput } from "@/components/ui/ph-phone-input";
 import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
 import { formatListingPricePhp } from "@/lib/format-listing-price";
 import { cn } from "@/lib/utils";
+import { avatarObjectExt, validateAvatarFile } from "@/lib/supabase/upload-avatar";
 import {
   AGENT_AVAILABILITY_NOW,
   AGENT_AVAILABILITY_OFFLINE,
@@ -1304,27 +1305,40 @@ export function AgentDashboard() {
     if (!user?.id || !agent) return;
     setSaving(true);
     setMsg("");
-    const ext = file.name.split(".").pop() || "jpg";
-    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("agent-avatars").upload(path, file, {
-      upsert: true,
-      contentType: file.type || "image/jpeg",
-    });
-    if (upErr) {
+    const v = validateAvatarFile(file);
+    if (v) {
       setSaving(false);
-      setMsg(upErr.message);
+      setMsg(v);
       return;
     }
-    const { data: pub } = supabase.storage.from("agent-avatars").getPublicUrl(path);
-    const url = pub.publicUrl;
-    const { error } = await supabase.from("agents").update({ image_url: url }).eq("user_id", user.id);
-    setSaving(false);
-    if (error) {
-      setMsg(error.message);
-      return;
+
+    try {
+      const ext = avatarObjectExt(file);
+      const path = `${user.id}/avatar.${ext}`;
+      const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, {
+        upsert: true,
+        contentType: file.type || "image/jpeg",
+      });
+      if (upErr) {
+        setMsg(upErr.message);
+        return;
+      }
+
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const busted = `${pub.publicUrl}?t=${Date.now()}`;
+
+      const [{ error: profErr }, { error: agentErr }] = await Promise.all([
+        supabase.from("profiles").update({ avatar_url: busted }).eq("id", user.id),
+        supabase.from("agents").update({ image_url: busted }).eq("user_id", user.id),
+      ]);
+      if (profErr) throw profErr;
+      if (agentErr) throw agentErr;
+
+      setMsg("Photo updated.");
+      await loadData();
+    } finally {
+      setSaving(false);
     }
-    setMsg("Photo updated.");
-    await loadData();
   };
 
   const updateLeadStage = async (leadId: number, stage: string) => {
