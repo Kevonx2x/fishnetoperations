@@ -119,8 +119,20 @@ export function useActiveConversation(params: UseActiveConversationParams) {
 
     let cancelled = false;
 
+    /**
+     * `detach` runs from `finish`, early `tryPickCached` exits, and effect cleanup — it must call
+     * `cli.off` with the same function reference passed to `cli.on`. A `const onQueried` declared
+     * below `detach` leaves `onQueried` in the temporal dead zone when `detach` is created, so we
+     * hold the listener in a `let` initialized to `null`, assign the handler after `detach`/`finish`
+     * exist, then register with Stream.
+     */
+    let onQueried: ((event: Event) => void | Promise<void>) | null = null;
+
     const detach = () => {
-      cli.off(CHANNELS_QUERIED, onQueried);
+      if (onQueried) {
+        cli.off(CHANNELS_QUERIED, onQueried);
+        onQueried = null;
+      }
     };
 
     const finish = (ch: Channel) => {
@@ -144,7 +156,7 @@ export function useActiveConversation(params: UseActiveConversationParams) {
 
     if (tryPickCached()) return;
 
-    const onQueried = async (event: Event) => {
+    onQueried = async (event: Event) => {
       if (cancelled) return;
 
       if (tryPickCached()) return;
