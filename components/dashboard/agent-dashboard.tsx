@@ -32,8 +32,7 @@ import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
 import { AgentPipelineTab, type PipelineStageId } from "@/components/dashboard/agent-pipeline-tab";
 import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
-import { useStreamChat } from "@/features/messaging/components/stream-chat-provider";
-import { useUnreadCount } from "@/features/messaging/hooks/use-unread-count";
+import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
@@ -594,8 +593,7 @@ function AgentDashboardDocumentsTab({
 export function AgentDashboard() {
   const router = useRouter();
   const { user, loading: authLoading, role: authProfileRole } = useAuth();
-  const streamClient = useStreamChat();
-  const streamMessagesUnreadTotal = useUnreadCount(streamClient);
+  const streamMessagesUnreadTotal = useUnreadMessageCount();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [tab, setTab] = useState<Tab>("pipeline");

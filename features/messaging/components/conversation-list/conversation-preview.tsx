@@ -39,12 +39,25 @@ export function ConversationPreview(
 
   const activateChannel = useCallback(async () => {
     if (activeChannel?.cid === channel.cid) return;
+    let unreadBefore = 0;
+    try {
+      unreadBefore = channel.countUnread();
+    } catch {
+      unreadBefore = 0;
+    }
     try {
       await channel.watch();
     } catch {
       // ignore
     }
     setActiveChannel(channel);
+    if (unreadBefore > 0) {
+      try {
+        await channel.markRead();
+      } catch {
+        // ignore
+      }
+    }
   }, [activeChannel?.cid, channel, setActiveChannel]);
 
   const handleRowClick = (e: MouseEvent) => {

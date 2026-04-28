@@ -47,7 +47,8 @@ Data flow:
 - **hooks/**
   - **`use-active-conversation.ts`**: One-way `?channel=` sync: selects the deep-linked channel via `client.activeChannels`, then `channels.queried` + one-shot `watch()` if the list query has not hydrated yet; updates the URL when the active channel changes.
   - **`use-channel-list.ts`**: Search/filter/sort and Stream event subscriptions (`channel.updated/hidden/visible`) to force list re-render.
-  - **`use-unread-count.ts`**: Global `client.user.total_unread_count` + per-row `channel.countUnread()` subscriptions for nav/list badges (Stream events only).
+  - **`use-unread-message-count.ts`**: Sidebar / list header badge — mirrors `client.user.total_unread_count`; subscribes to `notification.mark_read`, `notification.message_new`, and `message.new` with `client.off` cleanup.
+  - **`use-unread-count.ts`**: Per-row `channel.countUnread()` only (`useChannelUnreadCount`); Stream channel + client read events.
   - **`use-property-summary.ts`**: Fetches property metadata and **silences AbortError** (expected on unmount).
 
 - **lib/**
@@ -79,7 +80,7 @@ Data flow:
 | Context panel logs AbortError | AbortError should be ignored (expected on unmount). | `hooks/use-property-summary.ts` |
 | Avatars show initials when photo exists | Stream user `image` not being set/upserted for the user. | `components/stream-chat-provider.tsx`, `api/token/*` |
 | Avatar missing on consecutive messages from same sender | Stream's default message grouping hides avatars on non-first messages in a group | `custom-message.tsx` — render peer `Avatar` whenever `!isMyMessage()` (do not gate on `firstOfGroup` / `groupStyles`) |
-| Unread badge doesn't decrement on read | Badge not reacting to Stream read payloads (`event.me` / `message.read` / `notification.mark_read`) | `hooks/use-unread-count.ts` — `useUnreadCount` uses `client.on` + effect cleanup; sync from `event.me.total_unread_count` when present |
+| Unread badge stale on conversation click | Stream's auto-markRead fires on MessageList visibility, which is too late or unreliable. Click handler must explicitly call `channel.markRead()` | `conversation-preview.tsx` — call `channel.markRead()` after `setActiveChannel` when the row had unread; `use-unread-message-count.ts` subscribes to read/new events |
 
 ### How to add a new feature (example: “Mute conversation”)
 - Add action UI to `components/conversation-list/conversation-preview.tsx` (or the thread menu in `components/chat-thread/index.tsx`).
@@ -97,8 +98,8 @@ Data flow:
 - **ChannelList hides archived channels by default**.
 - **`archived_at` is per-membership**, not per-channel — each member can independently archive/unarchive the same channel.
 - To include archived channels in list queries you can filter for them (e.g. `archived: true`) or override the default list behavior.
-- **`MessageList` / `Channel` mark the channel read automatically** when the list is visible — you do not need to call `channel.markRead()` manually for the default thread UX.
-- **`client.user.total_unread_count`** is the source of truth for global unread across channels; many read-related events include **`event.me`** with an updated count — UI badges should subscribe to Stream client events (see `use-unread-count.ts`) so the value updates without refresh.
+- **`MessageList` / `Channel` can mark the channel read** when the list becomes visible, but that timing is **not reliable for sidebar totals** — call **`channel.markRead()`** from the **conversation row click** (`conversation-preview.tsx`) when the channel had unread so **`client.user.total_unread_count`** updates immediately on click.
+- **`client.user.total_unread_count`** is the source of truth for global unread; subscribe to **`notification.mark_read`** (decrement) **and** **`message.new`** / **`notification.message_new`** (increment) for nav badges — see **`use-unread-message-count.ts`**.
 
 ### Things to NEVER do
 - Cache contact info in component state (names/avatars/online status)

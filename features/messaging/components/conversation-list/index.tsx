@@ -6,7 +6,7 @@ import { ConversationFilter } from "@/features/messaging/components/conversation
 import { SearchBar } from "@/features/messaging/components/conversation-list/search-bar";
 import { ConversationPreview } from "@/features/messaging/components/conversation-list/conversation-preview";
 import { CHANNEL_LIST_OPTIONS, CHANNEL_LIST_SORT, useChannelList } from "@/features/messaging/hooks/use-channel-list";
-import { useUnreadCount } from "@/features/messaging/hooks/use-unread-count";
+import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 
 export function ConversationListPanel(props: {
   selfUserId: string;
@@ -14,7 +14,7 @@ export function ConversationListPanel(props: {
   variant: "desktop" | "mobile";
 }) {
   const { client } = useChatContext();
-  const streamMessagesUnreadTotal = useUnreadCount(client);
+  const streamMessagesUnreadTotal = useUnreadMessageCount();
   const {
     filters,
     channelListKey,
