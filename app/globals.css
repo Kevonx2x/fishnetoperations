@@ -354,6 +354,8 @@
     min-height: 0;
     min-width: 0;
     overflow: hidden;
+    /* Extra inset with the composer margin so the bar reads clearly above the panel edge. */
+    padding-bottom: 8px;
   }
 
   /* Window’s single child (thread shell) must fill main-panel so list/input flex works */
@@ -497,13 +499,29 @@
     box-sizing: border-box;
     flex-shrink: 0;
     /* Lifts the composer off the panel edge; does not affect scroll (input stays flex-shrink: 0). */
-    margin-bottom: 14px;
+    margin-bottom: 24px;
     margin-left: 32px;
     margin-right: auto;
     margin-top: 0;
     max-width: 600px;
     padding: 0 16px 0 0;
+    padding-bottom: 0;
     width: 100%;
+  }
+
+  /*
+   * ThreadInner wraps list + Stream composer in `.bhg-chat-panel`. In some flex layouts, margin on
+   * `.str-chat__message-input` alone does not read visually; shell padding guarantees bottom breathing room.
+   */
+  .bahaygo-stream-chat .bhg-chat-panel {
+    box-sizing: border-box;
+    padding-bottom: 12px;
+  }
+
+  /* Higher specificity when Stream nests the composer under `.str-chat__main-panel`. */
+  .bahaygo-stream-chat .str-chat__main-panel .str-chat__message-input {
+    margin-bottom: 24px;
+    padding-bottom: 0;
   }
 
   /* Designed pill: attachment + compositor + send in one field */

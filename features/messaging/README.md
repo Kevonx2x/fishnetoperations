@@ -113,7 +113,7 @@ Data flow:
 - Override Stream class names instead of using Stream CSS variables (prefer `--str-chat__*`)
 
 ### Visual conventions
-- **Message composer inset from panel bottom**: In `app/globals.css` (`@layer stream-overrides`), `.bahaygo-stream-chat .str-chat__message-input` uses `margin-bottom: 14px` so the input bar sits slightly above the bottom edge of the thread column on both client and agent messaging (`bahaygo-stream-chat` wraps the inbox). Keeps the composer anchored (does not scroll with the list) while adding breathing room; do not remove unless redesigning the thread chrome.
+- **Message composer inset from panel bottom**: In `app/globals.css` (`@layer stream-overrides`), use **three** scoped levers so the bar visibly clears the bottom: (1) `.str-chat__message-input` `margin-bottom: 24px` (plus a `.str-chat__main-panel .str-chat__message-input` duplicate for specificity), (2) `.str-chat__main-panel` `padding-bottom: 8px`, (3) our thread shell `.bhg-chat-panel` `padding-bottom: 12px` because flex layout can swallow margin-only tweaks. Composer stays anchored to the thread column (does not scroll with the list). Adjust together if redesigning thread chrome.
 
 ### Code conventions
 - **Line limit**: every file under `features/messaging/` must be **≤ 500 lines**. If a file grows beyond that, split it by responsibility (subcomponents, hooks, or lib helpers).
