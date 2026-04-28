@@ -71,6 +71,7 @@ Data flow:
 | Auto-scroll broken / can't scroll messages | `overflow-y: hidden` on `.str-chat__list` blocks all scrolling and breaks Stream's auto-scroll. | `app/globals.css` (`@layer stream-overrides` → `.str-chat__list`) |
 | Conversation list shows “You have no channels currently” but channels exist | Filters were built before `client.userID` was ready and memoized with an undefined user id, so `ChannelList` queried with `$in: [undefined]` and stayed empty. Fix: **gate filters on `client.userID`** and key `ChannelList` by userID (composited with the event bump key). | `hooks/use-channel-list.ts`, `components/conversation-list/index.tsx` |
 | "You have no channels currently" but channels exist in API response | Channels are archived for the user (`membership.archived_at` set). Stream React `ChannelList` hides archived channels by default. | Admin tool: `/api/admin/stream/unarchive-user-channels` |
+| Active channel rapidly flickers between conversations | Deep-link sync `useEffect` depended on `searchParams` / `channel.cid` while another effect called `router.replace`, so URL ↔ `setActiveChannel` ping-ponged. | `hooks/use-active-conversation.ts` — URL→channel depends on a **primitive** `channelQueryKey` + `client.userID` only; channel→URL depends on **`channel.id` only** (read latest `searchParams` via a ref, not in deps); always `off()` `channels.queried` in cleanup |
 | Conversations not switching / snaps back | Deep link effect or desktop auto-select effect re-running and overwriting user selection. | `hooks/use-active-conversation.ts` |
 | Pin/unpin doesn’t update visually | Channel data mutated in place; without event subscription + rerender bump the list won’t resort. | `hooks/use-channel-list.ts`, `components/conversation-list/conversation-preview.tsx` |
 | Archive doesn’t remove from list | Filter mode not excluding archived or list not re-rendering on hidden/visible. | `hooks/use-channel-list.ts` |
@@ -99,6 +100,9 @@ Data flow:
 - Pass channel as a prop instead of reading from `useChatContext()`
 - Store a channel object in local React state
 - Poll `queryChannels` in a loop from URL sync (prefer `channels.queried` + `activeChannels`, or a **one-shot** `client.channel("messaging", id).watch()` for the known deep-link id)
+- Put the whole `searchParams` object in a `useEffect` dependency array when that effect (or a sibling) also calls `router.replace` to update query params — use a **primitive** query string (or `channel.id`) plus a `searchParams` ref for reads instead
+- Depend on the whole `channel` / `activeChannel` object in `useEffect` deps for URL sync — use **`channel.id`** (or `cid` only where unavoidable) as the stable key
+- Subscribe to `client.on(...)` without removing the listener in the effect cleanup — always `off()` in `return () => { ... }`
 - Use the channel object in `useEffect`/`useMemo` dependency arrays (use `channel?.cid` instead)
 - Never build Stream filters before `client.userID` is ready
 - Never memo Stream filters with an empty dependency array

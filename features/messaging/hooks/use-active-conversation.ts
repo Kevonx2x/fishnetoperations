@@ -1,17 +1,17 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Channel, Event } from "stream-chat";
 import { useChatContext } from "stream-chat-react";
 
 export type UseActiveConversationParams = {
   /**
-   * Optional deep link value (from UI integration). The URL `?channel=` is the primary source;
-   * this value is a fallback when search params are not yet available to the hook.
+   * Fallback when `?channel=` is not on the URL yet (e.g. first paint from props).
+   * The URL string is still the source of truth once present.
    */
   initialChannelParam: string | null;
 };
 
-/** Stream client emits this after `ChannelList` (and other callers) finish a channel query batch. */
+/** Stream client emits this after `ChannelList` (and similar) finish a channel query batch. */
 const CHANNELS_QUERIED = "channels.queried" as const;
 
 /**
@@ -60,44 +60,74 @@ function pickMessagingIdFromQueried(event: Event, messagingId: string): string |
 }
 
 /**
- * One-way URL sync for Stream’s active channel.
+ * **URL → Stream (deep link):** Apply `?channel=` (or `initialChannelParam`) when the active channel
+ * does not already match. Depends on a **primitive** `channelQueryKey` string plus **`client.userID`**
+ * — not the `searchParams` object, not `channel`, and not `channel.cid` — so the companion
+ * `router.replace` effect cannot create a ping-pong. Listens to `channels.queried` only until the
+ * channel is resolved, then unsubscribes.
  *
- * **Deep link (`?channel=`):** On first paint the channel may not yet exist in `client.activeChannels`
- * because `ChannelList` has not finished its initial query. In that case we subscribe once to Stream’s
- * `channels.queried` event; when the list query completes we either pick the channel from `activeChannels`
- * or call `client.channel("messaging", id).watch()` once so the thread has state, then `setActiveChannel`.
- *
- * **URL updates:** When the active channel changes, we `replaceState` the `channel` query param to the
- * current `cid` (no history spam). We do not run bidirectional loops or store a parallel “selected” channel.
+ * **Stream → URL:** When `channel.id` changes, `replace` the `channel` query param to that **id**
+ * (same format as deep links from `/api/stream/channel`). Depends only on **`channel?.id`** — not
+ * `searchParams` — so URL updates do not re-trigger the deep-link effect.
  */
 export function useActiveConversation(params: UseActiveConversationParams) {
   const { channel, setActiveChannel, client } = useChatContext();
   const searchParams = useSearchParams();
   const router = useRouter();
 
+  const channelQueryKey = useMemo(() => {
+    const fromUrl = (searchParams.get("channel") ?? "").trim();
+    const fromProp = (params.initialChannelParam ?? "").trim();
+    return fromUrl || fromProp || "";
+  }, [searchParams, params.initialChannelParam]);
+
+  const channelRef = useRef(channel);
+  channelRef.current = channel;
+
+  const activeChannelIdRef = useRef<string | undefined>(undefined);
+  activeChannelIdRef.current = channel?.id;
+
+  const searchParamsRef = useRef(searchParams);
+  searchParamsRef.current = searchParams;
+
+  const clientRef = useRef(client);
+  clientRef.current = client;
+
   const clearActiveConversation = useCallback(() => setActiveChannel(undefined), [setActiveChannel]);
 
   useEffect(() => {
-    const urlParam = (searchParams.get("channel") ?? "").trim();
-    const target = (urlParam || params.initialChannelParam || "").trim();
+    const cli = clientRef.current;
+    if (!cli?.userID) return;
+
+    const target = channelQueryKey;
     if (!target) return;
 
     const messagingId = messagingCustomIdFromQueryParam(target);
     if (!messagingId) return;
 
-    if (channel && channelMatchesTarget(channel, target, messagingId)) {
+    const active = channelRef.current;
+    if (active && channelMatchesTarget(active, target, messagingId)) {
       return;
     }
 
     let cancelled = false;
 
+    const detach = () => {
+      cli.off(CHANNELS_QUERIED, onQueried);
+    };
+
     const finish = (ch: Channel) => {
       if (cancelled) return;
+      if (activeChannelIdRef.current === ch.id) {
+        detach();
+        return;
+      }
       setActiveChannel(ch);
+      detach();
     };
 
     const tryPickCached = (): boolean => {
-      const picked = pickActiveChannel(client, target, messagingId);
+      const picked = pickActiveChannel(cli, target, messagingId);
       if (picked) {
         finish(picked);
         return true;
@@ -107,33 +137,25 @@ export function useActiveConversation(params: UseActiveConversationParams) {
 
     if (tryPickCached()) return;
 
-    const detach = () => {
-      client.off(CHANNELS_QUERIED, onQueried);
-    };
-
     const onQueried = async (event: Event) => {
       if (cancelled) return;
 
-      if (tryPickCached()) {
-        detach();
-        return;
-      }
+      if (tryPickCached()) return;
 
       const idFromRows = pickMessagingIdFromQueried(event, messagingId);
       const idToWatch = idFromRows ?? messagingId;
 
       try {
-        const ch = client.channel("messaging", idToWatch);
+        const ch = cli.channel("messaging", idToWatch);
         await ch.watch();
         if (cancelled) return;
         finish(ch);
-        detach();
       } catch {
-        // Channel may still be syncing; keep listening for a later `channels.queried` batch.
+        // Keep listening until a later batch or cleanup.
       }
     };
 
-    client.on(CHANNELS_QUERIED, onQueried);
+    cli.on(CHANNELS_QUERIED, onQueried);
 
     queueMicrotask(() => {
       if (cancelled) return;
@@ -144,19 +166,22 @@ export function useActiveConversation(params: UseActiveConversationParams) {
       cancelled = true;
       detach();
     };
-  }, [channel?.cid, client, params.initialChannelParam, searchParams, setActiveChannel]);
+  }, [channelQueryKey, client?.userID, setActiveChannel]);
 
   useEffect(() => {
-    const cid = channel?.cid ?? null;
-    if (!cid) return;
+    const id = channel?.id ?? null;
+    if (!id) return;
 
-    const current = searchParams.get("channel") ?? "";
-    if (current === cid) return;
+    const sp = searchParamsRef.current;
+    const current = (sp.get("channel") ?? "").trim();
+    if (current === id || messagingCustomIdFromQueryParam(current) === id) {
+      return;
+    }
 
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("channel", cid);
+    const next = new URLSearchParams(sp.toString());
+    next.set("channel", id);
     router.replace(`?${next.toString()}`);
-  }, [channel?.cid, router, searchParams]);
+  }, [channel?.id, router]);
 
   return { clearActiveConversation };
 }
