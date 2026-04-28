@@ -496,7 +496,8 @@
     box-shadow: none;
     box-sizing: border-box;
     flex-shrink: 0;
-    margin-bottom: 0;
+    /* Lifts the composer off the panel edge; does not affect scroll (input stays flex-shrink: 0). */
+    margin-bottom: 14px;
     margin-left: 32px;
     margin-right: auto;
     margin-top: 0;
