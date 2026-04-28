@@ -7,7 +7,7 @@ import type { ChannelPreviewUIComponentProps } from "stream-chat-react";
 
 import { cn } from "@/lib/utils";
 import { getPeerUser, previewPlainText } from "@/features/messaging/lib/channel-helpers";
-import { useChannelUnreadCount } from "@/features/messaging/hooks/use-stream-unread-indicators";
+import { useChannelUnreadCount } from "@/features/messaging/hooks/use-unread-count";
 
 function toTimeString(timeSource: unknown): string {
   if (!timeSource) return "";

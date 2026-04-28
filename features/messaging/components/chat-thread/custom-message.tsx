@@ -16,8 +16,8 @@ export function CustomMessage() {
     !mine &&
     Boolean(message.user?.name) &&
     (firstOfGroup || groupStyles?.includes("top") || groupStyles?.includes("single"));
-  const showAvatar =
-    !mine && (firstOfGroup || groupStyles?.includes("top") || groupStyles?.includes("single"));
+  /** Always show peer avatar on every bubble (Stream grouping hides avatars on middle/bottom by default). */
+  const showAvatar = !mine;
   const tight = Boolean(groupStyles?.includes("middle") || groupStyles?.includes("bottom"));
 
   const gap = useMemo(
@@ -48,7 +48,7 @@ export function CustomMessage() {
         gap === "start" && "bhg-msg--gap-start",
         gap === "same" && "bhg-msg--gap-same",
         gap === "turn" && "bhg-msg--gap-turn",
-        !mine && (showAvatar ? "pl-0" : "pl-12"),
+        !mine && "pl-0",
         "w-full",
       )}
     >

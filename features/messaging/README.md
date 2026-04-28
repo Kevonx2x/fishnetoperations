@@ -47,6 +47,7 @@ Data flow:
 - **hooks/**
   - **`use-active-conversation.ts`**: One-way `?channel=` sync: selects the deep-linked channel via `client.activeChannels`, then `channels.queried` + one-shot `watch()` if the list query has not hydrated yet; updates the URL when the active channel changes.
   - **`use-channel-list.ts`**: Search/filter/sort and Stream event subscriptions (`channel.updated/hidden/visible`) to force list re-render.
+  - **`use-unread-count.ts`**: Global `client.user.total_unread_count` + per-row `channel.countUnread()` subscriptions for nav/list badges (Stream events only).
   - **`use-property-summary.ts`**: Fetches property metadata and **silences AbortError** (expected on unmount).
 
 - **lib/**
@@ -77,6 +78,8 @@ Data flow:
 | Archive doesn’t remove from list | Filter mode not excluding archived or list not re-rendering on hidden/visible. | `hooks/use-channel-list.ts` |
 | Context panel logs AbortError | AbortError should be ignored (expected on unmount). | `hooks/use-property-summary.ts` |
 | Avatars show initials when photo exists | Stream user `image` not being set/upserted for the user. | `components/stream-chat-provider.tsx`, `api/token/*` |
+| Avatar missing on consecutive messages from same sender | Stream's default message grouping hides avatars on non-first messages in a group | `custom-message.tsx` — render peer `Avatar` whenever `!isMyMessage()` (do not gate on `firstOfGroup` / `groupStyles`) |
+| Unread badge doesn't decrement on read | Badge not reacting to Stream read payloads (`event.me` / `message.read` / `notification.mark_read`) | `hooks/use-unread-count.ts` — `useUnreadCount` uses `client.on` + effect cleanup; sync from `event.me.total_unread_count` when present |
 
 ### How to add a new feature (example: “Mute conversation”)
 - Add action UI to `components/conversation-list/conversation-preview.tsx` (or the thread menu in `components/chat-thread/index.tsx`).
@@ -94,6 +97,8 @@ Data flow:
 - **ChannelList hides archived channels by default**.
 - **`archived_at` is per-membership**, not per-channel — each member can independently archive/unarchive the same channel.
 - To include archived channels in list queries you can filter for them (e.g. `archived: true`) or override the default list behavior.
+- **`MessageList` / `Channel` mark the channel read automatically** when the list is visible — you do not need to call `channel.markRead()` manually for the default thread UX.
+- **`client.user.total_unread_count`** is the source of truth for global unread across channels; many read-related events include **`event.me`** with an updated count — UI badges should subscribe to Stream client events (see `use-unread-count.ts`) so the value updates without refresh.
 
 ### Things to NEVER do
 - Cache contact info in component state (names/avatars/online status)

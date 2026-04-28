@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { ClientAvatar } from "@/components/client/client-avatar";
 import { useStreamChat } from "@/features/messaging/components/stream-chat-provider";
-import { useStreamTotalUnreadCount } from "@/features/messaging/hooks/use-stream-unread-indicators";
+import { useUnreadCount } from "@/features/messaging/hooks/use-unread-count";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -44,7 +44,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [notifUnread, setNotifUnread] = useState(0);
   const streamClient = useStreamChat();
-  const streamMessagesUnreadTotal = useStreamTotalUnreadCount(streamClient);
+  const streamMessagesUnreadTotal = useUnreadCount(streamClient);
   const isMessagesRoute = pathname.startsWith("/dashboard/client/messages");
 
   const refreshUnread = useCallback(async () => {
