@@ -20,6 +20,7 @@ export function AgentMessagesInbox(props: { initialChannelId?: string | null }) 
     <MessagingInbox
       setActiveChannelOnMount
       initialChannelId={props.initialChannelId ?? null}
+      showConversationContextPanel
       layoutClassName="flex h-full w-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page md:h-full md:max-h-full md:min-h-0 md:grid md:grid-cols-[320px_minmax(0,1fr)_300px]"
     />
   );
