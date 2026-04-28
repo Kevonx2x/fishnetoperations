@@ -61,19 +61,26 @@ function pickMessagingIdFromQueried(event: Event, messagingId: string): string |
 
 /**
  * **URL → Stream (deep link):** Apply `?channel=` (or `initialChannelParam`) when the active channel
- * does not already match. Depends on a **primitive** `channelQueryKey` string plus **`client.userID`**
- * — not the `searchParams` object, not `channel`, and not `channel.cid` — so the companion
- * `router.replace` effect cannot create a ping-pong. Listens to `channels.queried` only until the
- * channel is resolved, then unsubscribes.
+ * does not already match. Effect dependencies are **only fixed-length primitive strings** plus
+ * `setActiveChannel` — never the Stream `client` object, never `searchParams`, never the `channel`
+ * object or `channel.cid` — so the companion `router.replace` effect cannot create a ping-pong.
+ * Listens to `channels.queried` only until the channel is resolved, then unsubscribes.
  *
- * **Stream → URL:** When `channel.id` changes, `replace` the `channel` query param to that **id**
- * (same format as deep links from `/api/stream/channel`). Depends only on **`channel?.id`** — not
- * `searchParams` — so URL updates do not re-trigger the deep-link effect.
+ * **Stream → URL:** When the active channel’s **id string** changes, `replace` the `channel` query
+ * param to that id (same format as deep links from `/api/stream/channel`). Dependencies are
+ * **`activeChannelId` (string)** and **`router`** only — `searchParams` is read from a ref inside
+ * the effect so it is not a dependency.
  */
 export function useActiveConversation(params: UseActiveConversationParams) {
   const { channel, setActiveChannel, client } = useChatContext();
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  /** Stable primitive for `useEffect` deps — never pass the Stream `client` instance in the array. */
+  const streamUserId: string = client?.userID ?? "";
+
+  /** Stable primitive for `useEffect` deps — never pass the `channel` object in the array. */
+  const activeChannelId: string = channel?.id ?? "";
 
   const channelQueryKey = useMemo(() => {
     const fromUrl = (searchParams.get("channel") ?? "").trim();
@@ -97,7 +104,7 @@ export function useActiveConversation(params: UseActiveConversationParams) {
 
   useEffect(() => {
     const cli = clientRef.current;
-    if (!cli?.userID) return;
+    if (!streamUserId || !cli?.userID) return;
 
     const target = channelQueryKey;
     if (!target) return;
@@ -166,22 +173,21 @@ export function useActiveConversation(params: UseActiveConversationParams) {
       cancelled = true;
       detach();
     };
-  }, [channelQueryKey, client?.userID, setActiveChannel]);
+  }, [channelQueryKey, setActiveChannel, streamUserId]);
 
   useEffect(() => {
-    const id = channel?.id ?? null;
-    if (!id) return;
+    if (!activeChannelId) return;
 
     const sp = searchParamsRef.current;
     const current = (sp.get("channel") ?? "").trim();
-    if (current === id || messagingCustomIdFromQueryParam(current) === id) {
+    if (current === activeChannelId || messagingCustomIdFromQueryParam(current) === activeChannelId) {
       return;
     }
 
     const next = new URLSearchParams(sp.toString());
-    next.set("channel", id);
+    next.set("channel", activeChannelId);
     router.replace(`?${next.toString()}`);
-  }, [channel?.id, router]);
+  }, [activeChannelId, router]);
 
   return { clearActiveConversation };
 }

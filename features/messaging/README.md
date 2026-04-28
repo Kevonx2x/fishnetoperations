@@ -103,6 +103,8 @@ Data flow:
 - Put the whole `searchParams` object in a `useEffect` dependency array when that effect (or a sibling) also calls `router.replace` to update query params — use a **primitive** query string (or `channel.id`) plus a `searchParams` ref for reads instead
 - Depend on the whole `channel` / `activeChannel` object in `useEffect` deps for URL sync — use **`channel.id`** (or `cid` only where unavoidable) as the stable key
 - Subscribe to `client.on(...)` without removing the listener in the effect cleanup — always `off()` in `return () => { ... }`
+- Include a Stream **`Channel` instance** (or the whole Stream **`client`**) in a `useEffect` dependency array — use **`channel.id`** or **`channel.cid`** (or `client.userID`) as **string primitives** derived before the effect
+- Build dependency arrays whose **length or element types change between renders** (e.g. sometimes spreading deps, or swapping an object slot for a primitive) — keep a **constant** arity; use `""` / `null` sentinels coerced to stable primitives where needed
 - Use the channel object in `useEffect`/`useMemo` dependency arrays (use `channel?.cid` instead)
 - Never build Stream filters before `client.userID` is ready
 - Never memo Stream filters with an empty dependency array
