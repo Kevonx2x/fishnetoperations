@@ -6,6 +6,7 @@ import { ConversationFilter } from "@/features/messaging/components/conversation
 import { SearchBar } from "@/features/messaging/components/conversation-list/search-bar";
 import { ConversationPreview } from "@/features/messaging/components/conversation-list/conversation-preview";
 import { CHANNEL_LIST_OPTIONS, CHANNEL_LIST_SORT, useChannelList } from "@/features/messaging/hooks/use-channel-list";
+import { useStreamTotalUnreadCount } from "@/features/messaging/hooks/use-stream-unread-indicators";
 
 export function ConversationListPanel(props: {
   selfUserId: string;
@@ -13,6 +14,7 @@ export function ConversationListPanel(props: {
   variant: "desktop" | "mobile";
 }) {
   const { client } = useChatContext();
+  const streamMessagesUnreadTotal = useStreamTotalUnreadCount(client);
   const {
     filters,
     channelListKey,
@@ -45,7 +47,14 @@ export function ConversationListPanel(props: {
     <div className="flex h-full min-h-0 w-full shrink-0 flex-col border-b border-subtle md:border-b-0 md:border-r md:border-subtle md:w-[320px] md:min-w-[320px] md:max-w-[320px]">
       {showLargeHeader ? (
         <div className="hidden shrink-0 border-b border-subtle bg-surface-page px-4 pb-4 pt-5 md:block">
-          <h2 className="font-serif text-2xl font-bold tracking-tight text-fg">Messages</h2>
+          <div className="flex items-baseline gap-2">
+            <h2 className="font-serif text-2xl font-bold tracking-tight text-fg">Messages</h2>
+            {streamMessagesUnreadTotal > 0 ? (
+              <span className="rounded-full bg-fg/10 px-2 py-0.5 text-xs font-bold tabular-nums text-fg/80">
+                {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
+              </span>
+            ) : null}
+          </div>
           <div className="mt-3 flex gap-2">
             <SearchBar value={listSearch} onChange={setListSearch} />
             <ConversationFilter value={filterMode} onChange={setFilterMode} />
@@ -53,7 +62,14 @@ export function ConversationListPanel(props: {
         </div>
       ) : (
         <div className="border-b border-subtle bg-surface-page px-4 py-3 md:hidden">
-          <span className="font-serif text-xl font-semibold text-fg">Messages</span>
+          <div className="flex items-baseline gap-2">
+            <span className="font-serif text-xl font-semibold text-fg">Messages</span>
+            {streamMessagesUnreadTotal > 0 ? (
+              <span className="rounded-full bg-fg/10 px-2 py-0.5 text-xs font-bold tabular-nums text-fg/80">
+                {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
+              </span>
+            ) : null}
+          </div>
           <div className="mt-2 flex gap-2">
             <SearchBar
               value={listSearch}

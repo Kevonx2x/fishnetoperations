@@ -7,6 +7,7 @@ import type { ChannelPreviewUIComponentProps } from "stream-chat-react";
 
 import { cn } from "@/lib/utils";
 import { getPeerUser, previewPlainText } from "@/features/messaging/lib/channel-helpers";
+import { useChannelUnreadCount } from "@/features/messaging/hooks/use-stream-unread-indicators";
 
 function toTimeString(timeSource: unknown): string {
   if (!timeSource) return "";
@@ -24,7 +25,8 @@ export function ConversationPreview(
   props: ChannelPreviewUIComponentProps & { selfId: string; onChannelListMutate?: () => void },
 ) {
   const { channel, active, displayTitle, latestMessagePreview, lastMessage, onSelect, selfId } = props;
-  const { setActiveChannel, channel: activeChannel } = useChatContext();
+  const { setActiveChannel, channel: activeChannel, client } = useChatContext();
+  const unreadCount = useChannelUnreadCount(channel, client);
 
   const peer = getPeerUser(channel, selfId);
   const peerAvatar = peer?.image;
@@ -106,8 +108,31 @@ export function ConversationPreview(
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <span className="truncate font-semibold text-fg">{title}</span>
-          <span className="shrink-0 text-[11px] font-medium tabular-nums text-fg/45">{timeStr}</span>
+          <span
+            className={cn(
+              "min-w-0 truncate text-fg",
+              unreadCount > 0 ? "font-bold" : "font-semibold",
+            )}
+          >
+            {unreadCount > 0 ? (
+              <span
+                className="mr-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-brand-sage align-middle"
+                aria-hidden
+              />
+            ) : null}
+            {title}
+          </span>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {unreadCount > 0 ? (
+              <span
+                className="rounded-full bg-fg/10 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-fg/80"
+                aria-label={`${unreadCount} unread`}
+              >
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            ) : null}
+            <span className="text-[11px] font-medium tabular-nums text-fg/45">{timeStr}</span>
+          </div>
         </div>
         <div className="mt-0.5 flex items-center gap-1.5">
           {pinned ? <Pin className="h-3 w-3 shrink-0 text-brand-sage" aria-hidden /> : null}

@@ -13,6 +13,8 @@ import {
   Settings,
 } from "lucide-react";
 import { ClientAvatar } from "@/components/client/client-avatar";
+import { useStreamChat } from "@/features/messaging/components/stream-chat-provider";
+import { useStreamTotalUnreadCount } from "@/features/messaging/hooks/use-stream-unread-indicators";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -41,6 +43,8 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
   const { user, profile, role, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [notifUnread, setNotifUnread] = useState(0);
+  const streamClient = useStreamChat();
+  const streamMessagesUnreadTotal = useStreamTotalUnreadCount(streamClient);
   const isMessagesRoute = pathname.startsWith("/dashboard/client/messages");
 
   const refreshUnread = useCallback(async () => {
@@ -124,6 +128,11 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                     <Icon className="h-[18px] w-[18px]" aria-hidden />
                   </span>
                   {t.label}
+                  {t.segment === "messages" && streamMessagesUnreadTotal > 0 ? (
+                    <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                      {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
+                    </span>
+                  ) : null}
                   {t.segment === "notifications" && notifUnread > 0 ? (
                     <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
                       {notifUnread > 99 ? "99+" : notifUnread}
@@ -163,6 +172,11 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                 active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45",
               )}
             >
+              {t.segment === "messages" && streamMessagesUnreadTotal > 0 ? (
+                <span className="absolute right-1 top-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#D4A843] px-0.5 text-[8px] font-bold text-[#2C2C2C]">
+                  {streamMessagesUnreadTotal > 9 ? "9+" : streamMessagesUnreadTotal}
+                </span>
+              ) : null}
               {t.segment === "notifications" && notifUnread > 0 ? (
                 <span className="absolute right-1 top-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#D4A843] px-0.5 text-[8px] font-bold text-[#2C2C2C]">
                   {notifUnread > 9 ? "9+" : notifUnread}

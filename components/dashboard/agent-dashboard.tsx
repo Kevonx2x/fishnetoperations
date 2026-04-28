@@ -32,7 +32,8 @@ import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
 import { AgentPipelineTab, type PipelineStageId } from "@/components/dashboard/agent-pipeline-tab";
 import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
-import { StreamChatProvider } from "@/features/messaging/components/stream-chat-provider";
+import { useStreamChat } from "@/features/messaging/components/stream-chat-provider";
+import { useStreamTotalUnreadCount } from "@/features/messaging/hooks/use-stream-unread-indicators";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
@@ -593,6 +594,8 @@ function AgentDashboardDocumentsTab({
 export function AgentDashboard() {
   const router = useRouter();
   const { user, loading: authLoading, role: authProfileRole } = useAuth();
+  const streamClient = useStreamChat();
+  const streamMessagesUnreadTotal = useStreamTotalUnreadCount(streamClient);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [tab, setTab] = useState<Tab>("pipeline");
@@ -1860,6 +1863,11 @@ export function AgentDashboard() {
                     {pipelineSidebarBadgeCount}
                   </span>
                 ) : null}
+                {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
+                  <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                    {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
+                  </span>
+                ) : null}
               </button>
             ))}
           </nav>
@@ -1947,9 +1955,7 @@ export function AgentDashboard() {
               )}
               {tab === "messages" && user && (
                 <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                  <StreamChatProvider>
-                    <AgentMessagesInbox initialChannelId={streamChannelId} />
-                  </StreamChatProvider>
+                  <AgentMessagesInbox initialChannelId={streamChannelId} />
                 </div>
               )}
               {tab === "documents" && isTeamMemberView && (
@@ -2068,6 +2074,11 @@ export function AgentDashboard() {
                   className="pointer-events-none absolute left-1/2 top-0.5 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[#6B9E6E]"
                   aria-hidden
                 />
+              ) : null}
+              {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
+                <span className="absolute right-1 top-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#D4A843] px-0.5 text-[8px] font-bold text-[#2C2C2C]">
+                  {streamMessagesUnreadTotal > 9 ? "9+" : streamMessagesUnreadTotal}
+                </span>
               ) : null}
               <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
                 {t.id === "pipeline" ? (
