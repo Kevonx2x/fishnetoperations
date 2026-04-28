@@ -1,7 +1,7 @@
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
 import { Archive, Pin } from "lucide-react";
-import type { Channel as StreamChannel, LocalMessage } from "stream-chat";
+import type { Channel as StreamChannel, LocalMessage, OwnUserResponse } from "stream-chat";
 import { Avatar, useChatContext } from "stream-chat-react";
 import type { ChannelPreviewUIComponentProps } from "stream-chat-react";
 
@@ -45,6 +45,16 @@ export function ConversationPreview(
     } catch {
       unreadBefore = 0;
     }
+    const totalBefore =
+      client.user && typeof (client.user as OwnUserResponse).total_unread_count === "number"
+        ? (client.user as OwnUserResponse).total_unread_count
+        : 0;
+    console.log("[conversation-click]", {
+      channel_cid: channel.cid,
+      unread_before: unreadBefore,
+      total_before: totalBefore,
+      timestamp: new Date().toISOString(),
+    });
     try {
       await channel.watch();
     } catch {
@@ -54,11 +64,27 @@ export function ConversationPreview(
     if (unreadBefore > 0) {
       try {
         await channel.markRead();
-      } catch {
-        // ignore
+        let unreadAfter = 0;
+        try {
+          unreadAfter = channel.countUnread();
+        } catch {
+          unreadAfter = 0;
+        }
+        const totalAfter =
+          client.user && typeof (client.user as OwnUserResponse).total_unread_count === "number"
+            ? (client.user as OwnUserResponse).total_unread_count
+            : 0;
+        console.log("[markRead-complete]", {
+          channel_cid: channel.cid,
+          unread_after: unreadAfter,
+          total_after: totalAfter,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.error("[markRead-failed]", e);
       }
     }
-  }, [activeChannel?.cid, channel, setActiveChannel]);
+  }, [activeChannel?.cid, channel, client, setActiveChannel]);
 
   const handleRowClick = (e: MouseEvent) => {
     void activateChannel();

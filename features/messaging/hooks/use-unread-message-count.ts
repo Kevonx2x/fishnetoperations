@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { OwnUserResponse, StreamChat } from "stream-chat";
+import type { Event, OwnUserResponse, StreamChat } from "stream-chat";
 
 import { useStreamChat } from "@/features/messaging/components/stream-chat-provider";
 
@@ -11,10 +11,24 @@ function totalUnreadFromClient(client: StreamChat | null): number {
   return typeof u.total_unread_count === "number" ? u.total_unread_count : 0;
 }
 
+/** TEMPORARY: broad client events to see which ones correlate with `total_unread_count` changes. Remove after diagnosis. */
+const DIAGNOSTIC_UNREAD_EVENTS = [
+  "notification.mark_read",
+  "notification.message_new",
+  "notification.added_to_channel",
+  "message.new",
+  "message.read",
+  "user.updated",
+  "user.watching.start",
+  "connection.changed",
+] as const;
+
 /**
  * Global message unread for sidebar / list chrome: mirrors `client.user.total_unread_count` only.
  * Subscribes to the same events Stream uses to refresh that field after `channel.markRead()` on
  * conversation click (MessageList auto–mark-read can run too late for nav badges).
+ *
+ * @todo DIAGNOSTIC — remove `console.log` / extra `DIAGNOSTIC_UNREAD_EVENTS` listeners after root cause is fixed.
  */
 export function useUnreadMessageCount(): number {
   const client = useStreamChat();
@@ -26,20 +40,30 @@ export function useUnreadMessageCount(): number {
       return;
     }
 
-    const update = () => {
-      setCount(totalUnreadFromClient(client));
+    const logAndSetCount = (eventType: string) => {
+      const newCount = totalUnreadFromClient(client);
+      console.log("[unread-badge]", {
+        eventType,
+        total_unread_count: newCount,
+        timestamp: new Date().toISOString(),
+      });
+      setCount(newCount);
     };
 
-    update();
+    const onStreamEvent = (event: Event) => {
+      logAndSetCount(event.type);
+    };
 
-    client.on("notification.mark_read", update);
-    client.on("notification.message_new", update);
-    client.on("message.new", update);
+    logAndSetCount("initial-hook");
+
+    for (const evt of DIAGNOSTIC_UNREAD_EVENTS) {
+      client.on(evt, onStreamEvent);
+    }
 
     return () => {
-      client.off("notification.mark_read", update);
-      client.off("notification.message_new", update);
-      client.off("message.new", update);
+      for (const evt of DIAGNOSTIC_UNREAD_EVENTS) {
+        client.off(evt, onStreamEvent);
+      }
     };
   }, [client?.userID]);
 
