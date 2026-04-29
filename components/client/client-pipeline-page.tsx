@@ -145,8 +145,8 @@ function StatusPill({ label, variant }: { label: string; variant: "sage" | "neut
 
 function ClientPipelineStepper({ deal }: { deal: PipelineDeal }) {
   const cur = clientPipelineCurrentStepIndex(deal);
-  /** Vertical center of circle row (h-6 slot) */
-  const trackTop = "top-[11px]";
+  /** Vertical center of circle row (h-7 slot) */
+  const trackTop = "top-[13px]";
   return (
     <div className="w-full min-w-0 font-sans">
       <div className="relative flex w-full min-w-0 items-start">
@@ -161,8 +161,8 @@ function ClientPipelineStepper({ deal }: { deal: PipelineDeal }) {
           const offerGold = active && i === 2 && String(deal.pipeline_stage).toLowerCase() === "offer";
           const segmentAfterGreen = cur === 5 || cur > i;
           return (
-            <div key={label} className="relative flex min-w-0 flex-1 flex-col items-center gap-1">
-              <div className="relative flex h-6 w-full min-w-0 items-center justify-center">
+            <div key={label} className="relative flex min-w-0 flex-1 flex-col items-center gap-1.5">
+              <div className="relative flex h-7 w-full min-w-0 items-center justify-center">
                 {i < CLIENT_PIPELINE_STEPS.length - 1 && segmentAfterGreen ? (
                   <div
                     className={cn("absolute left-1/2 z-[1] h-px w-full min-w-0 bg-[#6B9E6E]/75", trackTop)}
@@ -170,25 +170,25 @@ function ClientPipelineStepper({ deal }: { deal: PipelineDeal }) {
                   />
                 ) : null}
                 {done ? (
-                  <span className="relative z-[2] flex h-5 w-5 items-center justify-center rounded-full border border-[#6B9E6E] bg-[#6B9E6E] text-white ring-2 ring-white">
-                    <Check className="h-2.5 w-2.5" strokeWidth={2.5} aria-hidden />
+                  <span className="relative z-[2] flex h-6 w-6 items-center justify-center rounded-full border border-[#6B9E6E] bg-[#6B9E6E] text-white ring-2 ring-white">
+                    <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
                   </span>
                 ) : active ? (
                   <span
                     className={cn(
-                      "relative z-[2] flex h-6 w-6 items-center justify-center rounded-full border-2 shadow-sm ring-2 ring-white",
+                      "relative z-[2] flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-sm ring-2 ring-white",
                       offerGold ? "border-[#D4A843] bg-[#D4A843]" : "border-[#6B9E6E] bg-[#6B9E6E]",
                     )}
                     aria-hidden
                   />
                 ) : (
                   <span
-                    className="relative z-[2] flex h-5 w-5 items-center justify-center rounded-full border border-[#D1D5DB] bg-white ring-2 ring-white"
+                    className="relative z-[2] flex h-6 w-6 items-center justify-center rounded-full border border-[#D1D5DB] bg-white ring-2 ring-white"
                     aria-hidden
                   />
                 )}
               </div>
-              <span className="w-full max-w-[4.25rem] px-0.5 text-center text-xs font-normal leading-tight tracking-tight text-[#6B728E]">
+              <span className="w-full min-w-0 px-0.5 text-center text-[10px] font-normal leading-snug tracking-tight text-[#6B728E] sm:text-xs sm:leading-tight">
                 {label}
               </span>
             </div>
@@ -378,23 +378,23 @@ function DealCard({
         highlight && "ring-2 ring-[#D4A843]/50",
       )}
     >
-      <div className="flex flex-col gap-7 px-6 pb-10 pt-8 sm:px-8 sm:pb-11 sm:pt-9 xl:grid xl:grid-cols-4 xl:items-stretch xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:pb-10 xl:pt-10 xl:[grid-template-columns:minmax(0,0.94fr)_minmax(0,1.28fr)_minmax(0,0.82fr)_minmax(0,0.92fr)]">
+      <div className="flex flex-col gap-6 px-6 py-6 sm:px-8 sm:py-7 xl:grid xl:grid-cols-4 xl:items-stretch xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:py-8 xl:[grid-template-columns:minmax(0,0.94fr)_minmax(0,1.28fr)_minmax(0,0.82fr)_minmax(0,0.92fr)]">
         {/* Section 1 — title + price (tight), gap, then image */}
         <div className="min-w-0 font-sans">
-          <h2 className="truncate font-sans text-xl font-bold leading-tight tracking-tight text-[#2C2C2C] sm:text-2xl">
+          <h2 className="break-words font-sans text-[0.9375rem] font-bold leading-snug tracking-tight text-[#2C2C2C] sm:text-[1rem]">
             {deal.property.title}
           </h2>
           <p className="mt-0.5 font-sans text-[0.8125rem] font-semibold leading-tight text-[#D4A843] sm:text-sm">
             {formatPipelineCardPrice(deal.property.price)}
           </p>
-          <div className="relative z-0 mx-auto mt-10 h-[200px] w-full max-w-[min(100%,280px)] overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:mt-11 sm:h-[224px] xl:mx-0 xl:mt-12 xl:max-w-none">
+          <div className="relative z-0 mx-auto mt-8 h-[160px] w-full max-w-[min(100%,280px)] overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:mt-10 sm:h-[180px] xl:mx-0 xl:mt-10 xl:max-w-none">
             {deal.property.hero_image ? (
               <Image
                 src={deal.property.hero_image}
                 alt=""
                 fill
                 className="object-cover"
-                sizes="320px"
+                sizes="280px"
                 unoptimized
               />
             ) : (
@@ -413,19 +413,19 @@ function DealCard({
         {/* Section 2 — agent, stepper, banner (vertically centered vs row height on xl) */}
         <div className="flex min-h-0 min-w-0 flex-col gap-4 font-sans xl:h-full xl:justify-center xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
           <div className="flex min-w-0 flex-nowrap items-center gap-2">
-            <span className="relative inline-flex h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-inset ring-[#2C2C2C]/10">
+            <span className="relative inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-inset ring-[#2C2C2C]/10">
               {deal.agent.image_url?.trim() && !agentAvatarFailed ? (
                 <Image
                   src={deal.agent.image_url}
                   alt=""
                   fill
-                  sizes="32px"
+                  sizes="28px"
                   className="object-cover"
                   unoptimized
                   onError={() => setAgentAvatarFailed(true)}
                 />
               ) : (
-                <span className="flex h-full w-full items-center justify-center font-sans text-[10px] font-semibold tracking-tight text-[#2C2C2C]/55">
+                <span className="flex h-full w-full items-center justify-center font-sans text-[9px] font-semibold tracking-tight text-[#2C2C2C]/55">
                   {initials}
                 </span>
               )}
@@ -572,7 +572,7 @@ function DealCard({
           <div className="flex min-h-[24px] w-full items-center justify-end xl:min-h-[26px]">
             <StatusPill label={deal.status_label} variant={statusPillVariant} />
           </div>
-          <p className="mt-4 flex w-full justify-center text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38">
+          <p className="mt-4 w-full text-center text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38">
             Quick actions
           </p>
           <div className="mt-7 flex w-full flex-col gap-3">
