@@ -5,6 +5,7 @@ import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { RESEND_FROM } from "@/lib/resend-from";
 import { normalizePhoneE164, sendSmsTo } from "@/lib/twilio-sms";
+import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 
 const contactSchema = z.object({
   source: z.literal("contact_button"),
@@ -113,13 +114,19 @@ export async function POST(req: Request) {
       if (propertyId) {
         const { data: prop } = await admin
           .from("properties")
-          .select("name, location")
+          .select("name, location, deleted_at")
           .eq("id", propertyId)
           .maybeSingle();
-        const p = prop as { name?: string | null; location?: string | null } | null;
+        if (!prop) {
+          return fail("BAD_REQUEST", "Property not found", 404);
+        }
+        if (isPropertyListingRemoved(prop as { deleted_at?: string | null })) {
+          return fail("BAD_REQUEST", "This listing is no longer available.", 400);
+        }
+        const p = prop as { name?: string | null; location?: string | null };
         propertyLabel =
-          (p?.name && String(p.name).trim()) ||
-          (p?.location && String(p.location).trim()) ||
+          (p.name && String(p.name).trim()) ||
+          (p.location && String(p.location).trim()) ||
           "Property";
       }
 
@@ -249,6 +256,22 @@ export async function POST(req: Request) {
     }
 
     const { agentUserId, propertyId, propertyTitle, channel } = parsed.data;
+    if (propertyId) {
+      const { data: propContact, error: pcErr } = await admin
+        .from("properties")
+        .select("id, deleted_at")
+        .eq("id", propertyId)
+        .maybeSingle();
+      if (pcErr) {
+        return fail("DATABASE_ERROR", pcErr.message, 500);
+      }
+      if (!propContact) {
+        return fail("BAD_REQUEST", "Property not found", 404);
+      }
+      if (isPropertyListingRemoved(propContact as { deleted_at?: string | null })) {
+        return fail("BAD_REQUEST", "This listing is no longer available.", 400);
+      }
+    }
     const propertyInterest = propertyTitle?.trim() || "General Inquiry";
     const message = `Contact channel: ${channel}`;
 

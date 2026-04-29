@@ -1,6 +1,7 @@
 import { ok, fail } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 
 export type PropertySummary = {
   id: string;
@@ -11,6 +12,8 @@ export type PropertySummary = {
   baths: number | null;
   sqft: string | null;
   hero_image: string | null;
+  /** Soft-deleted listing; still returned so messaging context can render a muted card. */
+  listing_removed: boolean;
 };
 
 /**
@@ -35,7 +38,7 @@ export async function GET(
   const sb = createSupabaseAdmin();
   const { data, error } = await sb
     .from("properties")
-    .select("id, name, location, price, beds, baths, sqft, image_url")
+    .select("id, name, location, price, beds, baths, sqft, image_url, deleted_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -46,6 +49,7 @@ export async function GET(
     return fail("NOT_FOUND", "Property not found", 404);
   }
 
+  const listingRemoved = isPropertyListingRemoved(data as { deleted_at?: string | null });
   const out: PropertySummary = {
     id: data.id as string,
     name: (data.name as string | null) ?? null,
@@ -55,6 +59,7 @@ export async function GET(
     baths: (data.baths as number | null) ?? null,
     sqft: (data.sqft as string | null) ?? null,
     hero_image: (data.image_url as string | null) ?? null,
+    listing_removed: listingRemoved,
   };
 
   return ok(out);

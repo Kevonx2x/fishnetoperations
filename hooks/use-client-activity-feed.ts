@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { cloudinaryPropertyPhotoDisplayUrl } from "@/lib/cloudinary-property-photo-url";
+import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 
 export type PropertyPhoto = { url: string; sort_order: number | null };
 
@@ -15,6 +16,7 @@ export type PropertyRow = {
   status: "for_sale" | "for_rent" | "sold" | "rented" | "both";
   image_url: string;
   created_at?: string;
+  deleted_at?: string | null;
   property_photos?: PropertyPhoto[] | null;
 };
 
@@ -118,6 +120,7 @@ export type FeedUnion =
       oldPrice: string;
       newPrice: string;
       thumbUrl: string;
+      listing_removed?: boolean;
     }
   | {
       kind: "listing_edited_al";
@@ -127,6 +130,7 @@ export type FeedUnion =
       propertyName: string;
       editedByName: string;
       thumbUrl: string;
+      listing_removed?: boolean;
     }
   | {
       kind: "badge";
@@ -431,6 +435,7 @@ export function useClientActivityFeed(userId: string | undefined) {
             price,
             status,
             image_url,
+            deleted_at,
             property_photos (url, sort_order)
           )
         `,
@@ -450,6 +455,7 @@ export function useClientActivityFeed(userId: string | undefined) {
             price,
             status,
             image_url,
+            deleted_at,
             property_photos (url, sort_order)
           )
         `,
@@ -598,6 +604,7 @@ export function useClientActivityFeed(userId: string | undefined) {
           price,
           status,
           image_url,
+          deleted_at,
           property_photos (url, sort_order)
         `,
         )
@@ -749,6 +756,7 @@ export function useClientActivityFeed(userId: string | undefined) {
           oldPrice: oldP,
           newPrice: newP,
           thumbUrl: thumb,
+          listing_removed: isPropertyListingRemoved(propRow),
         });
       }
 
@@ -784,6 +792,7 @@ export function useClientActivityFeed(userId: string | undefined) {
           propertyName: pName,
           editedByName: editedBy,
           thumbUrl: thumb,
+          listing_removed: isPropertyListingRemoved(propRow),
         });
       }
     }
@@ -814,6 +823,7 @@ export function useClientActivityFeed(userId: string | undefined) {
           `,
           )
           .in("id", propIdsFollow)
+          .is("deleted_at", null)
           .gte("created_at", thirtyDaysAgo)
           .order("created_at", { ascending: false });
 

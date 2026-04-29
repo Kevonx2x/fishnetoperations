@@ -71,6 +71,7 @@ import {
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 
 const FEED_CARD_CLASS =
   "rounded-2xl border border-gray-100 bg-white text-gray-900 shadow-md transition-transform duration-150 active:scale-95 md:hover:shadow-lg";
@@ -149,11 +150,24 @@ export function useFeedCompactThumbnailMap(propertyIds: readonly string[]): Reco
 }
 
 /** 56×56 `rounded-lg` thumbnail; renders nothing when `src` is empty (no layout gap). */
-function CompactFeedPropertyThumb({ src, alt = "" }: { src: string; alt?: string }) {
+function CompactFeedPropertyThumb({
+  src,
+  alt = "",
+  listingRemoved = false,
+}: {
+  src: string;
+  alt?: string;
+  listingRemoved?: boolean;
+}) {
   const u = src?.trim();
   if (!u) return null;
   return (
-    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+    <div
+      className={cn(
+        "relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100",
+        listingRemoved ? "opacity-50 grayscale" : null,
+      )}
+    >
       <Image src={u} alt={alt} fill className="object-cover" sizes="56px" unoptimized />
     </div>
   );
@@ -533,6 +547,7 @@ function FeedPhotoOverlay({
   showPinButton = true,
   showEngagementOverlay = true,
   photoClassName,
+  listingRemoved = false,
 }: {
   propertyId: string;
   href: string;
@@ -546,21 +561,46 @@ function FeedPhotoOverlay({
   showEngagementOverlay?: boolean;
   /** e.g. h-[220px] for followed-agent listing cards */
   photoClassName?: string;
+  listingRemoved?: boolean;
 }) {
+  const imageInner = (
+    <>
+      <Image
+        src={imageSrc}
+        alt=""
+        fill
+        className={cn("object-cover", listingRemoved ? "opacity-50 grayscale" : null)}
+        sizes="100vw"
+        unoptimized
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+      <div className="absolute bottom-2 right-2 rounded-full bg-white/95 px-2.5 py-1 shadow-md ring-1 ring-black/5">
+        <span className={cn("text-sm font-bold", listingRemoved ? "text-gray-400" : "text-gray-900")}>
+          {priceDisplay}
+        </span>
+      </div>
+      {listingRemoved ? (
+        <div className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+          Listing removed
+        </div>
+      ) : null}
+    </>
+  );
   return (
     <div
       className={cn(
         "relative mt-3 w-full overflow-hidden rounded-xl bg-[#E5E5E5]/40",
+        listingRemoved ? "opacity-90" : null,
         photoClassName ?? "h-[160px]",
       )}
     >
-      <Link href={href} className="absolute inset-0 block">
-        <Image src={imageSrc} alt="" fill className="object-cover" sizes="100vw" unoptimized />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-        <div className="absolute bottom-2 right-2 rounded-full bg-white/95 px-2.5 py-1 shadow-md ring-1 ring-black/5">
-          <span className="text-sm font-bold text-gray-900">{priceDisplay}</span>
-        </div>
-      </Link>
+      {listingRemoved ? (
+        <div className="absolute inset-0 block">{imageInner}</div>
+      ) : (
+        <Link href={href} className="absolute inset-0 block">
+          {imageInner}
+        </Link>
+      )}
       {showEngagementOverlay ? (
         <div className="pointer-events-none absolute inset-0 z-20">
           <div className="pointer-events-auto absolute right-2 top-2 flex gap-1">
@@ -579,13 +619,26 @@ function FeedPhotoOverlay({
 }
 
 /** 56×56 thumbnail with gray placeholder when `src` is missing (e.g. viewing request card). */
-function FeedPropertyThumb56({ src, alt = "" }: { src: string; alt?: string }) {
+function FeedPropertyThumb56({
+  src,
+  alt = "",
+  listingRemoved = false,
+}: {
+  src: string;
+  alt?: string;
+  listingRemoved?: boolean;
+}) {
   const u = src?.trim();
   if (!u) {
     return <div className="h-14 w-14 shrink-0 rounded-lg bg-gray-200" aria-hidden />;
   }
   return (
-    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+    <div
+      className={cn(
+        "relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100",
+        listingRemoved ? "opacity-50 grayscale" : null,
+      )}
+    >
       <Image src={u} alt={alt} fill className="object-cover" sizes="56px" unoptimized />
     </div>
   );
@@ -1326,6 +1379,7 @@ function SavedPropertyBigCard({
   pins: LikePinApi;
   engagement: PropertyEngagement | null;
 }) {
+  const listingRemoved = isPropertyListingRemoved(property);
   const img = pickPropertyImage(property);
   const pid = property.id;
   const title = property.name?.trim() || property.location || "Listing";
@@ -1337,7 +1391,7 @@ function SavedPropertyBigCard({
     : null;
 
   return (
-    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD)}>
+    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, listingRemoved ? "opacity-50" : null)}>
       <PinSaveFeedCardHeader
         beforePostedBy="You pinned this listing"
         createdAt={createdAt}
@@ -1355,18 +1409,30 @@ function SavedPropertyBigCard({
           pins={pins}
           engagement={engagement}
           showEngagementOverlay={false}
+          listingRemoved={listingRemoved}
         />
       ) : null}
       {pid ? (
-        <Link
-          href={`/properties/${pid}`}
-          className={cn(
-            "block text-sm font-semibold text-gray-900 transition-transform duration-150 active:scale-[0.98]",
-            img ? "mt-2" : "mt-3",
-          )}
-        >
-          {titleDisplay}
-        </Link>
+        listingRemoved ? (
+          <p
+            className={cn(
+              "block text-sm font-semibold text-gray-400",
+              img ? "mt-2" : "mt-3",
+            )}
+          >
+            {titleDisplay}
+          </p>
+        ) : (
+          <Link
+            href={`/properties/${pid}`}
+            className={cn(
+              "block text-sm font-semibold text-gray-900 transition-transform duration-150 active:scale-[0.98]",
+              img ? "mt-2" : "mt-3",
+            )}
+          >
+            {titleDisplay}
+          </Link>
+        )
       ) : (
         <p className={cn("text-sm font-semibold text-gray-900", img ? "mt-2" : "mt-3")}>{titleDisplay}</p>
       )}
@@ -1394,14 +1460,22 @@ function ViewingRequestMediumCard({
   const propNameDisplay = truncateTitle(propName, FEED_TITLE_MAX_COMPACT);
   const actionText = (n.title ?? n.body ?? "Viewing activity").trim();
   const propertyHrefId = metaStr(m, "property_id").trim() || item.property?.id || "";
+  const listingRemoved = item.property ? isPropertyListingRemoved(item.property) : false;
   const agentLine = propertyHrefId ? feedAgentMeta[propertyHrefId]?.agentName?.trim() : "";
   const thumbSrc = item.property
     ? pickPropertyImage(item.property)
     : metaStr(m, "property_image_url").trim();
 
   return (
-    <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "relative flex w-full items-start gap-3")}>
-      {propertyHrefId ? (
+    <article
+      className={cn(
+        FEED_CARD_CLASS,
+        FEED_CARD_PAD_MD,
+        "relative flex w-full items-start gap-3",
+        listingRemoved ? "opacity-50" : null,
+      )}
+    >
+      {propertyHrefId && !listingRemoved ? (
         <Link
           href={`/properties/${encodeURIComponent(propertyHrefId)}`}
           className="absolute inset-0 z-0 rounded-2xl"
@@ -1411,7 +1485,7 @@ function ViewingRequestMediumCard({
       <div
         className={cn(
           "relative z-[1] flex w-full min-w-0 items-start gap-3",
-          propertyHrefId ? "pointer-events-none" : "",
+          propertyHrefId && !listingRemoved ? "pointer-events-none" : "",
         )}
       >
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#6B9E6E]/20">
@@ -1424,7 +1498,7 @@ function ViewingRequestMediumCard({
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <span className="text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
-          <FeedPropertyThumb56 src={thumbSrc} alt="" />
+          <FeedPropertyThumb56 src={thumbSrc} alt="" listingRemoved={listingRemoved} />
         </div>
       </div>
     </article>
@@ -1442,6 +1516,7 @@ function PriceDropMediumCard({
   const propertyNameDisplay = truncateTitle(item.propertyName, FEED_TITLE_MAX_COMPACT);
   const pid = item.propertyId ?? "";
   const photoUrl = pid ? (compactThumbByPropertyId[pid] ?? "") : "";
+  const listingRemoved = Boolean(item.listing_removed);
 
   const inner = (
     <>
@@ -1459,11 +1534,11 @@ function PriceDropMediumCard({
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <span className="text-xs text-gray-500">{formatNotificationTimeAgo(item.sortAt)}</span>
-        <CompactFeedPropertyThumb src={photoUrl} alt="" />
+        <CompactFeedPropertyThumb src={photoUrl} alt="" listingRemoved={listingRemoved} />
       </div>
     </>
   );
-  if (item.propertyId) {
+  if (item.propertyId && !listingRemoved) {
     return (
       <Link
         href={`/properties/${encodeURIComponent(item.propertyId)}`}
@@ -1477,7 +1552,18 @@ function PriceDropMediumCard({
       </Link>
     );
   }
-  return <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-center gap-3")}>{inner}</article>;
+  return (
+    <article
+      className={cn(
+        FEED_CARD_CLASS,
+        FEED_CARD_PAD_MD,
+        "flex w-full items-center gap-3",
+        listingRemoved ? "opacity-50 grayscale" : null,
+      )}
+    >
+      {inner}
+    </article>
+  );
 }
 
 function ListingEditedActivityCard({
@@ -1493,6 +1579,7 @@ function ListingEditedActivityCard({
   const showThumbSlot = listingEditedCompactIndex % 3 !== 1;
   const pid = item.propertyId ?? "";
   const photoUrl = showThumbSlot && pid ? (compactThumbByPropertyId[pid] ?? "") : "";
+  const listingRemoved = Boolean(item.listing_removed);
 
   const inner = (
     <>
@@ -1506,11 +1593,11 @@ function ListingEditedActivityCard({
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <span className="text-xs text-gray-500">{formatNotificationTimeAgo(item.sortAt)}</span>
-        <CompactFeedPropertyThumb src={photoUrl} alt="" />
+        <CompactFeedPropertyThumb src={photoUrl} alt="" listingRemoved={listingRemoved} />
       </div>
     </>
   );
-  if (item.propertyId) {
+  if (item.propertyId && !listingRemoved) {
     return (
       <Link
         href={`/properties/${encodeURIComponent(item.propertyId)}`}
@@ -1524,7 +1611,18 @@ function ListingEditedActivityCard({
       </Link>
     );
   }
-  return <article className={cn(FEED_CARD_CLASS, FEED_CARD_PAD_MD, "flex w-full items-center gap-3")}>{inner}</article>;
+  return (
+    <article
+      className={cn(
+        FEED_CARD_CLASS,
+        FEED_CARD_PAD_MD,
+        "flex w-full items-center gap-3",
+        listingRemoved ? "opacity-50 grayscale" : null,
+      )}
+    >
+      {inner}
+    </article>
+  );
 }
 
 function BadgeMediumCard({
@@ -1662,6 +1760,7 @@ function ListingLikeSmallCard({
   createdAt: string;
   compactThumbByPropertyId: Record<string, string>;
 }) {
+  const listingRemoved = isPropertyListingRemoved(property);
   const title = property.name?.trim() || property.location || "Listing";
   const titleDisplay = truncateTitle(title, FEED_TITLE_MAX_COMPACT);
   const photoUrl = compactThumbByPropertyId[property.id] ?? "";
@@ -1672,6 +1771,7 @@ function ListingLikeSmallCard({
         FEED_CARD_CLASS,
         FEED_CARD_PAD_SM,
         "flex items-center gap-2 text-gray-900 sm:gap-3",
+        listingRemoved ? "opacity-50 grayscale" : null,
       )}
     >
       <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-red-50">
@@ -1716,12 +1816,51 @@ export function LikedPropertiesTab({
       {likeRows.map((r) => {
         const p = oneProperty(r.properties);
         if (!p) return null;
+        const listingRemoved = isPropertyListingRemoved(p);
         const img = pickPropertyImage(p);
         const listingTitle = truncateTitle(p.name?.trim() || p.location || "Listing", FEED_TITLE_MAX_BIG);
+        const body = (
+          <>
+            <div className="min-w-0 flex-1">
+              <p className={cn("font-semibold", listingRemoved ? "text-gray-400" : "text-[#2C2C2C]")}>
+                {listingTitle}
+              </p>
+              {listingRemoved ? (
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Listing removed</p>
+              ) : null}
+              <p className={cn("mt-1 text-sm", listingRemoved ? "text-gray-400" : "text-[#6B6B6B]")}>{p.location}</p>
+              <p
+                className={cn(
+                  "mt-2 text-base font-bold",
+                  listingRemoved ? "text-gray-400" : "text-[#6B9E6E]",
+                )}
+              >
+                {formatPropertyPriceDisplay(p.price, p.status)}
+              </p>
+            </div>
+            <div
+              className={cn(
+                "relative mt-10 h-14 w-14 shrink-0 self-start overflow-hidden rounded-lg bg-[#E5E5E5]/60",
+                listingRemoved ? "opacity-50 grayscale" : null,
+              )}
+            >
+              {img ? (
+                <Image src={img} alt="" fill className="object-cover" sizes="56px" unoptimized />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <Heart className="h-6 w-6 fill-red-500/30 text-red-400" aria-hidden />
+                </div>
+              )}
+            </div>
+          </>
+        );
         return (
           <div
             key={`like-${r.created_at}-${p.id}`}
-            className="relative overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-[#E5E5E5]"
+            className={cn(
+              "relative overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-[#E5E5E5]",
+              listingRemoved ? "opacity-90" : null,
+            )}
           >
             <div className="pointer-events-auto absolute right-3 top-3 z-[2] flex gap-1">
               <HomepageStyleEngagementButtons
@@ -1732,25 +1871,16 @@ export function LikedPropertiesTab({
                 showPinButton={false}
               />
             </div>
-            <Link
-              href={`/properties/${p.id}`}
-              className="flex items-center gap-3 p-4 transition-all duration-200 active:opacity-90"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-[#2C2C2C]">{listingTitle}</p>
-                <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
-                <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
-              </div>
-              <div className="relative mt-10 h-14 w-14 shrink-0 self-start overflow-hidden rounded-lg bg-[#E5E5E5]/60">
-                {img ? (
-                  <Image src={img} alt="" fill className="object-cover" sizes="56px" unoptimized />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Heart className="h-6 w-6 fill-red-500/30 text-red-400" aria-hidden />
-                  </div>
-                )}
-              </div>
-            </Link>
+            {listingRemoved ? (
+              <div className="flex items-center gap-3 p-4">{body}</div>
+            ) : (
+              <Link
+                href={`/properties/${p.id}`}
+                className="flex items-center gap-3 p-4 transition-all duration-200 active:opacity-90"
+              >
+                {body}
+              </Link>
+            )}
           </div>
         );
       })}
@@ -1891,34 +2021,72 @@ export function SavedPinsTab({
       {savedRows.map((r) => {
         const p = oneProperty(r.properties);
         if (!p) return null;
+        const listingRemoved = isPropertyListingRemoved(p);
         const img = pickPropertyImage(p);
         const listingTitle = truncateTitle(p.name?.trim() || p.location || "Listing", FEED_TITLE_MAX_BIG);
+        const hero = (
+          <div className="relative h-[200px] w-full bg-[#E5E5E5]/40">
+            {img ? (
+              <Image
+                src={img}
+                alt=""
+                fill
+                className={cn("object-cover", listingRemoved ? "opacity-50 grayscale" : null)}
+                sizes="100vw"
+                unoptimized
+              />
+            ) : null}
+            {listingRemoved ? (
+              <div className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                Listing removed
+              </div>
+            ) : null}
+            <div className="pointer-events-auto absolute right-2 top-2 z-[2] flex gap-1">
+              <HomepageStyleEngagementButtons
+                propertyId={p.id}
+                engagement={engagement}
+                likes={likes}
+                pins={pins}
+                showHeartButton={false}
+              />
+            </div>
+          </div>
+        );
+        const meta = (
+          <div className="p-4">
+            <p className={cn("font-semibold", listingRemoved ? "text-gray-400" : "text-[#2C2C2C]")}>
+              {listingTitle}
+            </p>
+            <p className={cn("mt-1 text-sm", listingRemoved ? "text-gray-400" : "text-[#6B6B6B]")}>{p.location}</p>
+            <p
+              className={cn(
+                "mt-2 text-base font-bold",
+                listingRemoved ? "text-gray-400" : "text-[#6B9E6E]",
+              )}
+            >
+              {formatPropertyPriceDisplay(p.price, p.status)}
+            </p>
+          </div>
+        );
         return (
           <div
             key={`saved-${r.created_at}-${p.id}`}
-            className="relative overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-[#E5E5E5]"
+            className={cn(
+              "relative overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-[#E5E5E5]",
+              listingRemoved ? "opacity-90" : null,
+            )}
           >
-            <Link href={`/properties/${p.id}`} className="relative block transition-all duration-200">
-              <div className="relative h-[200px] w-full bg-[#E5E5E5]/40">
-                {img ? (
-                  <Image src={img} alt="" fill className="object-cover" sizes="100vw" unoptimized />
-                ) : null}
-                <div className="pointer-events-auto absolute right-2 top-2 z-[2] flex gap-1">
-                  <HomepageStyleEngagementButtons
-                    propertyId={p.id}
-                    engagement={engagement}
-                    likes={likes}
-                    pins={pins}
-                    showHeartButton={false}
-                  />
-                </div>
+            {listingRemoved ? (
+              <div className="relative block transition-all duration-200">
+                {hero}
+                {meta}
               </div>
-              <div className="p-4">
-                <p className="font-semibold text-[#2C2C2C]">{listingTitle}</p>
-                <p className="mt-1 text-sm text-[#6B6B6B]">{p.location}</p>
-                <p className="mt-2 text-base font-bold text-[#6B9E6E]">{formatPropertyPriceDisplay(p.price, p.status)}</p>
-              </div>
-            </Link>
+            ) : (
+              <Link href={`/properties/${p.id}`} className="relative block transition-all duration-200">
+                {hero}
+                {meta}
+              </Link>
+            )}
           </div>
         );
       })}

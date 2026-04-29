@@ -41,7 +41,8 @@ export async function recalculateAndPersistAgentScore(agentUserId: string): Prom
   const { count: ownedCount } = await sb
     .from("properties")
     .select("*", { count: "exact", head: true })
-    .eq("listed_by", agentUserId);
+    .eq("listed_by", agentUserId)
+    .is("deleted_at", null);
 
   const { count: coCount } = await sb
     .from("property_agents")

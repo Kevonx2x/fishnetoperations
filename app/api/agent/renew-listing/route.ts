@@ -1,5 +1,6 @@
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 
 export async function POST(req: Request) {
   const session = await getSessionProfile();
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
   const sb = await createSupabaseServerClient();
   const { data: row, error: selErr } = await sb
     .from("properties")
-    .select("id, listed_by")
+    .select("id, listed_by, deleted_at")
     .eq("id", propertyId)
     .maybeSingle();
 
@@ -34,6 +35,9 @@ export async function POST(req: Request) {
   }
   if (!row) {
     return Response.json({ error: "Property not found" }, { status: 404 });
+  }
+  if (isPropertyListingRemoved(row as { deleted_at?: string | null })) {
+    return Response.json({ error: "This listing has been removed." }, { status: 400 });
   }
   if ((row as { listed_by: string | null }).listed_by !== session.userId && session.role !== "admin") {
     return Response.json({ error: "Not your listing" }, { status: 403 });

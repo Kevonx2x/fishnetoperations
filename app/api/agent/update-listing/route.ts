@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { logActivity, upsertListingEditedActivity } from "@/lib/activity-log";
 import { normalizeCity } from "@/lib/normalize-city";
+import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 
 const PROPERTY_TYPES = [
   "House",
@@ -58,12 +59,15 @@ export async function POST(req: Request) {
     const sb = await createSupabaseServerClient();
     const { data: prop, error: propErr } = await sb
       .from("properties")
-      .select("id, listed_by, name")
+      .select("id, listed_by, name, deleted_at")
       .eq("id", parsed.data.propertyId)
       .maybeSingle();
 
     if (propErr) return fail("DATABASE_ERROR", propErr.message, 500);
     if (!prop) return fail("NOT_FOUND", "Property not found", 404);
+    if (isPropertyListingRemoved(prop as { deleted_at?: string | null })) {
+      return fail("BAD_REQUEST", "This listing has been removed and cannot be edited.", 400);
+    }
 
     const listedBy = (prop as { listed_by: string | null }).listed_by;
     if (listedBy !== session.userId) {

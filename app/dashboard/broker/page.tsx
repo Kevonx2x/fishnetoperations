@@ -10,6 +10,7 @@ import {
 } from "@/lib/license-expiry";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
+import { cn } from "@/lib/utils";
 
 type BrokerRow = {
   id: string;
@@ -53,6 +54,7 @@ type PropertyRow = {
   beds: number;
   baths: number;
   listed_by: string | null;
+  deleted_at: string | null;
 };
 
 export default function BrokerDashboardPage() {
@@ -107,7 +109,7 @@ export default function BrokerDashboardPage() {
         if (uniqueIds.length) {
           const { data: pr } = await supabase
             .from("properties")
-            .select("id, location, price, beds, baths, listed_by")
+            .select("id, location, price, beds, baths, listed_by, deleted_at")
             .in("listed_by", uniqueIds);
           setProperties((pr as PropertyRow[]) ?? []);
         } else {
@@ -425,20 +427,36 @@ export default function BrokerDashboardPage() {
                 <p className="text-sm text-gray-500">No listings linked yet.</p>
               ) : (
                 <ul className="divide-y divide-gray-100">
-                  {properties.map((p) => (
-                    <li key={p.id} className="py-3 flex justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{p.location}</p>
-                        <p className="text-xs text-gray-500">
-                          {formatPropertyPriceDisplay(
-                            p.price,
-                            p.status as "for_sale" | "for_rent" | "sold" | "rented",
-                          )}{" "}
-                          · {p.beds} bd / {p.baths} ba
-                        </p>
-                      </div>
-                    </li>
-                  ))}
+                  {properties.map((p) => {
+                    const removed = p.deleted_at != null && String(p.deleted_at).trim() !== "";
+                    return (
+                      <li
+                        key={p.id}
+                        className={cn(
+                          "flex justify-between gap-4 py-3",
+                          removed ? "opacity-50 grayscale" : null,
+                        )}
+                      >
+                        <div>
+                          <p className={cn("text-sm font-medium", removed ? "text-gray-400" : "text-gray-900")}>
+                            {p.location}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {formatPropertyPriceDisplay(
+                              p.price,
+                              p.status as "for_sale" | "for_rent" | "sold" | "rented",
+                            )}{" "}
+                            · {p.beds} bd / {p.baths} ba
+                          </p>
+                          {removed ? (
+                            <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                              Removed
+                            </p>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>
