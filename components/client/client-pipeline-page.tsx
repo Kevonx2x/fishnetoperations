@@ -309,12 +309,13 @@ function DealStatusBanner({ deal }: { deal: PipelineDeal }) {
           <span className="min-w-0">You have a pending offer. Please review and respond.</span>
         </div>
         {deal.property.id && !deal.property.listing_removed ? (
-          <Link
-            href={`/properties/${encodeURIComponent(deal.property.id)}`}
-            className="inline-flex shrink-0 items-center gap-0.5 font-semibold not-italic text-[#2C2C2C]/80 hover:underline"
+          <span
+            className="inline-flex shrink-0 cursor-not-allowed items-center gap-0.5 font-semibold not-italic text-[#2C2C2C]/80 opacity-50"
+            title="Offer details coming soon — your agent will reach out via Messages"
+            aria-disabled="true"
           >
             View offer <span aria-hidden>→</span>
-          </Link>
+          </span>
         ) : null}
       </div>
     );
@@ -705,7 +706,18 @@ function DealCard({
                 </div>
               </li>
             ) : null}
-            <li className="flex items-start gap-2.5">
+            <li
+              className={cn(
+                "flex items-start gap-2.5",
+                !offerNotStarted && String(deal.pipeline_stage).toLowerCase() === "offer" && "cursor-not-allowed opacity-50",
+              )}
+              title={
+                !offerNotStarted && String(deal.pipeline_stage).toLowerCase() === "offer"
+                  ? "Offer details coming soon — your agent will reach out via Messages"
+                  : undefined
+              }
+              aria-disabled={!offerNotStarted && String(deal.pipeline_stage).toLowerCase() === "offer" ? true : undefined}
+            >
               {offerNotStarted ? (
                 <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#2C2C2C]/12" aria-hidden />
               ) : String(deal.pipeline_stage).toLowerCase() === "offer" ? (

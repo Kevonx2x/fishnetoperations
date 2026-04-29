@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { format, isValid, parseISO } from "date-fns";
 import {
   DndContext,
   type DragEndEvent,
@@ -546,6 +547,9 @@ function KanbanDealCard({
   pinned,
   uploadedRequestedDocCount,
   unviewedUploadedDocCount,
+  viewingScheduledAt,
+  offerCreatedAt,
+  onSendOffer,
   onOpenDocs,
   onBeginStageMove,
   stageMovePrompt,
@@ -573,6 +577,11 @@ function KanbanDealCard({
   uploadedRequestedDocCount: number;
   /** Subset of uploaded client docs the agent has not acknowledged in the drawer yet. */
   unviewedUploadedDocCount: number;
+  /** Scheduled viewing date (from viewings) when in Viewing stage. */
+  viewingScheduledAt?: string | null;
+  /** Latest offer created_at for this lead (for Offer stage pill). */
+  offerCreatedAt?: string | null;
+  onSendOffer: (lead: PipelineLeadRow) => void;
   onOpenDocs: (lead: PipelineLeadRow) => void;
   onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
   stageMovePrompt: {
@@ -609,6 +618,43 @@ function KanbanDealCard({
   const menuOpen = menuOpenId === deal.id;
   const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
   const anyMenuOpen = menuOpenId != null;
+
+  const stagePill = useMemo(() => {
+    const stage = deal.pipeline_stage;
+    const stylesByStage: Record<PipelineStageId, string> = {
+      lead: "bg-[#6B9E6E]/10 text-[#6B9E6E]",
+      viewing: "bg-blue-50 text-blue-700",
+      offer: "bg-[#D4A843]/10 text-[#D4A843]",
+      reservation: "bg-purple-50 text-purple-700",
+      closed: "bg-green-50 text-green-700",
+    };
+
+    const labelByStage: Record<PipelineStageId, string> = {
+      lead: "New lead",
+      viewing: "Viewing",
+      offer: "Offer sent",
+      reservation: "Reserved",
+      closed: "Closed",
+    };
+
+    const iso =
+      stage === "lead"
+        ? deal.created_at
+        : stage === "viewing"
+          ? viewingScheduledAt ?? deal.updated_at ?? deal.created_at
+          : stage === "offer"
+            ? offerCreatedAt ?? deal.updated_at ?? deal.created_at
+          : deal.updated_at ?? deal.created_at;
+
+    const formattedDate = (() => {
+      if (!iso) return null;
+      const d = parseISO(iso);
+      if (!isValid(d)) return null;
+      return format(d, "MMM d");
+    })();
+
+    return { label: labelByStage[stage], date: formattedDate, cls: stylesByStage[stage] };
+  }, [deal.created_at, deal.pipeline_stage, deal.updated_at, viewingScheduledAt]);
 
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const [menuAnchorRect, setMenuAnchorRect] = useState<DOMRect | null>(null);
@@ -667,7 +713,7 @@ function KanbanDealCard({
           <div className="flex items-start justify-between gap-2">
             <button
               type="button"
-              className="min-w-0 flex-1 text-left"
+              className="min-w-0 flex-1 pr-16 text-left"
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
@@ -695,6 +741,18 @@ function KanbanDealCard({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
               >
+                <div
+                  className={cn(
+                    "pointer-events-none absolute right-9 top-0 flex h-[28px] min-w-[56px] flex-col items-center justify-center rounded-md px-1.5 py-1 text-center leading-none",
+                    stagePill.cls,
+                  )}
+                  aria-hidden
+                >
+                  <span className="whitespace-nowrap text-[10px] font-bold leading-none">{stagePill.label}</span>
+                  <span className="whitespace-nowrap text-[9px] font-semibold leading-none">
+                    {stagePill.date ?? "\u00A0"}
+                  </span>
+                </div>
                 {pinned ? <Pin className="absolute -right-0.5 -top-0.5 h-4 w-4 text-[#6B9E6E]" aria-label="Pinned" /> : null}
                 <button
                   type="button"
@@ -784,6 +842,20 @@ function KanbanDealCard({
                                     className="ml-auto mr-1 h-2 w-2 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
                                   />
                                 ) : null}
+                              </button>
+                              <button
+                                type="button"
+                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                onClick={() => {
+                                  onSendOffer(deal);
+                                  setMenuOpenId(null);
+                                }}
+                              >
+                                <Handshake
+                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                  aria-hidden
+                                />
+                                Send Offer
                               </button>
                               <button
                                 type="button"
@@ -973,11 +1045,14 @@ function KanbanStageColumn({
   dealValueByPropertyId,
   uploadedRequestedDocCountByLeadId,
   unviewedUploadedDocCountByLeadId,
+  viewingScheduledAtByLeadId,
+  offerCreatedAtByLeadId,
   stageMovePrompt,
   onStageMovePromptSkip,
   onStageMovePromptYes,
   beginStageMove,
   openDocs,
+  onSendOffer,
   menuOpenId,
   setMenuOpenId,
   menuMoveOpen,
@@ -1006,11 +1081,14 @@ function KanbanStageColumn({
   dealValueByPropertyId: Record<string, string>;
   uploadedRequestedDocCountByLeadId: Record<number, number>;
   unviewedUploadedDocCountByLeadId: Record<number, number>;
+  viewingScheduledAtByLeadId: Record<number, string | null>;
+  offerCreatedAtByLeadId: Record<number, string | null>;
   stageMovePrompt: { lead: PipelineLeadRow; targetStage: PipelineStageId; kind: "advance" | "jump" } | null;
   onStageMovePromptSkip: () => void;
   onStageMovePromptYes: (lead: PipelineLeadRow, targetStage: PipelineStageId) => void;
   beginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
   openDocs: (lead: PipelineLeadRow) => void;
+  onSendOffer: (lead: PipelineLeadRow) => void;
   menuOpenId: number | null;
   setMenuOpenId: (id: number | null) => void;
   menuMoveOpen: boolean;
@@ -1087,7 +1165,10 @@ function KanbanStageColumn({
                   pinned={Boolean(deal.pinned)}
                   uploadedRequestedDocCount={uploadedRequestedDocCountByLeadId[deal.id] ?? 0}
                   unviewedUploadedDocCount={unviewedUploadedDocCountByLeadId[deal.id] ?? 0}
+                  viewingScheduledAt={viewingScheduledAtByLeadId[deal.id] ?? null}
+                  offerCreatedAt={offerCreatedAtByLeadId[deal.id] ?? null}
                   onOpenDocs={openDocs}
+                  onSendOffer={onSendOffer}
                   onBeginStageMove={beginStageMove}
                   stageMovePrompt={stageMovePrompt}
                   onStageMovePromptSkip={onStageMovePromptSkip}
@@ -1637,6 +1718,15 @@ export function AgentPipelineTab({
   const [unviewedUploadedDocCountByLeadId, setUnviewedUploadedDocCountByLeadId] = useState<
     Record<number, number>
   >({});
+  const [viewingScheduledAtByLeadId, setViewingScheduledAtByLeadId] = useState<Record<number, string | null>>({});
+  const [offerCreatedAtByLeadId, setOfferCreatedAtByLeadId] = useState<Record<number, string | null>>({});
+  const [offerLead, setOfferLead] = useState<PipelineLeadRow | null>(null);
+  const [offerAmount, setOfferAmount] = useState("");
+  const [offerCurrency, setOfferCurrency] = useState<"PHP">("PHP");
+  const [offerTerms, setOfferTerms] = useState("");
+  const [offerValidUntil, setOfferValidUntil] = useState("");
+  const [offerMessage, setOfferMessage] = useState("");
+  const [offerBusy, setOfferBusy] = useState(false);
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsPanelFlow, setDocsPanelFlow] = useState<"idle" | "request" | "send">("idle");
   const [panelDocSlug, setPanelDocSlug] = useState("");
@@ -1964,6 +2054,98 @@ export function AgentPipelineTab({
       cancelled = true;
     };
   }, [deals, supabase]);
+
+  useEffect(() => {
+    const leadIds = deals.map((d) => d.id).filter((id): id is number => typeof id === "number" && Number.isFinite(id));
+    if (leadIds.length === 0) {
+      setOfferCreatedAtByLeadId({});
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("offers")
+        .select("lead_id, created_at")
+        .in("lead_id", leadIds)
+        .order("created_at", { ascending: false });
+
+      if (cancelled) return;
+      if (error) {
+        console.error("[agent-pipeline] offers query failed", { message: error.message });
+        setOfferCreatedAtByLeadId({});
+        return;
+      }
+
+      const out: Record<number, string | null> = {};
+      for (const row of (data ?? []) as { lead_id: number; created_at: string }[]) {
+        const lid = row.lead_id;
+        if (typeof lid !== "number" || !Number.isFinite(lid)) continue;
+        if (out[lid] != null) continue; // latest per lead (already ordered desc)
+        out[lid] = row.created_at ?? null;
+      }
+      setOfferCreatedAtByLeadId(out);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deals, supabase]);
+
+  useEffect(() => {
+    const leadIds = deals.map((d) => d.id).filter((id): id is number => typeof id === "number" && Number.isFinite(id));
+    if (leadIds.length === 0) {
+      setViewingScheduledAtByLeadId({});
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const nowIso = new Date().toISOString();
+      const { data, error } = await supabase
+        .from("viewings")
+        .select("lead_id, scheduled_at, status")
+        .in("lead_id", leadIds)
+        .neq("status", "cancelled")
+        .gte("scheduled_at", nowIso)
+        .order("scheduled_at", { ascending: true });
+
+      if (cancelled) return;
+      if (error) {
+        console.error("[agent-pipeline] viewings query failed", { message: error.message });
+        setViewingScheduledAtByLeadId({});
+        return;
+      }
+
+      const out: Record<number, string | null> = {};
+      for (const row of (data ?? []) as { lead_id: number; scheduled_at: string; status: string | null }[]) {
+        const lid = row.lead_id;
+        if (typeof lid !== "number" || !Number.isFinite(lid)) continue;
+        if (out[lid] != null) continue; // keep earliest upcoming viewing per lead
+        if (!row.scheduled_at) continue;
+        out[lid] = row.scheduled_at;
+      }
+
+      setViewingScheduledAtByLeadId(out);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deals, supabase]);
+
+  useEffect(() => {
+    if (!offerLead) return;
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    const iso = d.toISOString().slice(0, 10);
+    setOfferValidUntil(iso);
+    setOfferAmount("");
+    setOfferCurrency("PHP");
+    setOfferTerms("");
+    setOfferMessage("");
+    setOfferBusy(false);
+  }, [offerLead?.id]);
 
   const loadDocs = useCallback(
     async (lead: PipelineLeadRow) => {
@@ -2935,11 +3117,14 @@ export function AgentPipelineTab({
                       dealValueByPropertyId={dealValueByPropertyId}
                       uploadedRequestedDocCountByLeadId={uploadedRequestedDocCountByLeadId}
                       unviewedUploadedDocCountByLeadId={unviewedUploadedDocCountByLeadId}
+                      viewingScheduledAtByLeadId={viewingScheduledAtByLeadId}
+                      offerCreatedAtByLeadId={offerCreatedAtByLeadId}
                       stageMovePrompt={stageMovePrompt}
                       onStageMovePromptSkip={onStageMovePromptSkip}
                       onStageMovePromptYes={onStageMovePromptYes}
                       beginStageMove={beginStageMove}
                       openDocs={openDocs}
+                      onSendOffer={(lead) => setOfferLead(lead)}
                       menuOpenId={menuOpenId}
                       setMenuOpenId={setMenuOpenId}
                       menuMoveOpen={menuMoveOpen}
@@ -3594,6 +3779,156 @@ export function AgentPipelineTab({
                   type="button"
                   disabled={declineBusy}
                   onClick={() => setDeclineDeal(null)}
+                  className="flex-1 rounded-full border border-[#2C2C2C]/15 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {offerLead ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[79] flex items-end justify-center bg-black/45 p-4 sm:items-center"
+            onClick={() => !offerBusy && setOfferLead(null)}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-xl"
+            >
+              <p className="font-serif text-lg font-bold text-[#2C2C2C]">Send Offer</p>
+              <p className="mt-1 text-xs font-medium text-[#2C2C2C]/55">
+                {offerLead.name}
+              </p>
+
+              <div className="mt-4 space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Amount <span className="text-[#B85450]">*</span>
+                  <div className="mt-1 flex items-center gap-2 rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2">
+                    <span className="text-sm font-bold text-[#2C2C2C]/60">₱</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.01"
+                      value={offerAmount}
+                      onChange={(e) => setOfferAmount(e.target.value)}
+                      className="w-full bg-transparent text-sm font-semibold text-[#2C2C2C] outline-none"
+                      placeholder="0.00"
+                      disabled={offerBusy}
+                      required
+                    />
+                  </div>
+                </label>
+
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Currency
+                  <select
+                    value={offerCurrency}
+                    onChange={(e) => setOfferCurrency(e.target.value as "PHP")}
+                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] outline-none"
+                    disabled={offerBusy}
+                  >
+                    <option value="PHP">PHP</option>
+                  </select>
+                </label>
+
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Terms (optional)
+                  <textarea
+                    value={offerTerms}
+                    onChange={(e) => setOfferTerms(e.target.value.slice(0, 500))}
+                    rows={3}
+                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 px-3 py-2 text-sm font-medium text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/25"
+                    placeholder="Include any conditions, deposit terms, or payment notes"
+                    disabled={offerBusy}
+                  />
+                </label>
+
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Valid Until (optional)
+                  <input
+                    type="date"
+                    value={offerValidUntil}
+                    onChange={(e) => setOfferValidUntil(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] outline-none"
+                    disabled={offerBusy}
+                  />
+                </label>
+
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Optional message to client
+                  <textarea
+                    value={offerMessage}
+                    onChange={(e) => setOfferMessage(e.target.value.slice(0, 300))}
+                    rows={3}
+                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 px-3 py-2 text-sm font-medium text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/25"
+                    placeholder="Add a note for the client (optional)…"
+                    disabled={offerBusy}
+                  />
+                </label>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={offerBusy}
+                  onClick={async () => {
+                    if (!offerLead) return;
+                    const amountNum = Number.parseFloat(String(offerAmount ?? "").trim());
+                    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+                      toast.error("Please enter a valid amount.");
+                      return;
+                    }
+                    setOfferBusy(true);
+                    try {
+                      const res = await fetch("/api/offers", {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          lead_id: offerLead.id,
+                          amount: amountNum,
+                          currency: offerCurrency,
+                          terms_text: offerTerms.trim() ? offerTerms.trim() : null,
+                          valid_until: offerValidUntil.trim() ? offerValidUntil.trim() : null,
+                          message: offerMessage.trim() ? offerMessage.trim() : null,
+                        }),
+                      });
+                      const json = (await res.json().catch(() => ({}))) as
+                        | { success: true; data: { offer_id: string } }
+                        | { success: false; error?: { message?: string } };
+                      if (!res.ok || !("success" in json) || json.success !== true) {
+                        const msg =
+                          (json as { success?: boolean; error?: { message?: string } })?.error?.message ??
+                          "Could not send offer";
+                        toast.error(msg);
+                        return;
+                      }
+                      toast.success(`Offer sent to ${offerLead.name}`);
+                      setOfferLead(null);
+                      await onRefresh();
+                    } finally {
+                      setOfferBusy(false);
+                    }
+                  }}
+                  className="flex-1 rounded-full bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white hover:bg-[#5a8a5d] disabled:opacity-50"
+                >
+                  {offerBusy ? "…" : "Send Offer"}
+                </button>
+                <button
+                  type="button"
+                  disabled={offerBusy}
+                  onClick={() => setOfferLead(null)}
                   className="flex-1 rounded-full border border-[#2C2C2C]/15 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancel
