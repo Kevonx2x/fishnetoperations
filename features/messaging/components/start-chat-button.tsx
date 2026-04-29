@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -27,13 +27,22 @@ type Props = {
   className?: string;
   label?: string;
   metadata?: StreamChannelPropertyMetadata;
+  /** When true, shows a message bubble icon before the label (e.g. client pipeline). */
+  showMessageIcon?: boolean;
 };
 
 /**
  * Starts (or opens) a Stream Chat channel between a client and agent,
  * then routes to the correct messaging UI with that channel selected.
  */
-export function StartChatButton({ agentId, clientId, className, label = DEFAULT_LABEL, metadata }: Props) {
+export function StartChatButton({
+  agentId,
+  clientId,
+  className,
+  label = DEFAULT_LABEL,
+  metadata,
+  showMessageIcon = false,
+}: Props) {
   const router = useRouter();
   const { user, profile } = useAuth();
   const [busy, setBusy] = useState(false);
@@ -91,7 +100,10 @@ export function StartChatButton({ agentId, clientId, className, label = DEFAULT_
           Opening chat…
         </>
       ) : (
-        label
+        <>
+          {showMessageIcon ? <MessageCircle className="h-4 w-4 shrink-0 opacity-95" aria-hidden /> : null}
+          {label}
+        </>
       )}
     </button>
   );

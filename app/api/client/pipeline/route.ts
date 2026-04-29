@@ -39,6 +39,19 @@ function pickHeroImage(args: {
   return main ? cloudinaryPropertyPhotoDisplayUrl(main) : "";
 }
 
+function countPropertyGalleryPhotos(args: {
+  image_url: string | null;
+  property_photos: { url: string | null; sort_order?: number | null; created_at?: string | null }[] | null;
+}): number {
+  const n = (args.property_photos ?? [])
+    .slice()
+    .sort(comparePropertyPhotos)
+    .map((p) => String(p.url || "").trim())
+    .filter(Boolean).length;
+  if (n > 0) return n;
+  return args.image_url?.trim() ? 1 : 0;
+}
+
 function statusPillForDeal(args: {
   pipeline_stage: string;
   viewing: ViewingRow | null;
@@ -195,6 +208,13 @@ export async function GET() {
         })
       : "";
 
+    const photoCount = prop
+      ? countPropertyGalleryPhotos({
+          image_url: prop.image_url,
+          property_photos: prop.property_photos ?? null,
+        })
+      : 0;
+
     return {
       lead_id: lead.id,
       pipeline_stage: lead.pipeline_stage,
@@ -209,12 +229,14 @@ export async function GET() {
             title,
             price: priceDisplay,
             hero_image: hero,
+            photo_count: photoCount,
           }
         : {
             id: null as string | null,
             title,
             price: priceDisplay,
             hero_image: "",
+            photo_count: photoCount,
           },
       agent: {
         user_id: agentUserId,
