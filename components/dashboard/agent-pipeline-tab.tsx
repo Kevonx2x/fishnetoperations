@@ -231,6 +231,7 @@ type DealDocCheckRow = {
   required: boolean | null;
   suggested_for_stage: string | null;
   direction: string | null;
+  viewed_by_agent_at: string | null;
 };
 
 function labelDealPipelineDoc(row: DealDocCheckRow): string {
@@ -535,6 +536,7 @@ function KanbanDealCard({
   dealValueLine,
   pinned,
   uploadedRequestedDocCount,
+  unviewedUploadedDocCount,
   onOpenDocs,
   onBeginStageMove,
   stageMovePrompt,
@@ -560,6 +562,8 @@ function KanbanDealCard({
   pinned: boolean;
   /** Client-uploaded pipeline documents (requested row, status uploaded). */
   uploadedRequestedDocCount: number;
+  /** Subset of uploaded client docs the agent has not acknowledged in the drawer yet. */
+  unviewedUploadedDocCount: number;
   onOpenDocs: (lead: PipelineLeadRow) => void;
   onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
   stageMovePrompt: {
@@ -893,10 +897,17 @@ function KanbanDealCard({
             onPointerDown={(e) => e.stopPropagation()}
             className={cn(
               "absolute z-[5] flex min-w-[1.5rem] items-center justify-center gap-0.5 rounded-full border border-[#6B9E6E]/40 bg-[#6B9E6E]/12 px-1.5 py-0.5 text-[10px] font-bold text-[#2d5a30] shadow-sm hover:bg-[#6B9E6E]/22",
+              unviewedUploadedDocCount > 0 && "bhg-doc-badge-pulse relative",
               next ? "bottom-12 left-2" : "bottom-2.5 left-2",
               anyMenuOpen && "pointer-events-none opacity-0",
             )}
           >
+            {unviewedUploadedDocCount > 0 ? (
+              <span
+                className="pointer-events-none absolute -right-0.5 -top-0.5 z-[1] h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-white"
+                aria-hidden
+              />
+            ) : null}
             <FileText className="h-3 w-3 shrink-0" aria-hidden />
             <span className="tabular-nums">{uploadedRequestedDocCount}</span>
           </button>
@@ -965,6 +976,7 @@ function KanbanStageColumn({
   propertyLabel,
   dealValueByPropertyId,
   uploadedRequestedDocCountByLeadId,
+  unviewedUploadedDocCountByLeadId,
   stageMovePrompt,
   onStageMovePromptSkip,
   onStageMovePromptYes,
@@ -997,6 +1009,7 @@ function KanbanStageColumn({
   propertyLabel: (propertyId: string | null) => string;
   dealValueByPropertyId: Record<string, string>;
   uploadedRequestedDocCountByLeadId: Record<number, number>;
+  unviewedUploadedDocCountByLeadId: Record<number, number>;
   stageMovePrompt: { lead: PipelineLeadRow; targetStage: PipelineStageId; kind: "advance" | "jump" } | null;
   onStageMovePromptSkip: () => void;
   onStageMovePromptYes: (lead: PipelineLeadRow, targetStage: PipelineStageId) => void;
@@ -1077,6 +1090,7 @@ function KanbanStageColumn({
                   dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
                   pinned={Boolean(deal.pinned)}
                   uploadedRequestedDocCount={uploadedRequestedDocCountByLeadId[deal.id] ?? 0}
+                  unviewedUploadedDocCount={unviewedUploadedDocCountByLeadId[deal.id] ?? 0}
                   onOpenDocs={openDocs}
                   onBeginStageMove={beginStageMove}
                   stageMovePrompt={stageMovePrompt}
@@ -1126,6 +1140,7 @@ function SortableDealCard({
   dealValueLine,
   pinned,
   uploadedRequestedDocCount,
+  unviewedUploadedDocCount,
   onOpenDocs,
   onBeginStageMove,
   stageMovePrompt,
@@ -1150,6 +1165,7 @@ function SortableDealCard({
   dealValueLine: string | null;
   pinned: boolean;
   uploadedRequestedDocCount: number;
+  unviewedUploadedDocCount: number;
   onOpenDocs: (lead: PipelineLeadRow) => void;
   onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
   stageMovePrompt: {
@@ -1409,12 +1425,21 @@ function SortableDealCard({
         <button
           type="button"
           onClick={() => onOpenDocs(deal)}
-          className="relative flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+          className={cn(
+            "relative flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50",
+            unviewedUploadedDocCount > 0 && "bhg-doc-badge-pulse",
+          )}
         >
           📄 View Documents
           {uploadedRequestedDocCount > 0 ? (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#6B9E6E] px-1 text-[10px] font-bold text-white tabular-nums">
-              {uploadedRequestedDocCount}
+              {unviewedUploadedDocCount > 0 ? (
+                <span
+                  className="pointer-events-none absolute -right-0.5 -top-0.5 z-[1] h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-white"
+                  aria-hidden
+                />
+              ) : null}
+              <span className="tabular-nums">{uploadedRequestedDocCount}</span>
             </span>
           ) : null}
         </button>
@@ -1593,6 +1618,9 @@ export function AgentPipelineTab({
   const [clientDocRows, setClientDocRows] = useState<ClientDocRow[]>([]);
   const [dealDocCheckRows, setDealDocCheckRows] = useState<DealDocCheckRow[]>([]);
   const [uploadedRequestedDocCountByLeadId, setUploadedRequestedDocCountByLeadId] = useState<
+    Record<number, number>
+  >({});
+  const [unviewedUploadedDocCountByLeadId, setUnviewedUploadedDocCountByLeadId] = useState<
     Record<number, number>
   >({});
   const [docsLoading, setDocsLoading] = useState(false);
@@ -1881,13 +1909,14 @@ export function AgentPipelineTab({
     const leadIds = deals.map((d) => d.id).filter((id): id is number => typeof id === "number");
     if (leadIds.length === 0) {
       setUploadedRequestedDocCountByLeadId({});
+      setUnviewedUploadedDocCountByLeadId({});
       return;
     }
     let cancelled = false;
     void (async () => {
       const { data, error } = await supabase
         .from("deal_documents")
-        .select("lead_id")
+        .select("lead_id, viewed_by_agent_at")
         .in("lead_id", leadIds)
         .eq("direction", "requested")
         .eq("status", "uploaded")
@@ -1895,16 +1924,21 @@ export function AgentPipelineTab({
       if (cancelled) return;
       if (error) {
         setUploadedRequestedDocCountByLeadId({});
+        setUnviewedUploadedDocCountByLeadId({});
         return;
       }
-      const next: Record<number, number> = {};
-      for (const row of (data ?? []) as { lead_id: number }[]) {
+      const uploadedNext: Record<number, number> = {};
+      const unviewedNext: Record<number, number> = {};
+      for (const row of (data ?? []) as { lead_id: number; viewed_by_agent_at: string | null }[]) {
         const lid = row.lead_id;
-        if (typeof lid === "number" && Number.isFinite(lid)) {
-          next[lid] = (next[lid] ?? 0) + 1;
+        if (typeof lid !== "number" || !Number.isFinite(lid)) continue;
+        uploadedNext[lid] = (uploadedNext[lid] ?? 0) + 1;
+        if (row.viewed_by_agent_at == null) {
+          unviewedNext[lid] = (unviewedNext[lid] ?? 0) + 1;
         }
       }
-      setUploadedRequestedDocCountByLeadId(next);
+      setUploadedRequestedDocCountByLeadId(uploadedNext);
+      setUnviewedUploadedDocCountByLeadId(unviewedNext);
     })();
     return () => {
       cancelled = true;
@@ -1918,7 +1952,7 @@ export function AgentPipelineTab({
         const { data: dealData, error: dealErr } = await supabase
           .from("deal_documents")
           .select(
-            "id, created_at, document_type, document_name, file_url, file_name, status, required, suggested_for_stage, direction",
+            "id, created_at, document_type, document_name, file_url, file_name, status, required, suggested_for_stage, direction, viewed_by_agent_at",
           )
           .eq("lead_id", lead.id)
           .order("created_at", { ascending: false });
@@ -1927,16 +1961,20 @@ export function AgentPipelineTab({
           toast.error(dealErr.message);
           setDealDocCheckRows([]);
           setUploadedRequestedDocCountByLeadId((prev) => ({ ...prev, [lead.id]: 0 }));
+          setUnviewedUploadedDocCountByLeadId((prev) => ({ ...prev, [lead.id]: 0 }));
         } else {
           const rows = (dealData ?? []) as DealDocCheckRow[];
           setDealDocCheckRows(rows);
-          const uploadedForLead = rows.filter(
-            (r) =>
-              (r.direction ?? "").trim().toLowerCase() === "requested" &&
-              (r.status ?? "").trim().toLowerCase() === "uploaded" &&
-              Boolean(r.file_url?.trim()),
+          const isUploadedRequested = (r: DealDocCheckRow) =>
+            (r.direction ?? "").trim().toLowerCase() === "requested" &&
+            (r.status ?? "").trim().toLowerCase() === "uploaded" &&
+            Boolean(r.file_url?.trim());
+          const uploadedForLead = rows.filter(isUploadedRequested).length;
+          const unviewedForLead = rows.filter(
+            (r) => isUploadedRequested(r) && r.viewed_by_agent_at == null,
           ).length;
           setUploadedRequestedDocCountByLeadId((prev) => ({ ...prev, [lead.id]: uploadedForLead }));
+          setUnviewedUploadedDocCountByLeadId((prev) => ({ ...prev, [lead.id]: unviewedForLead }));
         }
 
         if (!lead.client_id) {
@@ -1972,29 +2010,58 @@ export function AgentPipelineTab({
     [supabase, clientDocsSharedWithUserId],
   );
 
-  const openDocs = (lead: PipelineLeadRow) => {
-    setDocsLead(lead);
-    setDocsPanelFlow("idle");
-    setPanelDocSlug("");
-    setRequestRequired(false);
-    setSendRequired(false);
-    setSendFileUrls([]);
-    setClientDocRows([]);
-    setDealDocCheckRows([]);
-    void loadDocs(lead);
-  };
+  const markDealDocumentsViewedForLead = useCallback(async (leadId: number) => {
+    try {
+      const res = await fetch("/api/agent/mark-deal-documents-viewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ lead_id: leadId }),
+      });
+      if (!res.ok) return;
+      setUnviewedUploadedDocCountByLeadId((prev) => ({ ...prev, [leadId]: 0 }));
+    } catch {
+      // ignore — drawer still opens; rows refresh via loadDocs
+    }
+  }, []);
 
-  const openDocsWithRequestPrefill = (lead: PipelineLeadRow, slug: string) => {
-    setDocsLead(lead);
-    setDocsPanelFlow("request");
-    setPanelDocSlug(PANEL_DOC_BY_SLUG[slug] ? slug : "");
-    setRequestRequired(false);
-    setSendRequired(false);
-    setSendFileUrls([]);
-    setClientDocRows([]);
-    setDealDocCheckRows([]);
-    void loadDocs(lead);
-  };
+  const markViewedThenReloadDocs = useCallback(
+    async (lead: PipelineLeadRow) => {
+      await markDealDocumentsViewedForLead(lead.id);
+      await loadDocs(lead);
+    },
+    [markDealDocumentsViewedForLead, loadDocs],
+  );
+
+  const openDocs = useCallback(
+    (lead: PipelineLeadRow) => {
+      setDocsLead(lead);
+      setDocsPanelFlow("idle");
+      setPanelDocSlug("");
+      setRequestRequired(false);
+      setSendRequired(false);
+      setSendFileUrls([]);
+      setClientDocRows([]);
+      setDealDocCheckRows([]);
+      void markViewedThenReloadDocs(lead);
+    },
+    [markViewedThenReloadDocs],
+  );
+
+  const openDocsWithRequestPrefill = useCallback(
+    (lead: PipelineLeadRow, slug: string) => {
+      setDocsLead(lead);
+      setDocsPanelFlow("request");
+      setPanelDocSlug(PANEL_DOC_BY_SLUG[slug] ? slug : "");
+      setRequestRequired(false);
+      setSendRequired(false);
+      setSendFileUrls([]);
+      setClientDocRows([]);
+      setDealDocCheckRows([]);
+      void markViewedThenReloadDocs(lead);
+    },
+    [markViewedThenReloadDocs],
+  );
 
   const openAgentDealDocumentUrl = async (doc: DealDocCheckRow) => {
     const path = doc.file_url?.trim();
@@ -2182,7 +2249,7 @@ export function AgentPipelineTab({
       setSendFileUrls([]);
       setClientDocRows([]);
       setDealDocCheckRows([]);
-      void loadDocs(lead);
+      void markViewedThenReloadDocs(lead);
     }
   };
 
@@ -2403,6 +2470,17 @@ export function AgentPipelineTab({
 
   return (
     <div className="space-y-6 bg-[#FAF8F4] font-sans text-[#2C2C2C]">
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+@keyframes bhg-doc-badge-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(107, 158, 110, 0); }
+  50% { transform: scale(1.05); box-shadow: 0 0 0 3px rgba(107, 158, 110, 0.22); }
+}
+.bhg-doc-badge-pulse { animation: bhg-doc-badge-pulse 2s ease-in-out infinite; will-change: transform; }
+`,
+        }}
+      />
       <div>
         <h1 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Pipeline</h1>
         <p className="mt-2 max-w-2xl font-sans text-sm font-medium leading-relaxed text-[#2C2C2C]/60">
@@ -2505,6 +2583,7 @@ export function AgentPipelineTab({
                   dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
                   pinned={Boolean(deal.pinned)}
                   uploadedRequestedDocCount={uploadedRequestedDocCountByLeadId[deal.id] ?? 0}
+                  unviewedUploadedDocCount={unviewedUploadedDocCountByLeadId[deal.id] ?? 0}
                   onOpenDocs={openDocs}
                   onBeginStageMove={beginStageMove}
                   stageMovePrompt={stageMovePrompt}
@@ -2791,6 +2870,7 @@ export function AgentPipelineTab({
                       propertyLabel={propertyLabel}
                       dealValueByPropertyId={dealValueByPropertyId}
                       uploadedRequestedDocCountByLeadId={uploadedRequestedDocCountByLeadId}
+                      unviewedUploadedDocCountByLeadId={unviewedUploadedDocCountByLeadId}
                       stageMovePrompt={stageMovePrompt}
                       onStageMovePromptSkip={onStageMovePromptSkip}
                       onStageMovePromptYes={onStageMovePromptYes}
