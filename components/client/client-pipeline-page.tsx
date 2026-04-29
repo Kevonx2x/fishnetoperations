@@ -145,8 +145,8 @@ function StatusPill({ label, variant }: { label: string; variant: "sage" | "neut
 
 function ClientPipelineStepper({ deal }: { deal: PipelineDeal }) {
   const cur = clientPipelineCurrentStepIndex(deal);
-  /** Aligns with vertical center of h-7 circle row */
-  const trackTop = "top-[13px]";
+  /** Vertical center of circle row (h-6 slot) */
+  const trackTop = "top-[11px]";
   return (
     <div className="w-full min-w-0 font-sans">
       <div className="relative flex w-full min-w-0 items-start">
@@ -161,8 +161,8 @@ function ClientPipelineStepper({ deal }: { deal: PipelineDeal }) {
           const offerGold = active && i === 2 && String(deal.pipeline_stage).toLowerCase() === "offer";
           const segmentAfterGreen = cur === 5 || cur > i;
           return (
-            <div key={label} className="relative flex min-w-0 flex-1 flex-col items-center gap-1.5">
-              <div className="relative flex h-7 w-full min-w-0 items-center justify-center">
+            <div key={label} className="relative flex min-w-0 flex-1 flex-col items-center gap-1">
+              <div className="relative flex h-6 w-full min-w-0 items-center justify-center">
                 {i < CLIENT_PIPELINE_STEPS.length - 1 && segmentAfterGreen ? (
                   <div
                     className={cn("absolute left-1/2 z-[1] h-px w-full min-w-0 bg-[#6B9E6E]/75", trackTop)}
@@ -170,30 +170,25 @@ function ClientPipelineStepper({ deal }: { deal: PipelineDeal }) {
                   />
                 ) : null}
                 {done ? (
-                  <span className="relative z-[2] flex h-6 w-6 items-center justify-center rounded-full border border-[#6B9E6E] bg-[#6B9E6E] text-white ring-2 ring-white">
-                    <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+                  <span className="relative z-[2] flex h-5 w-5 items-center justify-center rounded-full border border-[#6B9E6E] bg-[#6B9E6E] text-white ring-2 ring-white">
+                    <Check className="h-2.5 w-2.5" strokeWidth={2.5} aria-hidden />
                   </span>
                 ) : active ? (
                   <span
                     className={cn(
-                      "relative z-[2] flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-sm ring-2 ring-white",
+                      "relative z-[2] flex h-6 w-6 items-center justify-center rounded-full border-2 shadow-sm ring-2 ring-white",
                       offerGold ? "border-[#D4A843] bg-[#D4A843]" : "border-[#6B9E6E] bg-[#6B9E6E]",
                     )}
                     aria-hidden
                   />
                 ) : (
                   <span
-                    className="relative z-[2] flex h-6 w-6 items-center justify-center rounded-full border border-[#2C2C2C]/12 bg-white ring-2 ring-white"
+                    className="relative z-[2] flex h-5 w-5 items-center justify-center rounded-full border border-[#D1D5DB] bg-white ring-2 ring-white"
                     aria-hidden
                   />
                 )}
               </div>
-              <span
-                className={cn(
-                  "w-full max-w-[4.25rem] px-0.5 text-center text-[9px] font-medium leading-tight tracking-tight sm:text-[10px]",
-                  done || active ? "text-[#2C2C2C]/70" : "text-[#2C2C2C]/35",
-                )}
-              >
+              <span className="w-full max-w-[4.25rem] px-0.5 text-center text-xs font-normal leading-tight tracking-tight text-[#6B728E]">
                 {label}
               </span>
             </div>
@@ -220,15 +215,15 @@ function DealStatusBanner({ deal }: { deal: PipelineDeal }) {
       viewingWhenLine = `Viewing scheduled on ${formatViewingWhen(deal.viewing.scheduled_at)}`;
     }
     return (
-      <div className="flex items-center justify-between gap-4 rounded-xl bg-[#6B9E6E]/10 px-4 py-3.5 font-sans text-sm leading-snug text-[#2C2C2C]/90">
-        <div className="flex min-w-0 flex-1 items-start gap-2.5">
+      <div className="flex flex-col gap-2 font-sans text-sm leading-snug text-[#2C2C2C]/60 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="flex min-w-0 flex-1 items-start gap-2">
           <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-          <span className="min-w-0 font-medium">{viewingWhenLine}</span>
+          <span className="min-w-0 font-normal not-italic">{viewingWhenLine}</span>
         </div>
         {deal.property.id ? (
           <Link
             href={`/properties/${encodeURIComponent(deal.property.id)}`}
-            className="inline-flex shrink-0 items-center gap-0.5 font-semibold text-[#6B9E6E] hover:underline"
+            className="inline-flex shrink-0 items-center gap-0.5 font-semibold not-italic text-[#6B9E6E] hover:underline"
           >
             View details <span aria-hidden>→</span>
           </Link>
@@ -239,26 +234,24 @@ function DealStatusBanner({ deal }: { deal: PipelineDeal }) {
 
   if (stage === "lead" && !viewingConfirmed) {
     return (
-      <div className="flex items-center justify-between gap-4 rounded-xl bg-[#FAF8F4] px-4 py-3.5 font-sans text-sm leading-relaxed text-[#2C2C2C]/65">
-        <div className="flex min-w-0 flex-1 items-start gap-2.5">
-          <Star className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A843]/90" aria-hidden />
-          <span className="min-w-0 font-normal">We&apos;ve received your inquiry and will get back to you soon.</span>
-        </div>
+      <div className="flex items-start gap-2 font-sans text-sm italic leading-relaxed text-[#6B728E]">
+        <Star className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6B728E]" aria-hidden />
+        <span className="min-w-0">We&apos;ve received your inquiry and will get back to you soon.</span>
       </div>
     );
   }
 
   if (stage === "offer") {
     return (
-      <div className="flex items-center justify-between gap-4 rounded-xl bg-[#D4A843]/12 px-4 py-3.5 font-sans text-sm leading-relaxed text-[#2C2C2C]/85">
-        <div className="flex min-w-0 flex-1 items-start gap-2.5">
-          <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A843]" aria-hidden />
-          <span className="min-w-0 font-normal">You have a pending offer. Please review and respond.</span>
+      <div className="flex flex-col gap-2 font-sans text-sm italic leading-relaxed text-[#6B728E] sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="flex min-w-0 flex-1 items-start gap-2">
+          <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6B728E]" aria-hidden />
+          <span className="min-w-0">You have a pending offer. Please review and respond.</span>
         </div>
         {deal.property.id ? (
           <Link
             href={`/properties/${encodeURIComponent(deal.property.id)}`}
-            className="inline-flex shrink-0 items-center gap-0.5 font-semibold text-[#2C2C2C]/90 hover:underline"
+            className="inline-flex shrink-0 items-center gap-0.5 font-semibold not-italic text-[#2C2C2C]/80 hover:underline"
           >
             View offer <span aria-hidden>→</span>
           </Link>
@@ -269,23 +262,18 @@ function DealStatusBanner({ deal }: { deal: PipelineDeal }) {
 
   if (viewingDeclined) {
     return (
-      <div className="flex items-center justify-between gap-4 rounded-xl bg-[#FAF8F4] px-4 py-3.5 font-sans text-sm text-[#2C2C2C]/65">
-        <div className="flex min-w-0 flex-1 items-start gap-2.5">
-          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#2C2C2C]/35" aria-hidden />
-          <span className="min-w-0 font-normal">Viewing was declined for this property.</span>
-        </div>
+      <div className="flex items-start gap-2 font-sans text-sm italic leading-relaxed text-[#6B728E]">
+        <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6B728E]" aria-hidden />
+        <span className="min-w-0">Viewing was declined for this property.</span>
       </div>
     );
   }
 
   if (deal.viewing && !viewingConfirmed) {
     return (
-      <div className="flex items-center justify-between gap-4 rounded-xl bg-[#FAF8F4] px-4 py-3.5 font-sans text-sm text-[#2C2C2C]/60">
-        <div className="flex min-w-0 flex-1 items-start gap-2.5">
-          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#2C2C2C]/35" aria-hidden />
-          <span className="min-w-0 font-normal">Viewing — awaiting confirmation from your agent.</span>
-        </div>
-      </div>
+      <p className="font-sans text-sm italic font-normal leading-relaxed text-[#6B728E]">
+        Viewing — awaiting confirmation from your agent.
+      </p>
     );
   }
 
@@ -393,20 +381,20 @@ function DealCard({
       <div className="flex flex-col gap-7 px-6 pb-10 pt-8 sm:px-8 sm:pb-11 sm:pt-9 xl:grid xl:grid-cols-4 xl:items-stretch xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:pb-10 xl:pt-10 xl:[grid-template-columns:minmax(0,0.94fr)_minmax(0,1.28fr)_minmax(0,0.82fr)_minmax(0,0.92fr)]">
         {/* Section 1 — title + price (tight), gap, then image */}
         <div className="min-w-0 font-sans">
-          <h2 className="truncate font-sans text-[0.9375rem] font-bold leading-tight tracking-tight text-[#2C2C2C] sm:text-[1rem]">
+          <h2 className="truncate font-sans text-xl font-bold leading-tight tracking-tight text-[#2C2C2C] sm:text-2xl">
             {deal.property.title}
           </h2>
           <p className="mt-0.5 font-sans text-[0.8125rem] font-semibold leading-tight text-[#D4A843] sm:text-sm">
             {formatPipelineCardPrice(deal.property.price)}
           </p>
-          <div className="relative z-0 mx-auto mt-10 h-[160px] w-full max-w-[min(100%,280px)] overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:mt-11 sm:h-[180px] xl:mx-0 xl:mt-12 xl:max-w-none">
+          <div className="relative z-0 mx-auto mt-10 h-[200px] w-full max-w-[min(100%,280px)] overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:mt-11 sm:h-[224px] xl:mx-0 xl:mt-12 xl:max-w-none">
             {deal.property.hero_image ? (
               <Image
                 src={deal.property.hero_image}
                 alt=""
                 fill
                 className="object-cover"
-                sizes="280px"
+                sizes="320px"
                 unoptimized
               />
             ) : (
@@ -424,28 +412,28 @@ function DealCard({
 
         {/* Section 2 — agent, stepper, banner (vertically centered vs row height on xl) */}
         <div className="flex min-h-0 min-w-0 flex-col gap-4 font-sans xl:h-full xl:justify-center xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <span className="relative inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-inset ring-[#2C2C2C]/10">
+          <div className="flex min-w-0 flex-nowrap items-center gap-2">
+            <span className="relative inline-flex h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-inset ring-[#2C2C2C]/10">
               {deal.agent.image_url?.trim() && !agentAvatarFailed ? (
                 <Image
                   src={deal.agent.image_url}
                   alt=""
                   fill
-                  sizes="36px"
+                  sizes="32px"
                   className="object-cover"
                   unoptimized
                   onError={() => setAgentAvatarFailed(true)}
                 />
               ) : (
-                <span className="flex h-full w-full items-center justify-center font-sans text-[11px] font-semibold tracking-tight text-[#2C2C2C]/55">
+                <span className="flex h-full w-full items-center justify-center font-sans text-[10px] font-semibold tracking-tight text-[#2C2C2C]/55">
                   {initials}
                 </span>
               )}
             </span>
-            <span className="font-sans text-[13px] font-medium text-[#2C2C2C]/50">{deal.agent.name}</span>
+            <span className="min-w-0 truncate font-sans text-sm font-normal text-[#2C2C2C]/50">{deal.agent.name}</span>
             {deal.agent.verified ? (
-              <span className="inline-flex items-center gap-0.5 text-[#6B9E6E]" title="Verified agent">
-                <BadgeCheck className="h-3.5 w-3.5" aria-hidden />
+              <span className="inline-flex shrink-0 items-center gap-0.5 text-[#6B9E6E]" title="Verified agent">
+                <BadgeCheck className="h-3 w-3" aria-hidden />
                 <span className="sr-only">Verified</span>
               </span>
             ) : null}
@@ -457,7 +445,9 @@ function DealCard({
 
         {/* Section 3 — checklist */}
         <section className="min-w-0 font-sans xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/38">Your next steps</p>
+          <p className="flex min-h-[24px] w-full items-center text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38 xl:min-h-[26px]">
+            Your next steps
+          </p>
           <ul className="mt-3 space-y-3.5 text-sm text-[#2C2C2C]/80 sm:space-y-4">
             <li className="flex items-start gap-2.5">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
@@ -579,10 +569,10 @@ function DealCard({
 
         {/* Section 4 — status pill + quick actions (no border vs section 3; grid gap only) */}
         <div className="flex min-w-0 flex-col font-sans">
-          <div className="flex justify-end">
+          <div className="flex min-h-[24px] w-full items-center justify-end xl:min-h-[26px]">
             <StatusPill label={deal.status_label} variant={statusPillVariant} />
           </div>
-          <p className="mt-4 text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/38">
+          <p className="mt-4 flex w-full justify-center text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38">
             Quick actions
           </p>
           <div className="mt-7 flex w-full flex-col gap-3">
