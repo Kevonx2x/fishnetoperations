@@ -29,9 +29,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   Archive,
   ArrowRightCircle,
+  Calendar,
+  CircleCheck,
   Eye,
   FileText,
   Filter,
+  Handshake,
   LayoutGrid,
   List,
   Loader2,
@@ -439,20 +442,65 @@ function parsePriceToNumber(raw: unknown): number | null {
   return null;
 }
 
+/** Column accent (mockup): Lead & Reservation sage, Viewing charcoal, Offer gold, Closed charcoal. */
 function stageBarHex(stage: PipelineStageId): string {
   switch (stage) {
     case "lead":
-      return "#888888";
-    case "viewing":
       return "#6B9E6E";
+    case "viewing":
+      return "#2C2C2C";
     case "offer":
       return "#D4A843";
     case "reservation":
-      return "#4A7C4E";
-    case "closed":
       return "#6B9E6E";
+    case "closed":
+      return "#2C2C2C";
     default:
-      return "#888888";
+      return "#2C2C2C";
+  }
+}
+
+function pipelineColumnEmptyIcon(stage: PipelineStageId) {
+  const ring =
+    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/08";
+  const ic = "h-5 w-5 text-[#2C2C2C]/30";
+  switch (stage) {
+    case "lead":
+      return (
+        <span className={ring}>
+          <User className={ic} aria-hidden />
+        </span>
+      );
+    case "viewing":
+      return (
+        <span className={ring}>
+          <Calendar className={ic} aria-hidden />
+        </span>
+      );
+    case "offer":
+      return (
+        <span className={ring}>
+          <FileText className={ic} aria-hidden />
+        </span>
+      );
+    case "reservation":
+      return (
+        <span className={ring}>
+          <Handshake className={ic} aria-hidden />
+        </span>
+      );
+    case "closed":
+      return (
+        <span className={ring}>
+          <CircleCheck className={ic} aria-hidden />
+        </span>
+      );
+    default:
+      return (
+        <span className={ring}>
+          <User className={ic} aria-hidden />
+        </span>
+      );
   }
 }
 
@@ -520,7 +568,6 @@ function KanbanDealCard({
   const propLine = propertyLabel(deal.property_id);
   const menuOpen = menuOpenId === deal.id;
   const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
-  const stageHex = stageBarHex(deal.pipeline_stage);
   const anyMenuOpen = menuOpenId != null;
 
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -563,7 +610,8 @@ function KanbanDealCard({
         {...attributes}
         {...listeners}
         className={cn(
-          "relative rounded-lg border border-[#2C2C2C]/10 border-t-0 bg-white p-3 shadow-sm transition",
+          "relative rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-sm transition",
+          next ? "pb-10" : "",
           "cursor-grab",
           isDragging && "scale-[1.02] rotate-[0.6deg] cursor-grabbing shadow-xl",
         )}
@@ -574,12 +622,7 @@ function KanbanDealCard({
           if (e.key === "Enter" || e.key === " ") onOpenLeadDetails(deal.id);
         }}
       >
-        <div
-          aria-hidden
-          className="absolute left-0 top-0 h-[3px] w-full rounded-t-lg"
-          style={{ backgroundColor: stageHex }}
-        />
-        <div className="touch-none pr-10 pt-0.5">
+        <div className="touch-none pr-10">
           {/* Row 1: Title + Menu */}
           <div className="flex items-start justify-between gap-2">
             <button
@@ -592,7 +635,7 @@ function KanbanDealCard({
               }}
             >
               <p
-                className="text-[14px] font-bold leading-snug text-[#2C2C2C]"
+                className="font-sans text-[14px] font-bold leading-snug text-[#2C2C2C]"
                 style={{
                   display: "-webkit-box",
                   WebkitLineClamp: 2,
@@ -782,13 +825,13 @@ function KanbanDealCard({
           </div>
 
           {/* Row 2: Price */}
-          <p className="mt-1 text-[13px] font-bold text-[#D4A843]">{dealValueLine ?? "—"}</p>
-          {/* Row 4: Avatar + Contact */}
+          <p className="mt-1 font-sans text-[13px] font-bold text-[#D4A843]">{dealValueLine ?? "—"}</p>
+          {/* Row 3: Avatar + contact */}
           <div className="mt-2 flex items-center gap-2">
             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[10px] font-bold text-[#6B9E6E]">
               {clientInitials(deal.name)}
             </div>
-            <span className="truncate text-[12px] font-semibold text-[#888888]">{deal.name}</span>
+            <span className="truncate font-sans text-[12px] font-semibold text-[#2C2C2C]/65">{deal.name}</span>
           </div>
         </div>
 
@@ -802,7 +845,7 @@ function KanbanDealCard({
             }}
             onPointerDown={(e) => e.stopPropagation()}
             className={cn(
-              "absolute right-2 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-sm hover:bg-[#5a8a5d]",
+              "absolute bottom-3 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-sm hover:bg-[#5a8a5d]",
               anyMenuOpen && "opacity-0 pointer-events-none",
             )}
           >
@@ -914,34 +957,45 @@ function KanbanStageColumn({
       key={stage}
       className={cn("min-w-0 flex-1 px-2", idx > 0 && "border-l border-[#2C2C2C]/10")}
     >
-      <div className="sticky top-0 z-10 overflow-hidden rounded-xl border border-[#2C2C2C]/10 bg-white shadow-sm">
-        <div aria-hidden className="h-[3px] w-full" style={{ backgroundColor: barHex }} />
+      <div className="sticky top-0 z-10 overflow-hidden rounded-lg border border-[#2C2C2C]/10 bg-white">
+        <div aria-hidden className="h-1 w-full" style={{ backgroundColor: barHex }} />
         <div className="px-4 py-3">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate font-serif text-lg font-bold text-[#2C2C2C]">{label}</p>
-              <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
-                {showTotal ? `${formatPesoCompact(total)} · ` : ""}{count} deal{count === 1 ? "" : "s"}
-              </p>
-            </div>
-            <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-bold tabular-nums text-[#2C2C2C]/70 ring-1 ring-[#2C2C2C]/10">
+            <p className="min-w-0 truncate font-sans text-base font-bold tracking-tight text-[#2C2C2C]">{label}</p>
+            <span className="shrink-0 rounded-full bg-[#FAF8F4] px-2.5 py-0.5 text-xs font-bold tabular-nums text-[#2C2C2C] ring-1 ring-[#2C2C2C]/10">
               {count}
             </span>
           </div>
+          <p className="mt-1 font-sans text-xs font-semibold text-[#2C2C2C]/50">
+            {showTotal ? `${formatPesoCompact(total)} - ` : ""}
+            {count} deal{count === 1 ? "" : "s"}
+          </p>
         </div>
       </div>
 
       <div
         ref={setNodeRef}
         className={cn(
-          "mt-3 min-h-[24px] rounded-xl transition-colors",
+          "mt-3 min-h-[140px] rounded-lg transition-colors",
           isOver ? "bg-[#6B9E6E]/8" : "bg-transparent",
         )}
       >
         {list.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-[#2C2C2C]/15 bg-white/70 px-3 py-4 text-center text-xs font-semibold text-[#2C2C2C]/45">
-            No deals
-          </p>
+          <div className="flex flex-col items-center rounded-lg border border-dashed border-[#2C2C2C]/12 bg-white px-4 py-8 text-center">
+            {pipelineColumnEmptyIcon(stage)}
+            <p className="mt-4 font-sans text-sm font-bold text-[#2C2C2C]">No deals yet</p>
+            <p className="mt-1 max-w-[200px] font-sans text-xs font-medium leading-snug text-[#2C2C2C]/50">
+              Deals in this stage will appear here.
+            </p>
+            <button
+              type="button"
+              disabled
+              title="Coming soon"
+              className="mt-6 font-sans text-sm font-semibold text-[#2C2C2C]/40"
+            >
+              + Add deal
+            </button>
+          </div>
         ) : (
           <SortableContext items={ids} strategy={verticalListSortingStrategy}>
             <div className="space-y-2 pb-2">
@@ -1072,7 +1126,7 @@ function SortableDealCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative rounded-2xl border border-gray-100 bg-white p-4 shadow-sm ${
+      className={`relative rounded-lg border border-[#2C2C2C]/10 bg-white p-4 shadow-sm ${
         isDragging ? "scale-105 shadow-xl" : ""
       } ${isArchived ? "opacity-50 grayscale-[30%]" : ""}`}
     >
@@ -2178,10 +2232,10 @@ export function AgentPipelineTab({
   }, [deals.length, dealValueByPropertyId]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-[#FAF8F4] font-sans text-[#2C2C2C]">
       <div>
-        <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">Pipeline</h1>
-        <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+        <h1 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Pipeline</h1>
+        <p className="mt-2 max-w-2xl font-sans text-sm font-medium leading-relaxed text-[#2C2C2C]/60">
           Track deals from lead to close — documents and stage updates in one place.
         </p>
       </div>
@@ -2328,18 +2382,18 @@ export function AgentPipelineTab({
               className="pointer-events-none absolute inset-y-0 right-0 z-20 w-10 bg-gradient-to-l from-[#FAF8F4] to-transparent"
             />
           ) : null}
-          <div className="mb-3 flex items-center justify-between gap-3 px-3">
-            <div className="flex items-center gap-2">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-1">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 shadow-sm hover:bg-[#FAF8F4]"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
                 aria-label="Kanban view"
               >
                 <LayoutGrid className="h-4 w-4" aria-hidden />
               </button>
               <button
                 type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 shadow-sm hover:bg-[#FAF8F4]"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
                 aria-label="List view"
               >
                 <List className="h-4 w-4" aria-hidden />
@@ -2347,16 +2401,16 @@ export function AgentPipelineTab({
               <button
                 type="button"
                 onClick={onRefresh}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 shadow-sm hover:bg-[#FAF8F4]"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
                 aria-label="Refresh"
               >
                 <RefreshCw className="h-4 w-4" aria-hidden />
               </button>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-[#2C2C2C]/55">
-                {allDealsTotal > 0 ? `${formatPesoCompact(allDealsTotal)} · ` : ""}
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <span className="font-sans text-sm font-semibold text-[#2C2C2C]/55">
+                {allDealsTotal > 0 ? `${formatPesoCompact(allDealsTotal)} • ` : ""}
                 {allDealsCount} deal{allDealsCount === 1 ? "" : "s"}
               </span>
 
@@ -2365,7 +2419,7 @@ export function AgentPipelineTab({
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-bold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4]"
+                      className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
                       aria-label="Sort"
                     >
                       Sort
@@ -2406,7 +2460,7 @@ export function AgentPipelineTab({
                     <button
                       type="button"
                       className={cn(
-                        "inline-flex items-center gap-2 rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-bold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4]",
+                        "inline-flex items-center gap-2 rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]",
                         activeFilterCount > 0 && "border-[#6B9E6E]/35 bg-[#6B9E6E]/10 text-[#2C5F32]",
                       )}
                       aria-label="Filters"
@@ -2474,7 +2528,7 @@ export function AgentPipelineTab({
                 <button
                   type="button"
                   disabled
-                  className="rounded-full bg-[#6B9E6E] px-4 py-2 text-sm font-bold text-white shadow-sm opacity-60"
+                  className="rounded-full bg-[#6B9E6E] px-4 py-2 text-sm font-bold text-white hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-75"
                   title="Manual deal entry coming soon"
                 >
                   + Add Lead
@@ -2482,7 +2536,7 @@ export function AgentPipelineTab({
                 <select
                   value={pipelineKey}
                   onChange={(e) => setPipelineKey(e.target.value)}
-                  className="rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm"
+                  className="rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
                   aria-label="Pipeline"
                 >
                   {pipelineOptions.map((p) => (
@@ -2494,17 +2548,18 @@ export function AgentPipelineTab({
                 <button
                   type="button"
                   disabled
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/60 shadow-sm opacity-60"
-                  aria-label="Edit pipeline"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/55 hover:bg-[#FAF8F4] disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="More pipeline options"
+                  title="Coming soon"
                 >
-                  <Pencil className="h-4 w-4" aria-hidden />
+                  <MoreHorizontal className="h-4 w-4" aria-hidden />
                 </button>
               </div>
             </div>
           </div>
           <div
             ref={kanbanScrollRef}
-            className="relative isolate overflow-x-auto bg-[#FAF8F4] px-3 py-3 scrollbar-hide"
+            className="relative isolate overflow-x-auto bg-[#FAF8F4] px-1 py-4 scrollbar-hide"
           >
             {menuOpenId != null ? (
               <button
@@ -2591,8 +2646,7 @@ export function AgentPipelineTab({
                 {activeKanbanDealId ? (
                   <div className="w-[220px]">
                     <div className="rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-2xl">
-                      <div className="h-[3px] w-full rounded-t-lg bg-[#6B9E6E]" />
-                      <div className="mt-2 text-[12px] font-semibold text-[#2C2C2C]/60">Moving deal…</div>
+                      <div className="font-sans text-[12px] font-semibold text-[#2C2C2C]/60">Moving deal…</div>
                     </div>
                   </div>
                 ) : null}
