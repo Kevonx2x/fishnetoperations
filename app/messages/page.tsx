@@ -4,15 +4,21 @@ import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { ClientMessagesView } from "@/features/messaging/components/client-messages-view";
+import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
 import { useAuth } from "@/contexts/auth-context";
 
 function MessagesMain() {
   const searchParams = useSearchParams();
   const channel = searchParams.get("channel");
+  const { role } = useAuth();
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <ClientMessagesView initialChannelId={channel} />
+      {role === "client" ? (
+        <ClientMessagesView initialChannelId={channel} />
+      ) : (
+        <AgentMessagesInbox initialChannelId={channel} />
+      )}
     </div>
   );
 }
@@ -27,12 +33,12 @@ export default function MessagesPage() {
       router.replace(`/auth/login?redirect=${encodeURIComponent("/messages")}`);
       return;
     }
-    if (role !== "client") {
+    if (role !== "client" && role !== "agent") {
       router.replace("/");
     }
   }, [loading, user, role, router]);
 
-  if (loading || !user || role !== "client") {
+  if (loading || !user || (role !== "client" && role !== "agent")) {
     return (
       <div className="flex min-h-screen flex-col bg-[#FAF8F4]">
         <MaddenTopNav />
