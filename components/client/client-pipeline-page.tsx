@@ -148,7 +148,7 @@ function ClientPipelineStepper({ deal }: { deal: PipelineDeal }) {
   /** Vertical center of circle row (h-7 slot) */
   const trackTop = "top-[13px]";
   return (
-    <div className="w-full min-w-0 font-sans">
+    <div className="w-full min-w-0 shrink-0 font-sans">
       <div className="relative flex w-full min-w-0 items-start">
         {/* Continuous neutral track behind circles */}
         <div
@@ -380,14 +380,16 @@ function DealCard({
     >
       <div className="flex flex-col gap-6 px-6 py-6 sm:px-8 sm:py-7 xl:grid xl:grid-cols-4 xl:items-stretch xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:py-8 xl:[grid-template-columns:minmax(0,0.94fr)_minmax(0,1.28fr)_minmax(0,0.82fr)_minmax(0,0.92fr)]">
         {/* Section 1 — title + price (tight), gap, then image */}
-        <div className="min-w-0 font-sans">
-          <h2 className="break-words font-sans text-[0.9375rem] font-bold leading-snug tracking-tight text-[#2C2C2C] sm:text-[1rem]">
-            {deal.property.title}
-          </h2>
-          <p className="mt-0.5 font-sans text-[0.8125rem] font-semibold leading-tight text-[#D4A843] sm:text-sm">
-            {formatPipelineCardPrice(deal.property.price)}
-          </p>
-          <div className="relative z-0 mx-auto mt-8 h-[160px] w-full max-w-[min(100%,280px)] overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:mt-10 sm:h-[180px] xl:mx-0 xl:mt-10 xl:max-w-none">
+        <div className="flex min-w-0 flex-col font-sans">
+          <div className="shrink-0">
+            <h2 className="break-words font-sans text-[0.9375rem] font-bold leading-snug tracking-tight text-[#2C2C2C] sm:text-[1rem]">
+              {deal.property.title}
+            </h2>
+            <p className="mt-0.5 font-sans text-[0.8125rem] font-semibold leading-tight text-[#D4A843] sm:text-sm">
+              {formatPipelineCardPrice(deal.property.price)}
+            </p>
+          </div>
+          <div className="relative z-0 mx-auto mt-8 h-[184px] w-full max-w-[min(100%,280px)] shrink-0 overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:mt-10 sm:h-[204px] xl:mx-0 xl:mt-10 xl:max-w-none">
             {deal.property.hero_image ? (
               <Image
                 src={deal.property.hero_image}
@@ -410,9 +412,9 @@ function DealCard({
           </div>
         </div>
 
-        {/* Section 2 — agent, stepper, banner (vertically centered vs row height on xl) */}
-        <div className="flex min-h-0 min-w-0 flex-col gap-4 font-sans xl:h-full xl:justify-center xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
-          <div className="flex min-w-0 flex-nowrap items-center gap-2">
+        {/* Section 2 — agent top-aligned with other rails; spacer on xl keeps stepper lower in tall column */}
+        <div className="flex min-h-0 min-w-0 flex-col gap-4 font-sans xl:h-full xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
+          <div className="flex min-w-0 shrink-0 flex-nowrap items-center gap-2">
             <span className="relative inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-inset ring-[#2C2C2C]/10">
               {deal.agent.image_url?.trim() && !agentAvatarFailed ? (
                 <Image
@@ -439,16 +441,19 @@ function DealCard({
             ) : null}
           </div>
 
+          <div className="hidden min-h-0 w-full xl:block xl:flex-1" aria-hidden />
           <ClientPipelineStepper deal={deal} />
-          <DealStatusBanner deal={deal} />
+          <div className="min-h-0 shrink-0">
+            <DealStatusBanner deal={deal} />
+          </div>
         </div>
 
         {/* Section 3 — checklist */}
         <section className="min-w-0 font-sans xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
-          <p className="flex min-h-[24px] w-full items-center text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38 xl:min-h-[26px]">
+          <p className="flex min-h-[24px] w-full shrink-0 items-start text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38 xl:min-h-[26px]">
             Your next steps
           </p>
-          <ul className="mt-3 space-y-3.5 text-sm text-[#2C2C2C]/80 sm:space-y-4">
+          <ul className="mt-5 space-y-3.5 text-sm text-[#2C2C2C]/80 sm:mt-6 sm:space-y-4">
             <li className="flex items-start gap-2.5">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
               <div className="min-w-0">
@@ -569,13 +574,13 @@ function DealCard({
 
         {/* Section 4 — status pill + quick actions (no border vs section 3; grid gap only) */}
         <div className="flex min-w-0 flex-col font-sans">
-          <div className="flex min-h-[24px] w-full items-center justify-end xl:min-h-[26px]">
+          <div className="flex min-h-[24px] w-full shrink-0 items-start justify-end xl:min-h-[26px]">
             <StatusPill label={deal.status_label} variant={statusPillVariant} />
           </div>
-          <p className="mt-4 w-full text-center text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38">
+          <p className="mt-4 w-full shrink-0 text-center text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38">
             Quick actions
           </p>
-          <div className="mt-7 flex w-full flex-col gap-3">
+          <div className="mt-9 flex w-full flex-col gap-3 sm:mt-10">
             {deal.agent.user_id ? (
               <StartChatButton
                 agentId={deal.agent.user_id}
