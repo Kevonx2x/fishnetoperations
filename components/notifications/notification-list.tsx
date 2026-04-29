@@ -37,7 +37,7 @@ function notificationTypeIcon(type: string): { Icon: LucideIcon; className: stri
   if (t.includes("pin") || t.includes("save")) return { Icon: Pin, className: "text-[#D4A843]" };
   if (t === "property_match") return { Icon: Home, className: "text-[#6B9E6E]" };
   if (t === "lead_created" || t === "new_lead") return { Icon: Sparkles, className: "text-[#D4A843]" };
-  if (t === "document_request" || t === "document_shared")
+  if (t === "document_request" || t === "document_shared" || t === "document_received")
     return { Icon: FileText, className: "text-[#6B9E6E]" };
   if (t === "listing_expiry") return { Icon: Clock, className: "text-amber-600" };
   return { Icon: Bell, className: "text-[#2C2C2C]/50" };
@@ -62,6 +62,7 @@ export function getNotificationClickHref(type: string): string | null {
     deal_pipeline: "/dashboard/agent?tab=pipeline",
     document_request: "/dashboard/client/pipeline",
     document_shared: "/dashboard/client/pipeline",
+    document_received: "/dashboard/agent?tab=pipeline",
     co_agent_request: "/dashboard/agent?tab=listings",
     verification: "/settings?tab=verification",
     listing_expiry: "/dashboard/agent?tab=listings",

@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
   const { data: doc, error: docErr } = await admin
     .from("deal_documents")
-    .select("id, lead_id, document_type")
+    .select("id, lead_id, document_type, document_name")
     .eq("id", dealDocumentId)
     .maybeSingle();
 
@@ -88,6 +88,56 @@ export async function POST(req: Request) {
 
   if (updErr) {
     return Response.json({ error: updErr.message }, { status: 500 });
+  }
+
+  const docRow = doc as {
+    document_type: string | null;
+    document_name: string | null;
+  };
+  const docLabel =
+    (docRow.document_name && docRow.document_name.trim()) ||
+    (docRow.document_type && docRow.document_type.trim()) ||
+    "Document";
+
+  const { data: leadForNotify, error: leadNotifyErr } = await admin
+    .from("leads")
+    .select("agent_id, name")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  if (!leadNotifyErr && leadForNotify) {
+    const agentUserId = (leadForNotify as { agent_id: string | null }).agent_id;
+    if (agentUserId) {
+      const { data: clientProf } = await admin
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", session.userId)
+        .maybeSingle();
+      const clientLabel =
+        (clientProf as { full_name?: string | null; email?: string | null } | null)?.full_name?.trim() ||
+        (clientProf as { full_name?: string | null; email?: string | null } | null)?.email?.trim() ||
+        (leadForNotify as { name?: string | null }).name?.trim() ||
+        "Client";
+
+      const pipelineLink = `/dashboard/agent?tab=pipeline`;
+      const { error: notifErr } = await admin.from("notifications").insert({
+        user_id: agentUserId,
+        type: "document_received",
+        title: `${clientLabel} uploaded a document`,
+        body: `${docLabel}${fileName ? ` — ${fileName}` : ""}. Open Pipeline → Documents to review.`,
+        metadata: {
+          link: pipelineLink,
+          lead_id: leadId,
+          deal_document_id: dealDocumentId,
+          file_name: fileName,
+          document_label: docLabel,
+          client_user_id: session.userId,
+        },
+      });
+      if (notifErr) {
+        console.error("[upload-deal-document] notification insert failed", notifErr.message);
+      }
+    }
   }
 
   return Response.json({ success: true, path });

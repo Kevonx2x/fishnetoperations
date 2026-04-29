@@ -59,6 +59,7 @@ import {
 import { formatRelativeTime } from "@/lib/relative-time";
 import { propertyCanonicalCity } from "@/lib/normalize-city";
 import { cn } from "@/lib/utils";
+import { isClientDocumentType, labelForClientDocType } from "@/lib/client-documents";
 
 export const PIPELINE_STAGES = [
   { id: "lead", label: "Lead" },
@@ -220,13 +221,36 @@ type ClientDocRow = {
 };
 
 type DealDocCheckRow = {
+  id: string;
   created_at: string;
   document_type: string;
+  document_name: string | null;
+  file_url: string | null;
+  file_name: string | null;
   status: string;
   required: boolean | null;
   suggested_for_stage: string | null;
   direction: string | null;
 };
+
+function labelDealPipelineDoc(row: DealDocCheckRow): string {
+  const name = row.document_name?.trim();
+  if (name) return name;
+  const t = (row.document_type ?? "").trim();
+  if (!t) return "Document";
+  const base = t.startsWith("other:") ? "other" : t;
+  if (isClientDocumentType(base)) return labelForClientDocType(base);
+  return t;
+}
+
+function dealDocPipelineStatusLabel(status: string, fileUrl: string | null | undefined): string {
+  const s = status.trim().toLowerCase();
+  if (s === "approved") return "Approved";
+  if (s === "uploaded" && fileUrl?.trim()) return "Received";
+  if (s === "uploaded") return "Uploaded";
+  if (s === "pending") return "Awaiting client";
+  return status;
+}
 
 function clientInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -510,6 +534,7 @@ function KanbanDealCard({
   propertyLabel,
   dealValueLine,
   pinned,
+  uploadedRequestedDocCount,
   onOpenDocs,
   onBeginStageMove,
   stageMovePrompt,
@@ -533,6 +558,8 @@ function KanbanDealCard({
   propertyLabel: (propertyId: string | null) => string;
   dealValueLine: string | null;
   pinned: boolean;
+  /** Client-uploaded pipeline documents (requested row, status uploaded). */
+  uploadedRequestedDocCount: number;
   onOpenDocs: (lead: PipelineLeadRow) => void;
   onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
   stageMovePrompt: {
@@ -729,6 +756,25 @@ function KanbanDealCard({
                                 type="button"
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
+                                  onOpenDocs(deal);
+                                  setMenuOpenId(null);
+                                }}
+                              >
+                                <FileText
+                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                  aria-hidden
+                                />
+                                View Documents
+                                {uploadedRequestedDocCount > 0 ? (
+                                  <span className="ml-auto rounded-full bg-[#6B9E6E] px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
+                                    {uploadedRequestedDocCount}
+                                  </span>
+                                ) : null}
+                              </button>
+                              <button
+                                type="button"
+                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                onClick={() => {
                                   onRequestNotes(deal);
                                   setMenuOpenId(null);
                                 }}
@@ -835,6 +881,27 @@ function KanbanDealCard({
           </div>
         </div>
 
+        {uploadedRequestedDocCount > 0 ? (
+          <button
+            type="button"
+            aria-label={`${uploadedRequestedDocCount} document${uploadedRequestedDocCount === 1 ? "" : "s"} from client — open documents`}
+            title="Client uploaded document(s) for this deal"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDocs(deal);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className={cn(
+              "absolute z-[5] flex min-w-[1.5rem] items-center justify-center gap-0.5 rounded-full border border-[#6B9E6E]/40 bg-[#6B9E6E]/12 px-1.5 py-0.5 text-[10px] font-bold text-[#2d5a30] shadow-sm hover:bg-[#6B9E6E]/22",
+              next ? "bottom-12 left-2" : "bottom-2.5 left-2",
+              anyMenuOpen && "pointer-events-none opacity-0",
+            )}
+          >
+            <FileText className="h-3 w-3 shrink-0" aria-hidden />
+            <span className="tabular-nums">{uploadedRequestedDocCount}</span>
+          </button>
+        ) : null}
+
         {next ? (
           <button
             type="button"
@@ -897,6 +964,7 @@ function KanbanStageColumn({
   list,
   propertyLabel,
   dealValueByPropertyId,
+  uploadedRequestedDocCountByLeadId,
   stageMovePrompt,
   onStageMovePromptSkip,
   onStageMovePromptYes,
@@ -928,6 +996,7 @@ function KanbanStageColumn({
   list: PipelineLeadRow[];
   propertyLabel: (propertyId: string | null) => string;
   dealValueByPropertyId: Record<string, string>;
+  uploadedRequestedDocCountByLeadId: Record<number, number>;
   stageMovePrompt: { lead: PipelineLeadRow; targetStage: PipelineStageId; kind: "advance" | "jump" } | null;
   onStageMovePromptSkip: () => void;
   onStageMovePromptYes: (lead: PipelineLeadRow, targetStage: PipelineStageId) => void;
@@ -1007,6 +1076,7 @@ function KanbanStageColumn({
                   propertyLabel={propertyLabel}
                   dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
                   pinned={Boolean(deal.pinned)}
+                  uploadedRequestedDocCount={uploadedRequestedDocCountByLeadId[deal.id] ?? 0}
                   onOpenDocs={openDocs}
                   onBeginStageMove={beginStageMove}
                   stageMovePrompt={stageMovePrompt}
@@ -1055,6 +1125,7 @@ function SortableDealCard({
   propertyLabel,
   dealValueLine,
   pinned,
+  uploadedRequestedDocCount,
   onOpenDocs,
   onBeginStageMove,
   stageMovePrompt,
@@ -1078,6 +1149,7 @@ function SortableDealCard({
   propertyLabel: (propertyId: string | null) => string;
   dealValueLine: string | null;
   pinned: boolean;
+  uploadedRequestedDocCount: number;
   onOpenDocs: (lead: PipelineLeadRow) => void;
   onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
   stageMovePrompt: {
@@ -1211,6 +1283,22 @@ function SortableDealCard({
                       type="button"
                       className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
                       onClick={() => {
+                        onOpenDocs(deal);
+                        setMenuOpenId(null);
+                      }}
+                    >
+                      <FileText className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
+                      View Documents
+                      {uploadedRequestedDocCount > 0 ? (
+                        <span className="ml-auto rounded-full bg-[#6B9E6E] px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
+                          {uploadedRequestedDocCount}
+                        </span>
+                      ) : null}
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                      onClick={() => {
                         onRequestDocuments(deal);
                         setMenuOpenId(null);
                       }}
@@ -1321,9 +1409,14 @@ function SortableDealCard({
         <button
           type="button"
           onClick={() => onOpenDocs(deal)}
-          className="flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+          className="relative flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
         >
           📄 View Documents
+          {uploadedRequestedDocCount > 0 ? (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#6B9E6E] px-1 text-[10px] font-bold text-white tabular-nums">
+              {uploadedRequestedDocCount}
+            </span>
+          ) : null}
         </button>
       </div>
       {stageMovePrompt?.lead.id === deal.id ? (
@@ -1499,6 +1592,9 @@ export function AgentPipelineTab({
   const [docsLead, setDocsLead] = useState<PipelineLeadRow | null>(null);
   const [clientDocRows, setClientDocRows] = useState<ClientDocRow[]>([]);
   const [dealDocCheckRows, setDealDocCheckRows] = useState<DealDocCheckRow[]>([]);
+  const [uploadedRequestedDocCountByLeadId, setUploadedRequestedDocCountByLeadId] = useState<
+    Record<number, number>
+  >({});
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsPanelFlow, setDocsPanelFlow] = useState<"idle" | "request" | "send">("idle");
   const [panelDocSlug, setPanelDocSlug] = useState("");
@@ -1508,6 +1604,7 @@ export function AgentPipelineTab({
   const [requestFlowBusy, setRequestFlowBusy] = useState(false);
   const [sendFlowBusy, setSendFlowBusy] = useState(false);
   const [clientDocOpeningId, setClientDocOpeningId] = useState<string | null>(null);
+  const [dealDocOpeningId, setDealDocOpeningId] = useState<string | null>(null);
   const [stageMovePrompt, setStageMovePrompt] = useState<{
     lead: PipelineLeadRow;
     targetStage: PipelineStageId;
@@ -1780,20 +1877,66 @@ export function AgentPipelineTab({
     setOptimisticOrderIds(null);
   }, [filterStage]);
 
+  useEffect(() => {
+    const leadIds = deals.map((d) => d.id).filter((id): id is number => typeof id === "number");
+    if (leadIds.length === 0) {
+      setUploadedRequestedDocCountByLeadId({});
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("deal_documents")
+        .select("lead_id")
+        .in("lead_id", leadIds)
+        .eq("direction", "requested")
+        .eq("status", "uploaded")
+        .not("file_url", "is", null);
+      if (cancelled) return;
+      if (error) {
+        setUploadedRequestedDocCountByLeadId({});
+        return;
+      }
+      const next: Record<number, number> = {};
+      for (const row of (data ?? []) as { lead_id: number }[]) {
+        const lid = row.lead_id;
+        if (typeof lid === "number" && Number.isFinite(lid)) {
+          next[lid] = (next[lid] ?? 0) + 1;
+        }
+      }
+      setUploadedRequestedDocCountByLeadId(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [deals, supabase]);
+
   const loadDocs = useCallback(
     async (lead: PipelineLeadRow) => {
       setDocsLoading(true);
       try {
         const { data: dealData, error: dealErr } = await supabase
           .from("deal_documents")
-          .select("created_at, document_type, status, required, suggested_for_stage, direction")
-          .eq("lead_id", lead.id);
+          .select(
+            "id, created_at, document_type, document_name, file_url, file_name, status, required, suggested_for_stage, direction",
+          )
+          .eq("lead_id", lead.id)
+          .order("created_at", { ascending: false });
 
         if (dealErr) {
           toast.error(dealErr.message);
           setDealDocCheckRows([]);
+          setUploadedRequestedDocCountByLeadId((prev) => ({ ...prev, [lead.id]: 0 }));
         } else {
-          setDealDocCheckRows((dealData ?? []) as DealDocCheckRow[]);
+          const rows = (dealData ?? []) as DealDocCheckRow[];
+          setDealDocCheckRows(rows);
+          const uploadedForLead = rows.filter(
+            (r) =>
+              (r.direction ?? "").trim().toLowerCase() === "requested" &&
+              (r.status ?? "").trim().toLowerCase() === "uploaded" &&
+              Boolean(r.file_url?.trim()),
+          ).length;
+          setUploadedRequestedDocCountByLeadId((prev) => ({ ...prev, [lead.id]: uploadedForLead }));
         }
 
         if (!lead.client_id) {
@@ -1851,6 +1994,33 @@ export function AgentPipelineTab({
     setClientDocRows([]);
     setDealDocCheckRows([]);
     void loadDocs(lead);
+  };
+
+  const openAgentDealDocumentUrl = async (doc: DealDocCheckRow) => {
+    const path = doc.file_url?.trim();
+    if (!path) {
+      toast.error("No file on this document yet.");
+      return;
+    }
+    setDealDocOpeningId(doc.id);
+    try {
+      const res = await fetch("/api/agent/get-deal-document-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ file_url: path }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { signedUrl?: string; error?: string };
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not open document");
+        return;
+      }
+      if (json.signedUrl) {
+        window.open(json.signedUrl, "_blank", "noopener,noreferrer");
+      }
+    } finally {
+      setDealDocOpeningId(null);
+    }
   };
 
   const openClientDocumentUrl = async (doc: ClientDocRow) => {
@@ -2334,6 +2504,7 @@ export function AgentPipelineTab({
                   propertyLabel={propertyLabel}
                   dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
                   pinned={Boolean(deal.pinned)}
+                  uploadedRequestedDocCount={uploadedRequestedDocCountByLeadId[deal.id] ?? 0}
                   onOpenDocs={openDocs}
                   onBeginStageMove={beginStageMove}
                   stageMovePrompt={stageMovePrompt}
@@ -2619,6 +2790,7 @@ export function AgentPipelineTab({
                       list={ids.map((id) => leadById.get(String(id))).filter((d): d is PipelineLeadRow => !!d)}
                       propertyLabel={propertyLabel}
                       dealValueByPropertyId={dealValueByPropertyId}
+                      uploadedRequestedDocCountByLeadId={uploadedRequestedDocCountByLeadId}
                       stageMovePrompt={stageMovePrompt}
                       onStageMovePromptSkip={onStageMovePromptSkip}
                       onStageMovePromptYes={onStageMovePromptYes}
@@ -3025,24 +3197,92 @@ export function AgentPipelineTab({
                   </p>
                 )}
 
-                <p className="mb-3 mt-8 text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                  Client Documents
-                </p>
                 {docsLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" />
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" aria-hidden />
                   </div>
-                ) : !docsLead.client_id ? (
-                  <p className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm">
-                    No client account linked to this deal
-                  </p>
-                ) : clientDocRows.length === 0 ? (
-                  <p className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 text-sm font-semibold text-[#2C2C2C]/65 shadow-sm">
-                    No documents shared yet. Use Request Documents to ask the client.
-                  </p>
                 ) : (
-                  <ul className="space-y-3">
-                    {clientDocRows.map((cd) => {
+                  <>
+                    <p className="mb-3 mt-8 text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                      Deal pipeline documents
+                    </p>
+                    {dealDocCheckRows.length === 0 ? (
+                      <p className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 text-sm font-semibold text-[#2C2C2C]/65 shadow-sm">
+                        No deal document requests yet. Use Request Documents to ask the client, or Send Document to
+                        share a file.
+                      </p>
+                    ) : (
+                      <ul className="mb-8 space-y-3">
+                        {dealDocCheckRows.map((row) => {
+                          const stLabel = dealDocPipelineStatusLabel(row.status, row.file_url);
+                          const stClass =
+                            stLabel === "Received" || stLabel === "Approved"
+                              ? "bg-emerald-100 text-emerald-900 font-semibold"
+                              : stLabel === "Awaiting client"
+                                ? "bg-amber-100 text-amber-900"
+                                : "bg-[#2C2C2C]/10 text-[#2C2C2C]/75";
+                          const dir = (row.direction ?? "").trim().toLowerCase();
+                          const dirLabel =
+                            dir === "requested"
+                              ? "Requested from client"
+                              : dir === "sent"
+                                ? "Sent to client"
+                                : dir || "—";
+                          return (
+                            <li
+                              key={row.id}
+                              className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-sm font-semibold text-[#2C2C2C]">{labelDealPipelineDoc(row)}</p>
+                                <span
+                                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${stClass}`}
+                                >
+                                  {stLabel}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-[11px] font-semibold text-[#2C2C2C]/45">{dirLabel}</p>
+                              {row.file_name ? (
+                                <p className="mt-1 truncate text-xs font-medium text-[#2C2C2C]/60">{row.file_name}</p>
+                              ) : null}
+                              <p className="mt-1 text-[11px] font-semibold text-[#2C2C2C]/45">
+                                {formatRelativeTime(row.created_at)}
+                              </p>
+                              {row.file_url?.trim() ? (
+                                <div className="mt-2">
+                                  <button
+                                    type="button"
+                                    disabled={dealDocOpeningId === row.id}
+                                    onClick={() => void openAgentDealDocumentUrl(row)}
+                                    className="inline-flex items-center gap-1 rounded-full border border-[#2C2C2C]/15 bg-white px-3 py-1 text-[11px] font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4] disabled:opacity-50"
+                                  >
+                                    {dealDocOpeningId === row.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                                    ) : null}
+                                    View
+                                  </button>
+                                </div>
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+
+                    <p className="mb-3 mt-8 text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                      Client Documents
+                    </p>
+                    {!docsLead.client_id ? (
+                      <p className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm">
+                        No client account linked to this deal
+                      </p>
+                    ) : clientDocRows.length === 0 ? (
+                      <p className="rounded-xl border border-[#2C2C2C]/10 bg-white p-3 text-sm font-semibold text-[#2C2C2C]/65 shadow-sm">
+                        No documents shared yet. Use Request Documents to ask the client.
+                      </p>
+                    ) : (
+                      <ul className="space-y-3">
+                        {clientDocRows.map((cd) => {
                       const statusLabel = clientDocStatusLabel(cd.status);
                       const statusClass =
                         statusLabel === "Received"
@@ -3104,8 +3344,10 @@ export function AgentPipelineTab({
                           </div>
                         </li>
                       );
-                    })}
-                  </ul>
+                        })}
+                      </ul>
+                    )}
+                  </>
                 )}
               </div>
             </motion.aside>

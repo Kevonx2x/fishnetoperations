@@ -845,14 +845,16 @@ export function AgentDashboard() {
             .from("deal_documents")
             .select("id", { count: "exact", head: true })
             .in("lead_id", leadIds)
-            .eq("status", "pending");
+            .eq("direction", "requested")
+            .in("status", ["pending", "uploaded"]);
           setPendingDealDocumentsCount(ddRes.error ? 0 : (ddRes.count ?? 0));
 
           const yDocsRes = await supabase
             .from("deal_documents")
             .select("id", { count: "exact", head: true })
             .in("lead_id", leadIds)
-            .eq("status", "pending")
+            .eq("direction", "requested")
+            .in("status", ["pending", "uploaded"])
             .gte("created_at", startYesterdayIso)
             .lt("created_at", startTodayIso);
           setYesterdayPendingDocumentsCount(yDocsRes.error ? 0 : (yDocsRes.count ?? 0));
@@ -970,14 +972,16 @@ export function AgentDashboard() {
           .from("deal_documents")
           .select("id", { count: "exact", head: true })
           .in("lead_id", leadIds)
-          .eq("status", "pending");
+          .eq("direction", "requested")
+          .in("status", ["pending", "uploaded"]);
         setPendingDealDocumentsCount(ddRes.error ? 0 : (ddRes.count ?? 0));
 
         const yDocsRes = await supabase
           .from("deal_documents")
           .select("id", { count: "exact", head: true })
           .in("lead_id", leadIds)
-          .eq("status", "pending")
+          .eq("direction", "requested")
+          .in("status", ["pending", "uploaded"])
           .gte("created_at", startYesterdayIso)
           .lt("created_at", startTodayIso);
         setYesterdayPendingDocumentsCount(yDocsRes.error ? 0 : (yDocsRes.count ?? 0));
