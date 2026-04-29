@@ -647,7 +647,7 @@ function KanbanDealCard({
         {...attributes}
         {...listeners}
         className={cn(
-          "relative rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-sm transition",
+          "relative flex flex-col rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-sm transition",
           next ? "pb-10" : "",
           "cursor-grab",
           isDragging && "scale-[1.02] rotate-[0.6deg] cursor-grabbing shadow-xl",
@@ -878,24 +878,13 @@ function KanbanDealCard({
           {/* Row 2: Price */}
           <p className="mt-1 font-sans text-[13px] font-bold text-[#D4A843]">{dealValueLine ?? "—"}</p>
           {/* Row 3: Avatar + contact */}
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-auto flex items-center gap-2">
             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[10px] font-bold text-[#6B9E6E]">
               {clientInitials(deal.name)}
             </div>
             <span className="truncate font-sans text-[12px] font-semibold text-[#2C2C2C]/65">{deal.name}</span>
           </div>
         </div>
-
-        {unviewedUploadedDocCount > 0 ? (
-          <span
-            className={cn(
-              "pointer-events-none absolute right-[-4px] top-[-4px] z-[11] h-2.5 w-2.5 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]",
-              "bhg-doc-badge-pulse",
-              anyMenuOpen && "opacity-0",
-            )}
-            aria-hidden
-          />
-        ) : null}
 
         {next ? (
           <button
@@ -939,6 +928,16 @@ function KanbanDealCard({
           </div>
         ) : null}
       </div>
+      {unviewedUploadedDocCount > 0 ? (
+        <span
+          className={cn(
+            "pointer-events-none absolute right-[-4px] top-[-4px] z-[11] h-2.5 w-2.5 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]",
+            "bhg-doc-badge-pulse",
+            anyMenuOpen && "opacity-0",
+          )}
+          aria-hidden
+        />
+      ) : null}
     </div>
   );
 }
