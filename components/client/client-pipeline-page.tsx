@@ -8,7 +8,6 @@ import {
   BadgeCheck,
   Calendar,
   Check,
-  ChevronRight,
   Clock,
   ExternalLink,
   FileText,
@@ -388,10 +387,13 @@ function DealCard({
         highlight && "ring-2 ring-[#D4A843]/50",
       )}
     >
-      <div className="flex flex-col gap-8 px-6 py-6 sm:px-8 sm:py-7 xl:flex-row xl:items-center xl:gap-x-8 xl:gap-y-0 xl:px-9 xl:py-8">
-        {/* Column 1 — landscape thumbnail (~280×180) */}
-        <div className="flex shrink-0 justify-center xl:justify-start">
-          <div className="relative z-0 h-[160px] w-full max-w-[min(100%,280px)] overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:h-[180px] sm:w-[280px] sm:max-w-none">
+      <div className="flex flex-col gap-7 px-6 pb-10 pt-8 sm:px-8 sm:pb-11 sm:pt-9 xl:grid xl:grid-cols-4 xl:items-start xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:pb-10 xl:pt-10 xl:[grid-template-columns:minmax(0,1fr)_minmax(0,1.12fr)_minmax(0,0.88fr)_minmax(0,1fr)]">
+        {/* Section 1 — title above image, full column width */}
+        <div className="min-w-0 font-sans">
+          <h2 className="truncate font-sans text-[0.9375rem] font-bold leading-tight tracking-tight text-[#2C2C2C] sm:text-[1rem]">
+            {deal.property.title}
+          </h2>
+          <div className="relative z-0 mx-auto mt-3 h-[160px] w-full max-w-[min(100%,280px)] overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:h-[180px] xl:mx-0 xl:mt-3.5 xl:max-w-none">
             {deal.property.hero_image ? (
               <Image
                 src={deal.property.hero_image}
@@ -414,23 +416,12 @@ function DealCard({
           </div>
         </div>
 
-        {/* Column 2 — title, price, agent, stepper, banner */}
-        <div className="flex min-w-0 flex-1 flex-col font-sans xl:min-w-0 xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-8 xl:pr-2">
-          <div className="flex items-start gap-3 pr-2">
-            <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#2C2C2C]/08 bg-[#FAF8F4] font-sans text-[11px] font-bold tracking-tight text-[#2C2C2C]/70"
-              aria-hidden
-            >
-              {initials}
-            </span>
-            <h2 className="min-w-0 flex-1 font-sans text-xl font-bold leading-snug tracking-tight text-[#2C2C2C] sm:text-[1.35rem] sm:leading-snug">
-              {deal.property.title}
-            </h2>
-          </div>
-          <p className="mt-3 font-sans text-lg font-semibold text-[#D4A843] sm:text-xl">
+        {/* Section 2 — price, agent, stepper, banner */}
+        <div className="flex min-w-0 flex-col gap-4 font-sans xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
+          <p className="font-sans text-lg font-semibold leading-tight text-[#D4A843] sm:text-xl">
             {formatPipelineCardPrice(deal.property.price)}
           </p>
-          <div className="mt-4 flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <span className="relative inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-inset ring-[#2C2C2C]/10">
               {deal.agent.image_url?.trim() && !agentAvatarFailed ? (
                 <Image
@@ -461,140 +452,130 @@ function DealCard({
           <DealStatusBanner deal={deal} />
         </div>
 
-        {/* Column 3 — pill + (Your next steps | Quick actions) side by side on xl */}
-        <div className="flex w-full min-w-0 flex-col font-sans xl:w-[min(100%,560px)] xl:flex-none xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-8">
+        {/* Section 3 — checklist only (narrower column in grid) */}
+        <section className="min-w-0 font-sans xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/38">Your next steps</p>
+          <ul className="mt-3 space-y-3.5 text-sm text-[#2C2C2C]/80 sm:space-y-4">
+            <li className="flex items-start gap-2.5">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Inquiry sent</p>
+                <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">{formatShortDate(inquiryDate)}</p>
+              </div>
+            </li>
+            {viewingConfirmed ? (
+              <li className="flex items-start gap-2.5">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Viewing scheduled</p>
+                  <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">
+                    {formatViewingWhen(deal.viewing!.scheduled_at)}
+                  </p>
+                </div>
+              </li>
+            ) : viewingDeclined ? (
+              <li className="flex items-start gap-2.5">
+                <span className="mt-0.5 h-4 w-4 shrink-0 text-center text-xs font-medium text-[#2C2C2C]/30" aria-hidden>
+                  ×
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Viewing declined</p>
+                </div>
+              </li>
+            ) : deal.viewing ? (
+              <li className="flex items-start gap-2.5">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#2C2C2C]/30" aria-hidden />
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Viewing</p>
+                  <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">Awaiting confirmation</p>
+                </div>
+              </li>
+            ) : (
+              <li className="flex items-start gap-2.5">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#2C2C2C]/12" aria-hidden />
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/50">Viewing</p>
+                  <p className="mt-1 text-xs font-normal text-[#2C2C2C]/40">Not scheduled yet</p>
+                </div>
+              </li>
+            )}
+            {pendingCount > 0 ? (
+              <li className="flex items-start gap-2.5">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#D4A843]/50 bg-[#D4A843]/15" aria-hidden />
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Documents requested</p>
+                  <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">{pendingCount} pending</p>
+                  <ul className="mt-3 space-y-2.5 border-l border-[#2C2C2C]/[0.06] pl-3">
+                    {pendingDocs.map((d) => (
+                      <li key={d.id} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                        <span className="min-w-0 text-[13px] text-[#2C2C2C]/75">
+                          {d.display_label}
+                          <span className="text-xs font-normal text-[#2C2C2C]/40"> (required)</span>
+                        </span>
+                        <label className="inline-flex w-fit cursor-pointer items-center gap-1 rounded-full border border-[#6B9E6E]/40 bg-[#6B9E6E]/8 px-3 py-1 text-xs font-semibold text-[#6B9E6E] hover:bg-[#6B9E6E]/15">
+                          <input
+                            type="file"
+                            className="sr-only"
+                            accept="image/*,.pdf,.doc,.docx"
+                            disabled={Boolean(uploadingId)}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0] ?? null;
+                              e.target.value = "";
+                              void onPickFile(d.id, f);
+                            }}
+                          />
+                          {uploadingId === d.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : null}
+                          Upload
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </li>
+            ) : deal.documents.some((d) => d.direction === "requested") ? (
+              <li className="flex items-start gap-2.5">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Documents</p>
+                  <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">Submitted</p>
+                </div>
+              </li>
+            ) : null}
+            <li className="flex items-start gap-2.5">
+              {offerNotStarted ? (
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#2C2C2C]/12" aria-hidden />
+              ) : String(deal.pipeline_stage).toLowerCase() === "offer" ? (
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#D4A843]/45 bg-[#D4A843]/15" aria-hidden />
+              ) : (
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
+              )}
+              <div className="min-w-0">
+                <p className={cn("text-[13px] font-semibold leading-tight", offerNotStarted ? "text-[#2C2C2C]/50" : "text-[#2C2C2C]/90")}>
+                  {offerNotStarted
+                    ? "Offer"
+                    : String(deal.pipeline_stage).toLowerCase() === "offer"
+                      ? "Review offer"
+                      : "Offer"}
+                </p>
+                {!offerNotStarted && String(deal.pipeline_stage).toLowerCase() === "offer" ? (
+                  <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">Action needed</p>
+                ) : offerNotStarted ? (
+                  <p className="mt-1 text-xs font-normal text-[#2C2C2C]/40">Not yet</p>
+                ) : null}
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        {/* Section 4 — status pill + quick actions (no border vs section 3; grid gap only) */}
+        <div className="flex min-w-0 flex-col font-sans">
           <div className="flex justify-end">
             <StatusPill label={deal.status_label} variant={statusPillVariant} />
           </div>
-
-          <div className="mt-4 flex flex-col gap-8 xl:mt-5 xl:flex-row xl:items-start xl:gap-10">
-            <section className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/38">Your next steps</p>
-              <ul className="mt-3 space-y-3.5 text-sm text-[#2C2C2C]/80 sm:space-y-4">
-                <li className="flex items-start gap-3">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Inquiry sent</p>
-                    <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">{formatShortDate(inquiryDate)}</p>
-                  </div>
-                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#2C2C2C]/15" aria-hidden />
-                </li>
-              {viewingConfirmed ? (
-                <li className="flex items-start gap-3">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Viewing scheduled</p>
-                    <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">
-                      {formatViewingWhen(deal.viewing!.scheduled_at)}
-                    </p>
-                  </div>
-                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#2C2C2C]/15" aria-hidden />
-                </li>
-              ) : viewingDeclined ? (
-                <li className="flex items-start gap-3">
-                  <span className="mt-0.5 h-4 w-4 shrink-0 text-center text-xs font-medium text-[#2C2C2C]/30" aria-hidden>
-                    ×
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Viewing declined</p>
-                  </div>
-                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#2C2C2C]/15" aria-hidden />
-                </li>
-              ) : deal.viewing ? (
-                <li className="flex items-start gap-3">
-                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#2C2C2C]/30" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Viewing</p>
-                    <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">Awaiting confirmation</p>
-                  </div>
-                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#2C2C2C]/15" aria-hidden />
-                </li>
-              ) : (
-                <li className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#2C2C2C]/12" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/50">Viewing</p>
-                    <p className="mt-1 text-xs font-normal text-[#2C2C2C]/40">Not scheduled yet</p>
-                  </div>
-                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#2C2C2C]/15" aria-hidden />
-                </li>
-              )}
-              {pendingCount > 0 ? (
-                <li className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#D4A843]/50 bg-[#D4A843]/15" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Documents requested</p>
-                    <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">{pendingCount} pending</p>
-                    <ul className="mt-3 space-y-2.5 border-l border-[#2C2C2C]/[0.06] pl-3">
-                      {pendingDocs.map((d) => (
-                        <li key={d.id} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                          <span className="min-w-0 text-[13px] text-[#2C2C2C]/75">
-                            {d.display_label}
-                            <span className="text-xs font-normal text-[#2C2C2C]/40"> (required)</span>
-                          </span>
-                          <label className="inline-flex w-fit cursor-pointer items-center gap-1 rounded-full border border-[#6B9E6E]/40 bg-[#6B9E6E]/8 px-3 py-1 text-xs font-semibold text-[#6B9E6E] hover:bg-[#6B9E6E]/15">
-                            <input
-                              type="file"
-                              className="sr-only"
-                              accept="image/*,.pdf,.doc,.docx"
-                              disabled={Boolean(uploadingId)}
-                              onChange={(e) => {
-                                const f = e.target.files?.[0] ?? null;
-                                e.target.value = "";
-                                void onPickFile(d.id, f);
-                              }}
-                            />
-                            {uploadingId === d.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : null}
-                            Upload
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#2C2C2C]/15" aria-hidden />
-                </li>
-              ) : deal.documents.some((d) => d.direction === "requested") ? (
-                <li className="flex items-start gap-3">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Documents</p>
-                    <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">Submitted</p>
-                  </div>
-                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#2C2C2C]/15" aria-hidden />
-                </li>
-              ) : null}
-              <li className="flex items-start gap-3">
-                {offerNotStarted ? (
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#2C2C2C]/12" aria-hidden />
-                ) : String(deal.pipeline_stage).toLowerCase() === "offer" ? (
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#D4A843]/45 bg-[#D4A843]/15" aria-hidden />
-                ) : (
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className={cn("text-[13px] font-semibold leading-tight", offerNotStarted ? "text-[#2C2C2C]/50" : "text-[#2C2C2C]/90")}>
-                    {offerNotStarted
-                      ? "Offer"
-                      : String(deal.pipeline_stage).toLowerCase() === "offer"
-                        ? "Review offer"
-                        : "Offer"}
-                  </p>
-                  {!offerNotStarted && String(deal.pipeline_stage).toLowerCase() === "offer" ? (
-                    <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">Action needed</p>
-                  ) : offerNotStarted ? (
-                    <p className="mt-1 text-xs font-normal text-[#2C2C2C]/40">Not yet</p>
-                  ) : null}
-                </div>
-                <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#2C2C2C]/15" aria-hidden />
-              </li>
-            </ul>
-            </section>
-
-            <div className="w-full shrink-0 xl:w-[220px] xl:border-l xl:border-[#2C2C2C]/[0.06] xl:pl-8">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/38">Quick actions</p>
-              <div className="mt-3 flex w-full flex-col gap-3">
+          <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/38">Quick actions</p>
+          <div className="mt-3 flex w-full flex-col gap-3">
             {deal.agent.user_id ? (
               <StartChatButton
                 agentId={deal.agent.user_id}
@@ -627,8 +608,6 @@ function DealCard({
               <FileText className="h-3.5 w-3.5 shrink-0 text-[#2C2C2C]/45" aria-hidden />
               View Documents
             </button>
-              </div>
-            </div>
           </div>
         </div>
       </div>
