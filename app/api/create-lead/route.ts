@@ -154,6 +154,11 @@ export async function POST(req: Request) {
           .update({
             pipeline_stage: VIEWING_PIPELINE_STAGE,
             stage: VIEWING_REQUEST_LEAD_STAGE,
+            archived_by_client: false,
+            archived_at: null,
+            archive_reason: null,
+            archive_note: null,
+            stage_at_archive: null,
           })
           .eq("id", existingLeadId);
         if (updErr) {
@@ -204,6 +209,11 @@ export async function POST(req: Request) {
               .update({
                 pipeline_stage: VIEWING_PIPELINE_STAGE,
                 stage: VIEWING_REQUEST_LEAD_STAGE,
+                archived_by_client: false,
+                archived_at: null,
+                archive_reason: null,
+                archive_note: null,
+                stage_at_archive: null,
               })
               .eq("id", raceLeadId);
             if (raceUpd) {

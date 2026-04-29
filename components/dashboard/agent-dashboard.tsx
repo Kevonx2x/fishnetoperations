@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { AgentBillingTab } from "@/components/dashboard/agent-billing-tab";
-import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
+import { AgentAnalyticsTab, AgentTeamPlaceholderTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
 import { AgentPipelineTab, type PipelineStageId } from "@/components/dashboard/agent-pipeline-tab";
 import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
@@ -142,6 +142,11 @@ type LeadRow = {
   created_at: string;
   updated_at?: string;
   client_id: string | null;
+  archived_by_client?: boolean | null;
+  archived_at?: string | null;
+  archive_reason?: string | null;
+  archive_note?: string | null;
+  stage_at_archive?: string | null;
 };
 
 type ViewingRow = {
@@ -670,6 +675,7 @@ export function AgentDashboard() {
   const [sessionDashboardKind, setSessionDashboardKind] = useState<"agent" | "team_member">("agent");
   const [teamMemberSetupError, setTeamMemberSetupError] = useState<string | null>(null);
   const [leads, setLeads] = useState<LeadRow[]>([]);
+  const [archivedLeads, setArchivedLeads] = useState<LeadRow[]>([]);
   const [viewings, setViewings] = useState<ViewingRow[]>([]);
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [selectedLead, setSelectedLead] = useState<LeadRow | null>(null);
@@ -773,6 +779,7 @@ export function AgentDashboard() {
       if (tmErr || !(tm as { agent_id?: string } | null)?.agent_id) {
         setAgent(null);
         setLeads([]);
+        setArchivedLeads([]);
         setProperties([]);
         setViewings([]);
         setProfileViewsCount(0);
@@ -800,6 +807,7 @@ export function AgentDashboard() {
       setLoaded(true);
       if (!a) {
         setLeads([]);
+        setArchivedLeads([]);
         setProperties([]);
         setViewings([]);
         setProfileViewsCount(0);
@@ -816,14 +824,23 @@ export function AgentDashboard() {
 
       if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
         const supervisorUserId = (a as AgentRow).user_id;
-        const [{ data: ld }, unreadRes, pipelineUnreadRes] = await Promise.all([
+        const leadSel =
+          "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, created_at, updated_at, client_id";
+        const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
+        const [{ data: ld }, { data: ldArchived }, unreadRes, pipelineUnreadRes] = await Promise.all([
           supabase
             .from("leads")
-            .select(
-              "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, created_at, updated_at, client_id",
-            )
+            .select(leadSel)
             .eq("agent_id", supervisorUserId)
+            .eq("archived_by_client", false)
             .order("created_at", { ascending: false }),
+          supabase
+            .from("leads")
+            .select(leadSelArchived)
+            .eq("agent_id", supervisorUserId)
+            .eq("archived_by_client", true)
+            .order("archived_at", { ascending: false })
+            .limit(150),
           supabase
             .from("notifications")
             .select("id", { count: "exact", head: true })
@@ -838,6 +855,7 @@ export function AgentDashboard() {
         ]);
         const leadRows = (ld as LeadRow[]) ?? [];
         setLeads(leadRows);
+        setArchivedLeads((ldArchived as LeadRow[]) ?? []);
         setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
         setPipelineTabUnreadCount(pipelineUnreadRes.error ? 0 : (pipelineUnreadRes.count ?? 0));
         setProperties([]);
@@ -856,6 +874,7 @@ export function AgentDashboard() {
           .from("leads")
           .select("id", { count: "exact", head: true })
           .eq("agent_id", supervisorUserId)
+          .eq("archived_by_client", false)
           .gte("created_at", startYesterdayIso)
           .lt("created_at", startTodayIso);
         setYesterdayNewLeadsCount(yLeadRes.error ? 0 : (yLeadRes.count ?? 0));
@@ -895,6 +914,7 @@ export function AgentDashboard() {
         }
       } else {
         setLeads([]);
+        setArchivedLeads([]);
         setProperties([]);
         setViewings([]);
         setProfileViewsCount(0);
@@ -920,6 +940,7 @@ export function AgentDashboard() {
     setLoaded(true);
     if (!a) {
       setLeads([]);
+      setArchivedLeads([]);
       setProperties([]);
       setViewings([]);
       setProfileViewsCount(0);
@@ -934,15 +955,24 @@ export function AgentDashboard() {
     }
 
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
-      const [{ data: ld }, { data: owned }, { data: paRows }, vwRes, viewsRes, unreadRes, pipelineUnreadRes] =
+      const leadSel =
+        "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, created_at, updated_at, client_id";
+      const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
+      const [{ data: ld }, { data: ldArchived }, { data: owned }, { data: paRows }, vwRes, viewsRes, unreadRes, pipelineUnreadRes] =
         await Promise.all([
         supabase
           .from("leads")
-          .select(
-            "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, created_at, updated_at, client_id",
-          )
+          .select(leadSel)
           .eq("agent_id", user.id)
+          .eq("archived_by_client", false)
           .order("created_at", { ascending: false }),
+        supabase
+          .from("leads")
+          .select(leadSelArchived)
+          .eq("agent_id", user.id)
+          .eq("archived_by_client", true)
+          .order("archived_at", { ascending: false })
+          .limit(150),
         supabase
           .from("properties")
           .select(
@@ -975,6 +1005,7 @@ export function AgentDashboard() {
       ]);
       const leadRows = (ld as LeadRow[]) ?? [];
       setLeads(leadRows);
+      setArchivedLeads((ldArchived as LeadRow[]) ?? []);
       setProfileViewsCount(viewsRes.error ? 0 : (viewsRes.count ?? 0));
       setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
       setPipelineTabUnreadCount(pipelineUnreadRes.error ? 0 : (pipelineUnreadRes.count ?? 0));
@@ -992,6 +1023,7 @@ export function AgentDashboard() {
         .from("leads")
         .select("id", { count: "exact", head: true })
         .eq("agent_id", user.id)
+        .eq("archived_by_client", false)
         .gte("created_at", startYesterdayIso)
         .lt("created_at", startTodayIso);
       setYesterdayNewLeadsCount(yLeadRes.error ? 0 : (yLeadRes.count ?? 0));
@@ -1127,6 +1159,7 @@ export function AgentDashboard() {
       setViewings(vwRes.error ? [] : ((vwRes.data as ViewingRow[]) ?? []));
     } else {
       setLeads([]);
+      setArchivedLeads([]);
       setProperties([]);
       setViewings([]);
       setProfileViewsCount(0);
@@ -1283,6 +1316,29 @@ export function AgentDashboard() {
       return (p?.name?.trim() || p?.location || "Property").trim() || "Property";
     },
     [properties],
+  );
+
+  const pipelineArchivedTabRows = useMemo(
+    () =>
+      archivedLeads.map((l) => ({
+        id: l.id,
+        name: l.name,
+        email: l.email,
+        client_id: l.client_id ?? null,
+        pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,
+        property_id: l.property_id ?? null,
+        created_at: l.created_at,
+        updated_at: l.updated_at ?? null,
+        pipeline_position: l.pipeline_position ?? null,
+        closing_notes: l.closing_notes ?? null,
+        pinned: l.pinned ?? null,
+        pinned_at: l.pinned_at ?? null,
+        archived_at: l.archived_at ?? null,
+        archive_reason: l.archive_reason ?? null,
+        archive_note: l.archive_note ?? null,
+        stage_at_archive: l.stage_at_archive ?? null,
+      })),
+    [archivedLeads],
   );
 
   const responseRatePct = useMemo(() => {
@@ -1925,7 +1981,7 @@ export function AgentDashboard() {
                     onClick={() => setTab(t.id)}
                     className={cn(
                       "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
-                      t.id === "analytics" && "opacity-55 hover:opacity-80",
+                      (t.id === "analytics" || t.id === "team") && "opacity-55 hover:opacity-80",
                       tab === t.id
                         ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
                         : "text-[#2C2C2C]/65 hover:bg-white/80",
@@ -1949,7 +2005,7 @@ export function AgentDashboard() {
                   onClick={() => setTab(t.id)}
                   className={cn(
                     "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
-                    t.id === "analytics" && "opacity-55 hover:opacity-80",
+                    (t.id === "analytics" || t.id === "team") && "opacity-55 hover:opacity-80",
                     tab === t.id
                       ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
                       : "text-[#2C2C2C]/65 hover:bg-white/80",
@@ -2086,13 +2142,14 @@ export function AgentDashboard() {
                     pipeline_position: l.pipeline_position ?? null,
                     closing_notes: l.closing_notes ?? null,
                   }))}
+                  archivedLeads={pipelineArchivedTabRows}
                   propertyLabel={pipelinePropertyLabel}
                   supabase={supabase}
                   pipelineAgentId={agent.id}
                   clientDocsSharedWithUserId={isTeamMemberView ? agent.user_id : undefined}
                   onRefresh={refreshAfterPipelineChange}
                   onOpenLeadDetails={(leadId) => {
-                    const row = leads.find((x) => x.id === leadId);
+                    const row = [...leads, ...archivedLeads].find((x) => x.id === leadId);
                     if (row) setSelectedLead(row);
                   }}
                 />
@@ -2109,14 +2166,7 @@ export function AgentDashboard() {
                 <AgentAnalyticsTab leads={leads} viewings={viewings} agent={agent} />
               )}
               {tab === "team" && identityVerified && user && agent && !isTeamMemberView && (
-                <AgentDashboardTeamTab
-                  agentId={agent.id}
-                  supabase={supabase}
-                  onGoToBilling={() => {
-                    setTab("billing");
-                    setMoreDrawerOpen(false);
-                  }}
-                />
+                <AgentTeamPlaceholderTab />
               )}
               {tab === "listings" && identityVerified && (
                 <ListingsTab
@@ -4187,438 +4237,6 @@ function ListingsTab({
                 {saving ? "Saving…" : "Save listing"}
               </button>
             </motion.form>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-type AgentSubscriptionTierRow = {
-  tier: string;
-  status: string | null;
-  expires_at: string | null;
-};
-
-type DashboardTeamRosterRow = {
-  id: string;
-  name: string;
-  role: string;
-  email: string;
-  phone: string | null;
-  status: string | null;
-  created_at: string;
-};
-
-const MANAGED_TEAM_ROLES = [
-  "Co-Agent",
-  "Admin Assistant",
-  "Virtual Assistant",
-  "Marketing",
-  "Other",
-] as const;
-
-function initialsForTeamMemberName(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  const a = parts[0][0];
-  const b = parts[parts.length - 1][0];
-  return `${a ?? ""}${b ?? ""}`.toUpperCase() || "?";
-}
-
-function hasTeamTabPaidPlanFromSubscriptions(rows: AgentSubscriptionTierRow[]): boolean {
-  const now = Date.now();
-  for (const r of rows) {
-    const st = (r.status ?? "active").toLowerCase();
-    if (st !== "active") continue;
-    if (r.expires_at && new Date(r.expires_at).getTime() < now) continue;
-    const t = normalizeListingTier(r.tier);
-    if (t === "pro" || t === "featured" || t === "broker") return true;
-  }
-  return false;
-}
-
-function AgentDashboardTeamTab({
-  agentId,
-  supabase,
-  onGoToBilling,
-}: {
-  agentId: string;
-  supabase: ReturnType<typeof createSupabaseBrowserClient>;
-  onGoToBilling: () => void;
-}) {
-  const [subLoading, setSubLoading] = useState(true);
-  const [paidPlan, setPaidPlan] = useState(false);
-  const [members, setMembers] = useState<DashboardTeamRosterRow[]>([]);
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
-  const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<string>(MANAGED_TEAM_ROLES[0]);
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [saveBusy, setSaveBusy] = useState(false);
-  const [revokeBusyId, setRevokeBusyId] = useState<string | null>(null);
-  const [resendBusyId, setResendBusyId] = useState<string | null>(null);
-
-  const loadSubscriptions = useCallback(async () => {
-    setSubLoading(true);
-    const { data, error } = await supabase
-      .from("subscriptions")
-      .select("tier,status,expires_at,created_at")
-      .eq("agent_id", agentId)
-      .order("created_at", { ascending: false });
-    setSubLoading(false);
-    if (error) {
-      console.error(error);
-      setPaidPlan(false);
-      return;
-    }
-    setPaidPlan(hasTeamTabPaidPlanFromSubscriptions((data ?? []) as AgentSubscriptionTierRow[]));
-  }, [agentId, supabase]);
-
-  const loadMembers = useCallback(async () => {
-    setMembersLoading(true);
-    const { data, error } = await supabase
-      .from("team_members")
-      .select("id, name, role, email, phone, status, created_at")
-      .eq("agent_id", agentId)
-      .order("created_at", { ascending: false });
-    setMembersLoading(false);
-    if (error) {
-      toast.error(error.message);
-      setMembers([]);
-      return;
-    }
-    setMembers((data ?? []) as DashboardTeamRosterRow[]);
-  }, [agentId, supabase]);
-
-  useEffect(() => {
-    void loadSubscriptions();
-  }, [loadSubscriptions]);
-
-  useEffect(() => {
-    if (!paidPlan) {
-      setMembers([]);
-      return;
-    }
-    void loadMembers();
-  }, [paidPlan, loadMembers]);
-
-  const resetAddForm = () => {
-    setFullName("");
-    setRole(MANAGED_TEAM_ROLES[0]);
-    setEmail("");
-    setPhone("");
-  };
-
-  const saveMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const nm = fullName.trim();
-    const em = email.trim();
-    if (!nm) {
-      toast.error("Enter full name.");
-      return;
-    }
-    if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
-      toast.error("Enter a valid email.");
-      return;
-    }
-    setSaveBusy(true);
-    try {
-      const res = await fetch("/api/agent/invite-team-member", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          name: nm,
-          email: em,
-          role,
-          phone: phone.trim() || null,
-          agent_id: agentId,
-        }),
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        success?: boolean;
-        data?: unknown;
-        error?: { message?: string };
-      };
-      setSaveBusy(false);
-      if (!res.ok || json.success === false) {
-        toast.error(json.error?.message ?? "Could not send invitation");
-        return;
-      }
-      toast.success(`Invitation sent to ${em}`);
-      resetAddForm();
-      setAddOpen(false);
-      void loadMembers();
-    } catch {
-      setSaveBusy(false);
-      toast.error("Could not send invitation");
-    }
-  };
-
-  const resendInvite = async (m: DashboardTeamRosterRow) => {
-    setResendBusyId(m.id);
-    try {
-      const res = await fetch("/api/agent/invite-team-member", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          name: m.name.trim(),
-          email: m.email.trim(),
-          role: m.role,
-          phone: m.phone?.trim() || null,
-          agent_id: agentId,
-        }),
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        success?: boolean;
-        error?: { message?: string };
-      };
-      if (!res.ok || json.success === false) {
-        toast.error(json.error?.message ?? "Could not resend invitation");
-        return;
-      }
-      toast.success(`Invitation sent to ${m.email.trim()}`);
-      void loadMembers();
-    } catch {
-      toast.error("Could not resend invitation");
-    } finally {
-      setResendBusyId(null);
-    }
-  };
-
-  const revokeAccess = async (m: DashboardTeamRosterRow) => {
-    setRevokeBusyId(m.id);
-    try {
-      const res = await fetch("/api/agent/revoke-team-member", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ team_member_id: m.id }),
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        success?: boolean;
-        error?: { message?: string };
-      };
-      if (!res.ok || json.success === false) {
-        toast.error(json.error?.message ?? "Could not revoke access");
-        return;
-      }
-      toast.success("Access revoked");
-      void loadMembers();
-    } catch {
-      toast.error("Could not revoke access");
-    } finally {
-      setRevokeBusyId(null);
-    }
-  };
-
-  if (subLoading) {
-    return (
-      <div className="flex min-h-[240px] items-center justify-center font-sans">
-        <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" aria-hidden />
-      </div>
-    );
-  }
-
-  if (!paidPlan) {
-    return (
-      <div className="mx-auto max-w-lg rounded-2xl border border-[#2C2C2C]/10 bg-white p-10 text-center font-sans shadow-sm">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[#6B9E6E]">
-          <House className="h-8 w-8" aria-hidden />
-        </div>
-        <h2 className="mt-6 font-serif text-2xl font-bold text-[#2C2C2C]">My Team</h2>
-        <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/60">
-          Upgrade to Pro to unlock team management
-        </p>
-        <button
-          type="button"
-          onClick={onGoToBilling}
-          className="mt-8 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5d8a60]"
-        >
-          Go to Billing
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-4xl font-sans">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">My Team</h2>
-        <button
-          type="button"
-          onClick={() => setAddOpen(true)}
-          className="shrink-0 rounded-full bg-[#6B9E6E] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5d8a60]"
-        >
-          Add Member
-        </button>
-      </div>
-
-      {membersLoading ? (
-        <div className="mt-10 flex justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-[#6B9E6E]" aria-hidden />
-        </div>
-      ) : members.length === 0 ? (
-        <p className="mt-10 text-center text-sm font-semibold text-[#2C2C2C]/55">
-          No team members yet. Add your first member.
-        </p>
-      ) : (
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          {members.map((m) => {
-            const st = (m.status ?? "").toLowerCase();
-            return (
-              <div
-                key={m.id}
-                className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm"
-              >
-                <div className="flex gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] text-sm font-bold text-white">
-                    {initialsForTeamMemberName(m.name)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-[#2C2C2C]">{m.name}</p>
-                      {st === "pending" ? (
-                        <span className="rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-700">
-                          Invited
-                        </span>
-                      ) : st === "active" ? (
-                        <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
-                          Active
-                        </span>
-                      ) : st === "revoked" ? (
-                        <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
-                          Revoked
-                        </span>
-                      ) : null}
-                    </div>
-                    <span className="mt-1 inline-block rounded-full bg-[#6B9E6E]/15 px-2.5 py-0.5 text-xs font-semibold text-[#2C2C2C]">
-                      {m.role}
-                    </span>
-                    <p className="mt-2 text-sm text-gray-500">{m.email}</p>
-                    <p className="text-sm text-gray-500">{m.phone?.trim() || "—"}</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {st === "pending" ? (
-                        <button
-                          type="button"
-                          disabled={resendBusyId === m.id}
-                          onClick={() => void resendInvite(m)}
-                          className="rounded-full border border-[#6B9E6E]/40 bg-white px-3 py-1.5 text-xs font-semibold text-[#6B9E6E] hover:bg-[#6B9E6E]/10 disabled:opacity-50"
-                        >
-                          {resendBusyId === m.id ? "Sending…" : "Resend Invite"}
-                        </button>
-                      ) : null}
-                      {st === "active" ? (
-                        <button
-                          type="button"
-                          disabled={revokeBusyId === m.id}
-                          onClick={() => void revokeAccess(m)}
-                          className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
-                        >
-                          {revokeBusyId === m.id ? "Revoking…" : "Revoke Access"}
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <AnimatePresence>
-        {addOpen ? (
-          <motion.div
-            key="team-add-modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45 p-4 sm:items-center"
-            onClick={() => {
-              setAddOpen(false);
-              resetAddForm();
-            }}
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 16 }}
-              transition={{ duration: 0.2 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-6 shadow-2xl"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="font-serif text-xl font-bold text-[#2C2C2C]">Add team member</h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAddOpen(false);
-                    resetAddForm();
-                  }}
-                  className="rounded-lg p-1 text-[#2C2C2C]/55 hover:bg-white"
-                  aria-label="Close"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <form onSubmit={(e) => void saveMember(e)} className="mt-6 space-y-4">
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Full Name
-                  <input
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
-                    autoComplete="name"
-                  />
-                </label>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Role
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
-                  >
-                    {MANAGED_TEAM_ROLES.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Email
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
-                    autoComplete="email"
-                  />
-                </label>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Phone
-                  <input
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
-                    autoComplete="tel"
-                  />
-                </label>
-                <button
-                  type="submit"
-                  disabled={saveBusy}
-                  className="mt-2 w-full rounded-full bg-[#6B9E6E] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5d8a60] disabled:opacity-50"
-                >
-                  {saveBusy ? "Sending…" : "Send invitation"}
-                </button>
-              </form>
-            </motion.div>
           </motion.div>
         ) : null}
       </AnimatePresence>

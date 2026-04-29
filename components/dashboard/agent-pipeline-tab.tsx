@@ -57,6 +57,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatRelativeTime } from "@/lib/relative-time";
+import { labelForClientArchiveReason } from "@/lib/client-lead-archive";
 import { propertyCanonicalCity } from "@/lib/normalize-city";
 import { cn } from "@/lib/utils";
 import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
@@ -86,6 +87,10 @@ export type PipelineLeadRow = {
   pinned?: boolean | null;
   pinned_at?: string | null;
   closing_notes?: string | null;
+  archived_at?: string | null;
+  archive_reason?: string | null;
+  archive_note?: string | null;
+  stage_at_archive?: string | null;
 };
 
 type DocDef = { key: string; label: string };
@@ -1499,6 +1504,7 @@ const DECLINE_REASON_OPTIONS = [
 
 export function AgentPipelineTab({
   leads,
+  archivedLeads,
   propertyLabel,
   supabase,
   onRefresh,
@@ -1509,6 +1515,7 @@ export function AgentPipelineTab({
   clientDocsSharedWithUserId,
 }: {
   leads: PipelineLeadRow[];
+  archivedLeads: PipelineLeadRow[];
   propertyLabel: (propertyId: string | null) => string;
   supabase: SupabaseClient;
   onRefresh: () => void;
@@ -1557,6 +1564,7 @@ export function AgentPipelineTab({
   const [declineReasonKey, setDeclineReasonKey] =
     useState<(typeof DECLINE_REASON_OPTIONS)[number]["key"]>("unavailable");
   const [declineBusy, setDeclineBusy] = useState(false);
+  const [pipelineVault, setPipelineVault] = useState<"active" | "archived">("active");
 
   const deals = useMemo(() => {
     return leads
@@ -2510,6 +2518,36 @@ export function AgentPipelineTab({
         </p>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setPipelineVault("active")}
+          className={cn(
+            "rounded-full px-4 py-2 text-sm font-bold transition",
+            pipelineVault === "active"
+              ? "bg-[#6B9E6E] text-white shadow-sm"
+              : "border border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
+          )}
+        >
+          Active
+        </button>
+        <button
+          type="button"
+          onClick={() => setPipelineVault("archived")}
+          className={cn(
+            "rounded-full px-4 py-2 text-sm font-bold transition",
+            pipelineVault === "archived"
+              ? "bg-[#6B9E6E] text-white shadow-sm"
+              : "border border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
+          )}
+        >
+          Archived
+          <span className="ml-1.5 tabular-nums opacity-90">({archivedLeads.length})</span>
+        </button>
+      </div>
+
+      {pipelineVault === "active" ? (
+        <>
       <div className="rounded-2xl border border-gray-200 bg-white p-4 lg:hidden">
         <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">Pipeline overview</p>
         <div className="-mx-1 overflow-x-auto pb-1 scrollbar-hide">
@@ -2930,6 +2968,48 @@ export function AgentPipelineTab({
         </div>
       </div>
       </div>
+        </>
+      ) : (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          {archivedLeads.length === 0 ? (
+            <p className="text-center text-sm font-semibold text-[#2C2C2C]/45">
+              No client-archived leads. When a client removes a property from their pipeline, it appears here with
+              their reason.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {archivedLeads.map((row) => {
+                const propTitle = propertyLabel(row.property_id);
+                const reasonLabel = labelForClientArchiveReason(row.archive_reason, row.archive_note);
+                const stage = String(row.stage_at_archive ?? row.pipeline_stage ?? "—");
+                const archivedWhen = row.archived_at
+                  ? formatRelativeTime(row.archived_at)
+                  : "—";
+                return (
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenLeadDetails(row.id)}
+                      className="w-full rounded-xl border border-[#2C2C2C]/[0.08] bg-[#FAF8F4]/60 px-4 py-3 text-left transition hover:border-[#6B9E6E]/35 hover:bg-white"
+                    >
+                      <p className="font-sans text-sm font-bold text-[#2C2C2C]">{propTitle}</p>
+                      <p className="mt-0.5 font-sans text-xs text-[#2C2C2C]/55">
+                        {row.name.trim() || "Client"} · {row.email}
+                      </p>
+                      <p className="mt-2 font-sans text-xs font-semibold text-[#2C2C2C]/70">
+                        Reason: <span className="font-normal">{reasonLabel}</span>
+                      </p>
+                      <p className="mt-1 font-sans text-xs text-[#2C2C2C]/50">
+                        Stage at archive: {stage} · {archivedWhen}
+                      </p>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
 
       <AnimatePresence>
         {moveLead ? (

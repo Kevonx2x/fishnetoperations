@@ -13,6 +13,7 @@ import {
   FileText,
   Home,
   Loader2,
+  MoreHorizontal,
   Star,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -20,11 +21,36 @@ import { StartChatButton } from "@/features/messaging/components/start-chat-butt
 import { useAuth } from "@/contexts/auth-context";
 import { formatListingPricePhp } from "@/lib/format-listing-price";
 import { cn } from "@/lib/utils";
+import {
+  CLIENT_ARCHIVE_REASON_LABEL,
+  type ClientArchiveReasonKey,
+  labelForClientArchiveReason,
+} from "@/lib/client-lead-archive";
+import { formatRelativeTime } from "@/lib/relative-time";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type PipelineDeal = {
   lead_id: number;
   pipeline_stage: string;
   status_label: string;
+  archived_by_client?: boolean;
+  archived_at?: string | null;
+  archive_reason?: string | null;
+  archive_note?: string | null;
+  stage_at_archive?: string | null;
   property: {
     id: string | null;
     title: string;
@@ -82,6 +108,17 @@ function formatViewingWhen(iso: string): string {
 }
 
 const CLIENT_PIPELINE_STEPS = ["Inquiry", "Viewing", "Offer", "Reservation", "Closed"] as const;
+
+function clientArchiveConfirmCopy(pipelineStage: string): string {
+  const s = String(pipelineStage ?? "").toLowerCase();
+  if (s === "lead") return "Remove this property from your pipeline?";
+  if (s === "viewing")
+    return "You have a scheduled viewing. This will cancel it and notify the agent.";
+  if (s === "offer" || s === "reservation" || s === "closed") {
+    return "An offer is in progress. This action may affect your transaction. Continue?";
+  }
+  return "Remove this property from your pipeline?";
+}
 
 /** Format listing price for pipeline cards (₱ grouping + /mo when rent-like). */
 function formatPipelineCardPrice(price: string): string {
@@ -292,6 +329,8 @@ function DealCard({
   onToggleDocs,
   onUploaded,
   highlight,
+  isArchived,
+  onRequestRemove,
 }: {
   deal: PipelineDeal;
   clientUserId: string;
@@ -299,6 +338,8 @@ function DealCard({
   onToggleDocs: () => void;
   onUploaded: () => void;
   highlight: boolean;
+  isArchived?: boolean;
+  onRequestRemove?: () => void;
 }) {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -375,6 +416,45 @@ function DealCard({
   const initials = pipelineAgentInitials(deal.agent.name);
   const listingRemovedUi = Boolean(deal.property.listing_removed);
 
+  if (isArchived) {
+    const reasonLabel = labelForClientArchiveReason(deal.archive_reason, deal.archive_note);
+    const archivedWhen = deal.archived_at ? formatRelativeTime(deal.archived_at) : "—";
+    const stageSnap = String(deal.stage_at_archive ?? deal.pipeline_stage ?? "—");
+    return (
+      <article
+        id={`lead-${deal.lead_id}`}
+        className="relative isolate overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.05] bg-white shadow-[0_2px_20px_rgba(44,44,44,0.05)]"
+      >
+        <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-8 sm:py-6">
+          <div className="min-w-0 flex-1 font-sans">
+            <StatusPill label="Archived" variant="neutral" />
+            <h2 className="mt-3 break-words text-[0.9375rem] font-bold leading-snug tracking-tight text-[#2C2C2C] sm:text-[1rem]">
+              {deal.property.title}
+            </h2>
+            <p className="mt-0.5 text-[0.8125rem] font-semibold leading-tight text-[#D4A843] sm:text-sm">
+              {formatPipelineCardPrice(deal.property.price)}
+            </p>
+            <p className="mt-3 text-sm text-[#2C2C2C]/70">
+              <span className="font-semibold text-[#2C2C2C]/85">Reason:</span> {reasonLabel}
+            </p>
+            <p className="mt-1 text-xs text-[#2C2C2C]/50">
+              Stage when removed: {stageSnap} · {archivedWhen}
+            </p>
+          </div>
+          {deal.property.id && !listingRemovedUi ? (
+            <Link
+              href={`/properties/${encodeURIComponent(deal.property.id)}`}
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 self-start rounded-full border border-[#2C2C2C]/12 bg-transparent px-4 text-[13px] font-semibold text-[#2C2C2C]/85 transition hover:border-[#2C2C2C]/18 hover:bg-[#FAF8F4]/80"
+            >
+              <Home className="h-3.5 w-3.5 shrink-0 text-[#2C2C2C]/45" aria-hidden />
+              View Property
+            </Link>
+          ) : null}
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article
       id={`lead-${deal.lead_id}`}
@@ -385,6 +465,32 @@ function DealCard({
         listingRemovedUi && "opacity-50",
       )}
     >
+      {onRequestRemove ? (
+        <div className="absolute right-3 top-3 z-20 sm:right-4 sm:top-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 shadow-sm transition hover:bg-[#FAF8F4]"
+                aria-label="More actions"
+              >
+                <MoreHorizontal className="h-4 w-4" aria-hidden />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[160px] border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]">
+              <DropdownMenuItem
+                className="font-semibold text-red-600 focus:bg-red-50 focus:text-red-700"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  onRequestRemove();
+                }}
+              >
+                Remove
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ) : null}
       <div className="flex flex-col gap-5 px-6 py-5 sm:px-8 sm:py-6 xl:grid xl:grid-cols-4 xl:items-stretch xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:py-7 xl:[grid-template-columns:minmax(0,0.94fr)_minmax(0,1.28fr)_minmax(0,0.82fr)_minmax(0,0.92fr)]">
         {/* Section 1 — title + price (tight), gap, then image */}
         <div className="flex min-w-0 flex-col font-sans">
@@ -689,6 +795,11 @@ export function ClientPipelineInner() {
   const [deals, setDeals] = useState<PipelineDeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [docsOpen, setDocsOpen] = useState<Record<number, boolean>>({});
+  const [pipelineListTab, setPipelineListTab] = useState<"active" | "archived">("active");
+  const [archiveModalDeal, setArchiveModalDeal] = useState<PipelineDeal | null>(null);
+  const [archiveReason, setArchiveReason] = useState<ClientArchiveReasonKey>("not_interested");
+  const [archiveNote, setArchiveNote] = useState("");
+  const [archiveBusy, setArchiveBusy] = useState(false);
 
   const highlightLeadId = useMemo(() => {
     const raw = searchParams.get("lead");
@@ -699,7 +810,10 @@ export function ClientPipelineInner() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/client/pipeline", { credentials: "include" });
+      const archived = pipelineListTab === "archived";
+      const res = await fetch(`/api/client/pipeline?archived=${archived ? "true" : "false"}`, {
+        credentials: "include",
+      });
       const json = (await res.json().catch(() => ({}))) as { deals?: PipelineDeal[]; error?: string };
       if (!res.ok) {
         toast.error(json.error ?? "Could not load pipeline");
@@ -710,7 +824,7 @@ export function ClientPipelineInner() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pipelineListTab]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -726,6 +840,39 @@ export function ClientPipelineInner() {
     });
   }, [highlightLeadId, loading, deals.length]);
 
+  const submitArchive = async () => {
+    if (!archiveModalDeal) return;
+    const noteTrim = archiveNote.trim();
+    if (archiveReason === "other" && !noteTrim) {
+      toast.error("Please enter a short reason (max 300 characters).");
+      return;
+    }
+    setArchiveBusy(true);
+    try {
+      const res = await fetch(`/api/client/leads/${archiveModalDeal.lead_id}/archive`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          archive_reason: archiveReason,
+          archive_note: archiveReason === "other" ? noteTrim.slice(0, 300) : null,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: { message?: string } };
+      if (!res.ok) {
+        toast.error(json.error?.message ?? "Could not remove from pipeline");
+        return;
+      }
+      toast.success("Removed from your pipeline");
+      setArchiveModalDeal(null);
+      setArchiveNote("");
+      setArchiveReason("not_interested");
+      await load();
+    } finally {
+      setArchiveBusy(false);
+    }
+  };
+
   if (authLoading || !user?.id || role !== "client") {
     return (
       <div className="flex min-h-[200px] items-center justify-center text-sm font-semibold text-[#2C2C2C]/50">
@@ -736,6 +883,37 @@ export function ClientPipelineInner() {
 
   return (
     <div className="w-full min-w-0 font-sans text-[#2C2C2C]">
+      <div className="mb-6 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setPipelineListTab("active");
+          }}
+          className={cn(
+            "rounded-full px-4 py-2 text-sm font-bold transition",
+            pipelineListTab === "active"
+              ? "bg-[#6B9E6E] text-white shadow-sm"
+              : "border border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
+          )}
+        >
+          Active
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setPipelineListTab("archived");
+          }}
+          className={cn(
+            "rounded-full px-4 py-2 text-sm font-bold transition",
+            pipelineListTab === "archived"
+              ? "bg-[#6B9E6E] text-white shadow-sm"
+              : "border border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
+          )}
+        >
+          Archived
+        </button>
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-10 w-10 animate-spin text-[#6B9E6E]" aria-hidden />
@@ -743,14 +921,18 @@ export function ClientPipelineInner() {
       ) : deals.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white py-16 text-center shadow-sm">
           <p className="text-sm font-semibold text-[#2C2C2C]/55">
-            No active deals yet. Request a viewing on a listing to see it here.
+            {pipelineListTab === "archived"
+              ? "No archived properties. Deals you remove from your pipeline appear here."
+              : "No active deals yet. Request a viewing on a listing to see it here."}
           </p>
-          <Link
-            href="/"
-            className="mt-4 inline-flex rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#5a8a5d]"
-          >
-            Browse listings
-          </Link>
+          {pipelineListTab === "active" ? (
+            <Link
+              href="/"
+              className="mt-4 inline-flex rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#5a8a5d]"
+            >
+              Browse listings
+            </Link>
+          ) : null}
         </div>
       ) : (
         <div className="space-y-10">
@@ -763,10 +945,96 @@ export function ClientPipelineInner() {
               onToggleDocs={() => setDocsOpen((s) => ({ ...s, [deal.lead_id]: !s[deal.lead_id] }))}
               onUploaded={() => void load()}
               highlight={highlightLeadId === deal.lead_id}
+              isArchived={pipelineListTab === "archived"}
+              onRequestRemove={
+                pipelineListTab === "active"
+                  ? () => {
+                      setArchiveReason("not_interested");
+                      setArchiveNote("");
+                      setArchiveModalDeal(deal);
+                    }
+                  : undefined
+              }
             />
           ))}
         </div>
       )}
+
+      <Dialog
+        open={archiveModalDeal != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setArchiveModalDeal(null);
+            setArchiveBusy(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md border border-[#2C2C2C]/10 bg-white font-sans text-[#2C2C2C] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-xl text-[#2C2C2C]">Remove from pipeline</DialogTitle>
+          </DialogHeader>
+          {archiveModalDeal ? (
+            <div className="space-y-4">
+              <p className="text-sm leading-relaxed text-[#2C2C2C]/75">
+                {clientArchiveConfirmCopy(archiveModalDeal.pipeline_stage)}
+              </p>
+              <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                Reason
+                <select
+                  value={archiveReason}
+                  onChange={(e) => setArchiveReason(e.target.value as ClientArchiveReasonKey)}
+                  className="mt-1 w-full rounded-xl border border-[#2C2C2C]/12 bg-[#FAF8F4] px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]"
+                >
+                  {(Object.keys(CLIENT_ARCHIVE_REASON_LABEL) as ClientArchiveReasonKey[]).map((k) => (
+                    <option key={k} value={k}>
+                      {CLIENT_ARCHIVE_REASON_LABEL[k]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {archiveReason === "other" ? (
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Describe why (required, max 300 characters)
+                  <textarea
+                    value={archiveNote}
+                    onChange={(e) => setArchiveNote(e.target.value.slice(0, 300))}
+                    rows={3}
+                    maxLength={300}
+                    className="mt-1 w-full resize-none rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2 text-sm text-[#2C2C2C]"
+                    placeholder="Tell your agent briefly…"
+                  />
+                </label>
+              ) : null}
+            </div>
+          ) : null}
+          <DialogFooter className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full rounded-full border-[#2C2C2C]/20 sm:w-auto"
+              disabled={archiveBusy}
+              onClick={() => setArchiveModalDeal(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={archiveBusy}
+              onClick={() => void submitArchive()}
+              className="w-full rounded-full border-0 bg-red-600 px-5 text-white hover:bg-red-700 sm:w-auto"
+            >
+              {archiveBusy ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                  Removing…
+                </>
+              ) : (
+                "Remove from pipeline"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

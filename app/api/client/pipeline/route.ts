@@ -68,7 +68,7 @@ function statusPillForDeal(args: {
   return "Awaiting agent response";
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getSessionProfile();
   if (!session?.userId) {
     return Response.json({ error: "Sign in required" }, { status: 401 });
@@ -86,13 +86,17 @@ export async function GET() {
   }
 
   const clientId = session.userId;
+  const url = new URL(req.url);
+  const archivedParam = url.searchParams.get("archived");
+  const archivedOnly = archivedParam === "1" || archivedParam === "true";
 
   const { data: leadRows, error: leadsErr } = await admin
     .from("leads")
     .select(
-      "id, created_at, updated_at, property_id, agent_id, client_id, pipeline_stage, property_interest, viewing_request_id",
+      "id, created_at, updated_at, property_id, agent_id, client_id, pipeline_stage, property_interest, viewing_request_id, archived_by_client, archived_at, archive_reason, archive_note, stage_at_archive",
     )
     .eq("client_id", clientId)
+    .eq("archived_by_client", archivedOnly)
     .order("updated_at", { ascending: false })
     .limit(50);
 
@@ -110,6 +114,11 @@ export async function GET() {
     pipeline_stage: string;
     property_interest: string | null;
     viewing_request_id: string | null;
+    archived_by_client: boolean;
+    archived_at: string | null;
+    archive_reason: string | null;
+    archive_note: string | null;
+    stage_at_archive: string | null;
   }[];
 
   const propertyIds = [...new Set(leads.map((l) => l.property_id).filter((x): x is string => Boolean(x)))];
@@ -219,11 +228,18 @@ export async function GET() {
     return {
       lead_id: lead.id,
       pipeline_stage: lead.pipeline_stage,
-      status_label: statusPillForDeal({
-        pipeline_stage: lead.pipeline_stage,
-        viewing,
-        hasPendingRequestedDocs,
-      }),
+      archived_by_client: lead.archived_by_client,
+      archived_at: lead.archived_at,
+      archive_reason: lead.archive_reason,
+      archive_note: lead.archive_note,
+      stage_at_archive: lead.stage_at_archive,
+      status_label: archivedOnly
+        ? "Archived"
+        : statusPillForDeal({
+            pipeline_stage: lead.pipeline_stage,
+            viewing,
+            hasPendingRequestedDocs,
+          }),
       property: prop
         ? {
             id: prop.id,
