@@ -24,6 +24,17 @@ type DealDocRow = {
   created_at: string;
 };
 
+type OfferRow = {
+  id: string;
+  lead_id: number;
+  amount: string | number;
+  currency: string;
+  terms_text: string | null;
+  valid_until: string | null;
+  created_at: string;
+  status: string;
+};
+
 function pickHeroImage(args: {
   image_url: string | null;
   property_photos: { url: string | null; sort_order?: number | null; created_at?: string | null }[] | null;
@@ -125,7 +136,9 @@ export async function GET(req: Request) {
   const agentUserIds = [...new Set(leads.map((l) => l.agent_id).filter((x): x is string => Boolean(x)))];
   const viewingIds = [...new Set(leads.map((l) => l.viewing_request_id).filter((x): x is string => Boolean(x)))];
 
-  const [{ data: propsData }, { data: agentsData }, { data: viewingsData }, { data: docsData }] =
+  const leadIds = leads.map((l) => l.id);
+
+  const [{ data: propsData }, { data: agentsData }, { data: viewingsData }, { data: docsData }, { data: offersData }] =
     await Promise.all([
       propertyIds.length
         ? admin
@@ -145,10 +158,15 @@ export async function GET(req: Request) {
             .select(
               "id, lead_id, document_type, document_name, status, direction, file_url, file_name, created_at",
             )
-            .in(
-              "lead_id",
-              leads.map((l) => l.id),
-            )
+            .in("lead_id", leadIds)
+        : Promise.resolve({ data: [] as unknown[] }),
+      leads.length
+        ? admin
+            .from("offers")
+            .select("id, lead_id, amount, currency, terms_text, valid_until, created_at, status")
+            .in("lead_id", leadIds)
+            .eq("status", "pending")
+            .order("created_at", { ascending: false })
         : Promise.resolve({ data: [] as unknown[] }),
     ]);
 
@@ -191,6 +209,13 @@ export async function GET(req: Request) {
     const lid = d.lead_id;
     if (!docsByLeadId.has(lid)) docsByLeadId.set(lid, []);
     docsByLeadId.get(lid)!.push(d);
+  }
+
+  const offersByLeadId = new Map<number, OfferRow[]>();
+  for (const o of (offersData ?? []) as OfferRow[]) {
+    const lid = o.lead_id;
+    if (!offersByLeadId.has(lid)) offersByLeadId.set(lid, []);
+    offersByLeadId.get(lid)!.push(o);
   }
 
   const deals = leads.map((lead) => {
@@ -275,6 +300,15 @@ export async function GET(req: Request) {
         file_name: d.file_name,
         created_at: d.created_at,
         pending_upload: d.direction === "requested" && d.status === "pending" && !d.file_url?.trim(),
+      })),
+      offers: (offersByLeadId.get(lead.id) ?? []).map((o) => ({
+        id: o.id,
+        amount: o.amount,
+        currency: String(o.currency ?? "PHP").trim() || "PHP",
+        terms_text: o.terms_text,
+        valid_until: o.valid_until,
+        created_at: o.created_at,
+        status: o.status,
       })),
     };
   });

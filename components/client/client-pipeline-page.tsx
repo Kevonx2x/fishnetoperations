@@ -85,6 +85,15 @@ type PipelineDeal = {
     created_at: string;
     pending_upload: boolean;
   }[];
+  offers?: {
+    id: string;
+    amount: string | number;
+    currency: string;
+    terms_text: string | null;
+    valid_until: string | null;
+    created_at: string;
+    status: string;
+  }[];
 };
 
 function formatShortDate(iso: string): string {
@@ -96,6 +105,45 @@ function formatShortDate(iso: string): string {
   } catch {
     return "";
   }
+}
+
+function formatOfferAmountDisplay(amount: string | number, currency: string): string {
+  const c = String(currency ?? "PHP").trim().toUpperCase() || "PHP";
+  if (c === "PHP") {
+    return formatListingPricePhp(amount, "for_sale");
+  }
+  const raw = typeof amount === "number" ? amount : Number.parseFloat(String(amount).replace(/,/g, ""));
+  if (!Number.isFinite(raw)) return String(amount);
+  return `${c} ${Math.round(raw).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+}
+
+function formatValidUntilLine(validUntil: string | null): string | null {
+  const t = validUntil?.trim();
+  if (!t) return null;
+  const d = formatShortDate(t);
+  return d ? `Valid until ${d}` : null;
+}
+
+function OfferReadOnlyDetails({
+  offer,
+  agentName,
+}: {
+  offer: NonNullable<PipelineDeal["offers"]>[number];
+  agentName: string;
+}) {
+  const terms = offer.terms_text?.trim();
+  const validLine = formatValidUntilLine(offer.valid_until);
+  const sent = formatShortDate(offer.created_at);
+  return (
+    <div className="space-y-2">
+      <p className="text-[13px] font-semibold text-[#6B9E6E]">{formatOfferAmountDisplay(offer.amount, offer.currency)}</p>
+      {terms ? <p className="text-[13px] leading-snug text-[#2C2C2C]/75">{terms}</p> : null}
+      {validLine ? <p className="text-xs font-normal text-[#2C2C2C]/45">{validLine}</p> : null}
+      <p className="text-xs font-normal text-[#2C2C2C]/45">
+        Sent {sent} by {agentName}
+      </p>
+    </div>
+  );
 }
 
 function formatViewingWhen(iso: string): string {
@@ -301,26 +349,6 @@ function DealStatusBanner({ deal }: { deal: PipelineDeal }) {
     );
   }
 
-  if (stage === "offer") {
-    return (
-      <div className="flex flex-col gap-2 font-sans text-sm italic leading-relaxed text-[#6B728E] sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-        <div className="flex min-w-0 flex-1 items-start gap-2">
-          <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6B728E]" aria-hidden />
-          <span className="min-w-0">You have a pending offer. Please review and respond.</span>
-        </div>
-        {deal.property.id && !deal.property.listing_removed ? (
-          <span
-            className="inline-flex shrink-0 cursor-not-allowed items-center gap-0.5 font-semibold not-italic text-[#2C2C2C]/80 opacity-50"
-            title="Offer details coming soon — your agent will reach out via Messages"
-            aria-disabled="true"
-          >
-            View offer <span aria-hidden>→</span>
-          </span>
-        ) : null}
-      </div>
-    );
-  }
-
   if (viewingDeclined) {
     return (
       <div className="flex items-start gap-2 font-sans text-sm italic leading-relaxed text-[#6B728E]">
@@ -364,9 +392,23 @@ function DealCard({
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [agentAvatarFailed, setAgentAvatarFailed] = useState(false);
   const [requestedDocsExpanded, setRequestedDocsExpanded] = useState(false);
+  const [reviewOfferExpanded, setReviewOfferExpanded] = useState(false);
+  const [offerHistoryExpanded, setOfferHistoryExpanded] = useState(false);
 
   const pendingDocs = deal.documents.filter((d) => d.pending_upload);
   const pendingCount = pendingDocs.length;
+
+  const pendingOffersNewestFirst = useMemo(() => {
+    const list = [...(deal.offers ?? [])].filter((o) => String(o.status ?? "").toLowerCase() === "pending");
+    list.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+    return list;
+  }, [deal.offers]);
+
+  const latestPendingOffer = pendingOffersNewestFirst[0];
+  const olderPendingOffersChronological = useMemo(
+    () => pendingOffersNewestFirst.slice(1).sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at)),
+    [pendingOffersNewestFirst],
+  );
 
   const inquiryDate = deal.viewing?.created_at ?? deal.lead_created_at;
   const viewingConfirmed = deal.viewing?.status === "confirmed";
@@ -706,45 +748,99 @@ function DealCard({
                 </div>
               </li>
             ) : null}
-            <li
-              className={cn(
-                "flex items-start gap-2.5",
-                !offerNotStarted && String(deal.pipeline_stage).toLowerCase() === "offer" && "cursor-not-allowed opacity-50",
-              )}
-              title={
-                !offerNotStarted && String(deal.pipeline_stage).toLowerCase() === "offer"
-                  ? "Offer details coming soon — your agent will reach out via Messages"
-                  : undefined
-              }
-              aria-disabled={!offerNotStarted && String(deal.pipeline_stage).toLowerCase() === "offer" ? true : undefined}
-            >
-              {offerNotStarted ? (
+            {offerNotStarted ? (
+              <li className="flex items-start gap-2.5">
                 <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#2C2C2C]/12" aria-hidden />
-              ) : String(deal.pipeline_stage).toLowerCase() === "offer" ? (
-                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#D4A843]/45 bg-[#D4A843]/15" aria-hidden />
-              ) : (
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
-              )}
-              <div className="min-w-0">
-                <p
-                  className={cn(
-                    "whitespace-nowrap text-[13px] font-semibold leading-tight",
-                    offerNotStarted ? "text-[#2C2C2C]/50" : "text-[#2C2C2C]/90",
-                  )}
-                >
-                  {offerNotStarted
-                    ? "Offer"
-                    : String(deal.pipeline_stage).toLowerCase() === "offer"
-                      ? "Review offer"
-                      : "Offer"}
-                </p>
-                {!offerNotStarted && String(deal.pipeline_stage).toLowerCase() === "offer" ? (
-                  <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">Action needed</p>
-                ) : offerNotStarted ? (
+                <div className="min-w-0">
+                  <p className="whitespace-nowrap text-[13px] font-semibold leading-tight text-[#2C2C2C]/50">Offer</p>
                   <p className="mt-1 text-xs font-normal text-[#2C2C2C]/40">Not yet</p>
-                ) : null}
-              </div>
-            </li>
+                </div>
+              </li>
+            ) : String(deal.pipeline_stage).toLowerCase() === "offer" ? (
+              <li className="flex items-start gap-2.5">
+                <span
+                  className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#D4A843]/45 bg-[#D4A843]/15"
+                  aria-hidden
+                />
+                <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReviewOfferExpanded((v) => {
+                        const next = !v;
+                        if (!next) setOfferHistoryExpanded(false);
+                        return next;
+                      });
+                    }}
+                    className="inline-flex w-full items-center justify-between gap-2 text-left"
+                    aria-expanded={reviewOfferExpanded}
+                  >
+                    <span className="min-w-0 text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">
+                      Review offer · <span className="text-[#D4A843]">pending</span>
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex shrink-0 text-[#6B9E6E] transition-transform duration-300",
+                        reviewOfferExpanded && "rotate-180",
+                      )}
+                      aria-hidden
+                    >
+                      ▼
+                    </span>
+                  </button>
+                  <div
+                    className={cn(
+                      "overflow-hidden transition-all duration-300",
+                      reviewOfferExpanded ? "mt-3 max-h-[720px] opacity-100" : "mt-0 max-h-0 opacity-0",
+                    )}
+                  >
+                    <div className="space-y-3 border-l border-[#2C2C2C]/[0.06] pl-3">
+                      {latestPendingOffer ? (
+                        <>
+                          <OfferReadOnlyDetails offer={latestPendingOffer} agentName={deal.agent.name} />
+                          {olderPendingOffersChronological.length > 0 ? (
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => setOfferHistoryExpanded((v) => !v)}
+                                className="text-xs font-semibold text-[#6B9E6E] hover:underline"
+                                aria-expanded={offerHistoryExpanded}
+                              >
+                                {offerHistoryExpanded ? "Hide history" : "View history"}
+                              </button>
+                              <div
+                                className={cn(
+                                  "overflow-hidden transition-all duration-300",
+                                  offerHistoryExpanded ? "mt-3 max-h-[480px] opacity-100" : "max-h-0 opacity-0",
+                                )}
+                              >
+                                <div className="divide-y divide-[#2C2C2C]/[0.06] border-t border-[#2C2C2C]/[0.06] pt-2">
+                                  {olderPendingOffersChronological.map((o) => (
+                                    <div key={o.id} className="py-3 first:pt-2">
+                                      <OfferReadOnlyDetails offer={o} agentName={deal.agent.name} />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <p className="text-xs italic text-[#2C2C2C]/45">No pending offer details yet.</p>
+                      )}
+                      <p className="text-xs italic text-[#2C2C2C]/45">Reply to your agent in Messages to negotiate</p>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            ) : (
+              <li className="flex items-start gap-2.5">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
+                <div className="min-w-0">
+                  <p className="whitespace-nowrap text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Offer</p>
+                </div>
+              </li>
+            )}
           </ul>
         </section>
 
