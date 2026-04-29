@@ -59,6 +59,7 @@ import {
 import { formatRelativeTime } from "@/lib/relative-time";
 import { propertyCanonicalCity } from "@/lib/normalize-city";
 import { cn } from "@/lib/utils";
+import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 import { isClientDocumentType, labelForClientDocType } from "@/lib/client-documents";
 
 export const PIPELINE_STAGES = [
@@ -331,7 +332,7 @@ type PipelineSortMode =
   | "city_asc"
   | "city_desc";
 
-type PropertyMeta = { city: string; location: string };
+type PropertyMeta = { city: string; location: string; deleted_at?: string | null };
 
 function tsOr0(raw: string | null | undefined): number {
   const t = raw ? new Date(raw).getTime() : 0;
@@ -1158,6 +1159,7 @@ function SortableDealCard({
   onTogglePin,
   onMoveToStage,
   moveBusyId,
+  propertyMetaById,
 }: {
   deal: PipelineLeadRow;
   indexInStage: number;
@@ -1187,6 +1189,7 @@ function SortableDealCard({
   onTogglePin: (lead: PipelineLeadRow) => void;
   onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveBusyId: number | null;
+  propertyMetaById: Record<string, PropertyMeta>;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: String(deal.id),
@@ -1199,6 +1202,10 @@ function SortableDealCard({
 
   const next = nextStage(deal.pipeline_stage);
   const propLine = propertyLabel(deal.property_id);
+  const propRemoved =
+    deal.property_id != null
+      ? isPropertyListingRemoved({ deleted_at: propertyMetaById[deal.property_id]?.deleted_at })
+      : false;
   const moveLabel = MOVE_TO_LABEL[deal.pipeline_stage];
   const menuOpen = menuOpenId === deal.id;
   const isArchived = String((deal as unknown as { pipeline_stage?: unknown }).pipeline_stage ?? "")
@@ -1214,9 +1221,12 @@ function SortableDealCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative rounded-lg border border-[#2C2C2C]/10 bg-white p-4 shadow-sm ${
-        isDragging ? "scale-105 shadow-xl" : ""
-      } ${isArchived ? "opacity-50 grayscale-[30%]" : ""}`}
+      className={cn(
+        "relative rounded-lg border border-[#2C2C2C]/10 bg-white p-4 shadow-sm",
+        isDragging && "scale-105 shadow-xl",
+        isArchived && "opacity-50 grayscale-[30%]",
+        propRemoved && !isArchived && "opacity-50",
+      )}
     >
       <div
         className="touch-none"
@@ -1374,7 +1384,7 @@ function SortableDealCard({
         </div>
 
         <div className="mt-3">
-          {deal.property_id ? (
+          {deal.property_id && !propRemoved ? (
             <Link
               href={`/properties/${deal.property_id}`}
               className="font-medium text-[#6B9E6E] underline-offset-2 hover:underline"
@@ -1383,7 +1393,14 @@ function SortableDealCard({
               {propLine}
             </Link>
           ) : (
-            <p className="font-medium text-[#6B9E6E]">{propLine}</p>
+            <p className={cn("font-medium", propRemoved ? "text-gray-400" : "text-[#6B9E6E]")}>
+              {propLine}
+              {propRemoved ? (
+                <span className="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-600">
+                  Removed
+                </span>
+              ) : null}
+            </p>
           )}
         </div>
 
@@ -1570,7 +1587,7 @@ export function AgentPipelineTab({
     void (async () => {
       const { data, error } = await supabase
         .from("properties")
-        .select("id, city, location, price, rent_price, listing_type, status")
+        .select("id, city, location, price, rent_price, listing_type, status, deleted_at")
         .in("id", ids);
       if (cancelled) return;
       if (error) {
@@ -1590,10 +1607,15 @@ export function AgentPipelineTab({
         rent_price: unknown;
         listing_type: unknown;
         status: unknown;
+        deleted_at?: string | null;
       }[]) {
         const location = String(row.location ?? "").trim();
         const canonicalCity = propertyCanonicalCity({ city: row.city, location });
-        meta[row.id] = { city: canonicalCity, location };
+        meta[row.id] = {
+          city: canonicalCity,
+          location,
+          deleted_at: row.deleted_at != null ? String(row.deleted_at) : null,
+        };
 
         const lt = String(row.listing_type ?? "").trim().toLowerCase();
         const status = String(row.status ?? "").trim().toLowerCase();
@@ -2616,6 +2638,7 @@ export function AgentPipelineTab({
                   onTogglePin={togglePin}
                   onMoveToStage={moveDealToStage}
                   moveBusyId={moveToStageBusyId}
+                  propertyMetaById={propertyMetaById}
                 />
               ))}
             </SortableContext>

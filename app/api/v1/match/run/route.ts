@@ -41,7 +41,8 @@ export async function POST(request: NextRequest) {
     const { data: properties, error: pErr } = await supabase
       .from("properties")
       .select("id, location, price, sqft, beds, baths, image_url")
-      .or(publicListingExpiryOrFilter());
+      .or(publicListingExpiryOrFilter())
+      .is("deleted_at", null);
 
     if (pErr) return fail("DATABASE_ERROR", pErr.message, 500);
 

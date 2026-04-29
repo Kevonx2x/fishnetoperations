@@ -82,6 +82,7 @@ import {
   type NotificationListItem,
 } from "@/components/notifications/notification-list";
 import { formatRelativeTime } from "@/lib/relative-time";
+import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 
 type Tab =
   | "overview"
@@ -180,6 +181,7 @@ type PropertyRow = {
   /** True when connected via property_agents but not the listing owner. */
   isCoHost?: boolean;
   expires_at?: string | null;
+  deleted_at?: string | null;
 };
 
 const EDIT_PROPERTY_TYPES = [
@@ -918,7 +920,7 @@ export function AgentDashboard() {
         supabase
           .from("properties")
           .select(
-            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at",
           )
           .eq("listed_by", user.id)
           .order("created_at", { ascending: false }),
@@ -1024,6 +1026,12 @@ export function AgentDashboard() {
               : p.expires_at != null
                 ? String(p.expires_at)
                 : null,
+          deleted_at:
+            p.deleted_at != null && typeof p.deleted_at === "string"
+              ? p.deleted_at
+              : p.deleted_at != null
+                ? String(p.deleted_at)
+                : null,
         };
       });
       const ownedIds = new Set(ownedList.map((p) => p.id));
@@ -1036,7 +1044,7 @@ export function AgentDashboard() {
         const { data: co } = await supabase
           .from("properties")
           .select(
-            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at",
           )
           .in("id", coIds)
           .order("created_at", { ascending: false });
@@ -1067,6 +1075,12 @@ export function AgentDashboard() {
                 ? p.expires_at
                 : p.expires_at != null
                   ? String(p.expires_at)
+                  : null,
+            deleted_at:
+              p.deleted_at != null && typeof p.deleted_at === "string"
+                ? p.deleted_at
+                : p.deleted_at != null
+                  ? String(p.deleted_at)
                   : null,
           };
         });
@@ -1357,7 +1371,7 @@ export function AgentDashboard() {
 
   const deleteListing = async (propertyId: string) => {
     if (!user?.id) return;
-    if (!confirm("Are you sure? This cannot be undone.")) return;
+    if (!confirm("Remove this listing from the public site? Your data is kept for records.")) return;
     setDeletingPropertyId(propertyId);
     try {
       const res = await fetch("/api/agent/delete-listing", {
@@ -1381,7 +1395,7 @@ export function AgentDashboard() {
     } finally {
       setDeletingPropertyId(null);
     }
-    toast.success("Listing deleted");
+    toast.success("Listing removed from public site");
     await loadData();
   };
 
@@ -3305,14 +3319,22 @@ function ListingsTab({
   const listingFormFieldsRef = useRef<HTMLDivElement | null>(null);
   const [renewingId, setRenewingId] = useState<string | null>(null);
   const [importListingOpen, setImportListingOpen] = useState(false);
+  const [showRemovedListings, setShowRemovedListings] = useState(false);
+  const propertiesForKindFilter = useMemo(
+    () =>
+      showRemovedListings ? properties : properties.filter((p) => !isPropertyListingRemoved(p)),
+    [properties, showRemovedListings],
+  );
   const visibleProperties = useMemo(() => {
-    if (listingKindFilter === "presale") return properties.filter((p) => p.is_presale);
+    if (listingKindFilter === "presale") return propertiesForKindFilter.filter((p) => p.is_presale);
     if (listingKindFilter === "sale")
-      return properties.filter((p) => (p.status === "for_sale" || p.status === "both") && !p.is_presale);
+      return propertiesForKindFilter.filter(
+        (p) => (p.status === "for_sale" || p.status === "both") && !p.is_presale,
+      );
     if (listingKindFilter === "rent")
-      return properties.filter((p) => p.status === "for_rent" || p.status === "both");
-    return properties;
-  }, [properties, listingKindFilter]);
+      return propertiesForKindFilter.filter((p) => p.status === "for_rent" || p.status === "both");
+    return propertiesForKindFilter;
+  }, [propertiesForKindFilter, listingKindFilter]);
 
   const listingCompleteness = useMemo(
     () => computeListingCompleteness(listingForm, listingForm.listingImageUrls),
@@ -3433,7 +3455,7 @@ function ListingsTab({
           <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
             Owned {ownedListingCount}/{ownedCap} · Co-lists {coListedCount}/{coCap}
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             {(
               [
                 { id: "all" as const, label: "All" },
@@ -3455,6 +3477,15 @@ function ListingsTab({
                 {t.label}
               </button>
             ))}
+            <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-500">
+              <input
+                type="checkbox"
+                checked={showRemovedListings}
+                onChange={(e) => setShowRemovedListings(e.target.checked)}
+                className="rounded border-gray-300 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+              />
+              Show removed
+            </label>
           </div>
         </div>
         {canAddListing ? (
@@ -3475,11 +3506,59 @@ function ListingsTab({
         )}
       </div>
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {visibleProperties.map((p) => (
+        {visibleProperties.map((p) => {
+          const removed = isPropertyListingRemoved(p);
+          return (
           <div
             key={p.id}
-            className="relative overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm transition hover:shadow-md"
+            className={cn(
+              "relative overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm transition hover:shadow-md",
+              removed && "opacity-50",
+            )}
           >
+            {removed ? (
+              <div className="block cursor-default">
+                <div className="relative h-40 w-full bg-black/5">
+                  <Image
+                    src={p.image_url}
+                    alt=""
+                    fill
+                    className="object-cover grayscale"
+                    sizes="400px"
+                  />
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20 px-2">
+                    <span className="rounded-full bg-gray-900/85 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-100">
+                      Removed
+                    </span>
+                  </div>
+                </div>
+                <div className="p-4">
+                  {p.status === "both" ? (
+                    <div className="space-y-0.5">
+                      <p className="truncate font-serif text-base font-bold text-gray-400">
+                        Sale {formatListingPricePhp(p.price, "for_sale")}
+                      </p>
+                      <p className="truncate font-serif text-sm font-bold text-gray-400">
+                        Rent {formatListingPricePhp(p.rent_price ?? "", "for_rent")}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="truncate font-serif text-lg font-bold text-gray-400">
+                      {formatListingPricePhp(p.price, p.status === "for_rent" ? "for_rent" : "for_sale")}
+                    </p>
+                  )}
+                  <p className="mt-2 line-clamp-2 text-sm font-bold leading-snug text-gray-400">
+                    {(p.name ?? "").trim() || p.location}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-gray-400">
+                    {(p.beds ? `${p.beds} beds` : "Studio")} · {p.baths} baths · {p.sqft} sqft
+                  </p>
+                  <p className="mt-1 flex items-start gap-1 truncate text-xs text-gray-400">
+                    <span className="min-w-0 flex-1 truncate">{p.location}</span>
+                  </p>
+                </div>
+              </div>
+            ) : (
             <Link href={`/properties/${encodeURIComponent(p.id)}`} className="block">
               <div className="relative h-40 w-full bg-black/5">
                 <Image src={p.image_url} alt="" fill className="object-cover" sizes="400px" />
@@ -3548,7 +3627,8 @@ function ListingsTab({
                 </p>
               </div>
             </Link>
-            {!p.isCoHost && propertyExpiryBadgeInfo(p.expires_at)?.showRenew ? (
+            )}
+            {!p.isCoHost && !removed && propertyExpiryBadgeInfo(p.expires_at)?.showRenew ? (
               <div className="px-4 pb-2">
                 <button
                   type="button"
@@ -3567,18 +3647,25 @@ function ListingsTab({
             {!p.isCoHost ? (
               <div className="absolute right-2 top-2 z-10 flex flex-col gap-1.5 sm:flex-row sm:items-center">
                 <div
-                  title={!canAddListing ? "Get verified to manage your listings" : undefined}
-                  className={!canAddListing ? "cursor-not-allowed" : undefined}
+                  title={
+                    removed
+                      ? "Listing removed from public site"
+                      : !canAddListing
+                        ? "Get verified to manage your listings"
+                        : undefined
+                  }
+                  className={!canAddListing || removed ? "cursor-not-allowed" : undefined}
                 >
                   <button
                     type="button"
+                    disabled={removed}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       void onEditListing(p);
                     }}
                     className={`rounded-full border border-[#6B9E6E]/25 bg-white/95 px-3 py-1.5 text-xs font-bold text-[#2C2C2C] shadow-sm hover:bg-[#6B9E6E]/12 ${
-                      !canAddListing ? "cursor-not-allowed opacity-40 pointer-events-none" : ""
+                      !canAddListing || removed ? "cursor-not-allowed opacity-40 pointer-events-none" : ""
                     }`}
                   >
                     Edit
@@ -3590,17 +3677,17 @@ function ListingsTab({
                 >
                   <button
                     type="button"
-                    disabled={deletingPropertyId === p.id}
+                    disabled={deletingPropertyId === p.id || removed}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       void onDeleteProperty(p.id);
                     }}
                     className={`rounded-full border border-red-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-red-800 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 ${
-                      !canAddListing ? "cursor-not-allowed opacity-40 pointer-events-none" : ""
+                      !canAddListing || removed ? "cursor-not-allowed opacity-40 pointer-events-none" : ""
                     }`}
                   >
-                    {deletingPropertyId === p.id ? "Deleting…" : "Delete"}
+                    {deletingPropertyId === p.id ? "Removing…" : "Remove"}
                   </button>
                 </div>
               </div>
@@ -3621,7 +3708,8 @@ function ListingsTab({
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <AnimatePresence>

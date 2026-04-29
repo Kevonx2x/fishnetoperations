@@ -176,6 +176,7 @@ export default function PropertyPage() {
         `,
         )
         .eq("id", id)
+        .is("deleted_at", null)
         .or(publicListingExpiryOrFilter())
         .maybeSingle();
 

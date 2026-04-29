@@ -7,8 +7,8 @@ type Body = {
 };
 
 /**
- * Delete an agent-owned listing and associated rows, bypassing client RLS noise.
- * Mirrors the ordered deletes previously done in the browser via supabase-js.
+ * Soft-delete an agent-owned listing: sets `deleted_at` and preserves all rows for analytics.
+ * Child tables (photos, leads, etc.) are not removed.
  */
 export async function POST(req: Request) {
   const session = await getSessionProfile();
@@ -52,32 +52,15 @@ export async function POST(req: Request) {
     return Response.json({ error: msg }, { status: 500 });
   }
 
-  const orderedDeletes = [
-    { label: "co_agent_requests", run: () => admin.from("co_agent_requests").delete().eq("property_id", propertyId) },
-    { label: "property_agents", run: () => admin.from("property_agents").delete().eq("property_id", propertyId) },
-    { label: "property_photos", run: () => admin.from("property_photos").delete().eq("property_id", propertyId) },
-    { label: "viewing_requests", run: () => admin.from("viewing_requests").delete().eq("property_id", propertyId) },
-    { label: "leads", run: () => admin.from("leads").delete().eq("property_id", propertyId) },
-  ] as const;
-
-  for (const step of orderedDeletes) {
-    const { error } = await step.run();
-    if (error) {
-      return Response.json(
-        { error: `Could not delete listing (${step.label}): ${error.message}` },
-        { status: 500 },
-      );
-    }
-  }
-
-  let delQuery = admin.from("properties").delete().eq("id", propertyId);
+  const deletedAt = new Date().toISOString();
+  let upd = admin.from("properties").update({ deleted_at: deletedAt }).eq("id", propertyId);
   if (session.role !== "admin") {
-    delQuery = delQuery.eq("listed_by", session.userId);
+    upd = upd.eq("listed_by", session.userId);
   }
-  const { error: delPropErr } = await delQuery;
-  if (delPropErr) {
-    return Response.json({ error: delPropErr.message }, { status: 500 });
+  const { error: updErr } = await upd;
+  if (updErr) {
+    return Response.json({ error: updErr.message }, { status: 500 });
   }
 
-  return Response.json({ ok: true });
+  return Response.json({ ok: true, deleted_at: deletedAt });
 }

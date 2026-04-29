@@ -32,6 +32,8 @@ export type DbProperty = {
   unit_types?: string[] | null;
   property_photos?: { url: string; sort_order?: number | null; created_at?: string | null }[];
   property_agents?: { agent: unknown }[];
+  /** Soft delete — listing hidden from public discovery when set. */
+  deleted_at?: string | null;
 };
 
 /** Order gallery: lowest sort_order first; ties or missing sort_order use created_at ascending. */

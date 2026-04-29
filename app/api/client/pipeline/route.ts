@@ -121,7 +121,7 @@ export async function GET() {
       propertyIds.length
         ? admin
             .from("properties")
-            .select("id, name, location, price, image_url, property_photos(url, sort_order, created_at)")
+            .select("id, name, location, price, image_url, deleted_at, property_photos(url, sort_order, created_at)")
             .in("id", propertyIds)
         : Promise.resolve({ data: [] as unknown[] }),
       agentUserIds.length
@@ -151,6 +151,7 @@ export async function GET() {
         location: string;
         price: string;
         image_url: string | null;
+        deleted_at: string | null;
         property_photos: { url: string | null; sort_order?: number | null; created_at?: string | null }[] | null;
       };
       return [row.id, row] as const;
@@ -230,6 +231,7 @@ export async function GET() {
             price: priceDisplay,
             hero_image: hero,
             photo_count: photoCount,
+            listing_removed: prop.deleted_at != null && String(prop.deleted_at).trim() !== "",
           }
         : {
             id: null as string | null,
@@ -237,6 +239,7 @@ export async function GET() {
             price: priceDisplay,
             hero_image: "",
             photo_count: photoCount,
+            listing_removed: false,
           },
       agent: {
         user_id: agentUserId,

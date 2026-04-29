@@ -8,7 +8,8 @@ import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { usePropertyLikes } from "@/hooks/use-property-engagement";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
-import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
+import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
+import { cn } from "@/lib/utils";
 
 type PropertyCard = {
   id: string;
@@ -19,6 +20,7 @@ type PropertyCard = {
   baths: number;
   sqft: string;
   image_url: string;
+  deleted_at?: string | null;
 };
 
 export default function LikesPage() {
@@ -41,9 +43,8 @@ export default function LikesPage() {
       setError(null);
       const { data, error: fetchErr } = await supabase
         .from("properties")
-        .select("id, location, price, status, beds, baths, sqft, image_url")
-        .in("id", orderedIds)
-        .or(publicListingExpiryOrFilter());
+        .select("id, location, price, status, beds, baths, sqft, image_url, deleted_at")
+        .in("id", orderedIds);
       if (cancelled) return;
       if (fetchErr) {
         setError(fetchErr.message);
@@ -83,17 +84,35 @@ export default function LikesPage() {
 
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {rows.map((p) => (
+        {rows.map((p) => {
+          const removed = isPropertyListingRemoved(p);
+          return (
           <div
             key={p.id}
-            className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm"
+            className={cn(
+              "overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm",
+              removed && "opacity-50",
+            )}
           >
             <div className="relative aspect-[4/3] w-full bg-black/5">
-              <Image src={p.image_url} alt={p.location} fill sizes="420px" className="object-cover" />
+              <Image
+                src={p.image_url}
+                alt={p.location}
+                fill
+                sizes="420px"
+                className={cn("object-cover", removed && "grayscale")}
+              />
+              {removed ? (
+                <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center bg-black/25 px-2">
+                  <span className="rounded-full bg-gray-900/85 px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-gray-100">
+                    Listing removed
+                  </span>
+                </div>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void likes.toggle(p.id)}
-                className="absolute right-3 top-3 rounded-full bg-white/90 p-2 shadow-sm"
+                className="absolute right-3 top-3 z-10 rounded-full bg-white/90 p-2 shadow-sm"
                 aria-label="Unlike"
               >
                 <Heart className="h-5 w-5 fill-red-500 text-red-500" />
@@ -108,19 +127,24 @@ export default function LikesPage() {
               </div>
             </div>
             <div className="p-4">
-              <p className="font-semibold text-[#2C2C2C]">{p.location}</p>
-              <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/60">
+              <p className={cn("font-semibold", removed ? "text-gray-400" : "text-[#2C2C2C]")}>{p.location}</p>
+              <p className={cn("mt-1 text-sm font-semibold", removed ? "text-gray-400" : "text-[#2C2C2C]/60")}>
                 {p.beds} bd · {p.baths} ba · {p.sqft} sqft
               </p>
-              <Link
-                href={`/properties/${encodeURIComponent(p.id)}`}
-                className="mt-3 inline-flex text-sm font-semibold text-[#2C2C2C]/70 underline decoration-[#D4A843]/60 underline-offset-4 hover:text-[#2C2C2C]"
-              >
-                View details →
-              </Link>
+              {removed ? (
+                <p className="mt-3 text-sm font-semibold text-gray-400">Listing no longer available</p>
+              ) : (
+                <Link
+                  href={`/properties/${encodeURIComponent(p.id)}`}
+                  className="mt-3 inline-flex text-sm font-semibold text-[#2C2C2C]/70 underline decoration-[#D4A843]/60 underline-offset-4 hover:text-[#2C2C2C]"
+                >
+                  View details →
+                </Link>
+              )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     );
   }, [rows, orderedIds.length, likes.toggle]);

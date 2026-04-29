@@ -44,6 +44,7 @@ import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { cn } from "@/lib/utils";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
+import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { propertyCanonicalCity } from "@/lib/normalize-city";
 import { CoListRequestModal } from "@/components/marketplace/co-list-request-modal";
@@ -815,11 +816,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         ? `city.ilike.%${featuredCityRow.label}%,location.ilike.%${featuredCityRow.label}%`
         : null;
 
-    let mainQuery = supabase.from("properties").select(selectQ).or(expiryOr);
+    let mainQuery = supabase.from("properties").select(selectQ).or(expiryOr).is("deleted_at", null);
     if (cityOrClause) mainQuery = mainQuery.or(cityOrClause);
     mainQuery = mainQuery.order("created_at", { ascending: false });
 
-    let featQuery = supabase.from("properties").select(selectQ).eq("featured", true).or(expiryOr);
+    let featQuery = supabase.from("properties").select(selectQ).eq("featured", true).or(expiryOr).is("deleted_at", null);
     if (cityOrClause) featQuery = featQuery.or(cityOrClause);
     featQuery = featQuery.limit(1);
 
@@ -2341,6 +2342,7 @@ export function NewlyListedCard({
   listingImageLoadEager?: boolean;
 }) {
   const listedLabel = listingListedLabel(property.created_at);
+  const listingRemoved = isPropertyListingRemoved(property);
   const isDualListing =
     !property.is_presale && (property.status === "both" || property.listing_type === "both");
   const statusLabel = property.is_presale
@@ -2385,6 +2387,7 @@ export function NewlyListedCard({
         grid
           ? gridCardClassName ?? "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]"
           : cn(cardWidthClass ?? "w-[240px]", "shrink-0"),
+        listingRemoved && "pointer-events-none opacity-50",
       )}
     >
       <div className="relative h-44 w-full shrink-0 overflow-hidden bg-neutral-900 lg:h-52">
@@ -2393,37 +2396,51 @@ export function NewlyListedCard({
           alt={property.name ?? property.location}
           fill
           quality={92}
-          className="object-cover"
+          className={cn("object-cover", listingRemoved && "grayscale")}
           sizes={LISTING_IMAGE_SIZES}
           loading={listingImageLoadEager ? "eager" : "lazy"}
         />
         <button
           type="button"
-          onClick={onOpenPropertyZoom}
-          className="absolute inset-0 z-[6] cursor-pointer bg-transparent"
+          onClick={listingRemoved ? undefined : onOpenPropertyZoom}
+          disabled={listingRemoved}
+          className={cn(
+            "absolute inset-0 z-[6] bg-transparent",
+            listingRemoved ? "cursor-default" : "cursor-pointer",
+          )}
           aria-label="Open property details"
         />
+
+        {listingRemoved ? (
+          <div className="pointer-events-none absolute inset-0 z-[25] flex items-center justify-center bg-black/25 px-2">
+            <span className="rounded-full bg-gray-900/85 px-3 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide text-gray-100">
+              Listing removed
+            </span>
+          </div>
+        ) : null}
 
         {roomUrls.length > 1 ? (
           <>
             <button
               type="button"
+              disabled={listingRemoved}
               onClick={(e) => {
                 e.stopPropagation();
                 onRoomPrev();
               }}
-              className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100"
+              className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30"
               aria-label="Previous room photo"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               type="button"
+              disabled={listingRemoved}
               onClick={(e) => {
                 e.stopPropagation();
                 onRoomNext();
               }}
-              className="absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100"
+              className="absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30"
               aria-label="Next room photo"
             >
               <ChevronRight className="h-5 w-5" />
@@ -2459,9 +2476,9 @@ export function NewlyListedCard({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                if (!agentEngagementLocked) void engagement.toggleLike(property.id);
+                if (!agentEngagementLocked && !listingRemoved) void engagement.toggleLike(property.id);
               }}
-              disabled={agentEngagementLocked}
+              disabled={agentEngagementLocked || listingRemoved}
               className={cn(
                 "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
                 property.is_presale
@@ -2469,7 +2486,7 @@ export function NewlyListedCard({
                   : isLiked
                     ? "border border-red-200 bg-white"
                     : "border border-gray-200 bg-white/80",
-                agentEngagementLocked && "pointer-events-none opacity-50",
+                (agentEngagementLocked || listingRemoved) && "pointer-events-none opacity-40",
               )}
               aria-label={`${engagement.likeCount(property.id)} likes`}
             >
@@ -2494,9 +2511,9 @@ export function NewlyListedCard({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                if (!agentEngagementLocked) void engagement.togglePin(property.id);
+                if (!agentEngagementLocked && !listingRemoved) void engagement.togglePin(property.id);
               }}
-              disabled={agentEngagementLocked}
+              disabled={agentEngagementLocked || listingRemoved}
               className={cn(
                 "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
                 property.is_presale
@@ -2504,7 +2521,7 @@ export function NewlyListedCard({
                   : isPinned
                     ? "border border-[#D4A843]/40 bg-white"
                     : "border border-gray-200 bg-white/80",
-                agentEngagementLocked && "pointer-events-none opacity-50",
+                (agentEngagementLocked || listingRemoved) && "pointer-events-none opacity-40",
               )}
               aria-label={`${engagement.saveCount(property.id)} saved`}
             >

@@ -31,6 +31,8 @@ type PipelineDeal = {
     price: string;
     hero_image: string;
     photo_count?: number;
+    /** True when the underlying listing was soft-deleted. */
+    listing_removed?: boolean;
   };
   agent: {
     user_id: string;
@@ -223,7 +225,7 @@ function DealStatusBanner({ deal }: { deal: PipelineDeal }) {
           <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
           <span className="min-w-0 font-normal not-italic">{viewingWhenLine}</span>
         </div>
-        {deal.property.id ? (
+        {deal.property.id && !deal.property.listing_removed ? (
           <Link
             href={`/properties/${encodeURIComponent(deal.property.id)}`}
             className="inline-flex shrink-0 items-center gap-0.5 font-semibold not-italic text-[#6B9E6E] hover:underline"
@@ -251,7 +253,7 @@ function DealStatusBanner({ deal }: { deal: PipelineDeal }) {
           <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6B728E]" aria-hidden />
           <span className="min-w-0">You have a pending offer. Please review and respond.</span>
         </div>
-        {deal.property.id ? (
+        {deal.property.id && !deal.property.listing_removed ? (
           <Link
             href={`/properties/${encodeURIComponent(deal.property.id)}`}
             className="inline-flex shrink-0 items-center gap-0.5 font-semibold not-italic text-[#2C2C2C]/80 hover:underline"
@@ -371,14 +373,16 @@ function DealCard({
   };
 
   const initials = pipelineAgentInitials(deal.agent.name);
+  const listingRemovedUi = Boolean(deal.property.listing_removed);
 
   return (
     <article
       id={`lead-${deal.lead_id}`}
       className={cn(
         "group relative isolate overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.05] bg-white shadow-[0_2px_20px_rgba(44,44,44,0.05)] transition-all duration-200 ease-out",
-        "hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(44,44,44,0.09)]",
+        !listingRemovedUi && "hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(44,44,44,0.09)]",
         highlight && "ring-2 ring-[#D4A843]/50",
+        listingRemovedUi && "opacity-50",
       )}
     >
       <div className="flex flex-col gap-5 px-6 py-5 sm:px-8 sm:py-6 xl:grid xl:grid-cols-4 xl:items-stretch xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:py-7 xl:[grid-template-columns:minmax(0,0.94fr)_minmax(0,1.28fr)_minmax(0,0.82fr)_minmax(0,0.92fr)]">
@@ -398,7 +402,7 @@ function DealCard({
                 src={deal.property.hero_image}
                 alt=""
                 fill
-                className="object-cover"
+                className={cn("object-cover", listingRemovedUi && "grayscale")}
                 sizes="280px"
                 unoptimized
               />
@@ -407,6 +411,13 @@ function DealCard({
                 No photo
               </div>
             )}
+            {listingRemovedUi ? (
+              <div className="pointer-events-none absolute inset-0 z-[8] flex items-center justify-center bg-black/25 px-2">
+                <span className="rounded-full bg-gray-900/85 px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-gray-100">
+                  Listing removed
+                </span>
+              </div>
+            ) : null}
             {photosBadge ? (
               <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-10 rounded-full bg-[#2C2C2C]/80 px-2.5 py-1 font-sans text-[11px] font-medium text-white">
                 {photosBadge}
@@ -602,7 +613,7 @@ function DealCard({
                 className="h-10 w-full justify-center rounded-full border-0 bg-[#6B9E6E] px-4 py-0 text-[13px] font-semibold text-white hover:bg-[#5d8a60]"
               />
             ) : null}
-            {deal.property.id ? (
+            {deal.property.id && !listingRemovedUi ? (
               <Link
                 href={`/properties/${encodeURIComponent(deal.property.id)}`}
                 className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-[#2C2C2C]/12 bg-transparent px-4 text-[13px] font-semibold text-[#2C2C2C]/85 transition hover:border-[#2C2C2C]/18 hover:bg-[#FAF8F4]/80"
@@ -610,6 +621,10 @@ function DealCard({
                 <Home className="h-3.5 w-3.5 shrink-0 text-[#2C2C2C]/45" aria-hidden />
                 View Property
               </Link>
+            ) : listingRemovedUi ? (
+              <span className="inline-flex h-10 w-full items-center justify-center rounded-full border border-gray-200 bg-gray-50 px-4 text-[13px] font-semibold text-gray-400">
+                Listing removed
+              </span>
             ) : null}
             <button
               type="button"

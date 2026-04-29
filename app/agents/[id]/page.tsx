@@ -452,6 +452,7 @@ export default function AgentProfilePage() {
           .from("properties")
           .select(selectFields)
           .eq("listed_by", agentUserId)
+          .is("deleted_at", null)
           .or(publicListingExpiryOrFilter()),
         supabase.from("property_agents").select("property_id").eq("agent_id", agentRecordId),
       ]);
@@ -467,6 +468,7 @@ export default function AgentProfilePage() {
           .from("properties")
           .select(selectFields)
           .in("id", linkIds)
+          .is("deleted_at", null)
           .or(publicListingExpiryOrFilter());
         if (cancelled) return;
         linked = (linkedRows ?? []) as unknown as ListingRow[];
@@ -695,17 +697,25 @@ export default function AgentProfilePage() {
   const deleteListing = useCallback(
     async (propertyId: string) => {
       if (!user?.id) return;
-      if (!confirm("Delete this listing? This cannot be undone.")) return;
+      if (!confirm("Remove this listing from the public site? Your data is kept for records.")) return;
       setDeletingPropertyId(propertyId);
-      const { error: delErr } = await supabase
-        .from("properties")
-        .delete()
-        .eq("id", propertyId)
-        .eq("listed_by", user.id);
-      setDeletingPropertyId(null);
-      if (delErr) {
-        alert(delErr.message);
+      try {
+        const res = await fetch("/api/agent/delete-listing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ property_id: propertyId }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { error?: string; ok?: boolean };
+        if (!res.ok || !json.ok) {
+          alert(json.error ?? "Could not remove listing");
+          return;
+        }
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "Could not remove listing");
         return;
+      } finally {
+        setDeletingPropertyId(null);
       }
       setListings((prev) => prev.filter((p) => p.id !== propertyId));
     },

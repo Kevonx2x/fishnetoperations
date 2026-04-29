@@ -91,7 +91,10 @@ export async function DELETE(req: Request, ctx: RouteCtx) {
 
     const { id } = await ctx.params;
     const supabase = createSupabaseAdmin();
-    const { error } = await supabase.from("properties").delete().eq("id", id);
+    const { error } = await supabase
+      .from("properties")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

@@ -5,6 +5,7 @@ import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { RESEND_FROM } from "@/lib/resend-from";
 import { normalizePhoneE164, sendSmsTo } from "@/lib/twilio-sms";
+import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 
 /** Matches pipeline "Lead" column value (lowercase id per `leads_pipeline_stage_check`). */
 const VIEWING_PIPELINE_STAGE = "lead" as const;
@@ -232,6 +233,22 @@ export async function POST(req: Request) {
 
     const agentUserId = body.agent_user_id;
     const propertyId = body.property_id;
+    if (propertyId) {
+      const { data: propCheck, error: propCheckErr } = await admin
+        .from("properties")
+        .select("id, deleted_at")
+        .eq("id", propertyId)
+        .maybeSingle();
+      if (propCheckErr) {
+        return fail("DATABASE_ERROR", propCheckErr.message, 500);
+      }
+      if (!propCheck) {
+        return fail("BAD_REQUEST", "Property not found", 404);
+      }
+      if (isPropertyListingRemoved(propCheck as { deleted_at?: string | null })) {
+        return fail("BAD_REQUEST", "This listing is no longer available.", 400);
+      }
+    }
     const notesTrimmed = body.notes?.trim() ?? "";
     const notes = notesTrimmed.length > 0 ? notesTrimmed : null;
 

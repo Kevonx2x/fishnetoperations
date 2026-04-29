@@ -31,9 +31,9 @@ import { StreamChatProvider } from "@/features/messaging/components/stream-chat-
 import { ClientMessagesView } from "@/features/messaging/components/client-messages-view";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 import { ReportProfileButton } from "@/components/report-profile-button";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
-import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import {
   filterFeedItemsByListingMode,
   filterLikeRowsByMode,
@@ -68,6 +68,7 @@ type PropertyRow = {
   listed_by: string | null;
   /** Agents linked via property_agents (+ listed_by fallback when join is empty). */
   connectedAgents: MarketplaceAgent[];
+  deleted_at?: string | null;
 };
 
 function listingAgentUserId(property: PropertyRow, agents: MarketplaceAgent[]): string | null {
@@ -602,7 +603,7 @@ function ClientPublicProfilePageInner() {
           .from("properties")
           .select(
             `
-            id, name, location, price, beds, baths, sqft, image_url, status, listing_status, created_at, listed_by,
+            id, name, location, price, beds, baths, sqft, image_url, status, listing_status, created_at, listed_by, deleted_at,
             property_agents (
               agent:agents (
                 id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at,
@@ -613,8 +614,7 @@ function ClientPublicProfilePageInner() {
             )
           `,
           )
-          .in("id", ids)
-          .or(publicListingExpiryOrFilter());
+          .in("id", ids);
 
         if (cancelled) return;
 
@@ -644,6 +644,12 @@ function ClientPublicProfilePageInner() {
             connectedAgents: connectedAgentsFromPropertyAgentsRaw(
               raw as { property_agents?: { agent?: unknown }[] },
             ),
+            deleted_at:
+              r.deleted_at != null && typeof r.deleted_at === "string"
+                ? r.deleted_at
+                : r.deleted_at != null
+                  ? String(r.deleted_at)
+                  : null,
           };
         });
 
@@ -891,7 +897,8 @@ function ClientPublicProfilePageInner() {
     opts: { variant: "pinned" | "liked"; activityIso: string | null },
   ) => {
     if (!clientProfile) return null;
-    const overlay = overlayLabel(p);
+    const listingRemoved = isPropertyListingRemoved(p);
+    const overlay = listingRemoved ? null : overlayLabel(p);
     const likeTotal = likeCounts[p.id] ?? 0;
     const pinSaveN = saveCounts[p.id] ?? 0;
     const isHeartLiked = likes.has(p.id);
@@ -910,7 +917,10 @@ function ClientPublicProfilePageInner() {
     return (
       <article
         key={`${opts.variant}-${p.id}-${activityIso ?? ""}`}
-        className="overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm"
+        className={cn(
+          "overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm",
+          listingRemoved && "opacity-50",
+        )}
       >
         <div className="flex items-start gap-3 px-4 pt-4">
           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
@@ -936,18 +946,35 @@ function ClientPublicProfilePageInner() {
         </div>
 
         <div className="relative mt-3 w-full overflow-hidden">
-          <Link
-            href={`/properties/${encodeURIComponent(p.id)}`}
-            className="relative block aspect-video w-full bg-[#2C2C2C]/5"
-          >
-            <Image
-              src={p.image_url}
-              alt=""
-              fill
-              sizes="(max-width: 1024px) 100vw, 70vw"
-              className={`object-cover ${overlay ? "brightness-[0.55]" : ""}`}
-            />
-          </Link>
+          {listingRemoved ? (
+            <div className="relative block aspect-video w-full cursor-default bg-[#2C2C2C]/5">
+              <Image
+                src={p.image_url}
+                alt=""
+                fill
+                sizes="(max-width: 1024px) 100vw, 70vw"
+                className={cn("object-cover grayscale", overlay ? "brightness-[0.55]" : "")}
+              />
+              <div className="pointer-events-none absolute inset-0 z-[8] flex items-center justify-center bg-black/25 px-2">
+                <span className="rounded-full bg-gray-900/85 px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-gray-100">
+                  Listing removed
+                </span>
+              </div>
+            </div>
+          ) : (
+            <Link
+              href={`/properties/${encodeURIComponent(p.id)}`}
+              className="relative block aspect-video w-full bg-[#2C2C2C]/5"
+            >
+              <Image
+                src={p.image_url}
+                alt=""
+                fill
+                sizes="(max-width: 1024px) 100vw, 70vw"
+                className={`object-cover ${overlay ? "brightness-[0.55]" : ""}`}
+              />
+            </Link>
+          )}
           {overlay ? (
             <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center bg-black/35">
               <span className="rounded-lg border-2 border-white/90 bg-black/40 px-6 py-2 font-serif text-xl font-bold tracking-widest text-white">
@@ -978,14 +1005,16 @@ function ClientPublicProfilePageInner() {
           <div className="absolute right-3 top-3 z-10 flex items-start gap-1">
             <button
               type="button"
+              disabled={listingRemoved}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                void likes.toggle(p.id);
+                if (!listingRemoved) void likes.toggle(p.id);
               }}
               className={cn(
                 "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
                 isHeartLiked ? "border border-red-200 bg-white" : "border border-gray-200 bg-white/80",
+                listingRemoved && "pointer-events-none opacity-40",
               )}
               aria-label={likeTotal > 0 ? `${likeTotal} likes` : "Like"}
             >
@@ -1078,23 +1107,31 @@ function ClientPublicProfilePageInner() {
         </div>
 
         <div className="flex flex-col gap-2 px-4 pb-4 sm:flex-row sm:flex-wrap sm:items-center">
-          <Link
-            href={`/properties/${encodeURIComponent(p.id)}`}
-            className="inline-flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] sm:w-auto"
-          >
-            View Property
-          </Link>
+          {listingRemoved ? (
+            <span className="inline-flex w-full items-center justify-center rounded-full bg-gray-100 px-3 py-2.5 text-sm font-semibold text-gray-400 sm:w-auto">
+              Listing removed
+            </span>
+          ) : (
+            <Link
+              href={`/properties/${encodeURIComponent(p.id)}`}
+              className="inline-flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] sm:w-auto"
+            >
+              View Property
+            </Link>
+          )}
           <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
             <button
               type="button"
               onClick={() => openViewingForProperty(p)}
-              disabled={authLoading || !hasAgents || viewingPrefsBlocked}
+              disabled={authLoading || !hasAgents || viewingPrefsBlocked || listingRemoved}
               title={
-                user && !hasAgents
-                  ? "No agent available"
-                  : viewingPrefsBlocked
-                    ? "Complete your profile preferences to request a viewing."
-                    : undefined
+                listingRemoved
+                  ? "This listing is no longer available"
+                  : user && !hasAgents
+                    ? "No agent available"
+                    : viewingPrefsBlocked
+                      ? "Complete your profile preferences to request a viewing."
+                      : undefined
               }
               className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
