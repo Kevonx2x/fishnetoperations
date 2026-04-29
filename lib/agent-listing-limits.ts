@@ -14,7 +14,7 @@ export type TierLimits = {
 
 export const TIER_LIMITS: Record<AgentListingTier, TierLimits> = {
   free: { owned: 1, coList: 2, team: 0 },
-  pro: { owned: 20, coList: 10, team: 3 },
+  pro: { owned: 10, coList: 10, team: 3 },
   featured: { owned: 20, coList: 10, team: 5 },
   broker: {
     owned: Number.POSITIVE_INFINITY,

@@ -44,7 +44,13 @@ type AgentBillingTabProps = {
 const PAID_TIERS: PaymongoSubscriptionTier[] = [...PAYMONGO_SUBSCRIPTION_TIERS];
 
 const TIER_FEATURES: Record<PaymongoSubscriptionTier, string[]> = {
-  pro: ["Analytics", "Templates", "Priority support", "20 owned listings", "10 co-lists", "3 team seats"],
+  pro: [
+    "Analytics",
+    "Templates",
+    "Priority support",
+    "10 listings + 10 co-listings",
+    "3 team seats",
+  ],
   featured: [
     "Everything in Pro",
     "Featured Agent gold badge",

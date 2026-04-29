@@ -2,6 +2,7 @@ import { z } from "zod";
 import { fail, fromZodError, ok } from "@/lib/api/response";
 import { requireAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { countCoListedNonOwnerProperties } from "@/lib/agent-co-list-usage";
 import { coListLimitForTier, isUnlimitedCoList } from "@/lib/agent-listing-limits";
 import { normalizePhoneE164, sendSmsTo } from "@/lib/twilio-sms";
 
@@ -61,19 +62,13 @@ export async function PATCH(
     const agentUserId = (agentRow as { user_id?: string | null } | null)?.user_id;
     const listingTier = (agentRow as { listing_tier?: string | null } | null)?.listing_tier;
     const agentPhone = (agentRow as { phone?: string | null } | null)?.phone ?? null;
-    if (!isUnlimitedCoList(listingTier)) {
+    if (!isUnlimitedCoList(listingTier) && agentUserId) {
       const cap = coListLimitForTier(listingTier);
-      const { data: paLinks } = await sb.from("property_agents").select("property_id").eq("agent_id", row.agent_id);
-      const propIds = (paLinks ?? []).map((l) => l.property_id).filter(Boolean);
-      let coCount = 0;
-      if (propIds.length > 0 && agentUserId) {
-        const { data: props } = await sb.from("properties").select("id, listed_by").in("id", propIds);
-        coCount = (props ?? []).filter((p) => p.listed_by !== agentUserId).length;
-      }
+      const coCount = await countCoListedNonOwnerProperties(sb, row.agent_id, agentUserId);
       if (coCount >= cap) {
         return fail(
           "CO_LIST_LIMIT",
-          "This agent has reached their co-listing limit for their current plan.",
+          `This agent has reached their co-listing limit (${cap} co-listings on their current plan).`,
           400,
         );
       }

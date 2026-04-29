@@ -36,8 +36,8 @@ const tiers: TierCard[] = [
     id: "pro",
     name: "Pro",
     price: "₱999/mo",
-    owned: "20 owned listings",
-    coList: "10 co-lists",
+    owned: "10 listings you own",
+    coList: "10 co-listings",
     team: "3 team members",
     perks: ["Analytics", "Templates", "Priority support", "Everything in Free"],
   },
@@ -239,7 +239,7 @@ export function PricingContent({ session, currentTier }: PricingContentProps) {
                 <tr className="border-b border-[#2C2C2C]/5">
                   <td className="px-4 py-3.5 font-semibold text-[#2C2C2C]/85 md:px-6">Owned listings</td>
                   <td className="px-4 py-3.5 md:px-6">1</td>
-                  <td className="px-4 py-3.5 md:px-6">20</td>
+                  <td className="px-4 py-3.5 md:px-6">10</td>
                   <td className="px-4 py-3.5 md:px-6">20</td>
                   <td className="px-4 py-3.5 md:px-6">Unlimited</td>
                 </tr>

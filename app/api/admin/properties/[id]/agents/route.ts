@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { fail, fromZodError, ok } from "@/lib/api/response";
 import { requireAdminSession } from "@/lib/admin-api-auth";
+import { countCoListedNonOwnerProperties } from "@/lib/agent-co-list-usage";
+import { coListLimitForTier, isUnlimitedCoList } from "@/lib/agent-listing-limits";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 type RouteCtx = { params: Promise<{ id: string }> };
@@ -86,16 +88,45 @@ export async function POST(req: Request, ctx: RouteCtx) {
 
     const { data: agent, error: agentErr } = await admin
       .from("agents")
-      .select("id, status, verified")
+      .select("id, status, verified, user_id, listing_tier")
       .eq("id", parsed.data.agent_id)
       .maybeSingle();
 
     if (agentErr) {
       return fail("DATABASE_ERROR", agentErr.message, 500);
     }
-    const a = agent as { id: string; status: string; verified: boolean | null } | null;
+    const a = agent as {
+      id: string;
+      status: string;
+      verified: boolean | null;
+      user_id: string | null;
+      listing_tier: string | null;
+    } | null;
     if (!a || a.status !== "approved" || !a.verified) {
       return fail("BAD_REQUEST", "Only approved, verified agents can be linked.", 400);
+    }
+
+    const { data: propRow, error: propErr } = await admin
+      .from("properties")
+      .select("listed_by")
+      .eq("id", propertyId)
+      .maybeSingle();
+    if (propErr) {
+      return fail("DATABASE_ERROR", propErr.message, 500);
+    }
+    const listedBy = (propRow as { listed_by?: string | null } | null)?.listed_by ?? null;
+    const addUserId = a.user_id;
+    const addTier = a.listing_tier;
+    if (listedBy && addUserId && listedBy !== addUserId && !isUnlimitedCoList(addTier)) {
+      const cap = coListLimitForTier(addTier);
+      const coCount = await countCoListedNonOwnerProperties(admin, parsed.data.agent_id, addUserId);
+      if (coCount >= cap) {
+        return fail(
+          "CO_LIST_LIMIT",
+          `That agent has reached their co-listing limit (${cap} co-listings on their current plan).`,
+          400,
+        );
+      }
     }
 
     const { error: insErr } = await admin.from("property_agents").insert({
