@@ -444,9 +444,13 @@ function DealCard({
             ) : null}
           </div>
 
-          <ClientPipelineStepper deal={deal} />
-          <div className="min-h-0 shrink-0">
-            <DealStatusBanner deal={deal} />
+          <div className="flex min-h-0 w-full flex-col gap-3 xl:flex-1 xl:min-h-0">
+            <div className="flex min-h-0 w-full items-center justify-center xl:flex-1">
+              <ClientPipelineStepper deal={deal} />
+            </div>
+            <div className="min-h-0 shrink-0">
+              <DealStatusBanner deal={deal} />
+            </div>
           </div>
         </div>
 
