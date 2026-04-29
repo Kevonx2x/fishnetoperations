@@ -704,8 +704,8 @@ function KanbanDealCard({
                     setMenuOpenId(menuOpen ? null : deal.id);
                   }}
                   className={cn(
-                    "rounded-lg p-1.5 text-[#2C2C2C]/45 focus-visible:outline-none focus-visible:ring-0",
-                    !menuOpen && "hover:bg-black/5 hover:text-[#2C2C2C]/70",
+                    "p-1.5 text-[#2C2C2C]/45 focus-visible:outline-none focus-visible:ring-0",
+                    !menuOpen && "hover:text-[#2C2C2C]/70",
                     menuOpen && "bg-transparent text-[#2C2C2C]/55",
                     "active:bg-transparent",
                   )}
@@ -1267,7 +1267,7 @@ function SortableDealCard({
                   setMenuMoveOpen(false);
                   setMenuOpenId(menuOpen ? null : deal.id);
                 }}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="p-1.5 text-gray-400 hover:text-gray-600"
               >
                 <MoreHorizontal className="h-5 w-5" />
               </button>
@@ -2859,7 +2859,7 @@ export function AgentPipelineTab({
                 <button
                   type="button"
                   disabled
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/55 hover:bg-[#FAF8F4] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-9 w-9 items-center justify-center text-[#2C2C2C]/55 hover:text-[#2C2C2C]/80 disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label="More pipeline options"
                   title="Coming soon"
                 >

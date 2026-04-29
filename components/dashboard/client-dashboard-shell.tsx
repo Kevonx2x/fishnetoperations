@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Bell, LayoutDashboard, Loader2, MessageSquare, Settings } from "lucide-react";
+import { Bell, GitBranch, LayoutDashboard, Loader2, MessageSquare, Settings } from "lucide-react";
 import { ClientAvatar } from "@/components/client/client-avatar";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { useAuth } from "@/contexts/auth-context";
@@ -18,6 +18,7 @@ const NAV: {
   Icon: LucideIcon;
 }[] = [
   { href: "/dashboard/client", label: "Dashboard", segment: "dashboard", Icon: LayoutDashboard },
+  { href: "/dashboard/client/pipeline", label: "Pipeline", segment: "pipeline", Icon: GitBranch },
   { href: "/dashboard/client/messages", label: "Messages", segment: "messages", Icon: MessageSquare },
   { href: "/dashboard/client/notifications", label: "Notifications", segment: "notifications", Icon: Bell },
   { href: "/dashboard/client/profile", label: "Profile", segment: "profile", Icon: Settings },
@@ -25,11 +26,7 @@ const NAV: {
 
 function isActivePath(pathname: string, segment: string) {
   if (segment === "dashboard") {
-    return (
-      pathname === "/dashboard/client" ||
-      pathname.startsWith("/dashboard/client/overview") ||
-      pathname.startsWith("/dashboard/client/pipeline")
-    );
+    return pathname === "/dashboard/client" || pathname.startsWith("/dashboard/client/overview");
   }
   return pathname.startsWith(`/dashboard/client/${segment}`);
 }

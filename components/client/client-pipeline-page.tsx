@@ -182,6 +182,24 @@ function StatusPill({ label, variant }: { label: string; variant: "sage" | "neut
   );
 }
 
+function DocumentStatusPill({ status }: { status: string | null }) {
+  const s = String(status ?? "").trim().toLowerCase();
+  const label = s === "approved" ? "Approved" : s === "rejected" ? "Rejected" : s === "uploaded" ? "Uploaded" : "Pending";
+  const cls =
+    s === "approved"
+      ? "border-[#D4A843]/35 bg-[#D4A843]/15 text-[#8a6d32]"
+      : s === "rejected"
+        ? "border-red-300 bg-red-50 text-red-700"
+        : s === "uploaded"
+          ? "border-[#6B9E6E]/30 bg-[#6B9E6E]/12 text-[#2C5F32]"
+          : "border-[#2C2C2C]/12 bg-[#FAF8F4] text-[#2C2C2C]/55";
+  return (
+    <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide", cls)}>
+      {label}
+    </span>
+  );
+}
+
 function ClientPipelineStepper({ deal }: { deal: PipelineDeal }) {
   const cur = clientPipelineCurrentStepIndex(deal);
   /** Vertical center of circle row (h-7 slot) */
@@ -471,7 +489,7 @@ function DealCard({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 shadow-sm transition hover:bg-[#FAF8F4]"
+                className="inline-flex h-9 w-9 items-center justify-center text-[#2C2C2C]/55 transition hover:text-[#2C2C2C]/85"
                 aria-label="More actions"
               >
                 <MoreHorizontal className="h-4 w-4" aria-hidden />
@@ -751,23 +769,27 @@ function DealCard({
             <p className="mt-2 font-sans text-sm text-[#2C2C2C]/55">No documents for this deal yet.</p>
           ) : (
             <ul className="mt-3 space-y-2">
-              {deal.documents.map((d) => (
+              {deal.documents.map((d) => {
+                const s = String(d.status ?? "").toLowerCase();
+                const canView = (s === "uploaded" || s === "approved") && Boolean(d.file_url?.trim());
+                const showUpload = s === "pending";
+                const uploadedDate = s === "uploaded" || s === "approved" ? formatShortDate(d.created_at) : "";
+                return (
                 <li
                   key={d.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2C2C2C]/[0.06] bg-white px-3 py-2.5"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#2C2C2C]/[0.06] bg-white px-3 py-2.5"
                 >
                   <div className="min-w-0">
                     <p className="truncate font-sans text-sm font-semibold text-[#2C2C2C]">{d.display_label}</p>
-                    <p className="font-sans text-xs text-[#2C2C2C]/45">
-                      {d.pending_upload ? "Awaiting upload" : d.status ?? "—"}
-                    </p>
+                    {uploadedDate ? <p className="font-sans text-xs text-[#2C2C2C]/45">Uploaded {uploadedDate}</p> : null}
                   </div>
-                  {!d.pending_upload && d.file_url ? (
+                  <div className="ml-auto flex items-center gap-2">
+                    <DocumentStatusPill status={d.status} />
                     <button
                       type="button"
-                      disabled={openingId === d.id}
+                      disabled={openingId === d.id || !canView}
                       onClick={() => void openDoc(d.id, d.file_url)}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#6B9E6E] px-3 py-1 font-sans text-xs font-bold text-[#6B9E6E] hover:bg-[#6B9E6E]/10 disabled:opacity-50"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#6B9E6E] px-3 py-1 font-sans text-xs font-bold text-[#6B9E6E] hover:bg-[#6B9E6E]/10 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {openingId === d.id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -776,9 +798,27 @@ function DealCard({
                       )}
                       View
                     </button>
-                  ) : null}
+                    {showUpload ? (
+                      <label className="inline-flex w-fit cursor-pointer items-center gap-1 rounded-full border border-[#6B9E6E]/40 bg-[#6B9E6E]/8 px-3 py-1 text-xs font-semibold text-[#6B9E6E] hover:bg-[#6B9E6E]/15">
+                        <input
+                          type="file"
+                          className="sr-only"
+                          accept="image/*,.pdf,.doc,.docx"
+                          disabled={Boolean(uploadingId)}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0] ?? null;
+                            e.target.value = "";
+                            void onPickFile(d.id, f);
+                          }}
+                        />
+                        {uploadingId === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                        Upload
+                      </label>
+                    ) : null}
+                  </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </div>
