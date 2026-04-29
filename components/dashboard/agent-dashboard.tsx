@@ -85,6 +85,7 @@ import { formatRelativeTime } from "@/lib/relative-time";
 import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 
 type Tab =
+  | "dashboard"
   | "overview"
   | "pipeline"
   | "messages"
@@ -603,7 +604,7 @@ export function AgentDashboard() {
   const streamMessagesUnreadTotal = useUnreadMessageCount();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>("dashboard");
   const [agentUrlHydrated, setAgentUrlHydrated] = useState(false);
   const [streamChannelId, setStreamChannelId] = useState<string | null>(null);
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
@@ -621,6 +622,7 @@ export function AgentDashboard() {
       const ch = sp.get("channel");
       if (ch) setStreamChannelId(ch);
       const allowed: Tab[] = [
+        "dashboard",
         "overview",
         "pipeline",
         "messages",
@@ -1887,7 +1889,8 @@ export function AgentDashboard() {
   }
 
   const allTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "overview", label: "Overview", icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
+    { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
+    { id: "overview", label: "Overview", icon: <House className="h-[18px] w-[18px]" /> },
     { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-[18px] w-[18px]" /> },
     { id: "messages", label: "Messages", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-[18px] w-[18px]" /> },
@@ -1908,21 +1911,11 @@ export function AgentDashboard() {
       ? allTabs
       : allTabs.filter((t) => t.id !== "pipeline" && t.id !== "listings" && t.id !== "team");
 
-  const sidebarTabsWithoutDashboardPair = isTeamMemberView
-    ? tabs
-    : tabs.filter((t) => t.id !== "overview" && t.id !== "pipeline");
-
-  const dashboardSidebarActive = isTeamMemberView
-    ? tab === "pipeline"
-    : identityVerified
-      ? tab === "overview" || tab === "pipeline"
-      : tab === "overview";
-
   const mobilePrimaryTabIds: Tab[] = isTeamMemberView
     ? ["pipeline", "messages", "documents"]
     : identityVerified
-      ? ["overview", "messages"]
-      : ["overview"];
+      ? ["dashboard", "messages"]
+      : ["dashboard"];
   const mobileMoreTabIds: Tab[] = isTeamMemberView ? [] : ["listings", "team", "analytics", "billing", "profile"];
 
   return (
@@ -1952,51 +1945,41 @@ export function AgentDashboard() {
           </div>
           <nav className="flex flex-1 flex-col gap-1">
             {!isTeamMemberView ? (
-              <>
+              tabs.map((t) => (
                 <button
+                  key={t.id}
                   type="button"
-                  onClick={() => setTab("overview")}
+                  onClick={() => setTab(t.id)}
                   className={cn(
                     "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
-                    dashboardSidebarActive
+                    (t.id === "analytics" || t.id === "team") && "opacity-55 hover:opacity-80",
+                    tab === t.id
                       ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
                       : "text-[#2C2C2C]/65 hover:bg-white/80",
                   )}
                 >
                   <span className="relative inline-flex text-[#6B9E6E]">
-                    <LayoutDashboard className="h-[18px] w-[18px]" aria-hidden />
-                    {streamMessagesUnreadTotal > 0 ? (
+                    {t.icon}
+                    {t.id === "pipeline" && pipelineTabUnreadCount > 0 ? (
                       <span
                         className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
                         aria-hidden
                       />
                     ) : null}
                   </span>
-                  Dashboard
+                  {t.label}
+                  {t.id === "pipeline" && pipelineTabUnreadCount > 0 ? (
+                    <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                      {pipelineTabUnreadCount > 99 ? "99+" : pipelineTabUnreadCount}
+                    </span>
+                  ) : null}
+                  {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
+                    <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                      {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
+                    </span>
+                  ) : null}
                 </button>
-                {sidebarTabsWithoutDashboardPair.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTab(t.id)}
-                    className={cn(
-                      "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
-                      (t.id === "analytics" || t.id === "team") && "opacity-55 hover:opacity-80",
-                      tab === t.id
-                        ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
-                        : "text-[#2C2C2C]/65 hover:bg-white/80",
-                    )}
-                  >
-                    <span className="text-[#6B9E6E]">{t.icon}</span>
-                    {t.label}
-                    {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
-                      <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                        {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
-                      </span>
-                    ) : null}
-                  </button>
-                ))}
-              </>
+              ))
             ) : (
               tabs.map((t) => (
                 <button
@@ -2058,42 +2041,6 @@ export function AgentDashboard() {
           ) : null}
           {null}
 
-          {!isTeamMemberView && identityVerified && (tab === "overview" || tab === "pipeline") ? (
-            <div className="mb-6 flex gap-1 border-b border-[#2C2C2C]/10 pb-px">
-              <button
-                type="button"
-                onClick={() => setTab("overview")}
-                className={cn(
-                  "relative -mb-px flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-bold transition",
-                  tab === "overview"
-                    ? "border-[#6B9E6E] text-[#2C2C2C]"
-                    : "border-transparent text-[#2C2C2C]/50 hover:text-[#2C2C2C]/80",
-                )}
-              >
-                <LayoutDashboard className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                Overview
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab("pipeline")}
-                className={cn(
-                  "relative -mb-px flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-bold transition",
-                  tab === "pipeline"
-                    ? "border-[#6B9E6E] text-[#2C2C2C]"
-                    : "border-transparent text-[#2C2C2C]/50 hover:text-[#2C2C2C]/80",
-                )}
-              >
-                <GitBranch className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                Pipeline
-                {pipelineTabUnreadCount > 0 ? (
-                  <span className="ml-1 inline-flex min-w-[1.125rem] items-center justify-center rounded-full bg-[#D4A843]/25 px-1.5 text-[10px] font-bold text-[#8a6d32]">
-                    {pipelineTabUnreadCount > 99 ? "99+" : pipelineTabUnreadCount}
-                  </span>
-                ) : null}
-              </button>
-            </div>
-          ) : null}
-
           <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
             <AnimatePresence mode="wait">
               <motion.div
@@ -2104,7 +2051,7 @@ export function AgentDashboard() {
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.2 }}
               >
-              {tab === "overview" && (
+              {(tab === "dashboard" || tab === "overview") && (
                 <OverviewTab
                   agent={agent}
                   accountApproved={agent.status === "approved"}
@@ -2251,16 +2198,16 @@ export function AgentDashboard() {
         </button>
         {mobilePrimaryTabIds.map((tid) => {
           const t = tabs.find((x) => x.id === tid)!;
-          const isDashSlot = tid === "overview" && identityVerified && !isTeamMemberView;
-          const dashActive = isDashSlot ? tab === "overview" || tab === "pipeline" : tab === tid;
+          const isDashSlot = tid === "dashboard" && identityVerified && !isTeamMemberView;
+          const dashActive = isDashSlot ? tab === "dashboard" || tab === "overview" || tab === "pipeline" : tab === tid;
           const mobileLabel =
-            !isTeamMemberView && tid === "overview" ? "Dashboard" : isTeamMemberView && tid === "pipeline" ? "Dashboard" : t.label;
+            !isTeamMemberView && tid === "dashboard" ? "Dashboard" : isTeamMemberView && tid === "pipeline" ? "Dashboard" : t.label;
           return (
             <button
               key={tid}
               type="button"
               onClick={() => {
-                if (isDashSlot) setTab("overview");
+                if (isDashSlot) setTab("dashboard");
                 else setTab(tid);
                 setMoreDrawerOpen(false);
               }}

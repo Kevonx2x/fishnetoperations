@@ -362,6 +362,7 @@ function DealCard({
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [agentAvatarFailed, setAgentAvatarFailed] = useState(false);
+  const [requestedDocsExpanded, setRequestedDocsExpanded] = useState(false);
 
   const pendingDocs = deal.documents.filter((d) => d.pending_upload);
   const pendingCount = pendingDocs.length;
@@ -484,7 +485,7 @@ function DealCard({
       )}
     >
       {onRequestRemove ? (
-        <div className="absolute right-3 top-3 z-20 sm:right-4 sm:top-4">
+        <div className="absolute right-3 top-0 z-20 sm:right-4 sm:top-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -509,7 +510,7 @@ function DealCard({
           </DropdownMenu>
         </div>
       ) : null}
-      <div className="flex flex-col gap-5 px-6 py-5 sm:px-8 sm:py-6 xl:grid xl:grid-cols-4 xl:items-stretch xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:py-7 xl:[grid-template-columns:minmax(0,0.94fr)_minmax(0,1.28fr)_minmax(0,0.82fr)_minmax(0,0.92fr)]">
+      <div className="flex flex-col gap-5 px-6 py-5 sm:px-8 sm:py-6 xl:grid xl:grid-cols-4 xl:items-start xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:py-7 xl:[grid-template-columns:minmax(0,0.94fr)_minmax(0,1.28fr)_minmax(0,0.82fr)_minmax(0,0.92fr)]">
         {/* Section 1 — title + price (tight), gap, then image */}
         <div className="flex min-w-0 flex-col font-sans">
           <div className="shrink-0">
@@ -551,7 +552,7 @@ function DealCard({
         </div>
 
         {/* Section 2 — agent, stepper, status as one tight group */}
-        <div className="flex min-h-0 min-w-0 flex-col gap-3 font-sans xl:h-full xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
+        <div className="flex min-h-0 min-w-0 flex-col font-sans xl:h-full xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
           <div className="flex min-w-0 shrink-0 flex-nowrap items-center gap-2">
             <span className="relative inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-inset ring-[#2C2C2C]/10">
               {deal.agent.image_url?.trim() && !agentAvatarFailed ? (
@@ -579,22 +580,20 @@ function DealCard({
             ) : null}
           </div>
 
-          <div className="flex min-h-0 w-full flex-col gap-3 xl:flex-1 xl:min-h-0">
-            <div className="flex min-h-0 w-full items-center justify-center xl:flex-1">
-              <ClientPipelineStepper deal={deal} />
-            </div>
-            <div className="min-h-0 shrink-0">
-              <DealStatusBanner deal={deal} />
-            </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center py-3">
+            <ClientPipelineStepper deal={deal} />
+          </div>
+          <div className="min-h-0 shrink-0">
+            <DealStatusBanner deal={deal} />
           </div>
         </div>
 
         {/* Section 3 — checklist */}
-        <section className="min-w-0 font-sans xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
+        <section className="min-w-0 font-sans xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
           <p className="flex min-h-[24px] w-full shrink-0 items-start text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38 xl:min-h-[26px]">
             Your next steps
           </p>
-          <ul className="mt-4 space-y-3.5 text-sm text-[#2C2C2C]/80 sm:mt-5 sm:space-y-4">
+          <ul className="mt-4 space-y-3.5 text-sm text-[#2C2C2C]/80 sm:mt-5 sm:space-y-4 xl:min-h-0 xl:flex-1">
             <li className="flex items-start gap-2.5">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
               <div className="min-w-0">
@@ -642,35 +641,59 @@ function DealCard({
               <li className="flex items-start gap-2.5">
                 <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#D4A843]/50 bg-[#D4A843]/15" aria-hidden />
                 <div className="min-w-0">
-                  <p className="whitespace-nowrap text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Documents requested</p>
-                  <p className="mt-1 text-xs font-normal text-[#2C2C2C]/45">{pendingCount} pending</p>
-                  <ul className="mt-3 space-y-2.5 border-l border-[#2C2C2C]/[0.06] pl-3">
-                    {pendingDocs.map((d) => (
-                      <li key={d.id} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                        <span className="min-w-0 text-[13px] text-[#2C2C2C]/75">
-                          {d.display_label}
-                          <span className="text-xs font-normal text-[#2C2C2C]/40"> (required)</span>
-                        </span>
-                        <label className="inline-flex w-fit cursor-pointer items-center gap-1 rounded-full border border-[#6B9E6E]/40 bg-[#6B9E6E]/8 px-3 py-1 text-xs font-semibold text-[#6B9E6E] hover:bg-[#6B9E6E]/15">
-                          <input
-                            type="file"
-                            className="sr-only"
-                            accept="image/*,.pdf,.doc,.docx"
-                            disabled={Boolean(uploadingId)}
-                            onChange={(e) => {
-                              const f = e.target.files?.[0] ?? null;
-                              e.target.value = "";
-                              void onPickFile(d.id, f);
-                            }}
-                          />
-                          {uploadingId === d.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : null}
-                          Upload
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
+                  <button
+                    type="button"
+                    onClick={() => setRequestedDocsExpanded((v) => !v)}
+                    className="inline-flex w-full items-center justify-between gap-2 text-left"
+                    aria-expanded={requestedDocsExpanded}
+                  >
+                    <span className="whitespace-nowrap text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">
+                      {`Documents requested · ${pendingCount} pending`}
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex shrink-0 text-[#6B9E6E] transition-transform duration-200",
+                        requestedDocsExpanded && "rotate-180",
+                      )}
+                      aria-hidden
+                    >
+                      ▼
+                    </span>
+                  </button>
+                  <div
+                    className={cn(
+                      "overflow-hidden transition-all duration-200",
+                      requestedDocsExpanded ? "mt-3 max-h-[480px] opacity-100" : "mt-0 max-h-0 opacity-0",
+                    )}
+                  >
+                    <ul className="space-y-3 border-l border-[#2C2C2C]/[0.06] pl-3">
+                      {pendingDocs.map((d) => (
+                        <li key={d.id} className="flex flex-col items-start gap-1.5">
+                          <span className="min-w-0 text-[13px] text-[#2C2C2C]/75">
+                            {d.display_label}
+                            <span className="text-xs font-normal text-[#2C2C2C]/40"> (required)</span>
+                          </span>
+                          <label className="mt-0.5 inline-flex w-fit cursor-pointer items-center gap-1 rounded-full border border-[#6B9E6E]/40 bg-[#6B9E6E]/8 px-3 py-1 text-xs font-semibold text-[#6B9E6E] hover:bg-[#6B9E6E]/15">
+                            <input
+                              type="file"
+                              className="sr-only"
+                              accept="image/*,.pdf,.doc,.docx"
+                              disabled={Boolean(uploadingId)}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0] ?? null;
+                                e.target.value = "";
+                                void onPickFile(d.id, f);
+                              }}
+                            />
+                            {uploadingId === d.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : null}
+                            Upload
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </li>
             ) : deal.documents.some((d) => d.direction === "requested") ? (

@@ -16,6 +16,7 @@ export type PeerInfo = {
   name: string;
   image?: string;
   online: boolean;
+  lastActive?: string | null;
 };
 
 export type StreamMember = ChannelMemberResponse & { user?: UserResponse };

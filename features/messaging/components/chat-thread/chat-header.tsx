@@ -1,12 +1,30 @@
-import { ArrowLeft } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, BadgeCheck, Home } from "lucide-react";
 import { Avatar, useChatContext } from "stream-chat-react";
 
 import { useAuth } from "@/contexts/auth-context";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { formatRelativeTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
-import type { PeerInfo } from "@/features/messaging/types";
+import type { ChannelPropertyMetadata, PeerInfo } from "@/features/messaging/types";
 
 function getPeerFromMembers(params: {
-  members: Record<string, { user?: { id?: string; name?: string | null; image?: string | null; online?: boolean } }> | undefined;
+  members:
+    | Record<
+        string,
+        {
+          user?: {
+            id?: string;
+            name?: string | null;
+            image?: string | null;
+            online?: boolean;
+            last_active?: string | Date | null;
+          };
+        }
+      >
+    | undefined;
   selfId: string;
 }): PeerInfo | null {
   const { members, selfId } = params;
@@ -21,6 +39,7 @@ function getPeerFromMembers(params: {
       name: (u?.name || id).trim(),
       image: (u?.image || "").trim() || undefined,
       online: Boolean(u?.online),
+      lastActive: u?.last_active ? new Date(u.last_active).toISOString() : null,
     };
   }
 
@@ -29,15 +48,69 @@ function getPeerFromMembers(params: {
 
 export function ChatHeader(props: { onBack?: () => void; className?: string }) {
   const { channel: activeChannel } = useChatContext();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const selfId = user?.id ?? "";
+  const selfRole = profile?.role ?? "";
 
   const peer = getPeerFromMembers({
     members: activeChannel?.state?.members as
-      | Record<string, { user?: { id?: string; name?: string | null; image?: string | null; online?: boolean } }>
+      | Record<
+          string,
+          {
+            user?: {
+              id?: string;
+              name?: string | null;
+              image?: string | null;
+              online?: boolean;
+              last_active?: string | Date | null;
+            };
+          }
+        >
       | undefined,
     selfId,
   });
+  const [peerIsVerifiedAgent, setPeerIsVerifiedAgent] = useState(false);
+
+  const channelMeta = (activeChannel?.data ?? {}) as ChannelPropertyMetadata;
+  const propertyId = (channelMeta.property_id ?? "").trim();
+  const propertyName = (channelMeta.property_name ?? "").trim();
+  const propertyPrice = (channelMeta.property_price ?? "").trim();
+  const propertyImage = (channelMeta.property_image ?? "").trim();
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!peer?.id || selfRole === "agent") {
+      setPeerIsVerifiedAgent(false);
+      return;
+    }
+    void (async () => {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data } = await supabase
+          .from("agents")
+          .select("verification_status, verified")
+          .eq("user_id", peer.id)
+          .maybeSingle();
+        if (cancelled) return;
+        const isVerified =
+          (data?.verification_status ?? "").toString().toLowerCase() === "verified" ||
+          data?.verified === true;
+        setPeerIsVerifiedAgent(isVerified);
+      } catch {
+        if (!cancelled) setPeerIsVerifiedAgent(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [peer?.id, selfRole]);
+
+  const mobileOfflineLabel = useMemo(() => {
+    if (!peer) return "Offline";
+    if (peer.online) return "Online";
+    if (peer.lastActive) return `Offline · last seen ${formatRelativeTime(peer.lastActive)}`;
+    return "Offline";
+  }, [peer]);
 
   if (!activeChannel || !peer) {
     return (
@@ -66,8 +139,38 @@ export function ChatHeader(props: { onBack?: () => void; className?: string }) {
         ) : null}
       </span>
       <div className="min-w-0">
-        <p className="truncate text-lg font-bold text-fg">{peer.name}</p>
-        <p className="text-xs font-medium text-fg/50">{peer.online ? "Online" : "Offline"}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="truncate text-lg font-bold text-fg">{peer.name}</p>
+          {peerIsVerifiedAgent ? (
+            <span className="inline-flex text-[#6B9E6E] md:hidden" title="Verified agent">
+              <BadgeCheck className="h-3.5 w-3.5" aria-hidden />
+            </span>
+          ) : null}
+        </div>
+        <p className="text-xs font-medium text-fg/50 md:hidden">{mobileOfflineLabel}</p>
+        <p className="hidden text-xs font-medium text-fg/50 md:block">{peer.online ? "Online" : "Offline"}</p>
+        {propertyId && propertyName ? (
+          <Link
+            href={`/properties/${encodeURIComponent(propertyId)}`}
+            className="mt-2 flex max-w-[280px] items-center gap-2 rounded-lg border border-subtle bg-surface-panel px-2 py-1.5 md:hidden"
+          >
+            {propertyImage ? (
+              <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md">
+                <Image src={propertyImage} alt="" fill className="object-cover" sizes="40px" unoptimized />
+              </span>
+            ) : (
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#FAF8F4] text-[#6B9E6E]">
+                <Home className="h-4 w-4" aria-hidden />
+              </span>
+            )}
+            <span className="min-w-0">
+              <span className="block truncate text-xs font-semibold text-fg">{propertyName}</span>
+              {propertyPrice ? (
+                <span className="block truncate text-[11px] font-semibold text-[#D4A843]">{propertyPrice}</span>
+              ) : null}
+            </span>
+          </Link>
+        ) : null}
       </div>
     </div>
   );

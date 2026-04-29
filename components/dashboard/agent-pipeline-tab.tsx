@@ -659,7 +659,7 @@ function KanbanDealCard({
           if (e.key === "Enter" || e.key === " ") onOpenLeadDetails(deal.id);
         }}
       >
-        <div className="touch-none pr-10">
+        <div className="touch-none pr-10 pt-2">
           {/* Row 1: Title + Menu */}
           <div className="flex items-start justify-between gap-2">
             <button
@@ -775,11 +775,6 @@ function KanbanDealCard({
                                   aria-hidden
                                 />
                                 View Documents
-                                {uploadedRequestedDocCount > 0 ? (
-                                  <span className="ml-auto rounded-full bg-[#6B9E6E] px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
-                                    {uploadedRequestedDocCount}
-                                  </span>
-                                ) : null}
                               </button>
                               <button
                                 type="button"
@@ -891,32 +886,15 @@ function KanbanDealCard({
           </div>
         </div>
 
-        {uploadedRequestedDocCount > 0 ? (
-          <button
-            type="button"
-            aria-label={`${uploadedRequestedDocCount} document${uploadedRequestedDocCount === 1 ? "" : "s"} from client — open documents`}
-            title="Client uploaded document(s) for this deal"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenDocs(deal);
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
+        {unviewedUploadedDocCount > 0 ? (
+          <span
             className={cn(
-              "absolute z-[5] flex min-w-[1.5rem] items-center justify-center gap-0.5 rounded-full border border-[#6B9E6E]/40 bg-[#6B9E6E]/12 px-1.5 py-0.5 text-[10px] font-bold text-[#2d5a30] shadow-sm hover:bg-[#6B9E6E]/22",
-              unviewedUploadedDocCount > 0 && "bhg-doc-badge-pulse relative",
-              next ? "bottom-12 left-2" : "bottom-2.5 left-2",
-              anyMenuOpen && "pointer-events-none opacity-0",
+              "pointer-events-none absolute right-9 top-2 z-[11] h-2.5 w-2.5 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]",
+              "bhg-doc-badge-pulse",
+              anyMenuOpen && "opacity-0",
             )}
-          >
-            {unviewedUploadedDocCount > 0 ? (
-              <span
-                className="pointer-events-none absolute -right-0.5 -top-0.5 z-[1] h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-white"
-                aria-hidden
-              />
-            ) : null}
-            <FileText className="h-3 w-3 shrink-0" aria-hidden />
-            <span className="tabular-nums">{uploadedRequestedDocCount}</span>
-          </button>
+            aria-hidden
+          />
         ) : null}
 
         {next ? (
@@ -1320,11 +1298,6 @@ function SortableDealCard({
                     >
                       <FileText className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
                       View Documents
-                      {uploadedRequestedDocCount > 0 ? (
-                        <span className="ml-auto rounded-full bg-[#6B9E6E] px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
-                          {uploadedRequestedDocCount}
-                        </span>
-                      ) : null}
                     </button>
                     <button
                       type="button"
@@ -1453,19 +1426,14 @@ function SortableDealCard({
           )}
         >
           📄 View Documents
-          {uploadedRequestedDocCount > 0 ? (
-            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#6B9E6E] px-1 text-[10px] font-bold text-white tabular-nums">
-              {unviewedUploadedDocCount > 0 ? (
-                <span
-                  className="pointer-events-none absolute -right-0.5 -top-0.5 z-[1] h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-white"
-                  aria-hidden
-                />
-              ) : null}
-              <span className="tabular-nums">{uploadedRequestedDocCount}</span>
-            </span>
-          ) : null}
         </button>
       </div>
+      {unviewedUploadedDocCount > 0 ? (
+        <span
+          className="pointer-events-none absolute right-10 top-2 z-[11] h-2.5 w-2.5 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)] bhg-doc-badge-pulse"
+          aria-hidden
+        />
+      ) : null}
       {stageMovePrompt?.lead.id === deal.id ? (
         <div className="mt-3 rounded-xl border border-gray-200 bg-amber-50/90 p-3 shadow-sm">
           <p className="text-xs font-semibold text-gray-800">
@@ -1946,27 +1914,33 @@ export function AgentPipelineTab({
     void (async () => {
       const { data, error } = await supabase
         .from("deal_documents")
-        .select("lead_id, viewed_by_agent_at")
+        .select("lead_id, status, viewed_by_agent_at")
         .in("lead_id", leadIds)
-        .eq("direction", "requested")
-        .eq("status", "uploaded")
-        .not("file_url", "is", null);
+        .in("status", ["pending", "uploaded"]);
       if (cancelled) return;
       if (error) {
+        console.error("[agent-pipeline] badge query failed", { leadIds, message: error.message });
         setUploadedRequestedDocCountByLeadId({});
         setUnviewedUploadedDocCountByLeadId({});
         return;
       }
       const uploadedNext: Record<number, number> = {};
       const unviewedNext: Record<number, number> = {};
-      for (const row of (data ?? []) as { lead_id: number; viewed_by_agent_at: string | null }[]) {
+      for (const row of (data ?? []) as { lead_id: number; status: string | null; viewed_by_agent_at: string | null }[]) {
         const lid = row.lead_id;
         if (typeof lid !== "number" || !Number.isFinite(lid)) continue;
+        const st = (row.status ?? "").trim().toLowerCase();
+        if (st !== "pending" && st !== "uploaded") continue;
         uploadedNext[lid] = (uploadedNext[lid] ?? 0) + 1;
-        if (row.viewed_by_agent_at == null) {
+        if (st === "uploaded" && row.viewed_by_agent_at == null) {
           unviewedNext[lid] = (unviewedNext[lid] ?? 0) + 1;
         }
       }
+      console.debug("[agent-pipeline] badge query rows", {
+        leadCount: leadIds.length,
+        rowCount: (data ?? []).length,
+        counts: uploadedNext,
+      });
       setUploadedRequestedDocCountByLeadId(uploadedNext);
       setUnviewedUploadedDocCountByLeadId(unviewedNext);
     })();
@@ -1988,6 +1962,10 @@ export function AgentPipelineTab({
           .order("created_at", { ascending: false });
 
         if (dealErr) {
+          console.error("[agent-pipeline] loadDocs deal_documents query failed", {
+            leadId: lead.id,
+            message: dealErr.message,
+          });
           toast.error(dealErr.message);
           setDealDocCheckRows([]);
           setUploadedRequestedDocCountByLeadId((prev) => ({ ...prev, [lead.id]: 0 }));
@@ -1995,14 +1973,23 @@ export function AgentPipelineTab({
         } else {
           const rows = (dealData ?? []) as DealDocCheckRow[];
           setDealDocCheckRows(rows);
-          const isUploadedRequested = (r: DealDocCheckRow) =>
-            (r.direction ?? "").trim().toLowerCase() === "requested" &&
-            (r.status ?? "").trim().toLowerCase() === "uploaded" &&
-            Boolean(r.file_url?.trim());
-          const uploadedForLead = rows.filter(isUploadedRequested).length;
-          const unviewedForLead = rows.filter(
-            (r) => isUploadedRequested(r) && r.viewed_by_agent_at == null,
-          ).length;
+          const isPipelinePendingOrUploaded = (r: DealDocCheckRow) => {
+            const st = (r.status ?? "").trim().toLowerCase();
+            return st === "pending" || st === "uploaded";
+          };
+          const isUnviewedUploaded = (r: DealDocCheckRow) => {
+            const st = (r.status ?? "").trim().toLowerCase();
+            return st === "uploaded" && r.viewed_by_agent_at == null;
+          };
+          const uploadedForLead = rows.filter(isPipelinePendingOrUploaded).length;
+          const unviewedForLead = rows.filter(isUnviewedUploaded).length;
+          console.debug("[agent-pipeline] loadDocs rows", {
+            leadId: lead.id,
+            totalRows: rows.length,
+            badgeCount: uploadedForLead,
+            unviewedCount: unviewedForLead,
+            uploadedRows: rows.filter((r) => (r.status ?? "").trim().toLowerCase() === "uploaded").length,
+          });
           setUploadedRequestedDocCountByLeadId((prev) => ({ ...prev, [lead.id]: uploadedForLead }));
           setUnviewedUploadedDocCountByLeadId((prev) => ({ ...prev, [lead.id]: unviewedForLead }));
         }
