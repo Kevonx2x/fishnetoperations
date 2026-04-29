@@ -399,16 +399,16 @@ function DealCard({
       />
 
       <div className="flex flex-col gap-10 px-6 py-8 pl-7 sm:px-8 sm:py-9 sm:pl-9 xl:flex-row xl:items-stretch xl:gap-x-10 xl:gap-y-0 xl:px-10 xl:py-10 xl:pl-11">
-        {/* LEFT — property image (mock: taller portrait) */}
-        <div className="flex shrink-0 justify-center xl:block xl:w-[min(100%,220px)] xl:max-w-[240px] xl:justify-start">
-          <div className="relative z-0 aspect-[3/4] w-full max-w-[200px] overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] xl:max-w-none">
+        {/* LEFT — property thumbnail (~15–20% of card; middle column stays flex-1) */}
+        <div className="flex shrink-0 justify-center xl:w-[180px] xl:max-w-[180px] xl:justify-start">
+          <div className="relative z-0 aspect-[3/4] w-full max-w-[148px] overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:max-w-[160px] xl:max-w-[168px]">
             {deal.property.hero_image ? (
               <Image
                 src={deal.property.hero_image}
                 alt=""
                 fill
                 className="object-cover"
-                sizes="(max-width: 1280px) 220px, 240px"
+                sizes="(max-width: 640px) 160px, 168px"
                 unoptimized
               />
             ) : (
@@ -730,7 +730,7 @@ export function ClientPipelineInner() {
   }
 
   return (
-    <div className="w-full max-w-6xl font-sans text-[#2C2C2C]">
+    <div className="w-full min-w-0 font-sans text-[#2C2C2C]">
       {loading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-10 w-10 animate-spin text-[#6B9E6E]" aria-hidden />
