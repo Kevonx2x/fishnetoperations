@@ -7,6 +7,7 @@ import { Avatar, useChatContext } from "stream-chat-react";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatRelativeTime } from "@/lib/relative-time";
+import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { cn } from "@/lib/utils";
 import type { ChannelPropertyMetadata, PeerInfo } from "@/features/messaging/types";
 
@@ -76,6 +77,12 @@ export function ChatHeader(props: { onBack?: () => void; className?: string }) {
   const propertyName = (channelMeta.property_name ?? "").trim();
   const propertyPrice = (channelMeta.property_price ?? "").trim();
   const propertyImage = (channelMeta.property_image ?? "").trim();
+
+  const formattedMobilePropertyPrice = useMemo(() => {
+    if (!propertyPrice) return null;
+    // Conversations reference rental properties; keep consistent with property detail formatting.
+    return formatPropertyPriceDisplay(propertyPrice, "for_rent");
+  }, [propertyPrice]);
 
   useEffect(() => {
     let cancelled = false;
@@ -164,9 +171,15 @@ export function ChatHeader(props: { onBack?: () => void; className?: string }) {
               </span>
             )}
             <span className="min-w-0">
-              <span className="block truncate text-xs font-semibold text-fg">{propertyName}</span>
-              {propertyPrice ? (
-                <span className="block truncate text-[11px] font-semibold text-[#D4A843]">{propertyPrice}</span>
+              <span
+                className="line-clamp-2 block overflow-hidden text-xs font-semibold leading-tight text-fg [display:-webkit-box] [WebkitBoxOrient:vertical] [WebkitLineClamp:2]"
+              >
+                {propertyName}
+              </span>
+              {formattedMobilePropertyPrice ? (
+                <span className="mt-1 block truncate text-[11px] font-semibold text-[#D4A843]">
+                  {formattedMobilePropertyPrice}
+                </span>
               ) : null}
             </span>
           </Link>

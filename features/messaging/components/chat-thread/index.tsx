@@ -81,7 +81,9 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
-      <div className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
+        className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col max-md:flex-none max-md:h-[calc(100dvh-56px-56px-64px)] max-md:overflow-y-auto max-md:[-webkit-overflow-scrolling:touch]"
+      >
         <MessageList />
       </div>
       <MessageInput />

@@ -889,7 +889,7 @@ function KanbanDealCard({
         {unviewedUploadedDocCount > 0 ? (
           <span
             className={cn(
-              "pointer-events-none absolute right-9 top-2 z-[11] h-2.5 w-2.5 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]",
+              "pointer-events-none absolute right-[-4px] top-[-4px] z-[11] h-2.5 w-2.5 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]",
               "bhg-doc-badge-pulse",
               anyMenuOpen && "opacity-0",
             )}
@@ -1430,7 +1430,7 @@ function SortableDealCard({
       </div>
       {unviewedUploadedDocCount > 0 ? (
         <span
-          className="pointer-events-none absolute right-10 top-2 z-[11] h-2.5 w-2.5 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)] bhg-doc-badge-pulse"
+          className="pointer-events-none absolute right-[-4px] top-[-4px] z-[11] h-2.5 w-2.5 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)] bhg-doc-badge-pulse"
           aria-hidden
         />
       ) : null}
