@@ -21,7 +21,7 @@ export function pathForRole(role: string | null | undefined): string {
     case "team_member":
       return "/dashboard/agent";
     case "client":
-      return "/dashboard/client/overview";
+      return "/dashboard/client";
     default:
       return "/";
   }

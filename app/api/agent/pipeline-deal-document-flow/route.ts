@@ -230,7 +230,7 @@ export async function POST(req: Request) {
 
     const dealDocumentId = (inserted as { id: string } | null)?.id;
     const clientType = mapRequestSlugToClientType(documentType);
-    const link = `/dashboard/client/pipeline?lead=${encodeURIComponent(String(leadId))}`;
+    const link = `/dashboard/client?tab=pipeline&lead=${encodeURIComponent(String(leadId))}`;
 
     const { error: nErr } = await admin.from("notifications").insert({
       user_id: clientId,
@@ -290,7 +290,7 @@ export async function POST(req: Request) {
   }
 
   const dealDocumentId = (inserted as { id: string } | null)?.id;
-  const link = `/dashboard/client/pipeline?lead=${encodeURIComponent(String(leadId))}`;
+  const link = `/dashboard/client?tab=pipeline&lead=${encodeURIComponent(String(leadId))}`;
 
   const { error: nErr } = await admin.from("notifications").insert({
     user_id: clientId,

@@ -11,14 +11,18 @@ const ITEMS: {
   segment: string;
   Icon: LucideIcon;
 }[] = [
-  { href: "/dashboard/client/overview", label: "Home", segment: "overview", Icon: Home },
+  { href: "/dashboard/client", label: "Home", segment: "overview", Icon: Home },
   { href: "/dashboard/client/notifications", label: "Notifications", segment: "notifications", Icon: Bell },
   { href: "/dashboard/client/profile", label: "Profile", segment: "profile", Icon: Settings },
 ];
 
 function dashActive(pathname: string, segment: string) {
   if (segment === "overview") {
-    return pathname === "/dashboard/client" || pathname.startsWith("/dashboard/client/overview");
+    return (
+      pathname === "/dashboard/client" ||
+      pathname.startsWith("/dashboard/client/overview") ||
+      pathname.startsWith("/dashboard/client/pipeline")
+    );
   }
   if (segment === "notifications") {
     return (

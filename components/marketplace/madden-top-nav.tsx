@@ -11,7 +11,6 @@ import {
   Bot,
   Building2,
   GitCompare,
-  GitBranch,
   Globe,
   GraduationCap,
   Heart,
@@ -688,7 +687,7 @@ export function MaddenTopNav() {
                             Dashboard
                           </Link>
                           <Link
-                            href="/messages"
+                            href="/dashboard/client/messages"
                             className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                             onClick={() => setAccountOpen(false)}
                           >
@@ -712,14 +711,6 @@ export function MaddenTopNav() {
                             <Pin className="h-4 w-4 shrink-0 text-[#D4A843]" />
                             Pinned properties
                           </Link>
-                          <Link
-                            href="/dashboard/client/pipeline"
-                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                            onClick={() => setAccountOpen(false)}
-                          >
-                            <GitBranch className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                            Pipeline
-                          </Link>
                         </>
                       ) : (
                         <>
@@ -742,7 +733,7 @@ export function MaddenTopNav() {
                           {role === "agent" ? (
                             <>
                               <Link
-                                href="/messages"
+                                href="/dashboard/agent?tab=messages"
                                 className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                                 onClick={() => setAccountOpen(false)}
                               >
@@ -757,14 +748,6 @@ export function MaddenTopNav() {
                               >
                                 <LayoutDashboard className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
                                 Agent Dashboard
-                              </Link>
-                              <Link
-                                href="/dashboard/agent?tab=pipeline"
-                                className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                                onClick={() => setAccountOpen(false)}
-                              >
-                                <GitBranch className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
-                                Pipeline
                               </Link>
                             </>
                           ) : (
@@ -931,7 +914,7 @@ export function MaddenTopNav() {
                     Dashboard
                   </Link>
                   <Link
-                    href="/messages"
+                    href="/dashboard/client/messages"
                     onClick={closeMobileNav}
                     className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
                   >
@@ -956,14 +939,6 @@ export function MaddenTopNav() {
                     Pinned properties
                   </Link>
                   <Link
-                    href="/dashboard/client/pipeline"
-                    onClick={closeMobileNav}
-                    className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
-                  >
-                    <GitBranch className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                    Pipeline
-                  </Link>
-                  <Link
                     href="/settings"
                     onClick={closeMobileNav}
                     className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
@@ -984,7 +959,7 @@ export function MaddenTopNav() {
                     My Profile
                   </Link>
                   <Link
-                    href="/messages"
+                    href="/dashboard/agent?tab=messages"
                     onClick={closeMobileNav}
                     className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
                   >

@@ -52,17 +52,31 @@ export function resolveNotificationLink(metadata: Record<string, unknown> | null
   return null;
 }
 
+/** Unread notifications of these types are counted for the agent dashboard Pipeline tab badge. */
+export const AGENT_PIPELINE_TAB_NOTIFICATION_TYPES = ["new_lead", "document_received", "viewing_request"] as const;
+
+/** Unread notifications of these types are counted for the client dashboard Pipeline tab badge. */
+export const CLIENT_PIPELINE_TAB_NOTIFICATION_TYPES = [
+  "document_request",
+  "document_shared",
+  "viewing_confirmed",
+  "viewing_declined",
+  "deal_pipeline",
+  "client_feed_viewing",
+] as const;
+
 /** Action destinations for notification types (agent dashboard / settings). */
 export function getNotificationClickHref(type: string): string | null {
   const t = type.toLowerCase();
   const map: Record<string, string> = {
     viewing_request: "/dashboard/agent?tab=pipeline",
-    viewing_confirmed: "/dashboard/agent?tab=pipeline",
-    viewing_declined: "/dashboard/agent?tab=pipeline",
-    deal_pipeline: "/dashboard/agent?tab=pipeline",
-    document_request: "/dashboard/client/pipeline",
-    document_shared: "/dashboard/client/pipeline",
+    viewing_confirmed: "/dashboard/client?tab=pipeline",
+    viewing_declined: "/dashboard/client?tab=pipeline",
+    deal_pipeline: "/dashboard/client?tab=pipeline",
+    document_request: "/dashboard/client?tab=pipeline",
+    document_shared: "/dashboard/client?tab=pipeline",
     document_received: "/dashboard/agent?tab=pipeline",
+    client_feed_viewing: "/dashboard/client?tab=pipeline",
     co_agent_request: "/dashboard/agent?tab=listings",
     verification: "/settings?tab=verification",
     listing_expiry: "/dashboard/agent?tab=listings",

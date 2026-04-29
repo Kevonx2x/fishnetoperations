@@ -48,7 +48,6 @@ import {
   teamMemberLimitForTier,
   TIER_LABEL,
 } from "@/lib/agent-listing-limits";
-import { EkgHeartbeatIcon } from "@/components/icons/ekg-heartbeat-icon";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
 import { ImportListingModal } from "@/components/dashboard/import-listing-modal";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
@@ -77,6 +76,7 @@ import {
 import { normalizeCity } from "@/lib/normalize-city";
 import { ServiceAreasMultiInput } from "@/components/ui/service-areas-multi-input";
 import {
+  AGENT_PIPELINE_TAB_NOTIFICATION_TYPES,
   NotificationCard,
   resolveNotificationLink,
   type NotificationListItem,
@@ -598,7 +598,8 @@ export function AgentDashboard() {
   const streamMessagesUnreadTotal = useUnreadMessageCount();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const [tab, setTab] = useState<Tab>("pipeline");
+  const [tab, setTab] = useState<Tab>("overview");
+  const [agentUrlHydrated, setAgentUrlHydrated] = useState(false);
   const [streamChannelId, setStreamChannelId] = useState<string | null>(null);
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [agent, setAgent] = useState<AgentRow | null>(null);
@@ -607,40 +608,53 @@ export function AgentDashboard() {
   const pendingEditPropertyIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const sp = new URLSearchParams(window.location.search);
-    const editProp = sp.get("editProperty");
-    if (editProp) pendingEditPropertyIdRef.current = editProp;
-    const raw = sp.get("tab");
-    const ch = sp.get("channel");
-    if (ch) setStreamChannelId(ch);
-    const allowed: Tab[] = [
-      "overview",
-      "pipeline",
-      "messages",
-      "documents",
-      "listings",
-      "team",
-      "profile",
-      "analytics",
-      "notifications",
-      "billing",
-    ];
-    if (raw === "leads" || raw === "viewings") {
-      setTab("pipeline");
-    } else if (raw && allowed.includes(raw as Tab)) setTab(raw as Tab);
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      const editProp = sp.get("editProperty");
+      if (editProp) pendingEditPropertyIdRef.current = editProp;
+      const raw = sp.get("tab");
+      const ch = sp.get("channel");
+      if (ch) setStreamChannelId(ch);
+      const allowed: Tab[] = [
+        "overview",
+        "pipeline",
+        "messages",
+        "documents",
+        "listings",
+        "team",
+        "profile",
+        "analytics",
+        "notifications",
+        "billing",
+      ];
+      if (raw === "leads" || raw === "viewings") {
+        setTab("pipeline");
+      } else if (raw && allowed.includes(raw as Tab)) setTab(raw as Tab);
 
-    if (sp.get("payment") === "success") {
-      const tier = sp.get("tier");
-      if (tier === "pro" || tier === "featured" || tier === "broker") {
-        setPaymentBannerTier(tier);
+      if (sp.get("payment") === "success") {
+        const tier = sp.get("tier");
+        if (tier === "pro" || tier === "featured" || tier === "broker") {
+          setPaymentBannerTier(tier);
+        }
+        sp.delete("payment");
+        sp.delete("tier");
+        const qs = sp.toString();
+        window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
       }
-      sp.delete("payment");
-      sp.delete("tier");
-      const qs = sp.toString();
-      window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
     }
+    setAgentUrlHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (!agentUrlHydrated || typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    sp.set("tab", tab);
+    const qs = sp.toString();
+    const nextUrl = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
+    const curUrl = `${window.location.pathname}${window.location.search}`;
+    if (curUrl === nextUrl) return;
+    window.history.replaceState({}, "", nextUrl);
+  }, [tab, agentUrlHydrated]);
 
   const { showAlert } = useGlobalAlert();
   const paymentAlertShownRef = useRef(false);
@@ -656,7 +670,6 @@ export function AgentDashboard() {
   const [sessionDashboardKind, setSessionDashboardKind] = useState<"agent" | "team_member">("agent");
   const [teamMemberSetupError, setTeamMemberSetupError] = useState<string | null>(null);
   const [leads, setLeads] = useState<LeadRow[]>([]);
-  const [pipelineBadgeRefreshKey, setPipelineBadgeRefreshKey] = useState(0);
   const [viewings, setViewings] = useState<ViewingRow[]>([]);
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [selectedLead, setSelectedLead] = useState<LeadRow | null>(null);
@@ -666,6 +679,7 @@ export function AgentDashboard() {
   const [profileViewsCount, setProfileViewsCount] = useState(0);
   const [pendingDealDocumentsCount, setPendingDealDocumentsCount] = useState(0);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [pipelineTabUnreadCount, setPipelineTabUnreadCount] = useState(0);
   const [yesterdayNewLeadsCount, setYesterdayNewLeadsCount] = useState(0);
   const [yesterdayPendingDocumentsCount, setYesterdayPendingDocumentsCount] = useState(0);
   const [yesterdayUnreadNotificationsCount, setYesterdayUnreadNotificationsCount] = useState(0);
@@ -764,6 +778,7 @@ export function AgentDashboard() {
         setProfileViewsCount(0);
         setPendingDealDocumentsCount(0);
         setUnreadNotificationsCount(0);
+        setPipelineTabUnreadCount(0);
         setYesterdayNewLeadsCount(0);
         setYesterdayPendingDocumentsCount(0);
         setYesterdayUnreadNotificationsCount(0);
@@ -790,6 +805,7 @@ export function AgentDashboard() {
         setProfileViewsCount(0);
         setPendingDealDocumentsCount(0);
         setUnreadNotificationsCount(0);
+        setPipelineTabUnreadCount(0);
         setYesterdayNewLeadsCount(0);
         setYesterdayPendingDocumentsCount(0);
         setYesterdayUnreadNotificationsCount(0);
@@ -800,7 +816,7 @@ export function AgentDashboard() {
 
       if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
         const supervisorUserId = (a as AgentRow).user_id;
-        const [{ data: ld }, unreadRes] = await Promise.all([
+        const [{ data: ld }, unreadRes, pipelineUnreadRes] = await Promise.all([
           supabase
             .from("leads")
             .select(
@@ -813,10 +829,17 @@ export function AgentDashboard() {
             .select("id", { count: "exact", head: true })
             .eq("user_id", user.id)
             .is("read_at", null),
+          supabase
+            .from("notifications")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .is("read_at", null)
+            .in("type", [...AGENT_PIPELINE_TAB_NOTIFICATION_TYPES]),
         ]);
         const leadRows = (ld as LeadRow[]) ?? [];
         setLeads(leadRows);
         setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
+        setPipelineTabUnreadCount(pipelineUnreadRes.error ? 0 : (pipelineUnreadRes.count ?? 0));
         setProperties([]);
         setViewings([]);
         setProfileViewsCount(0);
@@ -877,6 +900,7 @@ export function AgentDashboard() {
         setProfileViewsCount(0);
         setPendingDealDocumentsCount(0);
         setUnreadNotificationsCount(0);
+        setPipelineTabUnreadCount(0);
         setYesterdayNewLeadsCount(0);
         setYesterdayPendingDocumentsCount(0);
         setYesterdayUnreadNotificationsCount(0);
@@ -901,6 +925,7 @@ export function AgentDashboard() {
       setProfileViewsCount(0);
       setPendingDealDocumentsCount(0);
       setUnreadNotificationsCount(0);
+      setPipelineTabUnreadCount(0);
       setYesterdayNewLeadsCount(0);
       setYesterdayPendingDocumentsCount(0);
       setYesterdayUnreadNotificationsCount(0);
@@ -909,7 +934,8 @@ export function AgentDashboard() {
     }
 
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
-      const [{ data: ld }, { data: owned }, { data: paRows }, vwRes, viewsRes, unreadRes] = await Promise.all([
+      const [{ data: ld }, { data: owned }, { data: paRows }, vwRes, viewsRes, unreadRes, pipelineUnreadRes] =
+        await Promise.all([
         supabase
           .from("leads")
           .select(
@@ -940,11 +966,18 @@ export function AgentDashboard() {
           .select("id", { count: "exact", head: true })
           .eq("user_id", user.id)
           .is("read_at", null),
+        supabase
+          .from("notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .is("read_at", null)
+          .in("type", [...AGENT_PIPELINE_TAB_NOTIFICATION_TYPES]),
       ]);
       const leadRows = (ld as LeadRow[]) ?? [];
       setLeads(leadRows);
       setProfileViewsCount(viewsRes.error ? 0 : (viewsRes.count ?? 0));
       setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
+      setPipelineTabUnreadCount(pipelineUnreadRes.error ? 0 : (pipelineUnreadRes.count ?? 0));
 
       const now = new Date();
       const startToday = new Date(now);
@@ -1099,6 +1132,7 @@ export function AgentDashboard() {
       setProfileViewsCount(0);
       setPendingDealDocumentsCount(0);
       setUnreadNotificationsCount(0);
+      setPipelineTabUnreadCount(0);
       setYesterdayNewLeadsCount(0);
       setYesterdayPendingDocumentsCount(0);
       setYesterdayUnreadNotificationsCount(0);
@@ -1108,7 +1142,6 @@ export function AgentDashboard() {
 
   const refreshAfterPipelineChange = useCallback(async () => {
     await loadData();
-    setPipelineBadgeRefreshKey((k) => k + 1);
   }, [loadData]);
 
   useEffect(() => {
@@ -1242,13 +1275,6 @@ export function AgentDashboard() {
     const pct = Math.round((done / checks.length) * 100);
     return { pct, checks };
   }, [agent, properties.length]);
-
-  const pipelineSidebarBadgeCount = useMemo(() => {
-    return leads.filter((l) => {
-      const ps = String(l.pipeline_stage ?? "").trim().toLowerCase();
-      return ps !== "declined" && ps !== "closed";
-    }).length;
-  }, [leads, pipelineBadgeRefreshKey]);
 
   const pipelinePropertyLabel = useCallback(
     (propertyId: string | null) => {
@@ -1816,7 +1842,7 @@ export function AgentDashboard() {
     { id: "profile", label: "Profile", icon: <Settings className="h-[18px] w-[18px]" /> },
   ];
   const teamMemberNavTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-[18px] w-[18px]" /> },
+    { id: "pipeline", label: "Dashboard", icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
     { id: "messages", label: "Messages", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
     { id: "documents", label: "Documents", icon: <FileText className="h-[18px] w-[18px]" /> },
   ];
@@ -1826,10 +1852,20 @@ export function AgentDashboard() {
       ? allTabs
       : allTabs.filter((t) => t.id !== "pipeline" && t.id !== "listings" && t.id !== "team");
 
+  const sidebarTabsWithoutDashboardPair = isTeamMemberView
+    ? tabs
+    : tabs.filter((t) => t.id !== "overview" && t.id !== "pipeline");
+
+  const dashboardSidebarActive = isTeamMemberView
+    ? tab === "pipeline"
+    : identityVerified
+      ? tab === "overview" || tab === "pipeline"
+      : tab === "overview";
+
   const mobilePrimaryTabIds: Tab[] = isTeamMemberView
     ? ["pipeline", "messages", "documents"]
     : identityVerified
-      ? ["overview", "pipeline", "messages"]
+      ? ["overview", "messages"]
       : ["overview"];
   const mobileMoreTabIds: Tab[] = isTeamMemberView ? [] : ["listings", "team", "analytics", "billing", "profile"];
 
@@ -1859,33 +1895,89 @@ export function AgentDashboard() {
             </div>
           </div>
           <nav className="flex flex-1 flex-col gap-1">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={cn(
-                  "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
-                  t.id === "analytics" && "opacity-55 hover:opacity-80",
-                  tab === t.id
-                    ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
-                    : "text-[#2C2C2C]/65 hover:bg-white/80",
-                )}
-              >
-                <span className="text-[#6B9E6E]">{t.icon}</span>
-                {t.label}
-                {t.id === "pipeline" && pipelineSidebarBadgeCount > 0 ? (
-                  <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                    {pipelineSidebarBadgeCount}
+            {!isTeamMemberView ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setTab("overview")}
+                  className={cn(
+                    "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
+                    dashboardSidebarActive
+                      ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
+                      : "text-[#2C2C2C]/65 hover:bg-white/80",
+                  )}
+                >
+                  <span className="relative inline-flex text-[#6B9E6E]">
+                    <LayoutDashboard className="h-[18px] w-[18px]" aria-hidden />
+                    {streamMessagesUnreadTotal > 0 ? (
+                      <span
+                        className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
+                        aria-hidden
+                      />
+                    ) : null}
                   </span>
-                ) : null}
-                {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
-                  <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                    {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
+                  Dashboard
+                </button>
+                {sidebarTabsWithoutDashboardPair.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTab(t.id)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
+                      t.id === "analytics" && "opacity-55 hover:opacity-80",
+                      tab === t.id
+                        ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
+                        : "text-[#2C2C2C]/65 hover:bg-white/80",
+                    )}
+                  >
+                    <span className="text-[#6B9E6E]">{t.icon}</span>
+                    {t.label}
+                    {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
+                      <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                        {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </>
+            ) : (
+              tabs.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
+                    t.id === "analytics" && "opacity-55 hover:opacity-80",
+                    tab === t.id
+                      ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
+                      : "text-[#2C2C2C]/65 hover:bg-white/80",
+                  )}
+                >
+                  <span className="relative inline-flex text-[#6B9E6E]">
+                    {t.icon}
+                    {t.id === "pipeline" && streamMessagesUnreadTotal > 0 ? (
+                      <span
+                        className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
+                        aria-hidden
+                      />
+                    ) : null}
                   </span>
-                ) : null}
-              </button>
-            ))}
+                  {t.label}
+                  {t.id === "pipeline" && pipelineTabUnreadCount > 0 ? (
+                    <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                      {pipelineTabUnreadCount > 99 ? "99+" : pipelineTabUnreadCount}
+                    </span>
+                  ) : null}
+                  {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
+                    <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                      {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
+                    </span>
+                  ) : null}
+                </button>
+              ))
+            )}
           </nav>
           <Link
             href="/"
@@ -1909,6 +2001,42 @@ export function AgentDashboard() {
             </p>
           ) : null}
           {null}
+
+          {!isTeamMemberView && identityVerified && (tab === "overview" || tab === "pipeline") ? (
+            <div className="mb-6 flex gap-1 border-b border-[#2C2C2C]/10 pb-px">
+              <button
+                type="button"
+                onClick={() => setTab("overview")}
+                className={cn(
+                  "relative -mb-px flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-bold transition",
+                  tab === "overview"
+                    ? "border-[#6B9E6E] text-[#2C2C2C]"
+                    : "border-transparent text-[#2C2C2C]/50 hover:text-[#2C2C2C]/80",
+                )}
+              >
+                <LayoutDashboard className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                Overview
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("pipeline")}
+                className={cn(
+                  "relative -mb-px flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-bold transition",
+                  tab === "pipeline"
+                    ? "border-[#6B9E6E] text-[#2C2C2C]"
+                    : "border-transparent text-[#2C2C2C]/50 hover:text-[#2C2C2C]/80",
+                )}
+              >
+                <GitBranch className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                Pipeline
+                {pipelineTabUnreadCount > 0 ? (
+                  <span className="ml-1 inline-flex min-w-[1.125rem] items-center justify-center rounded-full bg-[#D4A843]/25 px-1.5 text-[10px] font-bold text-[#8a6d32]">
+                    {pipelineTabUnreadCount > 99 ? "99+" : pipelineTabUnreadCount}
+                  </span>
+                ) : null}
+              </button>
+            </div>
+          ) : null}
 
           <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
             <AnimatePresence mode="wait">
@@ -2073,21 +2201,26 @@ export function AgentDashboard() {
         </button>
         {mobilePrimaryTabIds.map((tid) => {
           const t = tabs.find((x) => x.id === tid)!;
+          const isDashSlot = tid === "overview" && identityVerified && !isTeamMemberView;
+          const dashActive = isDashSlot ? tab === "overview" || tab === "pipeline" : tab === tid;
+          const mobileLabel =
+            !isTeamMemberView && tid === "overview" ? "Dashboard" : isTeamMemberView && tid === "pipeline" ? "Dashboard" : t.label;
           return (
             <button
-              key={t.id}
+              key={tid}
               type="button"
               onClick={() => {
-                setTab(t.id);
+                if (isDashSlot) setTab("overview");
+                else setTab(tid);
                 setMoreDrawerOpen(false);
               }}
               className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[10px] font-bold ${
-                tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
+                dashActive ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
               }`}
             >
-              {t.id === "pipeline" ? (
+              {isDashSlot && streamMessagesUnreadTotal > 0 ? (
                 <span
-                  className="pointer-events-none absolute left-1/2 top-0.5 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[#6B9E6E]"
+                  className="pointer-events-none absolute right-2 top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]/95"
                   aria-hidden
                 />
               ) : null}
@@ -2096,14 +2229,18 @@ export function AgentDashboard() {
                   {streamMessagesUnreadTotal > 9 ? "9+" : streamMessagesUnreadTotal}
                 </span>
               ) : null}
-              <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
-                {t.id === "pipeline" ? (
-                  <EkgHeartbeatIcon className="h-5 w-5" />
-                ) : (
+              <span className={dashActive ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
+                <span className="relative inline-flex">
                   <span className="inline-flex [&_svg]:h-5 [&_svg]:w-5">{t.icon}</span>
-                )}
+                  {isTeamMemberView && tid === "pipeline" && streamMessagesUnreadTotal > 0 ? (
+                    <span
+                      className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]/95"
+                      aria-hidden
+                    />
+                  ) : null}
+                </span>
               </span>
-              <span className={t.id === "pipeline" ? "text-xs" : ""}>{t.label}</span>
+              <span className="max-w-[4.5rem] truncate">{mobileLabel}</span>
             </button>
           );
         })}

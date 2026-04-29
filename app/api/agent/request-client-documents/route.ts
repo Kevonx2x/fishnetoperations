@@ -207,7 +207,7 @@ export async function POST(req: Request) {
   }
 
   const labels = displayLabels.join(", ");
-  const pipelineLink = `/dashboard/client/pipeline?lead=${encodeURIComponent(String(leadId))}`;
+  const pipelineLink = `/dashboard/client?tab=pipeline&lead=${encodeURIComponent(String(leadId))}`;
 
   const { error: insErr } = await admin.from("notifications").insert({
     user_id: clientId,

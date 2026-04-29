@@ -4,14 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import {
-  Bell,
-  GitBranch,
-  LayoutDashboard,
-  Loader2,
-  MessageSquare,
-  Settings,
-} from "lucide-react";
+import { Bell, LayoutDashboard, Loader2, MessageSquare, Settings } from "lucide-react";
 import { ClientAvatar } from "@/components/client/client-avatar";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { useAuth } from "@/contexts/auth-context";
@@ -24,15 +17,20 @@ const NAV: {
   segment: string;
   Icon: LucideIcon;
 }[] = [
-  { href: "/dashboard/client/overview", label: "Overview", segment: "overview", Icon: LayoutDashboard },
-  { href: "/dashboard/client/pipeline", label: "Pipeline", segment: "pipeline", Icon: GitBranch },
+  { href: "/dashboard/client", label: "Dashboard", segment: "dashboard", Icon: LayoutDashboard },
   { href: "/dashboard/client/messages", label: "Messages", segment: "messages", Icon: MessageSquare },
   { href: "/dashboard/client/notifications", label: "Notifications", segment: "notifications", Icon: Bell },
   { href: "/dashboard/client/profile", label: "Profile", segment: "profile", Icon: Settings },
 ];
 
 function isActivePath(pathname: string, segment: string) {
-  if (segment === "overview") return pathname === "/dashboard/client" || pathname.startsWith("/dashboard/client/overview");
+  if (segment === "dashboard") {
+    return (
+      pathname === "/dashboard/client" ||
+      pathname.startsWith("/dashboard/client/overview") ||
+      pathname.startsWith("/dashboard/client/pipeline")
+    );
+  }
   return pathname.startsWith(`/dashboard/client/${segment}`);
 }
 
@@ -71,7 +69,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (authLoading) return;
     if (!user?.id) {
-      router.replace(`/auth/login?next=${encodeURIComponent("/dashboard/client/overview")}`);
+      router.replace(`/auth/login?next=${encodeURIComponent("/dashboard/client")}`);
       return;
     }
     if (role && role !== "client") {
@@ -122,8 +120,14 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                       : "text-[#2C2C2C]/65 hover:bg-white/80",
                   )}
                 >
-                  <span className="text-[#6B9E6E]">
+                  <span className="relative inline-flex text-[#6B9E6E]">
                     <Icon className="h-[18px] w-[18px]" aria-hidden />
+                    {t.segment === "dashboard" && streamMessagesUnreadTotal > 0 ? (
+                      <span
+                        className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
+                        aria-hidden
+                      />
+                    ) : null}
                   </span>
                   {t.label}
                   {t.segment === "messages" && streamMessagesUnreadTotal > 0 ? (
@@ -180,8 +184,16 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                   {notifUnread > 9 ? "9+" : notifUnread}
                 </span>
               ) : null}
-              <span className={active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
-                <Icon className="h-5 w-5" aria-hidden />
+              <span className="relative inline-flex">
+                <span className={active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
+                  <Icon className="h-5 w-5" aria-hidden />
+                </span>
+                {t.segment === "dashboard" && streamMessagesUnreadTotal > 0 ? (
+                  <span
+                    className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]/95"
+                    aria-hidden
+                  />
+                ) : null}
               </span>
               <span className="max-w-[4.5rem] truncate">{t.label}</span>
             </Link>

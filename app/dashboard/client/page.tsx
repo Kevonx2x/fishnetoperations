@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { ClientDashboardTabs } from "@/components/dashboard/client-dashboard-tabs";
 
 export default function DashboardClientIndexPage() {
-  redirect("/dashboard/client/overview");
+  return <ClientDashboardTabs />;
 }
