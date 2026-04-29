@@ -778,6 +778,12 @@ function KanbanDealCard({
                                   aria-hidden
                                 />
                                 View Documents
+                                {unviewedUploadedDocCount > 0 ? (
+                                  <span
+                                    aria-hidden
+                                    className="ml-auto mr-1 h-2 w-2 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                                  />
+                                ) : null}
                               </button>
                               <button
                                 type="button"
