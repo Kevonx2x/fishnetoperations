@@ -27,7 +27,6 @@ import {
   type ClientPreferenceFields,
 } from "@/lib/client-profile-preferences";
 import { MobileClientDashboard } from "@/components/client/mobile-client-dashboard";
-import { StreamChatProvider } from "@/features/messaging/components/stream-chat-provider";
 import { ClientMessagesView } from "@/features/messaging/components/client-messages-view";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -1410,9 +1409,7 @@ function ClientPublicProfilePageInner() {
 
               {desktopMessagesTab ? (
                 <div className="mt-4 h-[600px] w-full">
-                  <StreamChatProvider>
-                    <ClientMessagesView initialChannelId={searchParams.get("channel")} />
-                  </StreamChatProvider>
+                  <ClientMessagesView initialChannelId={searchParams.get("channel")} />
                 </div>
               ) : !isOwn && !canSeeWishlist ? (
                 <div className="mt-8 rounded-2xl border border-[#D4A843]/40 bg-gradient-to-br from-[#FAF8F4] to-white p-8 text-center shadow-sm">

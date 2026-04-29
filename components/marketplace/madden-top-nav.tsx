@@ -42,6 +42,7 @@ import {
   LayoutTemplate,
   Pin,
   Menu,
+  MessageSquare,
   X,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -49,6 +50,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { isAdminPanelRole } from "@/lib/auth-roles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { BahayGoWordmark } from "@/components/marketplace/bahaygo-wordmark";
 import {
@@ -259,6 +261,13 @@ function NavDropdownMenu({ label, entries }: { label: string; entries: NavDropdo
       </AnimatePresence>
     </div>
   );
+}
+
+/** Stream `client.user.total_unread_count` via `useUnreadMessageCount` — same source as messaging inbox. */
+function ClientMessagesUnreadRowDot() {
+  const n = useUnreadMessageCount();
+  if (n <= 0) return null;
+  return <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />;
 }
 
 export function MaddenTopNav() {
@@ -585,6 +594,15 @@ export function MaddenTopNav() {
                   </span>
                 ) : null}
               </Link>
+              {role === "client" && user?.id ? (
+                <Link
+                  href={`/clients/${user.id}`}
+                  className="hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-[#2C2C2C]/75 transition hover:bg-white/80 hover:text-[#2C2C2C] sm:inline-flex"
+                >
+                  <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                  My Profile
+                </Link>
+              ) : null}
               <div className="relative" ref={accountRef}>
                 <div className="relative">
                   <button
@@ -659,45 +677,41 @@ export function MaddenTopNav() {
                           My Plan
                         </Link>
                       ) : null}
-                      <Link
-                        href={
-                          role === "client" && user?.id
-                            ? `/clients/${user.id}`
-                            : role === "agent" && agentNav
-                              ? `/agents/${agentNav.id}`
-                              : role === "broker" && brokerNav
-                                ? `/brokers/${brokerNav.id}`
-                                : role === "team_member"
-                                  ? "/dashboard/agent"
-                                  : "/settings"
-                        }
-                        className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                        onClick={() => setAccountOpen(false)}
-                      >
-                        <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
-                        My Profile
-                      </Link>
-                      {role === "agent" ? (
+                      {role === "client" && user?.id ? (
                         <>
                           <Link
-                            href="/dashboard/agent"
+                            href="/dashboard/client"
                             className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                             onClick={() => setAccountOpen(false)}
                           >
-                            <LayoutDashboard className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
-                            Agent Dashboard
+                            <LayoutDashboard className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                            Dashboard
                           </Link>
                           <Link
-                            href="/dashboard/agent?tab=pipeline"
+                            href="/messages"
                             className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                             onClick={() => setAccountOpen(false)}
                           >
-                            <GitBranch className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
-                            Pipeline
+                            <MessageSquare className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                            <span className="min-w-0 flex-1">Messages</span>
+                            <ClientMessagesUnreadRowDot />
                           </Link>
-                        </>
-                      ) : (
-                        <>
+                          <Link
+                            href="/settings"
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <Settings className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
+                            Settings
+                          </Link>
+                          <Link
+                            href={`/clients/${user.id}`}
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
+                            My Profile
+                          </Link>
                           <Link
                             href="/likes"
                             className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
@@ -714,26 +728,82 @@ export function MaddenTopNav() {
                             <Pin className="h-4 w-4 shrink-0 text-[#D4A843]" />
                             Pinned properties
                           </Link>
-                          {role === "client" && user?.id ? (
-                            <Link
-                              href="/dashboard/client/pipeline"
-                              className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                              onClick={() => setAccountOpen(false)}
-                            >
-                              <GitBranch className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                              Pipeline
-                            </Link>
-                          ) : null}
+                          <Link
+                            href="/dashboard/client/pipeline"
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <GitBranch className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                            Pipeline
+                          </Link>
+                        </>
+                      ) : (
+                        <>
+                          <Link
+                            href={
+                              role === "agent" && agentNav
+                                ? `/agents/${agentNav.id}`
+                                : role === "broker" && brokerNav
+                                  ? `/brokers/${brokerNav.id}`
+                                  : role === "team_member"
+                                    ? "/dashboard/agent"
+                                    : "/settings"
+                            }
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
+                            My Profile
+                          </Link>
+                          {role === "agent" ? (
+                            <>
+                              <Link
+                                href="/dashboard/agent"
+                                className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                                onClick={() => setAccountOpen(false)}
+                              >
+                                <LayoutDashboard className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
+                                Agent Dashboard
+                              </Link>
+                              <Link
+                                href="/dashboard/agent?tab=pipeline"
+                                className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                                onClick={() => setAccountOpen(false)}
+                              >
+                                <GitBranch className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
+                                Pipeline
+                              </Link>
+                            </>
+                          ) : (
+                            <>
+                              <Link
+                                href="/likes"
+                                className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                                onClick={() => setAccountOpen(false)}
+                              >
+                                <Heart className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
+                                My Likes
+                              </Link>
+                              <Link
+                                href="/saved"
+                                className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                                onClick={() => setAccountOpen(false)}
+                              >
+                                <Pin className="h-4 w-4 shrink-0 text-[#D4A843]" />
+                                Pinned properties
+                              </Link>
+                            </>
+                          )}
+                          <Link
+                            href="/settings"
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                            onClick={() => setAccountOpen(false)}
+                          >
+                            <Settings className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
+                            Settings
+                          </Link>
                         </>
                       )}
-                      <Link
-                        href="/settings"
-                        className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                        onClick={() => setAccountOpen(false)}
-                      >
-                        <Settings className="h-4 w-4 shrink-0 text-[#6B9E6E]" />
-                        Settings
-                      </Link>
                       <NavLanguageRow
                         uiLanguage={uiLanguage}
                         onSetLanguage={setUiLanguagePersist}
@@ -840,14 +910,33 @@ export function MaddenTopNav() {
           <div className="px-4 py-4">
             <div className="space-y-6">
               {user && role === "client" && user.id ? (
-                <Link
-                  href={`/clients/${user.id}`}
-                  onClick={closeMobileNav}
-                  className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
-                >
-                  <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                  My Profile
-                </Link>
+                <div className="space-y-2">
+                  <Link
+                    href={`/clients/${user.id}`}
+                    onClick={closeMobileNav}
+                    className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
+                  >
+                    <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                    My Profile
+                  </Link>
+                  <Link
+                    href="/dashboard/client"
+                    onClick={closeMobileNav}
+                    className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
+                  >
+                    <LayoutDashboard className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                    Dashboard
+                  </Link>
+                  <Link
+                    href="/messages"
+                    onClick={closeMobileNav}
+                    className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
+                  >
+                    <MessageSquare className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                    <span className="min-w-0 flex-1">Messages</span>
+                    <ClientMessagesUnreadRowDot />
+                  </Link>
+                </div>
               ) : null}
               {user && role === "agent" && agentNav ? (
                 <Link
