@@ -32,6 +32,7 @@ import {
   ArrowRightCircle,
   Calendar,
   CircleCheck,
+  Lock,
   Eye,
   FileText,
   Filter,
@@ -549,7 +550,9 @@ function KanbanDealCard({
   unviewedUploadedDocCount,
   viewingScheduledAt,
   offerCreatedAt,
+  reservationCreatedAt,
   onSendOffer,
+  onCreateReservation,
   onOpenDocs,
   onBeginStageMove,
   stageMovePrompt,
@@ -581,7 +584,10 @@ function KanbanDealCard({
   viewingScheduledAt?: string | null;
   /** Latest offer created_at for this lead (for Offer stage pill). */
   offerCreatedAt?: string | null;
+  /** Latest reservation created_at for this lead (for Reservation stage pill). */
+  reservationCreatedAt?: string | null;
   onSendOffer: (lead: PipelineLeadRow) => void;
+  onCreateReservation: (lead: PipelineLeadRow) => void;
   onOpenDocs: (lead: PipelineLeadRow) => void;
   onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
   stageMovePrompt: {
@@ -644,6 +650,8 @@ function KanbanDealCard({
           ? viewingScheduledAt ?? deal.updated_at ?? deal.created_at
           : stage === "offer"
             ? offerCreatedAt ?? deal.updated_at ?? deal.created_at
+            : stage === "reservation"
+              ? reservationCreatedAt ?? deal.updated_at ?? deal.created_at
           : deal.updated_at ?? deal.created_at;
 
     const formattedDate = (() => {
@@ -859,6 +867,31 @@ function KanbanDealCard({
                               </button>
                               <button
                                 type="button"
+                                disabled={String(deal.pipeline_stage).toLowerCase() === "reservation" || String(deal.pipeline_stage).toLowerCase() === "closed"}
+                                title={
+                                  String(deal.pipeline_stage).toLowerCase() === "reservation" || String(deal.pipeline_stage).toLowerCase() === "closed"
+                                    ? "Reservation already exists for this deal"
+                                    : undefined
+                                }
+                                className={cn(
+                                  "group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]",
+                                  (String(deal.pipeline_stage).toLowerCase() === "reservation" || String(deal.pipeline_stage).toLowerCase() === "closed") &&
+                                    "cursor-not-allowed opacity-50 hover:bg-transparent",
+                                )}
+                                onClick={() => {
+                                  if (String(deal.pipeline_stage).toLowerCase() === "reservation" || String(deal.pipeline_stage).toLowerCase() === "closed") return;
+                                  onCreateReservation(deal);
+                                  setMenuOpenId(null);
+                                }}
+                              >
+                                <Lock
+                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                  aria-hidden
+                                />
+                                Create Reservation
+                              </button>
+                              <button
+                                type="button"
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
                                   onRequestNotes(deal);
@@ -1047,12 +1080,14 @@ function KanbanStageColumn({
   unviewedUploadedDocCountByLeadId,
   viewingScheduledAtByLeadId,
   offerCreatedAtByLeadId,
+  reservationCreatedAtByLeadId,
   stageMovePrompt,
   onStageMovePromptSkip,
   onStageMovePromptYes,
   beginStageMove,
   openDocs,
   onSendOffer,
+  onCreateReservation,
   menuOpenId,
   setMenuOpenId,
   menuMoveOpen,
@@ -1083,12 +1118,14 @@ function KanbanStageColumn({
   unviewedUploadedDocCountByLeadId: Record<number, number>;
   viewingScheduledAtByLeadId: Record<number, string | null>;
   offerCreatedAtByLeadId: Record<number, string | null>;
+  reservationCreatedAtByLeadId: Record<number, string | null>;
   stageMovePrompt: { lead: PipelineLeadRow; targetStage: PipelineStageId; kind: "advance" | "jump" } | null;
   onStageMovePromptSkip: () => void;
   onStageMovePromptYes: (lead: PipelineLeadRow, targetStage: PipelineStageId) => void;
   beginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
   openDocs: (lead: PipelineLeadRow) => void;
   onSendOffer: (lead: PipelineLeadRow) => void;
+  onCreateReservation: (lead: PipelineLeadRow) => void;
   menuOpenId: number | null;
   setMenuOpenId: (id: number | null) => void;
   menuMoveOpen: boolean;
@@ -1167,8 +1204,10 @@ function KanbanStageColumn({
                   unviewedUploadedDocCount={unviewedUploadedDocCountByLeadId[deal.id] ?? 0}
                   viewingScheduledAt={viewingScheduledAtByLeadId[deal.id] ?? null}
                   offerCreatedAt={offerCreatedAtByLeadId[deal.id] ?? null}
+                  reservationCreatedAt={reservationCreatedAtByLeadId[deal.id] ?? null}
                   onOpenDocs={openDocs}
                   onSendOffer={onSendOffer}
+                  onCreateReservation={onCreateReservation}
                   onBeginStageMove={beginStageMove}
                   stageMovePrompt={stageMovePrompt}
                   onStageMovePromptSkip={onStageMovePromptSkip}
@@ -1720,6 +1759,7 @@ export function AgentPipelineTab({
   >({});
   const [viewingScheduledAtByLeadId, setViewingScheduledAtByLeadId] = useState<Record<number, string | null>>({});
   const [offerCreatedAtByLeadId, setOfferCreatedAtByLeadId] = useState<Record<number, string | null>>({});
+  const [reservationCreatedAtByLeadId, setReservationCreatedAtByLeadId] = useState<Record<number, string | null>>({});
   const [offerLead, setOfferLead] = useState<PipelineLeadRow | null>(null);
   const [offerAmount, setOfferAmount] = useState("");
   const [offerCurrency, setOfferCurrency] = useState<"PHP">("PHP");
@@ -1727,6 +1767,16 @@ export function AgentPipelineTab({
   const [offerValidUntil, setOfferValidUntil] = useState("");
   const [offerMessage, setOfferMessage] = useState("");
   const [offerBusy, setOfferBusy] = useState(false);
+  const [reservationLead, setReservationLead] = useState<PipelineLeadRow | null>(null);
+  const [reservationOfferOptions, setReservationOfferOptions] = useState<{ id: string; created_at: string; amount: number; currency: string }[]>([]);
+  const [reservationOfferId, setReservationOfferId] = useState<string>("");
+  const [reservationAmount, setReservationAmount] = useState("");
+  const [reservationCurrency, setReservationCurrency] = useState<"PHP">("PHP");
+  const [reservationDeadlineAt, setReservationDeadlineAt] = useState("");
+  const [reservationRefundPolicy, setReservationRefundPolicy] = useState("");
+  const [reservationNotes, setReservationNotes] = useState("");
+  const [reservationAgreementFile, setReservationAgreementFile] = useState<File | null>(null);
+  const [reservationBusy, setReservationBusy] = useState(false);
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsPanelFlow, setDocsPanelFlow] = useState<"idle" | "request" | "send">("idle");
   const [panelDocSlug, setPanelDocSlug] = useState("");
@@ -2058,6 +2108,43 @@ export function AgentPipelineTab({
   useEffect(() => {
     const leadIds = deals.map((d) => d.id).filter((id): id is number => typeof id === "number" && Number.isFinite(id));
     if (leadIds.length === 0) {
+      setReservationCreatedAtByLeadId({});
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("reservations")
+        .select("lead_id, created_at")
+        .in("lead_id", leadIds)
+        .order("created_at", { ascending: false });
+
+      if (cancelled) return;
+      if (error) {
+        console.error("[agent-pipeline] reservations query failed", { message: error.message });
+        setReservationCreatedAtByLeadId({});
+        return;
+      }
+
+      const out: Record<number, string | null> = {};
+      for (const row of (data ?? []) as { lead_id: number; created_at: string }[]) {
+        const lid = row.lead_id;
+        if (typeof lid !== "number" || !Number.isFinite(lid)) continue;
+        if (out[lid] != null) continue;
+        out[lid] = row.created_at ?? null;
+      }
+      setReservationCreatedAtByLeadId(out);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deals, supabase]);
+
+  useEffect(() => {
+    const leadIds = deals.map((d) => d.id).filter((id): id is number => typeof id === "number" && Number.isFinite(id));
+    if (leadIds.length === 0) {
       setOfferCreatedAtByLeadId({});
       return;
     }
@@ -2146,6 +2233,42 @@ export function AgentPipelineTab({
     setOfferMessage("");
     setOfferBusy(false);
   }, [offerLead?.id]);
+
+  useEffect(() => {
+    if (!reservationLead) return;
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    setReservationDeadlineAt(d.toISOString().slice(0, 10));
+    setReservationOfferId("");
+    setReservationAmount("");
+    setReservationCurrency("PHP");
+    setReservationRefundPolicy("");
+    setReservationNotes("");
+    setReservationAgreementFile(null);
+    setReservationBusy(false);
+    setReservationOfferOptions([]);
+
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("offers")
+        .select("id, created_at, amount, currency, status")
+        .eq("lead_id", reservationLead.id)
+        .eq("status", "accepted")
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        setReservationOfferOptions([]);
+        return;
+      }
+      const rows = (data ?? []) as { id: string; created_at: string; amount: number; currency: string; status: string }[];
+      setReservationOfferOptions(rows.map((r) => ({ id: r.id, created_at: r.created_at, amount: r.amount, currency: r.currency })));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reservationLead?.id, supabase]);
 
   const loadDocs = useCallback(
     async (lead: PipelineLeadRow) => {
@@ -3119,12 +3242,14 @@ export function AgentPipelineTab({
                       unviewedUploadedDocCountByLeadId={unviewedUploadedDocCountByLeadId}
                       viewingScheduledAtByLeadId={viewingScheduledAtByLeadId}
                       offerCreatedAtByLeadId={offerCreatedAtByLeadId}
+                      reservationCreatedAtByLeadId={reservationCreatedAtByLeadId}
                       stageMovePrompt={stageMovePrompt}
                       onStageMovePromptSkip={onStageMovePromptSkip}
                       onStageMovePromptYes={onStageMovePromptYes}
                       beginStageMove={beginStageMove}
                       openDocs={openDocs}
                       onSendOffer={(lead) => setOfferLead(lead)}
+                      onCreateReservation={(lead) => setReservationLead(lead)}
                       menuOpenId={menuOpenId}
                       setMenuOpenId={setMenuOpenId}
                       menuMoveOpen={menuMoveOpen}
@@ -3929,6 +4054,195 @@ export function AgentPipelineTab({
                   type="button"
                   disabled={offerBusy}
                   onClick={() => setOfferLead(null)}
+                  className="flex-1 rounded-full border border-[#2C2C2C]/15 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {reservationLead ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[78] flex items-end justify-center bg-black/45 p-4 sm:items-center"
+            onClick={() => !reservationBusy && setReservationLead(null)}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-xl"
+            >
+              <p className="font-serif text-lg font-bold text-[#2C2C2C]">Create Reservation</p>
+              <p className="mt-1 text-xs font-medium text-[#2C2C2C]/55">{reservationLead.name}</p>
+
+              <div className="mt-4 space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Linked offer (optional)
+                  <select
+                    value={reservationOfferId}
+                    onChange={(e) => setReservationOfferId(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] outline-none"
+                    disabled={reservationBusy}
+                  >
+                    <option value="">Standalone reservation</option>
+                    {reservationOfferOptions.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {`${o.currency} ${o.amount} • ${new Date(o.created_at).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Reservation amount <span className="text-[#B85450]">*</span>
+                  <div className="mt-1 flex items-center gap-2 rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2">
+                    <span className="text-sm font-bold text-[#2C2C2C]/60">₱</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.01"
+                      value={reservationAmount}
+                      onChange={(e) => setReservationAmount(e.target.value)}
+                      className="w-full bg-transparent text-sm font-semibold text-[#2C2C2C] outline-none"
+                      placeholder="0.00"
+                      disabled={reservationBusy}
+                      required
+                    />
+                  </div>
+                </label>
+
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Currency
+                  <select
+                    value={reservationCurrency}
+                    onChange={(e) => setReservationCurrency(e.target.value as "PHP")}
+                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] outline-none"
+                    disabled={reservationBusy}
+                  >
+                    <option value="PHP">PHP</option>
+                  </select>
+                </label>
+
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Deadline <span className="text-[#B85450]">*</span>
+                  <input
+                    type="date"
+                    value={reservationDeadlineAt}
+                    onChange={(e) => setReservationDeadlineAt(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] outline-none"
+                    disabled={reservationBusy}
+                    required
+                  />
+                </label>
+
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Refund policy (optional)
+                  <textarea
+                    value={reservationRefundPolicy}
+                    onChange={(e) => setReservationRefundPolicy(e.target.value.slice(0, 500))}
+                    rows={3}
+                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 px-3 py-2 text-sm font-medium text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/25"
+                    placeholder="e.g. Fully refundable until [date], non-refundable thereafter"
+                    disabled={reservationBusy}
+                  />
+                </label>
+
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Notes (optional)
+                  <textarea
+                    value={reservationNotes}
+                    onChange={(e) => setReservationNotes(e.target.value.slice(0, 300))}
+                    rows={2}
+                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 px-3 py-2 text-sm font-medium text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/25"
+                    placeholder="Internal notes or special terms"
+                    disabled={reservationBusy}
+                  />
+                </label>
+
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Agreement file upload (optional)
+                  <input
+                    type="file"
+                    accept="application/pdf,image/png,image/jpeg"
+                    className="mt-1 w-full text-sm"
+                    disabled={reservationBusy}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      setReservationAgreementFile(f);
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={reservationBusy}
+                  onClick={async () => {
+                    if (!reservationLead) return;
+                    const amountNum = Number.parseFloat(String(reservationAmount ?? "").trim());
+                    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+                      toast.error("Please enter a valid reservation amount.");
+                      return;
+                    }
+                    if (!reservationDeadlineAt.trim()) {
+                      toast.error("Please select a deadline.");
+                      return;
+                    }
+                    setReservationBusy(true);
+                    try {
+                      const fd = new FormData();
+                      fd.set("lead_id", String(reservationLead.id));
+                      if (reservationOfferId.trim()) fd.set("offer_id", reservationOfferId.trim());
+                      fd.set("amount", String(amountNum));
+                      fd.set("currency", reservationCurrency);
+                      fd.set("deadline_at", reservationDeadlineAt.trim());
+                      if (reservationRefundPolicy.trim()) fd.set("refund_policy", reservationRefundPolicy.trim());
+                      if (reservationNotes.trim()) fd.set("notes", reservationNotes.trim());
+                      if (reservationAgreementFile) fd.set("agreement_file", reservationAgreementFile);
+
+                      const res = await fetch("/api/reservations", {
+                        method: "POST",
+                        credentials: "include",
+                        body: fd,
+                      });
+                      const json = (await res.json().catch(() => ({}))) as
+                        | { success: true; data: { reservation_id: string } }
+                        | { success: false; error?: { message?: string } };
+                      if (!res.ok || !("success" in json) || json.success !== true) {
+                        const msg =
+                          (json as { success?: boolean; error?: { message?: string } })?.error?.message ??
+                          "Could not create reservation";
+                        toast.error(msg);
+                        return;
+                      }
+                      toast.success(`Reservation created for ${reservationLead.name}`);
+                      setReservationLead(null);
+                      await onRefresh();
+                    } finally {
+                      setReservationBusy(false);
+                    }
+                  }}
+                  className="flex-1 rounded-full bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white hover:bg-[#5a8a5d] disabled:opacity-50"
+                >
+                  {reservationBusy ? "…" : "Create Reservation"}
+                </button>
+                <button
+                  type="button"
+                  disabled={reservationBusy}
+                  onClick={() => setReservationLead(null)}
                   className="flex-1 rounded-full border border-[#2C2C2C]/15 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancel
