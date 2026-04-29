@@ -145,54 +145,57 @@ function StatusPill({ label, variant }: { label: string; variant: "sage" | "neut
 
 function ClientPipelineStepper({ deal }: { deal: PipelineDeal }) {
   const cur = clientPipelineCurrentStepIndex(deal);
+  /** Aligns with vertical center of h-7 circle row */
+  const trackTop = "top-[13px]";
   return (
     <div className="mt-4 w-full min-w-0 font-sans">
-      {/* No horizontal scroll container here — avoids a “thick bar” (OS scrollbar) under labels */}
-      <div className="flex w-full min-w-0 items-center">
+      <div className="relative flex w-full min-w-0 items-start">
+        {/* Continuous neutral track behind circles */}
+        <div
+          className={cn("pointer-events-none absolute right-3 left-3 z-0 h-px bg-[#2C2C2C]/10 sm:right-4 sm:left-4", trackTop)}
+          aria-hidden
+        />
         {CLIENT_PIPELINE_STEPS.map((label, i) => {
           const done = cur === 5 || i < cur;
           const active = cur !== 5 && i === cur;
           const offerGold = active && i === 2 && String(deal.pipeline_stage).toLowerCase() === "offer";
-          const segmentBeforeGreen = cur === 5 || cur > i - 1;
+          const segmentAfterGreen = cur === 5 || cur > i;
           return (
-            <div key={label} className="flex min-w-0 flex-1 items-center">
-              {i > 0 ? (
-                <div
-                  className={cn(
-                    "h-px min-w-[2px] flex-1",
-                    segmentBeforeGreen ? "bg-[#6B9E6E]/70" : "bg-[#2C2C2C]/08",
-                  )}
-                  aria-hidden
-                />
-              ) : null}
-              <div className="flex w-6 shrink-0 flex-col items-center gap-1.5 sm:w-7">
+            <div key={label} className="relative flex min-w-0 flex-1 flex-col items-center gap-1.5">
+              <div className="relative flex h-7 w-full min-w-0 items-center justify-center">
+                {i < CLIENT_PIPELINE_STEPS.length - 1 && segmentAfterGreen ? (
+                  <div
+                    className={cn("absolute left-1/2 z-[1] h-px w-full min-w-0 bg-[#6B9E6E]/75", trackTop)}
+                    aria-hidden
+                  />
+                ) : null}
                 {done ? (
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#6B9E6E] bg-[#6B9E6E] text-white sm:h-6 sm:w-6">
+                  <span className="relative z-[2] flex h-6 w-6 items-center justify-center rounded-full border border-[#6B9E6E] bg-[#6B9E6E] text-white ring-2 ring-white">
                     <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
                   </span>
                 ) : active ? (
                   <span
                     className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-sm",
+                      "relative z-[2] flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-sm ring-2 ring-white",
                       offerGold ? "border-[#D4A843] bg-[#D4A843]" : "border-[#6B9E6E] bg-[#6B9E6E]",
                     )}
                     aria-hidden
                   />
                 ) : (
                   <span
-                    className="flex h-5 w-5 items-center justify-center rounded-full border border-[#2C2C2C]/10 bg-white sm:h-6 sm:w-6"
+                    className="relative z-[2] flex h-6 w-6 items-center justify-center rounded-full border border-[#2C2C2C]/12 bg-white ring-2 ring-white"
                     aria-hidden
                   />
                 )}
-                <span
-                  className={cn(
-                    "max-w-[4rem] text-center text-[9px] font-medium leading-tight tracking-tight sm:max-w-[4.25rem] sm:text-[10px]",
-                    done || active ? "text-[#2C2C2C]/70" : "text-[#2C2C2C]/35",
-                  )}
-                >
-                  {label}
-                </span>
               </div>
+              <span
+                className={cn(
+                  "w-full max-w-[4.25rem] px-0.5 text-center text-[9px] font-medium leading-tight tracking-tight sm:text-[10px]",
+                  done || active ? "text-[#2C2C2C]/70" : "text-[#2C2C2C]/35",
+                )}
+              >
+                {label}
+              </span>
             </div>
           );
         })}
@@ -387,13 +390,13 @@ function DealCard({
         highlight && "ring-2 ring-[#D4A843]/50",
       )}
     >
-      <div className="flex flex-col gap-7 px-6 pb-10 pt-8 sm:px-8 sm:pb-11 sm:pt-9 xl:grid xl:grid-cols-4 xl:items-start xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:pb-10 xl:pt-10 xl:[grid-template-columns:minmax(0,1fr)_minmax(0,1.12fr)_minmax(0,0.88fr)_minmax(0,1fr)]">
+      <div className="flex flex-col gap-7 px-6 pb-10 pt-8 sm:px-8 sm:pb-11 sm:pt-9 xl:grid xl:grid-cols-4 xl:items-start xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:pb-10 xl:pt-10 xl:[grid-template-columns:minmax(0,0.92fr)_minmax(0,1.52fr)_minmax(0,0.4fr)_minmax(0,0.96fr)]">
         {/* Section 1 — title above image, full column width */}
         <div className="min-w-0 font-sans">
           <h2 className="truncate font-sans text-[0.9375rem] font-bold leading-tight tracking-tight text-[#2C2C2C] sm:text-[1rem]">
             {deal.property.title}
           </h2>
-          <div className="relative z-0 mx-auto mt-3 h-[160px] w-full max-w-[min(100%,280px)] overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:h-[180px] xl:mx-0 xl:mt-3.5 xl:max-w-none">
+          <div className="relative z-0 mx-auto mt-8 h-[160px] w-full max-w-[min(100%,280px)] overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:h-[180px] xl:mx-0 xl:mt-10 xl:max-w-none">
             {deal.property.hero_image ? (
               <Image
                 src={deal.property.hero_image}
@@ -452,8 +455,8 @@ function DealCard({
           <DealStatusBanner deal={deal} />
         </div>
 
-        {/* Section 3 — checklist only (narrower column in grid) */}
-        <section className="min-w-0 font-sans xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
+        {/* Section 3 — checklist only (narrow column, hug right toward Quick actions) */}
+        <section className="min-w-0 w-full max-w-full font-sans xl:w-min xl:max-w-[11.5rem] xl:justify-self-end xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/38">Your next steps</p>
           <ul className="mt-3 space-y-3.5 text-sm text-[#2C2C2C]/80 sm:space-y-4">
             <li className="flex items-start gap-2.5">
@@ -574,8 +577,10 @@ function DealCard({
           <div className="flex justify-end">
             <StatusPill label={deal.status_label} variant={statusPillVariant} />
           </div>
-          <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/38">Quick actions</p>
-          <div className="mt-3 flex w-full flex-col gap-3">
+          <p className="mt-4 text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/38">
+            Quick actions
+          </p>
+          <div className="mt-7 flex w-full flex-col gap-3">
             {deal.agent.user_id ? (
               <StartChatButton
                 agentId={deal.agent.user_id}
