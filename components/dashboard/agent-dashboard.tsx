@@ -143,6 +143,8 @@ type LeadRow = {
   created_at: string;
   updated_at?: string;
   client_id: string | null;
+  /** Cached avatar_url for the linked client profile (used in pipeline cards). */
+  client_avatar_url?: string | null;
   archived_by_client?: boolean | null;
   archived_at?: string | null;
   archive_reason?: string | null;
@@ -856,8 +858,38 @@ export function AgentDashboard() {
             .in("type", [...AGENT_PIPELINE_TAB_NOTIFICATION_TYPES]),
         ]);
         const leadRows = (ld as LeadRow[]) ?? [];
-        setLeads(leadRows);
-        setArchivedLeads((ldArchived as LeadRow[]) ?? []);
+        const archivedRows = ((ldArchived as LeadRow[]) ?? []) as LeadRow[];
+
+        const clientIds = Array.from(
+          new Set(
+            [...leadRows, ...archivedRows]
+              .map((l) => l.client_id)
+              .filter((id): id is string => typeof id === "string" && id.trim().length > 0),
+          ),
+        );
+
+        let avatarByClientId = new Map<string, string | null>();
+        if (clientIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, avatar_url")
+            .in("id", clientIds);
+          avatarByClientId = new Map(
+            ((profiles ?? []) as { id: string; avatar_url: string | null }[]).map((p) => [p.id, p.avatar_url]),
+          );
+        }
+
+        const leadRowsWithAvatar = leadRows.map((l) => ({
+          ...l,
+          client_avatar_url: avatarByClientId.get(l.client_id ?? "") ?? null,
+        }));
+        const archivedRowsWithAvatar = archivedRows.map((l) => ({
+          ...l,
+          client_avatar_url: avatarByClientId.get(l.client_id ?? "") ?? null,
+        }));
+
+        setLeads(leadRowsWithAvatar);
+        setArchivedLeads(archivedRowsWithAvatar);
         setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
         setPipelineTabUnreadCount(pipelineUnreadRes.error ? 0 : (pipelineUnreadRes.count ?? 0));
         setProperties([]);
@@ -1006,8 +1038,38 @@ export function AgentDashboard() {
           .in("type", [...AGENT_PIPELINE_TAB_NOTIFICATION_TYPES]),
       ]);
       const leadRows = (ld as LeadRow[]) ?? [];
-      setLeads(leadRows);
-      setArchivedLeads((ldArchived as LeadRow[]) ?? []);
+      const archivedRows = ((ldArchived as LeadRow[]) ?? []) as LeadRow[];
+
+      const clientIds = Array.from(
+        new Set(
+          [...leadRows, ...archivedRows]
+            .map((l) => l.client_id)
+            .filter((id): id is string => typeof id === "string" && id.trim().length > 0),
+        ),
+      );
+
+      let avatarByClientId = new Map<string, string | null>();
+      if (clientIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, avatar_url")
+          .in("id", clientIds);
+        avatarByClientId = new Map(
+          ((profiles ?? []) as { id: string; avatar_url: string | null }[]).map((p) => [p.id, p.avatar_url]),
+        );
+      }
+
+      const leadRowsWithAvatar = leadRows.map((l) => ({
+        ...l,
+        client_avatar_url: avatarByClientId.get(l.client_id ?? "") ?? null,
+      }));
+      const archivedRowsWithAvatar = archivedRows.map((l) => ({
+        ...l,
+        client_avatar_url: avatarByClientId.get(l.client_id ?? "") ?? null,
+      }));
+
+      setLeads(leadRowsWithAvatar);
+      setArchivedLeads(archivedRowsWithAvatar);
       setProfileViewsCount(viewsRes.error ? 0 : (viewsRes.count ?? 0));
       setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
       setPipelineTabUnreadCount(pipelineUnreadRes.error ? 0 : (pipelineUnreadRes.count ?? 0));
@@ -1327,6 +1389,7 @@ export function AgentDashboard() {
         name: l.name,
         email: l.email,
         client_id: l.client_id ?? null,
+        client_avatar_url: l.client_avatar_url ?? null,
         pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,
         property_id: l.property_id ?? null,
         created_at: l.created_at,
@@ -2083,6 +2146,7 @@ export function AgentDashboard() {
                     name: l.name,
                     email: l.email,
                     client_id: l.client_id ?? null,
+                    client_avatar_url: l.client_avatar_url ?? null,
                     pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,
                     property_id: l.property_id ?? null,
                     created_at: l.created_at,

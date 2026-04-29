@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -79,6 +80,8 @@ export type PipelineLeadRow = {
   email: string;
   /** Linked client profile id (for document requests). */
   client_id?: string | null;
+  /** Cached avatar_url for the linked client profile (pipeline cards). */
+  client_avatar_url?: string | null;
   pipeline_stage: PipelineStageId;
   property_id: string | null;
   created_at: string;
@@ -647,7 +650,7 @@ function KanbanDealCard({
         {...attributes}
         {...listeners}
         className={cn(
-          "relative flex flex-col rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-sm transition",
+          "relative flex flex-col min-h-[150px] rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-sm transition",
           next ? "pb-10" : "",
           "cursor-grab",
           isDragging && "scale-[1.02] rotate-[0.6deg] cursor-grabbing shadow-xl",
@@ -659,7 +662,7 @@ function KanbanDealCard({
           if (e.key === "Enter" || e.key === " ") onOpenLeadDetails(deal.id);
         }}
       >
-        <div className="touch-none pr-10 pt-2">
+        <div className="touch-none flex min-h-0 flex-1 flex-col pr-10 pt-2">
           {/* Row 1: Title + Menu */}
           <div className="flex items-start justify-between gap-2">
             <button
@@ -878,9 +881,13 @@ function KanbanDealCard({
           {/* Row 2: Price */}
           <p className="mt-1 font-sans text-[13px] font-bold text-[#D4A843]">{dealValueLine ?? "—"}</p>
           {/* Row 3: Avatar + contact */}
-          <div className="mt-auto flex items-center gap-2">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[10px] font-bold text-[#6B9E6E]">
-              {clientInitials(deal.name)}
+          <div className="absolute bottom-3 left-3 right-12 flex items-center gap-2">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#6B9E6E]/15 text-[10px] font-bold text-[#6B9E6E] relative">
+              {deal.client_avatar_url ? (
+                <SupabasePublicImage src={deal.client_avatar_url} alt="" fill sizes="24px" className="object-cover" />
+              ) : (
+                clientInitials(deal.name)
+              )}
             </div>
             <span className="truncate font-sans text-[12px] font-semibold text-[#2C2C2C]/65">{deal.name}</span>
           </div>
@@ -1217,8 +1224,12 @@ function SortableDealCard({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/20 text-sm font-semibold text-[#6B9E6E]">
-              {clientInitials(deal.name)}
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#6B9E6E]/20 text-sm font-semibold text-[#6B9E6E] relative">
+              {deal.client_avatar_url ? (
+                <SupabasePublicImage src={deal.client_avatar_url} alt="" fill sizes="40px" className="object-cover" />
+              ) : (
+                clientInitials(deal.name)
+              )}
             </div>
             <div className="min-w-0">
               <p className="font-semibold text-[#2C2C2C]">{deal.name}</p>
