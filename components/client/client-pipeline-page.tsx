@@ -152,7 +152,7 @@ function ClientPipelineStepper({ deal }: { deal: PipelineDeal }) {
       <div className="relative flex w-full min-w-0 items-start">
         {/* Continuous neutral track behind circles */}
         <div
-          className={cn("pointer-events-none absolute right-3 left-3 z-0 h-px bg-[#2C2C2C]/10 sm:right-4 sm:left-4", trackTop)}
+          className={cn("pointer-events-none absolute right-2 left-2 z-0 h-[2px] rounded-full bg-[#2C2C2C]/[0.12] sm:right-3 sm:left-3", trackTop)}
           aria-hidden
         />
         {CLIENT_PIPELINE_STEPS.map((label, i) => {
@@ -161,11 +161,14 @@ function ClientPipelineStepper({ deal }: { deal: PipelineDeal }) {
           const offerGold = active && i === 2 && String(deal.pipeline_stage).toLowerCase() === "offer";
           const segmentAfterGreen = cur === 5 || cur > i;
           return (
-            <div key={label} className="relative flex min-w-0 flex-1 flex-col items-center gap-1.5">
+            <div key={label} className="relative flex min-w-0 flex-1 flex-col items-center gap-1 px-px">
               <div className="relative flex h-7 w-full min-w-0 items-center justify-center">
                 {i < CLIENT_PIPELINE_STEPS.length - 1 && segmentAfterGreen ? (
                   <div
-                    className={cn("absolute left-1/2 z-[1] h-px w-full min-w-0 bg-[#6B9E6E]/75", trackTop)}
+                    className={cn(
+                      "absolute left-1/2 z-[1] h-[2px] w-full min-w-0 rounded-full bg-[#6B9E6E]/80",
+                      trackTop,
+                    )}
                     aria-hidden
                   />
                 ) : null}
@@ -188,7 +191,7 @@ function ClientPipelineStepper({ deal }: { deal: PipelineDeal }) {
                   />
                 )}
               </div>
-              <span className="w-full min-w-0 px-0.5 text-center text-[10px] font-normal leading-snug tracking-tight text-[#6B728E] sm:text-xs sm:leading-tight">
+              <span className="w-full min-w-0 hyphens-auto break-words px-0.5 text-center text-[9px] font-normal leading-[1.2] tracking-normal text-[#6B728E] sm:text-[10px] sm:leading-tight">
                 {label}
               </span>
             </div>
@@ -271,7 +274,7 @@ function DealStatusBanner({ deal }: { deal: PipelineDeal }) {
 
   if (deal.viewing && !viewingConfirmed) {
     return (
-      <p className="font-sans text-sm italic font-normal leading-relaxed text-[#6B728E]">
+      <p className="mt-1 max-w-full font-sans text-xs italic font-normal leading-snug text-[#6B728E]/85">
         Viewing — awaiting confirmation from your agent.
       </p>
     );
@@ -378,7 +381,7 @@ function DealCard({
         highlight && "ring-2 ring-[#D4A843]/50",
       )}
     >
-      <div className="flex flex-col gap-6 px-6 py-6 sm:px-8 sm:py-7 xl:grid xl:grid-cols-4 xl:items-stretch xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:py-8 xl:[grid-template-columns:minmax(0,0.94fr)_minmax(0,1.28fr)_minmax(0,0.82fr)_minmax(0,0.92fr)]">
+      <div className="flex flex-col gap-5 px-6 py-5 sm:px-8 sm:py-6 xl:grid xl:grid-cols-4 xl:items-stretch xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:py-7 xl:[grid-template-columns:minmax(0,0.94fr)_minmax(0,1.28fr)_minmax(0,0.82fr)_minmax(0,0.92fr)]">
         {/* Section 1 — title + price (tight), gap, then image */}
         <div className="flex min-w-0 flex-col font-sans">
           <div className="shrink-0">
@@ -389,7 +392,7 @@ function DealCard({
               {formatPipelineCardPrice(deal.property.price)}
             </p>
           </div>
-          <div className="relative z-0 mx-auto mt-8 h-[184px] w-full max-w-[min(100%,280px)] shrink-0 overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:mt-10 sm:h-[204px] xl:mx-0 xl:mt-10 xl:max-w-none">
+          <div className="relative z-0 mx-auto mt-5 h-[184px] w-full max-w-[min(100%,280px)] shrink-0 overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:mt-6 sm:h-[204px] xl:mx-0 xl:mt-6 xl:max-w-none">
             {deal.property.hero_image ? (
               <Image
                 src={deal.property.hero_image}
@@ -412,8 +415,8 @@ function DealCard({
           </div>
         </div>
 
-        {/* Section 2 — agent top-aligned with other rails; spacer on xl keeps stepper lower in tall column */}
-        <div className="flex min-h-0 min-w-0 flex-col gap-4 font-sans xl:h-full xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
+        {/* Section 2 — agent, stepper, status as one tight group */}
+        <div className="flex min-h-0 min-w-0 flex-col gap-3 font-sans xl:h-full xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
           <div className="flex min-w-0 shrink-0 flex-nowrap items-center gap-2">
             <span className="relative inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-inset ring-[#2C2C2C]/10">
               {deal.agent.image_url?.trim() && !agentAvatarFailed ? (
@@ -441,7 +444,6 @@ function DealCard({
             ) : null}
           </div>
 
-          <div className="hidden min-h-0 w-full xl:block xl:flex-1" aria-hidden />
           <ClientPipelineStepper deal={deal} />
           <div className="min-h-0 shrink-0">
             <DealStatusBanner deal={deal} />
@@ -453,7 +455,7 @@ function DealCard({
           <p className="flex min-h-[24px] w-full shrink-0 items-start text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38 xl:min-h-[26px]">
             Your next steps
           </p>
-          <ul className="mt-5 space-y-3.5 text-sm text-[#2C2C2C]/80 sm:mt-6 sm:space-y-4">
+          <ul className="mt-4 space-y-3.5 text-sm text-[#2C2C2C]/80 sm:mt-5 sm:space-y-4">
             <li className="flex items-start gap-2.5">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
               <div className="min-w-0">
@@ -573,14 +575,14 @@ function DealCard({
         </section>
 
         {/* Section 4 — status pill + quick actions (no border vs section 3; grid gap only) */}
-        <div className="flex min-w-0 flex-col font-sans">
+        <div className="flex min-w-0 flex-col items-stretch font-sans">
           <div className="flex min-h-[24px] w-full shrink-0 items-start justify-end xl:min-h-[26px]">
             <StatusPill label={deal.status_label} variant={statusPillVariant} />
           </div>
-          <p className="mt-4 w-full shrink-0 text-center text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38">
+          <p className="mt-3 w-full shrink-0 text-center text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38">
             Quick actions
           </p>
-          <div className="mt-9 flex w-full flex-col gap-3 sm:mt-10">
+          <div className="mt-6 flex w-full flex-col gap-2.5 sm:mt-7">
             {deal.agent.user_id ? (
               <StartChatButton
                 agentId={deal.agent.user_id}
