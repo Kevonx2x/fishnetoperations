@@ -96,6 +96,10 @@ export type PipelineLeadRow = {
   archive_reason?: string | null;
   archive_note?: string | null;
   stage_at_archive?: string | null;
+  closed_date?: string | null;
+  closed_at?: string | null;
+  closed_by?: string | null;
+  closure_confirmed_by_client?: boolean | null;
 };
 
 type DocDef = { key: string; label: string };
@@ -553,6 +557,7 @@ function KanbanDealCard({
   reservationCreatedAt,
   onSendOffer,
   onCreateReservation,
+  onMarkClosed,
   onOpenDocs,
   onBeginStageMove,
   stageMovePrompt,
@@ -588,6 +593,7 @@ function KanbanDealCard({
   reservationCreatedAt?: string | null;
   onSendOffer: (lead: PipelineLeadRow) => void;
   onCreateReservation: (lead: PipelineLeadRow) => void;
+  onMarkClosed: (lead: PipelineLeadRow) => void;
   onOpenDocs: (lead: PipelineLeadRow) => void;
   onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
   stageMovePrompt: {
@@ -624,6 +630,7 @@ function KanbanDealCard({
   const menuOpen = menuOpenId === deal.id;
   const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
   const anyMenuOpen = menuOpenId != null;
+  const isClosed = String(deal.pipeline_stage).toLowerCase() === "closed";
 
   const stagePill = useMemo(() => {
     const stage = deal.pipeline_stage;
@@ -643,6 +650,16 @@ function KanbanDealCard({
       closed: "Closed",
     };
 
+    const closedConfirm = deal.closure_confirmed_by_client ?? null;
+    const closedLabel =
+      closedConfirm === true ? "Closed" : closedConfirm === false ? "Closed (disputed)" : "Closed (pending)";
+    const closedCls =
+      closedConfirm === true
+        ? "bg-green-50 text-green-700"
+        : closedConfirm === false
+          ? "bg-amber-50 text-amber-800"
+          : "bg-[#FAF8F4] text-[#2C2C2C]/60";
+
     const iso =
       stage === "lead"
         ? deal.created_at
@@ -652,7 +669,9 @@ function KanbanDealCard({
             ? offerCreatedAt ?? deal.updated_at ?? deal.created_at
             : stage === "reservation"
               ? reservationCreatedAt ?? deal.updated_at ?? deal.created_at
-          : deal.updated_at ?? deal.created_at;
+            : stage === "closed"
+              ? (deal.closed_at ?? deal.closed_date ?? deal.updated_at ?? deal.created_at)
+              : deal.updated_at ?? deal.created_at;
 
     const formattedDate = (() => {
       if (!iso) return null;
@@ -661,8 +680,27 @@ function KanbanDealCard({
       return format(d, "MMM d");
     })();
 
-    return { label: labelByStage[stage], date: formattedDate, cls: stylesByStage[stage] };
-  }, [deal.created_at, deal.pipeline_stage, deal.updated_at, viewingScheduledAt]);
+    if (stage === "closed") {
+      return {
+        label: closedLabel,
+        date: formattedDate,
+        cls: closedCls,
+        showCheckIcon: closedConfirm === true,
+      };
+    }
+
+    return { label: labelByStage[stage], date: formattedDate, cls: stylesByStage[stage], showCheckIcon: false };
+  }, [
+    deal.created_at,
+    deal.pipeline_stage,
+    deal.updated_at,
+    deal.closed_at,
+    deal.closed_date,
+    deal.closure_confirmed_by_client,
+    viewingScheduledAt,
+    offerCreatedAt,
+    reservationCreatedAt,
+  ]);
 
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const [menuAnchorRect, setMenuAnchorRect] = useState<DOMRect | null>(null);
@@ -756,7 +794,10 @@ function KanbanDealCard({
                   )}
                   aria-hidden
                 >
-                  <span className="whitespace-nowrap text-[10px] font-bold leading-none">{stagePill.label}</span>
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap text-[10px] font-bold leading-none">
+                    {stagePill.showCheckIcon ? <CircleCheck className="h-3 w-3" aria-hidden /> : null}
+                    {stagePill.label}
+                  </span>
                   <span className="whitespace-nowrap text-[9px] font-semibold leading-none">
                     {stagePill.date ?? "\u00A0"}
                   </span>
@@ -805,8 +846,11 @@ function KanbanDealCard({
                             <div className="space-y-0.5">
                               <button
                                 type="button"
+                                disabled={isClosed}
+                                title={isClosed ? "This deal is closed and locked from edits" : undefined}
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
+                                  if (isClosed) return;
                                   onTogglePin(deal);
                                   setMenuOpenId(null);
                                 }}
@@ -853,8 +897,11 @@ function KanbanDealCard({
                               </button>
                               <button
                                 type="button"
+                                disabled={isClosed}
+                                title={isClosed ? "This deal is closed and locked from edits" : undefined}
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
+                                  if (isClosed) return;
                                   onSendOffer(deal);
                                   setMenuOpenId(null);
                                 }}
@@ -867,19 +914,33 @@ function KanbanDealCard({
                               </button>
                               <button
                                 type="button"
-                                disabled={String(deal.pipeline_stage).toLowerCase() === "reservation" || String(deal.pipeline_stage).toLowerCase() === "closed"}
+                                disabled={
+                                  isClosed ||
+                                  String(deal.pipeline_stage).toLowerCase() === "reservation" ||
+                                  String(deal.pipeline_stage).toLowerCase() === "closed"
+                                }
                                 title={
-                                  String(deal.pipeline_stage).toLowerCase() === "reservation" || String(deal.pipeline_stage).toLowerCase() === "closed"
-                                    ? "Reservation already exists for this deal"
-                                    : undefined
+                                  isClosed
+                                    ? "This deal is closed and locked from edits"
+                                    : String(deal.pipeline_stage).toLowerCase() === "reservation" ||
+                                        String(deal.pipeline_stage).toLowerCase() === "closed"
+                                      ? "Reservation already exists for this deal"
+                                      : undefined
                                 }
                                 className={cn(
                                   "group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]",
-                                  (String(deal.pipeline_stage).toLowerCase() === "reservation" || String(deal.pipeline_stage).toLowerCase() === "closed") &&
+                                  (isClosed ||
+                                    String(deal.pipeline_stage).toLowerCase() === "reservation" ||
+                                    String(deal.pipeline_stage).toLowerCase() === "closed") &&
                                     "cursor-not-allowed opacity-50 hover:bg-transparent",
                                 )}
                                 onClick={() => {
-                                  if (String(deal.pipeline_stage).toLowerCase() === "reservation" || String(deal.pipeline_stage).toLowerCase() === "closed") return;
+                                  if (
+                                    isClosed ||
+                                    String(deal.pipeline_stage).toLowerCase() === "reservation" ||
+                                    String(deal.pipeline_stage).toLowerCase() === "closed"
+                                  )
+                                    return;
                                   onCreateReservation(deal);
                                   setMenuOpenId(null);
                                 }}
@@ -892,8 +953,11 @@ function KanbanDealCard({
                               </button>
                               <button
                                 type="button"
+                                disabled={isClosed}
+                                title={isClosed ? "This deal is closed and locked from edits" : undefined}
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
+                                  if (isClosed) return;
                                   onRequestNotes(deal);
                                   setMenuOpenId(null);
                                 }}
@@ -906,8 +970,11 @@ function KanbanDealCard({
                               </button>
                               <button
                                 type="button"
+                                disabled={isClosed}
+                                title={isClosed ? "This deal is closed and locked from edits" : undefined}
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
+                                  if (isClosed) return;
                                   onRequestDocuments(deal);
                                   setMenuOpenId(null);
                                 }}
@@ -921,10 +988,43 @@ function KanbanDealCard({
 
                               <div className="my-1 h-px bg-[#EEEEEE]" />
 
+                              {String(deal.pipeline_stage).toLowerCase() !== "closed" ? (
+                                <button
+                                  type="button"
+                                  disabled={
+                                    isClosed ||
+                                    String(deal.pipeline_stage).toLowerCase() !== "reservation" ||
+                                    !reservationCreatedAt
+                                  }
+                                  title={
+                                    String(deal.pipeline_stage).toLowerCase() === "reservation" && reservationCreatedAt
+                                      ? undefined
+                                      : "Create a reservation before closing this deal"
+                                  }
+                                  className={cn(
+                                    "group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold transition-colors duration-150 hover:bg-[#F0F4F0]",
+                                    "text-[#6B9E6E]",
+                                    (String(deal.pipeline_stage).toLowerCase() !== "reservation" || !reservationCreatedAt) &&
+                                      "cursor-not-allowed opacity-50 hover:bg-transparent",
+                                  )}
+                                  onClick={() => {
+                                    if (String(deal.pipeline_stage).toLowerCase() !== "reservation" || !reservationCreatedAt) return;
+                                    onMarkClosed(deal);
+                                    setMenuOpenId(null);
+                                  }}
+                                >
+                                  <CircleCheck className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                                  Mark as Closed
+                                </button>
+                              ) : null}
+
                               <button
                                 type="button"
+                                disabled={isClosed}
+                                title={isClosed ? "This deal is closed and locked from edits" : undefined}
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#B85450] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
+                                  if (isClosed) return;
                                   onRequestDecline(deal);
                                   setMenuOpenId(null);
                                   setMenuMoveOpen(false);
@@ -936,8 +1036,10 @@ function KanbanDealCard({
 
                               <button
                                 type="button"
+                                disabled={isClosed}
+                                title={isClosed ? "This deal is closed and locked from edits" : undefined}
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                onClick={() => setMenuMoveOpen(true)}
+                                onClick={() => !isClosed && setMenuMoveOpen(true)}
                               >
                                 <ArrowRightCircle
                                   className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
@@ -960,9 +1062,11 @@ function KanbanDealCard({
                                   <button
                                     key={s.id}
                                     type="button"
-                                    disabled={moveBusyId === deal.id}
+                                    disabled={isClosed || moveBusyId === deal.id}
+                                    title={isClosed ? "This deal is closed and locked from edits" : undefined}
                                     className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0] disabled:opacity-50"
                                     onClick={() => {
+                                      if (isClosed) return;
                                       onBeginStageMove(deal, s.id, "jump");
                                       setMenuOpenId(null);
                                       setMenuMoveOpen(false);
@@ -1088,6 +1192,7 @@ function KanbanStageColumn({
   openDocs,
   onSendOffer,
   onCreateReservation,
+  onMarkClosed,
   menuOpenId,
   setMenuOpenId,
   menuMoveOpen,
@@ -1126,6 +1231,7 @@ function KanbanStageColumn({
   openDocs: (lead: PipelineLeadRow) => void;
   onSendOffer: (lead: PipelineLeadRow) => void;
   onCreateReservation: (lead: PipelineLeadRow) => void;
+  onMarkClosed: (lead: PipelineLeadRow) => void;
   menuOpenId: number | null;
   setMenuOpenId: (id: number | null) => void;
   menuMoveOpen: boolean;
@@ -1208,6 +1314,7 @@ function KanbanStageColumn({
                   onOpenDocs={openDocs}
                   onSendOffer={onSendOffer}
                   onCreateReservation={onCreateReservation}
+                  onMarkClosed={onMarkClosed}
                   onBeginStageMove={beginStageMove}
                   stageMovePrompt={stageMovePrompt}
                   onStageMovePromptSkip={onStageMovePromptSkip}
@@ -1777,6 +1884,9 @@ export function AgentPipelineTab({
   const [reservationNotes, setReservationNotes] = useState("");
   const [reservationAgreementFile, setReservationAgreementFile] = useState<File | null>(null);
   const [reservationBusy, setReservationBusy] = useState(false);
+  const [closeLead, setCloseLead] = useState<PipelineLeadRow | null>(null);
+  const [closeNote, setCloseNote] = useState("");
+  const [closeBusy, setCloseBusy] = useState(false);
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsPanelFlow, setDocsPanelFlow] = useState<"idle" | "request" | "send">("idle");
   const [panelDocSlug, setPanelDocSlug] = useState("");
@@ -3250,6 +3360,11 @@ export function AgentPipelineTab({
                       openDocs={openDocs}
                       onSendOffer={(lead) => setOfferLead(lead)}
                       onCreateReservation={(lead) => setReservationLead(lead)}
+                      onMarkClosed={(lead) => {
+                        setCloseLead(lead);
+                        setCloseNote("");
+                        setCloseBusy(false);
+                      }}
                       menuOpenId={menuOpenId}
                       setMenuOpenId={setMenuOpenId}
                       menuMoveOpen={menuMoveOpen}
@@ -4243,6 +4358,93 @@ export function AgentPipelineTab({
                   type="button"
                   disabled={reservationBusy}
                   onClick={() => setReservationLead(null)}
+                  className="flex-1 rounded-full border border-[#2C2C2C]/15 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {closeLead ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[77] flex items-end justify-center bg-black/45 p-4 sm:items-center"
+            onClick={() => !closeBusy && setCloseLead(null)}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-xl"
+            >
+              <p className="font-serif text-lg font-bold text-[#2C2C2C]">Mark this deal as closed?</p>
+              <p className="mt-2 text-sm text-[#2C2C2C]/70">
+                This will mark{" "}
+                <span className="font-semibold text-[#2C2C2C]">{propertyLabel(closeLead.property_id)}</span> as
+                closed for{" "}
+                <span className="font-semibold text-[#2C2C2C]">{closeLead.name.trim() || "the client"}</span>.
+                The client will be notified and asked to confirm. Once confirmed, this deal will be locked from edits
+                and counted toward your closure score.
+              </p>
+
+              <label className="mt-4 block text-xs font-bold text-[#2C2C2C]/55">
+                Add a note about this closure (optional)
+                <textarea
+                  value={closeNote}
+                  onChange={(e) => setCloseNote(e.target.value.slice(0, 300))}
+                  rows={3}
+                  className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 px-3 py-2 text-sm font-medium text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/25"
+                  placeholder="Add a note about this closure (optional)"
+                  disabled={closeBusy}
+                />
+              </label>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={closeBusy}
+                  onClick={async () => {
+                    if (!closeLead) return;
+                    setCloseBusy(true);
+                    try {
+                      const res = await fetch(`/api/leads/${closeLead.id}/close`, {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ note: closeNote.trim() ? closeNote.trim() : null }),
+                      });
+                      const json = (await res.json().catch(() => ({}))) as
+                        | { success: true; data: unknown }
+                        | { success: false; error?: { message?: string } };
+                      if (!res.ok || !("success" in json) || json.success !== true) {
+                        const msg =
+                          (json as { success?: boolean; error?: { message?: string } })?.error?.message ??
+                          "Could not mark deal closed";
+                        toast.error(msg);
+                        return;
+                      }
+                      toast.success("Deal marked as closed. Client has been notified to confirm.");
+                      setCloseLead(null);
+                      await onRefresh();
+                    } finally {
+                      setCloseBusy(false);
+                    }
+                  }}
+                  className="flex-1 rounded-full bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white hover:bg-[#5a8a5d] disabled:opacity-50"
+                >
+                  {closeBusy ? "…" : "Yes, Mark Closed"}
+                </button>
+                <button
+                  type="button"
+                  disabled={closeBusy}
+                  onClick={() => setCloseLead(null)}
                   className="flex-1 rounded-full border border-[#2C2C2C]/15 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancel

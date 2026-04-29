@@ -143,6 +143,10 @@ type LeadRow = {
   created_at: string;
   updated_at?: string;
   client_id: string | null;
+  closed_date?: string | null;
+  closed_at?: string | null;
+  closed_by?: string | null;
+  closure_confirmed_by_client?: boolean | null;
   /** Cached avatar_url for the linked client profile (used in pipeline cards). */
   client_avatar_url?: string | null;
   archived_by_client?: boolean | null;
@@ -829,7 +833,7 @@ export function AgentDashboard() {
       if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
         const supervisorUserId = (a as AgentRow).user_id;
         const leadSel =
-          "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, created_at, updated_at, client_id";
+          "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client";
         const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
         const [{ data: ld }, { data: ldArchived }, unreadRes, pipelineUnreadRes] = await Promise.all([
           supabase
@@ -990,7 +994,7 @@ export function AgentDashboard() {
 
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
       const leadSel =
-        "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, created_at, updated_at, client_id";
+        "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client";
       const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
       const [{ data: ld }, { data: ldArchived }, { data: owned }, { data: paRows }, vwRes, viewsRes, unreadRes, pipelineUnreadRes] =
         await Promise.all([
@@ -1394,6 +1398,10 @@ export function AgentDashboard() {
         property_id: l.property_id ?? null,
         created_at: l.created_at,
         updated_at: l.updated_at ?? null,
+        closed_date: l.closed_date ?? null,
+        closed_at: l.closed_at ?? null,
+        closed_by: l.closed_by ?? null,
+        closure_confirmed_by_client: l.closure_confirmed_by_client ?? null,
         pipeline_position: l.pipeline_position ?? null,
         closing_notes: l.closing_notes ?? null,
         pinned: l.pinned ?? null,
@@ -2150,6 +2158,11 @@ export function AgentDashboard() {
                     pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,
                     property_id: l.property_id ?? null,
                     created_at: l.created_at,
+                    updated_at: l.updated_at ?? null,
+                    closed_date: l.closed_date ?? null,
+                    closed_at: l.closed_at ?? null,
+                    closed_by: l.closed_by ?? null,
+                    closure_confirmed_by_client: l.closure_confirmed_by_client ?? null,
                     pipeline_position: l.pipeline_position ?? null,
                     closing_notes: l.closing_notes ?? null,
                   }))}
