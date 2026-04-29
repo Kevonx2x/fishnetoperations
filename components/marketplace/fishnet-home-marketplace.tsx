@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAgentLiveAvailabilityFromPropertyRows } from "@/hooks/use-agent-live-availability";
 import Image from "next/image";
 import Link from "next/link";
@@ -223,6 +223,23 @@ function resolveFeaturedKeyFromQuery(qRaw: string): string | null {
     if (stripDiacritics(c.label.toLowerCase()) === strip) return c.key;
   }
   return null;
+}
+
+/** `/locations/:slug` segment → featured city key (for notFound + marketplace hydration). */
+export function resolveFeaturedCitySlugToKey(slug: string): string | null {
+  const raw = decodeURIComponent(slug).trim();
+  if (!raw) return null;
+  const norm = (t: string) =>
+    stripDiacritics(t).toLowerCase().replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
+  const nSlug = norm(raw);
+  for (const c of FEATURED_CITIES) {
+    if (norm(c.key) === nSlug || norm(c.label) === nSlug) return c.key;
+  }
+  return null;
+}
+
+function isFeaturedCityNeighborhoodKey(key: string | null): boolean {
+  return key != null && FEATURED_CITIES.some((c) => c.key === key);
 }
 
 function buildMarketplaceHref(searchQuery: string, targetMode: "buy" | "rent") {
@@ -700,6 +717,7 @@ const DynamicHomepageTopAgents = dynamic(
 
 export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" }) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const [welcomeBannerVisible, setWelcomeBannerVisible] = useState(false);
@@ -789,10 +807,23 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
         `;
     const expiryOr = publicListingExpiryOrFilter();
-    const [mainRes, featRes] = await Promise.all([
-      supabase.from("properties").select(selectQ).or(expiryOr).order("created_at", { ascending: false }),
-      supabase.from("properties").select(selectQ).eq("featured", true).or(expiryOr).limit(1).maybeSingle(),
-    ]);
+    const featuredCityRow = neighborhoodFilter
+      ? FEATURED_CITIES.find((c) => c.key === neighborhoodFilter)
+      : null;
+    const cityOrClause =
+      featuredCityRow != null
+        ? `city.ilike.%${featuredCityRow.label}%,location.ilike.%${featuredCityRow.label}%`
+        : null;
+
+    let mainQuery = supabase.from("properties").select(selectQ).or(expiryOr);
+    if (cityOrClause) mainQuery = mainQuery.or(cityOrClause);
+    mainQuery = mainQuery.order("created_at", { ascending: false });
+
+    let featQuery = supabase.from("properties").select(selectQ).eq("featured", true).or(expiryOr);
+    if (cityOrClause) featQuery = featQuery.or(cityOrClause);
+    featQuery = featQuery.limit(1);
+
+    const [mainRes, featRes] = await Promise.all([mainQuery, featQuery.maybeSingle()]);
 
     if (mainRes.error) {
       setError(mainRes.error.message);
@@ -814,7 +845,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       setFeaturedHomeIsAdminFeatured(isAdminFeatured);
     }
     setLoading(false);
-  }, []);
+  }, [neighborhoodFilter]);
 
   const loadAgentsDirectory = useCallback(async () => {
     const { data, error: fetchErr } = await supabase
@@ -882,7 +913,14 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const syncMarketplaceUrl = useCallback(
     (qText: string) => {
       const trimmed = qText.trim();
-      const path = mode === "buy" ? "/buy" : "/";
+      const locationsSeg = pathname?.startsWith("/locations/")
+        ? (pathname.slice("/locations/".length).split("/")[0] ?? "")
+        : "";
+      const locationsPath =
+        pathname?.startsWith("/locations/") && resolveFeaturedCitySlugToKey(locationsSeg) != null
+          ? pathname
+          : null;
+      const path = locationsPath ?? (mode === "buy" ? "/buy" : "/");
       if (!trimmed) {
         router.replace(path, { scroll: false });
         return;
@@ -892,7 +930,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       params.set("type", mode === "buy" ? "sale" : "rent");
       router.replace(`${path}?${params.toString()}`, { scroll: false });
     },
-    [mode, router],
+    [mode, router, pathname],
   );
 
   useEffect(() => {
@@ -912,7 +950,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     }
     const nk = resolveFeaturedKeyFromQuery(trimmed);
     setNeighborhoodFilter(nk);
-    setListingViewMode("results");
+    setListingViewMode(nk ? "browse" : "results");
     syncMarketplaceUrl(trimmed);
     requestAnimationFrame(() => {
       document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -936,6 +974,19 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
     const sp = new URLSearchParams(searchParams.toString());
     if (!sp.has("q")) {
+      if (pathname?.startsWith("/locations/")) {
+        const seg = decodeURIComponent(pathname.slice("/locations/".length).split("/")[0] ?? "");
+        const keyFromPath = resolveFeaturedCitySlugToKey(seg);
+        if (keyFromPath) {
+          const city = FEATURED_CITIES.find((c) => c.key === keyFromPath);
+          if (city) {
+            setSearch(city.label);
+            setNeighborhoodFilter(keyFromPath);
+            setListingViewMode("browse");
+            return;
+          }
+        }
+      }
       setSearch("");
       setNeighborhoodFilter(null);
       setListingViewMode("browse");
@@ -949,9 +1000,10 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       decoded = raw;
     }
     setSearch(decoded);
-    setNeighborhoodFilter(decoded.trim() ? resolveFeaturedKeyFromQuery(decoded) : null);
-    if (decoded.trim()) setListingViewMode("results");
-  }, [searchParams, mode, router]);
+    const featuredKey = decoded.trim() ? resolveFeaturedKeyFromQuery(decoded) : null;
+    setNeighborhoodFilter(featuredKey);
+    if (decoded.trim()) setListingViewMode(featuredKey ? "browse" : "results");
+  }, [searchParams, mode, router, pathname]);
 
   const directoryAgentIds = useMemo(() => agents.map((a) => a.id), [agents]);
   const mergeLiveAvailability = useAgentLiveAvailabilityFromPropertyRows(properties, directoryAgentIds);
@@ -1134,6 +1186,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     [neighborhoodFilter],
   );
 
+  const browseRowTitleSuffix = cityFilterMeta ? ` in ${cityFilterMeta.label}` : undefined;
+
   const agentsForCityFilter = useMemo(() => {
     if (!cityFilterMeta) return [];
     return agents
@@ -1274,7 +1328,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       setNeighborhoodFilter(key);
       setSearch(label);
     }
-    setListingViewMode("results");
+    setListingViewMode("browse");
     requestAnimationFrame(() => {
       document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -1737,7 +1791,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         type="button"
                         onClick={() => {
                           if (hasActiveSearchOrFilters) {
-                            setListingViewMode("results");
+                            setListingViewMode(
+                              isFeaturedCityNeighborhoodKey(neighborhoodFilter) ? "browse" : "results",
+                            );
                             setFiltersOpen(false);
                           }
                         }}
@@ -1889,6 +1945,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         onOpenPropertyZoom={setZoomProperty}
                         viewerVerifiedListingAgent={viewerVerifiedListingAgent}
                         listingsOnboardingHref={user ? "/register/agent" : "/auth/signup"}
+                        rowTitleSuffix={browseRowTitleSuffix}
                       />
                     ) : (
                       <PropertyRows
@@ -1930,6 +1987,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         onOpenPropertyZoom={setZoomProperty}
                         viewerVerifiedListingAgent={viewerVerifiedListingAgent}
                         listingsOnboardingHref={user ? "/register/agent" : "/auth/signup"}
+                        rowTitleSuffix={browseRowTitleSuffix}
                       />
                     )}
                   </motion.div>
@@ -2813,6 +2871,7 @@ function PropertyRows({
   onOpenPropertyZoom,
   viewerVerifiedListingAgent,
   listingsOnboardingHref,
+  rowTitleSuffix,
 }: {
   rows: { key: string; title: string; subtitle: string; items: DbProperty[]; featured?: boolean }[];
   showMore: boolean;
@@ -2826,10 +2885,14 @@ function PropertyRows({
   onOpenPropertyZoom: (p: DbProperty) => void;
   viewerVerifiedListingAgent: boolean;
   listingsOnboardingHref: string;
+  /** When set (featured city browse), append to each row title, e.g. " in Makati". */
+  rowTitleSuffix?: string;
 }) {
   const eagerListingThumbKey = useMemo(() => firstBrowseListingThumbKey(rows), [rows]);
   const first = rows.slice(0, 4);
   const rest = rows.slice(4);
+
+  const titleWithSuffix = (t: string) => (rowTitleSuffix ? `${t}${rowTitleSuffix}` : t);
 
   return (
     <div className="space-y-6">
@@ -2837,7 +2900,7 @@ function PropertyRows({
         <div key={r.key}>
           <RowCarousel
             rowKey={r.key}
-            title={r.title}
+            title={titleWithSuffix(r.title)}
             subtitle={r.subtitle}
             items={r.items}
             featured={!!r.featured}
@@ -2882,7 +2945,7 @@ function PropertyRows({
               <div key={r.key}>
                 <RowCarousel
                   rowKey={r.key}
-                  title={r.title}
+                  title={titleWithSuffix(r.title)}
                   subtitle={r.subtitle}
                   items={r.items}
                   featured={!!r.featured}
@@ -3130,8 +3193,8 @@ function RowCarousel({
     list.length === 0 ? 3 : list.length > 0 && list.length < 5 ? 5 - list.length : 0;
   const featuredClasses = featured ? "rounded-2xl border border-[#D4A843]/30 bg-[#D4A843]/5 px-3 pt-3" : "";
   const cardWidthClass = "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]";
-  const reserveBrowseSectionMinH = title === "Newly Listed Rentals";
-  const isFeaturedPicksRow = title === "Featured Picks";
+  const reserveBrowseSectionMinH = title.startsWith("Newly Listed Rentals");
+  const isFeaturedPicksRow = title.startsWith("Featured Picks");
 
   const scrollTrack = (
     <div
