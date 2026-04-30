@@ -2045,181 +2045,185 @@ export function AgentDashboard() {
         {/* Desktop sidebar */}
         <aside
           className={cn(
-            "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:flex-col md:overflow-y-auto md:px-2 md:py-5",
+            "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:min-h-0 md:flex-col md:overflow-hidden md:px-2 md:py-5",
             tab === "messages" ? "w-[208px]" : "w-[180px]",
           )}
         >
-          <div className="mb-5 flex items-center gap-2 px-1">
-            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-[#D4A843]/35">
-              {agent.image_url ? (
-                <SupabasePublicImage src={agent.image_url} alt="" fill className="object-cover" sizes="40px" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/20 text-sm font-bold text-[#2C2C2C]">
-                  {agent.name.slice(0, 1)}
-                </div>
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-[13px] font-semibold leading-tight text-[#2C2C2C]">{agent.name}</p>
-              <VerifiedAgentBadge show={agent.verification_status === "verified"} />
-            </div>
-          </div>
-          <nav className="flex flex-1 flex-col gap-1">
-            {!isTeamMemberView ? (
-              tabs.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
-                    (t.id === "analytics" || t.id === "team") && "opacity-55 hover:opacity-80",
-                    tab === t.id
-                      ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
-                      : "text-[#2C2C2C]/65 hover:bg-white/80",
-                  )}
-                >
-                  <span className="relative inline-flex text-[#6B9E6E]">
-                    {t.icon}
-                    {t.id === "pipeline" && pipelineTabUnreadCount > 0 ? (
-                      <span
-                        className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
-                        aria-hidden
-                      />
-                    ) : null}
-                  </span>
-                  {t.label}
-                  {t.id === "pipeline" && pipelineTabUnreadCount > 0 ? (
-                    <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                      {pipelineTabUnreadCount > 99 ? "99+" : pipelineTabUnreadCount}
-                    </span>
-                  ) : null}
-                  {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
-                    <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                      {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
-                    </span>
-                  ) : null}
-                </button>
-              ))
-            ) : (
-              tabs.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
-                    (t.id === "analytics" || t.id === "team") && "opacity-55 hover:opacity-80",
-                    tab === t.id
-                      ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
-                      : "text-[#2C2C2C]/65 hover:bg-white/80",
-                  )}
-                >
-                  <span className="relative inline-flex text-[#6B9E6E]">
-                    {t.icon}
-                    {t.id === "pipeline" && streamMessagesUnreadTotal > 0 ? (
-                      <span
-                        className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
-                        aria-hidden
-                      />
-                    ) : null}
-                  </span>
-                  {t.label}
-                  {t.id === "pipeline" && pipelineTabUnreadCount > 0 ? (
-                    <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                      {pipelineTabUnreadCount > 99 ? "99+" : pipelineTabUnreadCount}
-                    </span>
-                  ) : null}
-                  {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
-                    <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                      {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
-                    </span>
-                  ) : null}
-                </button>
-              ))
-            )}
-          </nav>
-          <div className="h-10 w-full" aria-hidden />
-          <div className="w-full px-1 pb-1">
-            <div className="my-2 h-px w-full bg-[#2C2C2C]/10" aria-hidden />
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => setCalendarModalOpen(true)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") setCalendarModalOpen(true);
-              }}
-              className="rounded-xl border border-[#2C2C2C]/8 bg-white/70 p-2 shadow-sm cursor-pointer hover:bg-white"
-              aria-label="Open calendar"
-            >
-              <div className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
-                <p className="text-xs font-semibold text-[#2C2C2C]">Viewings</p>
+          <div className="flex flex-col min-h-0">
+            <div className="mb-5 flex items-center gap-2 px-1">
+              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-[#D4A843]/35">
+                {agent.image_url ? (
+                  <SupabasePublicImage src={agent.image_url} alt="" fill className="object-cover" sizes="40px" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-[#6B9E6E]/20 text-sm font-bold text-[#2C2C2C]">
+                    {agent.name.slice(0, 1)}
+                  </div>
+                )}
               </div>
-
-              {sidebarViewingsLoading ? (
-                <p className="mt-2 text-[10px] font-semibold text-[#888888]">Loading…</p>
-              ) : sidebarViewings.length === 0 ? (
-                <p className="mt-2 text-[10px] font-semibold text-[#888888]">No upcoming viewings</p>
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-semibold leading-tight text-[#2C2C2C]">{agent.name}</p>
+                <VerifiedAgentBadge show={agent.verification_status === "verified"} />
+              </div>
+            </div>
+            <nav className="flex flex-col gap-1">
+              {!isTeamMemberView ? (
+                tabs.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTab(t.id)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
+                      (t.id === "analytics" || t.id === "team") && "opacity-55 hover:opacity-80",
+                      tab === t.id
+                        ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
+                        : "text-[#2C2C2C]/65 hover:bg-white/80",
+                    )}
+                  >
+                    <span className="relative inline-flex text-[#6B9E6E]">
+                      {t.icon}
+                      {t.id === "pipeline" && pipelineTabUnreadCount > 0 ? (
+                        <span
+                          className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
+                          aria-hidden
+                        />
+                      ) : null}
+                    </span>
+                    {t.label}
+                    {t.id === "pipeline" && pipelineTabUnreadCount > 0 ? (
+                      <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                        {pipelineTabUnreadCount > 99 ? "99+" : pipelineTabUnreadCount}
+                      </span>
+                    ) : null}
+                    {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
+                      <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                        {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
+                      </span>
+                    ) : null}
+                  </button>
+                ))
               ) : (
-                <div className="mt-2 space-y-1">
-                  {Array.from({ length: 5 }).map((_, i) => {
-                    const day = new Date();
-                    day.setHours(0, 0, 0, 0);
-                    day.setDate(day.getDate() + i);
-                    const dayKey = day.toISOString().slice(0, 10);
-                    const label = i === 0 ? "Today" : day.toLocaleDateString(undefined, { weekday: "short" });
-                    const items = sidebarViewings.filter((v) => v.scheduled_at.slice(0, 10) === dayKey);
-                    const isToday = i === 0;
-                    return (
-                      <div
-                        key={dayKey}
-                        className={cn(
-                          "flex items-start gap-2 rounded-md px-1.5 py-1",
-                          isToday && "border-l-2 border-[#6B9E6E] bg-[#6B9E6E]/6",
-                        )}
-                      >
-                        <div className={cn("w-10 shrink-0 text-[10px] font-semibold text-[#888888]", isToday && "font-bold text-[#6B9E6E]")}>
-                          {label}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          {items.length === 0 ? (
-                            <div className="text-[10px] font-semibold text-[#888888]/70">—</div>
-                          ) : (
-                            <div className="space-y-1">
-                              {items.slice(0, 2).map((v) => {
-                                const lead = leads.find((l) => l.id === v.lead_id);
-                                const time = v.scheduled_at
-                                  ? new Date(v.scheduled_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-                                  : "";
-                                const prop = lead ? pipelinePropertyLabel(lead.property_id ?? null) : "Viewing";
-                                return (
-                                  <button
-                                    key={`${v.lead_id}-${v.scheduled_at}`}
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setCalendarModalOpen(true);
-                                    }}
-                                    className="flex w-full min-w-0 items-center gap-1 rounded-sm px-0.5 py-0.5 text-left hover:bg-[#FAF8F4]"
-                                  >
-                                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />
-                                    <span className="shrink-0 text-[10px] font-semibold text-[#2C2C2C]">{time}</span>
-                                    <span className="min-w-0 truncate text-[10px] font-semibold text-[#888888]">{prop}</span>
-                                  </button>
-                                );
-                              })}
-                              {items.length > 2 ? (
-                                <div className="text-[10px] font-semibold text-[#888888]">+{items.length - 2} more</div>
-                              ) : null}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                tabs.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTab(t.id)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
+                      (t.id === "analytics" || t.id === "team") && "opacity-55 hover:opacity-80",
+                      tab === t.id
+                        ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
+                        : "text-[#2C2C2C]/65 hover:bg-white/80",
+                    )}
+                  >
+                    <span className="relative inline-flex text-[#6B9E6E]">
+                      {t.icon}
+                      {t.id === "pipeline" && streamMessagesUnreadTotal > 0 ? (
+                        <span
+                          className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
+                          aria-hidden
+                        />
+                      ) : null}
+                    </span>
+                    {t.label}
+                    {t.id === "pipeline" && pipelineTabUnreadCount > 0 ? (
+                      <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                        {pipelineTabUnreadCount > 99 ? "99+" : pipelineTabUnreadCount}
+                      </span>
+                    ) : null}
+                    {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
+                      <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                        {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
+                      </span>
+                    ) : null}
+                  </button>
+                ))
               )}
+            </nav>
+          </div>
+
+          <div className="flex flex-1 min-h-0 items-center justify-center">
+            <div className="w-full px-1">
+              <div className="mb-2 h-px w-full bg-[#2C2C2C]/10" aria-hidden />
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setCalendarModalOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") setCalendarModalOpen(true);
+                }}
+                className="rounded-xl border border-[#2C2C2C]/8 bg-white/70 p-2 shadow-sm cursor-pointer hover:bg-white"
+                aria-label="Open calendar"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
+                  <p className="text-xs font-semibold text-[#2C2C2C]">Viewings</p>
+                </div>
+
+                {sidebarViewingsLoading ? (
+                  <p className="mt-2 text-[10px] font-semibold text-[#888888]">Loading…</p>
+                ) : sidebarViewings.length === 0 ? (
+                  <p className="mt-2 text-[10px] font-semibold text-[#888888]">No upcoming viewings</p>
+                ) : (
+                  <div className="mt-2 space-y-1">
+                    {Array.from({ length: 5 }).map((_, i) => {
+                      const day = new Date();
+                      day.setHours(0, 0, 0, 0);
+                      day.setDate(day.getDate() + i);
+                      const dayKey = day.toISOString().slice(0, 10);
+                      const label = i === 0 ? "Today" : day.toLocaleDateString(undefined, { weekday: "short" });
+                      const items = sidebarViewings.filter((v) => v.scheduled_at.slice(0, 10) === dayKey);
+                      const isToday = i === 0;
+                      return (
+                        <div
+                          key={dayKey}
+                          className={cn(
+                            "flex items-start gap-2 rounded-md px-1.5 py-1",
+                            isToday && "border-l-2 border-[#6B9E6E] bg-[#6B9E6E]/6",
+                          )}
+                        >
+                          <div className={cn("w-10 shrink-0 text-[10px] font-semibold text-[#888888]", isToday && "font-bold text-[#6B9E6E]")}>
+                            {label}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            {items.length === 0 ? (
+                              <div className="text-[10px] font-semibold text-[#888888]/70">—</div>
+                            ) : (
+                              <div className="space-y-1">
+                                {items.slice(0, 2).map((v) => {
+                                  const lead = leads.find((l) => l.id === v.lead_id);
+                                  const time = v.scheduled_at
+                                    ? new Date(v.scheduled_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+                                    : "";
+                                  const prop = lead ? pipelinePropertyLabel(lead.property_id ?? null) : "Viewing";
+                                  return (
+                                    <button
+                                      key={`${v.lead_id}-${v.scheduled_at}`}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCalendarModalOpen(true);
+                                      }}
+                                      className="flex w-full min-w-0 items-center gap-1 rounded-sm px-0.5 py-0.5 text-left hover:bg-[#FAF8F4]"
+                                    >
+                                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />
+                                      <span className="shrink-0 text-[10px] font-semibold text-[#2C2C2C]">{time}</span>
+                                      <span className="min-w-0 truncate text-[10px] font-semibold text-[#888888]">{prop}</span>
+                                    </button>
+                                  );
+                                })}
+                                {items.length > 2 ? (
+                                  <div className="text-[10px] font-semibold text-[#888888]">+{items.length - 2} more</div>
+                                ) : null}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <Link
@@ -2234,7 +2238,7 @@ export function AgentDashboard() {
           open={calendarModalOpen}
           onClose={() => setCalendarModalOpen(false)}
           supabase={supabase}
-          agentId={agent.id}
+          agentId={user.id}
         />
 
         <main

@@ -771,10 +771,11 @@ function KanbanDealCard({
         {...listeners}
         style={cardSurfaceStyle}
         className={cn(
-          "relative flex flex-col min-h-[150px] rounded-lg border border-[#2C2C2C]/10 p-3 shadow-sm transition",
-          !hasCardPhoto && "bg-white",
+          "relative flex flex-col min-h-[150px] overflow-hidden rounded-lg border border-[#2C2C2C]/10 p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition",
+          !hasCardPhoto && "bg-white/70",
           next ? "pb-10" : "",
           "cursor-grab",
+          "hover:bg-white hover:shadow-sm",
           isDragging && "scale-[1.02] rotate-[0.6deg] cursor-grabbing shadow-xl",
         )}
         onClick={() => onOpenLeadDetails(deal.id)}
@@ -797,7 +798,7 @@ function KanbanDealCard({
               }}
             >
               <p
-                className="font-sans text-[14px] font-bold leading-snug text-[#2C2C2C]"
+                className="font-sans text-[14px] font-bold leading-snug text-[#2C2C2C]/80"
                 style={{
                   display: "-webkit-box",
                   WebkitLineClamp: 2,
@@ -1228,14 +1229,6 @@ function KanbanStageColumn({
             <p className="mt-1 max-w-[200px] font-sans text-xs font-medium leading-snug text-[#2C2C2C]/50">
               Deals in this stage will appear here.
             </p>
-            <button
-              type="button"
-              disabled
-              title="Coming soon"
-              className="mt-6 font-sans text-sm font-semibold text-[#2C2C2C]/40"
-            >
-              + Add deal
-            </button>
           </div>
         ) : (
           <SortableContext items={ids} strategy={verticalListSortingStrategy}>
@@ -2966,15 +2959,6 @@ export function AgentPipelineTab({
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
-
-                <button
-                  type="button"
-                  disabled
-                  className="rounded-full bg-[#6B9E6E] px-4 py-2 text-sm font-bold text-white hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-75"
-                  title="Manual deal entry coming soon"
-                >
-                  + Add Lead
-                </button>
                 <select
                   value={pipelineKey}
                   onChange={(e) => setPipelineKey(e.target.value)}

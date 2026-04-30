@@ -21,7 +21,8 @@ type ViewingRow = {
 };
 
 type CalendarViewing = {
-  id: number;
+  id: number | string;
+  leadId: number;
   scheduledAt: Date;
   status: string | null;
   propertyTitle: string;
@@ -197,7 +198,7 @@ export function AgentCalendarModal(props: {
           v.leads?.properties?.location?.trim() ||
           "Viewing";
         const clientName = v.leads?.client_id ? clientMap[v.leads.client_id] ?? "Unknown" : "Unknown";
-        return { id: v.id, scheduledAt: dt, status: v.status ?? null, propertyTitle, clientName };
+        return { id: v.id, leadId: v.lead_id, scheduledAt: dt, status: v.status ?? null, propertyTitle, clientName };
       });
 
       window.clearTimeout(timeout);
@@ -386,6 +387,7 @@ export function AgentCalendarModal(props: {
                         {weekDays.map((d) => {
                           const k = dayKey(d);
                           const isHighlighted = k === highlightKey;
+                        const matchEvents = byDay.get(k) ?? [];
                           return (
                             <button
                               key={k}
@@ -406,7 +408,7 @@ export function AgentCalendarModal(props: {
                               ))}
 
                               {/* Events */}
-                              {(byDay.get(k) ?? []).map((v) => {
+                              {matchEvents.map((v) => {
                                 const dt = v.scheduledAt;
                                 const mins = dt.getHours() * 60 + dt.getMinutes();
                                 const startMins = START_HOUR * 60;
