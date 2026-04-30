@@ -9,6 +9,7 @@ import {
   ArrowUpRight,
   BarChart3,
   Bell,
+  Calendar,
   FileText,
   Check,
   CreditCard,
@@ -35,6 +36,7 @@ import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-mes
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
+import { AgentCalendarModal } from "@/components/dashboard/agent-calendar-modal";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { formatLicenseDate } from "@/lib/license-expiry";
@@ -1385,6 +1387,52 @@ export function AgentDashboard() {
     [properties],
   );
 
+  const [sidebarViewings, setSidebarViewings] = useState<
+    { lead_id: number; scheduled_at: string; status: string | null }[]
+  >([]);
+  const [sidebarViewingsLoading, setSidebarViewingsLoading] = useState(false);
+  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
+
+  useEffect(() => {
+    const leadIds = leads.map((l) => l.id).filter((id): id is number => typeof id === "number" && Number.isFinite(id));
+    if (!leadIds.length) {
+      setSidebarViewings([]);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      setSidebarViewingsLoading(true);
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 5);
+
+      const { data, error } = await supabase
+        .from("viewings")
+        .select("lead_id, scheduled_at, status")
+        .in("lead_id", leadIds)
+        .gte("scheduled_at", start.toISOString())
+        .lt("scheduled_at", end.toISOString())
+        .neq("status", "cancelled")
+        .order("scheduled_at", { ascending: true })
+        .limit(50);
+
+      if (cancelled) return;
+      if (error) {
+        console.error("[agent-sidebar] viewings query failed", { message: error.message });
+        setSidebarViewings([]);
+      } else {
+        setSidebarViewings((data ?? []) as { lead_id: number; scheduled_at: string; status: string | null }[]);
+      }
+      setSidebarViewingsLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [leads, supabase]);
+
   const pipelineArchivedTabRows = useMemo(
     () =>
       archivedLeads.map((l) => ({
@@ -2091,6 +2139,89 @@ export function AgentDashboard() {
               ))
             )}
           </nav>
+          <div className="h-10 w-full" aria-hidden />
+          <div className="w-full px-1 pb-1">
+            <div className="my-2 h-px w-full bg-[#2C2C2C]/10" aria-hidden />
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setCalendarModalOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") setCalendarModalOpen(true);
+              }}
+              className="rounded-xl border border-[#2C2C2C]/8 bg-white/70 p-2 shadow-sm cursor-pointer hover:bg-white"
+              aria-label="Open calendar"
+            >
+              <div className="flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
+                <p className="text-xs font-semibold text-[#2C2C2C]">Viewings</p>
+              </div>
+
+              {sidebarViewingsLoading ? (
+                <p className="mt-2 text-[10px] font-semibold text-[#888888]">Loading…</p>
+              ) : sidebarViewings.length === 0 ? (
+                <p className="mt-2 text-[10px] font-semibold text-[#888888]">No upcoming viewings</p>
+              ) : (
+                <div className="mt-2 space-y-1">
+                  {Array.from({ length: 5 }).map((_, i) => {
+                    const day = new Date();
+                    day.setHours(0, 0, 0, 0);
+                    day.setDate(day.getDate() + i);
+                    const dayKey = day.toISOString().slice(0, 10);
+                    const label = i === 0 ? "Today" : day.toLocaleDateString(undefined, { weekday: "short" });
+                    const items = sidebarViewings.filter((v) => v.scheduled_at.slice(0, 10) === dayKey);
+                    const isToday = i === 0;
+                    return (
+                      <div
+                        key={dayKey}
+                        className={cn(
+                          "flex items-start gap-2 rounded-md px-1.5 py-1",
+                          isToday && "border-l-2 border-[#6B9E6E] bg-[#6B9E6E]/6",
+                        )}
+                      >
+                        <div className={cn("w-10 shrink-0 text-[10px] font-semibold text-[#888888]", isToday && "font-bold text-[#6B9E6E]")}>
+                          {label}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          {items.length === 0 ? (
+                            <div className="text-[10px] font-semibold text-[#888888]/70">—</div>
+                          ) : (
+                            <div className="space-y-1">
+                              {items.slice(0, 2).map((v) => {
+                                const lead = leads.find((l) => l.id === v.lead_id);
+                                const time = v.scheduled_at
+                                  ? new Date(v.scheduled_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+                                  : "";
+                                const prop = lead ? pipelinePropertyLabel(lead.property_id ?? null) : "Viewing";
+                                return (
+                                  <button
+                                    key={`${v.lead_id}-${v.scheduled_at}`}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setCalendarModalOpen(true);
+                                    }}
+                                    className="flex w-full min-w-0 items-center gap-1 rounded-sm px-0.5 py-0.5 text-left hover:bg-[#FAF8F4]"
+                                  >
+                                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />
+                                    <span className="shrink-0 text-[10px] font-semibold text-[#2C2C2C]">{time}</span>
+                                    <span className="min-w-0 truncate text-[10px] font-semibold text-[#888888]">{prop}</span>
+                                  </button>
+                                );
+                              })}
+                              {items.length > 2 ? (
+                                <div className="text-[10px] font-semibold text-[#888888]">+{items.length - 2} more</div>
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
           <Link
             href="/"
             className="mt-auto px-2 py-2 text-sm font-semibold text-[#2C2C2C]/55 hover:text-[#2C2C2C]"
@@ -2098,6 +2229,13 @@ export function AgentDashboard() {
             ← Back to site
           </Link>
         </aside>
+
+        <AgentCalendarModal
+          open={calendarModalOpen}
+          onClose={() => setCalendarModalOpen(false)}
+          supabase={supabase}
+          agentId={agent.id}
+        />
 
         <main
           className={cn(
