@@ -1,290 +1,329 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  ArrowRight,
-  GitBranch,
-  Heart,
-  House,
-  Rocket,
-  Search,
-  ShieldCheck,
-  X,
-} from "lucide-react";
+import { FileText, GitBranch, House, MessageSquare, ShieldCheck, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const CHANGELOG_VERSION = "v1.0";
 const OPEN_DELAY_MS = 4000;
 
-function MiniPropertyCard({
-  title,
-  price,
-  className,
-  style,
-}: {
-  title: string;
-  price: string;
-  className?: string;
-  style?: CSSProperties;
-}) {
-  return (
-    <div
-      className={`flex flex-col justify-center rounded-md bg-[#6B9E6E] px-2 py-1.5 shadow-md ${className ?? ""}`}
-      style={style}
-    >
-      <p className="truncate text-[9px] font-bold leading-tight text-white">{title}</p>
-      <p className="text-[8px] font-semibold text-white/90">{price}</p>
-    </div>
-  );
-}
+const CREAM = "#FAF8F4";
+const RIGHT_SAGE = "#2d4a2f";
 
-function KanbanColumns({ labels }: { labels: string[] }) {
+/** Right-panel stage: centered content, ~70–85% usable area */
+function RightStage({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-[148px] w-[272px] shrink-0 gap-1.5">
-      {labels.map((label) => (
-        <div
-          key={label}
-          className="flex w-[62px] shrink-0 flex-col rounded border border-white/12 bg-[#252525] pt-4"
-        >
-          <span className="block text-center text-[7px] font-bold uppercase tracking-wide text-white/35">
-            {label}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Onboarding slide 1 — row1 Lead→Viewing (1s), pause (0.5s), row2 Viewing→Offer (1s), loop */
-function PreviewKanbanOnboarding() {
-  const col = 62 + 6;
-  return (
-    <div className="relative mx-auto flex h-[200px] w-[272px] items-end justify-center pb-2">
-      <KanbanColumns labels={["Lead", "Viewing", "Offer", "Closed"]} />
-      <motion.div
-        className="absolute left-[5px] top-9 w-[56px]"
-        initial={false}
-        animate={{ x: [0, col, col, 0] }}
-        transition={{
-          duration: 3.5,
-          repeat: Infinity,
-          ease: "easeInOut",
-          times: [0, 0.286, 0.429, 1],
-        }}
-      >
-        <MiniPropertyCard title="BGC Unit" price="₱18M" className="w-full" />
-      </motion.div>
-      <motion.div
-        className="absolute top-[118px] w-[56px]"
-        style={{ left: 5 + col }}
-        initial={false}
-        animate={{ x: [0, col, 0] }}
-        transition={{
-          duration: 3.5,
-          repeat: Infinity,
-          ease: "easeInOut",
-          times: [0, 0.4, 1],
-        }}
-      >
-        <MiniPropertyCard title="QC Row" price="₱8.2M" className="w-full" />
-      </motion.div>
-      <div className="absolute right-[6px] top-[118px] w-[56px]">
-        <MiniPropertyCard title="Makati Loft" price="₱12.5M" className="w-full opacity-75" />
+    <div className="flex h-full min-h-[240px] w-full flex-1 items-center justify-center md:min-h-0">
+      <div className="relative flex w-[min(92%,95%)] max-w-[min(90vw,640px)] flex-col items-center justify-center md:w-[85%]">
+        {children}
       </div>
     </div>
   );
 }
 
-function StagePill({ text, tone }: { text: string; tone: "gold" | "sage" | "muted" }) {
-  const bg =
-    tone === "gold"
-      ? "bg-[#D4A843]/25 text-[#D4A843]"
-      : tone === "sage"
-        ? "bg-[#6B9E6E]/25 text-[#6B9E6E]"
-        : "bg-white/10 text-white/60";
-  return (
-    <span className={`inline-block max-w-full truncate rounded px-1 py-0.5 text-[6px] font-bold ${bg}`}>
-      {text}
-    </span>
-  );
-}
+/** Horizontal travel: centered card in Lead (160−140)/2=10 → same inset in Viewing (+160 gap +80) */
+const PIPELINE_CARD_DX = 240;
 
-/** What's new slide 1 — kanban with pills + faint bg on one card */
-function PreviewKanbanWhatsNew() {
-  const col = 62 + 6;
-  return (
-    <div className="relative mx-auto flex h-[200px] w-[272px] items-end justify-center pb-2">
-      <KanbanColumns labels={["Lead", "Viewing", "Offer", "Closed"]} />
-      <motion.div
-        className="absolute left-[5px] top-9 w-[56px] overflow-hidden rounded-md border border-white/10 shadow-md"
-        initial={false}
-        animate={{ x: [0, col * 2, col * 2, 0] }}
-        transition={{
-          duration: 4.2,
-          repeat: Infinity,
-          ease: [0.22, 1, 0.36, 1],
-          times: [0, 0.35, 0.5, 1],
-        }}
-      >
-        <div
-          className="absolute inset-0 bg-gradient-to-br from-[#6B9E6E]/40 to-[#2C2C2C]/80"
-          aria-hidden
-        />
-        <div className="relative z-10 flex h-full flex-col justify-between bg-[#2C2C2C]/75 p-1.5">
-          <StagePill text="Viewing Apr 30" tone="gold" />
-          <div>
-            <p className="text-[8px] font-bold text-white">Ortigas View</p>
-            <p className="text-[7px] text-white/70">₱9.1M</p>
-          </div>
-        </div>
-      </motion.div>
-      <div className="absolute left-[5px] top-[118px] w-[56px] rounded-md border border-white/10 bg-[#333] p-1.5 shadow-md">
-        <StagePill text="New lead Apr 27" tone="sage" />
-        <p className="mt-1 text-[8px] font-bold text-white">Pasig TH</p>
-      </div>
-    </div>
-  );
-}
+/** Slide 1 — kanban-style columns, card drags Lead → Viewing, 6s loop */
+function PreviewPipelineDrag() {
+  const loop = 6;
+  const ease = "easeInOut" as const;
+  const t = [0, 1 / 6, 0.25, 1 / 3, 3.5 / 6, 2 / 3, 5.5 / 6, 0.93, 0.94, 1];
 
-function PreviewAgentVerified() {
+  const leadColOpacity = [1, 1, 1, 0.5, 0.5, 1, 1, 1, 1, 1];
+  const viewingGlow = [
+    "none",
+    "none",
+    "none",
+    "0 0 8px rgba(107,158,110,0.4)",
+    "0 0 8px rgba(107,158,110,0.4)",
+    "none",
+    "none",
+    "none",
+    "none",
+    "none",
+  ];
+
+  const cardX = [0, 0, 0, 0, PIPELINE_CARD_DX, PIPELINE_CARD_DX, PIPELINE_CARD_DX, PIPELINE_CARD_DX, 0, 0];
+  const cardY = [0, 0, -3, -3, -3, 0, 0, 0, 0, 0];
+  const cardRotate = [0, 0, 0, 1.5, 1.5, 0, 0, 0, 0, 0];
+  const cardScale = [1, 1, 1, 1.02, 1.02, 1, 1, 1, 1, 1];
+  const cardOpacity = [1, 1, 1, 1, 1, 1, 1, 1, 0, 1];
+  const cardShadow = [
+    "0 4px 14px rgba(0,0,0,0.28)",
+    "0 4px 14px rgba(0,0,0,0.28)",
+    "0 4px 14px rgba(0,0,0,0.28)",
+    "0 10px 26px rgba(0,0,0,0.42)",
+    "0 12px 28px rgba(0,0,0,0.48)",
+    "0 4px 14px rgba(0,0,0,0.28)",
+    "0 4px 14px rgba(0,0,0,0.28)",
+    "0 4px 14px rgba(0,0,0,0.28)",
+    "0 4px 14px rgba(0,0,0,0.28)",
+    "0 4px 14px rgba(0,0,0,0.28)",
+  ];
+
+  const pillLeadOpacity = [1, 1, 1, 1, 1, 0, 0, 0, 1, 1];
+  const pillViewOpacity = [0, 0, 0, 0, 0, 1, 1, 1, 0, 0];
+
+  const cursorOpacity = [0, 0, 1, 1, 1, 1, 0, 0, 0, 0];
+  const cursorX = [312, 312, 76, 72, 72 + PIPELINE_CARD_DX, 72 + PIPELINE_CARD_DX, 72 + PIPELINE_CARD_DX, 72 + PIPELINE_CARD_DX, 312, 312];
+  /** Nudged down with dragged card `top` so the pointer stays on the card (same timing as before). */
+  const cursorY = [316, 316, 184, 180, 180, 192, 192, 192, 316, 316];
+
+  const transition = { duration: loop, repeat: Infinity, ease, times: t };
+
   return (
-    <div className="relative mx-auto flex w-[220px] flex-col items-center gap-3 py-2">
-      <div className="relative w-full rounded-xl border border-white/10 bg-[#2C2C2C] p-3 shadow-lg">
-        <div className="flex items-start gap-2">
-          <div className="h-11 w-11 shrink-0 rounded-full bg-white/10 ring-1 ring-white/15" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-bold text-white">Alex Rivera</p>
-            <motion.span
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 420, damping: 18, repeat: Infinity, repeatDelay: 2 }}
-              className="mt-1 inline-flex items-center rounded-full bg-[#6B9E6E]/25 px-2 py-0.5 text-[8px] font-bold text-[#6B9E6E]"
+    <RightStage>
+      <div className="flex w-full justify-center px-2 py-6">
+        <div className="relative h-[280px] w-[400px] max-w-[calc(100vw-2rem)] shrink-0">
+          <div className="absolute inset-0 flex gap-[80px]">
+            <motion.div
+              className="flex h-[280px] w-[160px] shrink-0 flex-col rounded-xl border border-white/10 bg-white/5 px-2.5 pb-2 pt-3"
+              initial={false}
+              animate={{ opacity: leadColOpacity }}
+              transition={transition}
             >
-              Verified
-            </motion.span>
+              <h3 className="text-sm font-semibold text-white">Lead</h3>
+            </motion.div>
+            <motion.div
+              className="flex h-[280px] w-[160px] shrink-0 flex-col rounded-xl border border-white/10 bg-white/5 px-2.5 pb-2 pt-3"
+              initial={false}
+              animate={{ boxShadow: viewingGlow }}
+              transition={transition}
+            >
+              <h3 className="text-sm font-semibold text-white">Viewing</h3>
+            </motion.div>
           </div>
+
+          <motion.div
+            className="pointer-events-none absolute left-0 top-0 z-20 h-5 w-5"
+            initial={false}
+            animate={{ opacity: cursorOpacity, x: cursorX, y: cursorY }}
+            transition={transition}
+            style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.55)) drop-shadow(0 0 1px rgba(255,255,255,0.35))" }}
+            aria-hidden
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white">
+              <path
+                d="M5.5 3.21L20.5 12L5.5 20.79V14.5L12 12L5.5 9.5V3.21Z"
+                fill="currentColor"
+                stroke="currentColor"
+                strokeWidth="1"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </motion.div>
+
+          <div
+            className="pointer-events-none absolute left-[250px] top-[52px] z-[5] w-[140px] rounded-lg border border-white/[0.08] bg-[#1a1a1a] shadow-[0_4px_14px_rgba(0,0,0,0.28)]"
+            aria-hidden
+          >
+            <div className="pointer-events-none absolute right-1.5 top-1.5">
+              <span className="inline-flex items-center justify-center rounded-full bg-[#D4A843]/35 px-1.5 py-0.5 text-[9px] font-bold text-[#D4A843]">
+                Viewing
+              </span>
+            </div>
+            <div className="flex flex-col px-2.5 pb-2 pt-4">
+              <p className="text-xs font-bold text-white">BGC Loft</p>
+              <p className="mt-0.5 text-xs font-bold text-[#D4A843]">₱45,000/mo</p>
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <img
+                  src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&q=80"
+                  alt=""
+                  width={20}
+                  height={20}
+                  className="h-5 w-5 shrink-0 rounded-full object-cover"
+                  draggable={false}
+                />
+                <span className="text-[10px] text-white/60">Maria Santos</span>
+              </div>
+            </div>
+          </div>
+
+          <motion.div
+            className="pointer-events-none absolute left-[10px] top-[160px] z-10 w-[140px] rounded-lg border border-white/[0.08] bg-[#1a1a1a]"
+            initial={false}
+            animate={{
+              x: cardX,
+              y: cardY,
+              rotate: cardRotate,
+              scale: cardScale,
+              opacity: cardOpacity,
+              boxShadow: cardShadow,
+            }}
+            transition={transition}
+          >
+            <div className="pointer-events-none absolute right-1.5 top-1.5 h-4 w-11">
+              <motion.span
+                className="absolute inset-0 flex items-center justify-center rounded-full bg-[#6B9E6E]/45 px-1.5 text-[9px] font-bold text-[#6B9E6E]"
+                initial={false}
+                animate={{ opacity: pillLeadOpacity }}
+                transition={transition}
+              >
+                Lead
+              </motion.span>
+              <motion.span
+                className="absolute inset-0 flex items-center justify-center rounded-full bg-[#D4A843]/35 px-1.5 text-[9px] font-bold text-[#D4A843]"
+                initial={false}
+                animate={{ opacity: pillViewOpacity }}
+                transition={transition}
+              >
+                Viewing
+              </motion.span>
+            </div>
+            <div className="flex flex-col px-2.5 pb-2 pt-4">
+              <p className="text-xs font-bold text-white">Studio Condo</p>
+              <p className="mt-0.5 text-xs font-bold text-[#D4A843]">₱32,000/mo</p>
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <img
+                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80"
+                  alt=""
+                  width={20}
+                  height={20}
+                  className="h-5 w-5 shrink-0 rounded-full object-cover"
+                  draggable={false}
+                />
+                <span className="text-[10px] text-white/60">James Cruz</span>
+              </div>
+            </div>
+          </motion.div>
         </div>
-        <div className="mt-2 flex gap-0.5">
-          {[1, 2, 3, 4, 5].map((i) => (
+      </div>
+    </RightStage>
+  );
+}
+
+/** Slide 2 — two-message chat, 6s loop, no cursor
+ * 0–0.8s agent in | 0.8–1.6s typing | 1.6–2.0s client in | ~3s both visible | 0.5s fade */
+function PreviewChatSimple() {
+  const loopS = 6;
+  const easeOut = [0.25, 0.1, 0.25, 1] as const;
+  return (
+    <RightStage>
+      <div className="flex w-[70%] min-w-[260px] max-w-lg flex-col gap-5 py-4">
+        <motion.div
+          className="max-w-[92%] self-start"
+          initial={false}
+          animate={{ x: [-20, 0, 0, -6], opacity: [0, 1, 1, 0] }}
+          transition={{
+            duration: loopS,
+            repeat: Infinity,
+            ease: easeOut,
+            times: [0, 0.8 / loopS, 5.5 / loopS, 1],
+          }}
+        >
+          <p className="mb-1 text-xs text-white/60">Maria Santos</p>
+          <div className="flex gap-2">
+            <div className="flex h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#6B9E6E] ring-1 ring-white/15">
+              <img
+                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&q=80"
+                alt=""
+                width={36}
+                height={36}
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
+            </div>
+            <div>
+              <div className="rounded-2xl rounded-tl-sm bg-[#1a1a1a] px-3 py-2.5 shadow-md">
+                <p className="text-sm text-white">Hi James, ready na yung documents?</p>
+              </div>
+              <p className="mt-1 pl-1 text-xs text-white/30">2:30 PM</p>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          className="flex items-center gap-1 self-end pr-2 sm:pr-4"
+          initial={false}
+          animate={{ opacity: [0, 0, 1, 1, 0, 0] }}
+          transition={{
+            duration: loopS,
+            repeat: Infinity,
+            ease: "easeInOut",
+            times: [0, 0.8 / loopS, 0.84 / loopS, 1.56 / loopS, 1.6 / loopS, 1],
+          }}
+          aria-hidden
+        >
+          {[0, 1, 2].map((i) => (
             <motion.span
               key={i}
-              className="text-[#D4A843]"
-              initial={{ opacity: 0.2 }}
-              animate={{ opacity: 1 }}
-              transition={{
-                duration: 0.35,
-                delay: i * 0.12,
-                repeat: Infinity,
-                repeatDelay: 2.2,
-              }}
-            >
-              ★
-            </motion.span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PreviewClientCarousel() {
-  return (
-    <div className="relative mx-auto h-[160px] w-[240px] overflow-hidden py-2">
-      <motion.div
-        className="flex gap-2"
-        animate={{ x: [0, -56, -112, -56, 0] }}
-        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-      >
-        {["Alabang", "BGC", "Makati", "Pasig", "QC"].map((city, i) => (
-          <div
-            key={city}
-            className="relative h-[100px] w-[72px] shrink-0 rounded-lg border border-white/10 bg-[#6B9E6E]/30"
-          >
-            <div className="flex h-full flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-1.5">
-              <p className="text-[8px] font-bold text-white">{city}</p>
-            </div>
-            {i === 2 ? (
-              <motion.span
-                className="absolute right-1 top-1 text-white"
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <Heart className="h-3.5 w-3.5 fill-[#6B9E6E] text-[#6B9E6E]" strokeWidth={1.5} />
-              </motion.span>
-            ) : null}
-          </div>
-        ))}
-      </motion.div>
-    </div>
-  );
-}
-
-function BahayGoLogoMark({ className }: { className?: string }) {
-  return (
-    <div className={`flex flex-col items-center gap-1 ${className ?? ""}`}>
-      <div className="flex items-center gap-1">
-        <House className="h-8 w-8 text-[#D4A843]" strokeWidth={1.75} />
-      </div>
-      <p className="text-center font-sans text-lg font-bold tracking-tight">
-        <span className="text-white">bahay</span>
-        <span className="text-[#6B9E6E]">go</span>
-      </p>
-    </div>
-  );
-}
-
-function PreviewLogoPulse() {
-  return (
-    <div className="flex h-[180px] items-center justify-center">
-      <motion.div
-        animate={{
-          scale: [1, 1.03, 1],
-          filter: [
-            "drop-shadow(0 0 0px rgba(212,168,67,0))",
-            "drop-shadow(0 0 14px rgba(212,168,67,0.35))",
-            "drop-shadow(0 0 0px rgba(212,168,67,0))",
-          ],
-        }}
-        transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-      >
-        <BahayGoLogoMark />
-      </motion.div>
-    </div>
-  );
-}
-
-function PreviewOffersDocument() {
-  return (
-    <div className="relative mx-auto flex w-[200px] items-center justify-center py-6">
-      <div className="relative w-full rounded-xl border border-white/12 bg-[#2C2C2C] p-3 shadow-xl">
-        <motion.span
-          className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#6B9E6E]"
-          animate={{ opacity: [1, 0.35, 1], scale: [1, 1.15, 1] }}
-          transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <p className="pr-4 text-[10px] font-bold text-white">Marina View — Offer</p>
-        <p className="mt-1 text-[8px] text-white/50">Awaiting client</p>
-        <motion.div
-          className="mt-3 inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1"
-          initial={{ x: 8, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 1.2, ease: "easeOut" }}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-[#D4A843]">
-            <path
-              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-              stroke="currentColor"
-              strokeWidth="1.5"
+              className="h-1.5 w-1.5 rounded-full bg-[#6B9E6E]"
+              animate={{ opacity: [0.35, 1, 0.35] }}
+              transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.12, ease: "easeInOut" }}
             />
-            <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
-          <span className="text-[7px] font-semibold text-white/80">Offer.pdf</span>
+          ))}
+        </motion.div>
+
+        <motion.div
+          className="max-w-[92%] self-end"
+          initial={false}
+          animate={{ x: [18, 18, 0, 0, 8], opacity: [0, 0, 1, 1, 0] }}
+          transition={{
+            duration: loopS,
+            repeat: Infinity,
+            ease: easeOut,
+            times: [0, 1.6 / loopS, 2 / loopS, 5.5 / loopS, 1],
+          }}
+        >
+          <p className="mb-1 text-right text-xs text-white/60">James Cruz</p>
+          <div className="flex flex-row-reverse gap-2">
+            <div className="flex h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#D4A843] ring-1 ring-white/15">
+              <img
+                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80"
+                alt=""
+                width={36}
+                height={36}
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
+            </div>
+            <div>
+              <div className="rounded-2xl rounded-tr-sm bg-[#6B9E6E] px-3 py-2.5 shadow-md">
+                <p className="text-sm text-white">Naipadala ko na po, Maria 📎</p>
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-white/70">
+                  <FileText className="h-3.5 w-3.5 shrink-0 opacity-90" strokeWidth={2} />
+                  <span>Offer_Letter.pdf</span>
+                </div>
+              </div>
+              <p className="mt-1 pr-1 text-right text-xs text-white/30">2:32 PM</p>
+            </div>
+          </div>
         </motion.div>
       </div>
-    </div>
+    </RightStage>
+  );
+}
+
+/** Slide 3 — logo breathing + tagline, 3s loop (scale + sage glow ring) */
+function PreviewLogoBreathSimple() {
+  return (
+    <RightStage>
+      <div className="flex flex-col items-center justify-center gap-4 py-6">
+        <motion.div
+          className="flex flex-col items-center rounded-2xl px-6 py-2"
+          animate={{
+            scale: [1, 1.04, 1],
+            boxShadow: [
+              "0 0 40px rgba(107,158,110,0.3)",
+              "0 0 60px rgba(107,158,110,0.5)",
+              "0 0 40px rgba(107,158,110,0.3)",
+            ],
+          }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <House className="mx-auto h-12 w-12 text-[#D4A843]" strokeWidth={1.65} aria-hidden />
+          <p className="mt-2 text-center font-sans text-2xl font-bold tracking-tight">
+            <span className="text-white">bahay</span>
+            <span className="text-[#6B9E6E]">go</span>
+          </p>
+        </motion.div>
+        <p className="text-center text-sm text-white/50">Built for Philippine Real Estate</p>
+      </div>
+    </RightStage>
   );
 }
 
@@ -298,81 +337,63 @@ type SlideDef = {
 
 function newPill() {
   return (
-    <span className="mb-3 inline-block rounded-full bg-[#D4A843]/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#D4A843]">
+    <span className="mb-4 inline-block rounded-full bg-[#D4A843]/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#D4A843]">
       New
     </span>
   );
 }
 
-function iconWrap(children: ReactNode) {
+function iconCell(children: ReactNode, tone: "sage" | "gold" = "sage") {
+  const color = tone === "gold" ? "text-[#D4A843]" : "text-[#6B9E6E]";
   return (
-    <div className="mb-4 flex h-8 w-8 items-center justify-center text-[#6B9E6E]" aria-hidden>
-      {children}
+    <div
+      className={`mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-[#6B9E6E]/12 p-2 ${color}`}
+      aria-hidden
+    >
+      <span className="flex h-10 w-10 items-center justify-center [&_svg]:h-10 [&_svg]:w-10">{children}</span>
     </div>
   );
 }
 
-function buildOnboardingSlides(isClient: boolean): SlideDef[] {
-  const s2: SlideDef = isClient
-    ? {
-        key: "find-home",
-        left: (
-          <>
-            {iconWrap(<Search className="h-7 w-7" strokeWidth={1.75} />)}
-            <h2 className="font-sans text-2xl font-bold text-white">Find your perfect home</h2>
-            <p className="mt-3 font-sans text-sm leading-relaxed text-white/70">
-              Browse verified listings, save your favorites, and connect with trusted agents across the Philippines.
-            </p>
-          </>
-        ),
-        right: <PreviewClientCarousel />,
-      }
-    : {
-        key: "verified",
-        left: (
-          <>
-            {iconWrap(<ShieldCheck className="h-7 w-7" strokeWidth={1.75} />)}
-            <h2 className="font-sans text-2xl font-bold text-white">Get verified, get trusted</h2>
-            <p className="mt-3 font-sans text-sm leading-relaxed text-white/70">
-              Upload your PRC license, earn the verified badge, and stand out to clients searching for agents they can
-              trust.
-            </p>
-          </>
-        ),
-        right: <PreviewAgentVerified />,
-      };
+const titleClass = "font-sans text-3xl font-bold text-[#2C2C2C]";
+const bodyClass = "mt-4 font-sans text-base leading-relaxed text-[#888888]";
 
-  const s3Body = isClient
-    ? "Start exploring properties. Your next home is one search away."
-    : "Post your first listing to start receiving leads. Your dashboard is ready.";
-
+function buildOnboardingSlides(): SlideDef[] {
   return [
     {
       key: "pipeline",
       left: (
         <>
-          {iconWrap(<GitBranch className="h-7 w-7" strokeWidth={1.75} />)}
-          <h2 className="font-sans text-2xl font-bold text-white">Track every deal</h2>
-          <p className="mt-3 font-sans text-sm leading-relaxed text-white/70">
-            From first inquiry to closed deal — your pipeline keeps everything organized in one place.
+          {iconCell(<GitBranch strokeWidth={1.65} />)}
+          <h2 className={titleClass}>Your deals, one view</h2>
+          <p className={bodyClass}>
+            Drag deals between stages as they progress. Your pipeline keeps everything organized.
           </p>
         </>
       ),
-      right: <PreviewKanbanOnboarding />,
+      right: <PreviewPipelineDrag />,
     },
-    s2,
     {
-      key: "ready",
+      key: "messages",
       left: (
         <>
-          <div className="mb-4 flex h-8 w-8 items-center justify-center text-[#D4A843]" aria-hidden>
-            <Rocket className="h-7 w-7" strokeWidth={1.75} />
-          </div>
-          <h2 className="font-sans text-2xl font-bold text-white">You&apos;re ready</h2>
-          <p className="mt-3 font-sans text-sm leading-relaxed text-white/70">{s3Body}</p>
+          {iconCell(<MessageSquare strokeWidth={1.65} />)}
+          <h2 className={titleClass}>Stay connected</h2>
+          <p className={bodyClass}>Message clients directly. Get notified when documents arrive.</p>
         </>
       ),
-      right: <PreviewLogoPulse />,
+      right: <PreviewChatSimple />,
+    },
+    {
+      key: "brand",
+      left: (
+        <>
+          {iconCell(<ShieldCheck strokeWidth={1.65} />, "gold")}
+          <h2 className={titleClass}>Built for Philippine real estate</h2>
+          <p className={bodyClass}>PRC-verified agents. Trusted listings. From Makati to Cebu.</p>
+        </>
+      ),
+      right: <PreviewLogoBreathSimple />,
     },
   ];
 }
@@ -384,43 +405,40 @@ function buildWhatsNewSlides(): SlideDef[] {
       left: (
         <>
           {newPill()}
-          <h2 className="font-sans text-2xl font-bold text-white">Your pipeline just got smarter</h2>
-          <p className="mt-3 font-sans text-sm leading-relaxed text-white/70">
-            Stage pills show dates at a glance. Property photos appear as card backgrounds. Drag deals between stages
-            instantly.
+          <h2 className={titleClass}>Pipeline updates</h2>
+          <p className={bodyClass}>
+            Stage pills with dates, listing photos on cards, and quicker moves between stages.
           </p>
         </>
       ),
-      right: <PreviewKanbanWhatsNew />,
+      right: <PreviewPipelineDrag />,
     },
     {
-      key: "offers-docs",
+      key: "messaging",
       left: (
         <>
           {newPill()}
-          <h2 className="font-sans text-2xl font-bold text-white">Send offers, track documents</h2>
-          <p className="mt-3 font-sans text-sm leading-relaxed text-white/70">
-            Upload offer letters directly from your pipeline. Green dot notifications tell you when clients respond.
-          </p>
+          <h2 className={titleClass}>Seamless messaging</h2>
+          <p className={bodyClass}>Message clients directly. Get notified when documents arrive.</p>
         </>
       ),
-      right: <PreviewOffersDocument />,
+      right: <PreviewChatSimple />,
     },
     {
-      key: "try-now",
+      key: "coming-soon",
       left: (
         <>
-          {iconWrap(<ArrowRight className="h-7 w-7" strokeWidth={1.75} />)}
-          <h2 className="font-sans text-2xl font-bold text-white">Ready to explore?</h2>
-          <p className="mt-3 font-sans text-sm leading-relaxed text-white/70">
-            Your updated pipeline is waiting. Try dragging a deal or sending your first offer.
-          </p>
+          {newPill()}
+          <h2 className={titleClass}>More coming soon</h2>
+          <p className={bodyClass}>Maps, document tools, and more — shipping monthly.</p>
         </>
       ),
-      right: <PreviewLogoPulse />,
+      right: <PreviewLogoBreathSimple />,
     },
   ];
 }
+
+const slideEase = [0.22, 1, 0.36, 1] as const;
 
 export function PostLoginModal() {
   const { user, profile, loading: authLoading, refreshProfile } = useAuth();
@@ -454,12 +472,11 @@ export function PostLoginModal() {
     profile?.last_seen_changelog,
   ]);
 
-  const isClient = profile?.role === "client";
   const slides = useMemo(() => {
-    if (track === "onboarding") return buildOnboardingSlides(isClient);
+    if (track === "onboarding") return buildOnboardingSlides();
     if (track === "whatsnew") return buildWhatsNewSlides();
     return [];
-  }, [track, isClient]);
+  }, [track]);
 
   const total = slides.length;
   const isLast = slideIndex >= total - 1;
@@ -503,21 +520,21 @@ export function PostLoginModal() {
         <motion.div
           key="post-login-root"
           role="presentation"
-          className="fixed inset-0 z-[130] flex items-end justify-center p-0 md:items-center md:p-6"
+          className="fixed inset-0 z-[130] flex items-end justify-center px-4 py-6 md:items-center md:p-8"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.3 } }}
           transition={{ duration: 0.5 }}
         >
-          <div className="absolute inset-0 bg-[rgba(44,44,44,0.85)] backdrop-blur-sm" aria-hidden />
+          <div className="absolute inset-0 bg-[rgba(44,44,44,0.70)] backdrop-blur-[2px]" aria-hidden />
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-label={dialogLabel}
-            className="relative z-10 flex h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-none bg-white shadow-2xl md:h-auto md:max-h-[min(560px,90vh)] md:min-h-[420px] md:rounded-2xl"
+            className="relative z-10 flex max-h-[min(100dvh-2rem,920px)] w-full max-w-5xl flex-col overflow-y-auto overflow-x-hidden rounded-xl border border-white/10 bg-transparent shadow-none md:max-h-[min(92vh,880px)] md:overflow-hidden"
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 32 }}
+            exit={{ opacity: 0, y: 28 }}
             transition={{
               opacity: { duration: 0.5, delay: 0.2 },
               y: { duration: 0.5, delay: 0.2, ease: [0, 0, 0.2, 1] },
@@ -526,53 +543,82 @@ export function PostLoginModal() {
             <button
               type="button"
               onClick={onDismiss}
-              className="absolute right-3 top-3 z-20 rounded-full p-1.5 text-white/85 transition hover:bg-white/10 hover:text-white"
+              className="absolute right-3 top-3 z-30 rounded-md p-1.5 text-[#2C2C2C]/45 transition hover:text-[#2C2C2C] md:right-4 md:top-4 md:text-white/50 md:hover:text-white/90"
               aria-label="Dismiss"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" strokeWidth={2} />
             </button>
 
-            <div className="flex min-h-0 flex-1 flex-col md:flex-row md:min-h-0">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={`${track}-${slideIndex}`}
-                  className="flex min-h-0 flex-1 flex-col md:flex-row"
-                  initial={{ opacity: 0, x: 18 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -14 }}
-                  transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <div className="order-1 flex min-h-0 flex-1 flex-col justify-center bg-[#2C2C2C] px-6 pb-4 pt-10 md:order-none md:w-[45%] md:py-10 md:pl-8 md:pr-6 md:pt-10">
-                    {slides[slideIndex]?.left}
-                  </div>
-                  <div className="order-2 flex min-h-[220px] shrink-0 flex-col items-center justify-center bg-[#1a1a1a] md:order-none md:w-[55%] md:min-h-[280px] md:flex-1">
-                    <div className="flex h-full w-full items-center justify-center px-3 py-4">
-                      {slides[slideIndex]?.right}
-                    </div>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
-            <div className="order-3 flex shrink-0 items-center justify-between border-t border-white/10 bg-[#2C2C2C] px-5 py-4">
-              <div className="flex items-center gap-2">
-                {Array.from({ length: total }).map((_, i) => (
-                  <span
-                    key={i}
-                    className={`h-2 w-2 rounded-full transition-colors ${
-                      i === slideIndex ? "bg-white" : "bg-white/30"
-                    }`}
-                    aria-hidden
-                  />
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={onNext}
-                className="rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#5a8a5d]"
+            <div className="flex min-h-0 w-full flex-1 flex-col md:min-h-[500px] md:flex-row md:overflow-hidden">
+              <div
+                className="order-1 flex min-h-0 w-full flex-col md:order-none md:w-[45%] md:shrink-0"
+                style={{ backgroundColor: CREAM }}
               >
-                {ctaLabel}
-              </button>
+                <div className="flex min-h-0 flex-1 flex-col px-6 pb-6 pt-12 md:p-10 md:pr-8 md:pt-14">
+                  <div className="min-h-0 flex-1">
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={`${track}-${slideIndex}-left`}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.4, ease: slideEase }}
+                      >
+                        {slides[slideIndex]?.left}
+                      </motion.div>
+                    </AnimatePresence>
+                  </div>
+                  <div className="mt-8 flex shrink-0 items-center justify-between gap-4 border-t border-[#2C2C2C]/10 pt-3">
+                    <div className="flex items-center gap-2.5" role="tablist" aria-label="Slides">
+                      {Array.from({ length: total }).map((_, i) => {
+                        const active = i === slideIndex;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            role="tab"
+                            aria-selected={active}
+                            aria-label={`Go to slide ${i + 1}`}
+                            onClick={() => setSlideIndex(i)}
+                            className={`h-2.5 w-2.5 shrink-0 rounded-full transition-colors ${
+                              active
+                                ? "cursor-default bg-[#2C2C2C]"
+                                : "cursor-pointer bg-[#2C2C2C]/25 hover:bg-[#2C2C2C]/40"
+                            }`}
+                          />
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onNext}
+                      className="shrink-0 rounded-lg bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#5a8a5d]"
+                    >
+                      {ctaLabel}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="order-2 flex min-h-[240px] w-full flex-1 flex-col md:order-none md:w-[55%] md:min-h-0"
+                style={{ backgroundColor: RIGHT_SAGE }}
+              >
+                <div className="flex min-h-[240px] flex-1 flex-col items-stretch md:min-h-0">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={`${track}-${slideIndex}-right`}
+                      className="flex min-h-0 flex-1 flex-col"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.4, ease: slideEase }}
+                    >
+                      {slides[slideIndex]?.right}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              </div>
             </div>
           </motion.div>
         </motion.div>

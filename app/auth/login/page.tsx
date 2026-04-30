@@ -49,7 +49,7 @@ function LoginForm() {
       } else {
         let dest: string;
         if (role === "agent") {
-          dest = "/dashboard/agent";
+          dest = "/dashboard/agent?tab=pipeline";
         } else if (role === "client") {
           dest = "/";
         } else if (role === "admin" || role === "ops_admin" || role === "broker") {

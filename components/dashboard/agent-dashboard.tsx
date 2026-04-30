@@ -611,7 +611,7 @@ export function AgentDashboard() {
   const streamMessagesUnreadTotal = useUnreadMessageCount();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const [tab, setTab] = useState<Tab>("dashboard");
+  const [tab, setTab] = useState<Tab>("pipeline");
   const [agentUrlHydrated, setAgentUrlHydrated] = useState(false);
   const [streamChannelId, setStreamChannelId] = useState<string | null>(null);
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
