@@ -2779,8 +2779,38 @@ export function AgentPipelineTab({
     };
   }, [deals.length, dealValueByPropertyId]);
 
+  const vaultPills = (
+    <>
+      <button
+        type="button"
+        onClick={() => setPipelineVault("active")}
+        className={cn(
+          "rounded-full px-4 py-2 text-sm font-bold transition",
+          pipelineVault === "active"
+            ? "bg-[#6B9E6E] text-white shadow-sm"
+            : "border border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
+        )}
+      >
+        Active
+      </button>
+      <button
+        type="button"
+        onClick={() => setPipelineVault("archived")}
+        className={cn(
+          "rounded-full px-4 py-2 text-sm font-bold transition",
+          pipelineVault === "archived"
+            ? "bg-[#6B9E6E] text-white shadow-sm"
+            : "border border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
+        )}
+      >
+        Archived
+        <span className="ml-1.5 tabular-nums opacity-90">({archivedLeads.length})</span>
+      </button>
+    </>
+  );
+
   return (
-    <div className="w-full min-w-0 max-w-full space-y-6 bg-[#FAF8F4] font-sans text-[#2C2C2C]">
+    <div className="w-full min-w-0 max-w-full bg-[#FAF8F4] font-sans text-[#2C2C2C]">
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -2792,186 +2822,10 @@ export function AgentPipelineTab({
 `,
         }}
       />
-      <div>
-        <h1 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Pipeline</h1>
-        <p className="mt-2 max-w-2xl font-sans text-sm font-medium leading-relaxed text-[#2C2C2C]/60">
-          Track deals from lead to close — documents and stage updates in one place.
-        </p>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setPipelineVault("active")}
-          className={cn(
-            "rounded-full px-4 py-2 text-sm font-bold transition",
-            pipelineVault === "active"
-              ? "bg-[#6B9E6E] text-white shadow-sm"
-              : "border border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
-          )}
-        >
-          Active
-        </button>
-        <button
-          type="button"
-          onClick={() => setPipelineVault("archived")}
-          className={cn(
-            "rounded-full px-4 py-2 text-sm font-bold transition",
-            pipelineVault === "archived"
-              ? "bg-[#6B9E6E] text-white shadow-sm"
-              : "border border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
-          )}
-        >
-          Archived
-          <span className="ml-1.5 tabular-nums opacity-90">({archivedLeads.length})</span>
-        </button>
-      </div>
-
-      {pipelineVault === "active" ? (
-        <>
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 lg:hidden">
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">Pipeline overview</p>
-        <div className="-mx-1 overflow-x-auto pb-1 scrollbar-hide">
-          <div className="relative flex min-w-[min(100%,520px)] items-center justify-between gap-1 px-1 sm:min-w-0 sm:gap-0">
-            <div className="pointer-events-none absolute left-1 right-1 top-[22px] h-0.5 bg-gray-200" aria-hidden />
-            <div
-              className="pointer-events-none absolute left-1 top-[22px] h-0.5 bg-[#6B9E6E]"
-              style={{
-                width: `${
-                  PIPELINE_STAGES.length > 1
-                    ? (STAGE_ORDER.indexOf(filterStage) / (PIPELINE_STAGES.length - 1)) * 100
-                    : 0
-                }%`,
-              }}
-              aria-hidden
-            />
-            {PIPELINE_STAGES.map((s, idx) => {
-              const n = counts[s.id];
-              const hasCount = n > 0;
-              const active = filterStage === s.id;
-              return (
-                <div key={s.id} className="flex min-w-0 flex-1 items-center">
-                  <div className="flex w-full min-w-[56px] flex-col items-center gap-1.5">
-                    <div
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 bg-white text-sm font-bold shadow-sm ${
-                        hasCount ? "border-[#6B9E6E] text-[#6B9E6E]" : "border-gray-300 text-gray-400"
-                      } ${active ? "animate-pulse ring-2 ring-[#6B9E6E] ring-offset-2" : ""}`}
-                    >
-                      {n}
-                    </div>
-                    <span
-                      className={`text-center text-[10px] font-bold sm:text-[11px] ${
-                        hasCount ? "text-[#6B9E6E]" : "text-gray-400"
-                      }`}
-                    >
-                      {s.label}
-                    </span>
-                    {active ? (
-                      <span className="text-[10px] font-medium text-[#6B9E6E]">Current stage</span>
-                    ) : null}
-                  </div>
-                  {idx < PIPELINE_STAGES.length - 1 ? (
-                    <div className="mx-0.5 h-0.5 min-w-[8px] flex-1 bg-gray-200 sm:min-w-[12px]" aria-hidden />
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <p className="mt-3 text-center text-[9px] font-semibold text-gray-500">
-          Lead → Viewing → Offer → Reservation → Closed
-        </p>
-      </div>
-
-      <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 scrollbar-hide lg:hidden">
-        {PIPELINE_STAGES.map((s) => {
-          const active = filterStage === s.id;
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setFilterStage(s.id)}
-              className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition ${
-                active
-                  ? "bg-[#6B9E6E] text-white shadow-sm"
-                  : "border border-[#2C2C2C]/20 bg-white text-[#2C2C2C]/75 hover:border-[#6B9E6E]/40"
-              }`}
-            >
-              {s.label}
-              <span className={`ml-1.5 tabular-nums ${active ? "text-white/90" : "text-[#2C2C2C]/45"}`}>
-                ({counts[s.id]})
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Mobile / tablet: keep current stacked view */}
-      <div className="touch-pan-y space-y-3 overscroll-contain md:touch-auto lg:hidden">
-        {displayDeals.length === 0 ? (
-          <p className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center text-sm font-semibold text-[#2C2C2C]/45">
-            No deals at this stage.
-          </p>
-        ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
-            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
-              {displayDeals.map((deal, idx) => (
-                <SortableDealCard
-                  key={deal.id}
-                  deal={deal}
-                  indexInStage={idx}
-                  propertyLabel={propertyLabel}
-                  dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
-                  pinned={Boolean(deal.pinned)}
-                  uploadedRequestedDocCount={uploadedRequestedDocCountByLeadId[deal.id] ?? 0}
-                  unviewedUploadedDocCount={unviewedUploadedDocCountByLeadId[deal.id] ?? 0}
-                  onOpenDocs={openDocs}
-                  menuOpenId={menuOpenId}
-                  setMenuOpenId={setMenuOpenId}
-                  menuMoveOpen={menuMoveOpen}
-                  setMenuMoveOpen={setMenuMoveOpen}
-                  menuWrapRef={menuWrapRef}
-                  onOpenLeadDetails={onOpenLeadDetails}
-                  onRequestNotes={(d) => {
-                    setNotesLead(d);
-                    setNotesDraft(d.closing_notes ?? "");
-                  }}
-                  onRequestDocuments={(d) => {
-                    if (!d.client_id) {
-                      toast.error("This lead is not linked to a client account yet.");
-                      return;
-                    }
-                    setRequestDocsLead(d);
-                    setReqDocSelections({
-                      valid_id: false,
-                      proof_of_funds: false,
-                      visa: false,
-                      other: false,
-                    });
-                  }}
-                  onRequestDecline={(d) => setDeclineDeal(d)}
-                  onTogglePin={togglePin}
-                  onMoveToStage={moveDealToStage}
-                  moveBusyId={moveToStageBusyId}
-                  propertyMetaById={propertyMetaById}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
-        )}
-      </div>
-
-      {/* Desktop: Pipedrive-style kanban columns — toolbar stays fixed; columns scroll horizontally */}
-      <div className="hidden w-full min-w-0 max-w-full overflow-x-hidden lg:block">
-        <div className="relative w-full min-w-0">
-          {kanbanFadeRight ? (
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-y-0 right-0 z-20 w-10 bg-gradient-to-l from-[#FAF8F4] to-transparent"
-            />
-          ) : null}
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-1">
-            <div className="flex flex-wrap items-center gap-2">
+      <div className="flex w-full min-w-0 flex-col gap-2 pb-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-x-3 lg:gap-y-2 lg:pb-4">
+        {pipelineVault === "active" ? (
+          <>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <button
                 type="button"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
@@ -2994,15 +2848,15 @@ export function AgentPipelineTab({
               >
                 <RefreshCw className="h-4 w-4" aria-hidden />
               </button>
+              {vaultPills}
             </div>
-
-            <div className="flex flex-wrap items-center justify-end gap-3">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 lg:justify-end lg:gap-3">
               <span className="font-sans text-sm font-semibold text-[#2C2C2C]/55">
                 {allDealsTotal > 0 ? `${formatPesoCompact(allDealsTotal)} • ` : ""}
                 {allDealsCount} deal{allDealsCount === 1 ? "" : "s"}
               </span>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -3144,10 +2998,160 @@ export function AgentPipelineTab({
                 </button>
               </div>
             </div>
+          </>
+        ) : (
+          <div className="flex flex-wrap gap-2">{vaultPills}</div>
+        )}
+      </div>
+
+      {pipelineVault === "active" ? (
+        <>
+      <div className="flex flex-col gap-2 lg:hidden">
+      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Pipeline overview</p>
+        <div className="-mx-1 overflow-x-auto pb-1 scrollbar-hide">
+          <div className="relative flex min-w-[min(100%,520px)] items-center justify-between gap-1 px-1 sm:min-w-0 sm:gap-0">
+            <div className="pointer-events-none absolute left-1 right-1 top-[22px] h-0.5 bg-gray-200" aria-hidden />
+            <div
+              className="pointer-events-none absolute left-1 top-[22px] h-0.5 bg-[#6B9E6E]"
+              style={{
+                width: `${
+                  PIPELINE_STAGES.length > 1
+                    ? (STAGE_ORDER.indexOf(filterStage) / (PIPELINE_STAGES.length - 1)) * 100
+                    : 0
+                }%`,
+              }}
+              aria-hidden
+            />
+            {PIPELINE_STAGES.map((s, idx) => {
+              const n = counts[s.id];
+              const hasCount = n > 0;
+              const active = filterStage === s.id;
+              return (
+                <div key={s.id} className="flex min-w-0 flex-1 items-center">
+                  <div className="flex w-full min-w-[56px] flex-col items-center gap-1.5">
+                    <div
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 bg-white text-sm font-bold shadow-sm ${
+                        hasCount ? "border-[#6B9E6E] text-[#6B9E6E]" : "border-gray-300 text-gray-400"
+                      } ${active ? "animate-pulse ring-2 ring-[#6B9E6E] ring-offset-2" : ""}`}
+                    >
+                      {n}
+                    </div>
+                    <span
+                      className={`text-center text-[10px] font-bold sm:text-[11px] ${
+                        hasCount ? "text-[#6B9E6E]" : "text-gray-400"
+                      }`}
+                    >
+                      {s.label}
+                    </span>
+                    {active ? (
+                      <span className="text-[10px] font-medium text-[#6B9E6E]">Current stage</span>
+                    ) : null}
+                  </div>
+                  {idx < PIPELINE_STAGES.length - 1 ? (
+                    <div className="mx-0.5 h-0.5 min-w-[8px] flex-1 bg-gray-200 sm:min-w-[12px]" aria-hidden />
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
+        </div>
+        <p className="mt-2 text-center text-[9px] font-semibold text-gray-500">
+          Lead → Viewing → Offer → Reservation → Closed
+        </p>
+      </div>
+
+      <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {PIPELINE_STAGES.map((s) => {
+          const active = filterStage === s.id;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setFilterStage(s.id)}
+              className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition ${
+                active
+                  ? "bg-[#6B9E6E] text-white shadow-sm"
+                  : "border border-[#2C2C2C]/20 bg-white text-[#2C2C2C]/75 hover:border-[#6B9E6E]/40"
+              }`}
+            >
+              {s.label}
+              <span className={`ml-1.5 tabular-nums ${active ? "text-white/90" : "text-[#2C2C2C]/45"}`}>
+                ({counts[s.id]})
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Mobile / tablet: keep current stacked view */}
+      <div className="touch-pan-y space-y-2 overscroll-contain md:touch-auto">
+        {displayDeals.length === 0 ? (
+          <p className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center text-sm font-semibold text-[#2C2C2C]/45">
+            No deals at this stage.
+          </p>
+        ) : (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
+            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+              {displayDeals.map((deal, idx) => (
+                <SortableDealCard
+                  key={deal.id}
+                  deal={deal}
+                  indexInStage={idx}
+                  propertyLabel={propertyLabel}
+                  dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
+                  pinned={Boolean(deal.pinned)}
+                  uploadedRequestedDocCount={uploadedRequestedDocCountByLeadId[deal.id] ?? 0}
+                  unviewedUploadedDocCount={unviewedUploadedDocCountByLeadId[deal.id] ?? 0}
+                  onOpenDocs={openDocs}
+                  menuOpenId={menuOpenId}
+                  setMenuOpenId={setMenuOpenId}
+                  menuMoveOpen={menuMoveOpen}
+                  setMenuMoveOpen={setMenuMoveOpen}
+                  menuWrapRef={menuWrapRef}
+                  onOpenLeadDetails={onOpenLeadDetails}
+                  onRequestNotes={(d) => {
+                    setNotesLead(d);
+                    setNotesDraft(d.closing_notes ?? "");
+                  }}
+                  onRequestDocuments={(d) => {
+                    if (!d.client_id) {
+                      toast.error("This lead is not linked to a client account yet.");
+                      return;
+                    }
+                    setRequestDocsLead(d);
+                    setReqDocSelections({
+                      valid_id: false,
+                      proof_of_funds: false,
+                      visa: false,
+                      other: false,
+                    });
+                  }}
+                  onRequestDecline={(d) => setDeclineDeal(d)}
+                  onTogglePin={togglePin}
+                  onMoveToStage={moveDealToStage}
+                  moveBusyId={moveToStageBusyId}
+                  propertyMetaById={propertyMetaById}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        )}
+      </div>
+      </div>
+
+      {/* Desktop: Pipedrive-style kanban columns — toolbar stays fixed; columns scroll horizontally */}
+      <div className="hidden w-full min-w-0 max-w-full overflow-x-hidden lg:block">
+        <div className="relative w-full min-w-0">
+          {kanbanFadeRight ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 z-20 w-10 bg-gradient-to-l from-[#FAF8F4] to-transparent"
+            />
+          ) : null}
           <div
             ref={kanbanScrollRef}
-            className="relative isolate w-full min-w-0 overflow-x-auto overflow-y-visible overscroll-x-contain scroll-smooth bg-[#FAF8F4] px-1 py-4 scrollbar-hide"
+            className="relative isolate w-full min-w-0 overflow-x-auto overflow-y-visible overscroll-x-contain scroll-smooth bg-[#FAF8F4] px-1 py-2 scrollbar-hide"
           >
             {menuOpenId != null ? (
               <button

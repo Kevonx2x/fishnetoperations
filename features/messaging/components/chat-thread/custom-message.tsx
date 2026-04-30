@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { Home } from "lucide-react";
-import { Avatar, MessageText, useChannelStateContext, useMessageContext } from "stream-chat-react";
+import { Attachment, Avatar, MessageText, useChannelStateContext, useMessageContext } from "stream-chat-react";
 
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
@@ -34,6 +34,12 @@ export function CustomMessage() {
       }),
     [channelMessages, message.id, message.user?.id],
   );
+
+  const finalAttachments = useMemo(() => {
+    if (!message.shared_location && !message.attachments?.length) return [];
+    if (!message.shared_location) return message.attachments ?? [];
+    return [message.shared_location, ...(message.attachments ?? [])];
+  }, [message.attachments, message.shared_location]);
 
   const myId = message.user?.id;
   const othersRead = mine && (readBy ?? []).some((u) => u.id && u.id !== myId);
@@ -90,6 +96,9 @@ export function CustomMessage() {
         {showRoleLabel ? <span className="mb-0.5 block text-xs text-[#888888] md:hidden">{roleLabel}</span> : null}
         {showName ? <span className="bhg-msg__name">{message.user?.name}</span> : null}
         <div className="bhg-msg__bubble">
+          {finalAttachments.length > 0 && !message.quoted_message ? (
+            <Attachment attachments={finalAttachments} />
+          ) : null}
           <MessageText />
           {propertyId ? (
             <Link

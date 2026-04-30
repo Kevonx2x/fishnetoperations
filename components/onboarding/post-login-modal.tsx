@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FileText, GitBranch, House, MessageSquare, ShieldCheck, Star, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -9,6 +9,12 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const CHANGELOG_VERSION = "v1.0";
 const OPEN_DELAY_MS = 4000;
+
+/** Backup if profile refetch lags: set on successful dismiss so the modal does not reopen. */
+const MODAL_LOCALSTORAGE_DISMISS_KEY = "bahaygo_modal_dismissed";
+
+/** Ensures only the first mounted `PostLoginModal` renders (guards duplicate parents / Strict Mode quirks). */
+let postLoginModalOwner: object | null = null;
 
 /** Same instant as `supabase/migrations/20260430140000_profiles_tutorial_tracking.sql` tutorial backfill. */
 const TUTORIAL_ONBOARDING_CUTOFF_MS = Date.parse("2026-04-30T00:00:00.000Z");
@@ -19,7 +25,7 @@ const TUTORIAL_ONBOARDING_CUTOFF_MS = Date.parse("2026-04-30T00:00:00.000Z");
  * tutorial-complete for onboarding routing only — What's New still uses `last_seen_changelog` only (never
  * `created_at`). Set to `false` after QA and restore onboarding-only cutoff behavior in this file.
  */
-const TEMP_DISABLE_LEGACY_TUTORIAL_BACKSTOP = true;
+const TEMP_DISABLE_LEGACY_TUTORIAL_BACKSTOP = false;
 
 function isLegacyProfileBeforeTutorialCutoff(createdAt: string | null | undefined): boolean {
   if (!createdAt) return false;
@@ -1025,6 +1031,16 @@ function buildClientWhatsNewSlides(): SlideDef[] {
 const slideEase = [0.22, 1, 0.36, 1] as const;
 
 export function PostLoginModal() {
+  const instanceRef = useRef<object | null>(null);
+  if (instanceRef.current === null) instanceRef.current = {};
+  const instance = instanceRef.current;
+
+  useEffect(() => {
+    return () => {
+      if (postLoginModalOwner === instance) postLoginModalOwner = null;
+    };
+  }, [instance]);
+
   const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
@@ -1035,11 +1051,16 @@ export function PostLoginModal() {
   useEffect(() => {
     if (authLoading || !user?.id || !profile) return;
     const id = window.setTimeout(() => {
+      if (typeof window !== "undefined" && localStorage.getItem(MODAL_LOCALSTORAGE_DISMISS_KEY) === "true") {
+        return;
+      }
       const changelogSeen = profile.last_seen_changelog === CHANGELOG_VERSION;
       const dbTutorialDone = profile.tutorial_completed === true;
-      const legacyPreCutoff = isLegacyProfileBeforeTutorialCutoff(profile.created_at);
       const tutorialDone =
-        TEMP_DISABLE_LEGACY_TUTORIAL_BACKSTOP && legacyPreCutoff ? false : dbTutorialDone;
+        TEMP_DISABLE_LEGACY_TUTORIAL_BACKSTOP &&
+        isLegacyProfileBeforeTutorialCutoff(profile.created_at)
+          ? false
+          : dbTutorialDone;
       if (!tutorialDone) {
         setTrack("onboarding");
         setSlideIndex(0);
@@ -1079,10 +1100,21 @@ export function PostLoginModal() {
 
   const persistAndClose = useCallback(async () => {
     if (!user?.id || !track) return;
-    if (track === "onboarding") {
-      await supabase.from("profiles").update({ tutorial_completed: true }).eq("id", user.id);
+    console.log("[PostLoginModal] Dismiss clicked, saving flags...");
+    const row = {
+      tutorial_completed: true as const,
+      last_seen_changelog: CHANGELOG_VERSION,
+    };
+    const result = await supabase.from("profiles").update(row).eq("id", user.id).select("id,tutorial_completed,last_seen_changelog").maybeSingle();
+    console.log("[PostLoginModal] Supabase update result:", result);
+    if (result.error) {
+      console.log("[PostLoginModal] Supabase update ERROR:", result.error);
     } else {
-      await supabase.from("profiles").update({ last_seen_changelog: CHANGELOG_VERSION }).eq("id", user.id);
+      try {
+        localStorage.setItem(MODAL_LOCALSTORAGE_DISMISS_KEY, "true");
+      } catch {
+        /* ignore quota / private mode */
+      }
     }
     await refreshProfile();
     setModalOpen(false);
@@ -1104,6 +1136,13 @@ export function PostLoginModal() {
     track === "whatsnew" && isLast ? "Let's Go" : isLast ? "Get Started" : "Next";
 
   const dialogLabel = track === "onboarding" ? "Welcome to BahayGo" : "What's new in BahayGo";
+
+  if (postLoginModalOwner !== null && postLoginModalOwner !== instance) {
+    return null;
+  }
+  if (postLoginModalOwner === null) {
+    postLoginModalOwner = instance;
+  }
 
   return (
     <AnimatePresence

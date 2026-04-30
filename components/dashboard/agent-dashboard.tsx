@@ -15,7 +15,6 @@ import {
   Eye,
   GitBranch,
   House,
-  LayoutDashboard,
   LayoutList,
   Loader2,
   MessageSquare,
@@ -55,7 +54,6 @@ import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
 import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
 import { formatListingPricePhp } from "@/lib/format-listing-price";
-import { PostLoginModal } from "@/components/onboarding/post-login-modal";
 import { cn } from "@/lib/utils";
 import { avatarObjectExt, validateAvatarFile } from "@/lib/supabase/upload-avatar";
 import {
@@ -86,7 +84,6 @@ import { formatRelativeTime } from "@/lib/relative-time";
 import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 
 type Tab =
-  | "dashboard"
   | "overview"
   | "pipeline"
   | "messages"
@@ -629,7 +626,6 @@ export function AgentDashboard() {
       const ch = sp.get("channel");
       if (ch) setStreamChannelId(ch);
       const allowed: Tab[] = [
-        "dashboard",
         "overview",
         "pipeline",
         "messages",
@@ -643,6 +639,8 @@ export function AgentDashboard() {
       ];
       if (raw === "leads" || raw === "viewings") {
         setTab("pipeline");
+      } else if (raw === "dashboard") {
+        setTab("overview");
       } else if (raw && allowed.includes(raw as Tab)) setTab(raw as Tab);
 
       if (sp.get("payment") === "success") {
@@ -1961,7 +1959,6 @@ export function AgentDashboard() {
   }
 
   const allTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
     { id: "overview", label: "Overview", icon: <House className="h-[18px] w-[18px]" /> },
     { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-[18px] w-[18px]" /> },
     { id: "messages", label: "Messages", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
@@ -1973,7 +1970,7 @@ export function AgentDashboard() {
     { id: "profile", label: "Profile", icon: <Settings className="h-[18px] w-[18px]" /> },
   ];
   const teamMemberNavTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "pipeline", label: "Dashboard", icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
+    { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-[18px] w-[18px]" /> },
     { id: "messages", label: "Messages", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
     { id: "documents", label: "Documents", icon: <FileText className="h-[18px] w-[18px]" /> },
   ];
@@ -1986,9 +1983,13 @@ export function AgentDashboard() {
   const mobilePrimaryTabIds: Tab[] = isTeamMemberView
     ? ["pipeline", "messages", "documents"]
     : identityVerified
-      ? ["dashboard", "messages"]
-      : ["dashboard"];
-  const mobileMoreTabIds: Tab[] = isTeamMemberView ? [] : ["listings", "team", "analytics", "billing", "profile"];
+      ? ["pipeline", "messages"]
+      : ["overview"];
+  const mobileMoreTabIds: Tab[] = isTeamMemberView
+    ? []
+    : identityVerified
+      ? ["overview", "listings", "team", "analytics", "billing", "notifications", "profile"]
+      : ["listings", "team", "analytics", "billing", "notifications", "profile"];
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0">
@@ -2103,7 +2104,9 @@ export function AgentDashboard() {
             "min-w-0 flex-1 md:flex md:h-full md:min-h-0 md:flex-col",
             tab === "messages"
               ? "px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
-              : "px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 md:pb-10",
+              : tab === "pipeline"
+                ? "px-4 py-3 md:overflow-y-auto md:px-8 md:py-5 md:pb-5"
+                : "px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 md:pb-10",
           )}
         >
           {isTeamMemberView ? (
@@ -2123,7 +2126,7 @@ export function AgentDashboard() {
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.2 }}
               >
-              {(tab === "dashboard" || tab === "overview") && (
+              {tab === "overview" && (
                 <OverviewTab
                   agent={agent}
                   accountApproved={agent.status === "approved"}
@@ -2259,7 +2262,7 @@ export function AgentDashboard() {
         </main>
       </div>
 
-      {/* Mobile bottom bar — Home, Overview, Pipeline, Listings, More */}
+      {/* Mobile bottom bar — Home, Pipeline/Messages (or team member set), More */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-1 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
         <button
           type="button"
@@ -2276,24 +2279,20 @@ export function AgentDashboard() {
         </button>
         {mobilePrimaryTabIds.map((tid) => {
           const t = tabs.find((x) => x.id === tid)!;
-          const isDashSlot = tid === "dashboard" && identityVerified && !isTeamMemberView;
-          const dashActive = isDashSlot ? tab === "dashboard" || tab === "overview" || tab === "pipeline" : tab === tid;
-          const mobileLabel =
-            !isTeamMemberView && tid === "dashboard" ? "Dashboard" : isTeamMemberView && tid === "pipeline" ? "Dashboard" : t.label;
+          const active = tab === tid;
           return (
             <button
               key={tid}
               type="button"
               onClick={() => {
-                if (isDashSlot) setTab("dashboard");
-                else setTab(tid);
+                setTab(tid);
                 setMoreDrawerOpen(false);
               }}
               className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[10px] font-bold ${
-                dashActive ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
+                active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
               }`}
             >
-              {isDashSlot && streamMessagesUnreadTotal > 0 ? (
+              {!isTeamMemberView && tid === "pipeline" && pipelineTabUnreadCount > 0 ? (
                 <span
                   className="pointer-events-none absolute right-2 top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]/95"
                   aria-hidden
@@ -2304,7 +2303,7 @@ export function AgentDashboard() {
                   {streamMessagesUnreadTotal > 9 ? "9+" : streamMessagesUnreadTotal}
                 </span>
               ) : null}
-              <span className={dashActive ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
+              <span className={active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
                 <span className="relative inline-flex">
                   <span className="inline-flex [&_svg]:h-5 [&_svg]:w-5">{t.icon}</span>
                   {isTeamMemberView && tid === "pipeline" && streamMessagesUnreadTotal > 0 ? (
@@ -2315,7 +2314,7 @@ export function AgentDashboard() {
                   ) : null}
                 </span>
               </span>
-              <span className="max-w-[4.5rem] truncate">{mobileLabel}</span>
+              <span className="max-w-[4.5rem] truncate">{t.label}</span>
             </button>
           );
         })}
@@ -2852,8 +2851,6 @@ export function AgentDashboard() {
           />
         ) : null}
       </AnimatePresence>
-
-      <PostLoginModal />
     </div>
   );
 }
