@@ -5,6 +5,7 @@ import { PROPERTY_ADDRESS_FALLBACK, propertyAddressLabel } from "@/lib/property-
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveTeamMemberSupervisorUserId } from "@/lib/team-member-lead-access";
+import { validateDealAttachmentFile } from "@/lib/deal-attachment-file";
 
 function asNumber(v: unknown): number {
   if (typeof v === "number") return v;
@@ -38,18 +39,18 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
     const leadId = Number.parseInt(String(form.get("lead_id") ?? ""), 10);
     const amount = asNumber(form.get("amount"));
-    const currency = String(form.get("currency") ?? "PHP").trim().toUpperCase() || "PHP";
-    const deadlineAt = String(form.get("deadline_at") ?? "").trim();
     const offerIdRaw = String(form.get("offer_id") ?? "").trim();
     const offerId = offerIdRaw ? offerIdRaw : null;
-    const refundPolicyRaw = String(form.get("refund_policy") ?? "");
     const notesRaw = String(form.get("notes") ?? "");
-    const refundPolicy = refundPolicyRaw.trim() ? refundPolicyRaw.trim().slice(0, 500) : null;
     const notes = notesRaw.trim() ? notesRaw.trim().slice(0, 300) : null;
+    const file = form.get("agreement_file");
 
     if (!Number.isFinite(leadId) || leadId <= 0) return fail("BAD_REQUEST", "lead_id required", 400);
     if (!Number.isFinite(amount) || amount <= 0) return fail("BAD_REQUEST", "amount required", 400);
-    if (!deadlineAt) return fail("BAD_REQUEST", "deadline_at required", 400);
+    if (file instanceof File && file.size > 0) {
+      const fileErr = validateDealAttachmentFile(file);
+      if (fileErr) return fail("BAD_REQUEST", fileErr, 400);
+    }
 
     const { data: lead, error: leadErr } = await admin
       .from("leads")
@@ -68,20 +69,19 @@ export async function POST(req: NextRequest) {
           : agentId != null && agentId === session.userId;
     if (!ownsLead) return fail("FORBIDDEN", "Not your lead", 403);
 
-    // Optional agreement file upload
     let agreementPath: string | null = null;
-    const file = form.get("agreement_file");
+    let agreementFileName: string | null = null;
     if (file instanceof File && file.size > 0) {
       const ext =
-        file.name.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8) || "pdf";
-      const path = `${leadId}/reservation-agreement-${Date.now()}.${ext}`;
+        file.name.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toLowerCase() || "pdf";
+      agreementPath = `${leadId}/reservation-agreement-${Date.now()}.${ext}`;
       const body = Buffer.from(await file.arrayBuffer());
-      const { error: uploadErr } = await admin.storage.from("deals").upload(path, body, {
+      const { error: uploadErr } = await admin.storage.from("deals").upload(agreementPath, body, {
         upsert: true,
         contentType: file.type || "application/octet-stream",
       });
       if (uploadErr) return fail("DATABASE_ERROR", uploadErr.message, 500);
-      agreementPath = path;
+      agreementFileName = file.name?.trim() ? file.name.trim().slice(0, 255) : null;
     }
 
     const nowIso = new Date().toISOString();
@@ -93,11 +93,12 @@ export async function POST(req: NextRequest) {
         offer_id: offerId,
         created_by: session.userId,
         amount,
-        currency,
-        deadline_at: deadlineAt,
-        refund_policy: refundPolicy,
+        currency: "PHP",
+        deadline_at: null,
+        refund_policy: null,
         notes,
         agreement_file_url: agreementPath,
+        agreement_file_name: agreementFileName,
         status: "pending",
         payment_status: "pending",
       })
@@ -167,10 +168,12 @@ export async function POST(req: NextRequest) {
           lead_id: leadId,
           reservation_id: reservationId,
           amount,
-          currency,
-          deadline_at: deadlineAt,
+          currency: "PHP",
           agent_name: agentName,
           property_name: propertyName,
+          agreement_file_url: agreementPath,
+          agreement_file_name: agreementFileName,
+          notes: notes ?? null,
         },
       });
     }

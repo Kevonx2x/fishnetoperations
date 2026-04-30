@@ -48,6 +48,8 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { dealAttachmentAcceptAttr, validateDealAttachmentFile } from "@/lib/deal-attachment-file";
+import { postFormDataWithUploadProgress } from "@/lib/form-upload-progress";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import {
@@ -135,6 +137,23 @@ export const PIPELINE_DOC_CHECKLIST: Record<PipelineStageId, DocDef[]> = {
 const STAGE_ORDER: PipelineStageId[] = ["lead", "viewing", "offer", "reservation", "closed"];
 const KANBAN_STAGE_ORDER: PipelineStageId[] = ["lead", "viewing", "offer", "reservation", "closed"];
 
+function cloneKanbanIdsByStage(s: Record<PipelineStageId, string[]>): Record<PipelineStageId, string[]> {
+  return {
+    lead: [...s.lead],
+    viewing: [...s.viewing],
+    offer: [...s.offer],
+    reservation: [...s.reservation],
+    closed: [...s.closed],
+  };
+}
+
+function findKanbanStageForLeadId(board: Record<PipelineStageId, string[]>, id: string): PipelineStageId | null {
+  for (const stage of KANBAN_STAGE_ORDER) {
+    if (board[stage].includes(id)) return stage;
+  }
+  return null;
+}
+
 function nextStage(s: PipelineStageId): PipelineStageId | null {
   const i = STAGE_ORDER.indexOf(s);
   if (i < 0 || i >= STAGE_ORDER.length - 1) return null;
@@ -194,14 +213,6 @@ const PANEL_DOC_BY_SLUG: Record<
 > = Object.fromEntries(
   PANEL_DOC_OPTGROUPS.flatMap((g) => g.options.map((o) => [o.slug, o] as const)),
 );
-
-/** When moving into a stage, pre-select this document in Request flow. */
-const STAGE_MOVE_SUGGEST_SLUG: Partial<Record<PipelineStageId, string>> = {
-  viewing: "valid_id",
-  offer: "proof_of_income",
-  reservation: "contract_to_sell",
-  closed: "deed_of_sale",
-};
 
 const PANEL_SELECT_CLASS =
   "mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-md";
@@ -346,7 +357,33 @@ type PipelineSortMode =
   | "city_asc"
   | "city_desc";
 
-type PropertyMeta = { city: string; location: string; deleted_at?: string | null };
+type PropertyMeta = {
+  city: string;
+  location: string;
+  deleted_at?: string | null;
+  /** First gallery photo (`property_photos` by sort_order) or `properties.image_url` when none. */
+  primary_photo_url?: string | null;
+};
+
+function primaryPropertyPhotoUrl(
+  imageUrl: string | null | undefined,
+  photos: { url: string | null; sort_order?: number | null }[] | null | undefined,
+): string | null {
+  const sorted = (photos ?? [])
+    .slice()
+    .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
+  for (const p of sorted) {
+    const u = String(p.url ?? "").trim();
+    if (u) return u;
+  }
+  const main = String(imageUrl ?? "").trim();
+  return main || null;
+}
+
+function cssUrlForBackground(u: string): string {
+  const escaped = u.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return `url("${escaped}")`;
+}
 
 function tsOr0(raw: string | null | undefined): number {
   const t = raw ? new Date(raw).getTime() : 0;
@@ -555,14 +592,11 @@ function KanbanDealCard({
   viewingScheduledAt,
   offerCreatedAt,
   reservationCreatedAt,
+  propertyCardPhotoUrl,
   onSendOffer,
   onCreateReservation,
   onMarkClosed,
   onOpenDocs,
-  onBeginStageMove,
-  stageMovePrompt,
-  onStageMovePromptSkip,
-  onStageMovePromptYes,
   menuOpenId,
   setMenuOpenId,
   menuMoveOpen,
@@ -591,18 +625,12 @@ function KanbanDealCard({
   offerCreatedAt?: string | null;
   /** Latest reservation created_at for this lead (for Reservation stage pill). */
   reservationCreatedAt?: string | null;
+  /** Primary listing image for faint card background; omit or null for plain white. */
+  propertyCardPhotoUrl?: string | null;
   onSendOffer: (lead: PipelineLeadRow) => void;
   onCreateReservation: (lead: PipelineLeadRow) => void;
   onMarkClosed: (lead: PipelineLeadRow) => void;
   onOpenDocs: (lead: PipelineLeadRow) => void;
-  onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
-  stageMovePrompt: {
-    lead: PipelineLeadRow;
-    targetStage: PipelineStageId;
-    kind: "advance" | "jump";
-  } | null;
-  onStageMovePromptSkip: () => void;
-  onStageMovePromptYes: (lead: PipelineLeadRow, targetStage: PipelineStageId) => void;
   menuOpenId: number | null;
   setMenuOpenId: (id: number | null) => void;
   menuMoveOpen: boolean;
@@ -630,7 +658,6 @@ function KanbanDealCard({
   const menuOpen = menuOpenId === deal.id;
   const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
   const anyMenuOpen = menuOpenId != null;
-  const isClosed = String(deal.pipeline_stage).toLowerCase() === "closed";
 
   const stagePill = useMemo(() => {
     const stage = deal.pipeline_stage;
@@ -649,16 +676,6 @@ function KanbanDealCard({
       reservation: "Reserved",
       closed: "Closed",
     };
-
-    const closedConfirm = deal.closure_confirmed_by_client ?? null;
-    const closedLabel =
-      closedConfirm === true ? "Closed" : closedConfirm === false ? "Closed (disputed)" : "Closed (pending)";
-    const closedCls =
-      closedConfirm === true
-        ? "bg-green-50 text-green-700"
-        : closedConfirm === false
-          ? "bg-amber-50 text-amber-800"
-          : "bg-[#FAF8F4] text-[#2C2C2C]/60";
 
     const iso =
       stage === "lead"
@@ -682,10 +699,10 @@ function KanbanDealCard({
 
     if (stage === "closed") {
       return {
-        label: closedLabel,
+        label: "Closed",
         date: formattedDate,
-        cls: closedCls,
-        showCheckIcon: closedConfirm === true,
+        cls: "bg-green-50 text-green-700",
+        showCheckIcon: true,
       };
     }
 
@@ -696,7 +713,6 @@ function KanbanDealCard({
     deal.updated_at,
     deal.closed_at,
     deal.closed_date,
-    deal.closure_confirmed_by_client,
     viewingScheduledAt,
     offerCreatedAt,
     reservationCreatedAt,
@@ -736,13 +752,27 @@ function KanbanDealCard({
     zIndex: isDragging ? 50 : menuOpen ? 9998 : style.zIndex,
   } as const;
 
+  const hasCardPhoto = Boolean(propertyCardPhotoUrl?.trim());
+  const cardSurfaceStyle = useMemo((): React.CSSProperties => {
+    const u = propertyCardPhotoUrl?.trim() ?? "";
+    if (!u) return {};
+    return {
+      backgroundImage: `linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)), ${cssUrlForBackground(u)}`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+    };
+  }, [propertyCardPhotoUrl]);
+
   return (
     <div ref={setNodeRef} style={styleWithZ} className="relative">
       <div
         {...attributes}
         {...listeners}
+        style={cardSurfaceStyle}
         className={cn(
-          "relative flex flex-col min-h-[150px] rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-sm transition",
+          "relative flex flex-col min-h-[150px] rounded-lg border border-[#2C2C2C]/10 p-3 shadow-sm transition",
+          !hasCardPhoto && "bg-white",
           next ? "pb-10" : "",
           "cursor-grab",
           isDragging && "scale-[1.02] rotate-[0.6deg] cursor-grabbing shadow-xl",
@@ -846,11 +876,8 @@ function KanbanDealCard({
                             <div className="space-y-0.5">
                               <button
                                 type="button"
-                                disabled={isClosed}
-                                title={isClosed ? "This deal is closed and locked from edits" : undefined}
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
-                                  if (isClosed) return;
                                   onTogglePin(deal);
                                   setMenuOpenId(null);
                                 }}
@@ -897,11 +924,8 @@ function KanbanDealCard({
                               </button>
                               <button
                                 type="button"
-                                disabled={isClosed}
-                                title={isClosed ? "This deal is closed and locked from edits" : undefined}
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
-                                  if (isClosed) return;
                                   onSendOffer(deal);
                                   setMenuOpenId(null);
                                 }}
@@ -914,33 +938,8 @@ function KanbanDealCard({
                               </button>
                               <button
                                 type="button"
-                                disabled={
-                                  isClosed ||
-                                  String(deal.pipeline_stage).toLowerCase() === "reservation" ||
-                                  String(deal.pipeline_stage).toLowerCase() === "closed"
-                                }
-                                title={
-                                  isClosed
-                                    ? "This deal is closed and locked from edits"
-                                    : String(deal.pipeline_stage).toLowerCase() === "reservation" ||
-                                        String(deal.pipeline_stage).toLowerCase() === "closed"
-                                      ? "Reservation already exists for this deal"
-                                      : undefined
-                                }
-                                className={cn(
-                                  "group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]",
-                                  (isClosed ||
-                                    String(deal.pipeline_stage).toLowerCase() === "reservation" ||
-                                    String(deal.pipeline_stage).toLowerCase() === "closed") &&
-                                    "cursor-not-allowed opacity-50 hover:bg-transparent",
-                                )}
+                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
-                                  if (
-                                    isClosed ||
-                                    String(deal.pipeline_stage).toLowerCase() === "reservation" ||
-                                    String(deal.pipeline_stage).toLowerCase() === "closed"
-                                  )
-                                    return;
                                   onCreateReservation(deal);
                                   setMenuOpenId(null);
                                 }}
@@ -953,11 +952,8 @@ function KanbanDealCard({
                               </button>
                               <button
                                 type="button"
-                                disabled={isClosed}
-                                title={isClosed ? "This deal is closed and locked from edits" : undefined}
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
-                                  if (isClosed) return;
                                   onRequestNotes(deal);
                                   setMenuOpenId(null);
                                 }}
@@ -970,11 +966,8 @@ function KanbanDealCard({
                               </button>
                               <button
                                 type="button"
-                                disabled={isClosed}
-                                title={isClosed ? "This deal is closed and locked from edits" : undefined}
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
-                                  if (isClosed) return;
                                   onRequestDocuments(deal);
                                   setMenuOpenId(null);
                                 }}
@@ -991,24 +984,8 @@ function KanbanDealCard({
                               {String(deal.pipeline_stage).toLowerCase() !== "closed" ? (
                                 <button
                                   type="button"
-                                  disabled={
-                                    isClosed ||
-                                    String(deal.pipeline_stage).toLowerCase() !== "reservation" ||
-                                    !reservationCreatedAt
-                                  }
-                                  title={
-                                    String(deal.pipeline_stage).toLowerCase() === "reservation" && reservationCreatedAt
-                                      ? undefined
-                                      : "Create a reservation before closing this deal"
-                                  }
-                                  className={cn(
-                                    "group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold transition-colors duration-150 hover:bg-[#F0F4F0]",
-                                    "text-[#6B9E6E]",
-                                    (String(deal.pipeline_stage).toLowerCase() !== "reservation" || !reservationCreatedAt) &&
-                                      "cursor-not-allowed opacity-50 hover:bg-transparent",
-                                  )}
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#6B9E6E] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                   onClick={() => {
-                                    if (String(deal.pipeline_stage).toLowerCase() !== "reservation" || !reservationCreatedAt) return;
                                     onMarkClosed(deal);
                                     setMenuOpenId(null);
                                   }}
@@ -1020,11 +997,8 @@ function KanbanDealCard({
 
                               <button
                                 type="button"
-                                disabled={isClosed}
-                                title={isClosed ? "This deal is closed and locked from edits" : undefined}
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#B85450] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                 onClick={() => {
-                                  if (isClosed) return;
                                   onRequestDecline(deal);
                                   setMenuOpenId(null);
                                   setMenuMoveOpen(false);
@@ -1036,10 +1010,8 @@ function KanbanDealCard({
 
                               <button
                                 type="button"
-                                disabled={isClosed}
-                                title={isClosed ? "This deal is closed and locked from edits" : undefined}
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                onClick={() => !isClosed && setMenuMoveOpen(true)}
+                                onClick={() => setMenuMoveOpen(true)}
                               >
                                 <ArrowRightCircle
                                   className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
@@ -1062,12 +1034,10 @@ function KanbanDealCard({
                                   <button
                                     key={s.id}
                                     type="button"
-                                    disabled={isClosed || moveBusyId === deal.id}
-                                    title={isClosed ? "This deal is closed and locked from edits" : undefined}
+                                    disabled={moveBusyId === deal.id}
                                     className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0] disabled:opacity-50"
                                     onClick={() => {
-                                      if (isClosed) return;
-                                      onBeginStageMove(deal, s.id, "jump");
+                                      void onMoveToStage(deal, s.id);
                                       setMenuOpenId(null);
                                       setMenuMoveOpen(false);
                                     }}
@@ -1127,28 +1097,6 @@ function KanbanDealCard({
             </span>
           </button>
         ) : null}
-
-        {stageMovePrompt?.lead.id === deal.id ? (
-          <div className="mt-2 rounded-xl border border-gray-200 bg-amber-50/90 p-3 shadow-sm">
-            <p className="text-xs font-semibold text-gray-800">Suggest requesting a document for this stage?</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#5d8a60]"
-                onClick={() => onStageMovePromptYes(stageMovePrompt.lead, stageMovePrompt.targetStage)}
-              >
-                Yes, Request It
-              </button>
-              <button
-                type="button"
-                className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
-                onClick={onStageMovePromptSkip}
-              >
-                Skip
-              </button>
-            </div>
-          </div>
-        ) : null}
       </div>
       {unviewedUploadedDocCount > 0 ? (
         <span
@@ -1185,10 +1133,7 @@ function KanbanStageColumn({
   viewingScheduledAtByLeadId,
   offerCreatedAtByLeadId,
   reservationCreatedAtByLeadId,
-  stageMovePrompt,
-  onStageMovePromptSkip,
-  onStageMovePromptYes,
-  beginStageMove,
+  propertyMetaById,
   openDocs,
   onSendOffer,
   onCreateReservation,
@@ -1218,16 +1163,13 @@ function KanbanStageColumn({
   ids: string[];
   list: PipelineLeadRow[];
   propertyLabel: (propertyId: string | null) => string;
+  propertyMetaById: Record<string, PropertyMeta>;
   dealValueByPropertyId: Record<string, string>;
   uploadedRequestedDocCountByLeadId: Record<number, number>;
   unviewedUploadedDocCountByLeadId: Record<number, number>;
   viewingScheduledAtByLeadId: Record<number, string | null>;
   offerCreatedAtByLeadId: Record<number, string | null>;
   reservationCreatedAtByLeadId: Record<number, string | null>;
-  stageMovePrompt: { lead: PipelineLeadRow; targetStage: PipelineStageId; kind: "advance" | "jump" } | null;
-  onStageMovePromptSkip: () => void;
-  onStageMovePromptYes: (lead: PipelineLeadRow, targetStage: PipelineStageId) => void;
-  beginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
   openDocs: (lead: PipelineLeadRow) => void;
   onSendOffer: (lead: PipelineLeadRow) => void;
   onCreateReservation: (lead: PipelineLeadRow) => void;
@@ -1256,7 +1198,7 @@ function KanbanStageColumn({
       key={stage}
       className={cn("min-w-0 flex-1 px-2", idx > 0 && "border-l border-[#2C2C2C]/10")}
     >
-      <div className="sticky top-0 z-10 overflow-hidden rounded-lg border border-[#2C2C2C]/10 bg-white">
+      <div className="overflow-hidden rounded-lg border border-[#2C2C2C]/10 bg-white">
         <div aria-hidden className="h-1 w-full" style={{ backgroundColor: barHex }} />
         <div className="px-4 py-3">
           <div className="flex items-start justify-between gap-3">
@@ -1311,14 +1253,13 @@ function KanbanStageColumn({
                   viewingScheduledAt={viewingScheduledAtByLeadId[deal.id] ?? null}
                   offerCreatedAt={offerCreatedAtByLeadId[deal.id] ?? null}
                   reservationCreatedAt={reservationCreatedAtByLeadId[deal.id] ?? null}
+                  propertyCardPhotoUrl={
+                    deal.property_id ? propertyMetaById[deal.property_id]?.primary_photo_url ?? null : null
+                  }
                   onOpenDocs={openDocs}
                   onSendOffer={onSendOffer}
                   onCreateReservation={onCreateReservation}
                   onMarkClosed={onMarkClosed}
-                  onBeginStageMove={beginStageMove}
-                  stageMovePrompt={stageMovePrompt}
-                  onStageMovePromptSkip={onStageMovePromptSkip}
-                  onStageMovePromptYes={onStageMovePromptYes}
                   menuOpenId={menuOpenId}
                   setMenuOpenId={setMenuOpenId}
                   menuMoveOpen={menuMoveOpen}
@@ -1365,10 +1306,6 @@ function SortableDealCard({
   uploadedRequestedDocCount,
   unviewedUploadedDocCount,
   onOpenDocs,
-  onBeginStageMove,
-  stageMovePrompt,
-  onStageMovePromptSkip,
-  onStageMovePromptYes,
   menuOpenId,
   setMenuOpenId,
   menuMoveOpen,
@@ -1391,14 +1328,6 @@ function SortableDealCard({
   uploadedRequestedDocCount: number;
   unviewedUploadedDocCount: number;
   onOpenDocs: (lead: PipelineLeadRow) => void;
-  onBeginStageMove: (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => void;
-  stageMovePrompt: {
-    lead: PipelineLeadRow;
-    targetStage: PipelineStageId;
-    kind: "advance" | "jump";
-  } | null;
-  onStageMovePromptSkip: () => void;
-  onStageMovePromptYes: (lead: PipelineLeadRow, targetStage: PipelineStageId) => void;
   menuOpenId: number | null;
   setMenuOpenId: (id: number | null) => void;
   menuMoveOpen: boolean;
@@ -1430,9 +1359,10 @@ function SortableDealCard({
       : false;
   const moveLabel = MOVE_TO_LABEL[deal.pipeline_stage];
   const menuOpen = menuOpenId === deal.id;
-  const isArchived = String((deal as unknown as { pipeline_stage?: unknown }).pipeline_stage ?? "")
-    .trim()
-    .toLowerCase() === "declined" || deal.pipeline_stage === "closed";
+  const isArchived =
+    String((deal as unknown as { pipeline_stage?: unknown }).pipeline_stage ?? "")
+      .trim()
+      .toLowerCase() === "declined";
   const updatedIso = (deal.updated_at ?? deal.created_at) as string;
   const updatedMs = new Date(updatedIso).getTime();
   const createdMs = new Date(deal.created_at).getTime();
@@ -1589,7 +1519,7 @@ function SortableDealCard({
                         disabled={moveBusyId === deal.id}
                         className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
                         onClick={() => {
-                          onBeginStageMove(deal, s.id, "jump");
+                          void onMoveToStage(deal, s.id);
                           setMenuOpenId(null);
                           setMenuMoveOpen(false);
                         }}
@@ -1649,7 +1579,7 @@ function SortableDealCard({
           <button
             type="button"
             onClick={() => {
-              onBeginStageMove(deal, next, "advance");
+              if (next) void onMoveToStage(deal, next);
             }}
             className="flex flex-1 items-center justify-center rounded-xl bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
           >
@@ -1676,31 +1606,6 @@ function SortableDealCard({
           className="pointer-events-none absolute right-[-4px] top-[-4px] z-[11] h-2.5 w-2.5 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)] bhg-doc-badge-pulse"
           aria-hidden
         />
-      ) : null}
-      {stageMovePrompt?.lead.id === deal.id ? (
-        <div className="mt-3 rounded-xl border border-gray-200 bg-amber-50/90 p-3 shadow-sm">
-          <p className="text-xs font-semibold text-gray-800">
-            Suggest requesting a document for this stage?
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#5d8a60]"
-              onClick={() =>
-                onStageMovePromptYes(stageMovePrompt.lead, stageMovePrompt.targetStage)
-              }
-            >
-              Yes, Request It
-            </button>
-            <button
-              type="button"
-              className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
-              onClick={onStageMovePromptSkip}
-            >
-              Skip
-            </button>
-          </div>
-        </div>
       ) : null}
     </div>
   );
@@ -1806,7 +1711,7 @@ export function AgentPipelineTab({
     void (async () => {
       const { data, error } = await supabase
         .from("properties")
-        .select("id, city, location, price, rent_price, listing_type, status, deleted_at")
+        .select("id, city, location, price, rent_price, listing_type, status, deleted_at, image_url, property_photos (url, sort_order)")
         .in("id", ids);
       if (cancelled) return;
       if (error) {
@@ -1827,6 +1732,8 @@ export function AgentPipelineTab({
         listing_type: unknown;
         status: unknown;
         deleted_at?: string | null;
+        image_url?: string | null;
+        property_photos?: { url: string | null; sort_order?: number | null }[] | null;
       }[]) {
         const location = String(row.location ?? "").trim();
         const canonicalCity = propertyCanonicalCity({ city: row.city, location });
@@ -1834,6 +1741,7 @@ export function AgentPipelineTab({
           city: canonicalCity,
           location,
           deleted_at: row.deleted_at != null ? String(row.deleted_at) : null,
+          primary_photo_url: primaryPropertyPhotoUrl(row.image_url, row.property_photos ?? null),
         };
 
         const lt = String(row.listing_type ?? "").trim().toLowerCase();
@@ -1869,23 +1777,19 @@ export function AgentPipelineTab({
   const [reservationCreatedAtByLeadId, setReservationCreatedAtByLeadId] = useState<Record<number, string | null>>({});
   const [offerLead, setOfferLead] = useState<PipelineLeadRow | null>(null);
   const [offerAmount, setOfferAmount] = useState("");
-  const [offerCurrency, setOfferCurrency] = useState<"PHP">("PHP");
-  const [offerTerms, setOfferTerms] = useState("");
-  const [offerValidUntil, setOfferValidUntil] = useState("");
   const [offerMessage, setOfferMessage] = useState("");
+  const [offerAgreementFile, setOfferAgreementFile] = useState<File | null>(null);
   const [offerBusy, setOfferBusy] = useState(false);
   const [reservationLead, setReservationLead] = useState<PipelineLeadRow | null>(null);
   const [reservationOfferOptions, setReservationOfferOptions] = useState<{ id: string; created_at: string; amount: number; currency: string }[]>([]);
   const [reservationOfferId, setReservationOfferId] = useState<string>("");
   const [reservationAmount, setReservationAmount] = useState("");
-  const [reservationCurrency, setReservationCurrency] = useState<"PHP">("PHP");
-  const [reservationDeadlineAt, setReservationDeadlineAt] = useState("");
-  const [reservationRefundPolicy, setReservationRefundPolicy] = useState("");
   const [reservationNotes, setReservationNotes] = useState("");
   const [reservationAgreementFile, setReservationAgreementFile] = useState<File | null>(null);
   const [reservationBusy, setReservationBusy] = useState(false);
+  const [offerUploadProgress, setOfferUploadProgress] = useState<number | null>(null);
+  const [reservationUploadProgress, setReservationUploadProgress] = useState<number | null>(null);
   const [closeLead, setCloseLead] = useState<PipelineLeadRow | null>(null);
-  const [closeNote, setCloseNote] = useState("");
   const [closeBusy, setCloseBusy] = useState(false);
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsPanelFlow, setDocsPanelFlow] = useState<"idle" | "request" | "send">("idle");
@@ -1897,14 +1801,17 @@ export function AgentPipelineTab({
   const [sendFlowBusy, setSendFlowBusy] = useState(false);
   const [clientDocOpeningId, setClientDocOpeningId] = useState<string | null>(null);
   const [dealDocOpeningId, setDealDocOpeningId] = useState<string | null>(null);
-  const [stageMovePrompt, setStageMovePrompt] = useState<{
-    lead: PipelineLeadRow;
-    targetStage: PipelineStageId;
-    kind: "advance" | "jump";
-  } | null>(null);
-  const [moveLead, setMoveLead] = useState<PipelineLeadRow | null>(null);
-  const [moveNote, setMoveNote] = useState("");
-  const [moveBusy, setMoveBusy] = useState(false);
+
+  const offerFormValid = useMemo(() => {
+    const n = Number.parseFloat(String(offerAmount ?? "").trim());
+    return Number.isFinite(n) && n > 0;
+  }, [offerAmount]);
+
+  const reservationFormValid = useMemo(() => {
+    const n = Number.parseFloat(String(reservationAmount ?? "").trim());
+    return Number.isFinite(n) && n > 0;
+  }, [reservationAmount]);
+
   const [optimisticOrderIds, setOptimisticOrderIds] = useState<number[] | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [menuMoveOpen, setMenuMoveOpen] = useState(false);
@@ -2109,7 +2016,15 @@ export function AgentPipelineTab({
     closed: [],
   });
 
+  /** Blocks syncing `kanbanIdsByStage` from `dealsByStage` while a stage mutation / debounced refresh is in flight (prevents snap-back). */
+  const [kanbanBoardMutationDepth, setKanbanBoardMutationDepth] = useState(0);
+  const kanbanIdsRef = useRef(kanbanIdsByStage);
   useEffect(() => {
+    kanbanIdsRef.current = kanbanIdsByStage;
+  }, [kanbanIdsByStage]);
+
+  useEffect(() => {
+    if (kanbanBoardMutationDepth > 0) return;
     setKanbanIdsByStage({
       lead: dealsByStage.lead.map((d) => String(d.id)),
       viewing: dealsByStage.viewing.map((d) => String(d.id)),
@@ -2117,7 +2032,7 @@ export function AgentPipelineTab({
       reservation: dealsByStage.reservation.map((d) => String(d.id)),
       closed: dealsByStage.closed.map((d) => String(d.id)),
     });
-  }, [dealsByStage]);
+  }, [dealsByStage, kanbanBoardMutationDepth]);
 
   const stageTotals = useMemo(() => {
     const out: Record<PipelineStageId, { count: number; total: number }> = {
@@ -2333,29 +2248,21 @@ export function AgentPipelineTab({
 
   useEffect(() => {
     if (!offerLead) return;
-    const d = new Date();
-    d.setDate(d.getDate() + 7);
-    const iso = d.toISOString().slice(0, 10);
-    setOfferValidUntil(iso);
     setOfferAmount("");
-    setOfferCurrency("PHP");
-    setOfferTerms("");
     setOfferMessage("");
+    setOfferAgreementFile(null);
     setOfferBusy(false);
+    setOfferUploadProgress(null);
   }, [offerLead?.id]);
 
   useEffect(() => {
     if (!reservationLead) return;
-    const d = new Date();
-    d.setDate(d.getDate() + 14);
-    setReservationDeadlineAt(d.toISOString().slice(0, 10));
     setReservationOfferId("");
     setReservationAmount("");
-    setReservationCurrency("PHP");
-    setReservationRefundPolicy("");
     setReservationNotes("");
     setReservationAgreementFile(null);
     setReservationBusy(false);
+    setReservationUploadProgress(null);
     setReservationOfferOptions([]);
 
     let cancelled = false;
@@ -2486,21 +2393,6 @@ export function AgentPipelineTab({
       setDocsLead(lead);
       setDocsPanelFlow("idle");
       setPanelDocSlug("");
-      setRequestRequired(false);
-      setSendRequired(false);
-      setSendFileUrls([]);
-      setClientDocRows([]);
-      setDealDocCheckRows([]);
-      void markViewedThenReloadDocs(lead);
-    },
-    [markViewedThenReloadDocs],
-  );
-
-  const openDocsWithRequestPrefill = useCallback(
-    (lead: PipelineLeadRow, slug: string) => {
-      setDocsLead(lead);
-      setDocsPanelFlow("request");
-      setPanelDocSlug(PANEL_DOC_BY_SLUG[slug] ? slug : "");
       setRequestRequired(false);
       setSendRequired(false);
       setSendFileUrls([]);
@@ -2667,64 +2559,6 @@ export function AgentPipelineTab({
     );
   }, [dealDocCheckRows, docsLeadLive]);
 
-  const beginStageMove = (lead: PipelineLeadRow, targetStage: PipelineStageId, kind: "advance" | "jump") => {
-    setStageMovePrompt({ lead, targetStage, kind });
-  };
-
-  const onStageMovePromptSkip = () => {
-    const p = stageMovePrompt;
-    if (!p) return;
-    setStageMovePrompt(null);
-    if (p.kind === "advance") {
-      setMoveLead(p.lead);
-      setMoveNote("");
-    } else {
-      void moveDealToStage(p.lead, p.targetStage);
-    }
-  };
-
-  const onStageMovePromptYes = (lead: PipelineLeadRow, targetStage: PipelineStageId) => {
-    setStageMovePrompt(null);
-    const slug = STAGE_MOVE_SUGGEST_SLUG[targetStage];
-    if (slug) {
-      openDocsWithRequestPrefill(lead, slug);
-    } else {
-      setDocsLead(lead);
-      setDocsPanelFlow("request");
-      setPanelDocSlug("");
-      setRequestRequired(false);
-      setSendRequired(false);
-      setSendFileUrls([]);
-      setClientDocRows([]);
-      setDealDocCheckRows([]);
-      void markViewedThenReloadDocs(lead);
-    }
-  };
-
-  const confirmMove = async () => {
-    if (!moveLead) return;
-    setMoveBusy(true);
-    try {
-      const res = await fetch("/api/agent/pipeline-advance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ leadId: moveLead.id, note: moveNote || null }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: { message?: string } };
-      if (!res.ok) {
-        toast.error(json?.error?.message ?? "Could not update stage");
-        return;
-      }
-      toast.success("Stage updated");
-      setMoveLead(null);
-      setMoveNote("");
-      onRefresh();
-    } finally {
-      setMoveBusy(false);
-    }
-  };
-
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -2804,6 +2638,7 @@ export function AgentPipelineTab({
       return;
     }
 
+    const revertSnapshot = cloneKanbanIdsByStage(kanbanIdsByStage);
     setKanbanIdsByStage((s) => {
       const fromIds = s[fromStage].filter((x) => x !== activeId);
       const toIds = s[toStage];
@@ -2814,7 +2649,7 @@ export function AgentPipelineTab({
     });
 
     const lead = leadById.get(activeId);
-    if (lead) void moveDealToStage(lead, toStage);
+    if (lead) void moveDealToStage(lead, toStage, { revertSnapshot, kanbanAlreadyUpdated: true });
   };
 
   const saveClosingNotesOnBlur = async () => {
@@ -2837,26 +2672,54 @@ export function AgentPipelineTab({
     }
   };
 
-  const moveDealToStage = async (lead: PipelineLeadRow, stage: PipelineStageId) => {
-    setMoveToStageBusyId(lead.id);
-    try {
-      const res = await fetch("/api/agent/pipeline-set-stage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ leadId: lead.id, pipeline_stage: stage }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-      if (!res.ok) {
-        toast.error(json?.error?.message ?? "Could not move deal");
-        return;
+  const moveDealToStage = useCallback(
+    async (
+      lead: PipelineLeadRow,
+      stage: PipelineStageId,
+      opts?: { revertSnapshot?: Record<PipelineStageId, string[]>; kanbanAlreadyUpdated?: boolean },
+    ) => {
+      const id = String(lead.id);
+      const boardNow = kanbanIdsRef.current;
+      const from = findKanbanStageForLeadId(boardNow, id) ?? lead.pipeline_stage;
+      if (from === stage) return;
+
+      setKanbanBoardMutationDepth((d) => d + 1);
+      const revert = opts?.revertSnapshot ?? cloneKanbanIdsByStage(boardNow);
+
+      if (!opts?.kanbanAlreadyUpdated) {
+        setKanbanIdsByStage((s0) => {
+          const from0 = findKanbanStageForLeadId(s0, id) ?? lead.pipeline_stage;
+          if (from0 === stage) return s0;
+          const fromIds = s0[from0].filter((x) => x !== id);
+          const toIds = s0[stage].filter((x) => x !== id);
+          return { ...s0, [from0]: fromIds, [stage]: [...toIds, id] };
+        });
       }
-      toast.success("Deal moved");
-      onRefresh();
-    } finally {
-      setMoveToStageBusyId(null);
-    }
-  };
+
+      setMoveToStageBusyId(lead.id);
+      try {
+        const res = await fetch("/api/agent/pipeline-set-stage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ leadId: lead.id, pipeline_stage: stage }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+        if (!res.ok) {
+          toast.error(json?.error?.message ?? "Could not move deal");
+          setKanbanIdsByStage(revert);
+          return;
+        }
+
+        await new Promise((r) => setTimeout(r, 500));
+        await Promise.resolve(onRefresh());
+      } finally {
+        setMoveToStageBusyId(null);
+        setKanbanBoardMutationDepth((d) => d - 1);
+      }
+    },
+    [onRefresh],
+  );
 
   const sendClientDocumentRequest = async () => {
     if (!requestDocsLead) return;
@@ -2917,7 +2780,7 @@ export function AgentPipelineTab({
   }, [deals.length, dealValueByPropertyId]);
 
   return (
-    <div className="space-y-6 bg-[#FAF8F4] font-sans text-[#2C2C2C]">
+    <div className="w-full min-w-0 max-w-full space-y-6 bg-[#FAF8F4] font-sans text-[#2C2C2C]">
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -3063,10 +2926,6 @@ export function AgentPipelineTab({
                   uploadedRequestedDocCount={uploadedRequestedDocCountByLeadId[deal.id] ?? 0}
                   unviewedUploadedDocCount={unviewedUploadedDocCountByLeadId[deal.id] ?? 0}
                   onOpenDocs={openDocs}
-                  onBeginStageMove={beginStageMove}
-                  stageMovePrompt={stageMovePrompt}
-                  onStageMovePromptSkip={onStageMovePromptSkip}
-                  onStageMovePromptYes={onStageMovePromptYes}
                   menuOpenId={menuOpenId}
                   setMenuOpenId={setMenuOpenId}
                   menuMoveOpen={menuMoveOpen}
@@ -3102,9 +2961,9 @@ export function AgentPipelineTab({
         )}
       </div>
 
-      {/* Desktop: Pipedrive-style kanban columns */}
-      <div className="hidden lg:block">
-        <div className="relative -mx-1">
+      {/* Desktop: Pipedrive-style kanban columns — toolbar stays fixed; columns scroll horizontally */}
+      <div className="hidden w-full min-w-0 max-w-full overflow-x-hidden lg:block">
+        <div className="relative w-full min-w-0">
           {kanbanFadeRight ? (
             <div
               aria-hidden
@@ -3288,7 +3147,7 @@ export function AgentPipelineTab({
           </div>
           <div
             ref={kanbanScrollRef}
-            className="relative isolate overflow-x-auto bg-[#FAF8F4] px-1 py-4 scrollbar-hide"
+            className="relative isolate w-full min-w-0 overflow-x-auto overflow-y-visible overscroll-x-contain scroll-smooth bg-[#FAF8F4] px-1 py-4 scrollbar-hide"
           >
             {menuOpenId != null ? (
               <button
@@ -3321,7 +3180,7 @@ export function AgentPipelineTab({
               onDragCancel={handleKanbanDragCancel}
               onDragEnd={handleKanbanDragEnd}
             >
-              <div className="flex w-full min-w-0 items-stretch gap-0">
+              <div className="flex items-stretch gap-0 max-[1439px]:w-max max-[1439px]:min-w-[1440px] min-[1440px]:w-full min-[1440px]:min-w-0">
                 {(filterStages && filterStages.length > 0
                   ? KANBAN_STAGE_ORDER.filter((s) => filterStages.includes(s))
                   : KANBAN_STAGE_ORDER
@@ -3353,16 +3212,12 @@ export function AgentPipelineTab({
                       viewingScheduledAtByLeadId={viewingScheduledAtByLeadId}
                       offerCreatedAtByLeadId={offerCreatedAtByLeadId}
                       reservationCreatedAtByLeadId={reservationCreatedAtByLeadId}
-                      stageMovePrompt={stageMovePrompt}
-                      onStageMovePromptSkip={onStageMovePromptSkip}
-                      onStageMovePromptYes={onStageMovePromptYes}
-                      beginStageMove={beginStageMove}
+                      propertyMetaById={propertyMetaById}
                       openDocs={openDocs}
                       onSendOffer={(lead) => setOfferLead(lead)}
                       onCreateReservation={(lead) => setReservationLead(lead)}
                       onMarkClosed={(lead) => {
                         setCloseLead(lead);
-                        setCloseNote("");
                         setCloseBusy(false);
                       }}
                       menuOpenId={menuOpenId}
@@ -3438,68 +3293,6 @@ export function AgentPipelineTab({
           )}
         </div>
       )}
-
-      <AnimatePresence>
-        {moveLead ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45 p-4 sm:items-center"
-            onClick={() => !moveBusy && setMoveLead(null)}
-          >
-            <motion.div
-              initial={{ y: 24, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 24, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-xl"
-            >
-              <p className="font-serif text-lg font-bold text-[#2C2C2C]">Advance deal</p>
-              <p className="mt-2 text-sm text-[#2C2C2C]/70">
-                <span className="font-semibold text-[#2C2C2C]">
-                  {PIPELINE_STAGES.find((x) => x.id === moveLead.pipeline_stage)?.label}
-                </span>
-                {" → "}
-                <span className="font-semibold text-[#6B9E6E]">
-                  {nextStage(moveLead.pipeline_stage)
-                    ? PIPELINE_STAGES.find((x) => x.id === nextStage(moveLead.pipeline_stage))?.label
-                    : ""}
-                </span>
-              </p>
-              <label className="mt-4 block text-xs font-bold text-[#2C2C2C]/55">
-                Notes (optional)
-                <textarea
-                  value={moveNote}
-                  onChange={(e) => setMoveNote(e.target.value)}
-                  rows={3}
-                  className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 px-3 py-2 text-sm font-medium text-[#2C2C2C] outline-none ring-[#6B9E6E]/0 transition focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/25"
-                  placeholder="Internal note for your team…"
-                />
-              </label>
-              <div className="mt-4 flex justify-end gap-2">
-                <button
-                  type="button"
-                  disabled={moveBusy}
-                  onClick={() => setMoveLead(null)}
-                  className="rounded-full px-4 py-2 text-sm font-bold text-[#2C2C2C]/55 hover:bg-[#FAF8F4]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={moveBusy}
-                  onClick={() => void confirmMove()}
-                  className="inline-flex items-center gap-2 rounded-full bg-[#6B9E6E] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
-                >
-                  {moveBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Confirm
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
 
       <AnimatePresence>
         {notesLead ? (
@@ -4052,6 +3845,32 @@ export function AgentPipelineTab({
 
               <div className="mt-4 space-y-3">
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                  Offer document (optional)
+                  <input
+                    type="file"
+                    accept={dealAttachmentAcceptAttr()}
+                    className="mt-1 w-full text-sm"
+                    disabled={offerBusy}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      e.target.value = "";
+                      if (f) {
+                        const err = validateDealAttachmentFile(f);
+                        if (err) {
+                          toast.error(err);
+                          setOfferAgreementFile(null);
+                          return;
+                        }
+                      }
+                      setOfferAgreementFile(f);
+                    }}
+                  />
+                  <span className="mt-1 block text-[11px] font-normal normal-case text-[#2C2C2C]/45">
+                    PDF, DOC, DOCX, JPG, or PNG · max 10MB
+                  </span>
+                </label>
+
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Amount <span className="text-[#B85450]">*</span>
                   <div className="mt-1 flex items-center gap-2 rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2">
                     <span className="text-sm font-bold text-[#2C2C2C]/60">₱</span>
@@ -4071,41 +3890,6 @@ export function AgentPipelineTab({
                 </label>
 
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Currency
-                  <select
-                    value={offerCurrency}
-                    onChange={(e) => setOfferCurrency(e.target.value as "PHP")}
-                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] outline-none"
-                    disabled={offerBusy}
-                  >
-                    <option value="PHP">PHP</option>
-                  </select>
-                </label>
-
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Terms (optional)
-                  <textarea
-                    value={offerTerms}
-                    onChange={(e) => setOfferTerms(e.target.value.slice(0, 500))}
-                    rows={3}
-                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 px-3 py-2 text-sm font-medium text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/25"
-                    placeholder="Include any conditions, deposit terms, or payment notes"
-                    disabled={offerBusy}
-                  />
-                </label>
-
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Valid Until (optional)
-                  <input
-                    type="date"
-                    value={offerValidUntil}
-                    onChange={(e) => setOfferValidUntil(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] outline-none"
-                    disabled={offerBusy}
-                  />
-                </label>
-
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Optional message to client
                   <textarea
                     value={offerMessage}
@@ -4118,10 +3902,24 @@ export function AgentPipelineTab({
                 </label>
               </div>
 
+              {offerBusy && offerUploadProgress != null ? (
+                <div className="mt-4">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-[#2C2C2C]/10">
+                    <div
+                      className="h-full rounded-full bg-[#6B9E6E] transition-[width] duration-150 ease-out"
+                      style={{ width: `${offerUploadProgress}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-center text-[11px] font-medium text-[#2C2C2C]/50">
+                    Uploading… {offerUploadProgress}%
+                  </p>
+                </div>
+              ) : null}
+
               <div className="mt-5 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={offerBusy}
+                  disabled={offerBusy || !offerFormValid}
                   onClick={async () => {
                     if (!offerLead) return;
                     const amountNum = Number.parseFloat(String(offerAmount ?? "").trim());
@@ -4129,22 +3927,27 @@ export function AgentPipelineTab({
                       toast.error("Please enter a valid amount.");
                       return;
                     }
+                    if (offerAgreementFile && offerAgreementFile.size > 0) {
+                      const v = validateDealAttachmentFile(offerAgreementFile);
+                      if (v) {
+                        toast.error(v);
+                        return;
+                      }
+                    }
                     setOfferBusy(true);
+                    setOfferUploadProgress(0);
                     try {
-                      const res = await fetch("/api/offers", {
-                        method: "POST",
-                        credentials: "include",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          lead_id: offerLead.id,
-                          amount: amountNum,
-                          currency: offerCurrency,
-                          terms_text: offerTerms.trim() ? offerTerms.trim() : null,
-                          valid_until: offerValidUntil.trim() ? offerValidUntil.trim() : null,
-                          message: offerMessage.trim() ? offerMessage.trim() : null,
-                        }),
-                      });
-                      const json = (await res.json().catch(() => ({}))) as
+                      const fd = new FormData();
+                      fd.set("lead_id", String(offerLead.id));
+                      fd.set("amount", String(amountNum));
+                      if (offerMessage.trim()) fd.set("message", offerMessage.trim());
+                      if (offerAgreementFile && offerAgreementFile.size > 0) {
+                        fd.set("agreement_file", offerAgreementFile);
+                      }
+                      const res = await postFormDataWithUploadProgress("/api/offers", fd, (p) =>
+                        setOfferUploadProgress(p),
+                      );
+                      const json = (await res.json()) as
                         | { success: true; data: { offer_id: string } }
                         | { success: false; error?: { message?: string } };
                       if (!res.ok || !("success" in json) || json.success !== true) {
@@ -4157,13 +3960,16 @@ export function AgentPipelineTab({
                       toast.success(`Offer sent to ${offerLead.name}`);
                       setOfferLead(null);
                       await onRefresh();
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Could not send offer");
                     } finally {
                       setOfferBusy(false);
+                      setOfferUploadProgress(null);
                     }
                   }}
                   className="flex-1 rounded-full bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white hover:bg-[#5a8a5d] disabled:opacity-50"
                 >
-                  {offerBusy ? "…" : "Send Offer"}
+                  {offerBusy ? "Sending…" : "Send Offer"}
                 </button>
                 <button
                   type="button"
@@ -4200,23 +4006,29 @@ export function AgentPipelineTab({
 
               <div className="mt-4 space-y-3">
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Linked offer (optional)
-                  <select
-                    value={reservationOfferId}
-                    onChange={(e) => setReservationOfferId(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] outline-none"
+                  Reservation agreement (optional)
+                  <input
+                    type="file"
+                    accept={dealAttachmentAcceptAttr()}
+                    className="mt-1 w-full text-sm"
                     disabled={reservationBusy}
-                  >
-                    <option value="">Standalone reservation</option>
-                    {reservationOfferOptions.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {`${o.currency} ${o.amount} • ${new Date(o.created_at).toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                        })}`}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      e.target.value = "";
+                      if (f) {
+                        const err = validateDealAttachmentFile(f);
+                        if (err) {
+                          toast.error(err);
+                          setReservationAgreementFile(null);
+                          return;
+                        }
+                      }
+                      setReservationAgreementFile(f);
+                    }}
+                  />
+                  <span className="mt-1 block text-[11px] font-normal normal-case text-[#2C2C2C]/45">
+                    PDF, DOC, DOCX, JPG, or PNG · max 10MB
+                  </span>
                 </label>
 
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
@@ -4239,72 +4051,56 @@ export function AgentPipelineTab({
                 </label>
 
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Currency
+                  Linked offer (optional)
                   <select
-                    value={reservationCurrency}
-                    onChange={(e) => setReservationCurrency(e.target.value as "PHP")}
+                    value={reservationOfferId}
+                    onChange={(e) => setReservationOfferId(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] outline-none"
                     disabled={reservationBusy}
                   >
-                    <option value="PHP">PHP</option>
+                    <option value="">Standalone reservation</option>
+                    {reservationOfferOptions.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {`${o.currency} ${o.amount} • ${new Date(o.created_at).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}`}
+                      </option>
+                    ))}
                   </select>
                 </label>
 
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Deadline <span className="text-[#B85450]">*</span>
-                  <input
-                    type="date"
-                    value={reservationDeadlineAt}
-                    onChange={(e) => setReservationDeadlineAt(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] outline-none"
-                    disabled={reservationBusy}
-                    required
-                  />
-                </label>
-
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Refund policy (optional)
-                  <textarea
-                    value={reservationRefundPolicy}
-                    onChange={(e) => setReservationRefundPolicy(e.target.value.slice(0, 500))}
-                    rows={3}
-                    className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 px-3 py-2 text-sm font-medium text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/25"
-                    placeholder="e.g. Fully refundable until [date], non-refundable thereafter"
-                    disabled={reservationBusy}
-                  />
-                </label>
-
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Notes (optional)
+                  Optional notes to client
                   <textarea
                     value={reservationNotes}
                     onChange={(e) => setReservationNotes(e.target.value.slice(0, 300))}
                     rows={2}
                     className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 px-3 py-2 text-sm font-medium text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/25"
-                    placeholder="Internal notes or special terms"
+                    placeholder="Short note for the client (optional)…"
                     disabled={reservationBusy}
-                  />
-                </label>
-
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-                  Agreement file upload (optional)
-                  <input
-                    type="file"
-                    accept="application/pdf,image/png,image/jpeg"
-                    className="mt-1 w-full text-sm"
-                    disabled={reservationBusy}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0] ?? null;
-                      setReservationAgreementFile(f);
-                    }}
                   />
                 </label>
               </div>
 
+              {reservationBusy && reservationUploadProgress != null ? (
+                <div className="mt-4">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-[#2C2C2C]/10">
+                    <div
+                      className="h-full rounded-full bg-[#6B9E6E] transition-[width] duration-150 ease-out"
+                      style={{ width: `${reservationUploadProgress}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-center text-[11px] font-medium text-[#2C2C2C]/50">
+                    Uploading… {reservationUploadProgress}%
+                  </p>
+                </div>
+              ) : null}
+
               <div className="mt-5 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={reservationBusy}
+                  disabled={reservationBusy || !reservationFormValid}
                   onClick={async () => {
                     if (!reservationLead) return;
                     const amountNum = Number.parseFloat(String(reservationAmount ?? "").trim());
@@ -4312,28 +4108,29 @@ export function AgentPipelineTab({
                       toast.error("Please enter a valid reservation amount.");
                       return;
                     }
-                    if (!reservationDeadlineAt.trim()) {
-                      toast.error("Please select a deadline.");
-                      return;
+                    if (reservationAgreementFile && reservationAgreementFile.size > 0) {
+                      const rv = validateDealAttachmentFile(reservationAgreementFile);
+                      if (rv) {
+                        toast.error(rv);
+                        return;
+                      }
                     }
                     setReservationBusy(true);
+                    setReservationUploadProgress(0);
                     try {
                       const fd = new FormData();
                       fd.set("lead_id", String(reservationLead.id));
                       if (reservationOfferId.trim()) fd.set("offer_id", reservationOfferId.trim());
                       fd.set("amount", String(amountNum));
-                      fd.set("currency", reservationCurrency);
-                      fd.set("deadline_at", reservationDeadlineAt.trim());
-                      if (reservationRefundPolicy.trim()) fd.set("refund_policy", reservationRefundPolicy.trim());
                       if (reservationNotes.trim()) fd.set("notes", reservationNotes.trim());
-                      if (reservationAgreementFile) fd.set("agreement_file", reservationAgreementFile);
+                      if (reservationAgreementFile && reservationAgreementFile.size > 0) {
+                        fd.set("agreement_file", reservationAgreementFile);
+                      }
 
-                      const res = await fetch("/api/reservations", {
-                        method: "POST",
-                        credentials: "include",
-                        body: fd,
-                      });
-                      const json = (await res.json().catch(() => ({}))) as
+                      const res = await postFormDataWithUploadProgress("/api/reservations", fd, (p) =>
+                        setReservationUploadProgress(p),
+                      );
+                      const json = (await res.json()) as
                         | { success: true; data: { reservation_id: string } }
                         | { success: false; error?: { message?: string } };
                       if (!res.ok || !("success" in json) || json.success !== true) {
@@ -4346,13 +4143,16 @@ export function AgentPipelineTab({
                       toast.success(`Reservation created for ${reservationLead.name}`);
                       setReservationLead(null);
                       await onRefresh();
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Could not create reservation");
                     } finally {
                       setReservationBusy(false);
+                      setReservationUploadProgress(null);
                     }
                   }}
                   className="flex-1 rounded-full bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white hover:bg-[#5a8a5d] disabled:opacity-50"
                 >
-                  {reservationBusy ? "…" : "Create Reservation"}
+                  {reservationBusy ? "Creating…" : "Create Reservation"}
                 </button>
                 <button
                   type="button"
@@ -4389,22 +4189,9 @@ export function AgentPipelineTab({
                 This will mark{" "}
                 <span className="font-semibold text-[#2C2C2C]">{propertyLabel(closeLead.property_id)}</span> as
                 closed for{" "}
-                <span className="font-semibold text-[#2C2C2C]">{closeLead.name.trim() || "the client"}</span>.
-                The client will be notified and asked to confirm. Once confirmed, this deal will be locked from edits
-                and counted toward your closure score.
+                <span className="font-semibold text-[#2C2C2C]">{closeLead.name.trim() || "the client"}</span>. The
+                client will be notified in the background; you can keep updating this deal anytime.
               </p>
-
-              <label className="mt-4 block text-xs font-bold text-[#2C2C2C]/55">
-                Add a note about this closure (optional)
-                <textarea
-                  value={closeNote}
-                  onChange={(e) => setCloseNote(e.target.value.slice(0, 300))}
-                  rows={3}
-                  className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 px-3 py-2 text-sm font-medium text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/25"
-                  placeholder="Add a note about this closure (optional)"
-                  disabled={closeBusy}
-                />
-              </label>
 
               <div className="mt-5 flex flex-wrap gap-2">
                 <button
@@ -4418,7 +4205,7 @@ export function AgentPipelineTab({
                         method: "POST",
                         credentials: "include",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ note: closeNote.trim() ? closeNote.trim() : null }),
+                        body: JSON.stringify({ note: null }),
                       });
                       const json = (await res.json().catch(() => ({}))) as
                         | { success: true; data: unknown }
@@ -4430,7 +4217,7 @@ export function AgentPipelineTab({
                         toast.error(msg);
                         return;
                       }
-                      toast.success("Deal marked as closed. Client has been notified to confirm.");
+                      toast.success("Deal marked closed. Client notified.");
                       setCloseLead(null);
                       await onRefresh();
                     } finally {

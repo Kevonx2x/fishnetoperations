@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BadgeCheck,
   Calendar,
@@ -93,6 +93,19 @@ type PipelineDeal = {
     valid_until: string | null;
     created_at: string;
     status: string;
+    agreement_file_url: string | null;
+    agreement_file_name: string | null;
+    client_message: string | null;
+  }[];
+  reservations?: {
+    id: string;
+    amount: string | number;
+    currency: string;
+    notes: string | null;
+    agreement_file_url: string | null;
+    agreement_file_name: string | null;
+    created_at: string;
+    status: string;
   }[];
 };
 
@@ -124,6 +137,47 @@ function formatValidUntilLine(validUntil: string | null): string | null {
   return d ? `Valid until ${d}` : null;
 }
 
+function AgreementDownloadButton({
+  kind,
+  id,
+  children,
+}: {
+  kind: "offer" | "reservation";
+  id: string;
+  children: ReactNode;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          const res = await fetch("/api/client/lead-agreement-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(kind === "offer" ? { offer_id: id } : { reservation_id: id }),
+          });
+          const json = (await res.json().catch(() => ({}))) as { signedUrl?: string; error?: string };
+          if (!res.ok || !json.signedUrl) {
+            toast.error(json.error ?? "Could not download");
+            return;
+          }
+          window.open(json.signedUrl, "_blank", "noopener,noreferrer");
+        } finally {
+          setBusy(false);
+        }
+      }}
+      className="inline-flex w-full max-w-full items-center justify-center gap-2 rounded-full border border-[#6B9E6E]/50 bg-[#6B9E6E]/12 px-4 py-2.5 text-sm font-semibold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/20 disabled:opacity-60 sm:w-auto"
+    >
+      {busy ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden /> : null}
+      {children}
+    </button>
+  );
+}
+
 function OfferReadOnlyDetails({
   offer,
   agentName,
@@ -131,17 +185,53 @@ function OfferReadOnlyDetails({
   offer: NonNullable<PipelineDeal["offers"]>[number];
   agentName: string;
 }) {
-  const terms = offer.terms_text?.trim();
-  const validLine = formatValidUntilLine(offer.valid_until);
-  const sent = formatShortDate(offer.created_at);
+  const msg = offer.client_message?.trim();
+  const hasDoc = Boolean(offer.agreement_file_url?.trim());
+  const legacyTerms = !hasDoc && offer.terms_text?.trim();
+  const legacyValid = !hasDoc ? formatValidUntilLine(offer.valid_until) : null;
   return (
     <div className="space-y-2">
-      <p className="text-[13px] font-semibold text-[#6B9E6E]">{formatOfferAmountDisplay(offer.amount, offer.currency)}</p>
-      {terms ? <p className="text-[13px] leading-snug text-[#2C2C2C]/75">{terms}</p> : null}
-      {validLine ? <p className="text-xs font-normal text-[#2C2C2C]/45">{validLine}</p> : null}
+      <p className="text-lg font-bold leading-tight text-[#D4A843]">{formatOfferAmountDisplay(offer.amount, offer.currency)}</p>
       <p className="text-xs font-normal text-[#2C2C2C]/45">
-        Sent {sent} by {agentName}
+        Sent {formatShortDate(offer.created_at)} by {agentName}
       </p>
+      {hasDoc ? (
+        <AgreementDownloadButton kind="offer" id={offer.id}>
+          📄 Download Offer Letter
+        </AgreementDownloadButton>
+      ) : (
+        <p className="text-xs italic text-[#2C2C2C]/45">No document attached</p>
+      )}
+      {legacyTerms ? <p className="text-[13px] leading-snug text-[#2C2C2C]/75">{legacyTerms}</p> : null}
+      {legacyValid ? <p className="text-xs font-normal text-[#2C2C2C]/45">{legacyValid}</p> : null}
+      {msg ? <p className="text-[13px] leading-snug text-[#2C2C2C]/75">{msg}</p> : null}
+    </div>
+  );
+}
+
+function ReservationReadOnlyDetails({
+  row,
+  agentName,
+}: {
+  row: NonNullable<PipelineDeal["reservations"]>[number];
+  agentName: string;
+}) {
+  const notes = row.notes?.trim();
+  const hasDoc = Boolean(row.agreement_file_url?.trim());
+  return (
+    <div className="space-y-2">
+      <p className="text-lg font-bold leading-tight text-[#D4A843]">{formatOfferAmountDisplay(row.amount, row.currency)}</p>
+      <p className="text-xs font-normal text-[#2C2C2C]/45">
+        Reservation request from {agentName} · {formatShortDate(row.created_at)}
+      </p>
+      {hasDoc ? (
+        <AgreementDownloadButton kind="reservation" id={row.id}>
+          📄 Download Reservation Agreement
+        </AgreementDownloadButton>
+      ) : (
+        <p className="text-xs italic text-[#2C2C2C]/45">No document attached</p>
+      )}
+      {notes ? <p className="text-[13px] leading-snug text-[#2C2C2C]/75">{notes}</p> : null}
     </div>
   );
 }
@@ -394,6 +484,8 @@ function DealCard({
   const [requestedDocsExpanded, setRequestedDocsExpanded] = useState(false);
   const [reviewOfferExpanded, setReviewOfferExpanded] = useState(false);
   const [offerHistoryExpanded, setOfferHistoryExpanded] = useState(false);
+  const [reviewReservationExpanded, setReviewReservationExpanded] = useState(false);
+  const [reservationHistoryExpanded, setReservationHistoryExpanded] = useState(false);
 
   const pendingDocs = deal.documents.filter((d) => d.pending_upload);
   const pendingCount = pendingDocs.length;
@@ -410,6 +502,19 @@ function DealCard({
     [pendingOffersNewestFirst],
   );
 
+  const pendingReservationsNewestFirst = useMemo(() => {
+    const list = [...(deal.reservations ?? [])].filter((r) => String(r.status ?? "").toLowerCase() === "pending");
+    list.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+    return list;
+  }, [deal.reservations]);
+
+  const latestPendingReservation = pendingReservationsNewestFirst[0];
+  const olderPendingReservationsChronological = useMemo(
+    () =>
+      pendingReservationsNewestFirst.slice(1).sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at)),
+    [pendingReservationsNewestFirst],
+  );
+
   const inquiryDate = deal.viewing?.created_at ?? deal.lead_created_at;
   const viewingConfirmed = deal.viewing?.status === "confirmed";
   const viewingDeclined = deal.viewing?.status === "declined";
@@ -417,6 +522,8 @@ function DealCard({
   const offerNotStarted = !["offer", "reservation", "closed"].includes(
     String(deal.pipeline_stage ?? "").toLowerCase(),
   );
+
+  const reservationNotStarted = !["reservation", "closed"].includes(String(deal.pipeline_stage ?? "").toLowerCase());
 
   const stageLc = String(deal.pipeline_stage ?? "").toLowerCase();
   const statusPillVariant: "neutral" | "sage" | "gold" =
@@ -838,6 +945,101 @@ function DealCard({
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
                 <div className="min-w-0">
                   <p className="whitespace-nowrap text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Offer</p>
+                </div>
+              </li>
+            )}
+            {reservationNotStarted ? (
+              <li className="flex items-start gap-2.5">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#2C2C2C]/12" aria-hidden />
+                <div className="min-w-0">
+                  <p className="whitespace-nowrap text-[13px] font-semibold leading-tight text-[#2C2C2C]/50">Reservation</p>
+                  <p className="mt-1 text-xs font-normal text-[#2C2C2C]/40">Not yet</p>
+                </div>
+              </li>
+            ) : stageLc === "reservation" ? (
+              <li className="flex items-start gap-2.5">
+                <span
+                  className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#D4A843]/45 bg-[#D4A843]/15"
+                  aria-hidden
+                />
+                <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReviewReservationExpanded((v) => {
+                        const next = !v;
+                        if (!next) setReservationHistoryExpanded(false);
+                        return next;
+                      });
+                    }}
+                    className="inline-flex w-full items-center justify-between gap-2 text-left"
+                    aria-expanded={reviewReservationExpanded}
+                  >
+                    <span className="min-w-0 text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">
+                      Review reservation · <span className="text-[#D4A843]">pending</span>
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex shrink-0 text-[#6B9E6E] transition-transform duration-300",
+                        reviewReservationExpanded && "rotate-180",
+                      )}
+                      aria-hidden
+                    >
+                      ▼
+                    </span>
+                  </button>
+                  <div
+                    className={cn(
+                      "overflow-hidden transition-all duration-300",
+                      reviewReservationExpanded ? "mt-3 max-h-[720px] opacity-100" : "mt-0 max-h-0 opacity-0",
+                    )}
+                  >
+                    <div className="space-y-3 border-l border-[#2C2C2C]/[0.06] pl-3">
+                      {latestPendingReservation ? (
+                        <>
+                          <ReservationReadOnlyDetails row={latestPendingReservation} agentName={deal.agent.name} />
+                          {olderPendingReservationsChronological.length > 0 ? (
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => setReservationHistoryExpanded((v) => !v)}
+                                className="text-xs font-semibold text-[#6B9E6E] hover:underline"
+                                aria-expanded={reservationHistoryExpanded}
+                              >
+                                {reservationHistoryExpanded ? "Hide history" : "View history"}
+                              </button>
+                              <div
+                                className={cn(
+                                  "overflow-hidden transition-all duration-300",
+                                  reservationHistoryExpanded ? "mt-3 max-h-[480px] opacity-100" : "max-h-0 opacity-0",
+                                )}
+                              >
+                                <div className="divide-y divide-[#2C2C2C]/[0.06] border-t border-[#2C2C2C]/[0.06] pt-2">
+                                  {olderPendingReservationsChronological.map((r) => (
+                                    <div key={r.id} className="py-3 first:pt-2">
+                                      <ReservationReadOnlyDetails row={r} agentName={deal.agent.name} />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <p className="text-xs italic text-[#2C2C2C]/45">No reservation details yet.</p>
+                      )}
+                      <p className="text-xs italic text-[#2C2C2C]/45">
+                        Reply to your agent in Messages or upload signed agreement
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            ) : (
+              <li className="flex items-start gap-2.5">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
+                <div className="min-w-0">
+                  <p className="whitespace-nowrap text-[13px] font-semibold leading-tight text-[#2C2C2C]/90">Reservation</p>
                 </div>
               </li>
             )}

@@ -1,20 +1,17 @@
 import { NextRequest } from "next/server";
-import { z } from "zod";
-import { fail, fromZodError, ok } from "@/lib/api/response";
+import { fail, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { PROPERTY_ADDRESS_FALLBACK, propertyAddressLabel } from "@/lib/property-address-label";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveTeamMemberSupervisorUserId } from "@/lib/team-member-lead-access";
+import { validateDealAttachmentFile } from "@/lib/deal-attachment-file";
 
-const BodySchema = z.object({
-  lead_id: z.number().int().positive(),
-  amount: z.number().positive(),
-  currency: z.string().min(1).max(8).default("PHP"),
-  terms_text: z.string().max(500).optional().nullable(),
-  valid_until: z.string().max(32).optional().nullable(), // YYYY-MM-DD
-  message: z.string().max(300).optional().nullable(),
-});
+function asNumber(v: unknown): number {
+  if (typeof v === "number") return v;
+  if (typeof v === "string") return Number.parseFloat(v);
+  return NaN;
+}
 
 async function resolveClientUserId(
   admin: ReturnType<typeof createSupabaseAdmin>,
@@ -34,9 +31,19 @@ export async function POST(req: NextRequest) {
       return fail("FORBIDDEN", "Not allowed", 403);
     }
 
-    const parsed = BodySchema.safeParse(await req.json().catch(() => ({})));
-    if (!parsed.success) return fromZodError(parsed.error);
-    const body = parsed.data;
+    const form = await req.formData();
+    const leadId = Number.parseInt(String(form.get("lead_id") ?? ""), 10);
+    const amount = asNumber(form.get("amount"));
+    const messageRaw = String(form.get("message") ?? "");
+    const clientMessage = messageRaw.trim() ? messageRaw.trim().slice(0, 300) : null;
+    const file = form.get("agreement_file");
+
+    if (!Number.isFinite(leadId) || leadId <= 0) return fail("BAD_REQUEST", "lead_id required", 400);
+    if (!Number.isFinite(amount) || amount <= 0) return fail("BAD_REQUEST", "Valid amount required", 400);
+    if (file instanceof File && file.size > 0) {
+      const fileErr = validateDealAttachmentFile(file);
+      if (fileErr) return fail("BAD_REQUEST", fileErr, 400);
+    }
 
     const sb = await createSupabaseServerClient();
     const supervisorUserId =
@@ -56,7 +63,7 @@ export async function POST(req: NextRequest) {
     const { data: lead, error: leadErr } = await admin
       .from("leads")
       .select("id, agent_id, pipeline_stage, pipeline_position, client_id, email, property_id")
-      .eq("id", body.lead_id)
+      .eq("id", leadId)
       .maybeSingle();
     if (leadErr) return fail("DATABASE_ERROR", leadErr.message, 500);
     if (!lead) return fail("NOT_FOUND", "Lead not found", 404);
@@ -70,22 +77,35 @@ export async function POST(req: NextRequest) {
           : agentId != null && agentId === session.userId;
     if (!ownsLead) return fail("FORBIDDEN", "Not your lead", 403);
 
-    const nowIso = new Date().toISOString();
+    let storagePath: string | null = null;
+    let agreementFileName: string | null = null;
+    if (file instanceof File && file.size > 0) {
+      const ext =
+        file.name.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toLowerCase() || "pdf";
+      storagePath = `${leadId}/offer-letter-${Date.now()}.${ext}`;
+      const bodyBuf = Buffer.from(await file.arrayBuffer());
+      const { error: uploadErr } = await admin.storage.from("deals").upload(storagePath, bodyBuf, {
+        upsert: true,
+        contentType: file.type || "application/octet-stream",
+      });
+      if (uploadErr) return fail("DATABASE_ERROR", uploadErr.message, 500);
+      agreementFileName = file.name?.trim() ? file.name.trim().slice(0, 255) : null;
+    }
 
-    // Insert offer
-    const termsText = body.terms_text?.trim() ? body.terms_text.trim() : null;
-    const validUntil = body.valid_until?.trim() ? body.valid_until.trim() : null;
-    const currency = body.currency?.trim() ? body.currency.trim().toUpperCase() : "PHP";
+    const nowIso = new Date().toISOString();
 
     const { data: offerRow, error: offerErr } = await admin
       .from("offers")
       .insert({
-        lead_id: body.lead_id,
+        lead_id: leadId,
         created_by: session.userId,
-        amount: body.amount,
-        currency,
-        terms_text: termsText,
-        valid_until: validUntil,
+        amount,
+        currency: "PHP",
+        terms_text: null,
+        valid_until: null,
+        agreement_file_url: storagePath,
+        agreement_file_name: agreementFileName,
+        client_message: clientMessage,
         status: "pending",
       })
       .select("id, created_at")
@@ -94,7 +114,6 @@ export async function POST(req: NextRequest) {
     const offerId = (offerRow as { id?: string } | null)?.id;
     if (!offerId) return fail("DATABASE_ERROR", "Offer insert failed", 500);
 
-    // Move lead to Offer stage when currently before Offer
     const currentStage = String((lead as { pipeline_stage?: string }).pipeline_stage ?? "lead").trim().toLowerCase();
     const shouldAdvance = currentStage === "lead" || currentStage === "viewing";
     if (shouldAdvance) {
@@ -118,22 +137,20 @@ export async function POST(req: NextRequest) {
           pipeline_position: maxPos + 1,
           updated_at: nowIso,
         })
-        .eq("id", body.lead_id);
+        .eq("id", leadId);
       if (updErr) return fail("DATABASE_ERROR", updErr.message, 500);
 
       await admin.from("lead_pipeline_history").insert({
-        lead_id: body.lead_id,
+        lead_id: leadId,
         from_stage: currentStage,
         to_stage: "offer",
         note: null,
         changed_by: session.userId,
       });
     } else {
-      // Still update updated_at so the UI refreshes timestamps consistently.
-      await admin.from("leads").update({ updated_at: nowIso }).eq("id", body.lead_id);
+      await admin.from("leads").update({ updated_at: nowIso }).eq("id", leadId);
     }
 
-    // Notify client
     const clientUserId = await resolveClientUserId(admin, lead as { client_id?: string | null; email: string });
     let propertyName = PROPERTY_ADDRESS_FALLBACK;
     const pid = (lead as { property_id?: string | null }).property_id;
@@ -142,7 +159,6 @@ export async function POST(req: NextRequest) {
       propertyName = propertyAddressLabel(propRow as { name?: string | null; location?: string | null } | null);
     }
 
-    const msg = body.message?.trim() ? body.message.trim() : null;
     let agentName: string | null = null;
     try {
       const { data: agentProf } = await admin.from("profiles").select("full_name").eq("id", session.userId).maybeSingle();
@@ -157,14 +173,15 @@ export async function POST(req: NextRequest) {
         title: "Offer sent",
         body: `Your agent sent an offer for ${propertyName}. Check Messages for details.`,
         metadata: {
-          lead_id: body.lead_id,
+          lead_id: leadId,
           offer_id: offerId,
-          amount: body.amount,
-          currency,
-          valid_until: validUntil,
+          amount,
+          currency: "PHP",
           agent_name: agentName,
           property_name: propertyName,
-          message: msg,
+          message: clientMessage,
+          agreement_file_url: storagePath ?? null,
+          agreement_file_name: agreementFileName,
         },
       });
     }
@@ -175,4 +192,3 @@ export async function POST(req: NextRequest) {
     return fail("SERVER_ERROR", "Unexpected error", 500);
   }
 }
-

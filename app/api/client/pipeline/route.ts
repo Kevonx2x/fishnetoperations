@@ -33,6 +33,21 @@ type OfferRow = {
   valid_until: string | null;
   created_at: string;
   status: string;
+  agreement_file_url: string | null;
+  agreement_file_name: string | null;
+  client_message: string | null;
+};
+
+type ReservationRow = {
+  id: string;
+  lead_id: number;
+  amount: string | number;
+  currency: string;
+  notes: string | null;
+  agreement_file_url: string | null;
+  agreement_file_name: string | null;
+  created_at: string;
+  status: string;
 };
 
 function pickHeroImage(args: {
@@ -138,8 +153,14 @@ export async function GET(req: Request) {
 
   const leadIds = leads.map((l) => l.id);
 
-  const [{ data: propsData }, { data: agentsData }, { data: viewingsData }, { data: docsData }, { data: offersData }] =
-    await Promise.all([
+  const [
+    { data: propsData },
+    { data: agentsData },
+    { data: viewingsData },
+    { data: docsData },
+    { data: offersData },
+    { data: reservationsData },
+  ] = await Promise.all([
       propertyIds.length
         ? admin
             .from("properties")
@@ -163,7 +184,17 @@ export async function GET(req: Request) {
       leads.length
         ? admin
             .from("offers")
-            .select("id, lead_id, amount, currency, terms_text, valid_until, created_at, status")
+            .select(
+              "id, lead_id, amount, currency, terms_text, valid_until, created_at, status, agreement_file_url, agreement_file_name, client_message",
+            )
+            .in("lead_id", leadIds)
+            .eq("status", "pending")
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: [] as unknown[] }),
+      leads.length
+        ? admin
+            .from("reservations")
+            .select("id, lead_id, amount, currency, notes, agreement_file_url, agreement_file_name, created_at, status")
             .in("lead_id", leadIds)
             .eq("status", "pending")
             .order("created_at", { ascending: false })
@@ -216,6 +247,13 @@ export async function GET(req: Request) {
     const lid = o.lead_id;
     if (!offersByLeadId.has(lid)) offersByLeadId.set(lid, []);
     offersByLeadId.get(lid)!.push(o);
+  }
+
+  const reservationsByLeadId = new Map<number, ReservationRow[]>();
+  for (const r of (reservationsData ?? []) as ReservationRow[]) {
+    const lid = r.lead_id;
+    if (!reservationsByLeadId.has(lid)) reservationsByLeadId.set(lid, []);
+    reservationsByLeadId.get(lid)!.push(r);
   }
 
   const deals = leads.map((lead) => {
@@ -309,6 +347,19 @@ export async function GET(req: Request) {
         valid_until: o.valid_until,
         created_at: o.created_at,
         status: o.status,
+        agreement_file_url: o.agreement_file_url?.trim() || null,
+        agreement_file_name: o.agreement_file_name?.trim() || null,
+        client_message: o.client_message?.trim() || null,
+      })),
+      reservations: (reservationsByLeadId.get(lead.id) ?? []).map((r) => ({
+        id: r.id,
+        amount: r.amount,
+        currency: String(r.currency ?? "PHP").trim() || "PHP",
+        notes: r.notes?.trim() || null,
+        agreement_file_url: r.agreement_file_url?.trim() || null,
+        agreement_file_name: r.agreement_file_name?.trim() || null,
+        created_at: r.created_at,
+        status: r.status,
       })),
     };
   });

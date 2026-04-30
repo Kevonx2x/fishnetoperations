@@ -20,6 +20,9 @@ export type Profile = {
   bio: string | null;
   role: ProfileRole;
   onboarding_completed: boolean;
+  created_at?: string | null;
+  tutorial_completed?: boolean | null;
+  tutorial_dismissed_at?: string | null;
 };
 
 type AuthContextValue = {
@@ -64,10 +67,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const { data: p } = await supabase
       .from("profiles")
-      .select("id, full_name, avatar_url, phone, bio, role, onboarding_completed")
+      .select(
+        "id, full_name, avatar_url, phone, bio, role, onboarding_completed, created_at, tutorial_completed, tutorial_dismissed_at",
+      )
       .eq("id", u.id)
       .maybeSingle();
     if (p) {
+      const row = p as {
+        created_at?: string | null;
+        tutorial_completed?: boolean | null;
+        tutorial_dismissed_at?: string | null;
+      };
       setProfile({
         id: p.id,
         full_name: p.full_name,
@@ -76,6 +86,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         bio: (p as { bio?: string | null }).bio ?? null,
         role: normalizeRole(p.role),
         onboarding_completed: Boolean((p as { onboarding_completed?: unknown }).onboarding_completed),
+        created_at: row.created_at ?? null,
+        tutorial_completed: row.tutorial_completed ?? null,
+        tutorial_dismissed_at: row.tutorial_dismissed_at ?? null,
       });
     } else {
       setProfile(null);

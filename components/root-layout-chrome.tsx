@@ -17,8 +17,9 @@ export function RootLayoutChrome({
 }) {
   const pathname = usePathname() ?? "";
   const isDashboard = pathname.startsWith("/dashboard");
+  const isWelcome = pathname === "/welcome" || pathname.startsWith("/welcome/");
 
-  if (isDashboard) {
+  if (isDashboard || isWelcome) {
     return <div className="flex min-h-0 flex-1 flex-col">{children}</div>;
   }
 

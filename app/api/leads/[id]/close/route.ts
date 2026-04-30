@@ -59,14 +59,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           : agentId != null && agentId === session.userId;
     if (!ownsLead) return fail("FORBIDDEN", "Not your lead", 403);
 
-    // Must have at least one reservation
-    const { count: resCount, error: resErr } = await admin
-      .from("reservations")
-      .select("*", { count: "exact", head: true })
-      .eq("lead_id", leadId);
-    if (resErr) return fail("DATABASE_ERROR", resErr.message, 500);
-    if ((resCount ?? 0) < 1) return fail("BAD_REQUEST", "Create a reservation before closing this deal", 400);
-
     const currentStage = String((lead as { pipeline_stage?: string }).pipeline_stage ?? "lead").trim().toLowerCase();
     if (currentStage === "closed") return ok({ already_closed: true });
 
