@@ -3,21 +3,40 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { FileText, GitBranch, House, MessageSquare, ShieldCheck, X } from "lucide-react";
+import { FileText, GitBranch, House, MessageSquare, ShieldCheck, Star, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const CHANGELOG_VERSION = "v1.0";
 const OPEN_DELAY_MS = 4000;
 
+/** Same instant as `supabase/migrations/20260430140000_profiles_tutorial_tracking.sql` tutorial backfill. */
+const TUTORIAL_ONBOARDING_CUTOFF_MS = Date.parse("2026-04-30T00:00:00.000Z");
+
+/**
+ * TEMPORARY (QA): the migration sets `tutorial_completed = true` for `created_at` before the cutoff, which
+ * blocks the onboarding track for older test accounts. While true, pre-cutoff profiles are not treated as
+ * tutorial-complete for onboarding routing only — What's New still uses `last_seen_changelog` only (never
+ * `created_at`). Set to `false` after QA and restore onboarding-only cutoff behavior in this file.
+ */
+const TEMP_DISABLE_LEGACY_TUTORIAL_BACKSTOP = true;
+
+function isLegacyProfileBeforeTutorialCutoff(createdAt: string | null | undefined): boolean {
+  if (!createdAt) return false;
+  const ms = Date.parse(createdAt);
+  return Number.isFinite(ms) && ms < TUTORIAL_ONBOARDING_CUTOFF_MS;
+}
+
 const CREAM = "#FAF8F4";
 const RIGHT_SAGE = "#2d4a2f";
+const CHARCOAL = "#2C2C2C";
+const CLIENT_TRUST_RIGHT = "#FAF8F4";
 
-/** Right-panel stage: centered content, ~70–85% usable area */
+/** Right-panel stage: centered content, ~70–85% usable area (inner overflow visible so previews are not clipped). */
 function RightStage({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-full min-h-[240px] w-full flex-1 items-center justify-center md:min-h-0">
-      <div className="relative flex w-[min(92%,95%)] max-w-[min(90vw,640px)] flex-col items-center justify-center md:w-[85%]">
+    <div className="flex h-full min-h-[240px] w-full flex-1 items-center justify-center overflow-visible md:min-h-0">
+      <div className="relative flex w-[min(92%,95%)] max-w-[min(90vw,640px)] flex-col items-center justify-center overflow-visible md:w-[85%]">
         {children}
       </div>
     </div>
@@ -298,6 +317,477 @@ function PreviewChatSimple() {
   );
 }
 
+/** Client Slide 1 — trust carousel + expand + agent highlight (plays once per mount) */
+function PreviewClientTrustCarousel() {
+  const loop = 10;
+  const ease = "easeInOut" as const;
+  /** Phases: scroll → settle → expand → highlight → license (hold final frame) */
+  const t = [0, 0.3, 0.38, 0.4, 0.55, 0.62, 0.72, 0.75, 0.9, 1];
+  const transition = { duration: loop, repeat: 0, ease, times: t };
+  const badgeEase = [0.34, 1.56, 0.64, 1] as const;
+  const badgeTransition = { duration: loop, repeat: 0, ease: badgeEase, times: t };
+
+  const rootOpacity = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+  /** Slow scroll R→L (positive x = row shifted right) */
+  const rowX = [200, -56, -64, -64, 0, 0, 0, 0, 0, 0];
+  const sideOpacity = [1, 1, 1, 0.5, 0, 0, 0, 0, 0, 0];
+  const sideScale = [1, 1, 1, 0.85, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8];
+  const centerW = [160, 160, 160, 160, 280, 280, 280, 280, 280, 280];
+  const centerH = [220, 220, 220, 220, 260, 260, 260, 260, 260, 260];
+  const badgeScale = [0, 0, 0, 0, 0, 0, 1.1, 1, 1, 1];
+  const starOpacity = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1];
+  const licenseOpacity = [0, 0, 0, 0, 0, 0, 0, 1, 1, 1];
+  const licenseY = [8, 8, 8, 8, 8, 8, 8, 0, 0, 0];
+  const avatarShadow = [
+    "0 0 0 rgba(107,158,110,0)",
+    "0 0 0 rgba(107,158,110,0)",
+    "0 0 0 rgba(107,158,110,0)",
+    "0 0 0 rgba(107,158,110,0)",
+    "0 0 0 rgba(107,158,110,0)",
+    "0 0 0 rgba(107,158,110,0)",
+    "0 0 0 3px rgba(107,158,110,0.45)",
+    "0 0 0 4px rgba(107,158,110,0.55)",
+    "0 0 0 3px rgba(107,158,110,0.4)",
+    "0 0 0 rgba(107,158,110,0)",
+  ];
+  const rowBg = [
+    "rgba(255,255,255,0)",
+    "rgba(255,255,255,0)",
+    "rgba(255,255,255,0)",
+    "rgba(255,255,255,0)",
+    "rgba(255,255,255,0)",
+    "rgba(255,255,255,0.12)",
+    "rgba(255,255,255,0.18)",
+    "rgba(255,255,255,0.14)",
+    "rgba(255,255,255,0.08)",
+    "rgba(255,255,255,0.08)",
+  ];
+
+  const cardShell =
+    "shrink-0 overflow-hidden rounded-xl bg-white shadow-lg flex flex-col pointer-events-none";
+
+  return (
+    <RightStage>
+      <motion.div
+        className="flex w-full flex-col items-center justify-center gap-4 overflow-visible px-2 py-5"
+        initial={false}
+        animate={{ opacity: rootOpacity }}
+        transition={transition}
+      >
+        <div className="relative flex min-h-[280px] w-full max-w-[min(100%,380px)] items-center justify-center overflow-visible">
+          <motion.div
+            className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 overflow-visible"
+            initial={false}
+            animate={{ x: rowX }}
+            transition={transition}
+          >
+            <motion.div className={cardShell} style={{ width: 160, height: 220 }} initial={false} animate={{ opacity: sideOpacity, scale: sideScale }} transition={transition}>
+              <img
+                src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80"
+                alt=""
+                className="h-[55%] w-full shrink-0 rounded-t-xl object-cover"
+                draggable={false}
+              />
+              <div className="flex flex-1 flex-col px-2.5 pb-2.5 pt-1.5">
+                <p className="text-xs font-bold text-[#2C2C2C]">1BR in BGC</p>
+                <p className="mt-0.5 text-[10px] font-bold text-[#D4A843]">₱28,000/mo</p>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <span className="relative h-5 w-5 shrink-0 overflow-hidden rounded-full">
+                    <img
+                      src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80"
+                      alt=""
+                      width={20}
+                      height={20}
+                      className="h-full w-full object-cover"
+                      draggable={false}
+                    />
+                  </span>
+                  <span className="text-[10px] text-[#2C2C2C]/90">Alex R.</span>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              className={`relative z-[1] ${cardShell}`}
+              initial={{ width: 160, height: 220 }}
+              animate={{ width: centerW, height: centerH }}
+              transition={transition}
+            >
+              <div className="relative h-[55%] min-h-[118px] w-full shrink-0 overflow-hidden rounded-t-xl">
+                <motion.img
+                  src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80"
+                  alt=""
+                  className="h-full w-full object-cover"
+                  draggable={false}
+                  initial={false}
+                  animate={{ scale: [1, 1, 1, 1, 1.08, 1.1, 1.08, 1.06, 1.05, 1.05] }}
+                  transition={transition}
+                />
+              </div>
+              <div className="flex flex-1 flex-col px-2.5 pb-2 pt-1.5">
+                <p className="text-xs font-bold text-[#2C2C2C]">2BR Condo Makati</p>
+                <p className="mt-0.5 text-[10px] font-bold text-[#D4A843]">₱35,000/mo</p>
+                <motion.div
+                  className="mt-1.5 flex min-h-[32px] flex-wrap items-center gap-1 rounded-lg px-1 py-0.5"
+                  initial={false}
+                  animate={{ backgroundColor: rowBg }}
+                  transition={transition}
+                >
+                  <motion.img
+                    src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&q=80"
+                    alt=""
+                    width={20}
+                    height={20}
+                    className="h-5 w-5 shrink-0 rounded-full object-cover"
+                    draggable={false}
+                    initial={false}
+                    animate={{ boxShadow: avatarShadow }}
+                    transition={transition}
+                  />
+                  <span className="text-[10px] font-medium text-[#2C2C2C]/90">Maria Santos</span>
+                  <motion.span
+                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/25 text-[#6B9E6E]"
+                    initial={false}
+                    animate={{ scale: badgeScale }}
+                    transition={badgeTransition}
+                  >
+                    <ShieldCheck className="h-3 w-3" strokeWidth={2.25} aria-hidden />
+                  </motion.span>
+                  <motion.span
+                    className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#D4A843]"
+                    initial={false}
+                    animate={{ opacity: starOpacity }}
+                    transition={transition}
+                  >
+                    <Star className="h-3 w-3 fill-[#D4A843] text-[#D4A843]" aria-hidden />
+                    4.8
+                  </motion.span>
+                </motion.div>
+              </div>
+            </motion.div>
+
+            <motion.div className={cardShell} style={{ width: 160, height: 220 }} initial={false} animate={{ opacity: sideOpacity, scale: sideScale }} transition={transition}>
+              <img
+                src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80"
+                alt=""
+                className="h-[55%] w-full shrink-0 rounded-t-xl object-cover"
+                draggable={false}
+              />
+              <div className="flex flex-1 flex-col px-2.5 pb-2.5 pt-1.5">
+                <p className="text-xs font-bold text-[#2C2C2C]">Studio Ortigas</p>
+                <p className="mt-0.5 text-[10px] font-bold text-[#D4A843]">₱18,000/mo</p>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <span className="relative h-5 w-5 shrink-0 overflow-hidden rounded-full">
+                    <img
+                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80"
+                      alt=""
+                      width={20}
+                      height={20}
+                      className="h-full w-full object-cover"
+                      draggable={false}
+                    />
+                  </span>
+                  <span className="text-[10px] text-[#2C2C2C]/90">Carlo M.</span>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        </div>
+        <motion.p
+          className="max-w-[280px] text-center text-xs italic text-[#2C2C2C]/40"
+          initial={false}
+          animate={{ opacity: licenseOpacity, y: licenseY }}
+          transition={transition}
+        >
+          PRC License #0045821 · Verified
+        </motion.p>
+      </motion.div>
+    </RightStage>
+  );
+}
+
+/** One-shot chat sequence length (seconds); ends after message 6 is fully visible. */
+const SLIDE2_CHAT_SEQUENCE_S = 16.5;
+
+/** Typing shell: fade in 0.2s at fadeInStart, fade out 0.2s starting fadeOutStart. Opacity only; plays once. */
+function slide2TypingOpacityOnce(total: number, fadeInStart: number, fadeOutStart: number) {
+  const a = fadeInStart / total;
+  const b = (fadeInStart + 0.2) / total;
+  const c = fadeOutStart / total;
+  const d = (fadeOutStart + 0.2) / total;
+  const eps = 0.00006;
+  return {
+    times: [0, Math.max(0, a - eps), a, b, Math.max(b + eps, c - eps), c, d, 1],
+    opacity: [0, 0, 0, 1, 1, 1, 0, 0],
+  };
+}
+
+/** Message row: fade in 0.3s at appearStart, then hold. Opacity only; plays once (no fade-out). */
+function slide2MessageOpacityOnce(total: number, appearStart: number) {
+  const a = appearStart / total;
+  const b = (appearStart + 0.3) / total;
+  const eps = 0.00006;
+  return {
+    times: [0, Math.max(0, a - eps), a, b, 1],
+    opacity: [0, 0, 0, 1, 1],
+  };
+}
+
+function Slide2TypingDots({ side }: { side: "client" | "agent" }) {
+  const dot = side === "client" ? "bg-[#6B9E6E]" : "bg-white/40";
+  return (
+    <div className="flex items-center gap-1" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <motion.span
+          key={i}
+          className={`h-[3px] w-[3px] shrink-0 rounded-full ${dot}`}
+          animate={{ opacity: [0.3, 1, 0.3] }}
+          transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const SLIDE2_CLIENT_AVATAR = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80";
+const SLIDE2_AGENT_AVATAR = "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&q=80";
+
+/** Client Slide 2 — one-shot sequence, opacity-only (no layout shift / bounce) */
+function PreviewClientStayConnectedChat() {
+  const L = SLIDE2_CHAT_SEQUENCE_S;
+  const transitionOnce = { duration: L, repeat: 0, ease: "easeInOut" as const };
+
+  const ty2 = slide2TypingOpacityOnce(L, 0.3, 2.5);
+  const ty3 = slide2TypingOpacityOnce(L, 3.7, 5.7);
+  const ty4 = slide2TypingOpacityOnce(L, 6.9, 8.9);
+  const ty5 = slide2TypingOpacityOnce(L, 10.1, 12.1);
+  const ty6 = slide2TypingOpacityOnce(L, 13.3, 15.3);
+
+  const m2 = slide2MessageOpacityOnce(L, 2.7);
+  const m3 = slide2MessageOpacityOnce(L, 5.9);
+  const m4 = slide2MessageOpacityOnce(L, 9.1);
+  const m5 = slide2MessageOpacityOnce(L, 12.3);
+  const m6 = slide2MessageOpacityOnce(L, 15.5);
+
+  return (
+    <RightStage>
+      <div className="w-full max-w-[min(92%,560px)] min-w-[260px] py-2">
+        <div className="mx-auto flex w-full flex-col gap-5 px-1">
+          {/* Slot 1 — client (message 1 visible immediately; no typing before first message) */}
+          <div className="relative min-h-[56px] w-full">
+            <div className="pointer-events-none absolute right-0 top-0 w-[min(82%,300px)]">
+              <div className="absolute right-0 top-0 z-20 flex flex-row-reverse items-end gap-2 opacity-100">
+                <div className="max-w-full shrink-0">
+                  <p className="mb-0.5 text-right text-[10px] text-white/50">James Cruz</p>
+                  <div className="flex flex-row-reverse items-end gap-2">
+                    <img
+                      src={SLIDE2_CLIENT_AVATAR}
+                      alt=""
+                      width={24}
+                      height={24}
+                      className="h-6 w-6 shrink-0 rounded-full object-cover"
+                      draggable={false}
+                    />
+                    <div className="rounded-2xl rounded-tr-sm bg-[#6B9E6E] px-4 py-2 shadow-md">
+                      <p className="text-xs text-white">Available pa po ba ito?</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Slot 2 — agent */}
+          <div className="relative min-h-[60px] w-full">
+            <div className="pointer-events-none absolute left-0 top-0 w-[min(82%,300px)]">
+              <motion.div
+                className="z-10 flex flex-col items-start pl-1"
+                initial={false}
+                animate={{ opacity: ty2.opacity }}
+                transition={{ ...transitionOnce, times: ty2.times }}
+              >
+                <div className="mb-0.5 h-[14px] w-full shrink-0" aria-hidden />
+                <div className="flex items-end gap-2">
+                  <div className="h-6 w-6 shrink-0" aria-hidden />
+                  <div className="rounded-2xl rounded-tl-sm bg-white/[0.08] px-4 py-2">
+                    <Slide2TypingDots side="agent" />
+                  </div>
+                </div>
+              </motion.div>
+              <motion.div
+                className="absolute left-0 top-0 z-20 flex items-end gap-2"
+                initial={false}
+                animate={{ opacity: m2.opacity }}
+                transition={{ ...transitionOnce, times: m2.times }}
+              >
+                <div className="max-w-full">
+                  <p className="mb-0.5 text-[10px] text-white/50">Maria Santos</p>
+                  <div className="flex items-end gap-2">
+                    <img
+                      src={SLIDE2_AGENT_AVATAR}
+                      alt=""
+                      width={24}
+                      height={24}
+                      className="h-6 w-6 shrink-0 rounded-full object-cover"
+                      draggable={false}
+                    />
+                    <div className="rounded-2xl rounded-tl-sm bg-[#1a1a1a] px-4 py-2 shadow-md">
+                      <p className="text-xs text-white">Yes po! Want to schedule a viewing?</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+
+          {/* Slot 3 — client */}
+          <div className="relative min-h-[48px] w-full">
+            <div className="pointer-events-none absolute right-0 top-0 w-[min(82%,300px)]">
+              <motion.div
+                className="z-10 flex flex-row-reverse items-end gap-2"
+                initial={false}
+                animate={{ opacity: ty3.opacity }}
+                transition={{ ...transitionOnce, times: ty3.times }}
+              >
+                <div className="h-6 w-6 shrink-0" aria-hidden />
+                <div className="rounded-2xl rounded-tr-sm bg-[#6B9E6E]/25 px-4 py-2">
+                  <Slide2TypingDots side="client" />
+                </div>
+              </motion.div>
+              <motion.div
+                className="absolute right-0 top-0 z-20 flex flex-row-reverse items-end gap-2"
+                initial={false}
+                animate={{ opacity: m3.opacity }}
+                transition={{ ...transitionOnce, times: m3.times }}
+              >
+                <img
+                  src={SLIDE2_CLIENT_AVATAR}
+                  alt=""
+                  width={24}
+                  height={24}
+                  className="h-6 w-6 shrink-0 rounded-full object-cover"
+                  draggable={false}
+                />
+                <div className="rounded-2xl rounded-tr-sm bg-[#6B9E6E] px-4 py-2 shadow-md">
+                  <p className="text-xs text-white">I requested a viewing po 🏠</p>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+
+          {/* Slot 4 — agent */}
+          <div className="relative min-h-[48px] w-full">
+            <div className="pointer-events-none absolute left-0 top-0 w-[min(82%,300px)]">
+              <motion.div
+                className="z-10 flex items-end gap-2 pl-1"
+                initial={false}
+                animate={{ opacity: ty4.opacity }}
+                transition={{ ...transitionOnce, times: ty4.times }}
+              >
+                <div className="h-6 w-6 shrink-0" aria-hidden />
+                <div className="rounded-2xl rounded-tl-sm bg-white/[0.08] px-4 py-2">
+                  <Slide2TypingDots side="agent" />
+                </div>
+              </motion.div>
+              <motion.div
+                className="absolute left-0 top-0 z-20 flex items-end gap-2"
+                initial={false}
+                animate={{ opacity: m4.opacity }}
+                transition={{ ...transitionOnce, times: m4.times }}
+              >
+                <img
+                  src={SLIDE2_AGENT_AVATAR}
+                  alt=""
+                  width={24}
+                  height={24}
+                  className="h-6 w-6 shrink-0 rounded-full object-cover"
+                  draggable={false}
+                />
+                <div className="rounded-2xl rounded-tl-sm bg-[#1a1a1a] px-4 py-2 shadow-md">
+                  <p className="text-xs text-white">Accepted! See you Saturday 2PM ✓</p>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+
+          {/* Slot 5 — client + attachment */}
+          <div className="relative min-h-[76px] w-full">
+            <div className="pointer-events-none absolute right-0 top-0 w-[min(82%,300px)]">
+              <motion.div
+                className="z-10 flex flex-row-reverse items-end gap-2"
+                initial={false}
+                animate={{ opacity: ty5.opacity }}
+                transition={{ ...transitionOnce, times: ty5.times }}
+              >
+                <div className="h-6 w-6 shrink-0" aria-hidden />
+                <div className="rounded-2xl rounded-tr-sm bg-[#6B9E6E]/25 px-4 py-2">
+                  <Slide2TypingDots side="client" />
+                </div>
+              </motion.div>
+              <motion.div
+                className="absolute right-0 top-0 z-20 flex flex-row-reverse items-end gap-2"
+                initial={false}
+                animate={{ opacity: m5.opacity }}
+                transition={{ ...transitionOnce, times: m5.times }}
+              >
+                <img
+                  src={SLIDE2_CLIENT_AVATAR}
+                  alt=""
+                  width={24}
+                  height={24}
+                  className="h-6 w-6 shrink-0 rounded-full object-cover"
+                  draggable={false}
+                />
+                <div className="flex flex-col items-end gap-0.5">
+                  <div className="rounded-2xl rounded-tr-sm bg-[#6B9E6E] px-4 py-2 shadow-md">
+                    <p className="text-xs text-white">Sent ko na po yung documents 📎</p>
+                  </div>
+                  <p className="pr-0.5 text-[9px] text-white/50">Offer_Letter.pdf</p>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+
+          {/* Slot 6 — agent */}
+          <div className="relative min-h-[48px] w-full">
+            <div className="pointer-events-none absolute left-0 top-0 w-[min(82%,300px)]">
+              <motion.div
+                className="z-10 flex items-end gap-2 pl-1"
+                initial={false}
+                animate={{ opacity: ty6.opacity }}
+                transition={{ ...transitionOnce, times: ty6.times }}
+              >
+                <div className="h-6 w-6 shrink-0" aria-hidden />
+                <div className="rounded-2xl rounded-tl-sm bg-white/[0.08] px-4 py-2">
+                  <Slide2TypingDots side="agent" />
+                </div>
+              </motion.div>
+              <motion.div
+                className="absolute left-0 top-0 z-20 flex items-end gap-2"
+                initial={false}
+                animate={{ opacity: m6.opacity }}
+                transition={{ ...transitionOnce, times: m6.times }}
+              >
+                <img
+                  src={SLIDE2_AGENT_AVATAR}
+                  alt=""
+                  width={24}
+                  height={24}
+                  className="h-6 w-6 shrink-0 rounded-full object-cover"
+                  draggable={false}
+                />
+                <div className="rounded-2xl rounded-tl-sm bg-[#1a1a1a] px-4 py-2 shadow-md">
+                  <p className="text-xs text-white">Received and confirmed po! 🎉</p>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </RightStage>
+  );
+}
+
 /** Slide 3 — logo breathing + tagline, 3s loop (scale + sage glow ring) */
 function PreviewLogoBreathSimple() {
   return (
@@ -357,6 +847,17 @@ function iconCell(children: ReactNode, tone: "sage" | "gold" = "sage") {
 
 const titleClass = "font-sans text-3xl font-bold text-[#2C2C2C]";
 const bodyClass = "mt-4 font-sans text-base leading-relaxed text-[#888888]";
+
+function clientTrustSlideIcon() {
+  return (
+    <div
+      className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-white/10 p-2 text-[#6B9E6E]"
+      aria-hidden
+    >
+      <ShieldCheck className="h-10 w-10" strokeWidth={1.65} />
+    </div>
+  );
+}
 
 function buildOnboardingSlides(): SlideDef[] {
   return [
@@ -438,6 +939,89 @@ function buildWhatsNewSlides(): SlideDef[] {
   ];
 }
 
+function buildClientOnboardingSlides(): SlideDef[] {
+  return [
+    {
+      key: "client-trust",
+      left: (
+        <>
+          {clientTrustSlideIcon()}
+          <h2 className="font-sans text-3xl font-bold text-white">Agents you can trust</h2>
+          <p className="mt-4 font-sans text-base leading-relaxed text-white/60">
+            Every agent on BahayGo is PRC-verified. No fake listings. No ghost brokers. Just licensed professionals
+            ready to help you find your home.
+          </p>
+        </>
+      ),
+      right: <PreviewClientTrustCarousel />,
+    },
+    {
+      key: "client-deal-progress",
+      left: (
+        <>
+          {iconCell(<MessageSquare strokeWidth={1.65} />)}
+          <h2 className={titleClass}>Stay connected</h2>
+          <p className={bodyClass}>Message your agent directly. Every step of your deal — from inquiry to keys.</p>
+        </>
+      ),
+      right: <PreviewClientStayConnectedChat />,
+    },
+    {
+      key: "brand",
+      left: (
+        <>
+          {iconCell(<ShieldCheck strokeWidth={1.65} />, "gold")}
+          <h2 className={titleClass}>Built for Philippine real estate</h2>
+          <p className={bodyClass}>PRC-verified agents. Trusted listings. From Makati to Cebu.</p>
+        </>
+      ),
+      right: <PreviewLogoBreathSimple />,
+    },
+  ];
+}
+
+function buildClientWhatsNewSlides(): SlideDef[] {
+  return [
+    {
+      key: "client-verification",
+      left: (
+        <>
+          {newPill()}
+          <h2 className={titleClass}>Verified agents, trusted listings</h2>
+          <p className={bodyClass}>
+            We&apos;ve strengthened our agent verification. Every listing is backed by a PRC-licensed professional.
+          </p>
+        </>
+      ),
+      right: <PreviewClientTrustCarousel />,
+    },
+    {
+      key: "client-track-deals",
+      left: (
+        <>
+          {newPill()}
+          <h2 className={titleClass}>Track your deals</h2>
+          <p className={bodyClass}>
+            Your pipeline now shows exactly where each deal stands — from inquiry to close.
+          </p>
+        </>
+      ),
+      right: <PreviewClientStayConnectedChat />,
+    },
+    {
+      key: "coming-soon",
+      left: (
+        <>
+          {newPill()}
+          <h2 className={titleClass}>More coming soon</h2>
+          <p className={bodyClass}>Maps, document tools, and more — shipping monthly.</p>
+        </>
+      ),
+      right: <PreviewLogoBreathSimple />,
+    },
+  ];
+}
+
 const slideEase = [0.22, 1, 0.36, 1] as const;
 
 export function PostLoginModal() {
@@ -451,8 +1035,11 @@ export function PostLoginModal() {
   useEffect(() => {
     if (authLoading || !user?.id || !profile) return;
     const id = window.setTimeout(() => {
-      const tutorialDone = profile.tutorial_completed === true;
       const changelogSeen = profile.last_seen_changelog === CHANGELOG_VERSION;
+      const dbTutorialDone = profile.tutorial_completed === true;
+      const legacyPreCutoff = isLegacyProfileBeforeTutorialCutoff(profile.created_at);
+      const tutorialDone =
+        TEMP_DISABLE_LEGACY_TUTORIAL_BACKSTOP && legacyPreCutoff ? false : dbTutorialDone;
       if (!tutorialDone) {
         setTrack("onboarding");
         setSlideIndex(0);
@@ -468,18 +1055,27 @@ export function PostLoginModal() {
     authLoading,
     user?.id,
     profile?.id,
+    profile?.role,
+    profile?.created_at,
     profile?.tutorial_completed,
     profile?.last_seen_changelog,
   ]);
 
+  const postLoginAudience = profile?.role === "client" ? "client" : "agent";
+
   const slides = useMemo(() => {
-    if (track === "onboarding") return buildOnboardingSlides();
-    if (track === "whatsnew") return buildWhatsNewSlides();
+    const client = profile?.role === "client";
+    if (track === "onboarding") return client ? buildClientOnboardingSlides() : buildOnboardingSlides();
+    if (track === "whatsnew") return client ? buildClientWhatsNewSlides() : buildWhatsNewSlides();
     return [];
-  }, [track]);
+  }, [track, profile?.role]);
 
   const total = slides.length;
   const isLast = slideIndex >= total - 1;
+
+  const isClientOnboardingCharcoalSlide =
+    postLoginAudience === "client" && track === "onboarding" && slideIndex === 0;
+  const isClientTrustCarouselRight = postLoginAudience === "client" && slideIndex === 0;
 
   const persistAndClose = useCallback(async () => {
     if (!user?.id || !track) return;
@@ -543,22 +1139,30 @@ export function PostLoginModal() {
             <button
               type="button"
               onClick={onDismiss}
-              className="absolute right-3 top-3 z-30 rounded-md p-1.5 text-[#2C2C2C]/45 transition hover:text-[#2C2C2C] md:right-4 md:top-4 md:text-white/50 md:hover:text-white/90"
+              className={`absolute right-3 top-3 z-30 rounded-md p-1.5 transition md:right-4 md:top-4 md:text-white/50 md:hover:text-white/90 ${
+                isClientOnboardingCharcoalSlide
+                  ? "text-white/55 hover:text-white"
+                  : "text-[#2C2C2C]/45 hover:text-[#2C2C2C]"
+              }`}
               aria-label="Dismiss"
             >
               <X className="h-4 w-4" strokeWidth={2} />
             </button>
 
             <div className="flex min-h-0 w-full flex-1 flex-col md:min-h-[500px] md:flex-row md:overflow-hidden">
-              <div
+              <motion.div
                 className="order-1 flex min-h-0 w-full flex-col md:order-none md:w-[45%] md:shrink-0"
-                style={{ backgroundColor: CREAM }}
+                initial={false}
+                animate={{
+                  backgroundColor: isClientOnboardingCharcoalSlide ? CHARCOAL : CREAM,
+                }}
+                transition={{ duration: 0.35, ease: slideEase }}
               >
                 <div className="flex min-h-0 flex-1 flex-col px-6 pb-6 pt-12 md:p-10 md:pr-8 md:pt-14">
                   <div className="min-h-0 flex-1">
                     <AnimatePresence mode="wait">
                       <motion.div
-                        key={`${track}-${slideIndex}-left`}
+                        key={`${track}-${slideIndex}-${postLoginAudience}-left`}
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -20 }}
@@ -568,7 +1172,11 @@ export function PostLoginModal() {
                       </motion.div>
                     </AnimatePresence>
                   </div>
-                  <div className="mt-8 flex shrink-0 items-center justify-between gap-4 border-t border-[#2C2C2C]/10 pt-3">
+                  <div
+                    className={`mt-8 flex shrink-0 items-center justify-between gap-4 border-t pt-3 ${
+                      isClientOnboardingCharcoalSlide ? "border-white/10" : "border-[#2C2C2C]/10"
+                    }`}
+                  >
                     <div className="flex items-center gap-2.5" role="tablist" aria-label="Slides">
                       {Array.from({ length: total }).map((_, i) => {
                         const active = i === slideIndex;
@@ -581,9 +1189,13 @@ export function PostLoginModal() {
                             aria-label={`Go to slide ${i + 1}`}
                             onClick={() => setSlideIndex(i)}
                             className={`h-2.5 w-2.5 shrink-0 rounded-full transition-colors ${
-                              active
-                                ? "cursor-default bg-[#2C2C2C]"
-                                : "cursor-pointer bg-[#2C2C2C]/25 hover:bg-[#2C2C2C]/40"
+                              isClientOnboardingCharcoalSlide
+                                ? active
+                                  ? "cursor-default bg-white"
+                                  : "cursor-pointer bg-white/25 hover:bg-white/40"
+                                : active
+                                  ? "cursor-default bg-[#2C2C2C]"
+                                  : "cursor-pointer bg-[#2C2C2C]/25 hover:bg-[#2C2C2C]/40"
                             }`}
                           />
                         );
@@ -592,23 +1204,31 @@ export function PostLoginModal() {
                     <button
                       type="button"
                       onClick={onNext}
-                      className="shrink-0 rounded-lg bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#5a8a5d]"
+                      className={`shrink-0 rounded-lg px-6 py-2.5 text-sm font-semibold transition ${
+                        isClientOnboardingCharcoalSlide
+                          ? "bg-white text-[#2C2C2C] hover:bg-white/90"
+                          : "bg-[#6B9E6E] text-white hover:bg-[#5a8a5d]"
+                      }`}
                     >
                       {ctaLabel}
                     </button>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
-              <div
-                className="order-2 flex min-h-[240px] w-full flex-1 flex-col md:order-none md:w-[55%] md:min-h-0"
-                style={{ backgroundColor: RIGHT_SAGE }}
+              <motion.div
+                className="order-2 flex min-h-[240px] w-full flex-1 flex-col overflow-hidden md:order-none md:w-[55%] md:min-h-0"
+                initial={false}
+                animate={{
+                  backgroundColor: isClientTrustCarouselRight ? CLIENT_TRUST_RIGHT : RIGHT_SAGE,
+                }}
+                transition={{ duration: 0.35, ease: slideEase }}
               >
-                <div className="flex min-h-[240px] flex-1 flex-col items-stretch md:min-h-0">
+                <div className="flex min-h-[240px] flex-1 flex-col items-stretch overflow-visible md:min-h-0">
                   <AnimatePresence mode="wait">
                     <motion.div
-                      key={`${track}-${slideIndex}-right`}
-                      className="flex min-h-0 flex-1 flex-col"
+                      key={`${track}-${slideIndex}-${postLoginAudience}-right`}
+                      className="flex min-h-0 flex-1 flex-col overflow-visible"
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
@@ -618,7 +1238,7 @@ export function PostLoginModal() {
                     </motion.div>
                   </AnimatePresence>
                 </div>
-              </div>
+              </motion.div>
             </div>
           </motion.div>
         </motion.div>

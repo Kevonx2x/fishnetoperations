@@ -75,35 +75,97 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
     }
   }, [authLoading, user?.id, role, router]);
 
-  if (authLoading || !user?.id || role !== "client") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#FAF8F4] text-sm font-semibold text-[#2C2C2C]/60">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#6B9E6E]" />
-        Loading…
-      </div>
-    );
-  }
+  /**
+   * Mount for any signed-in user on this layout so `PostLoginModal` can run its effect as soon as `profile` exists.
+   * Non-clients are redirected away quickly; the modal no-ops until `profile` is loaded then uses `profile.role` for slides.
+   */
+  const mountPostLoginModal = !authLoading && Boolean(user?.id);
+  const gateLoading = authLoading || !user?.id || role !== "client";
 
-  const displayName = profile?.full_name?.trim() || user.email?.trim() || "Client";
+  const displayName = profile?.full_name?.trim() || user?.email?.trim() || "Client";
   const avatarUrl = profile?.avatar_url?.trim() || null;
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] font-sans text-[#2C2C2C] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0">
-      <div className="flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
-        <aside
-          className={cn(
-            "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:flex-col md:overflow-hidden md:px-2 md:py-5",
-            isMessagesRoute ? "w-[208px]" : "w-[180px]",
-          )}
-        >
-          <div className="mb-5 flex items-center gap-2 px-1">
-            <ClientAvatar name={displayName} avatarUrl={avatarUrl} sizePx={40} textClassName="text-sm" ringClassName="ring-2 ring-[#D4A843]/35" />
-            <div className="min-w-0">
-              <p className="truncate text-[13px] font-semibold leading-tight text-[#2C2C2C]">{displayName}</p>
-              <p className="truncate text-[11px] font-medium text-[#888888]">Client</p>
-            </div>
+    <>
+      {mountPostLoginModal ? <PostLoginModal /> : null}
+      {gateLoading ? (
+        <div className="flex min-h-screen items-center justify-center bg-[#FAF8F4] text-sm font-semibold text-[#2C2C2C]/60">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#6B9E6E]" />
+          Loading…
+        </div>
+      ) : (
+        <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] font-sans text-[#2C2C2C] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0">
+          <div className="flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
+            <aside
+              className={cn(
+                "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:flex-col md:overflow-hidden md:px-2 md:py-5",
+                isMessagesRoute ? "w-[208px]" : "w-[180px]",
+              )}
+            >
+              <div className="mb-5 flex items-center gap-2 px-1">
+                <ClientAvatar name={displayName} avatarUrl={avatarUrl} sizePx={40} textClassName="text-sm" ringClassName="ring-2 ring-[#D4A843]/35" />
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold leading-tight text-[#2C2C2C]">{displayName}</p>
+                  <p className="truncate text-[11px] font-medium text-[#888888]">Client</p>
+                </div>
+              </div>
+              <nav className="flex flex-1 flex-col gap-1">
+                {NAV.map((t) => {
+                  const active = isActivePath(pathname, t.segment);
+                  const Icon = t.Icon;
+                  return (
+                    <Link
+                      key={t.href}
+                      href={t.href}
+                      className={cn(
+                        "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
+                        active
+                          ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
+                          : "text-[#2C2C2C]/65 hover:bg-white/80",
+                      )}
+                    >
+                      <span className="relative inline-flex text-[#6B9E6E]">
+                        <Icon className="h-[18px] w-[18px]" aria-hidden />
+                        {t.segment === "dashboard" && streamMessagesUnreadTotal > 0 ? (
+                          <span
+                            className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
+                            aria-hidden
+                          />
+                        ) : null}
+                      </span>
+                      {t.label}
+                      {t.segment === "messages" && streamMessagesUnreadTotal > 0 ? (
+                        <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                          {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
+                        </span>
+                      ) : null}
+                      {t.segment === "notifications" && notifUnread > 0 ? (
+                        <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
+                          {notifUnread > 99 ? "99+" : notifUnread}
+                        </span>
+                      ) : null}
+                    </Link>
+                  );
+                })}
+              </nav>
+              <Link href="/" className="mt-auto px-2 py-2 text-sm font-semibold text-[#2C2C2C]/55 hover:text-[#2C2C2C]">
+                ← Back to site
+              </Link>
+            </aside>
+
+            <main
+              className={cn(
+                "min-w-0 flex-1 md:flex md:h-full md:min-h-0 md:flex-col",
+                isMessagesRoute
+                  ? "px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
+                  : "px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 md:pb-10",
+              )}
+            >
+              {children}
+            </main>
           </div>
-          <nav className="flex flex-1 flex-col gap-1">
+
+          <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-0.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
             {NAV.map((t) => {
               const active = isActivePath(pathname, t.segment);
               const Icon = t.Icon;
@@ -112,94 +174,38 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                   key={t.href}
                   href={t.href}
                   className={cn(
-                    "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
-                    active
-                      ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
-                      : "text-[#2C2C2C]/65 hover:bg-white/80",
+                    "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[9px] font-bold sm:text-[10px]",
+                    active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45",
                   )}
                 >
-                  <span className="relative inline-flex text-[#6B9E6E]">
-                    <Icon className="h-[18px] w-[18px]" aria-hidden />
+                  {t.segment === "messages" && streamMessagesUnreadTotal > 0 ? (
+                    <span className="absolute right-1 top-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#D4A843] px-0.5 text-[8px] font-bold text-[#2C2C2C]">
+                      {streamMessagesUnreadTotal > 9 ? "9+" : streamMessagesUnreadTotal}
+                    </span>
+                  ) : null}
+                  {t.segment === "notifications" && notifUnread > 0 ? (
+                    <span className="absolute right-1 top-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#D4A843] px-0.5 text-[8px] font-bold text-[#2C2C2C]">
+                      {notifUnread > 9 ? "9+" : notifUnread}
+                    </span>
+                  ) : null}
+                  <span className="relative inline-flex">
+                    <span className={active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
+                      <Icon className="h-5 w-5" aria-hidden />
+                    </span>
                     {t.segment === "dashboard" && streamMessagesUnreadTotal > 0 ? (
                       <span
-                        className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
+                        className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]/95"
                         aria-hidden
                       />
                     ) : null}
                   </span>
-                  {t.label}
-                  {t.segment === "messages" && streamMessagesUnreadTotal > 0 ? (
-                    <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                      {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
-                    </span>
-                  ) : null}
-                  {t.segment === "notifications" && notifUnread > 0 ? (
-                    <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                      {notifUnread > 99 ? "99+" : notifUnread}
-                    </span>
-                  ) : null}
+                  <span className="max-w-[4.5rem] truncate">{t.label}</span>
                 </Link>
               );
             })}
           </nav>
-          <Link href="/" className="mt-auto px-2 py-2 text-sm font-semibold text-[#2C2C2C]/55 hover:text-[#2C2C2C]">
-            ← Back to site
-          </Link>
-        </aside>
-
-        <main
-          className={cn(
-            "min-w-0 flex-1 md:flex md:h-full md:min-h-0 md:flex-col",
-            isMessagesRoute
-              ? "px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
-              : "px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 md:pb-10",
-          )}
-        >
-          {children}
-        </main>
-      </div>
-
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-0.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
-        {NAV.map((t) => {
-          const active = isActivePath(pathname, t.segment);
-          const Icon = t.Icon;
-          return (
-            <Link
-              key={t.href}
-              href={t.href}
-              className={cn(
-                "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[9px] font-bold sm:text-[10px]",
-                active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45",
-              )}
-            >
-              {t.segment === "messages" && streamMessagesUnreadTotal > 0 ? (
-                <span className="absolute right-1 top-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#D4A843] px-0.5 text-[8px] font-bold text-[#2C2C2C]">
-                  {streamMessagesUnreadTotal > 9 ? "9+" : streamMessagesUnreadTotal}
-                </span>
-              ) : null}
-              {t.segment === "notifications" && notifUnread > 0 ? (
-                <span className="absolute right-1 top-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#D4A843] px-0.5 text-[8px] font-bold text-[#2C2C2C]">
-                  {notifUnread > 9 ? "9+" : notifUnread}
-                </span>
-              ) : null}
-              <span className="relative inline-flex">
-                <span className={active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
-                  <Icon className="h-5 w-5" aria-hidden />
-                </span>
-                {t.segment === "dashboard" && streamMessagesUnreadTotal > 0 ? (
-                  <span
-                    className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]/95"
-                    aria-hidden
-                  />
-                ) : null}
-              </span>
-              <span className="max-w-[4.5rem] truncate">{t.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-
-      <PostLoginModal />
-    </div>
+        </div>
+      )}
+    </>
   );
 }
