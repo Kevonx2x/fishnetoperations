@@ -55,6 +55,7 @@ import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
 import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
 import { formatListingPricePhp } from "@/lib/format-listing-price";
+import { PostLoginModal } from "@/components/onboarding/post-login-modal";
 import { cn } from "@/lib/utils";
 import { avatarObjectExt, validateAvatarFile } from "@/lib/supabase/upload-avatar";
 import {
@@ -2851,6 +2852,8 @@ export function AgentDashboard() {
           />
         ) : null}
       </AnimatePresence>
+
+      <PostLoginModal />
     </div>
   );
 }

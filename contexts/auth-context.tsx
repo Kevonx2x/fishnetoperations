@@ -23,6 +23,8 @@ export type Profile = {
   created_at?: string | null;
   tutorial_completed?: boolean | null;
   tutorial_dismissed_at?: string | null;
+  /** Changelog version acknowledged in post-login modal (e.g. v1.0). */
+  last_seen_changelog?: string | null;
 };
 
 type AuthContextValue = {
@@ -68,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: p } = await supabase
       .from("profiles")
       .select(
-        "id, full_name, avatar_url, phone, bio, role, onboarding_completed, created_at, tutorial_completed, tutorial_dismissed_at",
+        "id, full_name, avatar_url, phone, bio, role, onboarding_completed, created_at, tutorial_completed, tutorial_dismissed_at, last_seen_changelog",
       )
       .eq("id", u.id)
       .maybeSingle();
@@ -77,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         created_at?: string | null;
         tutorial_completed?: boolean | null;
         tutorial_dismissed_at?: string | null;
+        last_seen_changelog?: string | null;
       };
       setProfile({
         id: p.id,
@@ -89,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         created_at: row.created_at ?? null,
         tutorial_completed: row.tutorial_completed ?? null,
         tutorial_dismissed_at: row.tutorial_dismissed_at ?? null,
+        last_seen_changelog: row.last_seen_changelog ?? null,
       });
     } else {
       setProfile(null);

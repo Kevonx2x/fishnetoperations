@@ -9,6 +9,7 @@ import { ClientAvatar } from "@/components/client/client-avatar";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { PostLoginModal } from "@/components/onboarding/post-login-modal";
 import { cn } from "@/lib/utils";
 
 const NAV: {
@@ -197,6 +198,8 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
           );
         })}
       </nav>
+
+      <PostLoginModal />
     </div>
   );
 }
