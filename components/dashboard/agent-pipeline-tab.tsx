@@ -44,6 +44,7 @@ import {
   Pin,
   Pencil,
   RefreshCw,
+  Search,
   User,
   X,
 } from "lucide-react";
@@ -371,6 +372,25 @@ type PropertyMeta = {
   location: string;
   deleted_at?: string | null;
 };
+
+function leadMatchesPipelineSearch(
+  lead: PipelineLeadRow,
+  q: string,
+  labelForProperty: (propertyId: string | null) => string,
+  propertyMetaById: Record<string, PropertyMeta>,
+): boolean {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return true;
+  if ((lead.name ?? "").toLowerCase().includes(needle)) return true;
+  if ((lead.email ?? "").toLowerCase().includes(needle)) return true;
+  const pid = lead.property_id;
+  if (!pid) return false;
+  const meta = propertyMetaById[pid];
+  const title = (labelForProperty(pid) ?? "").toLowerCase();
+  const city = (meta?.city ?? "").toLowerCase();
+  const loc = (meta?.location ?? "").toLowerCase();
+  return title.includes(needle) || city.includes(needle) || loc.includes(needle);
+}
 
 function tsOr0(raw: string | null | undefined): number {
   const t = raw ? new Date(raw).getTime() : 0;
@@ -1120,8 +1140,6 @@ function KanbanStageColumn({
   idx,
   label,
   count,
-  total,
-  showTotal,
   barHex,
   ids,
   list,
@@ -1156,8 +1174,6 @@ function KanbanStageColumn({
   idx: number;
   label: string;
   count: number;
-  total: number;
-  showTotal: boolean;
   barHex: string;
   ids: string[];
   list: PipelineLeadRow[];
@@ -1199,7 +1215,7 @@ function KanbanStageColumn({
     >
       <div className="overflow-hidden rounded-lg border border-[#2C2C2C]/[0.08] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div aria-hidden className="h-0.5 w-full" style={{ backgroundColor: barHex }} />
-        <div className="flex min-h-[68px] flex-col justify-center border-b border-[#2C2C2C]/[0.06] px-3 py-2.5">
+        <div className="flex min-h-[52px] flex-col justify-center border-b border-[#2C2C2C]/[0.06] px-3 py-2.5">
           <div className="flex items-center justify-between gap-2">
             <p className="min-w-0 truncate font-sans text-[13px] font-bold uppercase tracking-wide text-[#2C2C2C]/85">
               {label}
@@ -1208,10 +1224,6 @@ function KanbanStageColumn({
               {count}
             </span>
           </div>
-          <p className="mt-0.5 truncate font-sans text-[11px] font-medium text-[#2C2C2C]/45">
-            {showTotal && total > 0 ? `${formatPesoCompact(total)} · ` : null}
-            {count} deal{count === 1 ? "" : "s"}
-          </p>
         </div>
       </div>
 
@@ -1680,6 +1692,7 @@ export function AgentPipelineTab({
     useState<(typeof DECLINE_REASON_OPTIONS)[number]["key"]>("unavailable");
   const [declineBusy, setDeclineBusy] = useState(false);
   const [pipelineVault, setPipelineVault] = useState<"active" | "archived">("active");
+  const [pipelineSearchQuery, setPipelineSearchQuery] = useState("");
 
   const deals = useMemo(() => {
     return leads
@@ -1695,15 +1708,20 @@ export function AgentPipelineTab({
   const [propertyMetaById, setPropertyMetaById] = useState<Record<string, PropertyMeta>>({});
 
   useEffect(() => {
-    const ids = [
-      ...new Set(
-        deals
-          .map((d) => d.property_id)
-          .filter((id): id is string => typeof id === "string" && id.trim().length > 0),
-      ),
-    ];
+    const set = new Set<string>();
+    for (const d of deals) {
+      const id = d.property_id;
+      if (typeof id === "string" && id.trim()) set.add(id.trim());
+    }
+    for (const a of archivedLeads) {
+      const id = a.property_id;
+      if (typeof id === "string" && id.trim()) set.add(id.trim());
+    }
+    const ids = [...set];
     if (ids.length === 0) {
       setDealValueByPropertyId({});
+      setDealValueNumberByPropertyId({});
+      setPropertyMetaById({});
       return;
     }
     let cancelled = false;
@@ -1756,7 +1774,7 @@ export function AgentPipelineTab({
     return () => {
       cancelled = true;
     };
-  }, [deals, supabase]);
+  }, [deals, archivedLeads, supabase]);
 
   const [filterStage, setFilterStage] = useState<PipelineStageId>("lead");
   const [docsLead, setDocsLead] = useState<PipelineLeadRow | null>(null);
@@ -1951,20 +1969,6 @@ export function AgentPipelineTab({
     }
   }, [declineDeal, declineReasonKey, onRefresh]);
 
-  const counts = useMemo(() => {
-    const c: Record<PipelineStageId, number> = {
-      lead: 0,
-      viewing: 0,
-      offer: 0,
-      reservation: 0,
-      closed: 0,
-    };
-    for (const d of deals) {
-      c[d.pipeline_stage]++;
-    }
-    return c;
-  }, [deals]);
-
   const effectiveDeals = useMemo(() => {
     const stageSet = filterStages && filterStages.length > 0 ? new Set(filterStages) : null;
     const citySet = filterCities.length > 0 ? new Set(filterCities.map((c) => c.toLocaleLowerCase())) : null;
@@ -1982,11 +1986,41 @@ export function AgentPipelineTab({
       });
   }, [deals, filterStages, filterCities, optimisticPinById, propertyMetaById]);
 
+  const visibleDeals = useMemo(
+    () =>
+      effectiveDeals.filter((d) =>
+        leadMatchesPipelineSearch(d, pipelineSearchQuery, propertyLabel, propertyMetaById),
+      ),
+    [effectiveDeals, pipelineSearchQuery, propertyLabel, propertyMetaById],
+  );
+
+  const archivedVisibleLeads = useMemo(
+    () =>
+      archivedLeads.filter((d) =>
+        leadMatchesPipelineSearch(d, pipelineSearchQuery, propertyLabel, propertyMetaById),
+      ),
+    [archivedLeads, pipelineSearchQuery, propertyLabel, propertyMetaById],
+  );
+
+  const counts = useMemo(() => {
+    const c: Record<PipelineStageId, number> = {
+      lead: 0,
+      viewing: 0,
+      offer: 0,
+      reservation: 0,
+      closed: 0,
+    };
+    for (const d of visibleDeals) {
+      c[d.pipeline_stage]++;
+    }
+    return c;
+  }, [visibleDeals]);
+
   const stageSorter = useMemo(() => sortDealsInStage({ sortMode, propertyMetaById }), [propertyMetaById, sortMode]);
 
   const baseSorted = useMemo(() => {
-    return effectiveDeals.filter((d) => d.pipeline_stage === filterStage).slice().sort(stageSorter);
-  }, [effectiveDeals, filterStage, stageSorter]);
+    return visibleDeals.filter((d) => d.pipeline_stage === filterStage).slice().sort(stageSorter);
+  }, [visibleDeals, filterStage, stageSorter]);
 
   const dealsByStage = useMemo(() => {
     const m: Record<PipelineStageId, PipelineLeadRow[]> = {
@@ -1996,16 +2030,16 @@ export function AgentPipelineTab({
       reservation: [],
       closed: [],
     };
-    for (const d of effectiveDeals) m[d.pipeline_stage].push(d);
+    for (const d of visibleDeals) m[d.pipeline_stage].push(d);
     for (const s of STAGE_ORDER) m[s] = m[s].slice().sort(stageSorter);
     return m;
-  }, [effectiveDeals, stageSorter]);
+  }, [visibleDeals, stageSorter]);
 
   const leadById = useMemo(() => {
     const m = new Map<string, PipelineLeadRow>();
-    for (const d of effectiveDeals) m.set(String(d.id), d);
+    for (const d of visibleDeals) m.set(String(d.id), d);
     return m;
-  }, [effectiveDeals]);
+  }, [visibleDeals]);
 
   const [kanbanIdsByStage, setKanbanIdsByStage] = useState<Record<PipelineStageId, string[]>>({
     lead: [],
@@ -2054,13 +2088,6 @@ export function AgentPipelineTab({
     }
     return out;
   }, [dealsByStage, dealValueNumberByPropertyId]);
-
-  const allDealsTotal = useMemo(() => {
-    let total = 0;
-    for (const s of STAGE_ORDER) total += stageTotals[s]?.total ?? 0;
-    return total;
-  }, [stageTotals]);
-  const allDealsCount = useMemo(() => effectiveDeals.length, [effectiveDeals.length]);
 
   const [pipelineKey, setPipelineKey] = useState("default");
   const pipelineOptions = useMemo(() => [{ id: "default", label: "Default Pipeline" }], []);
@@ -2869,42 +2896,53 @@ export function AgentPipelineTab({
       <div className="flex w-full min-w-0 flex-col gap-2 pb-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-x-3 lg:gap-y-2 lg:pb-4">
         {pipelineVault === "active" ? (
           <>
-            <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-[#2C2C2C]/[0.08] bg-white/90 p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-              <div className="flex items-center gap-0.5">
-                <button
-                  type="button"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#FAF8F4] text-[#2C2C2C]/75 hover:bg-[#6B9E6E]/10"
-                  aria-label="Kanban view"
-                >
-                  <LayoutGrid className="h-4 w-4" aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#2C2C2C]/45 hover:bg-[#FAF8F4]"
-                  aria-label="List view"
-                >
-                  <List className="h-4 w-4" aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  onClick={onRefresh}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#2C2C2C]/45 hover:bg-[#FAF8F4]"
-                  aria-label="Refresh"
-                >
-                  <RefreshCw className="h-4 w-4" aria-hidden />
-                </button>
+            <div className="scrollbar-hide flex min-w-0 max-w-full flex-nowrap items-center gap-3 overflow-x-auto">
+              <div className="flex shrink-0 flex-nowrap items-center gap-2 rounded-xl border border-[#2C2C2C]/[0.08] bg-white/90 p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                <div className="flex shrink-0 items-center gap-0.5">
+                  <button
+                    type="button"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#FAF8F4] text-[#2C2C2C]/75 hover:bg-[#6B9E6E]/10"
+                    aria-label="Kanban view"
+                  >
+                    <LayoutGrid className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#2C2C2C]/45 hover:bg-[#FAF8F4]"
+                    aria-label="List view"
+                  >
+                    <List className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onRefresh}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#2C2C2C]/45 hover:bg-[#FAF8F4]"
+                    aria-label="Refresh"
+                  >
+                    <RefreshCw className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+                <div className="hidden h-6 w-px shrink-0 bg-[#2C2C2C]/10 sm:block" aria-hidden />
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5">{vaultPills}</div>
               </div>
-              <div className="hidden h-6 w-px shrink-0 bg-[#2C2C2C]/10 sm:block" aria-hidden />
-              <div className="flex flex-wrap items-center gap-1.5 pl-0 sm:pl-0">{vaultPills}</div>
+              <div className="flex h-9 shrink-0 items-center rounded-xl border border-[#2C2C2C]/[0.08] bg-white/90 px-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                <div className="relative w-[min(100vw-8rem,340px)] sm:w-[320px]">
+                  <Search
+                    className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2C2C2C]/40"
+                    aria-hidden
+                  />
+                  <input
+                    type="search"
+                    value={pipelineSearchQuery}
+                    onChange={(e) => setPipelineSearchQuery(e.target.value)}
+                    placeholder="Search leads, deals, clients, or properties…"
+                    className="h-8 w-full border-0 bg-transparent py-0 pl-8 pr-2 font-sans text-sm text-[#2C2C2C] outline-none placeholder:text-[#2C2C2C]/45 focus:ring-0 focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/30 focus-visible:ring-offset-0"
+                    aria-label="Search pipeline"
+                  />
+                </div>
+              </div>
             </div>
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 lg:justify-end lg:gap-3">
-              <div className="rounded-lg border border-[#2C2C2C]/[0.08] bg-white/90 px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-                <span className="font-sans text-xs font-semibold tabular-nums text-[#2C2C2C]/60">
-                  {allDealsTotal > 0 ? `${formatPesoCompact(allDealsTotal)} · ` : ""}
-                  {allDealsCount} deal{allDealsCount === 1 ? "" : "s"}
-                </span>
-              </div>
-
               <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-[#2C2C2C]/[0.08] bg-white/90 p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -3040,7 +3078,27 @@ export function AgentPipelineTab({
             </div>
           </>
         ) : (
-          <div className="flex flex-wrap gap-2">{vaultPills}</div>
+          <div className="scrollbar-hide flex w-full min-w-0 flex-nowrap items-center gap-3 overflow-x-auto">
+            <div className="flex shrink-0 flex-wrap gap-2 rounded-xl border border-[#2C2C2C]/[0.08] bg-white/90 p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              {vaultPills}
+            </div>
+            <div className="flex h-9 shrink-0 items-center rounded-xl border border-[#2C2C2C]/[0.08] bg-white/90 px-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              <div className="relative w-[min(100vw-8rem,340px)] sm:w-[320px]">
+                <Search
+                  className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2C2C2C]/40"
+                  aria-hidden
+                />
+                <input
+                  type="search"
+                  value={pipelineSearchQuery}
+                  onChange={(e) => setPipelineSearchQuery(e.target.value)}
+                  placeholder="Search leads, deals, clients, or properties…"
+                  className="h-8 w-full border-0 bg-transparent py-0 pl-8 pr-2 font-sans text-sm text-[#2C2C2C] outline-none placeholder:text-[#2C2C2C]/45 focus:ring-0 focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/30 focus-visible:ring-offset-0"
+                  aria-label="Search archived deals"
+                />
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -3231,10 +3289,8 @@ export function AgentPipelineTab({
                 ).map((stage, idx) => {
                   const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
                   const list = dealsByStage[stage];
-                  const total = stageTotals[stage]?.total ?? 0;
                   const count = stageTotals[stage]?.count ?? list.length;
                   const ids = kanbanIdsByStage[stage] ?? list.map((d) => String(d.id));
-                  const showTotal = total > 0;
                   const barHex = stageBarHex(stage);
 
                   return (
@@ -3244,8 +3300,6 @@ export function AgentPipelineTab({
                       idx={idx}
                       label={label}
                       count={count}
-                      total={total}
-                      showTotal={showTotal}
                       barHex={barHex}
                       ids={ids}
                       list={ids.map((id) => leadById.get(String(id))).filter((d): d is PipelineLeadRow => !!d)}
@@ -3303,9 +3357,11 @@ export function AgentPipelineTab({
               No client-archived leads. When a client removes a property from their pipeline, it appears here with
               their reason.
             </p>
+          ) : archivedVisibleLeads.length === 0 ? (
+            <p className="text-center text-sm font-semibold text-[#2C2C2C]/45">No archived deals match your search.</p>
           ) : (
             <ul className="space-y-3">
-              {archivedLeads.map((row) => {
+              {archivedVisibleLeads.map((row) => {
                 const propTitle = propertyLabel(row.property_id);
                 const reasonLabel = labelForClientArchiveReason(row.archive_reason, row.archive_note);
                 const stage = String(row.stage_at_archive ?? row.pipeline_stage ?? "—");
