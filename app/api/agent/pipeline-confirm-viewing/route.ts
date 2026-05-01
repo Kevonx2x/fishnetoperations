@@ -228,6 +228,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const seenIso = new Date().toISOString();
+    const { error: seenErr } = await sb
+      .from("leads")
+      .update({ new_viewing_request_seen_at: seenIso, updated_at: seenIso })
+      .eq("id", leadId);
+    if (seenErr) {
+      console.warn("[pipeline-confirm-viewing] new_viewing_request_seen_at update failed", seenErr);
+    }
+
     return ok({ success: true, scheduled_at: scheduledAt });
   } catch (e) {
     console.error("[pipeline-confirm-viewing]", e);

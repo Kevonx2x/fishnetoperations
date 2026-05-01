@@ -40,6 +40,7 @@ import {
   LayoutGrid,
   List,
   Loader2,
+  MessageSquare,
   MoreHorizontal,
   Pin,
   Pencil,
@@ -82,9 +83,12 @@ import {
 import {
   manilaDateStringFromInstant,
   manilaLocalDateTimeToOffsetIso,
+  manilaMonthDayLabelFromInstant,
+  manilaTimeLabel12hFromInstant,
   manilaTimeStringFromInstant,
   normalizeTimeHmForInput,
 } from "@/lib/manila-datetime";
+import { useLeadStreamUnreadMap } from "@/features/messaging/hooks/use-lead-stream-unread-map";
 
 /** When no client/request time is known, pre-fill time so Confirm is one step faster (24h `HH:mm`). */
 const DEFAULT_VIEWING_CONFIRM_TIME = "10:00";
@@ -125,7 +129,15 @@ export type PipelineLeadRow = {
   closed_at?: string | null;
   closed_by?: string | null;
   closure_confirmed_by_client?: boolean | null;
+  new_lead_seen_at?: string | null;
+  new_viewing_request_seen_at?: string | null;
 };
+
+function formatRequestedViewingMenuLine(scheduledAtIso: string): string {
+  const d = new Date(scheduledAtIso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${manilaMonthDayLabelFromInstant(d)} · ${manilaTimeLabel12hFromInstant(d)}`;
+}
 
 type DocDef = { key: string; label: string };
 
@@ -628,6 +640,11 @@ function KanbanDealCard({
   onTogglePin,
   onMoveToStage,
   moveBusyId,
+  viewingRequestScheduledAt,
+  messageUnreadCount,
+  onMarkNewLeadSeenOnMenuOpen,
+  markViewingRequestSeen,
+  onOpenMessagesForClient,
 }: {
   deal: PipelineLeadRow;
   indexInStage: number;
@@ -660,6 +677,12 @@ function KanbanDealCard({
   onTogglePin: (lead: PipelineLeadRow) => void;
   onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveBusyId: number | null;
+  /** `viewing_requests.scheduled_at` for Lead-stage cards (Manila display in menu). */
+  viewingRequestScheduledAt?: string | null;
+  messageUnreadCount: number;
+  onMarkNewLeadSeenOnMenuOpen: (d: PipelineLeadRow) => void;
+  markViewingRequestSeen: (leadId: number) => void;
+  onOpenMessagesForClient?: (clientUserId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: String(deal.id),
@@ -675,6 +698,19 @@ function KanbanDealCard({
   const menuOpen = menuOpenId === deal.id;
   const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
   const anyMenuOpen = menuOpenId != null;
+
+  const hasVr = Boolean(deal.viewing_request_id?.trim());
+  const showVrMenuDot = hasVr && !deal.new_viewing_request_seen_at;
+  const showLeadMenuDot = !deal.new_lead_seen_at;
+  const showMsgMenuDot = messageUnreadCount > 0;
+  const showCornerPulseDot =
+    showLeadMenuDot || showVrMenuDot || unviewedUploadedDocCount > 0 || showMsgMenuDot;
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    void onMarkNewLeadSeenOnMenuOpen(deal);
+    // Server-side `.is("new_lead_seen_at", null)` makes this safe if `deal` is briefly stale after refresh.
+  }, [menuOpen, deal.id, onMarkNewLeadSeenOnMenuOpen, deal]);
 
   const stagePill = useMemo(() => {
     const stage = deal.pipeline_stage;
@@ -843,7 +879,7 @@ function KanbanDealCard({
               >
                 <div
                   className={cn(
-                    "pointer-events-none absolute right-9 top-0 flex min-h-[28px] min-w-[56px] max-w-[72px] flex-col items-center justify-center rounded-md px-1 py-0.5 text-center leading-tight",
+                    "pointer-events-none absolute right-11 top-0 flex min-h-[28px] min-w-[56px] max-w-[72px] -translate-x-1 flex-col items-center justify-center rounded-md px-1 py-0.5 text-center leading-tight",
                     stagePill.cls,
                   )}
                   aria-hidden
@@ -913,6 +949,34 @@ function KanbanDealCard({
                         >
                           {!menuMoveOpen ? (
                             <div className="space-y-0.5">
+                              {deal.pipeline_stage === "lead" &&
+                              viewingRequestScheduledAt?.trim() &&
+                              formatRequestedViewingMenuLine(viewingRequestScheduledAt) ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="w-full rounded-md px-2.5 py-2 text-left transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                    onClick={() => {
+                                      void markViewingRequestSeen(deal.id);
+                                      setMenuOpenId(null);
+                                    }}
+                                  >
+                                    <p className="text-[11px] font-semibold text-gray-500">Requested viewing</p>
+                                    <p className="mt-0.5 flex items-center gap-2 pr-1 font-sans text-[13px] font-semibold text-[#2C2C2C]">
+                                      <span className="min-w-0 flex-1 leading-snug">
+                                        {formatRequestedViewingMenuLine(viewingRequestScheduledAt)}
+                                      </span>
+                                      {showVrMenuDot ? (
+                                        <span
+                                          aria-hidden
+                                          className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                                        />
+                                      ) : null}
+                                    </p>
+                                  </button>
+                                  <div className="my-1 h-px bg-[#EEEEEE]" />
+                                </>
+                              ) : null}
                               <button
                                 type="button"
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
@@ -940,6 +1004,12 @@ function KanbanDealCard({
                                   aria-hidden
                                 />
                                 View Details
+                                {showLeadMenuDot ? (
+                                  <span
+                                    aria-hidden
+                                    className="ml-auto mr-1 h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                                  />
+                                ) : null}
                               </button>
                               <button
                                 type="button"
@@ -957,10 +1027,32 @@ function KanbanDealCard({
                                 {unviewedUploadedDocCount > 0 ? (
                                   <span
                                     aria-hidden
-                                    className="ml-auto mr-1 h-2 w-2 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                                    className="ml-auto mr-1 h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
                                   />
                                 ) : null}
                               </button>
+                              {onOpenMessagesForClient && deal.client_id?.trim() ? (
+                                <button
+                                  type="button"
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                  onClick={() => {
+                                    onOpenMessagesForClient(deal.client_id!.trim());
+                                    setMenuOpenId(null);
+                                  }}
+                                >
+                                  <MessageSquare
+                                    className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                    aria-hidden
+                                  />
+                                  Messages
+                                  {showMsgMenuDot ? (
+                                    <span
+                                      aria-hidden
+                                      className="ml-auto mr-1 h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                                    />
+                                  ) : null}
+                                </button>
+                              ) : null}
                               <button
                                 type="button"
                                 className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
@@ -1139,7 +1231,7 @@ function KanbanDealCard({
           </button>
         ) : null}
       </div>
-      {unviewedUploadedDocCount > 0 ? (
+      {showCornerPulseDot ? (
         <span
           className={cn(
             "pointer-events-none absolute right-[-4px] top-[-4px] z-[11] h-2.5 w-2.5 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]",
@@ -1190,6 +1282,11 @@ function KanbanStageColumn({
   onTogglePin,
   moveDealToStage,
   moveToStageBusyId,
+  viewingRequestScheduledAtByLeadId,
+  streamUnreadByLeadId,
+  markNewLeadSeenOnMenuOpen,
+  markViewingRequestSeen,
+  onOpenMessagesForClient,
 }: {
   stage: PipelineStageId;
   idx: number;
@@ -1225,6 +1322,11 @@ function KanbanStageColumn({
   onTogglePin: (lead: PipelineLeadRow) => void;
   moveDealToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveToStageBusyId: number | null;
+  viewingRequestScheduledAtByLeadId: Record<number, string>;
+  streamUnreadByLeadId: Record<number, number>;
+  markNewLeadSeenOnMenuOpen: (d: PipelineLeadRow) => void;
+  markViewingRequestSeen: (leadId: number) => void;
+  onOpenMessagesForClient?: (clientUserId: string) => void;
 }) {
   const containerId = stageContainerId(stage);
   const { setNodeRef, isOver } = useDroppable({ id: containerId });
@@ -1309,6 +1411,11 @@ function KanbanStageColumn({
                   onTogglePin={onTogglePin}
                   onMoveToStage={moveDealToStage}
                   moveBusyId={moveToStageBusyId}
+                  viewingRequestScheduledAt={viewingRequestScheduledAtByLeadId[deal.id] ?? null}
+                  messageUnreadCount={streamUnreadByLeadId[deal.id] ?? 0}
+                  onMarkNewLeadSeenOnMenuOpen={markNewLeadSeenOnMenuOpen}
+                  markViewingRequestSeen={markViewingRequestSeen}
+                  onOpenMessagesForClient={onOpenMessagesForClient}
                 />
               ))}
             </div>
@@ -1341,6 +1448,11 @@ function SortableDealCard({
   onMoveToStage,
   moveBusyId,
   propertyMetaById,
+  viewingRequestScheduledAt,
+  messageUnreadCount,
+  onMarkNewLeadSeenOnMenuOpen,
+  markViewingRequestSeen,
+  onOpenMessagesForClient,
 }: {
   deal: PipelineLeadRow;
   indexInStage: number;
@@ -1363,6 +1475,11 @@ function SortableDealCard({
   onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveBusyId: number | null;
   propertyMetaById: Record<string, PropertyMeta>;
+  viewingRequestScheduledAt?: string | null;
+  messageUnreadCount: number;
+  onMarkNewLeadSeenOnMenuOpen: (d: PipelineLeadRow) => void;
+  markViewingRequestSeen: (leadId: number) => void;
+  onOpenMessagesForClient?: (clientUserId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: String(deal.id),
@@ -1390,6 +1507,18 @@ function SortableDealCard({
   const createdMs = new Date(deal.created_at).getTime();
   const now = Date.now();
   const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
+
+  const hasVr = Boolean(deal.viewing_request_id?.trim());
+  const showVrMenuDot = hasVr && !deal.new_viewing_request_seen_at;
+  const showLeadMenuDot = !deal.new_lead_seen_at;
+  const showMsgMenuDot = messageUnreadCount > 0;
+  const showCornerPulseDot =
+    showLeadMenuDot || showVrMenuDot || unviewedUploadedDocCount > 0 || showMsgMenuDot;
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    void onMarkNewLeadSeenOnMenuOpen(deal);
+  }, [menuOpen, deal.id, onMarkNewLeadSeenOnMenuOpen, deal]);
 
   return (
     <div
@@ -1452,6 +1581,34 @@ function SortableDealCard({
               >
                 {!menuMoveOpen ? (
                   <>
+                    {deal.pipeline_stage === "lead" &&
+                    viewingRequestScheduledAt?.trim() &&
+                    formatRequestedViewingMenuLine(viewingRequestScheduledAt) ? (
+                      <>
+                        <button
+                          type="button"
+                          className="w-full px-4 py-2 text-left hover:bg-gray-50"
+                          onClick={() => {
+                            void markViewingRequestSeen(deal.id);
+                            setMenuOpenId(null);
+                          }}
+                        >
+                          <p className="text-[11px] font-semibold text-gray-500">Requested viewing</p>
+                          <p className="mt-0.5 flex items-center gap-2 font-sans text-[13px] font-semibold text-[#2C2C2C]">
+                            <span className="min-w-0 flex-1 leading-snug">
+                              {formatRequestedViewingMenuLine(viewingRequestScheduledAt)}
+                            </span>
+                            {showVrMenuDot ? (
+                              <span
+                                aria-hidden
+                                className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                              />
+                            ) : null}
+                          </p>
+                        </button>
+                        <div className="my-1 h-px bg-gray-200" />
+                      </>
+                    ) : null}
                     <button
                       type="button"
                       className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-semibold hover:bg-gray-50"
@@ -1471,7 +1628,13 @@ function SortableDealCard({
                         setMenuOpenId(null);
                       }}
                     >
-                      View Details
+                      <span className="min-w-0 flex-1">View Details</span>
+                      {showLeadMenuDot ? (
+                        <span
+                          aria-hidden
+                          className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                        />
+                      ) : null}
                     </button>
                     <button
                       type="button"
@@ -1491,9 +1654,34 @@ function SortableDealCard({
                         setMenuOpenId(null);
                       }}
                     >
-                      <FileText className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
-                      View Documents
+                      <FileText className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                      <span className="min-w-0 flex-1">View Documents</span>
+                      {unviewedUploadedDocCount > 0 ? (
+                        <span
+                          aria-hidden
+                          className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                        />
+                      ) : null}
                     </button>
+                    {onOpenMessagesForClient && deal.client_id?.trim() ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          onOpenMessagesForClient(deal.client_id!.trim());
+                          setMenuOpenId(null);
+                        }}
+                      >
+                        <MessageSquare className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                        <span className="min-w-0 flex-1">Messages</span>
+                        {showMsgMenuDot ? (
+                          <span
+                            aria-hidden
+                            className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                          />
+                        ) : null}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
@@ -1628,7 +1816,7 @@ function SortableDealCard({
           📄 View Documents
         </button>
       </div>
-      {unviewedUploadedDocCount > 0 ? (
+      {showCornerPulseDot ? (
         <span
           className="pointer-events-none absolute right-[-4px] top-[-4px] z-[11] h-2.5 w-2.5 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)] bhg-doc-badge-pulse"
           aria-hidden
@@ -1656,8 +1844,11 @@ export function AgentPipelineTab({
   pipelineAgentId,
   /** Profile UUID matching `leads.agent_id` (logged-in user, or supervising agent when team member view). */
   leadsAgentUserId,
+  messagingAgentUserId = null,
   /** When set (team member view), client documents shared with this user id are loaded (supervising agent). */
   clientDocsSharedWithUserId,
+  viewingRequestScheduledAtByLeadId = {},
+  onOpenMessagesForClient,
 }: {
   leads: PipelineLeadRow[];
   archivedLeads: PipelineLeadRow[];
@@ -1668,7 +1859,10 @@ export function AgentPipelineTab({
   pipelineAgentId: string;
   /** Profile UUID matching `leads.agent_id` (must match `AgentViewingsProvider` agentUserId). */
   leadsAgentUserId: string;
+  messagingAgentUserId?: string | null;
   clientDocsSharedWithUserId?: string;
+  viewingRequestScheduledAtByLeadId?: Record<number, string>;
+  onOpenMessagesForClient?: (clientUserId: string) => void;
 }) {
   void leadsAgentUserId;
   const sortStorageKey = useMemo(() => `bhg:pipeline:sort:${pipelineAgentId}`, [pipelineAgentId]);
@@ -1676,6 +1870,36 @@ export function AgentPipelineTab({
   const [filterStages, setFilterStages] = useState<PipelineStageId[] | null>(null);
   const [filterCities, setFilterCities] = useState<string[]>([]);
   const [optimisticPinById, setOptimisticPinById] = useState<Record<number, { pinned: boolean; pinned_at: string | null }>>({});
+
+  const streamUnreadByLeadId = useLeadStreamUnreadMap(
+    messagingAgentUserId ?? null,
+    useMemo(() => leads.map((l) => ({ id: l.id, client_id: l.client_id ?? null })), [leads]),
+  );
+
+  const markNewLeadSeenOnMenuOpen = useCallback(
+    async (d: PipelineLeadRow) => {
+      const { data } = await supabase
+        .from("leads")
+        .update({ new_lead_seen_at: new Date().toISOString() })
+        .eq("id", d.id)
+        .is("new_lead_seen_at", null)
+        .select("id")
+        .maybeSingle();
+      if (data) await Promise.resolve(onRefresh());
+    },
+    [supabase, onRefresh],
+  );
+
+  const markViewingRequestSeen = useCallback(
+    async (leadId: number) => {
+      await supabase
+        .from("leads")
+        .update({ new_viewing_request_seen_at: new Date().toISOString() })
+        .eq("id", leadId);
+      await Promise.resolve(onRefresh());
+    },
+    [supabase, onRefresh],
+  );
 
   useEffect(() => {
     try {
@@ -3327,6 +3551,11 @@ export function AgentPipelineTab({
                   onMoveToStage={moveDealToStage}
                   moveBusyId={moveToStageBusyId}
                   propertyMetaById={propertyMetaById}
+                  viewingRequestScheduledAt={viewingRequestScheduledAtByLeadId[deal.id] ?? null}
+                  messageUnreadCount={streamUnreadByLeadId[deal.id] ?? 0}
+                  onMarkNewLeadSeenOnMenuOpen={markNewLeadSeenOnMenuOpen}
+                  markViewingRequestSeen={markViewingRequestSeen}
+                  onOpenMessagesForClient={onOpenMessagesForClient}
                 />
               ))}
             </SortableContext>
@@ -3428,6 +3657,11 @@ export function AgentPipelineTab({
                       onTogglePin={togglePin}
                       moveDealToStage={moveDealToStage}
                       moveToStageBusyId={moveToStageBusyId}
+                      viewingRequestScheduledAtByLeadId={viewingRequestScheduledAtByLeadId}
+                      streamUnreadByLeadId={streamUnreadByLeadId}
+                      markNewLeadSeenOnMenuOpen={markNewLeadSeenOnMenuOpen}
+                      markViewingRequestSeen={markViewingRequestSeen}
+                      onOpenMessagesForClient={onOpenMessagesForClient}
                     />
                   );
                 })}

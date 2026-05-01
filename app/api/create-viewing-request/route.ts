@@ -30,21 +30,28 @@ function esc(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-async function findExistingLeadIdForViewingDedupe(
+/** Active lead for same client + property: not client-archived, not declined/closed — reuse instead of inserting a second card. */
+async function findActiveDuplicateLeadIdForViewing(
   admin: ReturnType<typeof createSupabaseAdmin>,
   clientId: string,
   agentId: string,
   propertyId: string | null,
 ): Promise<number | null> {
-  let q = admin.from("leads").select("id").eq("client_id", clientId).eq("agent_id", agentId);
+  let q = admin
+    .from("leads")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("agent_id", agentId)
+    .eq("archived_by_client", false)
+    .not("pipeline_stage", "in", "(closed,declined)");
   if (propertyId) {
     q = q.eq("property_id", propertyId);
   } else {
     q = q.is("property_id", null);
   }
-  const { data, error } = await q.maybeSingle();
+  const { data, error } = await q.order("id", { ascending: false }).limit(1).maybeSingle();
   if (error) {
-    console.warn("[create-viewing-request] could not resolve existing lead id for duplicate", error);
+    console.warn("[create-viewing-request] could not resolve active duplicate lead id", error);
     return null;
   }
   const id = (data as { id?: number } | null)?.id;
@@ -61,29 +68,64 @@ function isLeadsClientAgentPropertyDedupeViolation(err: {
   return blob.includes("leads_client_agent_property_dedupe_idx");
 }
 
-/** Same filters as findExistingLeadIdForViewingDedupe; uses limit(1) if maybeSingle did not return a row. */
-async function resolveExistingLeadIdAfterDedupeInsert(
+/** After unique-violation on insert, resolve the row using the same active-duplicate filters. */
+async function resolveActiveDuplicateLeadIdAfterDedupeInsert(
   admin: ReturnType<typeof createSupabaseAdmin>,
   clientId: string,
   agentUserId: string,
   propertyId: string | null,
 ): Promise<number | null> {
-  const fromMaybe = await findExistingLeadIdForViewingDedupe(admin, clientId, agentUserId, propertyId);
+  const fromMaybe = await findActiveDuplicateLeadIdForViewing(admin, clientId, agentUserId, propertyId);
   if (fromMaybe != null) return fromMaybe;
-  let q = admin.from("leads").select("id").eq("client_id", clientId).eq("agent_id", agentUserId);
+  let q = admin
+    .from("leads")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("agent_id", agentUserId)
+    .eq("archived_by_client", false)
+    .not("pipeline_stage", "in", "(closed,declined)");
   if (propertyId) {
     q = q.eq("property_id", propertyId);
   } else {
     q = q.is("property_id", null);
   }
-  const { data, error } = await q.limit(1);
+  const { data, error } = await q.order("id", { ascending: false }).limit(1);
   if (error) {
-    console.warn("[create-viewing-request] resolveExistingLeadIdAfterDedupeInsert failed", error);
+    console.warn("[create-viewing-request] resolveActiveDuplicateLeadIdAfterDedupeInsert failed", error);
     return null;
   }
   const row = (data as { id?: number }[] | null)?.[0];
   const id = row?.id;
   return id != null ? Number(id) : null;
+}
+
+async function notifyAgentViewingRequestUpdated(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  args: {
+    agentUserId: string;
+    leadId: number;
+    propertyId: string | null;
+    scheduledAt: string;
+    propertyLabel: string;
+    clientName: string;
+  },
+) {
+  const { agentUserId, leadId, propertyId, scheduledAt, propertyLabel, clientName } = args;
+  const { error: nErr } = await admin.from("notifications").insert({
+    user_id: agentUserId,
+    type: "viewing_request",
+    title: "Viewing request updated",
+    body: `${clientName} updated their viewing request for ${propertyLabel}.`,
+    metadata: {
+      lead_id: leadId,
+      property_id: propertyId,
+      scheduled_at: scheduledAt,
+      message: "Client updated their viewing request",
+    },
+  });
+  if (nErr) {
+    console.error("[create-viewing-request] viewing_request notification insert failed", nErr);
+  }
 }
 
 async function notifyAgentNewLead(
@@ -314,7 +356,7 @@ export async function POST(req: Request) {
       smsSuffix: " Viewing request submitted.",
     };
 
-    const existingLeadId = await findExistingLeadIdForViewingDedupe(
+    const existingLeadId = await findActiveDuplicateLeadIdForViewing(
       admin,
       session.userId,
       agentUserId,
@@ -322,28 +364,37 @@ export async function POST(req: Request) {
     );
 
     if (existingLeadId != null) {
+      const nowIso = new Date().toISOString();
       const { error: updErr } = await admin
         .from("leads")
         .update({
-          pipeline_stage: VIEWING_PIPELINE_STAGE,
-          stage: VIEWING_REQUEST_LEAD_STAGE,
           viewing_request_id: viewingRequestId,
+          new_viewing_request_seen_at: null,
           archived_by_client: false,
           archived_at: null,
           archive_reason: null,
           archive_note: null,
           stage_at_archive: null,
+          updated_at: nowIso,
         })
         .eq("id", existingLeadId);
       if (updErr) {
         console.error("[create-viewing-request] lead update failed", updErr);
         return fail("DATABASE_ERROR", updErr.message, 500);
       }
-      await notifyAgentNewLead(admin, {
-        ...notifyArgs,
+      await notifyAgentViewingRequestUpdated(admin, {
+        agentUserId,
         leadId: existingLeadId,
+        propertyId,
+        scheduledAt: body.scheduled_at,
+        propertyLabel,
+        clientName: body.client_name.trim() || clientNameFromProfile,
       });
-      return ok({ viewing_request_id: viewingRequestId, lead_id: existingLeadId });
+      return ok({
+        updated: true,
+        viewing_request_id: viewingRequestId,
+        lead_id: existingLeadId,
+      });
     }
 
     const leadsInsertPayload = {
@@ -384,34 +435,43 @@ export async function POST(req: Request) {
         details: insErr.details,
       });
       if (isLeadsClientAgentPropertyDedupeViolation(insErr)) {
-        const raceLeadId = await resolveExistingLeadIdAfterDedupeInsert(
+        const raceLeadId = await resolveActiveDuplicateLeadIdAfterDedupeInsert(
           admin,
           session.userId,
           agentUserId,
           propertyId,
         );
         if (raceLeadId != null) {
+          const nowIsoRace = new Date().toISOString();
           const { error: raceUpd } = await admin
             .from("leads")
             .update({
-              pipeline_stage: VIEWING_PIPELINE_STAGE,
-              stage: VIEWING_REQUEST_LEAD_STAGE,
               viewing_request_id: viewingRequestId,
+              new_viewing_request_seen_at: null,
               archived_by_client: false,
               archived_at: null,
               archive_reason: null,
               archive_note: null,
               stage_at_archive: null,
+              updated_at: nowIsoRace,
             })
             .eq("id", raceLeadId);
           if (raceUpd) {
             console.error("[create-viewing-request] race update failed", raceUpd);
           }
-          await notifyAgentNewLead(admin, {
-            ...notifyArgs,
+          await notifyAgentViewingRequestUpdated(admin, {
+            agentUserId,
             leadId: raceLeadId,
+            propertyId,
+            scheduledAt: body.scheduled_at,
+            propertyLabel,
+            clientName: body.client_name.trim() || clientNameFromProfile,
           });
-          return ok({ viewing_request_id: viewingRequestId, lead_id: raceLeadId });
+          return ok({
+            updated: true,
+            viewing_request_id: viewingRequestId,
+            lead_id: raceLeadId,
+          });
         }
         console.warn(
           "[create-viewing-request] duplicate on leads_client_agent_property_dedupe_idx but existing row not found",
@@ -424,7 +484,7 @@ export async function POST(req: Request) {
     const leadId = inserted?.id;
     if (leadId === undefined || leadId === null) {
       console.warn("[create-viewing-request] lead insert returned no id");
-      const fallbackLeadId = await findExistingLeadIdForViewingDedupe(
+      const fallbackLeadId = await findActiveDuplicateLeadIdForViewing(
         admin,
         session.userId,
         agentUserId,

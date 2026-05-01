@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getStreamClient } from "@/lib/stream";
+import { streamDmChannelId } from "@/features/messaging/lib/stream-dm-channel-id";
 
 type ChannelMetadataBody = {
   property_id?: string | null;
@@ -67,8 +68,7 @@ export async function postStreamChannel(req: Request) {
       }),
     ]);
 
-    const sorted = [agentId, clientId].sort((a, b) => a.localeCompare(b));
-    const channelId = `${sorted[0].slice(0, 8)}-${sorted[1].slice(0, 8)}`;
+    const channelId = streamDmChannelId(agentId, clientId);
 
     const meta = body.metadata ?? {};
     const channelData = {

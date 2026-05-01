@@ -125,6 +125,12 @@ export async function POST(request: NextRequest) {
         .eq("id", viewingId);
       if (updErr) return fail("DATABASE_ERROR", updErr.message, 500);
 
+      const seenIsoDecline = new Date().toISOString();
+      await sb
+        .from("leads")
+        .update({ new_viewing_request_seen_at: seenIsoDecline, updated_at: seenIsoDecline })
+        .eq("viewing_request_id", viewingId);
+
       if (admin && clientUserId) {
         await admin.from("notifications").insert({
           user_id: clientUserId,
@@ -174,6 +180,12 @@ export async function POST(request: NextRequest) {
       .eq("id", viewingId);
 
     if (updErr) return fail("DATABASE_ERROR", updErr.message, 500);
+
+    const seenIsoConfirm = new Date().toISOString();
+    await sb
+      .from("leads")
+      .update({ new_viewing_request_seen_at: seenIsoConfirm, updated_at: seenIsoConfirm })
+      .eq("viewing_request_id", viewingId);
 
     const d = new Date(scheduledAt);
     const dateStr = d.toLocaleDateString(undefined, {

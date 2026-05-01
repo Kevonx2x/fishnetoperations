@@ -32,6 +32,7 @@ import { AgentAnalyticsTab, AgentTeamPlaceholderTab } from "@/components/dashboa
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
 import { AgentPipelineTab, type PipelineStageId } from "@/components/dashboard/agent-pipeline-tab";
 import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
+import { streamDmChannelId } from "@/features/messaging/lib/stream-dm-channel-id";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
@@ -39,6 +40,7 @@ import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badg
 import { AgentCalendarModal } from "@/components/dashboard/agent-calendar-modal";
 import { AgentViewingsProvider, useAgentViewings } from "@/lib/agent-viewings-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   manilaCalendarAddDays,
   manilaDateStringFromInstant,
@@ -159,12 +161,35 @@ type LeadRow = {
   closure_confirmed_by_client?: boolean | null;
   /** Cached avatar_url for the linked client profile (used in pipeline cards). */
   client_avatar_url?: string | null;
+  new_lead_seen_at?: string | null;
+  new_viewing_request_seen_at?: string | null;
   archived_by_client?: boolean | null;
   archived_at?: string | null;
   archive_reason?: string | null;
   archive_note?: string | null;
   stage_at_archive?: string | null;
 };
+
+async function fetchViewingRequestScheduledAtByLeadId(
+  sb: SupabaseClient,
+  rows: { id: number; pipeline_stage?: string | null; viewing_request_id?: string | null }[],
+): Promise<Record<number, string>> {
+  const out: Record<number, string> = {};
+  const withVr = rows.filter(
+    (r) => String(r.pipeline_stage ?? "").toLowerCase() === "lead" && r.viewing_request_id?.trim(),
+  );
+  const vrIds = [...new Set(withVr.map((r) => r.viewing_request_id!.trim()))];
+  if (vrIds.length === 0) return out;
+  const { data, error } = await sb.from("viewing_requests").select("id, scheduled_at").in("id", vrIds);
+  if (error || !data?.length) return out;
+  const by = new Map((data as { id: string; scheduled_at: string | null }[]).map((r) => [r.id, r.scheduled_at]));
+  for (const r of withVr) {
+    const vid = r.viewing_request_id!.trim();
+    const sa = by.get(vid);
+    if (sa) out[r.id] = sa;
+  }
+  return out;
+}
 
 type ViewingRow = {
   id: string;
@@ -802,6 +827,9 @@ export function AgentDashboard() {
   const [sessionDashboardKind, setSessionDashboardKind] = useState<"agent" | "team_member">("agent");
   const [teamMemberSetupError, setTeamMemberSetupError] = useState<string | null>(null);
   const [leads, setLeads] = useState<LeadRow[]>([]);
+  const [viewingRequestScheduledAtByLeadId, setViewingRequestScheduledAtByLeadId] = useState<Record<number, string>>(
+    {},
+  );
   const [archivedLeads, setArchivedLeads] = useState<LeadRow[]>([]);
   const [viewings, setViewings] = useState<ViewingRow[]>([]);
   const [properties, setProperties] = useState<PropertyRow[]>([]);
@@ -952,7 +980,7 @@ export function AgentDashboard() {
       if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
         const supervisorUserId = (a as AgentRow).user_id;
         const leadSel =
-          "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client";
+          "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at";
         const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
         const [{ data: ld }, { data: ldArchived }, unreadRes, pipelineUnreadRes] = await Promise.all([
           supabase
@@ -1013,6 +1041,7 @@ export function AgentDashboard() {
 
         setLeads(leadRowsWithAvatar);
         setArchivedLeads(archivedRowsWithAvatar);
+        setViewingRequestScheduledAtByLeadId(await fetchViewingRequestScheduledAtByLeadId(supabase, leadRowsWithAvatar));
         setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
         setPipelineTabUnreadCount(pipelineUnreadRes.error ? 0 : (pipelineUnreadRes.count ?? 0));
         setProperties([]);
@@ -1113,7 +1142,7 @@ export function AgentDashboard() {
 
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
       const leadSel =
-        "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client";
+        "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at";
       const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
       const [{ data: ld }, { data: ldArchived }, { data: owned }, { data: paRows }, vwRes, viewsRes, unreadRes, pipelineUnreadRes] =
         await Promise.all([
@@ -1193,6 +1222,7 @@ export function AgentDashboard() {
 
       setLeads(leadRowsWithAvatar);
       setArchivedLeads(archivedRowsWithAvatar);
+      setViewingRequestScheduledAtByLeadId(await fetchViewingRequestScheduledAtByLeadId(supabase, leadRowsWithAvatar));
       setProfileViewsCount(viewsRes.error ? 0 : (viewsRes.count ?? 0));
       setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
       setPipelineTabUnreadCount(pipelineUnreadRes.error ? 0 : (pipelineUnreadRes.count ?? 0));
@@ -2307,13 +2337,22 @@ export function AgentDashboard() {
                     closure_confirmed_by_client: l.closure_confirmed_by_client ?? null,
                     pipeline_position: l.pipeline_position ?? null,
                     closing_notes: l.closing_notes ?? null,
+                    new_lead_seen_at: l.new_lead_seen_at ?? null,
+                    new_viewing_request_seen_at: l.new_viewing_request_seen_at ?? null,
                   }))}
                   archivedLeads={pipelineArchivedTabRows}
                   propertyLabel={pipelinePropertyLabel}
                   supabase={supabase}
                   pipelineAgentId={agent.id}
                   leadsAgentUserId={isTeamMemberView ? agent.user_id : user.id}
+                  messagingAgentUserId={isTeamMemberView ? null : user.id}
                   clientDocsSharedWithUserId={isTeamMemberView ? agent.user_id : undefined}
+                  viewingRequestScheduledAtByLeadId={viewingRequestScheduledAtByLeadId}
+                  onOpenMessagesForClient={(clientUserId) => {
+                    if (!user?.id) return;
+                    setStreamChannelId(streamDmChannelId(user.id, clientUserId));
+                    setTab("messages");
+                  }}
                   onRefresh={refreshAfterPipelineChange}
                   onOpenLeadDetails={(leadId) => {
                     const row = [...leads, ...archivedLeads].find((x) => x.id === leadId);
