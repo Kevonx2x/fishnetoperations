@@ -79,7 +79,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
    * Mount for any signed-in user on this layout so `PostLoginModal` can run its effect as soon as `profile` exists.
    * Non-clients are redirected away quickly; the modal no-ops until `profile` is loaded then uses `profile.role` for slides.
    */
-  const mountPostLoginModal = !authLoading && Boolean(user?.id);
+  const mountPostLoginModal = !authLoading && Boolean(user?.id) && Boolean(profile?.id);
   const gateLoading = authLoading || !user?.id || role !== "client";
 
   const displayName = profile?.full_name?.trim() || user?.email?.trim() || "Client";

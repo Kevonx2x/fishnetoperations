@@ -38,6 +38,7 @@ import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { AgentCalendarModal } from "@/components/dashboard/agent-calendar-modal";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { fetchAgentViewings, type ParsedViewing } from "@/lib/viewings";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { formatLicenseDate } from "@/lib/license-expiry";
 import {
@@ -140,6 +141,8 @@ type LeadRow = {
   pinned_at?: string | null;
   closing_notes?: string | null;
   property_id?: string | null;
+  /** Client viewing slot (`viewing_requests.scheduled_at`) when set. */
+  viewing_request_id?: string | null;
   created_at: string;
   updated_at?: string;
   client_id: string | null;
@@ -834,7 +837,7 @@ export function AgentDashboard() {
       if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
         const supervisorUserId = (a as AgentRow).user_id;
         const leadSel =
-          "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client";
+          "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client";
         const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
         const [{ data: ld }, { data: ldArchived }, unreadRes, pipelineUnreadRes] = await Promise.all([
           supabase
@@ -995,7 +998,7 @@ export function AgentDashboard() {
 
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
       const leadSel =
-        "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client";
+        "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client";
       const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
       const [{ data: ld }, { data: ldArchived }, { data: owned }, { data: paRows }, vwRes, viewsRes, unreadRes, pipelineUnreadRes] =
         await Promise.all([
@@ -1387,16 +1390,14 @@ export function AgentDashboard() {
     [properties],
   );
 
-  const [sidebarViewings, setSidebarViewings] = useState<
-    { lead_id: number; scheduled_at: string; status: string | null }[]
-  >([]);
+  const [sidebarViewings, setSidebarViewings] = useState<ParsedViewing[]>([]);
   const [sidebarViewingsLoading, setSidebarViewingsLoading] = useState(false);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
 
   useEffect(() => {
-    const leadIds = leads.map((l) => l.id).filter((id): id is number => typeof id === "number" && Number.isFinite(id));
-    if (!leadIds.length) {
+    if (!user?.id) {
       setSidebarViewings([]);
+      setSidebarViewingsLoading(false);
       return;
     }
 
@@ -1408,30 +1409,17 @@ export function AgentDashboard() {
       const end = new Date(start);
       end.setDate(end.getDate() + 5);
 
-      const { data, error } = await supabase
-        .from("viewings")
-        .select("lead_id, scheduled_at, status")
-        .in("lead_id", leadIds)
-        .gte("scheduled_at", start.toISOString())
-        .lt("scheduled_at", end.toISOString())
-        .neq("status", "cancelled")
-        .order("scheduled_at", { ascending: true })
-        .limit(50);
+      const parsed = await fetchAgentViewings(supabase, user.id, start, end, { excludeCancelled: true, limit: 50 });
 
       if (cancelled) return;
-      if (error) {
-        console.error("[agent-sidebar] viewings query failed", { message: error.message });
-        setSidebarViewings([]);
-      } else {
-        setSidebarViewings((data ?? []) as { lead_id: number; scheduled_at: string; status: string | null }[]);
-      }
+      setSidebarViewings(parsed);
       setSidebarViewingsLoading(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [leads, supabase]);
+  }, [user?.id, supabase]);
 
   const pipelineArchivedTabRows = useMemo(
     () =>
@@ -1443,6 +1431,7 @@ export function AgentDashboard() {
         client_avatar_url: l.client_avatar_url ?? null,
         pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,
         property_id: l.property_id ?? null,
+        viewing_request_id: l.viewing_request_id ?? null,
         created_at: l.created_at,
         updated_at: l.updated_at ?? null,
         closed_date: l.closed_date ?? null,
@@ -2144,7 +2133,6 @@ export function AgentDashboard() {
 
           <div className="flex flex-1 min-h-0 items-center justify-center">
             <div className="w-full px-1">
-              <div className="mb-2 h-px w-full bg-[#2C2C2C]/10" aria-hidden />
               <div
                 role="button"
                 tabIndex={0}
@@ -2170,13 +2158,13 @@ export function AgentDashboard() {
                       const day = new Date();
                       day.setHours(0, 0, 0, 0);
                       day.setDate(day.getDate() + i);
-                      const dayKey = day.toISOString().slice(0, 10);
+                      const cellKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
                       const label = i === 0 ? "Today" : day.toLocaleDateString(undefined, { weekday: "short" });
-                      const items = sidebarViewings.filter((v) => v.scheduled_at.slice(0, 10) === dayKey);
+                      const items = sidebarViewings.filter((v) => v.dateKey === cellKey);
                       const isToday = i === 0;
                       return (
                         <div
-                          key={dayKey}
+                          key={cellKey}
                           className={cn(
                             "flex items-start gap-2 rounded-md px-1.5 py-1",
                             isToday && "border-l-2 border-[#6B9E6E] bg-[#6B9E6E]/6",
@@ -2187,18 +2175,14 @@ export function AgentDashboard() {
                           </div>
                           <div className="min-w-0 flex-1">
                             {items.length === 0 ? (
-                              <div className="text-[10px] font-semibold text-[#888888]/70">—</div>
+                              <div className="text-[10px] font-semibold text-[#888888]/70">
+                                {isToday ? "No viewings" : "—"}
+                              </div>
                             ) : (
                               <div className="space-y-1">
-                                {items.slice(0, 2).map((v) => {
-                                  const lead = leads.find((l) => l.id === v.lead_id);
-                                  const time = v.scheduled_at
-                                    ? new Date(v.scheduled_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-                                    : "";
-                                  const prop = lead ? pipelinePropertyLabel(lead.property_id ?? null) : "Viewing";
-                                  return (
+                                {items.slice(0, 2).map((event) => (
                                     <button
-                                      key={`${v.lead_id}-${v.scheduled_at}`}
+                                      key={event.id}
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -2207,11 +2191,14 @@ export function AgentDashboard() {
                                       className="flex w-full min-w-0 items-center gap-1 rounded-sm px-0.5 py-0.5 text-left hover:bg-[#FAF8F4]"
                                     >
                                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />
-                                      <span className="shrink-0 text-[10px] font-semibold text-[#2C2C2C]">{time}</span>
-                                      <span className="min-w-0 truncate text-[10px] font-semibold text-[#888888]">{prop}</span>
+                                      <span className="shrink-0 text-[10px] font-semibold text-[#2C2C2C]">
+                                        {event.dayLabel} {event.timeLabel}
+                                      </span>
+                                      <span className="min-w-0 truncate text-[10px] font-semibold text-[#888888]">
+                                        {event.propertyName}
+                                      </span>
                                     </button>
-                                  );
-                                })}
+                                ))}
                                 {items.length > 2 ? (
                                   <div className="text-[10px] font-semibold text-[#888888]">+{items.length - 2} more</div>
                                 ) : null}
@@ -2238,7 +2225,7 @@ export function AgentDashboard() {
           open={calendarModalOpen}
           onClose={() => setCalendarModalOpen(false)}
           supabase={supabase}
-          agentId={user.id}
+          agentId={user?.id ?? ""}
         />
 
         <main
@@ -2303,6 +2290,7 @@ export function AgentDashboard() {
                     client_avatar_url: l.client_avatar_url ?? null,
                     pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,
                     property_id: l.property_id ?? null,
+                    viewing_request_id: l.viewing_request_id ?? null,
                     created_at: l.created_at,
                     updated_at: l.updated_at ?? null,
                     closed_date: l.closed_date ?? null,
@@ -2316,6 +2304,7 @@ export function AgentDashboard() {
                   propertyLabel={pipelinePropertyLabel}
                   supabase={supabase}
                   pipelineAgentId={agent.id}
+                  leadsAgentUserId={isTeamMemberView ? agent.user_id : user.id}
                   clientDocsSharedWithUserId={isTeamMemberView ? agent.user_id : undefined}
                   onRefresh={refreshAfterPipelineChange}
                   onOpenLeadDetails={(leadId) => {

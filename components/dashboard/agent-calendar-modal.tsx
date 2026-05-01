@@ -6,38 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-
-type ViewingRow = {
-  id: number;
-  lead_id: number;
-  scheduled_at: string;
-  status: string | null;
-  leads: {
-    client_id: string | null;
-    agent_id: string | null;
-    property_id: string | null;
-    properties: { name: string | null; location: string | null } | null;
-  };
-};
-
-type CalendarViewing = {
-  id: number | string;
-  leadId: number;
-  scheduledAt: Date;
-  status: string | null;
-  propertyTitle: string;
-  clientName: string;
-};
-
-function startOfMonth(d: Date) {
-  const out = new Date(d.getFullYear(), d.getMonth(), 1);
-  out.setHours(0, 0, 0, 0);
-  return out;
-}
-
-function addMonths(d: Date, delta: number) {
-  return new Date(d.getFullYear(), d.getMonth() + delta, 1);
-}
+import { fetchAgentViewings, type ParsedViewing } from "@/lib/viewings";
 
 function addDays(d: Date, delta: number) {
   const out = new Date(d);
@@ -52,10 +21,12 @@ function startOfWeekSunday(d: Date) {
   return out;
 }
 
-function dayKey(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x.toISOString().slice(0, 10);
+/** Local calendar date as YYYY-MM-DD (never use UTC slice of toISOString for day bucketing). */
+function localDateKey(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function statusClasses(statusRaw: string | null | undefined) {
@@ -63,10 +34,6 @@ function statusClasses(statusRaw: string | null | undefined) {
   if (status === "completed") return "bg-[#D4A843]/[0.12] border-l-[#D4A843]";
   if (status === "cancelled") return "bg-[#888888]/[0.08] border-l-[#888888] opacity-40";
   return "bg-[#6B9E6E]/[0.12] border-l-[#6B9E6E]";
-}
-
-function formatTime(d: Date) {
-  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 export function AgentCalendarModal(props: {
@@ -81,7 +48,7 @@ export function AgentCalendarModal(props: {
     return out;
   });
   const [loading, setLoading] = useState(false);
-  const [viewings, setViewings] = useState<CalendarViewing[]>([]);
+  const [events, setEvents] = useState<ParsedViewing[]>([]);
   const requestIdRef = useRef(0);
 
   const weekStart = useMemo(() => startOfWeekSunday(cursor), [cursor]);
@@ -95,7 +62,7 @@ export function AgentCalendarModal(props: {
   useEffect(() => {
     if (!props.open) return;
     if (!props.agentId) {
-      setViewings([]);
+      setEvents([]);
       return;
     }
 
@@ -106,7 +73,7 @@ export function AgentCalendarModal(props: {
     const timeout = window.setTimeout(() => {
       if (cancelled) return;
       setLoading(false);
-      setViewings([]);
+      setEvents([]);
     }, 3000);
 
     void (async () => {
@@ -115,95 +82,15 @@ export function AgentCalendarModal(props: {
       const rangeEnd = addDays(rangeStart, 7);
       rangeEnd.setHours(0, 0, 0, 0);
 
-      const { data: leadsData, error: leadsErr } = await props.supabase
-        .from("leads")
-        .select("id")
-        .eq("agent_id", props.agentId);
-
-      if (cancelled || requestIdRef.current !== reqId) return;
-      if (leadsErr) {
-        console.error("[agent-calendar-modal] leads query failed", leadsErr);
-        window.clearTimeout(timeout);
-        setLoading(false);
-        setViewings([]);
-        return;
-      }
-
-      const leadIds = (leadsData ?? [])
-        .map((r) => (r as { id: number | null }).id)
-        .filter((id): id is number => typeof id === "number" && Number.isFinite(id));
-
-      if (leadIds.length === 0) {
-        window.clearTimeout(timeout);
-        setLoading(false);
-        setViewings([]);
-        return;
-      }
-
-      const { data: viewingsData, error: viewingsErr } = await props.supabase
-        .from("viewings")
-        .select(
-          "id, lead_id, scheduled_at, status, leads!inner(id, client_id, agent_id, property_id, properties!inner(name,location))",
-        )
-        .in("lead_id", leadIds)
-        .gte("scheduled_at", rangeStart.toISOString())
-        .lt("scheduled_at", rangeEnd.toISOString())
-        .order("scheduled_at", { ascending: true });
-
-      if (cancelled || requestIdRef.current !== reqId) return;
-      if (viewingsErr) {
-        console.error("[agent-calendar-modal] viewings query failed", viewingsErr);
-        window.clearTimeout(timeout);
-        setLoading(false);
-        setViewings([]);
-        return;
-      }
-
-      const rows = (viewingsData ?? []) as unknown as ViewingRow[];
-      if (rows.length === 0) {
-        window.clearTimeout(timeout);
-        setLoading(false);
-        setViewings([]);
-        return;
-      }
-
-      const clientIds = [
-        ...new Set(
-          rows
-            .map((v) => v.leads?.client_id)
-            .filter((x): x is string => typeof x === "string" && x.length > 0),
-        ),
-      ];
-
-      const { data: clients, error: clientErr } = clientIds.length
-        ? await props.supabase.from("profiles").select("id, full_name").in("id", clientIds)
-        : { data: [], error: null };
-
-      if (cancelled || requestIdRef.current !== reqId) return;
-      if (clientErr) {
-        console.error("[agent-calendar-modal] clients query failed", clientErr);
-      }
-
-      const clientMap = Object.fromEntries(
-        ((clients ?? []) as { id: string; full_name: string | null }[]).map((c) => [
-          c.id,
-          c.full_name ?? "Unknown",
-        ]),
-      );
-
-      const merged: CalendarViewing[] = rows.map((v) => {
-        const dt = new Date(v.scheduled_at);
-        const propertyTitle =
-          v.leads?.properties?.name?.trim() ||
-          v.leads?.properties?.location?.trim() ||
-          "Viewing";
-        const clientName = v.leads?.client_id ? clientMap[v.leads.client_id] ?? "Unknown" : "Unknown";
-        return { id: v.id, leadId: v.lead_id, scheduledAt: dt, status: v.status ?? null, propertyTitle, clientName };
+      const mapped = await fetchAgentViewings(props.supabase, props.agentId, rangeStart, rangeEnd, {
+        excludeCancelled: false,
       });
 
+      if (cancelled || requestIdRef.current !== reqId) return;
+
       window.clearTimeout(timeout);
+      setEvents(mapped);
       setLoading(false);
-      setViewings(merged);
     })();
 
     return () => {
@@ -212,19 +99,8 @@ export function AgentCalendarModal(props: {
     };
   }, [props.open, props.agentId, props.supabase, weekStart]);
 
-  const todayKey = useMemo(() => dayKey(new Date()), []);
+  const todayKey = useMemo(() => localDateKey(new Date()), [props.open]);
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
-  const byDay = useMemo(() => {
-    const m = new Map<string, CalendarViewing[]>();
-    for (const v of viewings) {
-      const k = dayKey(v.scheduledAt);
-      const arr = m.get(k) ?? [];
-      arr.push(v);
-      m.set(k, arr);
-    }
-    return m;
-  }, [viewings]);
-
   const START_HOUR = 0;
   const END_HOUR = 23;
   const DEFAULT_SCROLL_HOUR = 8;
@@ -333,7 +209,7 @@ export function AgentCalendarModal(props: {
                     <div className="border-b border-gray-100" />
                     <div className="grid grid-cols-7 border-b border-gray-100">
                       {weekDays.map((d) => {
-                        const k = dayKey(d);
+                        const k = localDateKey(d);
                         const isToday = k === todayKey;
                         const isHighlighted = k === highlightKey;
                         return (
@@ -385,9 +261,10 @@ export function AgentCalendarModal(props: {
                     <div className="relative">
                       <div className="grid grid-cols-7" style={{ height: gridHeight }}>
                         {weekDays.map((d) => {
-                          const k = dayKey(d);
+                          const k = localDateKey(d);
+                          const cellKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                          const dayEvents = events.filter((e) => e.dateKey === cellKey);
                           const isHighlighted = k === highlightKey;
-                        const matchEvents = byDay.get(k) ?? [];
                           return (
                             <button
                               key={k}
@@ -408,7 +285,7 @@ export function AgentCalendarModal(props: {
                               ))}
 
                               {/* Events */}
-                              {matchEvents.map((v) => {
+                              {dayEvents.map((v) => {
                                 const dt = v.scheduledAt;
                                 const mins = dt.getHours() * 60 + dt.getMinutes();
                                 const startMins = START_HOUR * 60;
@@ -417,7 +294,7 @@ export function AgentCalendarModal(props: {
                                 const top = ((mins - startMins) / 60) * HOUR_ROW_PX + 2;
                                 const height = HOUR_ROW_PX - 6;
                                 const cls = statusClasses(v.status);
-                                const cancelled = String(v.status ?? "").toLowerCase() === "cancelled";
+                                const cancelled = v.status === "cancelled";
                                 return (
                                   <div
                                     key={v.id}
@@ -429,7 +306,7 @@ export function AgentCalendarModal(props: {
                                     style={{ top, height }}
                                   >
                                     <div className="text-[11px] font-semibold text-[#2C2C2C] truncate">
-                                      Viewing · {dt.toLocaleTimeString([], { hour: "numeric" })}
+                                      {v.propertyName} · {v.timeLabel}
                                     </div>
                                   </div>
                                 );

@@ -1132,6 +1132,10 @@ export function PostLoginModal() {
     void persistAndClose();
   }, [isLast, persistAndClose]);
 
+  if (authLoading || !user?.id || !profile) {
+    return null;
+  }
+
   const ctaLabel =
     track === "whatsnew" && isLast ? "Let's Go" : isLast ? "Get Started" : "Next";
 

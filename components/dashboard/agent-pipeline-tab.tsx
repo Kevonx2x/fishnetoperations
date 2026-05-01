@@ -67,6 +67,13 @@ import { propertyCanonicalCity } from "@/lib/normalize-city";
 import { cn } from "@/lib/utils";
 import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 import { isClientDocumentType, labelForClientDocType } from "@/lib/client-documents";
+import { coerceLeadId, fetchAgentViewings, parseViewing } from "@/lib/viewings";
+
+/** Earliest upcoming viewing row for a lead (for Viewing stage pill). */
+type PipelineViewingRow = { id: string; scheduled_at: string; status: string | null };
+
+/** Client-requested / confirmed slot from `viewing_requests` (linked by `leads.viewing_request_id`). */
+type PipelineViewingRequestSlot = { scheduled_at: string; status: string | null };
 
 export const PIPELINE_STAGES = [
   { id: "lead", label: "Lead" },
@@ -88,6 +95,8 @@ export type PipelineLeadRow = {
   client_avatar_url?: string | null;
   pipeline_stage: PipelineStageId;
   property_id: string | null;
+  /** When set, client viewing request row id — use `viewing_requests.scheduled_at` for pill date. */
+  viewing_request_id?: string | null;
   created_at: string;
   updated_at?: string | null;
   pipeline_position?: number | null;
@@ -361,29 +370,7 @@ type PropertyMeta = {
   city: string;
   location: string;
   deleted_at?: string | null;
-  /** First gallery photo (`property_photos` by sort_order) or `properties.image_url` when none. */
-  primary_photo_url?: string | null;
 };
-
-function primaryPropertyPhotoUrl(
-  imageUrl: string | null | undefined,
-  photos: { url: string | null; sort_order?: number | null }[] | null | undefined,
-): string | null {
-  const sorted = (photos ?? [])
-    .slice()
-    .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
-  for (const p of sorted) {
-    const u = String(p.url ?? "").trim();
-    if (u) return u;
-  }
-  const main = String(imageUrl ?? "").trim();
-  return main || null;
-}
-
-function cssUrlForBackground(u: string): string {
-  const escaped = u.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-  return `url("${escaped}")`;
-}
 
 function tsOr0(raw: string | null | undefined): number {
   const t = raw ? new Date(raw).getTime() : 0;
@@ -539,8 +526,8 @@ function stageBarHex(stage: PipelineStageId): string {
 
 function pipelineColumnEmptyIcon(stage: PipelineStageId) {
   const ring =
-    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/08";
-  const ic = "h-5 w-5 text-[#2C2C2C]/30";
+    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#E8E8E8] ring-1 ring-[#2C2C2C]/[0.06]";
+  const ic = "h-5 w-5 text-[#2C2C2C]/35";
   switch (stage) {
     case "lead":
       return (
@@ -589,10 +576,10 @@ function KanbanDealCard({
   pinned,
   uploadedRequestedDocCount,
   unviewedUploadedDocCount,
-  viewingScheduledAt,
+  viewingRow,
+  viewingRequestSlot,
   offerCreatedAt,
   reservationCreatedAt,
-  propertyCardPhotoUrl,
   onSendOffer,
   onCreateReservation,
   onMarkClosed,
@@ -619,14 +606,14 @@ function KanbanDealCard({
   uploadedRequestedDocCount: number;
   /** Subset of uploaded client docs the agent has not acknowledged in the drawer yet. */
   unviewedUploadedDocCount: number;
-  /** Scheduled viewing date (from viewings) when in Viewing stage. */
-  viewingScheduledAt?: string | null;
+  /** Earliest upcoming viewing for this lead (Viewing stage pill). */
+  viewingRow?: PipelineViewingRow | null;
+  /** Client `viewing_requests` slot — preferred for pill date when present. */
+  viewingRequestSlot?: PipelineViewingRequestSlot | null;
   /** Latest offer created_at for this lead (for Offer stage pill). */
   offerCreatedAt?: string | null;
   /** Latest reservation created_at for this lead (for Reservation stage pill). */
   reservationCreatedAt?: string | null;
-  /** Primary listing image for faint card background; omit or null for plain white. */
-  propertyCardPhotoUrl?: string | null;
   onSendOffer: (lead: PipelineLeadRow) => void;
   onCreateReservation: (lead: PipelineLeadRow) => void;
   onMarkClosed: (lead: PipelineLeadRow) => void;
@@ -677,25 +664,47 @@ function KanbanDealCard({
       closed: "Closed",
     };
 
-    const iso =
-      stage === "lead"
-        ? deal.created_at
-        : stage === "viewing"
-          ? viewingScheduledAt ?? deal.updated_at ?? deal.created_at
-          : stage === "offer"
-            ? offerCreatedAt ?? deal.updated_at ?? deal.created_at
-            : stage === "reservation"
-              ? reservationCreatedAt ?? deal.updated_at ?? deal.created_at
-            : stage === "closed"
-              ? (deal.closed_at ?? deal.closed_date ?? deal.updated_at ?? deal.created_at)
-              : deal.updated_at ?? deal.created_at;
+    let formattedDate: string | null = null;
 
-    const formattedDate = (() => {
-      if (!iso) return null;
-      const d = parseISO(iso);
-      if (!isValid(d)) return null;
-      return format(d, "MMM d");
-    })();
+    if (stage === "viewing") {
+      const fromRequest = viewingRequestSlot?.scheduled_at?.trim() || null;
+      const fromViewingsTable = viewingRow?.scheduled_at?.trim() || null;
+      const scheduleAt = fromRequest || fromViewingsTable;
+      if (scheduleAt) {
+        const lid = coerceLeadId(deal.id) ?? deal.id;
+        const parsed = parseViewing({
+          id: viewingRow?.id ?? `vr:${deal.viewing_request_id ?? lid}`,
+          lead_id: lid,
+          scheduled_at: scheduleAt,
+          status: viewingRow?.status ?? viewingRequestSlot?.status,
+          propertyName: propLine,
+          clientName: deal.name?.trim() || deal.email || "Unknown",
+        });
+        formattedDate = parsed.fullDateLabel;
+      }
+    }
+
+    if (stage !== "viewing" || formattedDate == null) {
+      const iso =
+        stage === "lead"
+          ? deal.created_at
+          : stage === "viewing"
+            ? deal.updated_at ?? deal.created_at
+            : stage === "offer"
+              ? offerCreatedAt ?? deal.updated_at ?? deal.created_at
+              : stage === "reservation"
+                ? reservationCreatedAt ?? deal.updated_at ?? deal.created_at
+                : stage === "closed"
+                  ? (deal.closed_at ?? deal.closed_date ?? deal.updated_at ?? deal.created_at)
+                  : deal.updated_at ?? deal.created_at;
+
+      formattedDate = (() => {
+        if (!iso) return null;
+        const d = parseISO(iso);
+        if (!isValid(d)) return null;
+        return format(d, "MMM d");
+      })();
+    }
 
     if (stage === "closed") {
       return {
@@ -713,7 +722,9 @@ function KanbanDealCard({
     deal.updated_at,
     deal.closed_at,
     deal.closed_date,
-    viewingScheduledAt,
+    deal.viewing_request_id,
+    viewingRow,
+    viewingRequestSlot,
     offerCreatedAt,
     reservationCreatedAt,
   ]);
@@ -752,31 +763,16 @@ function KanbanDealCard({
     zIndex: isDragging ? 50 : menuOpen ? 9998 : style.zIndex,
   } as const;
 
-  const hasCardPhoto = Boolean(propertyCardPhotoUrl?.trim());
-  const cardSurfaceStyle = useMemo((): React.CSSProperties => {
-    const u = propertyCardPhotoUrl?.trim() ?? "";
-    if (!u) return {};
-    return {
-      backgroundImage: `linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)), ${cssUrlForBackground(u)}`,
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat",
-    };
-  }, [propertyCardPhotoUrl]);
-
   return (
     <div ref={setNodeRef} style={styleWithZ} className="relative">
       <div
         {...attributes}
         {...listeners}
-        style={cardSurfaceStyle}
         className={cn(
-          "relative flex flex-col min-h-[150px] overflow-hidden rounded-lg border border-[#2C2C2C]/10 p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition",
-          !hasCardPhoto && "bg-white/70",
+          "relative flex min-h-[150px] cursor-grab flex-col overflow-hidden rounded-lg border border-[#2C2C2C]/[0.08] bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition",
           next ? "pb-10" : "",
-          "cursor-grab",
-          "hover:bg-white hover:shadow-sm",
-          isDragging && "scale-[1.02] rotate-[0.6deg] cursor-grabbing shadow-xl",
+          "hover:border-[#2C2C2C]/12 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]",
+          isDragging && "scale-[1.01] cursor-grabbing shadow-lg ring-1 ring-[#6B9E6E]/20",
         )}
         onClick={() => onOpenLeadDetails(deal.id)}
         role="button"
@@ -798,7 +794,7 @@ function KanbanDealCard({
               }}
             >
               <p
-                className="font-sans text-[14px] font-bold leading-snug text-[#2C2C2C]/80"
+                className="font-sans text-[15px] font-bold leading-snug tracking-tight text-[#2C2C2C]"
                 style={{
                   display: "-webkit-box",
                   WebkitLineClamp: 2,
@@ -825,11 +821,11 @@ function KanbanDealCard({
                   )}
                   aria-hidden
                 >
-                  <span className="inline-flex items-center gap-1 whitespace-nowrap text-[10px] font-bold leading-none">
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap text-[9px] font-bold uppercase tracking-wide leading-none opacity-90">
                     {stagePill.showCheckIcon ? <CircleCheck className="h-3 w-3" aria-hidden /> : null}
                     {stagePill.label}
                   </span>
-                  <span className="whitespace-nowrap text-[9px] font-semibold leading-none">
+                  <span className="whitespace-nowrap text-[10px] font-bold leading-none">
                     {stagePill.date ?? "\u00A0"}
                   </span>
                 </div>
@@ -1015,7 +1011,7 @@ function KanbanDealCard({
                                 onClick={() => setMenuMoveOpen(true)}
                               >
                                 <ArrowRightCircle
-                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                  className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
                                   aria-hidden
                                 />
                                 Move to…
@@ -1044,7 +1040,7 @@ function KanbanDealCard({
                                     }}
                                   >
                                     <ArrowRightCircle
-                                      className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                      className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
                                       aria-hidden
                                     />
                                     {s.label}
@@ -1064,18 +1060,20 @@ function KanbanDealCard({
             </div>
           </div>
 
-          {/* Row 2: Price */}
-          <p className="mt-1 font-sans text-[13px] font-bold text-[#D4A843]">{dealValueLine ?? "—"}</p>
-          {/* Row 3: Avatar + contact */}
-          <div className="absolute bottom-3 left-3 right-12 flex items-center gap-2">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#6B9E6E]/15 text-[10px] font-bold text-[#6B9E6E] relative">
+          {/* Row 2: Value (secondary) */}
+          <p className="mt-1.5 font-sans text-[12px] font-semibold tabular-nums text-[#2C2C2C]/55">
+            {dealValueLine ?? "—"}
+          </p>
+          {/* Row 3: Avatar + contact (tertiary) */}
+          <div className="absolute bottom-3 left-3 right-10 flex items-center gap-2">
+            <div className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#6B9E6E]/12 text-[10px] font-bold text-[#6B9E6E]">
               {deal.client_avatar_url ? (
                 <SupabasePublicImage src={deal.client_avatar_url} alt="" fill sizes="24px" className="object-cover" />
               ) : (
                 clientInitials(deal.name)
               )}
             </div>
-            <span className="truncate font-sans text-[12px] font-semibold text-[#2C2C2C]/65">{deal.name}</span>
+            <span className="truncate font-sans text-[11px] font-medium text-[#888888]">{deal.name}</span>
           </div>
         </div>
 
@@ -1089,11 +1087,11 @@ function KanbanDealCard({
             }}
             onPointerDown={(e) => e.stopPropagation()}
             className={cn(
-              "absolute bottom-3 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-sm hover:bg-[#5a8a5d]",
-              anyMenuOpen && "opacity-0 pointer-events-none",
+              "absolute bottom-3 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-sm hover:bg-[#5a8a5d]",
+              anyMenuOpen && "pointer-events-none opacity-0",
             )}
           >
-            <span aria-hidden className="text-base leading-none">
+            <span aria-hidden className="text-[11px] font-semibold leading-none tracking-tight">
               ›
             </span>
           </button>
@@ -1131,10 +1129,10 @@ function KanbanStageColumn({
   dealValueByPropertyId,
   uploadedRequestedDocCountByLeadId,
   unviewedUploadedDocCountByLeadId,
-  viewingScheduledAtByLeadId,
+  viewingRowByLeadId,
+  viewingRequestSlotByLeadId,
   offerCreatedAtByLeadId,
   reservationCreatedAtByLeadId,
-  propertyMetaById,
   openDocs,
   onSendOffer,
   onCreateReservation,
@@ -1164,11 +1162,11 @@ function KanbanStageColumn({
   ids: string[];
   list: PipelineLeadRow[];
   propertyLabel: (propertyId: string | null) => string;
-  propertyMetaById: Record<string, PropertyMeta>;
   dealValueByPropertyId: Record<string, string>;
   uploadedRequestedDocCountByLeadId: Record<number, number>;
   unviewedUploadedDocCountByLeadId: Record<number, number>;
-  viewingScheduledAtByLeadId: Record<number, string | null>;
+  viewingRowByLeadId: Record<number, PipelineViewingRow | null>;
+  viewingRequestSlotByLeadId: Record<number, PipelineViewingRequestSlot | null>;
   offerCreatedAtByLeadId: Record<number, string | null>;
   reservationCreatedAtByLeadId: Record<number, string | null>;
   openDocs: (lead: PipelineLeadRow) => void;
@@ -1199,17 +1197,19 @@ function KanbanStageColumn({
       key={stage}
       className={cn("min-w-0 flex-1 px-2", idx > 0 && "border-l border-[#2C2C2C]/10")}
     >
-      <div className="overflow-hidden rounded-lg border border-[#2C2C2C]/10 bg-white">
-        <div aria-hidden className="h-1 w-full" style={{ backgroundColor: barHex }} />
-        <div className="px-4 py-3">
-          <div className="flex items-start justify-between gap-3">
-            <p className="min-w-0 truncate font-sans text-base font-bold tracking-tight text-[#2C2C2C]">{label}</p>
-            <span className="shrink-0 rounded-full bg-[#FAF8F4] px-2.5 py-0.5 text-xs font-bold tabular-nums text-[#2C2C2C] ring-1 ring-[#2C2C2C]/10">
+      <div className="overflow-hidden rounded-lg border border-[#2C2C2C]/[0.08] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div aria-hidden className="h-0.5 w-full" style={{ backgroundColor: barHex }} />
+        <div className="flex min-h-[68px] flex-col justify-center border-b border-[#2C2C2C]/[0.06] px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="min-w-0 truncate font-sans text-[13px] font-bold uppercase tracking-wide text-[#2C2C2C]/85">
+              {label}
+            </p>
+            <span className="shrink-0 rounded-md bg-[#F4F5F6] px-2 py-0.5 text-[11px] font-bold tabular-nums text-[#2C2C2C]/70">
               {count}
             </span>
           </div>
-          <p className="mt-1 font-sans text-xs font-semibold text-[#2C2C2C]/50">
-            {showTotal ? `${formatPesoCompact(total)} - ` : ""}
+          <p className="mt-0.5 truncate font-sans text-[11px] font-medium text-[#2C2C2C]/45">
+            {showTotal && total > 0 ? `${formatPesoCompact(total)} · ` : null}
             {count} deal{count === 1 ? "" : "s"}
           </p>
         </div>
@@ -1218,16 +1218,16 @@ function KanbanStageColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          "mt-3 min-h-[140px] rounded-lg transition-colors",
-          isOver ? "bg-[#6B9E6E]/8" : "bg-transparent",
+          "mt-2 min-h-[168px] rounded-lg border border-transparent transition-colors",
+          isOver ? "border-[#6B9E6E]/25 bg-[#6B9E6E]/[0.07]" : "bg-[#F4F5F6]/60",
         )}
       >
         {list.length === 0 ? (
-          <div className="flex flex-col items-center rounded-lg border border-dashed border-[#2C2C2C]/12 bg-white px-4 py-8 text-center">
+          <div className="flex min-h-[152px] flex-col items-center justify-center rounded-lg border border-dashed border-[#2C2C2C]/[0.12] bg-[#ECEEEF]/80 px-3 py-6 text-center opacity-[0.78] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
             {pipelineColumnEmptyIcon(stage)}
-            <p className="mt-4 font-sans text-sm font-bold text-[#2C2C2C]">No deals yet</p>
-            <p className="mt-1 max-w-[200px] font-sans text-xs font-medium leading-snug text-[#2C2C2C]/50">
-              Deals in this stage will appear here.
+            <p className="mt-3 font-sans text-[12px] font-bold text-[#2C2C2C]/60">No deals yet</p>
+            <p className="mt-1 max-w-[200px] font-sans text-[10px] font-medium leading-snug text-[#2C2C2C]/40">
+              Drag deals here or wait for new leads.
             </p>
           </div>
         ) : (
@@ -1243,12 +1243,10 @@ function KanbanStageColumn({
                   pinned={Boolean(deal.pinned)}
                   uploadedRequestedDocCount={uploadedRequestedDocCountByLeadId[deal.id] ?? 0}
                   unviewedUploadedDocCount={unviewedUploadedDocCountByLeadId[deal.id] ?? 0}
-                  viewingScheduledAt={viewingScheduledAtByLeadId[deal.id] ?? null}
+                  viewingRow={viewingRowByLeadId[deal.id] ?? null}
+                  viewingRequestSlot={viewingRequestSlotByLeadId[deal.id] ?? null}
                   offerCreatedAt={offerCreatedAtByLeadId[deal.id] ?? null}
                   reservationCreatedAt={reservationCreatedAtByLeadId[deal.id] ?? null}
-                  propertyCardPhotoUrl={
-                    deal.property_id ? propertyMetaById[deal.property_id]?.primary_photo_url ?? null : null
-                  }
                   onOpenDocs={openDocs}
                   onSendOffer={onSendOffer}
                   onCreateReservation={onCreateReservation}
@@ -1561,7 +1559,9 @@ function SortableDealCard({
             Created {new Date(deal.created_at).toLocaleDateString(undefined, { dateStyle: "medium" })}
           </span>
         </div>
-        <p className="mt-2 text-xs font-medium text-[#6B9E6E]">→ {nextStepForStage(deal.pipeline_stage)}</p>
+        <p className="mt-2 text-[10px] font-medium leading-snug text-[#6B9E6E]">
+          → {nextStepForStage(deal.pipeline_stage)}
+        </p>
       </div>
 
       <div
@@ -1574,12 +1574,15 @@ function SortableDealCard({
             onClick={() => {
               if (next) void onMoveToStage(deal, next);
             }}
-            className="flex flex-1 items-center justify-center rounded-xl bg-[#6B9E6E] py-2.5 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
+            className="flex flex-1 items-center justify-center gap-0.5 rounded-xl bg-[#6B9E6E] py-2 text-xs font-semibold text-white hover:bg-[#5a8a5d]"
           >
-            → {moveLabel}
+            <span aria-hidden className="text-[10px] opacity-95">
+              →
+            </span>
+            {moveLabel}
           </button>
         ) : (
-          <div className="flex flex-1 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 py-2.5 text-sm font-semibold text-[#6B9E6E]">
+          <div className="flex flex-1 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 py-2 text-xs font-semibold text-[#6B9E6E]">
             ✓ Closed
           </div>
         )}
@@ -1620,6 +1623,8 @@ export function AgentPipelineTab({
   onOpenLeadDetails,
   /** `agents.id` for the listing agent whose pipeline is shown (supervisor when logged in as team_member). */
   pipelineAgentId,
+  /** Profile UUID matching `leads.agent_id` (logged-in user, or supervising agent when team member view). */
+  leadsAgentUserId,
   /** When set (team member view), client documents shared with this user id are loaded (supervising agent). */
   clientDocsSharedWithUserId,
 }: {
@@ -1630,6 +1635,7 @@ export function AgentPipelineTab({
   onRefresh: () => void;
   onOpenLeadDetails: (leadId: number) => void;
   pipelineAgentId: string;
+  leadsAgentUserId: string;
   clientDocsSharedWithUserId?: string;
 }) {
   const sortStorageKey = useMemo(() => `bhg:pipeline:sort:${pipelineAgentId}`, [pipelineAgentId]);
@@ -1704,7 +1710,7 @@ export function AgentPipelineTab({
     void (async () => {
       const { data, error } = await supabase
         .from("properties")
-        .select("id, city, location, price, rent_price, listing_type, status, deleted_at, image_url, property_photos (url, sort_order)")
+        .select("id, city, location, price, rent_price, listing_type, status, deleted_at")
         .in("id", ids);
       if (cancelled) return;
       if (error) {
@@ -1725,8 +1731,6 @@ export function AgentPipelineTab({
         listing_type: unknown;
         status: unknown;
         deleted_at?: string | null;
-        image_url?: string | null;
-        property_photos?: { url: string | null; sort_order?: number | null }[] | null;
       }[]) {
         const location = String(row.location ?? "").trim();
         const canonicalCity = propertyCanonicalCity({ city: row.city, location });
@@ -1734,7 +1738,6 @@ export function AgentPipelineTab({
           city: canonicalCity,
           location,
           deleted_at: row.deleted_at != null ? String(row.deleted_at) : null,
-          primary_photo_url: primaryPropertyPhotoUrl(row.image_url, row.property_photos ?? null),
         };
 
         const lt = String(row.listing_type ?? "").trim().toLowerCase();
@@ -1765,7 +1768,10 @@ export function AgentPipelineTab({
   const [unviewedUploadedDocCountByLeadId, setUnviewedUploadedDocCountByLeadId] = useState<
     Record<number, number>
   >({});
-  const [viewingScheduledAtByLeadId, setViewingScheduledAtByLeadId] = useState<Record<number, string | null>>({});
+  const [viewingRowByLeadId, setViewingRowByLeadId] = useState<Record<number, PipelineViewingRow | null>>({});
+  const [viewingRequestSlotByLeadId, setViewingRequestSlotByLeadId] = useState<
+    Record<number, PipelineViewingRequestSlot | null>
+  >({});
   const [offerCreatedAtByLeadId, setOfferCreatedAtByLeadId] = useState<Record<number, string | null>>({});
   const [reservationCreatedAtByLeadId, setReservationCreatedAtByLeadId] = useState<Record<number, string | null>>({});
   const [offerLead, setOfferLead] = useState<PipelineLeadRow | null>(null);
@@ -2078,7 +2084,7 @@ export function AgentPipelineTab({
   }, [filterStage]);
 
   useEffect(() => {
-    const leadIds = deals.map((d) => d.id).filter((id): id is number => typeof id === "number");
+    const leadIds = deals.map((d) => coerceLeadId(d.id)).filter((id): id is number => id != null);
     if (leadIds.length === 0) {
       setUploadedRequestedDocCountByLeadId({});
       setUnviewedUploadedDocCountByLeadId({});
@@ -2100,9 +2106,9 @@ export function AgentPipelineTab({
       }
       const uploadedNext: Record<number, number> = {};
       const unviewedNext: Record<number, number> = {};
-      for (const row of (data ?? []) as { lead_id: number; status: string | null; viewed_by_agent_at: string | null }[]) {
-        const lid = row.lead_id;
-        if (typeof lid !== "number" || !Number.isFinite(lid)) continue;
+      for (const row of (data ?? []) as { lead_id: unknown; status: string | null; viewed_by_agent_at: string | null }[]) {
+        const lid = coerceLeadId(row.lead_id);
+        if (lid == null) continue;
         const st = (row.status ?? "").trim().toLowerCase();
         if (st !== "pending" && st !== "uploaded") continue;
         uploadedNext[lid] = (uploadedNext[lid] ?? 0) + 1;
@@ -2124,7 +2130,7 @@ export function AgentPipelineTab({
   }, [deals, supabase]);
 
   useEffect(() => {
-    const leadIds = deals.map((d) => d.id).filter((id): id is number => typeof id === "number" && Number.isFinite(id));
+    const leadIds = deals.map((d) => coerceLeadId(d.id)).filter((id): id is number => id != null);
     if (leadIds.length === 0) {
       setReservationCreatedAtByLeadId({});
       return;
@@ -2146,9 +2152,9 @@ export function AgentPipelineTab({
       }
 
       const out: Record<number, string | null> = {};
-      for (const row of (data ?? []) as { lead_id: number; created_at: string }[]) {
-        const lid = row.lead_id;
-        if (typeof lid !== "number" || !Number.isFinite(lid)) continue;
+      for (const row of (data ?? []) as { lead_id: unknown; created_at: string }[]) {
+        const lid = coerceLeadId(row.lead_id);
+        if (lid == null) continue;
         if (out[lid] != null) continue;
         out[lid] = row.created_at ?? null;
       }
@@ -2161,7 +2167,7 @@ export function AgentPipelineTab({
   }, [deals, supabase]);
 
   useEffect(() => {
-    const leadIds = deals.map((d) => d.id).filter((id): id is number => typeof id === "number" && Number.isFinite(id));
+    const leadIds = deals.map((d) => coerceLeadId(d.id)).filter((id): id is number => id != null);
     if (leadIds.length === 0) {
       setOfferCreatedAtByLeadId({});
       return;
@@ -2183,9 +2189,9 @@ export function AgentPipelineTab({
       }
 
       const out: Record<number, string | null> = {};
-      for (const row of (data ?? []) as { lead_id: number; created_at: string }[]) {
-        const lid = row.lead_id;
-        if (typeof lid !== "number" || !Number.isFinite(lid)) continue;
+      for (const row of (data ?? []) as { lead_id: unknown; created_at: string }[]) {
+        const lid = coerceLeadId(row.lead_id);
+        if (lid == null) continue;
         if (out[lid] != null) continue; // latest per lead (already ordered desc)
         out[lid] = row.created_at ?? null;
       }
@@ -2198,40 +2204,85 @@ export function AgentPipelineTab({
   }, [deals, supabase]);
 
   useEffect(() => {
-    const leadIds = deals.map((d) => d.id).filter((id): id is number => typeof id === "number" && Number.isFinite(id));
-    if (leadIds.length === 0) {
-      setViewingScheduledAtByLeadId({});
+    const leadIds = deals.map((d) => coerceLeadId(d.id)).filter((id): id is number => id != null);
+    if (!leadsAgentUserId.trim() || leadIds.length === 0) {
+      setViewingRowByLeadId({});
+      return;
+    }
+
+    const wanted = new Set(leadIds);
+    let cancelled = false;
+    void (async () => {
+      const parsed = await fetchAgentViewings(supabase, leadsAgentUserId, new Date(), undefined, {
+        excludeCancelled: true,
+      });
+      if (cancelled) return;
+
+      const out: Record<number, PipelineViewingRow | null> = {};
+      for (const v of parsed) {
+        if (!wanted.has(v.leadId)) continue;
+        if (out[v.leadId] != null) continue;
+        out[v.leadId] = {
+          id: v.id,
+          scheduled_at: v.scheduledAtRaw,
+          status: v.status,
+        };
+      }
+
+      setViewingRowByLeadId(out);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deals, supabase, leadsAgentUserId]);
+
+  useEffect(() => {
+    const vrIds = [
+      ...new Set(
+        deals
+          .map((d) => d.viewing_request_id)
+          .filter((x): x is string => typeof x === "string" && x.trim().length > 0),
+      ),
+    ];
+    if (vrIds.length === 0) {
+      setViewingRequestSlotByLeadId({});
       return;
     }
 
     let cancelled = false;
     void (async () => {
-      const nowIso = new Date().toISOString();
       const { data, error } = await supabase
-        .from("viewings")
-        .select("lead_id, scheduled_at, status")
-        .in("lead_id", leadIds)
-        .neq("status", "cancelled")
-        .gte("scheduled_at", nowIso)
-        .order("scheduled_at", { ascending: true });
+        .from("viewing_requests")
+        .select("id, scheduled_at, status")
+        .in("id", vrIds);
 
       if (cancelled) return;
       if (error) {
-        console.error("[agent-pipeline] viewings query failed", { message: error.message });
-        setViewingScheduledAtByLeadId({});
+        console.error("[agent-pipeline] viewing_requests query failed", { message: error.message });
+        setViewingRequestSlotByLeadId({});
         return;
       }
 
-      const out: Record<number, string | null> = {};
-      for (const row of (data ?? []) as { lead_id: number; scheduled_at: string; status: string | null }[]) {
-        const lid = row.lead_id;
-        if (typeof lid !== "number" || !Number.isFinite(lid)) continue;
-        if (out[lid] != null) continue; // keep earliest upcoming viewing per lead
-        if (!row.scheduled_at) continue;
-        out[lid] = row.scheduled_at;
-      }
+      const byVr = new Map(
+        (data ?? []).map((r) => {
+          const row = r as { id: string; scheduled_at: string; status: string | null };
+          return [row.id, row] as const;
+        }),
+      );
 
-      setViewingScheduledAtByLeadId(out);
+      const out: Record<number, PipelineViewingRequestSlot | null> = {};
+      for (const d of deals) {
+        const vrId = typeof d.viewing_request_id === "string" ? d.viewing_request_id.trim() : "";
+        if (!vrId) continue;
+        const row = byVr.get(vrId);
+        const sa = row?.scheduled_at?.trim();
+        if (!sa) continue;
+        const lid = coerceLeadId(d.id);
+        if (lid == null) continue;
+        out[lid] = { scheduled_at: sa, status: row?.status ?? null };
+      }
+      setViewingRequestSlotByLeadId(out);
     })();
 
     return () => {
@@ -2778,10 +2829,10 @@ export function AgentPipelineTab({
         type="button"
         onClick={() => setPipelineVault("active")}
         className={cn(
-          "rounded-full px-4 py-2 text-sm font-bold transition",
+          "rounded-full px-3 py-1.5 text-xs font-bold transition",
           pipelineVault === "active"
             ? "bg-[#6B9E6E] text-white shadow-sm"
-            : "border border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
+            : "border border-[#2C2C2C]/12 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
         )}
       >
         Active
@@ -2790,14 +2841,14 @@ export function AgentPipelineTab({
         type="button"
         onClick={() => setPipelineVault("archived")}
         className={cn(
-          "rounded-full px-4 py-2 text-sm font-bold transition",
+          "rounded-full px-3 py-1.5 text-xs font-bold transition",
           pipelineVault === "archived"
             ? "bg-[#6B9E6E] text-white shadow-sm"
-            : "border border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
+            : "border border-[#2C2C2C]/12 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
         )}
       >
         Archived
-        <span className="ml-1.5 tabular-nums opacity-90">({archivedLeads.length})</span>
+        <span className="ml-1 tabular-nums opacity-90">({archivedLeads.length})</span>
       </button>
     </>
   );
@@ -2818,43 +2869,48 @@ export function AgentPipelineTab({
       <div className="flex w-full min-w-0 flex-col gap-2 pb-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-x-3 lg:gap-y-2 lg:pb-4">
         {pipelineVault === "active" ? (
           <>
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
-                aria-label="Kanban view"
-              >
-                <LayoutGrid className="h-4 w-4" aria-hidden />
-              </button>
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
-                aria-label="List view"
-              >
-                <List className="h-4 w-4" aria-hidden />
-              </button>
-              <button
-                type="button"
-                onClick={onRefresh}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
-                aria-label="Refresh"
-              >
-                <RefreshCw className="h-4 w-4" aria-hidden />
-              </button>
-              {vaultPills}
+            <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-[#2C2C2C]/[0.08] bg-white/90 p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#FAF8F4] text-[#2C2C2C]/75 hover:bg-[#6B9E6E]/10"
+                  aria-label="Kanban view"
+                >
+                  <LayoutGrid className="h-4 w-4" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#2C2C2C]/45 hover:bg-[#FAF8F4]"
+                  aria-label="List view"
+                >
+                  <List className="h-4 w-4" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={onRefresh}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#2C2C2C]/45 hover:bg-[#FAF8F4]"
+                  aria-label="Refresh"
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+              <div className="hidden h-6 w-px shrink-0 bg-[#2C2C2C]/10 sm:block" aria-hidden />
+              <div className="flex flex-wrap items-center gap-1.5 pl-0 sm:pl-0">{vaultPills}</div>
             </div>
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 lg:justify-end lg:gap-3">
-              <span className="font-sans text-sm font-semibold text-[#2C2C2C]/55">
-                {allDealsTotal > 0 ? `${formatPesoCompact(allDealsTotal)} • ` : ""}
-                {allDealsCount} deal{allDealsCount === 1 ? "" : "s"}
-              </span>
+              <div className="rounded-lg border border-[#2C2C2C]/[0.08] bg-white/90 px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+                <span className="font-sans text-xs font-semibold tabular-nums text-[#2C2C2C]/60">
+                  {allDealsTotal > 0 ? `${formatPesoCompact(allDealsTotal)} · ` : ""}
+                  {allDealsCount} deal{allDealsCount === 1 ? "" : "s"}
+                </span>
+              </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-[#2C2C2C]/[0.08] bg-white/90 p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
+                      className="rounded-lg px-3 py-1.5 text-xs font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
                       aria-label="Sort"
                     >
                       Sort
@@ -2895,12 +2951,12 @@ export function AgentPipelineTab({
                     <button
                       type="button"
                       className={cn(
-                        "inline-flex items-center gap-2 rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]",
-                        activeFilterCount > 0 && "border-[#6B9E6E]/35 bg-[#6B9E6E]/10 text-[#2C5F32]",
+                        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]",
+                        activeFilterCount > 0 && "bg-[#6B9E6E]/10 text-[#2C5F32]",
                       )}
                       aria-label="Filters"
                     >
-                      <Filter className="h-4 w-4" aria-hidden />
+                      <Filter className="h-3.5 w-3.5" aria-hidden />
                       {activeFilterCount > 0 ? `Filters · ${activeFilterCount}` : "Filters"}
                     </button>
                   </DropdownMenuTrigger>
@@ -2962,7 +3018,7 @@ export function AgentPipelineTab({
                 <select
                   value={pipelineKey}
                   onChange={(e) => setPipelineKey(e.target.value)}
-                  className="rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
+                  className="rounded-lg border-0 bg-transparent py-1.5 pl-2 pr-7 text-xs font-semibold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
                   aria-label="Pipeline"
                 >
                   {pipelineOptions.map((p) => (
@@ -2974,7 +3030,7 @@ export function AgentPipelineTab({
                 <button
                   type="button"
                   disabled
-                  className="inline-flex h-9 w-9 items-center justify-center text-[#2C2C2C]/55 hover:text-[#2C2C2C]/80 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#2C2C2C]/45 hover:text-[#2C2C2C]/70 disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="More pipeline options"
                   title="Coming soon"
                 >
@@ -3197,10 +3253,10 @@ export function AgentPipelineTab({
                       dealValueByPropertyId={dealValueByPropertyId}
                       uploadedRequestedDocCountByLeadId={uploadedRequestedDocCountByLeadId}
                       unviewedUploadedDocCountByLeadId={unviewedUploadedDocCountByLeadId}
-                      viewingScheduledAtByLeadId={viewingScheduledAtByLeadId}
+                      viewingRowByLeadId={viewingRowByLeadId}
+                      viewingRequestSlotByLeadId={viewingRequestSlotByLeadId}
                       offerCreatedAtByLeadId={offerCreatedAtByLeadId}
                       reservationCreatedAtByLeadId={reservationCreatedAtByLeadId}
-                      propertyMetaById={propertyMetaById}
                       openDocs={openDocs}
                       onSendOffer={(lead) => setOfferLead(lead)}
                       onCreateReservation={(lead) => setReservationLead(lead)}

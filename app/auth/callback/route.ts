@@ -7,7 +7,12 @@ import { pathForRole } from "@/lib/auth-roles";
 
 function redirectForAuthenticatedUser(requestUrl: URL, role: string | null | undefined) {
   // Clients always land on the public homepage after login.
-  const dest = role === "client" ? "/" : pathForRole(role ?? "client");
+  const dest =
+    role === "client"
+      ? "/"
+      : role === "agent" || role === "team_member"
+        ? "/dashboard/agent?tab=pipeline"
+        : pathForRole(role ?? "client");
   return NextResponse.redirect(new URL(dest, requestUrl));
 }
 

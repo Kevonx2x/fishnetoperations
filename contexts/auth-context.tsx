@@ -58,10 +58,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refreshProfile = useCallback(async () => {
-    const {
-      data: { user: u },
-    } = await supabase.auth.getUser();
-    setUser(u ?? null);
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      // Only force-signout on the known stale refresh-token case.
+      const msg = String((error as { message?: unknown } | null)?.message ?? "");
+      if (msg.toLowerCase().includes("invalid refresh token")) {
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          // ignore
+        }
+      }
+      setProfile(null);
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+    const u = data.user ?? null;
+    setUser(u);
     if (!u) {
       setProfile(null);
       setLoading(false);
