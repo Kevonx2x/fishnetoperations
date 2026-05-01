@@ -731,6 +731,24 @@ function KanbanDealCard({
       closed: "Closed",
     };
 
+    if (stage === "lead") {
+      const d = parseISO(deal.created_at);
+      if (!isValid(d)) {
+        return {
+          kind: "lead_ts" as const,
+          cls: stylesByStage.lead,
+          dateLine: "—",
+          timeLine: "\u00A0",
+        };
+      }
+      return {
+        kind: "lead_ts" as const,
+        cls: stylesByStage.lead,
+        dateLine: format(d, "MMM d, yyyy"),
+        timeLine: format(d, "h:mm a"),
+      };
+    }
+
     if (stage === "viewing") {
       if (scheduledViewing) {
         return {
@@ -744,15 +762,13 @@ function KanbanDealCard({
     }
 
     const iso =
-      stage === "lead"
-        ? deal.created_at
-        : stage === "offer"
-          ? offerCreatedAt ?? deal.updated_at ?? deal.created_at
-          : stage === "reservation"
-            ? reservationCreatedAt ?? deal.updated_at ?? deal.created_at
-            : stage === "closed"
-              ? (deal.closed_at ?? deal.closed_date ?? deal.updated_at ?? deal.created_at)
-              : deal.updated_at ?? deal.created_at;
+      stage === "offer"
+        ? offerCreatedAt ?? deal.updated_at ?? deal.created_at
+        : stage === "reservation"
+          ? reservationCreatedAt ?? deal.updated_at ?? deal.created_at
+          : stage === "closed"
+            ? (deal.closed_at ?? deal.closed_date ?? deal.updated_at ?? deal.created_at)
+            : deal.updated_at ?? deal.created_at;
 
     const formattedDate = (() => {
       if (!iso) return null;
@@ -880,12 +896,22 @@ function KanbanDealCard({
               >
                 <div
                   className={cn(
-                    "pointer-events-none absolute right-11 top-0 flex min-h-[28px] min-w-[56px] max-w-[72px] -translate-x-1 flex-col items-center justify-center rounded-md px-1 py-0.5 text-center leading-tight",
+                    "pointer-events-none absolute right-11 top-0 flex min-h-[28px] min-w-[56px] -translate-x-1 flex-col justify-center rounded-md px-1 py-0.5 leading-tight",
+                    stagePill.kind === "lead_ts"
+                      ? "max-w-[100px] items-end text-right"
+                      : "max-w-[72px] items-center text-center",
                     stagePill.cls,
                   )}
                   aria-hidden
                 >
-                  {stagePill.kind === "viewing" ? (
+                  {stagePill.kind === "lead_ts" ? (
+                    <>
+                      <span className="whitespace-nowrap text-[9px] font-semibold leading-none">{stagePill.dateLine}</span>
+                      <span className="whitespace-nowrap text-[9px] font-semibold leading-none opacity-95">
+                        {stagePill.timeLine}
+                      </span>
+                    </>
+                  ) : stagePill.kind === "viewing" ? (
                     <>
                       <span className="whitespace-nowrap text-[9px] font-bold leading-none">{stagePill.dateLine}</span>
                       <span className="whitespace-nowrap text-[9px] font-bold leading-none opacity-95">
