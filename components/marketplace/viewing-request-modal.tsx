@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { addDays, isBefore, setHours, setMinutes, startOfDay } from "date-fns";
+import { addDays, isAfter, isBefore, isSameDay, setHours, setMinutes, startOfDay } from "date-fns";
 import { X } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
@@ -19,20 +19,56 @@ import {
   type ClientProfileExtendedRow,
 } from "@/lib/client-profile-preferences";
 
-const TIME_SLOTS = [
-  { label: "9:00 AM", hour: 9 },
-  { label: "10:00 AM", hour: 10 },
-  { label: "11:00 AM", hour: 11 },
-  { label: "12:00 PM", hour: 12 },
-  { label: "2:00 PM", hour: 14 },
-  { label: "3:00 PM", hour: 15 },
-  { label: "4:00 PM", hour: 16 },
-  { label: "5:00 PM", hour: 17 },
-] as const;
+type ViewingTimeSlot = { label: string; hour: number; minute: number };
 
-function toScheduledIso(date: Date, hour: number): string {
+function label12h(h24: number, minute: number): string {
+  const am = h24 < 12;
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  const m = minute === 0 ? ":00" : `:${String(minute).padStart(2, "0")}`;
+  return `${h12}${m} ${am ? "AM" : "PM"}`;
+}
+
+/** Morning 6–12 and afternoon 2–7 in 30-minute steps. For “today”, past slots are hidden so the list shrinks as the day goes on. */
+function buildViewingTimeSlots(): ViewingTimeSlot[] {
+  const slots: ViewingTimeSlot[] = [];
+  for (let h = 6; h <= 12; h++) {
+    slots.push({ hour: h, minute: 0, label: label12h(h, 0) });
+    if (h < 12) slots.push({ hour: h, minute: 30, label: label12h(h, 30) });
+  }
+  for (let h = 14; h <= 18; h++) {
+    slots.push({ hour: h, minute: 0, label: label12h(h, 0) });
+    slots.push({ hour: h, minute: 30, label: label12h(h, 30) });
+  }
+  slots.push({ hour: 19, minute: 0, label: label12h(19, 0) });
+  return slots;
+}
+
+const VIEWING_TIME_SLOTS = buildViewingTimeSlots();
+
+function slotIdFromParts(hour: number, minute: number): string {
+  return `${hour}-${minute}`;
+}
+
+function parseSlotId(id: string): { hour: number; minute: number } {
+  const [h, m] = id.split("-").map((x) => Number(x));
+  return { hour: Number.isFinite(h) ? h : 9, minute: Number.isFinite(m) ? m : 0 };
+}
+
+function toScheduledIso(date: Date, hour: number, minute: number): string {
   const d0 = startOfDay(date);
-  return setMinutes(setHours(d0, hour), 0).toISOString();
+  return setMinutes(setHours(d0, hour), minute).toISOString();
+}
+
+/** For the selected calendar day, hide slots that are already in the past (local clock). */
+function availableSlotsForViewingDate(selectedDate: Date, now: Date) {
+  const day = startOfDay(selectedDate);
+  if (!isSameDay(day, startOfDay(now))) {
+    return [...VIEWING_TIME_SLOTS];
+  }
+  return VIEWING_TIME_SLOTS.filter((s) => {
+    const slotStart = setMinutes(setHours(day, s.hour), s.minute);
+    return isAfter(slotStart, now);
+  });
 }
 
 type PrefsGateState = "idle" | "loading" | "complete" | "incomplete";
@@ -58,7 +94,8 @@ export function ViewingRequestModal({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [date, setDate] = useState<Date | undefined>(() => startOfDay(new Date()));
-  const [hour, setHour] = useState<number>(10);
+  /** `${hour}-${minute}` e.g. `10-0`, `16-30` — must match `VIEWING_TIME_SLOTS`. */
+  const [slotId, setSlotId] = useState<string>(() => slotIdFromParts(10, 0));
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,8 +118,12 @@ export function ViewingRequestModal({
     if (!user || profile?.role !== "client") {
       setNotes("");
     }
-    setDate(startOfDay(new Date()));
-    setHour(10);
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    setDate(todayStart);
+    const slotsToday = availableSlotsForViewingDate(todayStart, now);
+    const first = slotsToday[0] ?? VIEWING_TIME_SLOTS[0]!;
+    setSlotId(slotIdFromParts(first.hour, first.minute));
   }, [open, user, profile]);
 
   useEffect(() => {
@@ -154,6 +195,42 @@ export function ViewingRequestModal({
     };
   }, [open, agentUserId, supabase]);
 
+  /** If "today" has no future time slots left, move to the next calendar day that does (respects agent weekday schedule). */
+  useEffect(() => {
+    if (!open || !date) return;
+    const now = new Date();
+    const slots = availableSlotsForViewingDate(date, now);
+    if (slots.length > 0) return;
+    const todayStart = startOfDay(now);
+    if (!isSameDay(startOfDay(date), todayStart)) return;
+
+    for (let i = 1; i < 400; i++) {
+      const candidate = addDays(todayStart, i);
+      if (agentSchedule !== undefined && viewingDateDisabled(candidate, agentSchedule, now)) {
+        continue;
+      }
+      const candSlots = availableSlotsForViewingDate(candidate, now);
+      if (candSlots.length > 0) {
+        setDate(candidate);
+        const s0 = candSlots[0]!;
+        setSlotId(slotIdFromParts(s0.hour, s0.minute));
+        return;
+      }
+    }
+  }, [open, date, agentSchedule]);
+
+  useEffect(() => {
+    if (!open || !date) return;
+    const now = new Date();
+    const slots = availableSlotsForViewingDate(date, now);
+    if (slots.length === 0) return;
+    const sid = slotId;
+    if (!slots.some((s) => slotIdFromParts(s.hour, s.minute) === sid)) {
+      const s0 = slots[0]!;
+      setSlotId(slotIdFromParts(s0.hour, s0.minute));
+    }
+  }, [open, date, slotId]);
+
   useEffect(() => {
     if (!open || agentSchedule === undefined || !date) return;
     const today = new Date();
@@ -179,6 +256,11 @@ export function ViewingRequestModal({
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [open, onOpenChange]);
+
+  const availableTimeSlots = useMemo(() => {
+    if (!date) return [...VIEWING_TIME_SLOTS];
+    return availableSlotsForViewingDate(date, new Date());
+  }, [date, open]);
 
   const submit = async () => {
     setError(null);
@@ -214,6 +296,22 @@ export function ViewingRequestModal({
       setError("Please choose a date.");
       return;
     }
+    const nowSubmit = new Date();
+    const slotsNow = availableSlotsForViewingDate(date, nowSubmit);
+    if (slotsNow.length === 0) {
+      setError("No viewing times remain on that date. Please pick another day.");
+      return;
+    }
+    const { hour: sh, minute: sm } = parseSlotId(slotId);
+    if (!slotsNow.some((s) => s.hour === sh && s.minute === sm)) {
+      setError("That time is no longer available. Please choose another time.");
+      return;
+    }
+    const scheduled = setMinutes(setHours(startOfDay(date), sh), sm);
+    if (!isAfter(scheduled, nowSubmit)) {
+      setError("Please choose a future date and time.");
+      return;
+    }
     setBusy(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -222,7 +320,7 @@ export function ViewingRequestModal({
         return;
       }
 
-      const scheduledAt = toScheduledIso(date, hour);
+      const scheduledAt = toScheduledIso(date, sh, sm);
       const res = await fetch("/api/create-viewing-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -279,6 +377,11 @@ export function ViewingRequestModal({
       (profile?.role !== "client" || prefsGate === "complete"),
   );
   const headerTitle = showPrefsGate ? "Complete Your Profile First" : "Request a viewing";
+  const viewingDateIsToday = Boolean(date && isSameDay(startOfDay(date), startOfDay(new Date())));
+  const sameDayFilteredFewerSlots =
+    viewingDateIsToday &&
+    availableTimeSlots.length > 0 &&
+    availableTimeSlots.length < VIEWING_TIME_SLOTS.length;
 
   const shell = (
     <div className="fixed inset-0 z-[200] flex items-end justify-center sm:items-center" role="presentation">
@@ -436,17 +539,33 @@ export function ViewingRequestModal({
                 <span className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
                   Preferred viewing time
                 </span>
-                <select
-                  value={hour}
-                  onChange={(e) => setHour(Number(e.target.value))}
-                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] outline-none ring-[#D4A843]/30 focus-visible:ring-2"
-                >
-                  {TIME_SLOTS.map((s) => (
-                    <option key={s.hour} value={s.hour}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
+                {availableTimeSlots.length === 0 ? (
+                  <p className="mt-1.5 text-xs font-semibold text-amber-800">
+                    No viewing times remain on this date. Pick another day in the calendar.
+                  </p>
+                ) : (
+                  <select
+                    value={slotId}
+                    onChange={(e) => setSlotId(e.target.value)}
+                    className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] outline-none ring-[#D4A843]/30 focus-visible:ring-2"
+                  >
+                    {availableTimeSlots.map((s) => {
+                      const id = slotIdFromParts(s.hour, s.minute);
+                      return (
+                        <option key={id} value={id}>
+                          {s.label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
+                {sameDayFilteredFewerSlots ? (
+                  <p className="mt-1.5 text-[11px] font-medium leading-snug text-[#2C2C2C]/55">
+                    You&apos;re booking for <span className="font-semibold text-[#2C2C2C]/70">today</span>, so only
+                    times that haven&apos;t passed yet are listed. Pick another date in the calendar for the full
+                    schedule (6:00 AM through early evening).
+                  </p>
+                ) : null}
               </label>
 
               <label className="block">
@@ -468,10 +587,10 @@ export function ViewingRequestModal({
 
               <Button
                 type="button"
-                disabled={busy || !agentUserId}
+                disabled={busy || !agentUserId || availableTimeSlots.length === 0}
                 className={cn(
                   "w-full rounded-xl py-3 font-semibold shadow-sm",
-                  busy || !agentUserId
+                  busy || !agentUserId || availableTimeSlots.length === 0
                     ? "cursor-not-allowed bg-[#2C2C2C]/20 text-[#2C2C2C]/50"
                     : "bg-[#2C2C2C] text-white hover:bg-[#6B9E6E]",
                 )}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isValid, parseISO } from "date-fns";
 import { z } from "zod";
 import { Resend } from "resend";
 import { fail, fromZodError, ok } from "@/lib/api/response";
@@ -9,8 +10,8 @@ import { normalizePhoneE164, sendSmsTo } from "@/lib/twilio-sms";
 import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 import { propertyAcceptsViewingRequests } from "@/lib/property-availability";
 
-/** Matches pipeline "Lead" column value (lowercase id per `leads_pipeline_stage_check`). */
-const VIEWING_PIPELINE_STAGE = "lead" as const;
+/** Client submitted a date/time — card belongs in Viewing, not Lead (see `leads_pipeline_stage_check`). */
+const VIEWING_REQUEST_PIPELINE_STAGE = "viewing" as const;
 const VIEWING_REQUEST_LEAD_STAGE = "active" as const;
 
 const bodySchema = z.object({
@@ -101,28 +102,89 @@ async function resolveActiveDuplicateLeadIdAfterDedupeInsert(
   return id != null ? Number(id) : null;
 }
 
+/** Confirmed pipeline viewing (calendar row); excludes cancelled/completed. */
+async function findActiveScheduledViewingForLead(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  leadId: number,
+): Promise<{ id: string; scheduled_at: string } | null> {
+  const { data, error } = await admin
+    .from("viewings")
+    .select("id, scheduled_at, status")
+    .eq("lead_id", leadId)
+    .eq("status", "scheduled")
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as { id: string; scheduled_at: string };
+  return { id: String(row.id), scheduled_at: String(row.scheduled_at) };
+}
+
+async function notifyAgentViewingRescheduleRequested(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  args: {
+    agentUserId: string;
+    leadId: number;
+    propertyId: string | null;
+    propertyLabel: string;
+    clientName: string;
+    currentScheduledAt: string;
+    requestedScheduledAt: string;
+  },
+) {
+  const { error } = await admin.from("notifications").insert({
+    user_id: args.agentUserId,
+    type: "viewing_reschedule_requested",
+    title: "Reschedule requested",
+    body: null,
+    metadata: {
+      lead_id: args.leadId,
+      property_id: args.propertyId,
+      property_name: args.propertyLabel,
+      client_name: args.clientName,
+      current_scheduled_at: args.currentScheduledAt,
+      requested_scheduled_at: args.requestedScheduledAt,
+    },
+  });
+  if (error) {
+    console.error("[create-viewing-request] viewing_reschedule_requested notification failed", error);
+  }
+}
+
 async function notifyAgentViewingRequestUpdated(
   admin: ReturnType<typeof createSupabaseAdmin>,
   args: {
     agentUserId: string;
     leadId: number;
     propertyId: string | null;
-    scheduledAt: string;
+    newScheduledAt: string;
     propertyLabel: string;
     clientName: string;
+    oldScheduledAt: string | null;
+    isUpdate: boolean;
   },
 ) {
-  const { agentUserId, leadId, propertyId, scheduledAt, propertyLabel, clientName } = args;
+  const {
+    agentUserId,
+    leadId,
+    propertyId,
+    newScheduledAt,
+    propertyLabel,
+    clientName,
+    oldScheduledAt,
+    isUpdate,
+  } = args;
   const { error: nErr } = await admin.from("notifications").insert({
     user_id: agentUserId,
     type: "viewing_request",
-    title: "Viewing request updated",
-    body: `${clientName} updated their viewing request for ${propertyLabel}.`,
+    title: "Viewing request",
+    body: null,
     metadata: {
       lead_id: leadId,
       property_id: propertyId,
-      scheduled_at: scheduledAt,
-      message: "Client updated their viewing request",
+      property_name: propertyLabel,
+      client_name: clientName,
+      new_scheduled_at: newScheduledAt,
+      old_scheduled_at: oldScheduledAt,
+      is_update: isUpdate,
     },
   });
   if (nErr) {
@@ -275,6 +337,19 @@ export async function POST(req: Request) {
       return fail("FORBIDDEN", "Not allowed", 403);
     }
 
+    const scheduled = parseISO(body.scheduled_at);
+    if (!isValid(scheduled)) {
+      return fail("BAD_REQUEST", "Invalid viewing date/time.", 400);
+    }
+    const skewMs = 60_000;
+    if (scheduled.getTime() <= Date.now() - skewMs) {
+      return fail(
+        "BAD_REQUEST",
+        "Requested viewing time must be in the future. Please refresh the page and pick another time.",
+        400,
+      );
+    }
+
     const agentUserId = body.agent_user_id;
     const propertyId = body.property_id;
     if (propertyId) {
@@ -373,20 +448,77 @@ export async function POST(req: Request) {
     );
 
     if (existingLeadId != null) {
-      const nowIso = new Date().toISOString();
-      const { error: updErr } = await admin
+      const { data: existingLeadRow } = await admin
         .from("leads")
-        .update({
+        .select("pipeline_stage, viewing_request_id")
+        .eq("id", existingLeadId)
+        .maybeSingle();
+      const existingPs = String(
+        (existingLeadRow as { pipeline_stage?: string } | null)?.pipeline_stage ?? "",
+      ).toLowerCase();
+      const nowIso = new Date().toISOString();
+
+      const activeViewing = await findActiveScheduledViewingForLead(admin, existingLeadId);
+      if (activeViewing != null) {
+        const { error: rsUpd } = await admin
+          .from("viewings")
+          .update({ reschedule_request_id: viewingRequestId, updated_at: nowIso })
+          .eq("id", activeViewing.id);
+        if (rsUpd) {
+          console.error("[create-viewing-request] viewings reschedule_request_id update failed", rsUpd);
+          return fail("DATABASE_ERROR", rsUpd.message, 500);
+        }
+        const { error: leadSeenErr } = await admin
+          .from("leads")
+          .update({ new_viewing_request_seen_at: null, updated_at: nowIso })
+          .eq("id", existingLeadId);
+        if (leadSeenErr) {
+          console.error("[create-viewing-request] lead update failed (reschedule)", leadSeenErr);
+          return fail("DATABASE_ERROR", leadSeenErr.message, 500);
+        }
+        await notifyAgentViewingRescheduleRequested(admin, {
+          agentUserId,
+          leadId: existingLeadId,
+          propertyId,
+          propertyLabel,
+          clientName: body.client_name.trim() || clientNameFromProfile,
+          currentScheduledAt: activeViewing.scheduled_at,
+          requestedScheduledAt: body.scheduled_at,
+        });
+        return ok({
+          reschedule: true,
+          lead_id: existingLeadId,
           viewing_request_id: viewingRequestId,
-          new_viewing_request_seen_at: null,
-          archived_by_client: false,
-          archived_at: null,
-          archive_reason: null,
-          archive_note: null,
-          stage_at_archive: null,
-          updated_at: nowIso,
-        })
-        .eq("id", existingLeadId);
+        });
+      }
+
+      let oldScheduledAt: string | null = null;
+      const prevVrId = String(
+        (existingLeadRow as { viewing_request_id?: string | null } | null)?.viewing_request_id ?? "",
+      ).trim();
+      if (prevVrId) {
+        const { data: prevVr } = await admin
+          .from("viewing_requests")
+          .select("scheduled_at")
+          .eq("id", prevVrId)
+          .maybeSingle();
+        const sa = (prevVr as { scheduled_at?: string | null } | null)?.scheduled_at;
+        oldScheduledAt = sa != null && String(sa).trim() ? String(sa).trim() : null;
+      }
+      const leadUpdate: Record<string, unknown> = {
+        viewing_request_id: viewingRequestId,
+        new_viewing_request_seen_at: null,
+        archived_by_client: false,
+        archived_at: null,
+        archive_reason: null,
+        archive_note: null,
+        stage_at_archive: null,
+        updated_at: nowIso,
+      };
+      if (existingPs === "lead" || existingPs === "viewing") {
+        leadUpdate.pipeline_stage = VIEWING_REQUEST_PIPELINE_STAGE;
+      }
+      const { error: updErr } = await admin.from("leads").update(leadUpdate).eq("id", existingLeadId);
       if (updErr) {
         console.error("[create-viewing-request] lead update failed", updErr);
         return fail("DATABASE_ERROR", updErr.message, 500);
@@ -395,9 +527,11 @@ export async function POST(req: Request) {
         agentUserId,
         leadId: existingLeadId,
         propertyId,
-        scheduledAt: body.scheduled_at,
+        newScheduledAt: body.scheduled_at,
         propertyLabel,
         clientName: body.client_name.trim() || clientNameFromProfile,
+        oldScheduledAt,
+        isUpdate: true,
       });
       return ok({
         updated: true,
@@ -416,7 +550,7 @@ export async function POST(req: Request) {
       client_id: session.userId,
       source: "viewing_request",
       stage: VIEWING_REQUEST_LEAD_STAGE,
-      pipeline_stage: VIEWING_PIPELINE_STAGE,
+      pipeline_stage: VIEWING_REQUEST_PIPELINE_STAGE,
       property_id: propertyId,
       viewing_request_id: viewingRequestId,
     };
@@ -451,20 +585,77 @@ export async function POST(req: Request) {
           propertyId,
         );
         if (raceLeadId != null) {
-          const nowIsoRace = new Date().toISOString();
-          const { error: raceUpd } = await admin
+          const { data: raceLeadRow } = await admin
             .from("leads")
-            .update({
+            .select("pipeline_stage, viewing_request_id")
+            .eq("id", raceLeadId)
+            .maybeSingle();
+          const racePs = String(
+            (raceLeadRow as { pipeline_stage?: string } | null)?.pipeline_stage ?? "",
+          ).toLowerCase();
+          const nowIsoRace = new Date().toISOString();
+
+          const raceActiveViewing = await findActiveScheduledViewingForLead(admin, raceLeadId);
+          if (raceActiveViewing != null) {
+            const { error: raceRs } = await admin
+              .from("viewings")
+              .update({ reschedule_request_id: viewingRequestId, updated_at: nowIsoRace })
+              .eq("id", raceActiveViewing.id);
+            if (raceRs) {
+              console.error("[create-viewing-request] race viewings reschedule update failed", raceRs);
+              return fail("DATABASE_ERROR", raceRs.message, 500);
+            }
+            const { error: raceLeadSeen } = await admin
+              .from("leads")
+              .update({ new_viewing_request_seen_at: null, updated_at: nowIsoRace })
+              .eq("id", raceLeadId);
+            if (raceLeadSeen) {
+              console.error("[create-viewing-request] race lead update failed (reschedule)", raceLeadSeen);
+              return fail("DATABASE_ERROR", raceLeadSeen.message, 500);
+            }
+            await notifyAgentViewingRescheduleRequested(admin, {
+              agentUserId,
+              leadId: raceLeadId,
+              propertyId,
+              propertyLabel,
+              clientName: body.client_name.trim() || clientNameFromProfile,
+              currentScheduledAt: raceActiveViewing.scheduled_at,
+              requestedScheduledAt: body.scheduled_at,
+            });
+            return ok({
+              reschedule: true,
+              lead_id: raceLeadId,
               viewing_request_id: viewingRequestId,
-              new_viewing_request_seen_at: null,
-              archived_by_client: false,
-              archived_at: null,
-              archive_reason: null,
-              archive_note: null,
-              stage_at_archive: null,
-              updated_at: nowIsoRace,
-            })
-            .eq("id", raceLeadId);
+            });
+          }
+
+          let raceOldScheduledAt: string | null = null;
+          const racePrevVrId = String(
+            (raceLeadRow as { viewing_request_id?: string | null } | null)?.viewing_request_id ?? "",
+          ).trim();
+          if (racePrevVrId) {
+            const { data: racePrevVr } = await admin
+              .from("viewing_requests")
+              .select("scheduled_at")
+              .eq("id", racePrevVrId)
+              .maybeSingle();
+            const rsa = (racePrevVr as { scheduled_at?: string | null } | null)?.scheduled_at;
+            raceOldScheduledAt = rsa != null && String(rsa).trim() ? String(rsa).trim() : null;
+          }
+          const racePatch: Record<string, unknown> = {
+            viewing_request_id: viewingRequestId,
+            new_viewing_request_seen_at: null,
+            archived_by_client: false,
+            archived_at: null,
+            archive_reason: null,
+            archive_note: null,
+            stage_at_archive: null,
+            updated_at: nowIsoRace,
+          };
+          if (racePs === "lead" || racePs === "viewing") {
+            racePatch.pipeline_stage = VIEWING_REQUEST_PIPELINE_STAGE;
+          }
+          const { error: raceUpd } = await admin.from("leads").update(racePatch).eq("id", raceLeadId);
           if (raceUpd) {
             console.error("[create-viewing-request] race update failed", raceUpd);
           }
@@ -472,9 +663,11 @@ export async function POST(req: Request) {
             agentUserId,
             leadId: raceLeadId,
             propertyId,
-            scheduledAt: body.scheduled_at,
+            newScheduledAt: body.scheduled_at,
             propertyLabel,
             clientName: body.client_name.trim() || clientNameFromProfile,
+            oldScheduledAt: raceOldScheduledAt,
+            isUpdate: true,
           });
           return ok({
             updated: true,

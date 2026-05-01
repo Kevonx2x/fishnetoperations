@@ -30,7 +30,11 @@ import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { AgentBillingTab } from "@/components/dashboard/agent-billing-tab";
 import { AgentAnalyticsTab, AgentTeamPlaceholderTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
-import { AgentPipelineTab, type PipelineStageId } from "@/components/dashboard/agent-pipeline-tab";
+import {
+  AgentPipelineTab,
+  type PipelineStageId,
+  type ViewingRequestPipelineMeta,
+} from "@/components/dashboard/agent-pipeline-tab";
 import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
 import { streamDmChannelId } from "@/features/messaging/lib/stream-dm-channel-id";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
@@ -182,23 +186,35 @@ type LeadRow = {
   stage_at_archive?: string | null;
 };
 
-async function fetchViewingRequestScheduledAtByLeadId(
+async function fetchViewingRequestMetaByLeadId(
   sb: SupabaseClient,
   rows: { id: number; pipeline_stage?: string | null; viewing_request_id?: string | null }[],
-): Promise<Record<number, string>> {
-  const out: Record<number, string> = {};
+): Promise<Record<number, ViewingRequestPipelineMeta>> {
+  const out: Record<number, ViewingRequestPipelineMeta> = {};
   const withVr = rows.filter(
     (r) => String(r.pipeline_stage ?? "").toLowerCase() === "lead" && r.viewing_request_id?.trim(),
   );
   const vrIds = [...new Set(withVr.map((r) => r.viewing_request_id!.trim()))];
   if (vrIds.length === 0) return out;
-  const { data, error } = await sb.from("viewing_requests").select("id, scheduled_at").in("id", vrIds);
+  const { data, error } = await sb
+    .from("viewing_requests")
+    .select("id, scheduled_at, created_at, updated_at")
+    .in("id", vrIds);
   if (error || !data?.length) return out;
-  const by = new Map((data as { id: string; scheduled_at: string | null }[]).map((r) => [r.id, r.scheduled_at]));
+  const by = new Map(
+    (data as { id: string; scheduled_at: string | null; created_at: string; updated_at: string }[]).map((r) => [
+      r.id,
+      {
+        scheduled_at: r.scheduled_at != null ? String(r.scheduled_at) : "",
+        created_at: String(r.created_at),
+        updated_at: String(r.updated_at),
+      },
+    ]),
+  );
   for (const r of withVr) {
     const vid = r.viewing_request_id!.trim();
-    const sa = by.get(vid);
-    if (sa) out[r.id] = sa;
+    const row = by.get(vid);
+    if (row?.scheduled_at?.trim()) out[r.id] = row;
   }
   return out;
 }
@@ -843,9 +859,9 @@ export function AgentDashboard() {
   const [sessionDashboardKind, setSessionDashboardKind] = useState<"agent" | "team_member">("agent");
   const [teamMemberSetupError, setTeamMemberSetupError] = useState<string | null>(null);
   const [leads, setLeads] = useState<LeadRow[]>([]);
-  const [viewingRequestScheduledAtByLeadId, setViewingRequestScheduledAtByLeadId] = useState<Record<number, string>>(
-    {},
-  );
+  const [viewingRequestMetaByLeadId, setViewingRequestMetaByLeadId] = useState<
+    Record<number, ViewingRequestPipelineMeta>
+  >({});
   const [archivedLeads, setArchivedLeads] = useState<LeadRow[]>([]);
   const [viewings, setViewings] = useState<ViewingRow[]>([]);
   const [properties, setProperties] = useState<PropertyRow[]>([]);
@@ -962,6 +978,7 @@ export function AgentDashboard() {
         setAgent(null);
         setLeads([]);
         setArchivedLeads([]);
+        setViewingRequestMetaByLeadId({});
         setProperties([]);
         setViewings([]);
         setProfileViewsCount(0);
@@ -990,6 +1007,7 @@ export function AgentDashboard() {
       if (!a) {
         setLeads([]);
         setArchivedLeads([]);
+        setViewingRequestMetaByLeadId({});
         setProperties([]);
         setViewings([]);
         setProfileViewsCount(0);
@@ -1068,7 +1086,7 @@ export function AgentDashboard() {
 
         setLeads(leadRowsWithAvatar);
         setArchivedLeads(archivedRowsWithAvatar);
-        setViewingRequestScheduledAtByLeadId(await fetchViewingRequestScheduledAtByLeadId(supabase, leadRowsWithAvatar));
+        setViewingRequestMetaByLeadId(await fetchViewingRequestMetaByLeadId(supabase, leadRowsWithAvatar));
         setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
         setPipelineTabUnreadCount(pipelineUnreadRes.error ? 0 : (pipelineUnreadRes.count ?? 0));
         setProperties([]);
@@ -1128,6 +1146,7 @@ export function AgentDashboard() {
       } else {
         setLeads([]);
         setArchivedLeads([]);
+        setViewingRequestMetaByLeadId({});
         setProperties([]);
         setViewings([]);
         setProfileViewsCount(0);
@@ -1154,6 +1173,7 @@ export function AgentDashboard() {
     if (!a) {
       setLeads([]);
       setArchivedLeads([]);
+      setViewingRequestMetaByLeadId({});
       setProperties([]);
       setViewings([]);
       setProfileViewsCount(0);
@@ -1249,7 +1269,7 @@ export function AgentDashboard() {
 
       setLeads(leadRowsWithAvatar);
       setArchivedLeads(archivedRowsWithAvatar);
-      setViewingRequestScheduledAtByLeadId(await fetchViewingRequestScheduledAtByLeadId(supabase, leadRowsWithAvatar));
+      setViewingRequestMetaByLeadId(await fetchViewingRequestMetaByLeadId(supabase, leadRowsWithAvatar));
       setProfileViewsCount(viewsRes.error ? 0 : (viewsRes.count ?? 0));
       setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
       setPipelineTabUnreadCount(pipelineUnreadRes.error ? 0 : (pipelineUnreadRes.count ?? 0));
@@ -1408,6 +1428,7 @@ export function AgentDashboard() {
     } else {
       setLeads([]);
       setArchivedLeads([]);
+      setViewingRequestMetaByLeadId({});
       setProperties([]);
       setViewings([]);
       setProfileViewsCount(0);
@@ -1425,6 +1446,22 @@ export function AgentDashboard() {
     await loadData();
     await agentViewingsRefetchRef.current?.();
   }, [loadData]);
+
+  useEffect(() => {
+    if (authLoading || !user?.id || tab !== "pipeline") return;
+    const refetch = () => {
+      void refreshAfterPipelineChange();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    window.addEventListener("focus", refetch);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", refetch);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [authLoading, user?.id, tab, refreshAfterPipelineChange]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -2474,7 +2511,7 @@ export function AgentDashboard() {
                   leadsAgentUserId={isTeamMemberView ? agent.user_id : user.id}
                   messagingAgentUserId={isTeamMemberView ? null : user.id}
                   clientDocsSharedWithUserId={isTeamMemberView ? agent.user_id : undefined}
-                  viewingRequestScheduledAtByLeadId={viewingRequestScheduledAtByLeadId}
+                  viewingRequestMetaByLeadId={viewingRequestMetaByLeadId}
                   onOpenMessagesForClient={(clientUserId) => {
                     if (!user?.id) return;
                     setStreamChannelId(streamDmChannelId(user.id, clientUserId));

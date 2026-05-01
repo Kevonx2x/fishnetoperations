@@ -1,6 +1,7 @@
 "use client";
 
 import type { KeyboardEvent } from "react";
+import { isValid, parseISO } from "date-fns";
 import {
   Archive,
   Bell,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/relative-time";
+import { manilaMonthDayLabelFromInstant, manilaTimeLabel12hFromInstant } from "@/lib/manila-datetime";
 
 export type NotificationListItem = {
   id: string;
@@ -30,6 +32,63 @@ export function formatNotificationTimeAgo(iso: string): string {
   return formatRelativeTime(iso);
 }
 
+function formatViewingRequestSlotManila(iso: string): string {
+  const d = parseISO(iso);
+  if (!isValid(d)) return iso;
+  return `${manilaMonthDayLabelFromInstant(d)} at ${manilaTimeLabel12hFromInstant(d)}`;
+}
+
+/** Rich copy for `viewing_request` from metadata; falls back to stored title/body for legacy rows. */
+export function viewingRequestNotificationDisplay(n: NotificationListItem): { title: string; body: string } {
+  if (n.type !== "viewing_request") {
+    return { title: n.title, body: n.body ?? "" };
+  }
+  const m = n.metadata;
+  if (!m || typeof m !== "object") {
+    return { title: n.title, body: n.body ?? "" };
+  }
+  const rec = m as Record<string, unknown>;
+  const hasNewSchema =
+    rec.is_update === true ||
+    (typeof rec.client_name === "string" && typeof rec.new_scheduled_at === "string");
+  if (!hasNewSchema) {
+    return { title: n.title, body: n.body ?? "" };
+  }
+
+  const clientName =
+    typeof rec.client_name === "string" && rec.client_name.trim() ? rec.client_name.trim() : "Client";
+  const propertyName =
+    typeof rec.property_name === "string" && rec.property_name.trim()
+      ? rec.property_name.trim()
+      : "this property";
+
+  const newRaw = typeof rec.new_scheduled_at === "string" ? rec.new_scheduled_at : null;
+  if (!newRaw?.trim()) {
+    return { title: n.title, body: n.body ?? "" };
+  }
+  const newFormatted = formatViewingRequestSlotManila(newRaw.trim());
+
+  if (rec.is_update === true) {
+    const oldRaw = rec.old_scheduled_at;
+    if (typeof oldRaw === "string" && oldRaw.trim()) {
+      const oldFormatted = formatViewingRequestSlotManila(oldRaw.trim());
+      return {
+        title: "Viewing request",
+        body: `${clientName} updated their viewing request for ${propertyName}. New time: ${newFormatted}. Was: ${oldFormatted}.`,
+      };
+    }
+    return {
+      title: "Viewing request",
+      body: `${clientName} requested a viewing for ${propertyName} on ${newFormatted}.`,
+    };
+  }
+
+  return {
+    title: "Viewing request",
+    body: `${clientName} requested a viewing for ${propertyName} on ${newFormatted}.`,
+  };
+}
+
 function notificationTypeIcon(type: string): { Icon: LucideIcon; className: string } {
   const t = type.toLowerCase();
   if (t.includes("verify") || t.includes("approved") || t.includes("license"))
@@ -42,6 +101,7 @@ function notificationTypeIcon(type: string): { Icon: LucideIcon; className: stri
   if (t === "document_request" || t === "document_shared" || t === "document_received")
     return { Icon: FileText, className: "text-[#6B9E6E]" };
   if (t === "listing_expiry") return { Icon: Clock, className: "text-amber-600" };
+  if (t.includes("viewing_reschedule")) return { Icon: Clock, className: "text-[#D4A843]" };
   return { Icon: Bell, className: "text-[#2C2C2C]/50" };
 }
 
@@ -59,6 +119,7 @@ export const AGENT_PIPELINE_TAB_NOTIFICATION_TYPES = [
   "new_lead",
   "document_received",
   "viewing_request",
+  "viewing_reschedule_requested",
   "lead_archived",
 ] as const;
 
@@ -68,6 +129,9 @@ export const CLIENT_PIPELINE_TAB_NOTIFICATION_TYPES = [
   "document_shared",
   "viewing_confirmed",
   "viewing_declined",
+  "viewing_reschedule_accepted",
+  "viewing_reschedule_declined",
+  "viewing_reschedule_countered",
   "deal_pipeline",
   "client_feed_viewing",
 ] as const;
@@ -77,8 +141,12 @@ export function getNotificationClickHref(type: string): string | null {
   const t = type.toLowerCase();
   const map: Record<string, string> = {
     viewing_request: "/dashboard/agent?tab=pipeline",
+    viewing_reschedule_requested: "/dashboard/agent?tab=pipeline",
     viewing_confirmed: "/dashboard/client?tab=pipeline",
     viewing_declined: "/dashboard/client?tab=pipeline",
+    viewing_reschedule_accepted: "/dashboard/client?tab=pipeline",
+    viewing_reschedule_declined: "/dashboard/client?tab=pipeline",
+    viewing_reschedule_countered: "/dashboard/client?tab=pipeline",
     deal_pipeline: "/dashboard/client?tab=pipeline",
     document_request: "/dashboard/client?tab=pipeline",
     document_shared: "/dashboard/client?tab=pipeline",
@@ -109,6 +177,8 @@ export function NotificationCard({ n, onMarkRead, dismissGutter }: NotificationC
   const unread = !n.read_at;
   const documentSharedUrl =
     n.type === "document_shared" && meta && typeof meta.signed_url === "string" ? meta.signed_url : null;
+  const { title: displayTitle, body: displayBody } =
+    n.type === "viewing_request" ? viewingRequestNotificationDisplay(n) : { title: n.title, body: n.body ?? "" };
 
   const onCardActivate = () => {
     if (!clickable || !clickHref) return;
@@ -144,9 +214,9 @@ export function NotificationCard({ n, onMarkRead, dismissGutter }: NotificationC
       </span>
       <div className="min-w-0 flex-1">
         <div className="w-full text-left">
-          <span className="block font-bold text-[#2C2C2C]">{n.title}</span>
-          {n.body ? (
-            <span className="mt-1 line-clamp-3 block text-sm font-normal text-[#2C2C2C]/65">{n.body}</span>
+          <span className="block font-bold text-[#2C2C2C]">{displayTitle}</span>
+          {displayBody ? (
+            <span className="mt-1 line-clamp-3 block text-sm font-normal text-[#2C2C2C]/65">{displayBody}</span>
           ) : null}
         </div>
         {documentSharedUrl ? (

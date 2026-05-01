@@ -31,6 +31,7 @@ import {
   Archive,
   ArrowRightCircle,
   Calendar,
+  Clock,
   CircleCheck,
   Lock,
   Eye,
@@ -103,6 +104,20 @@ export const PIPELINE_STAGES = [
 
 export type PipelineStageId = (typeof PIPELINE_STAGES)[number]["id"];
 
+/** `viewing_requests` fields needed for Lead-stage “Requested viewing” menu (scheduled + updated subtitle). */
+export type ViewingRequestPipelineMeta = {
+  scheduled_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Pending client reschedule for a confirmed `viewings` row (Viewing column). */
+export type ReschedulePendingMeta = {
+  viewingId: string;
+  currentScheduledAt: string;
+  requestedScheduledAt: string;
+};
+
 export type PipelineLeadRow = {
   id: number;
   name: string;
@@ -137,6 +152,36 @@ function formatRequestedViewingMenuLine(scheduledAtIso: string): string {
   const d = new Date(scheduledAtIso);
   if (Number.isNaN(d.getTime())) return "";
   return `${manilaMonthDayLabelFromInstant(d)} · ${manilaTimeLabel12hFromInstant(d)}`;
+}
+
+/** VR row edited after creation, or lead predates linked VR (client resubmitted / dedupe new row). */
+const VR_PIPELINE_UPDATED_ROW_MS = 5000;
+const VR_PIPELINE_RESUBMIT_LEAD_MS = 2000;
+
+function requestedViewingUpdatedSubtitleLine(
+  newSeenAt: string | null | undefined,
+  vr: Pick<ViewingRequestPipelineMeta, "created_at" | "updated_at"> | null | undefined,
+  deal: Pick<PipelineLeadRow, "created_at" | "updated_at">,
+): string | null {
+  if (newSeenAt) return null;
+  if (!vr) return null;
+  const c = new Date(vr.created_at).getTime();
+  const u = new Date(vr.updated_at).getTime();
+  if (!Number.isFinite(c) || !Number.isFinite(u)) return null;
+  if (u - c > VR_PIPELINE_UPDATED_ROW_MS) {
+    return `Updated ${formatRelativeTime(vr.updated_at)}`;
+  }
+  const lc = new Date(deal.created_at).getTime();
+  const lu = new Date(deal.updated_at ?? deal.created_at).getTime();
+  if (
+    Number.isFinite(lc) &&
+    Number.isFinite(lu) &&
+    lc < c - VR_PIPELINE_RESUBMIT_LEAD_MS &&
+    lu >= c - 1000
+  ) {
+    return `Updated ${formatRelativeTime(deal.updated_at ?? deal.created_at)}`;
+  }
+  return null;
 }
 
 type DocDef = { key: string; label: string };
@@ -641,7 +686,11 @@ function KanbanDealCard({
   onTogglePin,
   onMoveToStage,
   moveBusyId,
-  viewingRequestScheduledAt,
+  viewingRequestMeta,
+  reschedulePending,
+  onRescheduleAccept,
+  onRescheduleDecline,
+  onOpenCounterReschedule,
   messageUnreadCount,
   onMarkNewLeadSeenOnMenuOpen,
   markViewingRequestSeen,
@@ -678,8 +727,12 @@ function KanbanDealCard({
   onTogglePin: (lead: PipelineLeadRow) => void;
   onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveBusyId: number | null;
-  /** `viewing_requests.scheduled_at` for Lead-stage cards (Manila display in menu). */
-  viewingRequestScheduledAt?: string | null;
+  /** Linked `viewing_requests` row for Lead-stage cards (menu time + “Updated” hint). */
+  viewingRequestMeta?: ViewingRequestPipelineMeta | null;
+  reschedulePending?: ReschedulePendingMeta | null;
+  onRescheduleAccept: (viewingId: string) => void | Promise<void>;
+  onRescheduleDecline: (viewingId: string) => void | Promise<void>;
+  onOpenCounterReschedule: (lead: PipelineLeadRow, meta: ReschedulePendingMeta) => void;
   messageUnreadCount: number;
   onMarkNewLeadSeenOnMenuOpen: (d: PipelineLeadRow) => void;
   markViewingRequestSeen: (leadId: number) => void;
@@ -701,11 +754,18 @@ function KanbanDealCard({
   const anyMenuOpen = menuOpenId != null;
 
   const hasVr = Boolean(deal.viewing_request_id?.trim());
-  const showVrMenuDot = hasVr && !deal.new_viewing_request_seen_at;
+  const showVrMenuDot =
+    (hasVr || Boolean(reschedulePending)) && !deal.new_viewing_request_seen_at;
   const showLeadMenuDot = !deal.new_lead_seen_at;
   const showMsgMenuDot = messageUnreadCount > 0;
   const showCornerPulseDot =
     showLeadMenuDot || showVrMenuDot || unviewedUploadedDocCount > 0 || showMsgMenuDot;
+
+  const vrScheduled = viewingRequestMeta?.scheduled_at?.trim() ?? null;
+  const vrUpdatedSubtitle =
+    deal.pipeline_stage === "lead" && vrScheduled && viewingRequestMeta
+      ? requestedViewingUpdatedSubtitleLine(deal.new_viewing_request_seen_at, viewingRequestMeta, deal)
+      : null;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -756,9 +816,14 @@ function KanbanDealCard({
           cls: stylesByStage.viewing,
           dateLine: scheduledViewing.fullDateLabel,
           timeLine: scheduledViewing.timeLabel,
+          reschedulePending: Boolean(reschedulePending),
         };
       }
-      return { kind: "viewing_fallback" as const, cls: stylesByStage.viewing };
+      return {
+        kind: "viewing_fallback" as const,
+        cls: stylesByStage.viewing,
+        reschedulePending: Boolean(reschedulePending),
+      };
     }
 
     const iso =
@@ -804,6 +869,7 @@ function KanbanDealCard({
     deal.email,
     deal.viewing_request_id,
     scheduledViewing,
+    reschedulePending,
     offerCreatedAt,
     reservationCreatedAt,
     propLine,
@@ -917,10 +983,24 @@ function KanbanDealCard({
                       <span className="whitespace-nowrap text-[9px] font-bold leading-none opacity-95">
                         {stagePill.timeLine}
                       </span>
+                      {"reschedulePending" in stagePill && stagePill.reschedulePending ? (
+                        <span className="mt-0.5 flex items-center justify-center gap-0.5 text-[9px] font-semibold text-[#D4A843]">
+                          <Clock className="h-2.5 w-2.5 shrink-0 opacity-90" aria-hidden />
+                          Reschedule pending
+                        </span>
+                      ) : null}
                     </>
                   ) : stagePill.kind === "viewing_fallback" ? (
-                    <span className="text-center text-[8px] font-bold leading-tight text-blue-700/55">
-                      No date set
+                    <span className="flex flex-col items-center gap-0.5">
+                      <span className="text-center text-[8px] font-bold leading-tight text-blue-700/55">
+                        No date set
+                      </span>
+                      {"reschedulePending" in stagePill && stagePill.reschedulePending ? (
+                        <span className="flex items-center gap-0.5 text-[9px] font-semibold text-[#D4A843]">
+                          <Clock className="h-2.5 w-2.5 shrink-0 opacity-90" aria-hidden />
+                          Reschedule pending
+                        </span>
+                      ) : null}
                     </span>
                   ) : (
                     <>
@@ -982,15 +1062,15 @@ function KanbanDealCard({
                             left: Math.max(12, Math.min(window.innerWidth - 12 - 200, menuAnchorRect.right - 200)),
                             transform: menuOpenUp ? "translateY(-100%)" : undefined,
                           }}
-                          className="z-[9999] w-[200px] max-w-[calc(100vw-24px)] rounded-lg border border-[#E5E5E5] bg-white p-1.5 text-[#2C2C2C] shadow-lg"
+                          className="z-[9999] w-[min(280px,calc(100vw-24px))] max-w-[calc(100vw-24px)] rounded-lg border border-[#E5E5E5] bg-white p-1.5 text-[#2C2C2C] shadow-lg"
                           onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => e.stopPropagation()}
                         >
                           {!menuMoveOpen ? (
                             <div className="space-y-0.5">
                               {deal.pipeline_stage === "lead" &&
-                              viewingRequestScheduledAt?.trim() &&
-                              formatRequestedViewingMenuLine(viewingRequestScheduledAt) ? (
+                              vrScheduled &&
+                              formatRequestedViewingMenuLine(vrScheduled) ? (
                                 <>
                                   <button
                                     type="button"
@@ -1003,7 +1083,38 @@ function KanbanDealCard({
                                     <p className="text-[11px] font-semibold text-gray-500">Requested viewing</p>
                                     <p className="mt-0.5 flex items-center gap-2 pr-1 font-sans text-[13px] font-semibold text-[#2C2C2C]">
                                       <span className="min-w-0 flex-1 leading-snug">
-                                        {formatRequestedViewingMenuLine(viewingRequestScheduledAt)}
+                                        {formatRequestedViewingMenuLine(vrScheduled)}
+                                      </span>
+                                      {showVrMenuDot ? (
+                                        <span
+                                          aria-hidden
+                                          className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                                        />
+                                      ) : null}
+                                    </p>
+                                    {vrUpdatedSubtitle ? (
+                                      <p className="mt-0.5 text-[10px] text-gray-500">{vrUpdatedSubtitle}</p>
+                                    ) : null}
+                                  </button>
+                                  <div className="my-1 h-px bg-[#EEEEEE]" />
+                                </>
+                              ) : null}
+                              {deal.pipeline_stage === "viewing" &&
+                              scheduledViewing?.scheduledAtRaw?.trim() &&
+                              formatRequestedViewingMenuLine(scheduledViewing.scheduledAtRaw) ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="w-full rounded-md px-2.5 py-2 text-left transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                    onClick={() => {
+                                      void markViewingRequestSeen(deal.id);
+                                      setMenuOpenId(null);
+                                    }}
+                                  >
+                                    <p className="text-[11px] font-semibold text-gray-500">Requested viewing</p>
+                                    <p className="mt-0.5 flex items-center gap-2 pr-1 font-sans text-[13px] font-semibold text-[#2C2C2C]">
+                                      <span className="min-w-0 flex-1 leading-snug">
+                                        {formatRequestedViewingMenuLine(scheduledViewing.scheduledAtRaw)}
                                       </span>
                                       {showVrMenuDot ? (
                                         <span
@@ -1013,6 +1124,64 @@ function KanbanDealCard({
                                       ) : null}
                                     </p>
                                   </button>
+                                  {reschedulePending ? (
+                                    <>
+                                      <div className="my-1 h-px bg-[#EEEEEE]" />
+                                      <div className="rounded-md border border-[#D4A843]/40 bg-[#FAF8F4]/50 p-2">
+                                        <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-[#D4A843]">
+                                          <Clock className="h-3 w-3 shrink-0" aria-hidden />
+                                          RESCHEDULE REQUESTED
+                                        </p>
+                                        <p className="mt-1 font-sans text-[12px] font-semibold leading-snug text-[#2C2C2C]">
+                                          New time:{" "}
+                                          {formatRequestedViewingMenuLine(reschedulePending.requestedScheduledAt)}
+                                        </p>
+                                        <p className="mt-0.5 font-sans text-[12px] font-medium leading-snug text-[#2C2C2C]/70">
+                                          Current:{" "}
+                                          {formatRequestedViewingMenuLine(reschedulePending.currentScheduledAt)}
+                                        </p>
+                                        <div className="mt-2 flex flex-wrap gap-1">
+                                          <button
+                                            type="button"
+                                            className="min-w-[4.5rem] flex-1 rounded-md bg-[#6B9E6E] px-2 py-1.5 text-center text-[11px] font-bold text-white hover:bg-[#5a8a5d]"
+                                            onClick={() => {
+                                              void (async () => {
+                                                await markViewingRequestSeen(deal.id);
+                                                setMenuOpenId(null);
+                                                await onRescheduleAccept(reschedulePending.viewingId);
+                                              })();
+                                            }}
+                                          >
+                                            Accept
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="min-w-[4.5rem] flex-1 rounded-md border border-[#2C2C2C]/25 bg-white px-2 py-1.5 text-center text-[11px] font-bold text-[#2C2C2C]/80 hover:bg-gray-50"
+                                            onClick={() => {
+                                              void (async () => {
+                                                await markViewingRequestSeen(deal.id);
+                                                setMenuOpenId(null);
+                                                await onRescheduleDecline(reschedulePending.viewingId);
+                                              })();
+                                            }}
+                                          >
+                                            Decline
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="w-full rounded-md border border-[#6B9E6E] bg-white px-2 py-1.5 text-center text-[11px] font-bold text-[#6B9E6E] hover:bg-[#6B9E6E]/10"
+                                            onClick={() => {
+                                              void markViewingRequestSeen(deal.id);
+                                              setMenuOpenId(null);
+                                              onOpenCounterReschedule(deal, reschedulePending);
+                                            }}
+                                          >
+                                            Counter
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </>
+                                  ) : null}
                                   <div className="my-1 h-px bg-[#EEEEEE]" />
                                 </>
                               ) : null}
@@ -1311,11 +1480,15 @@ function KanbanStageColumn({
   onTogglePin,
   moveDealToStage,
   moveToStageBusyId,
-  viewingRequestScheduledAtByLeadId,
+  viewingRequestMetaByLeadId,
+  reschedulePendingByLeadId,
   streamUnreadByLeadId,
   markNewLeadSeenOnMenuOpen,
   markViewingRequestSeen,
   onOpenMessagesForClient,
+  onRescheduleAccept,
+  onRescheduleDecline,
+  onOpenCounterReschedule,
 }: {
   stage: PipelineStageId;
   idx: number;
@@ -1351,11 +1524,15 @@ function KanbanStageColumn({
   onTogglePin: (lead: PipelineLeadRow) => void;
   moveDealToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveToStageBusyId: number | null;
-  viewingRequestScheduledAtByLeadId: Record<number, string>;
+  viewingRequestMetaByLeadId: Record<number, ViewingRequestPipelineMeta>;
+  reschedulePendingByLeadId: Record<number, ReschedulePendingMeta>;
   streamUnreadByLeadId: Record<number, number>;
   markNewLeadSeenOnMenuOpen: (d: PipelineLeadRow) => void;
   markViewingRequestSeen: (leadId: number) => void;
   onOpenMessagesForClient?: (clientUserId: string) => void;
+  onRescheduleAccept: (viewingId: string) => void | Promise<void>;
+  onRescheduleDecline: (viewingId: string) => void | Promise<void>;
+  onOpenCounterReschedule: (lead: PipelineLeadRow, meta: ReschedulePendingMeta) => void;
 }) {
   const containerId = stageContainerId(stage);
   const { setNodeRef, isOver } = useDroppable({ id: containerId });
@@ -1440,7 +1617,11 @@ function KanbanStageColumn({
                   onTogglePin={onTogglePin}
                   onMoveToStage={moveDealToStage}
                   moveBusyId={moveToStageBusyId}
-                  viewingRequestScheduledAt={viewingRequestScheduledAtByLeadId[deal.id] ?? null}
+                  viewingRequestMeta={viewingRequestMetaByLeadId[deal.id] ?? null}
+                  reschedulePending={reschedulePendingByLeadId[deal.id] ?? null}
+                  onRescheduleAccept={onRescheduleAccept}
+                  onRescheduleDecline={onRescheduleDecline}
+                  onOpenCounterReschedule={onOpenCounterReschedule}
                   messageUnreadCount={streamUnreadByLeadId[deal.id] ?? 0}
                   onMarkNewLeadSeenOnMenuOpen={markNewLeadSeenOnMenuOpen}
                   markViewingRequestSeen={markViewingRequestSeen}
@@ -1477,7 +1658,12 @@ function SortableDealCard({
   onMoveToStage,
   moveBusyId,
   propertyMetaById,
-  viewingRequestScheduledAt,
+  viewingRequestMeta,
+  scheduledViewing,
+  reschedulePending,
+  onRescheduleAccept,
+  onRescheduleDecline,
+  onOpenCounterReschedule,
   messageUnreadCount,
   onMarkNewLeadSeenOnMenuOpen,
   markViewingRequestSeen,
@@ -1504,7 +1690,12 @@ function SortableDealCard({
   onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveBusyId: number | null;
   propertyMetaById: Record<string, PropertyMeta>;
-  viewingRequestScheduledAt?: string | null;
+  viewingRequestMeta?: ViewingRequestPipelineMeta | null;
+  scheduledViewing?: ParsedViewing | null;
+  reschedulePending?: ReschedulePendingMeta | null;
+  onRescheduleAccept: (viewingId: string) => void | Promise<void>;
+  onRescheduleDecline: (viewingId: string) => void | Promise<void>;
+  onOpenCounterReschedule: (lead: PipelineLeadRow, meta: ReschedulePendingMeta) => void;
   messageUnreadCount: number;
   onMarkNewLeadSeenOnMenuOpen: (d: PipelineLeadRow) => void;
   markViewingRequestSeen: (leadId: number) => void;
@@ -1542,11 +1733,18 @@ function SortableDealCard({
   const otherStages = PIPELINE_STAGES.filter((s) => s.id !== deal.pipeline_stage);
 
   const hasVr = Boolean(deal.viewing_request_id?.trim());
-  const showVrMenuDot = hasVr && !deal.new_viewing_request_seen_at;
+  const showVrMenuDot =
+    (hasVr || Boolean(reschedulePending)) && !deal.new_viewing_request_seen_at;
   const showLeadMenuDot = !deal.new_lead_seen_at;
   const showMsgMenuDot = messageUnreadCount > 0;
   const showCornerPulseDot =
     showLeadMenuDot || showVrMenuDot || unviewedUploadedDocCount > 0 || showMsgMenuDot;
+
+  const vrScheduled = viewingRequestMeta?.scheduled_at?.trim() ?? null;
+  const vrUpdatedSubtitle =
+    deal.pipeline_stage === "lead" && vrScheduled && viewingRequestMeta
+      ? requestedViewingUpdatedSubtitleLine(deal.new_viewing_request_seen_at, viewingRequestMeta, deal)
+      : null;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -1622,13 +1820,13 @@ function SortableDealCard({
 
             {menuOpen ? (
               <div
-                className="absolute right-0 top-8 z-50 w-48 rounded-xl border border-gray-200 bg-white py-1 text-gray-900 shadow-md"
+                className="absolute right-0 top-8 z-50 min-w-[260px] rounded-xl border border-gray-200 bg-white py-1 text-gray-900 shadow-md"
               >
                 {!menuMoveOpen ? (
                   <>
                     {deal.pipeline_stage === "lead" &&
-                    viewingRequestScheduledAt?.trim() &&
-                    formatRequestedViewingMenuLine(viewingRequestScheduledAt) ? (
+                    vrScheduled &&
+                    formatRequestedViewingMenuLine(vrScheduled) ? (
                       <>
                         <button
                           type="button"
@@ -1641,7 +1839,38 @@ function SortableDealCard({
                           <p className="text-[11px] font-semibold text-gray-500">Requested viewing</p>
                           <p className="mt-0.5 flex items-center gap-2 font-sans text-[13px] font-semibold text-[#2C2C2C]">
                             <span className="min-w-0 flex-1 leading-snug">
-                              {formatRequestedViewingMenuLine(viewingRequestScheduledAt)}
+                              {formatRequestedViewingMenuLine(vrScheduled)}
+                            </span>
+                            {showVrMenuDot ? (
+                              <span
+                                aria-hidden
+                                className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                              />
+                            ) : null}
+                          </p>
+                          {vrUpdatedSubtitle ? (
+                            <p className="mt-0.5 text-[10px] text-gray-500">{vrUpdatedSubtitle}</p>
+                          ) : null}
+                        </button>
+                        <div className="my-1 h-px bg-gray-200" />
+                      </>
+                    ) : null}
+                    {deal.pipeline_stage === "viewing" &&
+                    scheduledViewing?.scheduledAtRaw?.trim() &&
+                    formatRequestedViewingMenuLine(scheduledViewing.scheduledAtRaw) ? (
+                      <>
+                        <button
+                          type="button"
+                          className="w-full px-4 py-2 text-left hover:bg-gray-50"
+                          onClick={() => {
+                            void markViewingRequestSeen(deal.id);
+                            setMenuOpenId(null);
+                          }}
+                        >
+                          <p className="text-[11px] font-semibold text-gray-500">Requested viewing</p>
+                          <p className="mt-0.5 flex items-center gap-2 font-sans text-[13px] font-semibold text-[#2C2C2C]">
+                            <span className="min-w-0 flex-1 leading-snug">
+                              {formatRequestedViewingMenuLine(scheduledViewing.scheduledAtRaw)}
                             </span>
                             {showVrMenuDot ? (
                               <span
@@ -1651,6 +1880,64 @@ function SortableDealCard({
                             ) : null}
                           </p>
                         </button>
+                        {reschedulePending ? (
+                          <>
+                            <div className="my-1 h-px bg-gray-200" />
+                            <div className="mx-2 mb-2 rounded-md border border-[#D4A843]/40 bg-[#FAF8F4]/50 p-2">
+                              <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-[#D4A843]">
+                                <Clock className="h-3 w-3 shrink-0" aria-hidden />
+                                RESCHEDULE REQUESTED
+                              </p>
+                              <p className="mt-1 font-sans text-[12px] font-semibold leading-snug text-[#2C2C2C]">
+                                New time:{" "}
+                                {formatRequestedViewingMenuLine(reschedulePending.requestedScheduledAt)}
+                              </p>
+                              <p className="mt-0.5 font-sans text-[12px] font-medium leading-snug text-[#2C2C2C]/70">
+                                Current:{" "}
+                                {formatRequestedViewingMenuLine(reschedulePending.currentScheduledAt)}
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-1">
+                                <button
+                                  type="button"
+                                  className="min-w-[4.5rem] flex-1 rounded-md bg-[#6B9E6E] px-2 py-1.5 text-center text-[11px] font-bold text-white hover:bg-[#5a8a5d]"
+                                  onClick={() => {
+                                    void (async () => {
+                                      await markViewingRequestSeen(deal.id);
+                                      setMenuOpenId(null);
+                                      await onRescheduleAccept(reschedulePending.viewingId);
+                                    })();
+                                  }}
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  type="button"
+                                  className="min-w-[4.5rem] flex-1 rounded-md border border-[#2C2C2C]/25 bg-white px-2 py-1.5 text-center text-[11px] font-bold text-[#2C2C2C]/80 hover:bg-gray-50"
+                                  onClick={() => {
+                                    void (async () => {
+                                      await markViewingRequestSeen(deal.id);
+                                      setMenuOpenId(null);
+                                      await onRescheduleDecline(reschedulePending.viewingId);
+                                    })();
+                                  }}
+                                >
+                                  Decline
+                                </button>
+                                <button
+                                  type="button"
+                                  className="w-full rounded-md border border-[#6B9E6E] bg-white px-2 py-1.5 text-center text-[11px] font-bold text-[#6B9E6E] hover:bg-[#6B9E6E]/10"
+                                  onClick={() => {
+                                    void markViewingRequestSeen(deal.id);
+                                    setMenuOpenId(null);
+                                    onOpenCounterReschedule(deal, reschedulePending);
+                                  }}
+                                >
+                                  Counter
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        ) : null}
                         <div className="my-1 h-px bg-gray-200" />
                       </>
                     ) : null}
@@ -1886,7 +2173,7 @@ export function AgentPipelineTab({
   messagingAgentUserId = null,
   /** When set (team member view), client documents shared with this user id are loaded (supervising agent). */
   clientDocsSharedWithUserId,
-  viewingRequestScheduledAtByLeadId = {},
+  viewingRequestMetaByLeadId = {},
   onOpenMessagesForClient,
 }: {
   leads: PipelineLeadRow[];
@@ -1900,7 +2187,7 @@ export function AgentPipelineTab({
   leadsAgentUserId: string;
   messagingAgentUserId?: string | null;
   clientDocsSharedWithUserId?: string;
-  viewingRequestScheduledAtByLeadId?: Record<number, string>;
+  viewingRequestMetaByLeadId?: Record<number, ViewingRequestPipelineMeta>;
   onOpenMessagesForClient?: (clientUserId: string) => void;
 }) {
   void leadsAgentUserId;
@@ -1987,7 +2274,7 @@ export function AgentPipelineTab({
       }));
   }, [leads]);
 
-  const { viewings: agentViewings } = useAgentViewings();
+  const { viewings: agentViewings, refetch: refetchAgentViewings } = useAgentViewings();
   const scheduledViewingByLeadId = useMemo(() => {
     const want = new Set(deals.map((d) => coerceLeadId(d.id)).filter((id): id is number => id != null));
     const m = new Map<number, ParsedViewing>();
@@ -1997,6 +2284,140 @@ export function AgentPipelineTab({
     }
     return m;
   }, [agentViewings, deals]);
+
+  const handleRescheduleAccept = useCallback(
+    async (viewingId: string) => {
+      try {
+        const res = await fetch(`/api/viewings/${encodeURIComponent(viewingId)}/accept-reschedule`, {
+          method: "POST",
+          credentials: "include",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          error?: { message?: string };
+        };
+        if (!res.ok || !json.success) {
+          toast.error(json?.error?.message ?? "Could not accept reschedule");
+          return;
+        }
+        toast.success("Viewing updated");
+        await refetchAgentViewings();
+        await Promise.resolve(onRefresh());
+      } catch {
+        toast.error("Could not accept reschedule");
+      }
+    },
+    [refetchAgentViewings, onRefresh],
+  );
+
+  const handleRescheduleDecline = useCallback(
+    async (viewingId: string) => {
+      try {
+        const res = await fetch(`/api/viewings/${encodeURIComponent(viewingId)}/decline-reschedule`, {
+          method: "POST",
+          credentials: "include",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          error?: { message?: string };
+        };
+        if (!res.ok || !json.success) {
+          toast.error(json?.error?.message ?? "Could not decline reschedule");
+          return;
+        }
+        toast.success("Reschedule dismissed");
+        await refetchAgentViewings();
+        await Promise.resolve(onRefresh());
+      } catch {
+        toast.error("Could not decline reschedule");
+      }
+    },
+    [refetchAgentViewings, onRefresh],
+  );
+
+  const openCounterRescheduleModal = useCallback((lead: PipelineLeadRow, meta: ReschedulePendingMeta) => {
+    setViewingConfirmMode("counter");
+    setCounterRescheduleViewingId(meta.viewingId);
+    setCounterRescheduleRefs({
+      currentIso: meta.currentScheduledAt,
+      requestedIso: meta.requestedScheduledAt,
+    });
+    setViewingConfirmLead(lead);
+  }, []);
+
+  useEffect(() => {
+    const viewingLeadIds = deals
+      .filter((d) => String(d.pipeline_stage).toLowerCase() === "viewing")
+      .map((d) => d.id)
+      .filter((id): id is number => typeof id === "number");
+    if (viewingLeadIds.length === 0) {
+      setReschedulePendingByLeadId({});
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data: vwRows, error: vwErr } = await supabase
+        .from("viewings")
+        .select("id, lead_id, scheduled_at, reschedule_request_id")
+        .in("lead_id", viewingLeadIds);
+      if (cancelled) return;
+      if (vwErr) {
+        console.warn("[agent-pipeline] viewings reschedule fetch failed", vwErr);
+        setReschedulePendingByLeadId({});
+        return;
+      }
+      if (!vwRows?.length) {
+        setReschedulePendingByLeadId({});
+        return;
+      }
+      const pendingIds = [
+        ...new Set(
+          (vwRows as { reschedule_request_id?: string | null }[])
+            .map((r) => (r.reschedule_request_id ?? "").trim())
+            .filter(Boolean),
+        ),
+      ];
+      if (pendingIds.length === 0) {
+        setReschedulePendingByLeadId({});
+        return;
+      }
+      const { data: vrRows, error: vrErr } = await supabase
+        .from("viewing_requests")
+        .select("id, scheduled_at")
+        .in("id", pendingIds);
+      if (cancelled) return;
+      if (vrErr) {
+        console.warn("[agent-pipeline] viewing_requests reschedule fetch failed", vrErr);
+        return;
+      }
+      const vrMap = new Map(
+        ((vrRows ?? []) as { id: string; scheduled_at: string }[]).map((r) => [String(r.id), String(r.scheduled_at)]),
+      );
+      const out: Record<number, ReschedulePendingMeta> = {};
+      for (const row of vwRows as {
+        id: string;
+        lead_id: number | string;
+        scheduled_at: string;
+        reschedule_request_id: string | null;
+      }[]) {
+        const rid = String(row.reschedule_request_id ?? "").trim();
+        if (!rid) continue;
+        const reqAt = vrMap.get(rid);
+        if (!reqAt) continue;
+        const lid = typeof row.lead_id === "number" ? row.lead_id : Number(row.lead_id);
+        if (!Number.isFinite(lid)) continue;
+        out[lid] = {
+          viewingId: String(row.id),
+          currentScheduledAt: String(row.scheduled_at),
+          requestedScheduledAt: reqAt,
+        };
+      }
+      setReschedulePendingByLeadId(out);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [deals, supabase]);
 
   const [dealValueByPropertyId, setDealValueByPropertyId] = useState<Record<string, string>>({});
   const [dealValueNumberByPropertyId, setDealValueNumberByPropertyId] = useState<Record<string, number>>({});
@@ -2084,11 +2505,20 @@ export function AgentPipelineTab({
     Record<number, number>
   >({});
   const [viewingConfirmLead, setViewingConfirmLead] = useState<PipelineLeadRow | null>(null);
+  const [viewingConfirmMode, setViewingConfirmMode] = useState<"confirm" | "counter">("confirm");
+  const [counterRescheduleViewingId, setCounterRescheduleViewingId] = useState<string | null>(null);
+  const [counterRescheduleRefs, setCounterRescheduleRefs] = useState<{
+    currentIso: string;
+    requestedIso: string;
+  } | null>(null);
   const [viewingConfirmDate, setViewingConfirmDate] = useState("");
   const [viewingConfirmTime, setViewingConfirmTime] = useState("");
   const [viewingConfirmInlineError, setViewingConfirmInlineError] = useState<string | null>(null);
   const [viewingConfirmNotes, setViewingConfirmNotes] = useState("");
   const [viewingConfirmBusy, setViewingConfirmBusy] = useState(false);
+  const [reschedulePendingByLeadId, setReschedulePendingByLeadId] = useState<
+    Record<number, ReschedulePendingMeta>
+  >({});
   const [offerCreatedAtByLeadId, setOfferCreatedAtByLeadId] = useState<Record<number, string | null>>({});
   const [reservationCreatedAtByLeadId, setReservationCreatedAtByLeadId] = useState<Record<number, string | null>>({});
   const [offerLead, setOfferLead] = useState<PipelineLeadRow | null>(null);
@@ -2544,6 +2974,26 @@ export function AgentPipelineTab({
     const lead = viewingConfirmLead;
 
     void (async () => {
+      if (viewingConfirmMode === "counter" && counterRescheduleRefs?.requestedIso) {
+        const rq = new Date(counterRescheduleRefs.requestedIso);
+        let dateStr = manilaDateStringFromInstant(rq);
+        const timeStrRaw = manilaTimeStringFromInstant(rq);
+        const normalizedFromRq = normalizeTimeHmForInput(timeStrRaw);
+        let timeFinal = normalizedFromRq ?? DEFAULT_VIEWING_CONFIRM_TIME;
+        if (cancelled) return;
+        const todayYmd = manilaDateStringFromInstant(new Date());
+        if (dateStr < todayYmd) dateStr = todayYmd;
+        if (dateStr === todayYmd) {
+          const nowHm = manilaTimeStringFromInstant(new Date());
+          if (timeFinal < nowHm) timeFinal = nowHm;
+        }
+        setViewingConfirmInlineError(null);
+        setViewingConfirmDate(dateStr);
+        setViewingConfirmTime(timeFinal);
+        setViewingConfirmNotes("");
+        return;
+      }
+
       let dateStr = manilaDateStringFromInstant(new Date());
       let timeStr = "";
 
@@ -2597,7 +3047,7 @@ export function AgentPipelineTab({
     return () => {
       cancelled = true;
     };
-  }, [viewingConfirmLead, agentViewings, supabase]);
+  }, [viewingConfirmLead, viewingConfirmMode, counterRescheduleRefs, agentViewings, supabase]);
 
   useEffect(() => {
     if (!offerLead) return;
@@ -2971,7 +3421,12 @@ export function AgentPipelineTab({
 
     if (toStage === "viewing" && fromStage !== "viewing") {
       const lead = leadById.get(activeId);
-      if (lead) setViewingConfirmLead(lead);
+      if (lead) {
+        setViewingConfirmMode("confirm");
+        setCounterRescheduleViewingId(null);
+        setCounterRescheduleRefs(null);
+        setViewingConfirmLead(lead);
+      }
       return;
     }
 
@@ -3038,6 +3493,9 @@ export function AgentPipelineTab({
       opts?: { revertSnapshot?: Record<PipelineStageId, string[]>; kanbanAlreadyUpdated?: boolean },
     ) => {
       if (stage === "viewing" && lead.pipeline_stage !== "viewing") {
+        setViewingConfirmMode("confirm");
+        setCounterRescheduleViewingId(null);
+        setCounterRescheduleRefs(null);
         setViewingConfirmLead(lead);
         return;
       }
@@ -3088,6 +3546,9 @@ export function AgentPipelineTab({
   const closeViewingConfirmModal = () => {
     if (viewingConfirmBusy) return;
     setViewingConfirmInlineError(null);
+    setViewingConfirmMode("confirm");
+    setCounterRescheduleViewingId(null);
+    setCounterRescheduleRefs(null);
     setViewingConfirmLead(null);
   };
 
@@ -3113,6 +3574,41 @@ export function AgentPipelineTab({
     setViewingConfirmBusy(true);
     setKanbanBoardMutationDepth((d) => d + 1);
     try {
+      if (viewingConfirmMode === "counter" && counterRescheduleViewingId) {
+        const res = await fetch(
+          `/api/viewings/${encodeURIComponent(counterRescheduleViewingId)}/counter-reschedule`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ scheduled_at: scheduledIso }),
+          },
+        );
+        const json = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          error?: { message?: string };
+        };
+        if (!res.ok || !json.success) {
+          const msg = json?.error?.message ?? "Could not send counter proposal";
+          if (msg.includes("past") || msg.includes("future")) {
+            setViewingConfirmInlineError("Pick a future date and time.");
+          } else {
+            toast.error(msg);
+          }
+          return;
+        }
+        toast.success("Counter proposal sent");
+        setViewingConfirmInlineError(null);
+        setViewingConfirmMode("confirm");
+        setCounterRescheduleViewingId(null);
+        setCounterRescheduleRefs(null);
+        setViewingConfirmLead(null);
+        await refetchAgentViewings();
+        await new Promise((r) => setTimeout(r, 200));
+        await Promise.resolve(onRefresh());
+        return;
+      }
+
       const res = await fetch("/api/agent/pipeline-confirm-viewing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3135,6 +3631,10 @@ export function AgentPipelineTab({
         return;
       }
       toast.success("Viewing scheduled");
+      setViewingConfirmInlineError(null);
+      setViewingConfirmMode("confirm");
+      setCounterRescheduleViewingId(null);
+      setCounterRescheduleRefs(null);
       setViewingConfirmLead(null);
       await new Promise((r) => setTimeout(r, 400));
       await Promise.resolve(onRefresh());
@@ -3592,7 +4092,12 @@ export function AgentPipelineTab({
                   onMoveToStage={moveDealToStage}
                   moveBusyId={moveToStageBusyId}
                   propertyMetaById={propertyMetaById}
-                  viewingRequestScheduledAt={viewingRequestScheduledAtByLeadId[deal.id] ?? null}
+                  viewingRequestMeta={viewingRequestMetaByLeadId[deal.id] ?? null}
+                  scheduledViewing={scheduledViewingByLeadId.get(deal.id) ?? null}
+                  reschedulePending={reschedulePendingByLeadId[deal.id] ?? null}
+                  onRescheduleAccept={handleRescheduleAccept}
+                  onRescheduleDecline={handleRescheduleDecline}
+                  onOpenCounterReschedule={openCounterRescheduleModal}
                   messageUnreadCount={streamUnreadByLeadId[deal.id] ?? 0}
                   onMarkNewLeadSeenOnMenuOpen={markNewLeadSeenOnMenuOpen}
                   markViewingRequestSeen={markViewingRequestSeen}
@@ -3698,11 +4203,15 @@ export function AgentPipelineTab({
                       onTogglePin={togglePin}
                       moveDealToStage={moveDealToStage}
                       moveToStageBusyId={moveToStageBusyId}
-                      viewingRequestScheduledAtByLeadId={viewingRequestScheduledAtByLeadId}
+                      viewingRequestMetaByLeadId={viewingRequestMetaByLeadId}
+                      reschedulePendingByLeadId={reschedulePendingByLeadId}
                       streamUnreadByLeadId={streamUnreadByLeadId}
                       markNewLeadSeenOnMenuOpen={markNewLeadSeenOnMenuOpen}
                       markViewingRequestSeen={markViewingRequestSeen}
                       onOpenMessagesForClient={onOpenMessagesForClient}
+                      onRescheduleAccept={handleRescheduleAccept}
+                      onRescheduleDecline={handleRescheduleDecline}
+                      onOpenCounterReschedule={openCounterRescheduleModal}
                     />
                   );
                 })}
@@ -3824,7 +4333,7 @@ export function AgentPipelineTab({
         >
           <DialogHeader className="gap-1.5 text-left sm:text-left">
             <DialogTitle className="font-serif text-lg font-bold text-[#2C2C2C]">
-              Confirm viewing date and time
+              {viewingConfirmMode === "counter" ? "Propose a different time" : "Confirm viewing date and time"}
             </DialogTitle>
             <DialogDescription className="font-sans text-[13px] font-medium leading-snug text-[#2C2C2C]/65">
               Date and time are saved as Philippines local time (UTC+08:00).
@@ -3842,6 +4351,18 @@ export function AgentPipelineTab({
                 <p className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/50">Client</p>
                 <p className="mt-0.5 font-sans text-sm font-semibold text-[#2C2C2C]">{viewingConfirmLead.name}</p>
               </div>
+              {viewingConfirmMode === "counter" && counterRescheduleRefs?.currentIso && counterRescheduleRefs?.requestedIso ? (
+                <div className="space-y-1.5 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-2.5">
+                  <p className="font-sans text-[12px] font-medium text-[#2C2C2C]/80">
+                    <span className="font-semibold text-[#2C2C2C]">Currently confirmed:</span>{" "}
+                    {formatRequestedViewingMenuLine(counterRescheduleRefs.currentIso)}
+                  </p>
+                  <p className="font-sans text-[12px] font-medium text-[#2C2C2C]/80">
+                    <span className="font-semibold text-[#2C2C2C]">Client requested:</span>{" "}
+                    {formatRequestedViewingMenuLine(counterRescheduleRefs.requestedIso)}
+                  </p>
+                </div>
+              ) : null}
               <div>
                 <label htmlFor="viewing-confirm-date" className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/50">
                   Date <span className="text-red-600">*</span>
@@ -3883,24 +4404,26 @@ export function AgentPipelineTab({
                   </p>
                 ) : null}
               </div>
-              <div>
-                <label htmlFor="viewing-confirm-notes" className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/50">
-                  Notes <span className="font-normal normal-case text-[#2C2C2C]/45">(optional)</span>
-                </label>
-                <textarea
-                  id="viewing-confirm-notes"
-                  value={viewingConfirmNotes}
-                  onChange={(e) => setViewingConfirmNotes(e.target.value.slice(0, 300))}
-                  disabled={viewingConfirmBusy}
-                  rows={3}
-                  maxLength={300}
-                  placeholder="Internal notes for this viewing…"
-                  className="mt-1 w-full resize-none rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/15"
-                />
-                <p className="mt-1 text-right text-[10px] font-medium text-[#2C2C2C]/40">
-                  {viewingConfirmNotes.length}/300
-                </p>
-              </div>
+              {viewingConfirmMode === "confirm" ? (
+                <div>
+                  <label htmlFor="viewing-confirm-notes" className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                    Notes <span className="font-normal normal-case text-[#2C2C2C]/45">(optional)</span>
+                  </label>
+                  <textarea
+                    id="viewing-confirm-notes"
+                    value={viewingConfirmNotes}
+                    onChange={(e) => setViewingConfirmNotes(e.target.value.slice(0, 300))}
+                    disabled={viewingConfirmBusy}
+                    rows={3}
+                    maxLength={300}
+                    placeholder="Internal notes for this viewing…"
+                    className="mt-1 w-full resize-none rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/15"
+                  />
+                  <p className="mt-1 text-right text-[10px] font-medium text-[#2C2C2C]/40">
+                    {viewingConfirmNotes.length}/300
+                  </p>
+                </div>
+              ) : null}
             </div>
           ) : null}
           <DialogFooter className="-mx-4 -mb-4 mt-6 flex flex-col gap-3 border-t border-[#2C2C2C]/10 bg-white px-4 pb-4 pt-6 sm:flex-row sm:justify-end sm:gap-3">
@@ -3924,7 +4447,7 @@ export function AgentPipelineTab({
               className="inline-flex min-w-[7.5rem] items-center justify-center gap-2 rounded-xl bg-[#6B9E6E] font-semibold text-white hover:bg-[#5a8a5d] disabled:opacity-50"
             >
               {viewingConfirmBusy ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden /> : null}
-              Confirm
+              {viewingConfirmMode === "counter" ? "Send counter proposal" : "Confirm"}
             </Button>
           </DialogFooter>
         </DialogContent>

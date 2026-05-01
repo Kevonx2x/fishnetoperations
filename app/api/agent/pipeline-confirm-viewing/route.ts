@@ -139,6 +139,7 @@ export async function POST(request: NextRequest) {
           scheduled_at: scheduledAt,
           status: "scheduled",
           notes: notesTrim,
+          reschedule_request_id: null,
           updated_at: nowIso,
         })
         .eq("id", existingId);
@@ -149,6 +150,7 @@ export async function POST(request: NextRequest) {
         scheduled_at: scheduledAt,
         status: "scheduled",
         notes: notesTrim,
+        reschedule_request_id: null,
         created_at: nowIso,
         updated_at: nowIso,
       });
