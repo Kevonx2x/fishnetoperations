@@ -1,6 +1,7 @@
 import { Readable } from "node:stream";
 import { v2 as cloudinary } from "cloudinary";
 import { getSessionProfile } from "@/lib/admin-api-auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const ACCEPT = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_BYTES = 12 * 1024 * 1024;
@@ -60,6 +61,26 @@ export async function POST(req: Request) {
     purposeRaw === "prc_verification";
 
   const uploadFolder = isVerificationUpload ? "bahaygo/verification" : "bahaygo/properties";
+
+  const propertyIdRaw = String(formData.get("property_id") ?? "").trim();
+  if (!isVerificationUpload && uploadFolder === "bahaygo/properties" && propertyIdRaw) {
+    const sb = await createSupabaseServerClient();
+    const { data: propRow, error: propErr } = await sb
+      .from("properties")
+      .select("listed_by")
+      .eq("id", propertyIdRaw)
+      .maybeSingle();
+    if (propErr) {
+      return Response.json({ error: propErr.message }, { status: 500 });
+    }
+    const listedBy = (propRow as { listed_by?: string | null } | null)?.listed_by ?? null;
+    if (listedBy !== session.userId) {
+      return Response.json(
+        { error: "Only the listing owner can upload photos for this property." },
+        { status: 403 },
+      );
+    }
+  }
 
   const baseImageTransform = {
     width: 1200,

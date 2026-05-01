@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BadgeCheck, ChevronLeft, ChevronRight, Heart, MapPin, Pin, X } from "lucide-react";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import type { DbProperty } from "@/lib/marketplace-property";
+import { propertyEngagementLooksUnavailable } from "@/lib/property-availability";
 import { roomUrlsFor } from "@/lib/marketplace-property";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
@@ -385,6 +386,7 @@ function BottomActions({
   requestDisabled,
   isPresale,
   agentEngagementLocked,
+  listingUnavailable,
 }: {
   engagement: PropertyEngagement;
   propertyId: string;
@@ -394,11 +396,22 @@ function BottomActions({
   requestDisabled: boolean;
   isPresale: boolean;
   agentEngagementLocked: boolean;
+  listingUnavailable: boolean;
 }) {
   const isLiked = engagement.isLiked(propertyId);
   const isPinned = engagement.isPinned(propertyId);
   const showEngagementControls = engagement.showEngagementCounts(propertyId);
-  const showEngagementRow = showEngagementControls || agentEngagementLocked;
+  const showEngagementRow =
+    !listingUnavailable && (showEngagementControls || agentEngagementLocked);
+  if (listingUnavailable) {
+    return (
+      <div className="shrink-0 border-t border-gray-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <p className="text-center text-sm font-semibold text-[#2C2C2C]/55">
+          This listing is not available for viewing requests right now.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="shrink-0 space-y-2 border-t border-gray-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <button
@@ -711,9 +724,14 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
             onRequestViewing={onRequestViewing}
             onRegisterInterest={onRegisterInterest}
             authLoading={authLoading}
-            requestDisabled={authLoading || (!isPresale && agents.length === 0)}
+            requestDisabled={
+              authLoading ||
+              (!isPresale && agents.length === 0) ||
+              propertyEngagementLooksUnavailable(property)
+            }
             isPresale={isPresale}
             agentEngagementLocked={agentEngagementLocked}
+            listingUnavailable={propertyEngagementLooksUnavailable(property)}
           />
         </div>
 
@@ -764,9 +782,14 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
               onRequestViewing={onRequestViewing}
               onRegisterInterest={onRegisterInterest}
               authLoading={authLoading}
-              requestDisabled={authLoading || (!isPresale && agents.length === 0)}
+              requestDisabled={
+                authLoading ||
+                (!isPresale && agents.length === 0) ||
+                propertyEngagementLooksUnavailable(property)
+              }
               isPresale={isPresale}
               agentEngagementLocked={agentEngagementLocked}
+              listingUnavailable={propertyEngagementLooksUnavailable(property)}
             />
           </div>
         </div>

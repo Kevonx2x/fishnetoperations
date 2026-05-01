@@ -53,7 +53,10 @@ export async function POST(req: Request) {
   }
 
   const deletedAt = new Date().toISOString();
-  let upd = admin.from("properties").update({ deleted_at: deletedAt }).eq("id", propertyId);
+  let upd = admin
+    .from("properties")
+    .update({ deleted_at: deletedAt, availability_state: "removed" })
+    .eq("id", propertyId);
   if (session.role !== "admin") {
     upd = upd.eq("listed_by", session.userId);
   }

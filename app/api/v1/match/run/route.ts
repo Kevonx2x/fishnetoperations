@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
       .from("properties")
       .select("id, location, price, sqft, beds, baths, image_url")
       .or(publicListingExpiryOrFilter())
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .eq("availability_state", "available");
 
     if (pErr) return fail("DATABASE_ERROR", pErr.message, 500);
 

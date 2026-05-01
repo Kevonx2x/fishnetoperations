@@ -40,6 +40,7 @@ import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badg
 import { AgentCalendarModal } from "@/components/dashboard/agent-calendar-modal";
 import { AgentViewingsProvider, useAgentViewings } from "@/lib/agent-viewings-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { normalizeListingLocation } from "@/lib/duplicate-listing";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   manilaCalendarAddDays,
@@ -94,6 +95,17 @@ import {
 } from "@/components/notifications/notification-list";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
+import {
+  normalizePropertyAvailabilityState,
+  propertyEngagementLooksUnavailable,
+} from "@/lib/property-availability";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Tab =
   | "overview"
@@ -229,6 +241,10 @@ type PropertyRow = {
   isCoHost?: boolean;
   expires_at?: string | null;
   deleted_at?: string | null;
+  availability_state?: string | null;
+  listed_by?: string | null;
+  lat?: number | null;
+  lng?: number | null;
 };
 
 const EDIT_PROPERTY_TYPES = [
@@ -887,6 +903,17 @@ export function AgentDashboard() {
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editListingImages, setEditListingImages] = useState<string[]>([]);
+  const [editGalleryReadOnly, setEditGalleryReadOnly] = useState(false);
+  const [duplicateListingModal, setDuplicateListingModal] = useState<{
+    existing: {
+      id: string;
+      name: string | null;
+      location: string;
+      agent_name: string;
+      agent_id: string | null;
+    };
+  } | null>(null);
+  const [duplicateCoListBusy, setDuplicateCoListBusy] = useState(false);
   const [listingForm, setListingForm] = useState({
     location: "",
     name: "",
@@ -1162,7 +1189,7 @@ export function AgentDashboard() {
         supabase
           .from("properties")
           .select(
-            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng",
           )
           .eq("listed_by", user.id)
           .order("created_at", { ascending: false }),
@@ -1314,6 +1341,8 @@ export function AgentDashboard() {
               : p.deleted_at != null
                 ? String(p.deleted_at)
                 : null,
+          listed_by: (p.listed_by as string | null) ?? null,
+          availability_state: (p.availability_state as string | null) ?? "available",
         };
       });
       const ownedIds = new Set(ownedList.map((p) => p.id));
@@ -1326,7 +1355,7 @@ export function AgentDashboard() {
         const { data: co } = await supabase
           .from("properties")
           .select(
-            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng",
           )
           .in("id", coIds)
           .order("created_at", { ascending: false });
@@ -1364,6 +1393,8 @@ export function AgentDashboard() {
                 : p.deleted_at != null
                   ? String(p.deleted_at)
                   : null,
+            listed_by: (p.listed_by as string | null) ?? null,
+            availability_state: (p.availability_state as string | null) ?? "available",
           };
         });
       }
@@ -1772,6 +1803,18 @@ export function AgentDashboard() {
           unit_types: Array.isArray(p.unit_types) ? [...p.unit_types] : [],
         });
         setEditListingImages(imageUrls);
+        let galleryReadOnly = Boolean(user?.id && p.listed_by && p.listed_by !== user.id && p.isCoHost);
+        if (!galleryReadOnly && user?.id && p.listed_by && p.listed_by !== user.id && agent?.id) {
+          const { data: approvedCo } = await supabase
+            .from("co_agent_requests")
+            .select("id")
+            .eq("property_id", propertyId)
+            .eq("agent_id", agent.id)
+            .eq("status", "approved")
+            .maybeSingle();
+          if (approvedCo) galleryReadOnly = true;
+        }
+        setEditGalleryReadOnly(galleryReadOnly);
         setEditFormOpen(true);
         setEditWarningOpen(false);
         setPendingEditProperty(null);
@@ -1781,7 +1824,7 @@ export function AgentDashboard() {
         setEditListingImages([]);
       }
     },
-    [supabase],
+    [supabase, user?.id, agent?.id],
   );
 
   useEffect(() => {
@@ -1877,35 +1920,50 @@ export function AgentDashboard() {
             : lt === "rent"
               ? String(parseListingPricePesos(editForm.price) ?? "")
               : null;
+        const body: Record<string, unknown> = {
+          propertyId: editPropertyId,
+          name: editForm.name.trim() || null,
+          location: editForm.location.trim(),
+          price: String(parseListingPricePesos(editForm.price) ?? ""),
+          beds,
+          baths,
+          sqft: editForm.sqft.replace(/\D/g, ""),
+          property_type: editForm.property_type,
+          status: listingStatusForApi(isPs, lt),
+          listing_type: listingTypeColumnForApi(isPs, lt),
+          rent_price: rentForApi,
+          listing_status: editForm.listing_status,
+          description: editForm.description.trim() || null,
+          is_presale: isPs,
+          developer_name: isPs ? editForm.developer_name.trim() : null,
+          turnover_date: isPs ? editForm.turnover_date.trim() : null,
+          unit_types: isPs ? editForm.unit_types : [],
+        };
+        if (!editGalleryReadOnly) {
+          body.imageUrls = imageUrls;
+        }
         const res = await fetch("/api/agent/update-listing", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({
-            propertyId: editPropertyId,
-            name: editForm.name.trim() || null,
-            location: editForm.location.trim(),
-            price: String(parseListingPricePesos(editForm.price) ?? ""),
-            beds,
-            baths,
-            sqft: editForm.sqft.replace(/\D/g, ""),
-            property_type: editForm.property_type,
-            status: listingStatusForApi(isPs, lt),
-            listing_type: listingTypeColumnForApi(isPs, lt),
-            rent_price: rentForApi,
-            listing_status: editForm.listing_status,
-            description: editForm.description.trim() || null,
-            imageUrls,
-            is_presale: isPs,
-            developer_name: isPs ? editForm.developer_name.trim() : null,
-            turnover_date: isPs ? editForm.turnover_date.trim() : null,
-            unit_types: isPs ? editForm.unit_types : [],
-          }),
+          body: JSON.stringify(body),
         });
         const json = (await res.json().catch(() => null)) as {
           success?: boolean;
+          duplicate?: boolean;
+          existing?: {
+            id: string;
+            name: string | null;
+            location: string;
+            agent_name: string;
+            agent_id: string | null;
+          };
           error?: { message?: string };
         };
+        if (res.status === 409 && json?.duplicate && json.existing) {
+          setDuplicateListingModal({ existing: json.existing });
+          return;
+        }
         if (!res.ok) {
           toast.error(json?.error?.message ?? "Could not save listing.");
           return;
@@ -1916,18 +1974,67 @@ export function AgentDashboard() {
         setEditFormOpen(false);
         setEditPropertyId(null);
         setEditListingImages([]);
+        setEditGalleryReadOnly(false);
         await loadData();
       } finally {
         setSavingEdit(false);
       }
     },
-    [editPropertyId, editForm, editListingImages, loadData],
+    [editPropertyId, editForm, editListingImages, editGalleryReadOnly, loadData],
   );
 
   const runCreateListingInsert = async () => {
     if (!user?.id) return;
     const priceNum = parseListingPricePesos(listingForm.price);
     setSaving(true);
+    const trimmedLocation = listingForm.location.trim();
+    const targetNorm = normalizeListingLocation(trimmedLocation);
+    // TODO: add lat/lng proximity check (within 0.0001 degrees) once Maps Tier 1 wires Google Places autocomplete and starts writing coordinates
+    const { data: dupes, error: dupSelectErr } = await supabase
+      .from("properties")
+      .select("id, name, location, listed_by")
+      .ilike("location", trimmedLocation)
+      .is("deleted_at", null)
+      .eq("availability_state", "available")
+      .limit(1);
+    if (!dupSelectErr && dupes && dupes.length > 0) {
+      const hit = dupes.find((row) => normalizeListingLocation(String(row.location ?? "")) === targetNorm);
+      if (hit) {
+        let agent_name = "Another agent";
+        let agent_id: string | null = null;
+        const lb = hit.listed_by as string | undefined | null;
+        if (lb) {
+          const { data: prof } = await supabase.from("profiles").select("full_name").eq("id", lb).maybeSingle();
+          const fn = (prof as { full_name?: string | null } | null)?.full_name?.trim();
+          if (fn) {
+            agent_name = fn;
+          } else {
+            const { data: agRow } = await supabase.from("agents").select("id, name").eq("user_id", lb).maybeSingle();
+            const ag = agRow as { id?: string; name?: string | null } | null;
+            if (ag?.id) {
+              agent_id = ag.id;
+              agent_name = String(ag.name ?? "").trim() || agent_name;
+            }
+          }
+          if (!agent_id && lb) {
+            const { data: agRow2 } = await supabase.from("agents").select("id").eq("user_id", lb).maybeSingle();
+            agent_id = (agRow2 as { id?: string } | null)?.id ?? null;
+          }
+        }
+        const nm = (hit.name as string | null)?.trim();
+        setSaving(false);
+        setDuplicateListingModal({
+          existing: {
+            id: hit.id,
+            name: nm ? nm : null,
+            location: String(hit.location ?? ""),
+            agent_id,
+            agent_name,
+          },
+        });
+        return;
+      }
+    }
     const beds = Number(listingForm.beds.replace(/\D/g, "")) || 0;
     const baths = Number(listingForm.baths.replace(/\D/g, "")) || 0;
     const mainImageUrl = listingForm.listingImageUrls[0]?.trim() || DEFAULT_LISTING_IMAGE;
@@ -1935,65 +2042,87 @@ export function AgentDashboard() {
     const lt = listingForm.listing_type;
     const rentNum = parseListingPricePesos(listingForm.rent_price);
     const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: newProperty, error } = await supabase
-      .from("properties")
-      .insert({
-        name: listingForm.name.trim() || null,
-        location: listingForm.location.trim(),
-        city: normalizeCity(listingForm.location.trim()),
-        price: priceNum != null ? String(priceNum) : "",
-        listing_type: listingTypeColumnForApi(isPs, lt),
-        rent_price:
-          !isPs && lt === "both"
-            ? rentNum != null
-              ? String(rentNum)
+    const createBody = {
+      name: listingForm.name.trim() || null,
+      location: trimmedLocation,
+      price: priceNum != null ? String(priceNum) : "",
+      listing_type: listingTypeColumnForApi(isPs, lt),
+      rent_price:
+        !isPs && lt === "both"
+          ? rentNum != null
+            ? String(rentNum)
+            : null
+          : !isPs && lt === "rent"
+            ? priceNum != null
+              ? String(priceNum)
               : null
-            : !isPs && lt === "rent"
-              ? priceNum != null
-                ? String(priceNum)
-                : null
-              : null,
-        sqft: listingForm.sqft.replace(/\D/g, ""),
-        beds,
-        baths,
-        image_url: mainImageUrl,
-        status: listingStatusForApi(isPs, lt),
-        listed_by: user.id,
-        property_type: listingForm.property_type,
-        description: listingForm.description.trim() || null,
-        is_presale: isPs,
-        developer_name: isPs ? listingForm.developer_name.trim() : null,
-        turnover_date: isPs ? listingForm.turnover_date.trim() : null,
-        unit_types: isPs ? listingForm.unit_types : [],
-        expires_at: expiresAt,
-        expiry_notified_at: null,
-        source_url: listingForm.source_url?.trim() || null,
-        source_hash: listingForm.source_hash?.trim() || null,
-      })
-      .select("id")
-      .single();
+            : null,
+      sqft: listingForm.sqft.replace(/\D/g, ""),
+      beds,
+      baths,
+      image_url: mainImageUrl,
+      status: listingStatusForApi(isPs, lt),
+      property_type: listingForm.property_type,
+      description: listingForm.description.trim() || null,
+      is_presale: isPs,
+      developer_name: isPs ? listingForm.developer_name.trim() : null,
+      turnover_date: isPs ? listingForm.turnover_date.trim() : null,
+      unit_types: isPs ? listingForm.unit_types : [],
+      expires_at: expiresAt,
+      expiry_notified_at: null,
+      source_url: listingForm.source_url?.trim() || null,
+      source_hash: listingForm.source_hash?.trim() || null,
+    };
+    const res = await fetch("/api/agent/create-listing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(createBody),
+    });
+    const raw = await res.text();
+    let parsed: unknown = null;
+    try {
+      parsed = raw ? JSON.parse(raw) : null;
+    } catch {
+      parsed = null;
+    }
     setSaving(false);
-    if (error) {
-      if (/row-level security|violates row-level security policy/i.test(error.message)) {
+    if (res.status === 409) {
+      const dup = parsed as {
+        duplicate?: boolean;
+        existing?: {
+          id: string;
+          name: string | null;
+          location: string;
+          agent_name: string;
+          agent_id: string | null;
+        };
+      };
+      if (dup?.duplicate && dup.existing) {
+        setDuplicateListingModal({ existing: dup.existing });
+        return;
+      }
+    }
+    if (!res.ok) {
+      const errObj = parsed as { error?: string } | null;
+      const msg = typeof errObj?.error === "string" ? errObj.error : "Could not create listing.";
+      if (/row-level security|violates row-level security policy/i.test(msg)) {
         setListingLimitModalKind("owned");
         setListingLimitModalOpen(true);
       } else {
-        toast.error(error.message, { duration: 5000 });
+        toast.error(msg, { duration: 5000 });
       }
       return;
     }
-    if (newProperty?.id && agent?.id) {
-      const { error: linkErr } = await supabase.from("property_agents").insert({
-        property_id: newProperty.id,
-        agent_id: agent.id,
-      });
-      if (linkErr && linkErr.code !== "23505") {
-        toast.error(`Listing saved, but connected-agent link failed: ${linkErr.message}`, { duration: 5000 });
-      }
+    const okJson = parsed as { ok?: boolean; id?: string };
+    const newId = okJson?.id;
+    if (!newId) {
+      toast.error("Could not create listing.", { duration: 5000 });
+      return;
     }
-    if (newProperty?.id && listingForm.listingImageUrls.length > 1) {
+    if (listingForm.listingImageUrls.length > 1) {
       const extras = listingForm.listingImageUrls.slice(1).map((url, i) => ({
-        property_id: newProperty.id,
+        property_id: newId,
         url,
         sort_order: i,
       }));
@@ -2581,6 +2710,76 @@ export function AgentDashboard() {
         ) : null}
       </AnimatePresence>
 
+      <Dialog
+        open={duplicateListingModal != null}
+        onOpenChange={(open) => {
+          if (!open) setDuplicateListingModal(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md" showCloseButton>
+          <DialogHeader>
+            <DialogTitle>This property may already be listed</DialogTitle>
+          </DialogHeader>
+          {duplicateListingModal ? (
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{duplicateListingModal.existing.agent_name}</span> is the
+              primary agent for a listing at this location. You can request to co-list with them, or cancel and
+              double-check the address.
+            </p>
+          ) : null}
+          <DialogFooter className="sm:justify-end sm:gap-2">
+            <button
+              type="button"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium shadow-sm hover:bg-accent"
+              onClick={() => setDuplicateListingModal(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={duplicateCoListBusy || !duplicateListingModal}
+              className="inline-flex h-9 items-center justify-center rounded-md bg-[#6B9E6E] px-4 text-sm font-semibold text-white shadow hover:bg-[#5d8a60] disabled:opacity-50"
+              onClick={async () => {
+                if (!duplicateListingModal || !user?.id) return;
+                setDuplicateCoListBusy(true);
+                try {
+                  const { data: myAgent, error: agentLookupErr } = await supabase
+                    .from("agents")
+                    .select("id")
+                    .eq("user_id", user.id)
+                    .maybeSingle();
+                  if (agentLookupErr || !myAgent) {
+                    toast.error("Could not resolve your agent profile.", { duration: 5000 });
+                    return;
+                  }
+                  const agentId = (myAgent as { id: string }).id;
+                  const { error: insErr } = await supabase.from("co_agent_requests").insert({
+                    property_id: duplicateListingModal.existing.id,
+                    agent_id: agentId,
+                    status: "pending",
+                  });
+                  if (insErr) {
+                    if (insErr.code === "23505") {
+                      toast.success(`Co-list request sent to ${duplicateListingModal.existing.agent_name}`);
+                      setDuplicateListingModal(null);
+                      return;
+                    }
+                    toast.error(insErr.message, { duration: 5000 });
+                    return;
+                  }
+                  toast.success(`Co-list request sent to ${duplicateListingModal.existing.agent_name}`);
+                  setDuplicateListingModal(null);
+                } finally {
+                  setDuplicateCoListBusy(false);
+                }
+              }}
+            >
+              {duplicateCoListBusy ? "Sending…" : "Request co-list"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AnimatePresence>
         {listingPublishDisclosureOpen ? (
           <motion.div
@@ -2691,6 +2890,7 @@ export function AgentDashboard() {
               setEditPropertyId(null);
               setEditListingImages([]);
               setEditFormErrors({});
+              setEditGalleryReadOnly(false);
             }}
           >
             <motion.form
@@ -2711,6 +2911,7 @@ export function AgentDashboard() {
                     setEditPropertyId(null);
                     setEditListingImages([]);
                     setEditFormErrors({});
+                    setEditGalleryReadOnly(false);
                   }}
                   className="rounded-full p-2 text-[#2C2C2C]/55 hover:bg-white"
                 >
@@ -2964,11 +3165,20 @@ export function AgentDashboard() {
                     </button>
                   </div>
                 </div>
+                {editGalleryReadOnly ? (
+                  <p className="rounded-lg border border-[#D4A843]/30 bg-[#FAF8F4] px-3 py-2 text-xs font-semibold text-[#2C2C2C]/70">
+                    Only the primary agent can edit listing photos.
+                  </p>
+                ) : null}
                 <CloudinaryUpload
                   value={editListingImages}
                   onUpload={setEditListingImages}
                   maxFiles={10}
-                  disabled={savingEdit}
+                  disabled={savingEdit || editGalleryReadOnly}
+                  disabledTooltip={
+                    editGalleryReadOnly ? "Only the primary agent can edit listing photos." : undefined
+                  }
+                  listingPropertyId={editGalleryReadOnly ? undefined : (editPropertyId ?? undefined)}
                 />
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Description
@@ -3897,7 +4107,9 @@ function ListingsTab({
       </div>
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {visibleProperties.map((p) => {
-          const removed = isPropertyListingRemoved(p);
+          const removed = isPropertyListingRemoved(p) || p.availability_state === "removed";
+          const av = normalizePropertyAvailabilityState(p.availability_state);
+          const showAvailabilityPill = !removed && av !== "available";
           return (
           <div
             key={p.id}
@@ -3952,6 +4164,16 @@ function ListingsTab({
             <Link href={`/properties/${encodeURIComponent(p.id)}`} className="block">
               <div className="relative h-40 w-full bg-black/5">
                 <Image src={p.image_url} alt="" fill className="object-cover" sizes="400px" />
+                {showAvailabilityPill ? (
+                  <span
+                    className={cn(
+                      "absolute right-2 top-2 z-[5] rounded-full px-2 py-1 text-[10px] font-bold shadow-sm",
+                      av === "reserved" ? "bg-[#D4A843]/95 text-[#2C2C2C]" : "bg-gray-900/85 text-gray-100",
+                    )}
+                  >
+                    {av === "reserved" ? "Reserved" : av === "closed" ? "Closed" : "Unavailable"}
+                  </span>
+                ) : null}
                 {p.is_presale ? (
                   <span className="absolute left-2 top-2 rounded-full bg-[#D4A843] px-2 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
                     Presale

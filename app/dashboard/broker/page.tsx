@@ -11,6 +11,7 @@ import {
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { cn } from "@/lib/utils";
+import { propertyEngagementLooksUnavailable } from "@/lib/property-availability";
 
 type BrokerRow = {
   id: string;
@@ -55,6 +56,7 @@ type PropertyRow = {
   baths: number;
   listed_by: string | null;
   deleted_at: string | null;
+  availability_state?: string | null;
 };
 
 export default function BrokerDashboardPage() {
@@ -109,7 +111,7 @@ export default function BrokerDashboardPage() {
         if (uniqueIds.length) {
           const { data: pr } = await supabase
             .from("properties")
-            .select("id, location, price, beds, baths, listed_by, deleted_at")
+            .select("id, location, price, beds, baths, listed_by, deleted_at, availability_state")
             .in("listed_by", uniqueIds);
           setProperties((pr as PropertyRow[]) ?? []);
         } else {
@@ -428,7 +430,7 @@ export default function BrokerDashboardPage() {
               ) : (
                 <ul className="divide-y divide-gray-100">
                   {properties.map((p) => {
-                    const removed = p.deleted_at != null && String(p.deleted_at).trim() !== "";
+                    const removed = propertyEngagementLooksUnavailable(p);
                     return (
                       <li
                         key={p.id}

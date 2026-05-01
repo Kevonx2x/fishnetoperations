@@ -21,6 +21,10 @@ export type CloudinaryUploadProps = {
   onUpload: (urls: string[]) => void;
   maxFiles?: number;
   disabled?: boolean;
+  /** Native tooltip when `disabled` (e.g. co-listing read-only gallery). */
+  disabledTooltip?: string;
+  /** When set, `/api/upload` verifies the user is the listing owner (`properties.listed_by`) before accepting. */
+  listingPropertyId?: string;
 };
 
 export function CloudinaryUpload({
@@ -28,6 +32,8 @@ export function CloudinaryUpload({
   onUpload,
   maxFiles = 10,
   disabled,
+  disabledTooltip,
+  listingPropertyId,
 }: CloudinaryUploadProps) {
   const inputId = useId();
   const valueRef = useRef(value);
@@ -95,8 +101,11 @@ export function CloudinaryUpload({
       };
       const fd = new FormData();
       fd.set("file", file);
+      if (listingPropertyId?.trim()) {
+        fd.set("property_id", listingPropertyId.trim());
+      }
       xhr.send(fd);
-    }, [onUpload]);
+    }, [onUpload, listingPropertyId]);
 
   const processFiles = useCallback(
     (files: FileList | File[]) => {
@@ -162,7 +171,10 @@ export function CloudinaryUpload({
   const onThumbDragEnd = () => setDragPhotoIndex(null);
 
   return (
-    <div className="space-y-2">
+    <div
+      className="space-y-2"
+      title={disabled && disabledTooltip ? disabledTooltip : undefined}
+    >
       <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
         Photos <span className="font-normal normal-case text-[#2C2C2C]/40">(first = main listing image)</span>
       </p>

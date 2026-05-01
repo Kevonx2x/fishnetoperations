@@ -40,6 +40,11 @@ import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketpla
 import { useAuth } from "@/contexts/auth-context";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
+import {
+  availabilityCardOverlayLabel,
+  normalizePropertyAvailabilityState,
+  propertyEngagementLooksUnavailable,
+} from "@/lib/property-availability";
 import { cn } from "@/lib/utils";
 import { fetchSimilarAgents } from "@/lib/similar-agents";
 import { listingListedLabel } from "@/lib/listing-listed-time";
@@ -100,6 +105,8 @@ type ListingRow = {
   developer_name?: string | null;
   turnover_date?: string | null;
   rented_at?: string | null;
+  deleted_at?: string | null;
+  availability_state?: string | null;
 };
 
 type ListingFilter = "active" | "sold" | "rented" | "for_rent" | "for_sale";
@@ -444,16 +451,22 @@ export default function AgentProfilePage() {
 
     let cancelled = false;
     const selectFields =
-      "id, created_at, name, location, price, beds, baths, sqft, image_url, status, listing_status, listed_by, is_presale, developer_name, turnover_date, rented_at";
+      "id, created_at, name, location, price, beds, baths, sqft, image_url, status, listing_status, listed_by, is_presale, developer_name, turnover_date, rented_at, deleted_at, availability_state";
 
     void (async () => {
+      const isOwnerViewer = Boolean(user?.id && agentUserId && user.id === agentUserId);
+
+      let ownedQ = supabase
+        .from("properties")
+        .select(selectFields)
+        .eq("listed_by", agentUserId)
+        .or(publicListingExpiryOrFilter());
+      if (!isOwnerViewer) {
+        ownedQ = ownedQ.is("deleted_at", null).eq("availability_state", "available");
+      }
+
       const [ownedRes, linksRes] = await Promise.all([
-        supabase
-          .from("properties")
-          .select(selectFields)
-          .eq("listed_by", agentUserId)
-          .is("deleted_at", null)
-          .or(publicListingExpiryOrFilter()),
+        ownedQ,
         supabase.from("property_agents").select("property_id").eq("agent_id", agentRecordId),
       ]);
 
@@ -464,12 +477,15 @@ export default function AgentProfilePage() {
 
       let linked: ListingRow[] = [];
       if (linkIds.length > 0) {
-        const { data: linkedRows } = await supabase
+        let linkedQ = supabase
           .from("properties")
           .select(selectFields)
           .in("id", linkIds)
-          .is("deleted_at", null)
           .or(publicListingExpiryOrFilter());
+        if (!isOwnerViewer) {
+          linkedQ = linkedQ.is("deleted_at", null).eq("availability_state", "available");
+        }
+        const { data: linkedRows } = await linkedQ;
         if (cancelled) return;
         linked = (linkedRows ?? []) as unknown as ListingRow[];
       }
@@ -487,7 +503,7 @@ export default function AgentProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [agentUserId, agentRecordId]);
+  }, [agentUserId, agentRecordId, user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -717,7 +733,13 @@ export default function AgentProfilePage() {
       } finally {
         setDeletingPropertyId(null);
       }
-      setListings((prev) => prev.filter((p) => p.id !== propertyId));
+      setListings((prev) =>
+        prev.map((p) =>
+          p.id === propertyId
+            ? { ...p, deleted_at: new Date().toISOString(), availability_state: "removed" }
+            : p,
+        ),
+      );
     },
     [user?.id],
   );
@@ -1062,6 +1084,8 @@ export default function AgentProfilePage() {
                           : p.status === "for_rent"
                             ? "For Rent"
                             : "For Sale";
+                        const av = normalizePropertyAvailabilityState(p.availability_state);
+                        const unavailable = propertyEngagementLooksUnavailable(p);
                         const canManagePost =
                           isOwnProfile &&
                           user?.id &&
@@ -1089,7 +1113,10 @@ export default function AgentProfilePage() {
                               }
                             >
                               <article
-                                className="relative overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm"
+                                className={cn(
+                                  "relative overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm",
+                                  unavailable && "opacity-50",
+                                )}
                                 style={
                                   flipEligible
                                     ? {
@@ -1151,14 +1178,17 @@ export default function AgentProfilePage() {
                             <div className="relative mt-3 w-full overflow-hidden">
                               <Link
                                 href={`/properties/${encodeURIComponent(p.id)}`}
-                                className="relative block aspect-video w-full"
+                                className={cn(
+                                  "relative block aspect-video w-full",
+                                  unavailable && "pointer-events-none cursor-default",
+                                )}
                               >
                                 <Image
                                   src={p.image_url}
                                   alt={title}
                                   fill
                                   sizes="(max-width: 1024px) 100vw, 65vw"
-                                  className="object-cover"
+                                  className={cn("object-cover", unavailable && "grayscale")}
                                 />
                               </Link>
                               <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-1">
@@ -1174,7 +1204,37 @@ export default function AgentProfilePage() {
                                     Recently Rented
                                   </span>
                                 ) : null}
+                                {isOwnProfile && av !== "available" ? (
+                                  <span
+                                    className={cn(
+                                      "rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm",
+                                      av === "reserved"
+                                        ? "bg-[#D4A843]/90 text-[#2C2C2C]"
+                                        : "bg-gray-800/90 text-white",
+                                    )}
+                                  >
+                                    {av === "reserved"
+                                      ? "Reserved"
+                                      : av === "closed"
+                                        ? "Closed"
+                                        : "Removed"}
+                                  </span>
+                                ) : null}
                               </div>
+                              {unavailable ? (
+                                <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center bg-black/20 px-2">
+                                  <span
+                                    className={cn(
+                                      "rounded-full px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide",
+                                      av === "reserved"
+                                        ? "bg-[#D4A843]/95 text-[#2C2C2C]"
+                                        : "bg-gray-900/85 text-gray-100",
+                                    )}
+                                  >
+                                    {availabilityCardOverlayLabel(p.availability_state, p.deleted_at)}
+                                  </span>
+                                </div>
+                              ) : null}
                               <div className="absolute right-3 top-3 z-10 flex items-start gap-1">
                                 {flipEligible ? (
                                   <>

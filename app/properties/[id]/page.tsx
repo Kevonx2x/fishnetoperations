@@ -25,6 +25,10 @@ import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { coListLimitForTier, listingLimitForTier } from "@/lib/agent-listing-limits";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { cn } from "@/lib/utils";
+import {
+  propertyDetailAvailabilityBanner,
+  propertyEngagementLooksUnavailable,
+} from "@/lib/property-availability";
 import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 import { toast } from "sonner";
 
@@ -61,6 +65,8 @@ type PropertyRow = {
   listing_agent: ListingAgentProfile;
   property_agents?: { agent: unknown }[];
   property_photos?: { url: string; sort_order: number }[];
+  availability_state?: string | null;
+  deleted_at?: string | null;
 };
 
 function formatPresaleTurnoverMonthYear(iso: string): string {
@@ -162,7 +168,7 @@ export default function PropertyPage() {
         .select(
           `
           id, created_at, name, location, price, rent_price, listing_type, status, sqft, beds, baths, image_url, listed_by, property_type, lat, lng, description,
-          is_presale, developer_name, turnover_date, unit_types,
+          is_presale, developer_name, turnover_date, unit_types, availability_state, deleted_at,
           property_photos (url, sort_order),
           listing_agent:profiles!listed_by (id, full_name, avatar_url),
           property_agents (
@@ -176,7 +182,6 @@ export default function PropertyPage() {
         `,
         )
         .eq("id", id)
-        .is("deleted_at", null)
         .or(publicListingExpiryOrFilter())
         .maybeSingle();
 
@@ -435,6 +440,16 @@ export default function PropertyPage() {
     return [] as PropertyRow[];
   }, []);
 
+  const hideListingClientActions = useMemo(
+    () => (property ? propertyEngagementLooksUnavailable(property) : false),
+    [property],
+  );
+
+  const availabilityBanner = useMemo(
+    () => (property ? propertyDetailAvailabilityBanner(property.availability_state) : null),
+    [property],
+  );
+
   const onRequestViewing = () => {
     if (authLoading) return;
     if (!user) {
@@ -576,77 +591,79 @@ export default function PropertyPage() {
                             priority
                           />
                         </button>
-                        <div
-                          className="absolute left-3 top-3 z-10 flex items-start gap-1.5"
-                          title={
-                            agentEngagementLocked ? "Only clients can like and pin properties" : undefined
-                          }
-                        >
+                        {!hideListingClientActions ? (
                           <div
-                            className={cn(
-                              "flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 shadow-sm",
-                              engagement.isLiked(property.id)
-                                ? "border border-red-200 bg-white"
-                                : "border border-gray-200 bg-white/80",
-                              agentEngagementLocked && "pointer-events-none opacity-50",
-                            )}
+                            className="absolute left-3 top-3 z-10 flex items-start gap-1.5"
+                            title={
+                              agentEngagementLocked ? "Only clients can like and pin properties" : undefined
+                            }
                           >
-                            <button
-                              type="button"
-                              onClick={agentEngagementLocked ? undefined : () => engagement.toggleLike(property.id)}
-                              className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
-                              aria-label={engagement.isLiked(property.id) ? "Unlike" : "Like"}
-                              disabled={agentEngagementLocked}
+                            <div
+                              className={cn(
+                                "flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 shadow-sm",
+                                engagement.isLiked(property.id)
+                                  ? "border border-red-200 bg-white"
+                                  : "border border-gray-200 bg-white/80",
+                                agentEngagementLocked && "pointer-events-none opacity-50",
+                              )}
                             >
-                              <Heart
-                                className={cn(
-                                  "h-4 w-4",
-                                  engagement.isLiked(property.id)
-                                    ? "fill-red-500 text-red-500"
-                                    : "fill-none text-red-400",
-                                )}
-                              />
-                            </button>
-                            {engagement.showEngagementCounts(property.id) ? (
-                              <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
-                                {engagement.likeCount(property.id)}
-                              </span>
-                            ) : null}
-                          </div>
-                          <div
-                            className={cn(
-                              "flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 shadow-sm",
-                              engagement.isPinned(property.id)
-                                ? "border border-[#D4A843]/40 bg-white"
-                                : "border border-gray-200 bg-white/80",
-                              agentEngagementLocked && "pointer-events-none opacity-50",
-                            )}
-                          >
-                            <button
-                              type="button"
-                              onClick={agentEngagementLocked ? undefined : () => engagement.togglePin(property.id)}
-                              className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
-                              aria-label={
-                                engagement.isPinned(property.id) ? "Unpin from profile" : "Pin to profile"
-                              }
-                              disabled={agentEngagementLocked}
+                              <button
+                                type="button"
+                                onClick={agentEngagementLocked ? undefined : () => engagement.toggleLike(property.id)}
+                                className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
+                                aria-label={engagement.isLiked(property.id) ? "Unlike" : "Like"}
+                                disabled={agentEngagementLocked}
+                              >
+                                <Heart
+                                  className={cn(
+                                    "h-4 w-4",
+                                    engagement.isLiked(property.id)
+                                      ? "fill-red-500 text-red-500"
+                                      : "fill-none text-red-400",
+                                  )}
+                                />
+                              </button>
+                              {engagement.showEngagementCounts(property.id) ? (
+                                <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
+                                  {engagement.likeCount(property.id)}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div
+                              className={cn(
+                                "flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 shadow-sm",
+                                engagement.isPinned(property.id)
+                                  ? "border border-[#D4A843]/40 bg-white"
+                                  : "border border-gray-200 bg-white/80",
+                                agentEngagementLocked && "pointer-events-none opacity-50",
+                              )}
                             >
-                              <Pin
-                                className={cn(
-                                  "h-4 w-4",
-                                  engagement.isPinned(property.id)
-                                    ? "fill-[#D4A843] text-[#D4A843]"
-                                    : "fill-none text-[#D4A843]",
-                                )}
-                              />
-                            </button>
-                            {engagement.showEngagementCounts(property.id) ? (
-                              <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
-                                {engagement.saveCount(property.id)}
-                              </span>
-                            ) : null}
+                              <button
+                                type="button"
+                                onClick={agentEngagementLocked ? undefined : () => engagement.togglePin(property.id)}
+                                className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
+                                aria-label={
+                                  engagement.isPinned(property.id) ? "Unpin from profile" : "Pin to profile"
+                                }
+                                disabled={agentEngagementLocked}
+                              >
+                                <Pin
+                                  className={cn(
+                                    "h-4 w-4",
+                                    engagement.isPinned(property.id)
+                                      ? "fill-[#D4A843] text-[#D4A843]"
+                                      : "fill-none text-[#D4A843]",
+                                  )}
+                                />
+                              </button>
+                              {engagement.showEngagementCounts(property.id) ? (
+                                <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
+                                  {engagement.saveCount(property.id)}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
-                        </div>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => openLightbox(heroIndex)}
@@ -699,6 +716,18 @@ export default function PropertyPage() {
                   <h1 className="mt-1 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">
                     {property.location}
                   </h1>
+                  {availabilityBanner ? (
+                    <div
+                      className={cn(
+                        "mt-3 rounded-xl px-4 py-2.5 text-sm font-semibold",
+                        availabilityBanner.tone === "gold"
+                          ? "bg-[#D4A843]/22 text-[#4a3b14]"
+                          : "bg-neutral-200 text-neutral-800",
+                      )}
+                    >
+                      {availabilityBanner.message}
+                    </div>
+                  ) : null}
                   {property.status === "both" || property.listing_type === "both" ? (
                     <div className="mt-1 space-y-1">
                       <p className="font-serif text-2xl font-bold text-[#2C2C2C]">
@@ -779,73 +808,86 @@ export default function PropertyPage() {
                       <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
                         Leave your details and preferred unit. The listing agent will follow up.
                       </p>
-                      <div className="mt-3 space-y-2">
-                        <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-                          Name
-                          <input
-                            value={presaleName}
-                            onChange={(e) => setPresaleName(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                            autoComplete="name"
-                          />
-                        </label>
-                        <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-                          Email
-                          <input
-                            type="email"
-                            value={presaleEmail}
-                            onChange={(e) => setPresaleEmail(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                            autoComplete="email"
-                          />
-                        </label>
-                        <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-                          Phone
-                          <input
-                            type="tel"
-                            value={presalePhone}
-                            onChange={(e) => setPresalePhone(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                            autoComplete="tel"
-                          />
-                        </label>
-                        <label className="block text-xs font-semibold text-[#2C2C2C]/55">
-                          Preferred unit type
-                          <select
-                            value={presaleUnit}
-                            onChange={(e) => setPresaleUnit(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                          >
-                            <option value="">Select…</option>
-                            {(property.unit_types && property.unit_types.length > 0
-                              ? property.unit_types
-                              : ["Studio", "1BR", "2BR", "3BR", "4BR+"]
-                            ).map((u) => (
-                              <option key={u} value={u}>
-                                {u}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                      {presaleMsg ? (
-                        <p
-                          className={`mt-2 text-xs font-semibold ${
-                            presaleMsg.startsWith("Thanks") ? "text-[#6B9E6E]" : "text-red-700"
-                          }`}
-                        >
-                          {presaleMsg}
+                      {hideListingClientActions ? (
+                        <p className="mt-3 text-sm font-semibold text-[#2C2C2C]/55">
+                          This listing is not accepting new interest right now.
                         </p>
                       ) : null}
-                      <button
-                        type="button"
-                        onClick={() => void submitPresaleInterest()}
-                        disabled={presaleBusy || !property.listed_by}
-                        className="mt-4 w-full rounded-full bg-[#6B9E6E] px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#5d8a60] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {presaleBusy ? "Sending…" : "Register Interest"}
-                      </button>
+                      {!hideListingClientActions ? (
+                        <>
+                          <div className="mt-3 space-y-2">
+                            <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                              Name
+                              <input
+                                value={presaleName}
+                                onChange={(e) => setPresaleName(e.target.value)}
+                                className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                                autoComplete="name"
+                              />
+                            </label>
+                            <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                              Email
+                              <input
+                                type="email"
+                                value={presaleEmail}
+                                onChange={(e) => setPresaleEmail(e.target.value)}
+                                className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                                autoComplete="email"
+                              />
+                            </label>
+                            <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                              Phone
+                              <input
+                                type="tel"
+                                value={presalePhone}
+                                onChange={(e) => setPresalePhone(e.target.value)}
+                                className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                                autoComplete="tel"
+                              />
+                            </label>
+                            <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                              Preferred unit type
+                              <select
+                                value={presaleUnit}
+                                onChange={(e) => setPresaleUnit(e.target.value)}
+                                className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                              >
+                                <option value="">Select…</option>
+                                {(property.unit_types && property.unit_types.length > 0
+                                  ? property.unit_types
+                                  : ["Studio", "1BR", "2BR", "3BR", "4BR+"]
+                                ).map((u) => (
+                                  <option key={u} value={u}>
+                                    {u}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                          {presaleMsg ? (
+                            <p
+                              className={`mt-2 text-xs font-semibold ${
+                                presaleMsg.startsWith("Thanks") ? "text-[#6B9E6E]" : "text-red-700"
+                              }`}
+                            >
+                              {presaleMsg}
+                            </p>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => void submitPresaleInterest()}
+                            disabled={presaleBusy || !property.listed_by}
+                            className="mt-4 w-full rounded-full bg-[#6B9E6E] px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#5d8a60] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {presaleBusy ? "Sending…" : "Register Interest"}
+                          </button>
+                        </>
+                      ) : null}
                     </>
+                  ) : hideListingClientActions ? (
+                    <p className="text-sm font-semibold text-[#2C2C2C]/55">
+                      Viewing requests and saves are not available for this listing right now.
+                    </p>
                   ) : (
                     <>
                       <p className="font-serif text-base font-bold text-[#2C2C2C]">Request a viewing</p>
@@ -893,7 +935,7 @@ export default function PropertyPage() {
                     </div>
                   ) : null}
 
-                  {showCoAgentRequestButton ? (
+                  {showCoAgentRequestButton && !hideListingClientActions ? (
                     <button
                       type="button"
                       onClick={() => setCoAgentConfirmOpen(true)}
@@ -903,7 +945,7 @@ export default function PropertyPage() {
                     </button>
                   ) : null}
 
-                  {showCoListNeedsVerificationPanel ? (
+                  {showCoListNeedsVerificationPanel && !hideListingClientActions ? (
                     <button
                       type="button"
                       onClick={() => setShowVerificationModal(true)}

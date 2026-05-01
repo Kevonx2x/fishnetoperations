@@ -36,6 +36,7 @@ interface Property {
   image_url: string;
   listed_by?: string | null;
   featured?: boolean;
+  availability_state?: string | null;
 }
 
 interface PendingBroker {
@@ -369,6 +370,8 @@ interface PropertyAgentOption {
   email: string;
 }
 
+type PropertyFormAvailability = "available" | "reserved" | "closed" | "removed";
+
 const emptyPropertyForm = {
   location: "",
   price: "",
@@ -376,6 +379,7 @@ const emptyPropertyForm = {
   beds: "",
   baths: "",
   image_url: "",
+  availability_state: "available" as PropertyFormAvailability,
 };
 
 const MASKED_PRC_DISPLAY = "PRC-AG-202*-*****";
@@ -536,6 +540,8 @@ export default function AdminPage() {
   const [propertyError, setPropertyError] = useState("");
   const [propertySaving, setPropertySaving] = useState(false);
   const [featuredSettingId, setFeaturedSettingId] = useState<string | null>(null);
+  const [propertyAvailabilityPatchingId, setPropertyAvailabilityPatchingId] = useState<string | null>(null);
+  const [skipDuplicateCheck, setSkipDuplicateCheck] = useState(false);
 
   const [pendingBrokers, setPendingBrokers] = useState<PendingBroker[]>([]);
   const [pendingAgents, setPendingAgents] = useState<PendingAgent[]>([]);
@@ -2001,6 +2007,7 @@ export default function AdminPage() {
   const openNewProperty = () => {
     setEditingId(null);
     setPropertyForm(emptyPropertyForm);
+    setSkipDuplicateCheck(false);
     setPropertyError("");
   };
 
@@ -2115,6 +2122,9 @@ export default function AdminPage() {
 
   const openEditProperty = (p: Property) => {
     setEditingId(p.id);
+    const av = p.availability_state;
+    const availability_state =
+      av === "reserved" || av === "closed" || av === "removed" || av === "available" ? av : "available";
     setPropertyForm({
       location: p.location,
       price: p.price,
@@ -2122,6 +2132,7 @@ export default function AdminPage() {
       beds: String(p.beds),
       baths: String(p.baths),
       image_url: p.image_url,
+      availability_state,
     });
     setPropertyError("");
   };
@@ -2161,7 +2172,10 @@ export default function AdminPage() {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            ...payload,
+            availability_state: propertyForm.availability_state,
+          }),
         });
         const json = await res.json();
         if (!res.ok) {
@@ -2174,22 +2188,57 @@ export default function AdminPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...payload, skip_duplicate_check: skipDuplicateCheck }),
         });
-        const json = await res.json();
+        const json = (await res.json()) as {
+          error?: string;
+          duplicate?: boolean;
+          existing?: { title?: string; id?: string };
+        };
         if (!res.ok) {
-          setPropertyError(json.error || "Create failed");
+          if (res.status === 409 && json.duplicate) {
+            const title = json.existing?.title?.trim() || "an existing listing";
+            setPropertyError(
+              `A listing may already exist (${title}). Turn on “Skip duplicate check” below only after you confirm this is not a duplicate.`,
+            );
+          } else {
+            setPropertyError(json.error || "Create failed");
+          }
           setPropertySaving(false);
           return;
         }
       }
       setEditingId(null);
       setPropertyForm(emptyPropertyForm);
+      setSkipDuplicateCheck(false);
       await fetchProperties();
     } catch (err) {
       setPropertyError(err instanceof Error ? err.message : "Request failed");
     }
     setPropertySaving(false);
+  };
+
+  const patchPropertyAvailability = async (propertyId: string, availability_state: PropertyFormAvailability) => {
+    setPropertyAvailabilityPatchingId(propertyId);
+    setPropertyError("");
+    try {
+      const res = await fetch(`/api/admin/properties/${propertyId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ availability_state }),
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setPropertyError(json.error ?? "Could not update availability");
+        return;
+      }
+      await fetchProperties();
+    } catch (err) {
+      setPropertyError(err instanceof Error ? err.message : "Could not update availability");
+    } finally {
+      setPropertyAvailabilityPatchingId(null);
+    }
   };
 
   const deleteProperty = async (id: string) => {
@@ -3103,6 +3152,39 @@ export default function AdminPage() {
                     className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400"
                   />
                 </label>
+                {editingId ? (
+                  <label className="block text-xs font-medium text-gray-500 sm:col-span-2">
+                    Availability (manual)
+                    <select
+                      value={propertyForm.availability_state}
+                      onChange={(e) =>
+                        setPropertyForm((f) => ({
+                          ...f,
+                          availability_state: e.target.value as PropertyFormAvailability,
+                        }))
+                      }
+                      className="mt-1 w-full max-w-md rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400"
+                    >
+                      <option value="available">Available</option>
+                      <option value="reserved">Reserved</option>
+                      <option value="closed">Closed</option>
+                      <option value="removed">Removed</option>
+                    </select>
+                  </label>
+                ) : (
+                  <label className="flex cursor-pointer items-start gap-2 text-xs text-gray-600 sm:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={skipDuplicateCheck}
+                      onChange={(e) => setSkipDuplicateCheck(e.target.checked)}
+                      className="mt-0.5 rounded border-gray-300"
+                    />
+                    <span>
+                      Skip duplicate check — skips location duplicate detection for this submission only. Use only
+                      when you have confirmed the new row is not the same listing.
+                    </span>
+                  </label>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
@@ -3146,6 +3228,7 @@ export default function AdminPage() {
                       <th className="px-4 py-3">Sqft</th>
                       <th className="px-4 py-3">Beds</th>
                       <th className="px-4 py-3">Baths</th>
+                      <th className="px-4 py-3">Availability</th>
                       <th className="px-4 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -3169,6 +3252,23 @@ export default function AdminPage() {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
                           {p.baths}
+                        </td>
+                        <td className="px-4 py-3">
+                          <select
+                            aria-label={`Availability for ${p.location}`}
+                            className="max-w-[150px] rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-gray-800 outline-none focus:border-gray-400"
+                            value={(p.availability_state ?? "available") as PropertyFormAvailability}
+                            disabled={propertyAvailabilityPatchingId === p.id}
+                            onChange={(e) => {
+                              const v = e.target.value as PropertyFormAvailability;
+                              void patchPropertyAvailability(p.id, v);
+                            }}
+                          >
+                            <option value="available">Available</option>
+                            <option value="reserved">Reserved</option>
+                            <option value="closed">Closed</option>
+                            <option value="removed">Removed</option>
+                          </select>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex flex-wrap items-center justify-end gap-2">

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { cloudinaryPropertyPhotoDisplayUrl } from "@/lib/cloudinary-property-photo-url";
-import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
+import { propertyEngagementLooksUnavailable } from "@/lib/property-availability";
 
 export type PropertyPhoto = { url: string; sort_order: number | null };
 
@@ -17,6 +17,7 @@ export type PropertyRow = {
   image_url: string;
   created_at?: string;
   deleted_at?: string | null;
+  availability_state?: string | null;
   property_photos?: PropertyPhoto[] | null;
 };
 
@@ -605,6 +606,7 @@ export function useClientActivityFeed(userId: string | undefined) {
           status,
           image_url,
           deleted_at,
+          availability_state,
           property_photos (url, sort_order)
         `,
         )
@@ -756,7 +758,7 @@ export function useClientActivityFeed(userId: string | undefined) {
           oldPrice: oldP,
           newPrice: newP,
           thumbUrl: thumb,
-          listing_removed: isPropertyListingRemoved(propRow),
+          listing_removed: propertyEngagementLooksUnavailable(propRow ?? {}),
         });
       }
 
@@ -792,7 +794,7 @@ export function useClientActivityFeed(userId: string | undefined) {
           propertyName: pName,
           editedByName: editedBy,
           thumbUrl: thumb,
-          listing_removed: isPropertyListingRemoved(propRow),
+          listing_removed: propertyEngagementLooksUnavailable(propRow ?? {}),
         });
       }
     }
@@ -819,11 +821,14 @@ export function useClientActivityFeed(userId: string | undefined) {
             status,
             image_url,
             created_at,
+            deleted_at,
+            availability_state,
             property_photos (url, sort_order)
           `,
           )
           .in("id", propIdsFollow)
           .is("deleted_at", null)
+          .eq("availability_state", "available")
           .gte("created_at", thirtyDaysAgo)
           .order("created_at", { ascending: false });
 

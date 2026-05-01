@@ -35,6 +35,12 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
     }
 
     const update: Record<string, string | number | null> = {};
+    if (typeof rest.availability_state === "string") {
+      const av = rest.availability_state.trim();
+      if (["available", "reserved", "closed", "removed"].includes(av)) {
+        update.availability_state = av;
+      }
+    }
     if (typeof rest.location === "string") {
       const loc = rest.location.trim();
       update.location = loc;
@@ -93,7 +99,7 @@ export async function DELETE(req: Request, ctx: RouteCtx) {
     const supabase = createSupabaseAdmin();
     const { error } = await supabase
       .from("properties")
-      .update({ deleted_at: new Date().toISOString() })
+      .update({ deleted_at: new Date().toISOString(), availability_state: "removed" })
       .eq("id", id);
 
     if (error) {

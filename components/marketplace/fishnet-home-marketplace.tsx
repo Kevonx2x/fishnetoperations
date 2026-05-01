@@ -44,7 +44,11 @@ import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { cn } from "@/lib/utils";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
-import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
+import {
+  availabilityCardOverlayClasses,
+  availabilityCardOverlayLabel,
+  propertyEngagementLooksUnavailable,
+} from "@/lib/property-availability";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { propertyCanonicalCity } from "@/lib/normalize-city";
 import { CoListRequestModal } from "@/components/marketplace/co-list-request-modal";
@@ -803,7 +807,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     setError(null);
     const selectQ = `
           id, created_at, name, location, city, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
-          is_presale, developer_name, turnover_date, unit_types,
+          is_presale, developer_name, turnover_date, unit_types, deleted_at, availability_state,
           property_photos (url, sort_order, created_at),
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
         `;
@@ -816,11 +820,22 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         ? `city.ilike.%${featuredCityRow.label}%,location.ilike.%${featuredCityRow.label}%`
         : null;
 
-    let mainQuery = supabase.from("properties").select(selectQ).or(expiryOr).is("deleted_at", null);
+    let mainQuery = supabase
+      .from("properties")
+      .select(selectQ)
+      .or(expiryOr)
+      .is("deleted_at", null)
+      .eq("availability_state", "available");
     if (cityOrClause) mainQuery = mainQuery.or(cityOrClause);
     mainQuery = mainQuery.order("created_at", { ascending: false });
 
-    let featQuery = supabase.from("properties").select(selectQ).eq("featured", true).or(expiryOr).is("deleted_at", null);
+    let featQuery = supabase
+      .from("properties")
+      .select(selectQ)
+      .eq("featured", true)
+      .or(expiryOr)
+      .is("deleted_at", null)
+      .eq("availability_state", "available");
     if (cityOrClause) featQuery = featQuery.or(cityOrClause);
     featQuery = featQuery.limit(1);
 
@@ -2342,7 +2357,9 @@ export function NewlyListedCard({
   listingImageLoadEager?: boolean;
 }) {
   const listedLabel = listingListedLabel(property.created_at);
-  const listingRemoved = isPropertyListingRemoved(property);
+  const listingRemoved = propertyEngagementLooksUnavailable(property);
+  const overlayMeta = availabilityCardOverlayClasses(property.availability_state);
+  const overlayLabel = availabilityCardOverlayLabel(property.availability_state, property.deleted_at);
   const isDualListing =
     !property.is_presale && (property.status === "both" || property.listing_type === "both");
   const statusLabel = property.is_presale
@@ -2412,9 +2429,13 @@ export function NewlyListedCard({
         />
 
         {listingRemoved ? (
-          <div className="pointer-events-none absolute inset-0 z-[25] flex items-center justify-center bg-black/25 px-2">
-            <span className="rounded-full bg-gray-900/85 px-3 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide text-gray-100">
-              Listing removed
+          <div
+            className={`pointer-events-none absolute inset-0 z-[25] flex items-center justify-center px-2 ${overlayMeta.overlayTintClass}`}
+          >
+            <span
+              className={`rounded-full px-3 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide ${overlayMeta.badgeClass}`}
+            >
+              {overlayLabel}
             </span>
           </div>
         ) : null}

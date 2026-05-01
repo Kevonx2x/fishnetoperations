@@ -30,7 +30,10 @@ import { MobileClientDashboard } from "@/components/client/mobile-client-dashboa
 import { ClientMessagesView } from "@/features/messaging/components/client-messages-view";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
+import {
+  availabilityCardOverlayLabel,
+  propertyEngagementLooksUnavailable,
+} from "@/lib/property-availability";
 import { ReportProfileButton } from "@/components/report-profile-button";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import {
@@ -68,6 +71,7 @@ type PropertyRow = {
   /** Agents linked via property_agents (+ listed_by fallback when join is empty). */
   connectedAgents: MarketplaceAgent[];
   deleted_at?: string | null;
+  availability_state?: string | null;
 };
 
 function listingAgentUserId(property: PropertyRow, agents: MarketplaceAgent[]): string | null {
@@ -602,7 +606,7 @@ function ClientPublicProfilePageInner() {
           .from("properties")
           .select(
             `
-            id, name, location, price, beds, baths, sqft, image_url, status, listing_status, created_at, listed_by, deleted_at,
+            id, name, location, price, beds, baths, sqft, image_url, status, listing_status, created_at, listed_by, deleted_at, availability_state,
             property_agents (
               agent:agents (
                 id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at,
@@ -896,7 +900,8 @@ function ClientPublicProfilePageInner() {
     opts: { variant: "pinned" | "liked"; activityIso: string | null },
   ) => {
     if (!clientProfile) return null;
-    const listingRemoved = isPropertyListingRemoved(p);
+    const listingRemoved = propertyEngagementLooksUnavailable(p);
+    const removedOverlayLabel = availabilityCardOverlayLabel(p.availability_state, p.deleted_at);
     const overlay = listingRemoved ? null : overlayLabel(p);
     const likeTotal = likeCounts[p.id] ?? 0;
     const pinSaveN = saveCounts[p.id] ?? 0;
@@ -955,8 +960,15 @@ function ClientPublicProfilePageInner() {
                 className={cn("object-cover grayscale", overlay ? "brightness-[0.55]" : "")}
               />
               <div className="pointer-events-none absolute inset-0 z-[8] flex items-center justify-center bg-black/25 px-2">
-                <span className="rounded-full bg-gray-900/85 px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-gray-100">
-                  Listing removed
+                <span
+                  className={cn(
+                    "rounded-full px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide",
+                    p.availability_state === "reserved"
+                      ? "bg-[#D4A843]/95 text-[#2C2C2C]"
+                      : "bg-gray-900/85 text-gray-100",
+                  )}
+                >
+                  {removedOverlayLabel}
                 </span>
               </div>
             </div>
@@ -1108,7 +1120,7 @@ function ClientPublicProfilePageInner() {
         <div className="flex flex-col gap-2 px-4 pb-4 sm:flex-row sm:flex-wrap sm:items-center">
           {listingRemoved ? (
             <span className="inline-flex w-full items-center justify-center rounded-full bg-gray-100 px-3 py-2.5 text-sm font-semibold text-gray-400 sm:w-auto">
-              Listing removed
+              {removedOverlayLabel}
             </span>
           ) : (
             <Link

@@ -9,7 +9,10 @@ import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { useAuth } from "@/contexts/auth-context";
 import { usePinnedPropertyIds } from "@/hooks/use-property-engagement";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
-import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
+import {
+  availabilityCardOverlayLabel,
+  propertyEngagementLooksUnavailable,
+} from "@/lib/property-availability";
 import { cn } from "@/lib/utils";
 
 type PropertyCard = {
@@ -22,6 +25,7 @@ type PropertyCard = {
   sqft: string;
   image_url: string;
   deleted_at?: string | null;
+  availability_state?: string | null;
 };
 
 export default function SavedPage() {
@@ -50,7 +54,7 @@ export default function SavedPage() {
       setError(null);
       const { data, error: fetchErr } = await supabase
         .from("properties")
-        .select("id, location, price, status, beds, baths, sqft, image_url, deleted_at")
+        .select("id, location, price, status, beds, baths, sqft, image_url, deleted_at, availability_state")
         .in("id", ids);
       if (cancelled) return;
       if (fetchErr) {
@@ -107,7 +111,8 @@ export default function SavedPage() {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {rows.map((p) => {
-          const removed = isPropertyListingRemoved(p);
+          const removed = propertyEngagementLooksUnavailable(p);
+          const overlayLabel = availabilityCardOverlayLabel(p.availability_state, p.deleted_at);
           return (
           <div
             key={p.id}
@@ -126,15 +131,25 @@ export default function SavedPage() {
               />
               {removed ? (
                 <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center bg-black/25 px-2">
-                  <span className="rounded-full bg-gray-900/85 px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-gray-100">
-                    Listing removed
+                  <span
+                    className={cn(
+                      "rounded-full px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide",
+                      p.availability_state === "reserved"
+                        ? "bg-[#D4A843]/95 text-[#2C2C2C]"
+                        : "bg-gray-900/85 text-gray-100",
+                    )}
+                  >
+                    {overlayLabel}
                   </span>
                 </div>
               ) : null}
               <button
                 type="button"
-                onClick={() => void pins.toggle(p.id)}
-                className="absolute right-3 top-3 z-10 rounded-full bg-white/90 p-2 shadow-sm"
+                disabled={removed}
+                onClick={() => {
+                  if (!removed) void pins.toggle(p.id);
+                }}
+                className="absolute right-3 top-3 z-10 rounded-full bg-white/90 p-2 shadow-sm disabled:pointer-events-none disabled:opacity-40"
                 aria-label="Unpin"
               >
                 <Pin className="h-5 w-5 fill-[#D4A843] text-[#D4A843]" />
@@ -154,7 +169,7 @@ export default function SavedPage() {
                 {p.beds} bd · {p.baths} ba · {p.sqft} sqft
               </p>
               {removed ? (
-                <p className="mt-3 text-sm font-semibold text-gray-400">Listing no longer available</p>
+                <p className="mt-3 text-sm font-semibold text-gray-400">{overlayLabel}</p>
               ) : (
                 <Link
                   href={`/properties/${encodeURIComponent(p.id)}`}

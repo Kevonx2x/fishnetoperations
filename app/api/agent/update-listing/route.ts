@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { fail, fromZodError, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
@@ -6,6 +7,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { logActivity, upsertListingEditedActivity } from "@/lib/activity-log";
 import { normalizeCity } from "@/lib/normalize-city";
 import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
+import { duplicateExistingFromRpcRow } from "@/lib/duplicate-listing";
 
 const PROPERTY_TYPES = [
   "House",
@@ -70,8 +72,45 @@ export async function POST(req: Request) {
     }
 
     const listedBy = (prop as { listed_by: string | null }).listed_by;
-    if (listedBy !== session.userId) {
-      return fail("FORBIDDEN", "Only the listing owner can edit this property", 403);
+    const isOwner = listedBy === session.userId;
+
+    let isCoAgent = false;
+    if (!isOwner) {
+      const { data: myAgent, error: maErr } = await sb
+        .from("agents")
+        .select("id")
+        .eq("user_id", session.userId)
+        .maybeSingle();
+      if (maErr) return fail("DATABASE_ERROR", maErr.message, 500);
+      const myAgentId = (myAgent as { id?: string } | null)?.id;
+      if (!myAgentId) {
+        return fail("FORBIDDEN", "Only the listing owner can edit this property", 403);
+      }
+      const { data: paLink } = await sb
+        .from("property_agents")
+        .select("agent_id")
+        .eq("property_id", parsed.data.propertyId)
+        .eq("agent_id", myAgentId)
+        .maybeSingle();
+      if (paLink) {
+        isCoAgent = true;
+      } else {
+        const { data: appr } = await sb
+          .from("co_agent_requests")
+          .select("id")
+          .eq("property_id", parsed.data.propertyId)
+          .eq("agent_id", myAgentId)
+          .eq("status", "approved")
+          .maybeSingle();
+        if (appr) isCoAgent = true;
+      }
+      if (!isCoAgent) {
+        return fail("FORBIDDEN", "Only the listing owner can edit this property", 403);
+      }
+    }
+
+    if (isCoAgent && parsed.data.imageUrls !== undefined) {
+      return fail("FORBIDDEN", "Only the listing owner can change listing photos.", 403);
     }
 
     const priceStr =
@@ -116,7 +155,28 @@ export async function POST(req: Request) {
 
     const locTrimmed = parsed.data.location.trim();
 
-    const { error: updErr } = await sb
+    // TODO: add lat/lng proximity check (within 0.0001 degrees) once Maps Tier 1 wires Google Places autocomplete and starts writing coordinates
+    const { data: dupRows, error: dupErr } = await sb.rpc("find_duplicate_active_property", {
+      p_location: locTrimmed,
+      p_lat: null,
+      p_lng: null,
+      p_exclude_id: parsed.data.propertyId,
+    });
+    if (dupErr) {
+      return fail("DATABASE_ERROR", dupErr.message, 500);
+    }
+    const dup = (Array.isArray(dupRows) ? dupRows[0] : null) as {
+      id: string;
+      prop_name: string;
+      prop_location: string;
+      listed_by: string | null;
+    } | null;
+    if (dup?.id) {
+      const existing = await duplicateExistingFromRpcRow(sb, dup);
+      return NextResponse.json({ duplicate: true as const, existing }, { status: 409 });
+    }
+
+    const baseUpd = sb
       .from("properties")
       .update({
         name: parsed.data.name?.trim() || null,
@@ -136,14 +196,15 @@ export async function POST(req: Request) {
         developer_name: isPresale ? dev : null,
         turnover_date: isPresale && turn ? turn : null,
         unit_types: isPresale && units && units.length ? units : isPresale ? [] : [],
-        ...(primaryImage ? { image_url: primaryImage } : {}),
+        ...(isOwner && primaryImage ? { image_url: primaryImage } : {}),
       })
-      .eq("id", parsed.data.propertyId)
-      .eq("listed_by", session.userId);
+      .eq("id", parsed.data.propertyId);
+
+    const { error: updErr } = await (isOwner ? baseUpd.eq("listed_by", session.userId) : baseUpd);
 
     if (updErr) return fail("DATABASE_ERROR", updErr.message, 500);
 
-    if (imageUrls && imageUrls.length > 0) {
+    if (isOwner && imageUrls && imageUrls.length > 0) {
       const { error: delPh } = await sb
         .from("property_photos")
         .delete()

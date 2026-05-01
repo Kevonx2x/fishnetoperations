@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizeCity } from "@/lib/normalize-city";
+import { duplicateExistingFromRpcRow } from "@/lib/duplicate-listing";
 
 export async function POST(req: Request) {
   try {
@@ -19,6 +20,8 @@ export async function POST(req: Request) {
       baths,
       image_url,
       listed_by,
+      skip_duplicate_check,
+      force_publish_duplicate,
     } = body as Record<string, unknown>;
 
     if (
@@ -37,6 +40,36 @@ export async function POST(req: Request) {
 
     const supabase = createSupabaseAdmin();
     const loc = typeof location === "string" ? location.trim() : "";
+    const skipDup =
+      skip_duplicate_check === true ||
+      skip_duplicate_check === "true" ||
+      skip_duplicate_check === 1 ||
+      force_publish_duplicate === true ||
+      force_publish_duplicate === "true" ||
+      force_publish_duplicate === 1;
+
+    if (!skipDup) {
+      const { data: dupRows, error: dupErr } = await supabase.rpc("find_duplicate_active_property", {
+        p_location: loc,
+        p_lat: null,
+        p_lng: null,
+        p_exclude_id: null,
+      });
+      if (dupErr) {
+        return NextResponse.json({ error: dupErr.message }, { status: 500 });
+      }
+      const dup = (Array.isArray(dupRows) ? dupRows[0] : null) as {
+        id: string;
+        prop_name: string;
+        prop_location: string;
+        listed_by: string | null;
+      } | null;
+      if (dup?.id) {
+        const existing = await duplicateExistingFromRpcRow(supabase, dup);
+        return NextResponse.json({ duplicate: true, existing }, { status: 409 });
+      }
+    }
+
     const { data, error } = await supabase
       .from("properties")
       .insert({
@@ -48,6 +81,7 @@ export async function POST(req: Request) {
         baths: Math.round(baths),
         image_url,
         listed_by: listedBy,
+        availability_state: "available",
       })
       .select()
       .single();

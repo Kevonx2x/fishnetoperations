@@ -67,7 +67,7 @@ import { formatRelativeTime } from "@/lib/relative-time";
 import { labelForClientArchiveReason } from "@/lib/client-lead-archive";
 import { propertyCanonicalCity } from "@/lib/normalize-city";
 import { cn } from "@/lib/utils";
-import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
+import { propertyEngagementLooksUnavailable } from "@/lib/property-availability";
 import { isClientDocumentType, labelForClientDocType } from "@/lib/client-documents";
 import { coerceLeadId, type ParsedViewing } from "@/lib/viewings";
 import { useAgentViewings } from "@/lib/agent-viewings-context";
@@ -396,6 +396,7 @@ type PropertyMeta = {
   city: string;
   location: string;
   deleted_at?: string | null;
+  availability_state?: string | null;
 };
 
 /** Client-side pipeline search: client full name, listing city/location, property display name (home). */
@@ -1494,7 +1495,10 @@ function SortableDealCard({
   const propLine = propertyLabel(deal.property_id);
   const propRemoved =
     deal.property_id != null
-      ? isPropertyListingRemoved({ deleted_at: propertyMetaById[deal.property_id]?.deleted_at })
+      ? propertyEngagementLooksUnavailable({
+          deleted_at: propertyMetaById[deal.property_id]?.deleted_at,
+          availability_state: propertyMetaById[deal.property_id]?.availability_state,
+        })
       : false;
   const moveLabel = MOVE_TO_LABEL[deal.pipeline_stage];
   const menuOpen = menuOpenId === deal.id;
@@ -1984,7 +1988,7 @@ export function AgentPipelineTab({
     void (async () => {
       const { data, error } = await supabase
         .from("properties")
-        .select("id, city, location, price, rent_price, listing_type, status, deleted_at")
+        .select("id, city, location, price, rent_price, listing_type, status, deleted_at, availability_state")
         .in("id", ids);
       if (cancelled) return;
       if (error) {
@@ -2005,6 +2009,7 @@ export function AgentPipelineTab({
         listing_type: unknown;
         status: unknown;
         deleted_at?: string | null;
+        availability_state?: string | null;
       }[]) {
         const location = String(row.location ?? "").trim();
         const canonicalCity = propertyCanonicalCity({ city: row.city, location });
@@ -2012,6 +2017,7 @@ export function AgentPipelineTab({
           city: canonicalCity,
           location,
           deleted_at: row.deleted_at != null ? String(row.deleted_at) : null,
+          availability_state: row.availability_state != null ? String(row.availability_state) : null,
         };
 
         const lt = String(row.listing_type ?? "").trim().toLowerCase();

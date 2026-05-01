@@ -2,6 +2,7 @@ import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { displayLabelForClientDealDocument } from "@/lib/deal-document-client-label";
 import { comparePropertyPhotos } from "@/lib/marketplace-property";
+import { propertyEngagementLooksUnavailable } from "@/lib/property-availability";
 import { cloudinaryPropertyPhotoDisplayUrl } from "@/lib/cloudinary-property-photo-url";
 
 type ViewingRow = {
@@ -164,7 +165,7 @@ export async function GET(req: Request) {
       propertyIds.length
         ? admin
             .from("properties")
-            .select("id, name, location, price, image_url, deleted_at, property_photos(url, sort_order, created_at)")
+            .select("id, name, location, price, image_url, deleted_at, availability_state, property_photos(url, sort_order, created_at)")
             .in("id", propertyIds)
         : Promise.resolve({ data: [] as unknown[] }),
       agentUserIds.length
@@ -210,6 +211,7 @@ export async function GET(req: Request) {
         price: string;
         image_url: string | null;
         deleted_at: string | null;
+        availability_state: string | null;
         property_photos: { url: string | null; sort_order?: number | null; created_at?: string | null }[] | null;
       };
       return [row.id, row] as const;
@@ -310,7 +312,10 @@ export async function GET(req: Request) {
             price: priceDisplay,
             hero_image: hero,
             photo_count: photoCount,
-            listing_removed: prop.deleted_at != null && String(prop.deleted_at).trim() !== "",
+            listing_removed: propertyEngagementLooksUnavailable({
+              deleted_at: prop.deleted_at,
+              availability_state: prop.availability_state,
+            }),
           }
         : {
             id: null as string | null,

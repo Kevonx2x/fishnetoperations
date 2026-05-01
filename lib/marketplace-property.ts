@@ -34,6 +34,8 @@ export type DbProperty = {
   property_agents?: { agent: unknown }[];
   /** Soft delete — listing hidden from public discovery when set. */
   deleted_at?: string | null;
+  /** available | reserved | closed | removed — public discovery uses `available` only. */
+  availability_state?: string | null;
 };
 
 /** Order gallery: lowest sort_order first; ties or missing sort_order use created_at ascending. */

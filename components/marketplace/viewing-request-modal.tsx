@@ -248,8 +248,14 @@ export function ViewingRequestModal({
       }
 
       if (!res.ok) {
-        const j = responseBody as { error?: { message?: string } } | null;
-        throw new Error(j?.error?.message ?? "Something went wrong.");
+        const j = responseBody as { error?: string | { message?: string } } | null;
+        const msg =
+          typeof j?.error === "string"
+            ? j.error
+            : j?.error && typeof j.error === "object" && "message" in j.error
+              ? String((j.error as { message?: string }).message)
+              : "Something went wrong.";
+        throw new Error(msg);
       }
 
       setSuccess(true);
