@@ -1,34 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
+import { useAgentViewings } from "@/lib/agent-viewings-context";
 import { cn } from "@/lib/utils";
-import { fetchAgentViewings, type ParsedViewing } from "@/lib/viewings";
-
-function addDays(d: Date, delta: number) {
-  const out = new Date(d);
-  out.setDate(out.getDate() + delta);
-  return out;
-}
-
-function startOfWeekSunday(d: Date) {
-  const out = new Date(d);
-  out.setHours(0, 0, 0, 0);
-  out.setDate(out.getDate() - out.getDay()); // Sun start
-  return out;
-}
-
-/** Local calendar date as YYYY-MM-DD (never use UTC slice of toISOString for day bucketing). */
-function localDateKey(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
+import {
+  manilaCalendarAddDays,
+  manilaDateStringFromInstant,
+  manilaDayOfMonthFromYmd,
+  manilaMinutesSinceMidnightFromInstant,
+  manilaWeekRangeLabel,
+  manilaStartOfWeekSundayYmd,
+  manilaTimeLabel12hFromInstant,
+  manilaWeekdayShortFromYmd,
+} from "@/lib/manila-datetime";
 function statusClasses(statusRaw: string | null | undefined) {
   const status = String(statusRaw ?? "scheduled").toLowerCase();
   if (status === "completed") return "bg-[#D4A843]/[0.12] border-l-[#D4A843]";
@@ -36,99 +23,61 @@ function statusClasses(statusRaw: string | null | undefined) {
   return "bg-[#6B9E6E]/[0.12] border-l-[#6B9E6E]";
 }
 
-export function AgentCalendarModal(props: {
-  open: boolean;
-  onClose: () => void;
-  supabase: SupabaseClient;
-  agentId: string;
-}) {
-  const [cursor, setCursor] = useState<Date>(() => {
-    const out = new Date();
-    out.setHours(0, 0, 0, 0);
-    return out;
-  });
-  const [loading, setLoading] = useState(false);
-  const [events, setEvents] = useState<ParsedViewing[]>([]);
-  const requestIdRef = useRef(0);
+/** Hour tick label in Manila (12h). */
+function manilaHourTickLabel(hour: number): string {
+  const d = new Date(`2024-06-15T${String(hour).padStart(2, "0")}:00:00+08:00`);
+  return manilaTimeLabel12hFromInstant(d);
+}
 
-  const weekStart = useMemo(() => startOfWeekSunday(cursor), [cursor]);
-  const weekDays = useMemo(() => Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i)), [weekStart]);
-
-  const label = useMemo(
-    () => cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
-    [cursor],
+export function AgentCalendarModal(props: { open: boolean; onClose: () => void }) {
+  const { viewings: agentViewings, isLoading } = useAgentViewings();
+  const [weekStartYmd, setWeekStartYmd] = useState(() =>
+    manilaStartOfWeekSundayYmd(manilaDateStringFromInstant(new Date())),
   );
 
+  const weekDayYmds = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => manilaCalendarAddDays(weekStartYmd, i)),
+    [weekStartYmd],
+  );
+
+  const rangeEndExclusiveYmd = useMemo(() => manilaCalendarAddDays(weekStartYmd, 7), [weekStartYmd]);
+
+  const events = useMemo(() => {
+    return agentViewings
+      .filter((v) => v.dateKey >= weekStartYmd && v.dateKey < rangeEndExclusiveYmd)
+      .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+  }, [agentViewings, weekStartYmd, rangeEndExclusiveYmd]);
+
+  const monthTitle = useMemo(() => manilaWeekRangeLabel(weekStartYmd), [weekStartYmd]);
+
   useEffect(() => {
     if (!props.open) return;
-    if (!props.agentId) {
-      setEvents([]);
-      return;
-    }
+    setWeekStartYmd(manilaStartOfWeekSundayYmd(manilaDateStringFromInstant(new Date())));
+  }, [props.open]);
 
-    const reqId = (requestIdRef.current += 1);
-    let cancelled = false;
-    setLoading(true);
+  const todayYmd = useMemo(() => manilaDateStringFromInstant(new Date()), [props.open, weekStartYmd]);
+  const [selectedYmd, setSelectedYmd] = useState<string | null>(null);
 
-    const timeout = window.setTimeout(() => {
-      if (cancelled) return;
-      setLoading(false);
-      setEvents([]);
-    }, 3000);
-
-    void (async () => {
-      const rangeStart = new Date(weekStart);
-      rangeStart.setHours(0, 0, 0, 0);
-      const rangeEnd = addDays(rangeStart, 7);
-      rangeEnd.setHours(0, 0, 0, 0);
-
-      const mapped = await fetchAgentViewings(props.supabase, props.agentId, rangeStart, rangeEnd, {
-        excludeCancelled: false,
-      });
-
-      if (cancelled || requestIdRef.current !== reqId) return;
-
-      window.clearTimeout(timeout);
-      setEvents(mapped);
-      setLoading(false);
-    })();
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeout);
-    };
-  }, [props.open, props.agentId, props.supabase, weekStart]);
-
-  const todayKey = useMemo(() => localDateKey(new Date()), [props.open]);
-  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
   const START_HOUR = 0;
   const END_HOUR = 23;
-  const DEFAULT_SCROLL_HOUR = 8;
-  const HOUR_ROW_PX = 56;
+  /** Shorter rows so 24h × 7 days fits in one view on most laptops. */
+  const HOUR_ROW_PX = 26;
   const hours = useMemo(() => Array.from({ length: END_HOUR - START_HOUR + 1 }).map((_, i) => START_HOUR + i), []);
   const gridHeight = (END_HOUR - START_HOUR + 1) * HOUR_ROW_PX;
-  const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  const highlightKey = selectedDayKey ?? todayKey;
-
-  useEffect(() => {
-    if (!props.open) return;
-    setSelectedDayKey(todayKey);
-  }, [props.open, todayKey]);
+  const highlightYmd = selectedYmd ?? todayYmd;
 
   useEffect(() => {
     if (!props.open) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTop = DEFAULT_SCROLL_HOUR * HOUR_ROW_PX;
-  }, [props.open, cursor]);
+    setSelectedYmd(todayYmd);
+  }, [props.open, todayYmd]);
 
   return (
     <AnimatePresence>
       {props.open ? (
         <motion.div
           key="agent-calendar-overlay"
-          className="fixed inset-0 z-[140] flex items-end justify-center px-4 py-6 md:items-center md:p-8"
+          className="fixed inset-0 z-[140] flex items-end justify-center px-3 py-4 md:items-center md:p-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.25 } }}
@@ -145,7 +94,7 @@ export function AgentCalendarModal(props: {
             role="dialog"
             aria-modal="true"
             aria-label="Calendar"
-            className="relative z-10 w-full max-w-[1100px] min-h-[560px] overflow-hidden rounded-xl bg-white shadow-2xl"
+            className="relative z-10 flex max-h-[94vh] w-full max-w-[1180px] flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
@@ -155,173 +104,159 @@ export function AgentCalendarModal(props: {
             <button
               type="button"
               onClick={props.onClose}
-              className="absolute right-4 top-4 rounded-md p-1.5 text-[#888888] transition hover:text-[#2C2C2C]"
+              className="absolute right-3 top-3 z-30 rounded-md p-1.5 text-[#888888] transition hover:text-[#2C2C2C] md:right-4 md:top-4"
               aria-label="Close"
             >
               <X className="h-4 w-4" strokeWidth={2} />
             </button>
 
-            <div className="px-5 pt-4 pb-2">
+            <div className="shrink-0 px-4 pt-3 pb-2 md:px-5 md:pt-4">
               <div className="flex items-center gap-3 pr-10">
                 <button
                   type="button"
-                  onClick={() => setCursor((d) => addDays(d, -7))}
-                  className="shrink-0 text-[#888888] hover:text-[#2C2C2C] transition"
+                  onClick={() => setWeekStartYmd((s) => manilaCalendarAddDays(s, -7))}
+                  className="shrink-0 text-[#888888] transition hover:text-[#2C2C2C]"
                   aria-label="Previous week"
                 >
                   <ChevronLeft className="h-5 w-5" aria-hidden />
                 </button>
-                <div className="flex-1 text-center text-lg font-semibold text-[#2C2C2C]">{label}</div>
+                <div className="flex-1 text-center">
+                  <div className="text-lg font-semibold text-[#2C2C2C]">{monthTitle}</div>
+                  <div className="mt-0.5 text-[11px] font-medium text-[#2C2C2C]/50">Times shown in Philippines (UTC+08:00)</div>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setCursor((d) => addDays(d, 7))}
-                  className="shrink-0 text-[#888888] hover:text-[#2C2C2C] transition"
+                  onClick={() => setWeekStartYmd((s) => manilaCalendarAddDays(s, 7))}
+                  className="shrink-0 text-[#888888] transition hover:text-[#2C2C2C]"
                   aria-label="Next week"
                 >
                   <ChevronRight className="h-5 w-5" aria-hidden />
                 </button>
               </div>
 
-              <div className="mt-3 flex items-center justify-between">
+              <div className="mt-2 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => {
-                    const t = new Date();
-                    t.setHours(0, 0, 0, 0);
-                    setCursor(t);
+                    setWeekStartYmd(manilaStartOfWeekSundayYmd(manilaDateStringFromInstant(new Date())));
                   }}
-                  className="text-xs text-[#6B9E6E] border border-[#6B9E6E]/30 rounded-full px-3 py-1 hover:bg-[#6B9E6E]/5 transition"
+                  className="rounded-full border border-[#6B9E6E]/30 px-3 py-1 text-xs font-semibold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/5"
                 >
                   Today
                 </button>
               </div>
             </div>
 
-            <div className="px-5 pb-4">
-              {/* Weekly workspace */}
-              <div className="grid grid-cols-[64px_1fr]">
-                <div
-                  ref={scrollRef}
-                  className="col-span-2 max-h-[440px] overflow-y-auto"
-                >
-                  {/* Sticky header aligned with grid (shares scrollbar width) */}
-                  <div className="sticky top-0 z-20 grid grid-cols-[64px_1fr] bg-white">
-                    <div className="border-b border-gray-100" />
-                    <div className="grid grid-cols-7 border-b border-gray-100">
-                      {weekDays.map((d) => {
-                        const k = localDateKey(d);
-                        const isToday = k === todayKey;
-                        const isHighlighted = k === highlightKey;
-                        return (
-                          <button
-                            key={k}
-                            type="button"
-                            onClick={() => setSelectedDayKey(k)}
+            <div className="min-h-0 flex-1 overflow-auto px-3 pb-4 md:px-5 md:pb-5">
+              <div className="min-w-[720px]">
+                <div className="sticky top-0 z-20 grid grid-cols-[52px_1fr] border-b border-gray-100 bg-white">
+                  <div className="border-r border-gray-100" />
+                  <div className="grid grid-cols-7">
+                    {weekDayYmds.map((ymd, colIdx) => {
+                      const isToday = ymd === todayYmd;
+                      const isHighlighted = ymd === highlightYmd;
+                      return (
+                        <button
+                          key={ymd}
+                          type="button"
+                          onClick={() => setSelectedYmd(ymd)}
+                          className={cn(
+                            "border-l border-gray-100 px-2 py-1.5 text-left transition-colors",
+                            colIdx === 0 && "border-l-0",
+                            isHighlighted && "bg-[#6B9E6E]/[0.06]",
+                          )}
+                        >
+                          {isToday ? (
+                            <div className="text-[10px] font-semibold leading-none text-[#6B9E6E]">Today</div>
+                          ) : (
+                            <div className="h-[10px]" aria-hidden />
+                          )}
+                          <div
                             className={cn(
-                              "text-left px-2.5 py-1.5 border-l border-gray-100 transition-colors",
-                              isHighlighted && "bg-[#6B9E6E]/[0.04]",
+                              "text-[10px] font-semibold uppercase tracking-widest text-[#888888]/70",
+                              isHighlighted && "text-[#2C2C2C]",
                             )}
                           >
-                            {isToday ? (
-                              <div className="text-[10px] font-semibold text-[#6B9E6E] leading-none">Today</div>
-                            ) : (
-                              <div className="h-[10px]" aria-hidden />
+                            {manilaWeekdayShortFromYmd(ymd)}
+                          </div>
+                          <div className={cn("text-sm tabular-nums text-[#2C2C2C]", isHighlighted && "font-semibold")}>
+                            {manilaDayOfMonthFromYmd(ymd)}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[52px_1fr]">
+                  <div className="border-r border-gray-100">
+                    {hours.map((h) => (
+                      <div
+                        key={h}
+                        className="border-t border-gray-200 pr-1.5 text-right text-[10px] font-medium leading-none text-[#888888]"
+                        style={{ height: HOUR_ROW_PX, paddingTop: 2 }}
+                      >
+                        {manilaHourTickLabel(h)}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="relative min-w-0">
+                    <div className="grid grid-cols-7" style={{ height: gridHeight }}>
+                      {weekDayYmds.map((ymd, colIdx) => {
+                        const dayEvents = events.filter((e) => e.dateKey === ymd);
+                        const isHighlighted = ymd === highlightYmd;
+                        return (
+                          <button
+                            key={ymd}
+                            type="button"
+                            onClick={() => setSelectedYmd(ymd)}
+                            className={cn(
+                              "relative border-l border-gray-100 text-left",
+                              colIdx === 0 && "border-l-0",
+                              isHighlighted && "bg-[#6B9E6E]/[0.02]",
                             )}
-                            <div
-                              className={cn(
-                                "text-[11px] uppercase tracking-widest text-[#888888]/60",
-                                isHighlighted && "text-[#2C2C2C] font-semibold",
-                              )}
-                            >
-                              {d.toLocaleDateString(undefined, { weekday: "short" })}
-                            </div>
-                            <div className={cn("text-sm text-[#2C2C2C]", isHighlighted && "font-semibold")}>
-                              {d.getDate()}
-                            </div>
+                          >
+                            {hours.map((h) => (
+                              <div key={h} className="border-t border-gray-200" style={{ height: HOUR_ROW_PX }} />
+                            ))}
+
+                            {dayEvents.map((v) => {
+                              const mins = manilaMinutesSinceMidnightFromInstant(v.scheduledAt);
+                              const startMins = START_HOUR * 60;
+                              const endMins = END_HOUR * 60 + 60;
+                              if (mins < startMins || mins >= endMins) return null;
+                              const top = ((mins - startMins) / 60) * HOUR_ROW_PX + 1;
+                              const height = Math.max(HOUR_ROW_PX - 4, 20);
+                              const cls = statusClasses(v.status);
+                              const cancelled = v.status === "cancelled";
+                              return (
+                                <div
+                                  key={v.id}
+                                  className={cn(
+                                    "absolute left-0.5 right-0.5 min-w-0 overflow-hidden rounded border-l-[3px] px-1 py-0.5 md:left-1 md:right-1 md:px-1.5",
+                                    cls,
+                                    cancelled && "line-through",
+                                  )}
+                                  style={{ top, height }}
+                                >
+                                  <div className="min-w-0 text-[10px] font-semibold leading-tight text-[#2C2C2C] md:text-[11px]">
+                                    <span className="block truncate whitespace-nowrap">{v.propertyName}</span>
+                                    <span className="block truncate whitespace-nowrap text-[#2C2C2C]/75">{v.timeLabel}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </button>
                         );
                       })}
                     </div>
-                  </div>
 
-                  {/* Scrollable body */}
-                  <div className="grid grid-cols-[64px_1fr]">
-                    <div className="border-r border-gray-100">
-                      {hours.map((h) => (
-                        <div
-                          key={h}
-                          className="pr-2 text-[11px] text-[#888888] text-right border-t border-gray-200"
-                          style={{ height: HOUR_ROW_PX }}
-                        >
-                          {new Date(2000, 0, 1, h).toLocaleTimeString([], { hour: "numeric" })}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="relative">
-                      <div className="grid grid-cols-7" style={{ height: gridHeight }}>
-                        {weekDays.map((d) => {
-                          const k = localDateKey(d);
-                          const cellKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-                          const dayEvents = events.filter((e) => e.dateKey === cellKey);
-                          const isHighlighted = k === highlightKey;
-                          return (
-                            <button
-                              key={k}
-                              type="button"
-                              onClick={() => setSelectedDayKey(k)}
-                              className={cn(
-                                "relative border-l border-gray-100 text-left",
-                                isHighlighted && "bg-[#6B9E6E]/[0.02]",
-                              )}
-                            >
-                              {/* Hour grid lines */}
-                              {hours.map((h) => (
-                                <div
-                                  key={h}
-                                  className="border-t border-gray-200"
-                                  style={{ height: HOUR_ROW_PX }}
-                                />
-                              ))}
-
-                              {/* Events */}
-                              {dayEvents.map((v) => {
-                                const dt = v.scheduledAt;
-                                const mins = dt.getHours() * 60 + dt.getMinutes();
-                                const startMins = START_HOUR * 60;
-                                const endMins = END_HOUR * 60 + 60;
-                                if (mins < startMins || mins >= endMins) return null;
-                                const top = ((mins - startMins) / 60) * HOUR_ROW_PX + 2;
-                                const height = HOUR_ROW_PX - 6;
-                                const cls = statusClasses(v.status);
-                                const cancelled = v.status === "cancelled";
-                                return (
-                                  <div
-                                    key={v.id}
-                                    className={cn(
-                                      "absolute left-2 right-2 rounded-md px-2 py-1 border-l-[3px]",
-                                      cls,
-                                      cancelled && "line-through",
-                                    )}
-                                    style={{ top, height }}
-                                  >
-                                    <div className="text-[11px] font-semibold text-[#2C2C2C] truncate">
-                                      {v.propertyName} · {v.timeLabel}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </button>
-                          );
-                        })}
+                    {isLoading ? (
+                      <div className="pointer-events-none absolute inset-0 bg-white/50">
+                        <div className="absolute inset-0 animate-pulse" />
                       </div>
-
-                      {loading ? (
-                        <div className="pointer-events-none absolute inset-0 bg-white/50">
-                          <div className="absolute inset-0 animate-pulse" />
-                        </div>
-                      ) : null}
-                    </div>
+                    ) : null}
                   </div>
                 </div>
               </div>

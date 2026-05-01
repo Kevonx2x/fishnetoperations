@@ -68,13 +68,26 @@ import { propertyCanonicalCity } from "@/lib/normalize-city";
 import { cn } from "@/lib/utils";
 import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 import { isClientDocumentType, labelForClientDocType } from "@/lib/client-documents";
-import { coerceLeadId, fetchAgentViewings, parseViewing } from "@/lib/viewings";
+import { coerceLeadId, type ParsedViewing } from "@/lib/viewings";
+import { useAgentViewings } from "@/lib/agent-viewings-context";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  manilaDateStringFromInstant,
+  manilaLocalDateTimeToOffsetIso,
+  manilaTimeStringFromInstant,
+  normalizeTimeHmForInput,
+} from "@/lib/manila-datetime";
 
-/** Earliest upcoming viewing row for a lead (for Viewing stage pill). */
-type PipelineViewingRow = { id: string; scheduled_at: string; status: string | null };
-
-/** Client-requested / confirmed slot from `viewing_requests` (linked by `leads.viewing_request_id`). */
-type PipelineViewingRequestSlot = { scheduled_at: string; status: string | null };
+/** When no client/request time is known, pre-fill time so Confirm is one step faster (24h `HH:mm`). */
+const DEFAULT_VIEWING_CONFIRM_TIME = "10:00";
 
 export const PIPELINE_STAGES = [
   { id: "lead", label: "Lead" },
@@ -96,7 +109,7 @@ export type PipelineLeadRow = {
   client_avatar_url?: string | null;
   pipeline_stage: PipelineStageId;
   property_id: string | null;
-  /** When set, client viewing request row id — use `viewing_requests.scheduled_at` for pill date. */
+  /** When set, client viewing request row id (defaults for confirm-viewing modal). */
   viewing_request_id?: string | null;
   created_at: string;
   updated_at?: string | null;
@@ -373,6 +386,7 @@ type PropertyMeta = {
   deleted_at?: string | null;
 };
 
+/** Client-side pipeline search: client full name, listing city/location, property display name (home). */
 function leadMatchesPipelineSearch(
   lead: PipelineLeadRow,
   q: string,
@@ -382,14 +396,13 @@ function leadMatchesPipelineSearch(
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
   if ((lead.name ?? "").toLowerCase().includes(needle)) return true;
-  if ((lead.email ?? "").toLowerCase().includes(needle)) return true;
   const pid = lead.property_id;
   if (!pid) return false;
   const meta = propertyMetaById[pid];
-  const title = (labelForProperty(pid) ?? "").toLowerCase();
+  const home = (labelForProperty(pid) ?? "").toLowerCase();
   const city = (meta?.city ?? "").toLowerCase();
   const loc = (meta?.location ?? "").toLowerCase();
-  return title.includes(needle) || city.includes(needle) || loc.includes(needle);
+  return home.includes(needle) || city.includes(needle) || loc.includes(needle);
 }
 
 function tsOr0(raw: string | null | undefined): number {
@@ -596,8 +609,7 @@ function KanbanDealCard({
   pinned,
   uploadedRequestedDocCount,
   unviewedUploadedDocCount,
-  viewingRow,
-  viewingRequestSlot,
+  scheduledViewing,
   offerCreatedAt,
   reservationCreatedAt,
   onSendOffer,
@@ -626,10 +638,8 @@ function KanbanDealCard({
   uploadedRequestedDocCount: number;
   /** Subset of uploaded client docs the agent has not acknowledged in the drawer yet. */
   unviewedUploadedDocCount: number;
-  /** Earliest upcoming viewing for this lead (Viewing stage pill). */
-  viewingRow?: PipelineViewingRow | null;
-  /** Client `viewing_requests` slot — preferred for pill date when present. */
-  viewingRequestSlot?: PipelineViewingRequestSlot | null;
+  /** Earliest non-cancelled `viewings` row for this lead (shared agent viewings context). */
+  scheduledViewing?: ParsedViewing | null;
   /** Latest offer created_at for this lead (for Offer stage pill). */
   offerCreatedAt?: string | null;
   /** Latest reservation created_at for this lead (for Reservation stage pill). */
@@ -684,50 +694,39 @@ function KanbanDealCard({
       closed: "Closed",
     };
 
-    let formattedDate: string | null = null;
-
     if (stage === "viewing") {
-      const fromRequest = viewingRequestSlot?.scheduled_at?.trim() || null;
-      const fromViewingsTable = viewingRow?.scheduled_at?.trim() || null;
-      const scheduleAt = fromRequest || fromViewingsTable;
-      if (scheduleAt) {
-        const lid = coerceLeadId(deal.id) ?? deal.id;
-        const parsed = parseViewing({
-          id: viewingRow?.id ?? `vr:${deal.viewing_request_id ?? lid}`,
-          lead_id: lid,
-          scheduled_at: scheduleAt,
-          status: viewingRow?.status ?? viewingRequestSlot?.status,
-          propertyName: propLine,
-          clientName: deal.name?.trim() || deal.email || "Unknown",
-        });
-        formattedDate = parsed.fullDateLabel;
+      if (scheduledViewing) {
+        return {
+          kind: "viewing" as const,
+          cls: stylesByStage.viewing,
+          dateLine: scheduledViewing.fullDateLabel,
+          timeLine: scheduledViewing.timeLabel,
+        };
       }
+      return { kind: "viewing_fallback" as const, cls: stylesByStage.viewing };
     }
 
-    if (stage !== "viewing" || formattedDate == null) {
-      const iso =
-        stage === "lead"
-          ? deal.created_at
-          : stage === "viewing"
-            ? deal.updated_at ?? deal.created_at
-            : stage === "offer"
-              ? offerCreatedAt ?? deal.updated_at ?? deal.created_at
-              : stage === "reservation"
-                ? reservationCreatedAt ?? deal.updated_at ?? deal.created_at
-                : stage === "closed"
-                  ? (deal.closed_at ?? deal.closed_date ?? deal.updated_at ?? deal.created_at)
-                  : deal.updated_at ?? deal.created_at;
+    const iso =
+      stage === "lead"
+        ? deal.created_at
+        : stage === "offer"
+          ? offerCreatedAt ?? deal.updated_at ?? deal.created_at
+          : stage === "reservation"
+            ? reservationCreatedAt ?? deal.updated_at ?? deal.created_at
+            : stage === "closed"
+              ? (deal.closed_at ?? deal.closed_date ?? deal.updated_at ?? deal.created_at)
+              : deal.updated_at ?? deal.created_at;
 
-      formattedDate = (() => {
-        if (!iso) return null;
-        const d = parseISO(iso);
-        if (!isValid(d)) return null;
-        return format(d, "MMM d");
-      })();
-    }
+    const formattedDate = (() => {
+      if (!iso) return null;
+      const d = parseISO(iso);
+      if (!isValid(d)) return null;
+      return format(d, "MMM d");
+    })();
 
     if (stage === "closed") {
       return {
+        kind: "default" as const,
         label: "Closed",
         date: formattedDate,
         cls: "bg-green-50 text-green-700",
@@ -735,18 +734,26 @@ function KanbanDealCard({
       };
     }
 
-    return { label: labelByStage[stage], date: formattedDate, cls: stylesByStage[stage], showCheckIcon: false };
+    return {
+      kind: "default" as const,
+      label: labelByStage[stage],
+      date: formattedDate,
+      cls: stylesByStage[stage],
+      showCheckIcon: false,
+    };
   }, [
     deal.created_at,
     deal.pipeline_stage,
     deal.updated_at,
     deal.closed_at,
     deal.closed_date,
+    deal.name,
+    deal.email,
     deal.viewing_request_id,
-    viewingRow,
-    viewingRequestSlot,
+    scheduledViewing,
     offerCreatedAt,
     reservationCreatedAt,
+    propLine,
   ]);
 
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -836,18 +843,33 @@ function KanbanDealCard({
               >
                 <div
                   className={cn(
-                    "pointer-events-none absolute right-9 top-0 flex h-[28px] min-w-[56px] flex-col items-center justify-center rounded-md px-1.5 py-1 text-center leading-none",
+                    "pointer-events-none absolute right-9 top-0 flex min-h-[28px] min-w-[56px] max-w-[72px] flex-col items-center justify-center rounded-md px-1 py-0.5 text-center leading-tight",
                     stagePill.cls,
                   )}
                   aria-hidden
                 >
-                  <span className="inline-flex items-center gap-1 whitespace-nowrap text-[9px] font-bold uppercase tracking-wide leading-none opacity-90">
-                    {stagePill.showCheckIcon ? <CircleCheck className="h-3 w-3" aria-hidden /> : null}
-                    {stagePill.label}
-                  </span>
-                  <span className="whitespace-nowrap text-[10px] font-bold leading-none">
-                    {stagePill.date ?? "\u00A0"}
-                  </span>
+                  {stagePill.kind === "viewing" ? (
+                    <>
+                      <span className="whitespace-nowrap text-[9px] font-bold leading-none">{stagePill.dateLine}</span>
+                      <span className="whitespace-nowrap text-[9px] font-bold leading-none opacity-95">
+                        {stagePill.timeLine}
+                      </span>
+                    </>
+                  ) : stagePill.kind === "viewing_fallback" ? (
+                    <span className="text-center text-[8px] font-bold leading-tight text-blue-700/55">
+                      No date set
+                    </span>
+                  ) : (
+                    <>
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap text-[9px] font-bold uppercase tracking-wide leading-none opacity-90">
+                        {stagePill.showCheckIcon ? <CircleCheck className="h-3 w-3" aria-hidden /> : null}
+                        {stagePill.label}
+                      </span>
+                      <span className="whitespace-nowrap text-[10px] font-bold leading-none">
+                        {stagePill.date ?? "\u00A0"}
+                      </span>
+                    </>
+                  )}
                 </div>
                 {pinned ? <Pin className="absolute -right-0.5 -top-0.5 h-4 w-4 text-[#6B9E6E]" aria-label="Pinned" /> : null}
                 <button
@@ -1147,8 +1169,7 @@ function KanbanStageColumn({
   dealValueByPropertyId,
   uploadedRequestedDocCountByLeadId,
   unviewedUploadedDocCountByLeadId,
-  viewingRowByLeadId,
-  viewingRequestSlotByLeadId,
+  scheduledViewingByLeadId,
   offerCreatedAtByLeadId,
   reservationCreatedAtByLeadId,
   openDocs,
@@ -1181,8 +1202,7 @@ function KanbanStageColumn({
   dealValueByPropertyId: Record<string, string>;
   uploadedRequestedDocCountByLeadId: Record<number, number>;
   unviewedUploadedDocCountByLeadId: Record<number, number>;
-  viewingRowByLeadId: Record<number, PipelineViewingRow | null>;
-  viewingRequestSlotByLeadId: Record<number, PipelineViewingRequestSlot | null>;
+  scheduledViewingByLeadId: Map<number, ParsedViewing>;
   offerCreatedAtByLeadId: Record<number, string | null>;
   reservationCreatedAtByLeadId: Record<number, string | null>;
   openDocs: (lead: PipelineLeadRow) => void;
@@ -1255,8 +1275,7 @@ function KanbanStageColumn({
                   pinned={Boolean(deal.pinned)}
                   uploadedRequestedDocCount={uploadedRequestedDocCountByLeadId[deal.id] ?? 0}
                   unviewedUploadedDocCount={unviewedUploadedDocCountByLeadId[deal.id] ?? 0}
-                  viewingRow={viewingRowByLeadId[deal.id] ?? null}
-                  viewingRequestSlot={viewingRequestSlotByLeadId[deal.id] ?? null}
+                  scheduledViewing={scheduledViewingByLeadId.get(deal.id) ?? null}
                   offerCreatedAt={offerCreatedAtByLeadId[deal.id] ?? null}
                   reservationCreatedAt={reservationCreatedAtByLeadId[deal.id] ?? null}
                   onOpenDocs={openDocs}
@@ -1647,9 +1666,11 @@ export function AgentPipelineTab({
   onRefresh: () => void;
   onOpenLeadDetails: (leadId: number) => void;
   pipelineAgentId: string;
+  /** Profile UUID matching `leads.agent_id` (must match `AgentViewingsProvider` agentUserId). */
   leadsAgentUserId: string;
   clientDocsSharedWithUserId?: string;
 }) {
+  void leadsAgentUserId;
   const sortStorageKey = useMemo(() => `bhg:pipeline:sort:${pipelineAgentId}`, [pipelineAgentId]);
   const [sortMode, setSortMode] = useState<PipelineSortMode>("last_activity_desc");
   const [filterStages, setFilterStages] = useState<PipelineStageId[] | null>(null);
@@ -1702,6 +1723,17 @@ export function AgentPipelineTab({
         pipeline_stage: normalizeStage(l.pipeline_stage as string),
       }));
   }, [leads]);
+
+  const { viewings: agentViewings } = useAgentViewings();
+  const scheduledViewingByLeadId = useMemo(() => {
+    const want = new Set(deals.map((d) => coerceLeadId(d.id)).filter((id): id is number => id != null));
+    const m = new Map<number, ParsedViewing>();
+    for (const v of agentViewings) {
+      if (!want.has(v.leadId)) continue;
+      if (!m.has(v.leadId)) m.set(v.leadId, v);
+    }
+    return m;
+  }, [agentViewings, deals]);
 
   const [dealValueByPropertyId, setDealValueByPropertyId] = useState<Record<string, string>>({});
   const [dealValueNumberByPropertyId, setDealValueNumberByPropertyId] = useState<Record<string, number>>({});
@@ -1786,10 +1818,12 @@ export function AgentPipelineTab({
   const [unviewedUploadedDocCountByLeadId, setUnviewedUploadedDocCountByLeadId] = useState<
     Record<number, number>
   >({});
-  const [viewingRowByLeadId, setViewingRowByLeadId] = useState<Record<number, PipelineViewingRow | null>>({});
-  const [viewingRequestSlotByLeadId, setViewingRequestSlotByLeadId] = useState<
-    Record<number, PipelineViewingRequestSlot | null>
-  >({});
+  const [viewingConfirmLead, setViewingConfirmLead] = useState<PipelineLeadRow | null>(null);
+  const [viewingConfirmDate, setViewingConfirmDate] = useState("");
+  const [viewingConfirmTime, setViewingConfirmTime] = useState("");
+  const [viewingConfirmInlineError, setViewingConfirmInlineError] = useState<string | null>(null);
+  const [viewingConfirmNotes, setViewingConfirmNotes] = useState("");
+  const [viewingConfirmBusy, setViewingConfirmBusy] = useState(false);
   const [offerCreatedAtByLeadId, setOfferCreatedAtByLeadId] = useState<Record<number, string | null>>({});
   const [reservationCreatedAtByLeadId, setReservationCreatedAtByLeadId] = useState<Record<number, string | null>>({});
   const [offerLead, setOfferLead] = useState<PipelineLeadRow | null>(null);
@@ -1828,6 +1862,15 @@ export function AgentPipelineTab({
     const n = Number.parseFloat(String(reservationAmount ?? "").trim());
     return Number.isFinite(n) && n > 0;
   }, [reservationAmount]);
+
+  /** Manila "today" / current time for date min and time min; recomputes when date selection changes. */
+  const viewingConfirmManilaInputs = useMemo(() => {
+    if (!viewingConfirmLead) return null;
+    const n = new Date();
+    const dateMin = manilaDateStringFromInstant(n);
+    const timeMin = viewingConfirmDate === dateMin ? manilaTimeStringFromInstant(n) : undefined;
+    return { dateMin, timeMin };
+  }, [viewingConfirmLead, viewingConfirmDate]);
 
   const [optimisticOrderIds, setOptimisticOrderIds] = useState<number[] | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
@@ -2231,91 +2274,65 @@ export function AgentPipelineTab({
   }, [deals, supabase]);
 
   useEffect(() => {
-    const leadIds = deals.map((d) => coerceLeadId(d.id)).filter((id): id is number => id != null);
-    if (!leadsAgentUserId.trim() || leadIds.length === 0) {
-      setViewingRowByLeadId({});
-      return;
-    }
-
-    const wanted = new Set(leadIds);
+    if (!viewingConfirmLead) return;
     let cancelled = false;
-    void (async () => {
-      const parsed = await fetchAgentViewings(supabase, leadsAgentUserId, new Date(), undefined, {
-        excludeCancelled: true,
-      });
-      if (cancelled) return;
+    const lead = viewingConfirmLead;
 
-      const out: Record<number, PipelineViewingRow | null> = {};
-      for (const v of parsed) {
-        if (!wanted.has(v.leadId)) continue;
-        if (out[v.leadId] != null) continue;
-        out[v.leadId] = {
-          id: v.id,
-          scheduled_at: v.scheduledAtRaw,
-          status: v.status,
-        };
+    void (async () => {
+      let dateStr = manilaDateStringFromInstant(new Date());
+      let timeStr = "";
+
+      const slot = agentViewings.find((v) => v.leadId === lead.id);
+      if (slot?.scheduledAtRaw) {
+        const d = new Date(slot.scheduledAtRaw);
+        dateStr = manilaDateStringFromInstant(d);
+        timeStr = manilaTimeStringFromInstant(d);
+      } else if (lead.viewing_request_id?.trim()) {
+        const { data, error } = await supabase
+          .from("viewing_requests")
+          .select("scheduled_at, preferred_date, preferred_time")
+          .eq("id", lead.viewing_request_id.trim())
+          .maybeSingle();
+        if (cancelled) return;
+        if (!error && data) {
+          const row = data as {
+            scheduled_at?: string | null;
+            preferred_date?: string | null;
+            preferred_time?: string | null;
+          };
+          if (row.preferred_date && /^\d{4}-\d{2}-\d{2}/.test(String(row.preferred_date))) {
+            dateStr = String(row.preferred_date).slice(0, 10);
+          } else if (row.scheduled_at) {
+            dateStr = manilaDateStringFromInstant(new Date(row.scheduled_at));
+          }
+          const pt = row.preferred_time?.trim();
+          if (pt && normalizeTimeHmForInput(pt)) {
+            timeStr = normalizeTimeHmForInput(pt)!;
+          } else if (row.scheduled_at) {
+            timeStr = manilaTimeStringFromInstant(new Date(row.scheduled_at));
+          }
+        }
       }
 
-      setViewingRowByLeadId(out);
+      if (cancelled) return;
+      const todayYmd = manilaDateStringFromInstant(new Date());
+      if (dateStr < todayYmd) dateStr = todayYmd;
+      const normalizedFromSources = timeStr.trim() ? normalizeTimeHmForInput(timeStr.trim()) : null;
+      let timeFinal = normalizedFromSources ?? DEFAULT_VIEWING_CONFIRM_TIME;
+      if (dateStr === todayYmd) {
+        const nowHm = manilaTimeStringFromInstant(new Date());
+        if (timeFinal < nowHm) timeFinal = nowHm;
+      }
+      setViewingConfirmInlineError(null);
+      setViewingConfirmDate(dateStr);
+      setViewingConfirmTime(timeFinal);
+      setViewingConfirmNotes("");
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [deals, supabase, leadsAgentUserId]);
-
-  useEffect(() => {
-    const vrIds = [
-      ...new Set(
-        deals
-          .map((d) => d.viewing_request_id)
-          .filter((x): x is string => typeof x === "string" && x.trim().length > 0),
-      ),
-    ];
-    if (vrIds.length === 0) {
-      setViewingRequestSlotByLeadId({});
-      return;
-    }
-
-    let cancelled = false;
-    void (async () => {
-      const { data, error } = await supabase
-        .from("viewing_requests")
-        .select("id, scheduled_at, status")
-        .in("id", vrIds);
-
-      if (cancelled) return;
-      if (error) {
-        console.error("[agent-pipeline] viewing_requests query failed", { message: error.message });
-        setViewingRequestSlotByLeadId({});
-        return;
-      }
-
-      const byVr = new Map(
-        (data ?? []).map((r) => {
-          const row = r as { id: string; scheduled_at: string; status: string | null };
-          return [row.id, row] as const;
-        }),
-      );
-
-      const out: Record<number, PipelineViewingRequestSlot | null> = {};
-      for (const d of deals) {
-        const vrId = typeof d.viewing_request_id === "string" ? d.viewing_request_id.trim() : "";
-        if (!vrId) continue;
-        const row = byVr.get(vrId);
-        const sa = row?.scheduled_at?.trim();
-        if (!sa) continue;
-        const lid = coerceLeadId(d.id);
-        if (lid == null) continue;
-        out[lid] = { scheduled_at: sa, status: row?.status ?? null };
-      }
-      setViewingRequestSlotByLeadId(out);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [deals, supabase]);
+  }, [viewingConfirmLead, agentViewings, supabase]);
 
   useEffect(() => {
     if (!offerLead) return;
@@ -2687,6 +2704,12 @@ export function AgentPipelineTab({
       overId.startsWith("stage:") ? (overId.slice("stage:".length) as PipelineStageId) : findStageForId(overId);
     if (!toStage || !KANBAN_STAGE_ORDER.includes(toStage)) return;
 
+    if (toStage === "viewing" && fromStage !== "viewing") {
+      const lead = leadById.get(activeId);
+      if (lead) setViewingConfirmLead(lead);
+      return;
+    }
+
     if (fromStage === toStage) {
       const ids = kanbanIdsByStage[fromStage];
       const oldIndex = ids.indexOf(activeId);
@@ -2749,6 +2772,11 @@ export function AgentPipelineTab({
       stage: PipelineStageId,
       opts?: { revertSnapshot?: Record<PipelineStageId, string[]>; kanbanAlreadyUpdated?: boolean },
     ) => {
+      if (stage === "viewing" && lead.pipeline_stage !== "viewing") {
+        setViewingConfirmLead(lead);
+        return;
+      }
+
       const id = String(lead.id);
       const boardNow = kanbanIdsRef.current;
       const from = findKanbanStageForLeadId(boardNow, id) ?? lead.pipeline_stage;
@@ -2791,6 +2819,65 @@ export function AgentPipelineTab({
     },
     [onRefresh],
   );
+
+  const closeViewingConfirmModal = () => {
+    if (viewingConfirmBusy) return;
+    setViewingConfirmInlineError(null);
+    setViewingConfirmLead(null);
+  };
+
+  const submitViewingConfirm = async () => {
+    if (!viewingConfirmLead) return;
+    setViewingConfirmInlineError(null);
+    const normalized = normalizeTimeHmForInput(viewingConfirmTime.trim());
+    if (!viewingConfirmDate.trim() || !normalized) {
+      toast.error("Choose a date and time.");
+      return;
+    }
+    let scheduledIso: string;
+    try {
+      scheduledIso = manilaLocalDateTimeToOffsetIso(viewingConfirmDate.trim(), normalized);
+    } catch {
+      toast.error("Choose a date and time.");
+      return;
+    }
+    if (new Date(scheduledIso).getTime() < Date.now()) {
+      setViewingConfirmInlineError("Pick a future date and time.");
+      return;
+    }
+    setViewingConfirmBusy(true);
+    setKanbanBoardMutationDepth((d) => d + 1);
+    try {
+      const res = await fetch("/api/agent/pipeline-confirm-viewing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          leadId: viewingConfirmLead.id,
+          date: viewingConfirmDate.trim(),
+          time: normalized,
+          notes: viewingConfirmNotes.trim() ? viewingConfirmNotes.trim().slice(0, 300) : null,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+      if (!res.ok) {
+        const msg = json?.error?.message ?? "Could not confirm viewing";
+        if (msg.includes("scheduled_at cannot be in the past") || msg.includes("in the past")) {
+          setViewingConfirmInlineError("Pick a future date and time.");
+        } else {
+          toast.error(msg);
+        }
+        return;
+      }
+      toast.success("Viewing scheduled");
+      setViewingConfirmLead(null);
+      await new Promise((r) => setTimeout(r, 400));
+      await Promise.resolve(onRefresh());
+    } finally {
+      setViewingConfirmBusy(false);
+      setKanbanBoardMutationDepth((d) => d - 1);
+    }
+  };
 
   const sendClientDocumentRequest = async () => {
     if (!requestDocsLead) return;
@@ -3104,6 +3191,16 @@ export function AgentPipelineTab({
 
       {pipelineVault === "active" ? (
         <>
+      {pipelineSearchQuery.trim() ? (
+        <p className="rounded-lg border border-[#6B9E6E]/25 bg-[#6B9E6E]/10 px-3 py-2 text-center font-sans text-xs font-semibold text-[#2C2C2C]">
+          Showing {visibleDeals.length} deal{visibleDeals.length === 1 ? "" : "s"} matching{" "}
+          <span className="font-bold text-[#2C5F32]">
+            {"\u201c"}
+            {pipelineSearchQuery.trim()}
+            {"\u201d"}
+          </span>
+        </p>
+      ) : null}
       <div className="flex flex-col gap-2 lg:hidden">
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Pipeline overview</p>
@@ -3307,8 +3404,7 @@ export function AgentPipelineTab({
                       dealValueByPropertyId={dealValueByPropertyId}
                       uploadedRequestedDocCountByLeadId={uploadedRequestedDocCountByLeadId}
                       unviewedUploadedDocCountByLeadId={unviewedUploadedDocCountByLeadId}
-                      viewingRowByLeadId={viewingRowByLeadId}
-                      viewingRequestSlotByLeadId={viewingRequestSlotByLeadId}
+                      scheduledViewingByLeadId={scheduledViewingByLeadId}
                       offerCreatedAtByLeadId={offerCreatedAtByLeadId}
                       reservationCreatedAtByLeadId={reservationCreatedAtByLeadId}
                       openDocs={openDocs}
@@ -3434,6 +3530,130 @@ export function AgentPipelineTab({
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      <Dialog
+        open={viewingConfirmLead != null}
+        onOpenChange={(open) => {
+          if (!open) closeViewingConfirmModal();
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="max-h-[90vh] overflow-y-auto border-[#2C2C2C]/10 bg-white text-[#2C2C2C] sm:max-w-md"
+          onPointerDownOutside={(e) => {
+            if (viewingConfirmBusy) e.preventDefault();
+          }}
+          onEscapeKeyDown={(e) => {
+            if (viewingConfirmBusy) e.preventDefault();
+          }}
+        >
+          <DialogHeader className="gap-1.5 text-left sm:text-left">
+            <DialogTitle className="font-serif text-lg font-bold text-[#2C2C2C]">
+              Confirm viewing date and time
+            </DialogTitle>
+            <DialogDescription className="font-sans text-[13px] font-medium leading-snug text-[#2C2C2C]/65">
+              Date and time are saved as Philippines local time (UTC+08:00).
+            </DialogDescription>
+          </DialogHeader>
+          {viewingConfirmLead ? (
+            <div className="space-y-4">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/50">Property</p>
+                <p className="mt-0.5 font-sans text-sm font-semibold text-[#2C2C2C]">
+                  {propertyLabel(viewingConfirmLead.property_id)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/50">Client</p>
+                <p className="mt-0.5 font-sans text-sm font-semibold text-[#2C2C2C]">{viewingConfirmLead.name}</p>
+              </div>
+              <div>
+                <label htmlFor="viewing-confirm-date" className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                  Date <span className="text-red-600">*</span>
+                </label>
+                <input
+                  id="viewing-confirm-date"
+                  type="date"
+                  required
+                  value={viewingConfirmDate}
+                  min={viewingConfirmManilaInputs?.dateMin}
+                  onChange={(e) => {
+                    setViewingConfirmInlineError(null);
+                    setViewingConfirmDate(e.target.value);
+                  }}
+                  disabled={viewingConfirmBusy}
+                  className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/15"
+                />
+              </div>
+              <div>
+                <label htmlFor="viewing-confirm-time" className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                  Time <span className="text-red-600">*</span>
+                </label>
+                <input
+                  id="viewing-confirm-time"
+                  type="time"
+                  required
+                  value={viewingConfirmTime}
+                  min={viewingConfirmManilaInputs?.timeMin}
+                  onChange={(e) => {
+                    setViewingConfirmInlineError(null);
+                    setViewingConfirmTime(e.target.value);
+                  }}
+                  disabled={viewingConfirmBusy}
+                  className="mt-1 w-full rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/15"
+                />
+                {viewingConfirmInlineError ? (
+                  <p className="mt-1 text-xs font-medium text-red-600" role="alert">
+                    {viewingConfirmInlineError}
+                  </p>
+                ) : null}
+              </div>
+              <div>
+                <label htmlFor="viewing-confirm-notes" className="text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/50">
+                  Notes <span className="font-normal normal-case text-[#2C2C2C]/45">(optional)</span>
+                </label>
+                <textarea
+                  id="viewing-confirm-notes"
+                  value={viewingConfirmNotes}
+                  onChange={(e) => setViewingConfirmNotes(e.target.value.slice(0, 300))}
+                  disabled={viewingConfirmBusy}
+                  rows={3}
+                  maxLength={300}
+                  placeholder="Internal notes for this viewing…"
+                  className="mt-1 w-full resize-none rounded-xl border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/15"
+                />
+                <p className="mt-1 text-right text-[10px] font-medium text-[#2C2C2C]/40">
+                  {viewingConfirmNotes.length}/300
+                </p>
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter className="-mx-4 -mb-4 mt-6 flex flex-col gap-3 border-t border-[#2C2C2C]/10 bg-white px-4 pb-4 pt-6 sm:flex-row sm:justify-end sm:gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={viewingConfirmBusy}
+              onClick={closeViewingConfirmModal}
+              className="rounded-xl border border-[#2C2C2C]/30 bg-white font-semibold text-[#2C2C2C] shadow-none hover:bg-[#2C2C2C]/[0.04] hover:text-[#2C2C2C]"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                viewingConfirmBusy ||
+                !viewingConfirmDate.trim() ||
+                !normalizeTimeHmForInput(viewingConfirmTime.trim())
+              }
+              onClick={() => void submitViewingConfirm()}
+              className="inline-flex min-w-[7.5rem] items-center justify-center gap-2 rounded-xl bg-[#6B9E6E] font-semibold text-white hover:bg-[#5a8a5d] disabled:opacity-50"
+            >
+              {viewingConfirmBusy ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden /> : null}
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AnimatePresence>
         {requestDocsLead ? (

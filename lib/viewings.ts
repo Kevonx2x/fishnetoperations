@@ -1,4 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  manilaDateStringFromInstant,
+  manilaMonthDayLabelFromInstant,
+  manilaTimeLabel12hFromInstant,
+  manilaWeekdayShortFromInstant,
+} from "@/lib/manila-datetime";
 
 /** PostgREST may return bigint / FK columns as string; normalize for maps and `.in()`. */
 export function coerceLeadId(raw: unknown): number | null {
@@ -49,23 +55,11 @@ export function parseViewing(raw: {
   const scheduledAtRaw = String(raw.scheduled_at ?? "");
   const d = new Date(scheduledAtRaw);
 
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const dateKey = `${year}-${month}-${day}`;
-
-  const timeLabel = d.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  const dayLabel = d.toLocaleDateString("en-US", { weekday: "short" });
-
-  const fullDateLabel = d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
+  /** Calendar day / labels in Asia/Manila so they match stored `+08:00` viewings and the sidebar strip. */
+  const dateKey = manilaDateStringFromInstant(d);
+  const timeLabel = manilaTimeLabel12hFromInstant(d);
+  const dayLabel = manilaWeekdayShortFromInstant(d);
+  const fullDateLabel = manilaMonthDayLabelFromInstant(d);
 
   return {
     id: String(raw.id),
@@ -103,7 +97,9 @@ export async function fetchAgentViewings(
   const { data: leads, error: leadsErr } = await supabase
     .from("leads")
     .select("id, client_id, property_id")
-    .eq("agent_id", agentId);
+    .eq("agent_id", agentId)
+    .eq("pipeline_stage", "viewing")
+    .eq("archived_by_client", false);
 
   if (leadsErr || !leads?.length) return [];
 

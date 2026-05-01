@@ -37,8 +37,15 @@ import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { AgentCalendarModal } from "@/components/dashboard/agent-calendar-modal";
+import { AgentViewingsProvider, useAgentViewings } from "@/lib/agent-viewings-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { fetchAgentViewings, type ParsedViewing } from "@/lib/viewings";
+import {
+  manilaCalendarAddDays,
+  manilaDateStringFromInstant,
+  manilaDayOfMonthFromYmd,
+  manilaMonthDayLabelFromInstant,
+  manilaWeekdayShortFromYmd,
+} from "@/lib/manila-datetime";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { formatLicenseDate } from "@/lib/license-expiry";
 import {
@@ -607,11 +614,119 @@ function AgentDashboardDocumentsTab({
   );
 }
 
+function AgentSidebarCalendarStrip({ setCalendarModalOpen }: { setCalendarModalOpen: (open: boolean) => void }) {
+  const { viewings: agentViewings, isLoading: sidebarViewingsLoading } = useAgentViewings();
+  const sidebarViewings = useMemo(() => {
+    const stripTodayKey = manilaDateStringFromInstant(new Date());
+    const endExclusive = manilaCalendarAddDays(stripTodayKey, 5);
+    return agentViewings
+      .filter((v) => v.dateKey >= stripTodayKey && v.dateKey < endExclusive)
+      .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+  }, [agentViewings]);
+
+  return (
+    <div className="flex flex-1 min-h-0 items-center justify-center">
+      <div className="w-full px-1">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setCalendarModalOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setCalendarModalOpen(true);
+          }}
+          className="rounded-xl border border-[#2C2C2C]/8 bg-white/70 p-2 shadow-sm cursor-pointer hover:bg-white"
+          aria-label="Open calendar"
+        >
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
+            <p className="text-xs font-semibold text-[#2C2C2C]">Calendar</p>
+          </div>
+
+          {sidebarViewingsLoading ? (
+            <p className="mt-2 text-[10px] font-semibold text-[#888888]">Loading…</p>
+          ) : sidebarViewings.length === 0 ? (
+            <p className="mt-2 text-[10px] font-semibold text-[#888888]">Nothing scheduled</p>
+          ) : (
+            <div className="mt-2 space-y-1">
+              {(() => {
+                const stripTodayKey = manilaDateStringFromInstant(new Date());
+                return Array.from({ length: 5 }).map((_, i) => {
+                  const cellKey = manilaCalendarAddDays(stripTodayKey, i);
+                  const label =
+                    i === 0 ? "Today" : `${manilaWeekdayShortFromYmd(cellKey)} ${manilaDayOfMonthFromYmd(cellKey)}`;
+                  const items = sidebarViewings.filter((v) => v.dateKey === cellKey);
+                  const isToday = i === 0;
+                  const todaySub =
+                    isToday && manilaMonthDayLabelFromInstant(new Date(`${stripTodayKey}T12:00:00+08:00`));
+                  return (
+                    <div
+                      key={cellKey}
+                      className={cn(
+                        "flex items-start gap-2 rounded-md px-1.5 py-1",
+                        isToday && "border-l-2 border-[#6B9E6E] bg-[#6B9E6E]/6",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "w-[46px] shrink-0 text-[10px] font-semibold leading-tight text-[#888888]",
+                          isToday && "font-bold text-[#6B9E6E]",
+                        )}
+                      >
+                        <span className="block">{i === 0 ? "Today" : label}</span>
+                        {todaySub ? (
+                          <span className="mt-0.5 block text-[9px] font-semibold text-[#6B9E6E]/80">{todaySub}</span>
+                        ) : null}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        {items.length === 0 ? (
+                          <div className="text-[10px] font-semibold text-[#888888]/70">
+                            {isToday ? "No viewings" : "—"}
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {items.slice(0, 2).map((event) => (
+                              <button
+                                key={event.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCalendarModalOpen(true);
+                                }}
+                                className="flex w-full min-w-0 items-center gap-1 rounded-sm px-0.5 py-0.5 text-left hover:bg-[#FAF8F4]"
+                              >
+                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />
+                                <span className="shrink-0 text-[10px] font-semibold text-[#2C2C2C]">
+                                  {event.dayLabel} {event.timeLabel}
+                                </span>
+                                <span className="min-w-0 truncate text-[10px] font-semibold text-[#888888]">
+                                  {event.propertyName}
+                                </span>
+                              </button>
+                            ))}
+                            {items.length > 2 ? (
+                              <div className="text-[10px] font-semibold text-[#888888]">+{items.length - 2} more</div>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AgentDashboard() {
   const router = useRouter();
   const { user, loading: authLoading, role: authProfileRole } = useAuth();
   const streamMessagesUnreadTotal = useUnreadMessageCount();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const agentViewingsRefetchRef = useRef<(() => Promise<void>) | null>(null);
 
   const [tab, setTab] = useState<Tab>("pipeline");
   const [agentUrlHydrated, setAgentUrlHydrated] = useState(false);
@@ -1247,6 +1362,7 @@ export function AgentDashboard() {
 
   const refreshAfterPipelineChange = useCallback(async () => {
     await loadData();
+    await agentViewingsRefetchRef.current?.();
   }, [loadData]);
 
   useEffect(() => {
@@ -1390,36 +1506,7 @@ export function AgentDashboard() {
     [properties],
   );
 
-  const [sidebarViewings, setSidebarViewings] = useState<ParsedViewing[]>([]);
-  const [sidebarViewingsLoading, setSidebarViewingsLoading] = useState(false);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (!user?.id) {
-      setSidebarViewings([]);
-      setSidebarViewingsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    void (async () => {
-      setSidebarViewingsLoading(true);
-      const start = new Date();
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 5);
-
-      const parsed = await fetchAgentViewings(supabase, user.id, start, end, { excludeCancelled: true, limit: 50 });
-
-      if (cancelled) return;
-      setSidebarViewings(parsed);
-      setSidebarViewingsLoading(false);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, supabase]);
 
   const pipelineArchivedTabRows = useMemo(
     () =>
@@ -2028,8 +2115,15 @@ export function AgentDashboard() {
       ? ["overview", "listings", "team", "analytics", "billing", "notifications", "profile"]
       : ["listings", "team", "analytics", "billing", "notifications", "profile"];
 
+  const viewingsAgentUserId = isTeamMemberView ? agent.user_id : user.id;
+
   return (
     <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0">
+      <AgentViewingsProvider
+        agentUserId={viewingsAgentUserId}
+        supabase={supabase}
+        refetchRef={agentViewingsRefetchRef}
+      >
       <div className="flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
         {/* Desktop sidebar */}
         <aside
@@ -2131,88 +2225,7 @@ export function AgentDashboard() {
             </nav>
           </div>
 
-          <div className="flex flex-1 min-h-0 items-center justify-center">
-            <div className="w-full px-1">
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setCalendarModalOpen(true)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") setCalendarModalOpen(true);
-                }}
-                className="rounded-xl border border-[#2C2C2C]/8 bg-white/70 p-2 shadow-sm cursor-pointer hover:bg-white"
-                aria-label="Open calendar"
-              >
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
-                  <p className="text-xs font-semibold text-[#2C2C2C]">Viewings</p>
-                </div>
-
-                {sidebarViewingsLoading ? (
-                  <p className="mt-2 text-[10px] font-semibold text-[#888888]">Loading…</p>
-                ) : sidebarViewings.length === 0 ? (
-                  <p className="mt-2 text-[10px] font-semibold text-[#888888]">No upcoming viewings</p>
-                ) : (
-                  <div className="mt-2 space-y-1">
-                    {Array.from({ length: 5 }).map((_, i) => {
-                      const day = new Date();
-                      day.setHours(0, 0, 0, 0);
-                      day.setDate(day.getDate() + i);
-                      const cellKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
-                      const label = i === 0 ? "Today" : day.toLocaleDateString(undefined, { weekday: "short" });
-                      const items = sidebarViewings.filter((v) => v.dateKey === cellKey);
-                      const isToday = i === 0;
-                      return (
-                        <div
-                          key={cellKey}
-                          className={cn(
-                            "flex items-start gap-2 rounded-md px-1.5 py-1",
-                            isToday && "border-l-2 border-[#6B9E6E] bg-[#6B9E6E]/6",
-                          )}
-                        >
-                          <div className={cn("w-10 shrink-0 text-[10px] font-semibold text-[#888888]", isToday && "font-bold text-[#6B9E6E]")}>
-                            {label}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            {items.length === 0 ? (
-                              <div className="text-[10px] font-semibold text-[#888888]/70">
-                                {isToday ? "No viewings" : "—"}
-                              </div>
-                            ) : (
-                              <div className="space-y-1">
-                                {items.slice(0, 2).map((event) => (
-                                    <button
-                                      key={event.id}
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setCalendarModalOpen(true);
-                                      }}
-                                      className="flex w-full min-w-0 items-center gap-1 rounded-sm px-0.5 py-0.5 text-left hover:bg-[#FAF8F4]"
-                                    >
-                                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />
-                                      <span className="shrink-0 text-[10px] font-semibold text-[#2C2C2C]">
-                                        {event.dayLabel} {event.timeLabel}
-                                      </span>
-                                      <span className="min-w-0 truncate text-[10px] font-semibold text-[#888888]">
-                                        {event.propertyName}
-                                      </span>
-                                    </button>
-                                ))}
-                                {items.length > 2 ? (
-                                  <div className="text-[10px] font-semibold text-[#888888]">+{items.length - 2} more</div>
-                                ) : null}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <AgentSidebarCalendarStrip setCalendarModalOpen={setCalendarModalOpen} />
           <Link
             href="/"
             className="mt-auto px-2 py-2 text-sm font-semibold text-[#2C2C2C]/55 hover:text-[#2C2C2C]"
@@ -2221,12 +2234,7 @@ export function AgentDashboard() {
           </Link>
         </aside>
 
-        <AgentCalendarModal
-          open={calendarModalOpen}
-          onClose={() => setCalendarModalOpen(false)}
-          supabase={supabase}
-          agentId={user?.id ?? ""}
-        />
+        <AgentCalendarModal open={calendarModalOpen} onClose={() => setCalendarModalOpen(false)} />
 
         <main
           className={cn(
@@ -2982,6 +2990,7 @@ export function AgentDashboard() {
           />
         ) : null}
       </AnimatePresence>
+      </AgentViewingsProvider>
     </div>
   );
 }
