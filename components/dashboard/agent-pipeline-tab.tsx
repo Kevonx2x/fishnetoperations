@@ -909,25 +909,37 @@ function KanbanDealCard({
                   )}
                 </div>
                 {pinned ? <Pin className="absolute -right-0.5 -top-0.5 h-4 w-4 text-[#6B9E6E]" aria-label="Pinned" /> : null}
-                <button
-                  type="button"
-                  aria-label="More options"
-                  aria-expanded={menuOpen}
-                  data-kanban-menu-button="true"
-                  ref={menuButtonRef}
-                  onClick={() => {
-                    setMenuMoveOpen(false);
-                    setMenuOpenId(menuOpen ? null : deal.id);
-                  }}
-                  className={cn(
-                    "p-1.5 text-[#2C2C2C]/45 focus-visible:outline-none focus-visible:ring-0",
-                    !menuOpen && "hover:text-[#2C2C2C]/70",
-                    menuOpen && "bg-transparent text-[#2C2C2C]/55",
-                    "active:bg-transparent",
-                  )}
-                >
-                  <MoreHorizontal className="h-5 w-5" />
-                </button>
+                <span className="relative inline-flex shrink-0">
+                  <button
+                    type="button"
+                    aria-label="More options"
+                    aria-expanded={menuOpen}
+                    data-kanban-menu-button="true"
+                    ref={menuButtonRef}
+                    onClick={() => {
+                      setMenuMoveOpen(false);
+                      setMenuOpenId(menuOpen ? null : deal.id);
+                    }}
+                    className={cn(
+                      "p-1.5 text-[#2C2C2C]/45 focus-visible:outline-none focus-visible:ring-0",
+                      !menuOpen && "hover:text-[#2C2C2C]/70",
+                      menuOpen && "bg-transparent text-[#2C2C2C]/55",
+                      "active:bg-transparent",
+                    )}
+                  >
+                    <MoreHorizontal className="h-5 w-5" />
+                  </button>
+                  {showCornerPulseDot ? (
+                    <span
+                      className={cn(
+                        "pointer-events-none absolute -right-0.5 -top-0.5 z-[12] h-2 w-2 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]",
+                        "bhg-doc-badge-pulse",
+                        anyMenuOpen && "opacity-0",
+                      )}
+                      aria-hidden
+                    />
+                  ) : null}
+                </span>
 
                 {menuOpen && menuAnchorRect && typeof document !== "undefined"
                   ? createPortal(
@@ -1232,16 +1244,6 @@ function KanbanDealCard({
           </button>
         ) : null}
       </div>
-      {showCornerPulseDot ? (
-        <span
-          className={cn(
-            "pointer-events-none absolute right-[-4px] top-[-4px] z-[11] h-2.5 w-2.5 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]",
-            "bhg-doc-badge-pulse",
-            anyMenuOpen && "opacity-0",
-          )}
-          aria-hidden
-        />
-      ) : null}
     </div>
   );
 }
@@ -1502,6 +1504,7 @@ function SortableDealCard({
       : false;
   const moveLabel = MOVE_TO_LABEL[deal.pipeline_stage];
   const menuOpen = menuOpenId === deal.id;
+  const anyMenuOpen = menuOpenId != null;
   const isArchived =
     String((deal as unknown as { pipeline_stage?: unknown }).pipeline_stage ?? "")
       .trim()
@@ -1565,18 +1568,30 @@ function SortableDealCard({
             <div className="flex items-center gap-2">
               {pinned ? <Pin className="h-4 w-4 text-[#6B9E6E]" aria-label="Pinned" /> : null}
               {null}
-              <button
-                type="button"
-                aria-label="More options"
-                aria-expanded={menuOpen}
-                onClick={() => {
-                  setMenuMoveOpen(false);
-                  setMenuOpenId(menuOpen ? null : deal.id);
-                }}
-                className="p-1.5 text-gray-400 hover:text-gray-600"
-              >
-                <MoreHorizontal className="h-5 w-5" />
-              </button>
+              <span className="relative inline-flex shrink-0">
+                <button
+                  type="button"
+                  aria-label="More options"
+                  aria-expanded={menuOpen}
+                  onClick={() => {
+                    setMenuMoveOpen(false);
+                    setMenuOpenId(menuOpen ? null : deal.id);
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-gray-600"
+                >
+                  <MoreHorizontal className="h-5 w-5" />
+                </button>
+                {showCornerPulseDot ? (
+                  <span
+                    className={cn(
+                      "pointer-events-none absolute -right-0.5 -top-0.5 z-[12] h-2 w-2 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]",
+                      "bhg-doc-badge-pulse",
+                      anyMenuOpen && "opacity-0",
+                    )}
+                    aria-hidden
+                  />
+                ) : null}
+              </span>
             </div>
 
             {menuOpen ? (
@@ -1820,12 +1835,6 @@ function SortableDealCard({
           📄 View Documents
         </button>
       </div>
-      {showCornerPulseDot ? (
-        <span
-          className="pointer-events-none absolute right-[-4px] top-[-4px] z-[11] h-2.5 w-2.5 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)] bhg-doc-badge-pulse"
-          aria-hidden
-        />
-      ) : null}
     </div>
   );
 }

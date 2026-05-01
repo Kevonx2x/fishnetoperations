@@ -597,9 +597,10 @@ export function MaddenTopNav() {
               >
                 <Bell className="h-4 w-4" />
                 {notifUnread > 0 ? (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#D4A843] px-1 text-[10px] font-bold text-[#2C2C2C]">
-                    {notifUnread > 9 ? "9+" : notifUnread}
-                  </span>
+                  <span
+                    className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-white"
+                    aria-hidden
+                  />
                 ) : null}
               </Link>
               <div className="relative" ref={accountRef}>

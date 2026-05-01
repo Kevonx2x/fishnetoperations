@@ -2330,18 +2330,20 @@ export function AgentDashboard() {
                           aria-hidden
                         />
                       ) : null}
+                      {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
+                        <span
+                          className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
+                          aria-hidden
+                        />
+                      ) : null}
+                      {t.id === "notifications" && unreadNotificationsCount > 0 ? (
+                        <span
+                          className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
+                          aria-hidden
+                        />
+                      ) : null}
                     </span>
                     {t.label}
-                    {t.id === "pipeline" && pipelineTabUnreadCount > 0 ? (
-                      <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                        {pipelineTabUnreadCount > 99 ? "99+" : pipelineTabUnreadCount}
-                      </span>
-                    ) : null}
-                    {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
-                      <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                        {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
-                      </span>
-                    ) : null}
                   </button>
                 ))
               ) : (
@@ -2366,18 +2368,14 @@ export function AgentDashboard() {
                           aria-hidden
                         />
                       ) : null}
+                      {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
+                        <span
+                          className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
+                          aria-hidden
+                        />
+                      ) : null}
                     </span>
                     {t.label}
-                    {t.id === "pipeline" && pipelineTabUnreadCount > 0 ? (
-                      <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                        {pipelineTabUnreadCount > 99 ? "99+" : pipelineTabUnreadCount}
-                      </span>
-                    ) : null}
-                    {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
-                      <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                        {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
-                      </span>
-                    ) : null}
                   </button>
                 ))
               )}
@@ -2606,9 +2604,10 @@ export function AgentDashboard() {
                 />
               ) : null}
               {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
-                <span className="absolute right-1 top-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#D4A843] px-0.5 text-[8px] font-bold text-[#2C2C2C]">
-                  {streamMessagesUnreadTotal > 9 ? "9+" : streamMessagesUnreadTotal}
-                </span>
+                <span
+                  className="pointer-events-none absolute right-2 top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]/95"
+                  aria-hidden
+                />
               ) : null}
               <span className={active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
                 <span className="relative inline-flex">
@@ -2688,7 +2687,10 @@ export function AgentDashboard() {
                       }`}
                     >
                       <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>{t.icon}</span>
-                      {t.label}
+                      <span className="min-w-0 flex-1 text-left">{t.label}</span>
+                      {tid === "notifications" && unreadNotificationsCount > 0 ? (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />
+                      ) : null}
                     </button>
                   );
                 })}
