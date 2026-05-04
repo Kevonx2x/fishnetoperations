@@ -24,7 +24,7 @@ function dayLabel(iso: string): "today" | "yesterday" | "week" | "older" {
   return "older";
 }
 
-function AgentMessageClientReplyCard({
+export function AgentMessageClientReplyCard({
   n,
   clientName,
   onDismiss,

@@ -7,7 +7,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Award,
   BarChart3,
-  Bell,
   Bot,
   Building2,
   GitCompare,
@@ -52,6 +51,7 @@ import { cn } from "@/lib/utils";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { BahayGoWordmark } from "@/components/marketplace/bahaygo-wordmark";
+import { NavNotificationsBell } from "@/components/notifications/nav-notifications-bell";
 import {
   AGENT_AVAILABILITY_NOW,
   AGENT_AVAILABILITY_OFFLINE,
@@ -590,19 +590,7 @@ export function MaddenTopNav() {
                   My Profile
                 </Link>
               ) : null}
-              <Link
-                href="/notifications"
-                className="relative inline-flex rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm transition hover:bg-[#FAF8F4]"
-                aria-label="Notifications"
-              >
-                <Bell className="h-4 w-4" />
-                {notifUnread > 0 ? (
-                  <span
-                    className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-white"
-                    aria-hidden
-                  />
-                ) : null}
-              </Link>
+              <NavNotificationsBell unreadCount={notifUnread} />
               <div className="relative" ref={accountRef}>
                 <div className="relative">
                   <button

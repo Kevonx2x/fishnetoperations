@@ -25,16 +25,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-
+import { DeleteAllNotificationsDialog } from "@/components/notifications/delete-all-notifications-dialog";
 import type { NotificationListItem } from "@/components/notifications/notification-list";
 import { viewingRequestNotificationDisplay } from "@/components/notifications/notification-list";
 import { useAuth } from "@/contexts/auth-context";
@@ -49,6 +40,7 @@ import {
   clientNotificationRowHref,
   type ClientNotificationDayBucket,
 } from "@/lib/client-notifications-page";
+import { requestDeleteAllNotifications } from "@/lib/notifications-delete-all-client";
 
 function BodyWithOptionalBold({ text, actor }: { text: string; actor?: string | null }) {
   const a = actor?.trim();
@@ -202,13 +194,9 @@ export function ClientNotificationsPageContent() {
     if (!user?.id || deleteAllBusy) return;
     setDeleteAllBusy(true);
     try {
-      const res = await fetch("/api/notifications/delete-all", {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; deletedCount?: number } | null;
-      if (!res.ok) {
-        toast.error(typeof json?.error === "string" ? json.error : "Could not delete notifications.");
+      const result = await requestDeleteAllNotifications();
+      if (!result.ok) {
+        toast.error(result.error);
         return;
       }
       setRows([]);
@@ -323,41 +311,13 @@ export function ClientNotificationsPageContent() {
 
   return (
     <div className="mx-auto w-full max-w-6xl">
-      <Dialog
+      <DeleteAllNotificationsDialog
         open={deleteAllOpen}
-        onOpenChange={(open) => {
-          if (!open && deleteAllBusy) return;
-          setDeleteAllOpen(open);
-        }}
-      >
-        <DialogContent className="max-w-md border border-[#2C2C2C]/10 bg-white font-sans text-[#2C2C2C] sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-serif text-xl text-[#2C2C2C]">Delete all notifications?</DialogTitle>
-            <DialogDescription className="text-sm leading-relaxed text-gray-600">
-              This will permanently remove all {rows.length} notifications from your account. This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full rounded-full border-gray-300 text-[#2C2C2C] sm:w-auto"
-              disabled={deleteAllBusy}
-              onClick={() => setDeleteAllOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={deleteAllBusy}
-              onClick={() => void confirmDeleteAll()}
-              className="w-full rounded-full border-0 bg-red-600 px-5 text-white hover:bg-red-700 sm:w-auto"
-            >
-              {deleteAllBusy ? "…" : "Delete all"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setDeleteAllOpen}
+        notificationCount={rows.length}
+        busy={deleteAllBusy}
+        onConfirmDelete={confirmDeleteAll}
+      />
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
         <div className="min-w-0">
