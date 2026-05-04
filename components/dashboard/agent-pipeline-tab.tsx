@@ -94,6 +94,9 @@ import { useLeadStreamUnreadMap } from "@/features/messaging/hooks/use-lead-stre
 /** When no client/request time is known, pre-fill time so Confirm is one step faster (24h `HH:mm`). */
 const DEFAULT_VIEWING_CONFIRM_TIME = "10:00";
 
+/** Log once if DB is behind migration `20260502100000_viewings_reschedule_request.sql`. */
+let viewingsRescheduleColumnHintLogged = false;
+
 export const PIPELINE_STAGES = [
   { id: "lead", label: "Lead" },
   { id: "viewing", label: "Viewing" },
@@ -247,6 +250,109 @@ const MOVE_TO_LABEL: Record<PipelineStageId, string | null> = {
   reservation: "Move to Closed",
   closed: null,
 };
+
+/**
+ * Three-dot menu: Send Offer row is hidden until the offer flow ships; keep JSX + handlers wired behind this flag.
+ * When enabling, set to `true` and add `"sendOffer"` to the offer branch in `agentPipelineCardMenuKeysForStage`.
+ */
+const AGENT_PIPELINE_MENU_SEND_OFFER = false;
+
+/** Keys for the pipeline card overflow menu (Kanban + mobile list), filtered by `agentPipelineCardMenuKeysForStage`. */
+type AgentPipelineCardMenuKey =
+  | "pin"
+  | "viewDetails"
+  | "viewDocuments"
+  | "messages"
+  | "editNotes"
+  | "requestDocuments"
+  | "sendOffer"
+  | "createReservation"
+  | "markClosed"
+  | "declineArchive"
+  | "moveTo";
+
+const AGENT_PIPELINE_CARD_MENU_HEAD_KEYS: AgentPipelineCardMenuKey[] = [
+  "pin",
+  "viewDetails",
+  "viewDocuments",
+  "messages",
+  "editNotes",
+  "requestDocuments",
+];
+
+const AGENT_PIPELINE_CARD_MENU_TAIL_KEYS: AgentPipelineCardMenuKey[] = [
+  "sendOffer",
+  "createReservation",
+  "markClosed",
+  "declineArchive",
+  "moveTo",
+];
+
+function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipelineCardMenuKey> {
+  const s = String(pipelineStage ?? "").trim().toLowerCase();
+  if (s === "declined") {
+    return new Set<AgentPipelineCardMenuKey>(["viewDetails", "viewDocuments"]);
+  }
+  if (s === "closed") {
+    return new Set<AgentPipelineCardMenuKey>(["pin", "viewDetails", "viewDocuments", "messages", "editNotes"]);
+  }
+  if (s === "lead") {
+    return new Set<AgentPipelineCardMenuKey>([
+      "pin",
+      "viewDetails",
+      "messages",
+      "editNotes",
+      "requestDocuments",
+      "declineArchive",
+      "moveTo",
+    ]);
+  }
+  if (s === "viewing") {
+    return new Set<AgentPipelineCardMenuKey>([
+      "pin",
+      "viewDetails",
+      "viewDocuments",
+      "messages",
+      "editNotes",
+      "requestDocuments",
+      "declineArchive",
+      "moveTo",
+    ]);
+  }
+  if (s === "offer") {
+    return new Set<AgentPipelineCardMenuKey>([
+      "pin",
+      "viewDetails",
+      "viewDocuments",
+      "messages",
+      "editNotes",
+      "requestDocuments",
+      "createReservation",
+      "declineArchive",
+      "moveTo",
+    ]);
+  }
+  if (s === "reservation") {
+    return new Set<AgentPipelineCardMenuKey>([
+      "pin",
+      "viewDetails",
+      "viewDocuments",
+      "messages",
+      "editNotes",
+      "requestDocuments",
+      "markClosed",
+      "declineArchive",
+      "moveTo",
+    ]);
+  }
+  return agentPipelineCardMenuKeysForStage("lead");
+}
+
+function agentPipelineCardMenuShowDividerBeforeTail(keys: Set<AgentPipelineCardMenuKey>): boolean {
+  const hasHead = AGENT_PIPELINE_CARD_MENU_HEAD_KEYS.some((k) => keys.has(k));
+  const hasTail = AGENT_PIPELINE_CARD_MENU_TAIL_KEYS.some((k) => keys.has(k));
+  return hasHead && hasTail;
+}
 
 const CLIENT_DOC_REQUEST_OPTIONS = [
   { key: "valid_id" as const, label: "Valid ID" },
@@ -767,6 +873,9 @@ function KanbanDealCard({
       ? requestedViewingUpdatedSubtitleLine(deal.new_viewing_request_seen_at, viewingRequestMeta, deal)
       : null;
 
+  const pipelineMenuKeys = agentPipelineCardMenuKeysForStage(String(deal.pipeline_stage));
+  const pipelineMenuShowTailDivider = agentPipelineCardMenuShowDividerBeforeTail(pipelineMenuKeys);
+
   useEffect(() => {
     if (!menuOpen) return;
     void onMarkNewLeadSeenOnMenuOpen(deal);
@@ -1185,61 +1294,67 @@ function KanbanDealCard({
                                   <div className="my-1 h-px bg-[#EEEEEE]" />
                                 </>
                               ) : null}
-                              <button
-                                type="button"
-                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                onClick={() => {
-                                  onTogglePin(deal);
-                                  setMenuOpenId(null);
-                                }}
-                              >
-                                <Pin
-                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
-                                  aria-hidden
-                                />
-                                {pinned ? "Unpin" : "Pin to top"}
-                              </button>
-                              <button
-                                type="button"
-                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                onClick={() => {
-                                  onOpenLeadDetails(deal.id);
-                                  setMenuOpenId(null);
-                                }}
-                              >
-                                <Eye
-                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
-                                  aria-hidden
-                                />
-                                View Details
-                                {showLeadMenuDot ? (
-                                  <span
+                              {pipelineMenuKeys.has("pin") ? (
+                                <button
+                                  type="button"
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                  onClick={() => {
+                                    onTogglePin(deal);
+                                    setMenuOpenId(null);
+                                  }}
+                                >
+                                  <Pin
+                                    className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
                                     aria-hidden
-                                    className="ml-auto mr-1 h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
                                   />
-                                ) : null}
-                              </button>
-                              <button
-                                type="button"
-                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                onClick={() => {
-                                  onOpenDocs(deal);
-                                  setMenuOpenId(null);
-                                }}
-                              >
-                                <FileText
-                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
-                                  aria-hidden
-                                />
-                                View Documents
-                                {unviewedUploadedDocCount > 0 ? (
-                                  <span
+                                  {pinned ? "Unpin" : "Pin to top"}
+                                </button>
+                              ) : null}
+                              {pipelineMenuKeys.has("viewDetails") ? (
+                                <button
+                                  type="button"
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                  onClick={() => {
+                                    onOpenLeadDetails(deal.id);
+                                    setMenuOpenId(null);
+                                  }}
+                                >
+                                  <Eye
+                                    className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
                                     aria-hidden
-                                    className="ml-auto mr-1 h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
                                   />
-                                ) : null}
-                              </button>
-                              {onOpenMessagesForClient && deal.client_id?.trim() ? (
+                                  View Details
+                                  {showLeadMenuDot ? (
+                                    <span
+                                      aria-hidden
+                                      className="ml-auto mr-1 h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                                    />
+                                  ) : null}
+                                </button>
+                              ) : null}
+                              {pipelineMenuKeys.has("viewDocuments") ? (
+                                <button
+                                  type="button"
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                  onClick={() => {
+                                    onOpenDocs(deal);
+                                    setMenuOpenId(null);
+                                  }}
+                                >
+                                  <FileText
+                                    className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                    aria-hidden
+                                  />
+                                  View Documents
+                                  {unviewedUploadedDocCount > 0 ? (
+                                    <span
+                                      aria-hidden
+                                      className="ml-auto mr-1 h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                                    />
+                                  ) : null}
+                                </button>
+                              ) : null}
+                              {pipelineMenuKeys.has("messages") && onOpenMessagesForClient && deal.client_id?.trim() ? (
                                 <button
                                   type="button"
                                   className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
@@ -1261,66 +1376,75 @@ function KanbanDealCard({
                                   ) : null}
                                 </button>
                               ) : null}
-                              <button
-                                type="button"
-                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                onClick={() => {
-                                  onSendOffer(deal);
-                                  setMenuOpenId(null);
-                                }}
-                              >
-                                <Handshake
-                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
-                                  aria-hidden
-                                />
-                                Send Offer
-                              </button>
-                              <button
-                                type="button"
-                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                onClick={() => {
-                                  onCreateReservation(deal);
-                                  setMenuOpenId(null);
-                                }}
-                              >
-                                <Lock
-                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
-                                  aria-hidden
-                                />
-                                Create Reservation
-                              </button>
-                              <button
-                                type="button"
-                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                onClick={() => {
-                                  onRequestNotes(deal);
-                                  setMenuOpenId(null);
-                                }}
-                              >
-                                <Pencil
-                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
-                                  aria-hidden
-                                />
-                                Edit Notes
-                              </button>
-                              <button
-                                type="button"
-                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                onClick={() => {
-                                  onRequestDocuments(deal);
-                                  setMenuOpenId(null);
-                                }}
-                              >
-                                <FileText
-                                  className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
-                                  aria-hidden
-                                />
-                                Request Documents
-                              </button>
+                              {pipelineMenuKeys.has("editNotes") ? (
+                                <button
+                                  type="button"
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                  onClick={() => {
+                                    onRequestNotes(deal);
+                                    setMenuOpenId(null);
+                                  }}
+                                >
+                                  <Pencil
+                                    className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                    aria-hidden
+                                  />
+                                  Edit Notes
+                                </button>
+                              ) : null}
+                              {pipelineMenuKeys.has("requestDocuments") ? (
+                                <button
+                                  type="button"
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                  onClick={() => {
+                                    onRequestDocuments(deal);
+                                    setMenuOpenId(null);
+                                  }}
+                                >
+                                  <FileText
+                                    className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                    aria-hidden
+                                  />
+                                  Request Documents
+                                </button>
+                              ) : null}
 
-                              <div className="my-1 h-px bg-[#EEEEEE]" />
+                              {pipelineMenuShowTailDivider ? <div className="my-1 h-px bg-[#EEEEEE]" /> : null}
 
-                              {String(deal.pipeline_stage).toLowerCase() !== "closed" ? (
+                              {AGENT_PIPELINE_MENU_SEND_OFFER && pipelineMenuKeys.has("sendOffer") ? (
+                                <button
+                                  type="button"
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                  onClick={() => {
+                                    onSendOffer(deal);
+                                    setMenuOpenId(null);
+                                  }}
+                                >
+                                  <Handshake
+                                    className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                    aria-hidden
+                                  />
+                                  Send Offer
+                                </button>
+                              ) : null}
+
+                              {pipelineMenuKeys.has("createReservation") ? (
+                                <button
+                                  type="button"
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                  onClick={() => {
+                                    onCreateReservation(deal);
+                                    setMenuOpenId(null);
+                                  }}
+                                >
+                                  <Lock
+                                    className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                    aria-hidden
+                                  />
+                                  Create Reservation
+                                </button>
+                              ) : null}
+                              {pipelineMenuKeys.has("markClosed") ? (
                                 <button
                                   type="button"
                                   className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#6B9E6E] transition-colors duration-150 hover:bg-[#F0F4F0]"
@@ -1334,30 +1458,34 @@ function KanbanDealCard({
                                 </button>
                               ) : null}
 
-                              <button
-                                type="button"
-                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#B85450] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                onClick={() => {
-                                  onRequestDecline(deal);
-                                  setMenuOpenId(null);
-                                  setMenuMoveOpen(false);
-                                }}
-                              >
-                                <Archive className="h-4 w-4 shrink-0 text-[#B85450]" aria-hidden />
-                                Decline &amp; Archive
-                              </button>
+                              {pipelineMenuKeys.has("declineArchive") ? (
+                                <button
+                                  type="button"
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#B85450] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                  onClick={() => {
+                                    onRequestDecline(deal);
+                                    setMenuOpenId(null);
+                                    setMenuMoveOpen(false);
+                                  }}
+                                >
+                                  <Archive className="h-4 w-4 shrink-0 text-[#B85450]" aria-hidden />
+                                  Decline &amp; Archive
+                                </button>
+                              ) : null}
 
-                              <button
-                                type="button"
-                                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                onClick={() => setMenuMoveOpen(true)}
-                              >
-                                <ArrowRightCircle
-                                  className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
-                                  aria-hidden
-                                />
-                                Move to…
-                              </button>
+                              {pipelineMenuKeys.has("moveTo") ? (
+                                <button
+                                  type="button"
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                  onClick={() => setMenuMoveOpen(true)}
+                                >
+                                  <ArrowRightCircle
+                                    className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
+                                    aria-hidden
+                                  />
+                                  Move to…
+                                </button>
+                              ) : null}
                             </div>
                           ) : (
                             <div className="max-h-56 overflow-y-auto">
@@ -1645,6 +1773,9 @@ function SortableDealCard({
   uploadedRequestedDocCount,
   unviewedUploadedDocCount,
   onOpenDocs,
+  onSendOffer,
+  onCreateReservation,
+  onMarkClosed,
   menuOpenId,
   setMenuOpenId,
   menuMoveOpen,
@@ -1677,6 +1808,9 @@ function SortableDealCard({
   uploadedRequestedDocCount: number;
   unviewedUploadedDocCount: number;
   onOpenDocs: (lead: PipelineLeadRow) => void;
+  onSendOffer: (lead: PipelineLeadRow) => void;
+  onCreateReservation: (lead: PipelineLeadRow) => void;
+  onMarkClosed: (lead: PipelineLeadRow) => void;
   menuOpenId: number | null;
   setMenuOpenId: (id: number | null) => void;
   menuMoveOpen: boolean;
@@ -1745,6 +1879,9 @@ function SortableDealCard({
     deal.pipeline_stage === "lead" && vrScheduled && viewingRequestMeta
       ? requestedViewingUpdatedSubtitleLine(deal.new_viewing_request_seen_at, viewingRequestMeta, deal)
       : null;
+
+  const pipelineMenuKeys = agentPipelineCardMenuKeysForStage(String(deal.pipeline_stage));
+  const pipelineMenuShowTailDivider = agentPipelineCardMenuShowDividerBeforeTail(pipelineMenuKeys);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -1941,61 +2078,57 @@ function SortableDealCard({
                         <div className="my-1 h-px bg-gray-200" />
                       </>
                     ) : null}
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-semibold hover:bg-gray-50"
-                      onClick={() => {
-                        onTogglePin(deal);
-                        setMenuOpenId(null);
-                      }}
-                    >
-                      <Pin className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
-                      {pinned ? "Unpin" : "Pin to top"}
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                      onClick={() => {
-                        onOpenLeadDetails(deal.id);
-                        setMenuOpenId(null);
-                      }}
-                    >
-                      <span className="min-w-0 flex-1">View Details</span>
-                      {showLeadMenuDot ? (
-                        <span
-                          aria-hidden
-                          className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
-                        />
-                      ) : null}
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                      onClick={() => {
-                        onRequestNotes(deal);
-                        setMenuOpenId(null);
-                      }}
-                    >
-                      Edit Notes
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                      onClick={() => {
-                        onOpenDocs(deal);
-                        setMenuOpenId(null);
-                      }}
-                    >
-                      <FileText className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                      <span className="min-w-0 flex-1">View Documents</span>
-                      {unviewedUploadedDocCount > 0 ? (
-                        <span
-                          aria-hidden
-                          className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
-                        />
-                      ) : null}
-                    </button>
-                    {onOpenMessagesForClient && deal.client_id?.trim() ? (
+                    {pipelineMenuKeys.has("pin") ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-semibold hover:bg-gray-50"
+                        onClick={() => {
+                          onTogglePin(deal);
+                          setMenuOpenId(null);
+                        }}
+                      >
+                        <Pin className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
+                        {pinned ? "Unpin" : "Pin to top"}
+                      </button>
+                    ) : null}
+                    {pipelineMenuKeys.has("viewDetails") ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          onOpenLeadDetails(deal.id);
+                          setMenuOpenId(null);
+                        }}
+                      >
+                        <span className="min-w-0 flex-1">View Details</span>
+                        {showLeadMenuDot ? (
+                          <span
+                            aria-hidden
+                            className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                          />
+                        ) : null}
+                      </button>
+                    ) : null}
+                    {pipelineMenuKeys.has("viewDocuments") ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          onOpenDocs(deal);
+                          setMenuOpenId(null);
+                        }}
+                      >
+                        <FileText className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                        <span className="min-w-0 flex-1">View Documents</span>
+                        {unviewedUploadedDocCount > 0 ? (
+                          <span
+                            aria-hidden
+                            className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+                          />
+                        ) : null}
+                      </button>
+                    ) : null}
+                    {pipelineMenuKeys.has("messages") && onOpenMessagesForClient && deal.client_id?.trim() ? (
                       <button
                         type="button"
                         className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
@@ -2014,36 +2147,94 @@ function SortableDealCard({
                         ) : null}
                       </button>
                     ) : null}
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                      onClick={() => {
-                        onRequestDocuments(deal);
-                        setMenuOpenId(null);
-                      }}
-                    >
-                      Request Documents
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                      onClick={() => {
-                        onRequestDecline(deal);
-                        setMenuOpenId(null);
-                        setMenuMoveOpen(false);
-                      }}
-                    >
-                      Decline & Archive
-                    </button>
-                    <div className="relative">
+                    {pipelineMenuKeys.has("editNotes") ? (
                       <button
                         type="button"
                         className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                        onClick={() => setMenuMoveOpen(true)}
+                        onClick={() => {
+                          onRequestNotes(deal);
+                          setMenuOpenId(null);
+                        }}
                       >
-                        Move to…
+                        Edit Notes
                       </button>
-                    </div>
+                    ) : null}
+                    {pipelineMenuKeys.has("requestDocuments") ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          onRequestDocuments(deal);
+                          setMenuOpenId(null);
+                        }}
+                      >
+                        Request Documents
+                      </button>
+                    ) : null}
+                    {pipelineMenuShowTailDivider ? <div className="my-1 h-px bg-gray-200" /> : null}
+                    {AGENT_PIPELINE_MENU_SEND_OFFER && pipelineMenuKeys.has("sendOffer") ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          onSendOffer(deal);
+                          setMenuOpenId(null);
+                        }}
+                      >
+                        <Handshake className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                        <span className="min-w-0 flex-1">Send Offer</span>
+                      </button>
+                    ) : null}
+                    {pipelineMenuKeys.has("createReservation") ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          onCreateReservation(deal);
+                          setMenuOpenId(null);
+                        }}
+                      >
+                        <Lock className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                        <span className="min-w-0 flex-1">Create Reservation</span>
+                      </button>
+                    ) : null}
+                    {pipelineMenuKeys.has("markClosed") ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-semibold text-[#6B9E6E] hover:bg-gray-50"
+                        onClick={() => {
+                          onMarkClosed(deal);
+                          setMenuOpenId(null);
+                        }}
+                      >
+                        <CircleCheck className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                        <span className="min-w-0 flex-1">Mark as Closed</span>
+                      </button>
+                    ) : null}
+                    {pipelineMenuKeys.has("declineArchive") ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          onRequestDecline(deal);
+                          setMenuOpenId(null);
+                          setMenuMoveOpen(false);
+                        }}
+                      >
+                        Decline & Archive
+                      </button>
+                    ) : null}
+                    {pipelineMenuKeys.has("moveTo") ? (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
+                          onClick={() => setMenuMoveOpen(true)}
+                        >
+                          Move to…
+                        </button>
+                      </div>
+                    ) : null}
                   </>
                 ) : (
                   <div className="max-h-56 overflow-y-auto py-1">
@@ -2362,7 +2553,18 @@ export function AgentPipelineTab({
         .in("lead_id", viewingLeadIds);
       if (cancelled) return;
       if (vwErr) {
-        console.warn("[agent-pipeline] viewings reschedule fetch failed", vwErr);
+        const missingRescheduleColumn =
+          vwErr.code === "42703" && String(vwErr.message ?? "").includes("reschedule_request_id");
+        if (missingRescheduleColumn) {
+          if (!viewingsRescheduleColumnHintLogged) {
+            viewingsRescheduleColumnHintLogged = true;
+            console.info(
+              "[agent-pipeline] Reschedule UI needs DB migration: run `supabase/migrations/20260502100000_viewings_reschedule_request.sql` against your project (adds viewings.reschedule_request_id).",
+            );
+          }
+        } else {
+          console.warn("[agent-pipeline] viewings reschedule fetch failed", vwErr);
+        }
         setReschedulePendingByLeadId({});
         return;
       }
@@ -4064,6 +4266,12 @@ export function AgentPipelineTab({
                   uploadedRequestedDocCount={uploadedRequestedDocCountByLeadId[deal.id] ?? 0}
                   unviewedUploadedDocCount={unviewedUploadedDocCountByLeadId[deal.id] ?? 0}
                   onOpenDocs={openDocs}
+                  onSendOffer={(lead) => setOfferLead(lead)}
+                  onCreateReservation={(lead) => setReservationLead(lead)}
+                  onMarkClosed={(lead) => {
+                    setCloseLead(lead);
+                    setCloseBusy(false);
+                  }}
                   menuOpenId={menuOpenId}
                   setMenuOpenId={setMenuOpenId}
                   menuMoveOpen={menuMoveOpen}

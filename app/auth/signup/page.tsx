@@ -32,7 +32,8 @@ export default function SignupPage() {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -80,13 +81,21 @@ export default function SignupPage() {
           "Client Supabase env is missing. Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set and restart the dev server.",
         );
       }
+      const fn = firstName.trim();
+      const ln = lastName.trim();
+      if (!fn || !ln) {
+        setError("Please enter both first and last name.");
+        setBusy(false);
+        return;
+      }
+      const fullNameCombined = `${fn} ${ln}`;
       const { data, error: err } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
           data: {
-            full_name: fullName.trim(),
-            name: fullName.trim(),
+            full_name: fullNameCombined,
+            name: fullNameCombined,
           },
         },
       });
@@ -150,17 +159,31 @@ export default function SignupPage() {
       title="Create account"
       subtitle="Register as a client to save searches and work with agents."
       largeLogo
+      staticBahayGoLogo
     >
       <form onSubmit={submit} className="space-y-4">
-        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
-          Full name
-          <input
-            required
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
-          />
-        </label>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+            First name
+            <input
+              required
+              autoComplete="given-name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
+            />
+          </label>
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+            Last name
+            <input
+              required
+              autoComplete="family-name"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
+            />
+          </label>
+        </div>
         <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
           Email
           <input
