@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import { BahayGoHomeMarketplace } from "@/components/marketplace/fishnet-home-marketplace";
+import { PostLoginModal } from "@/components/onboarding/post-login-modal";
 import { useAuth } from "@/contexts/auth-context";
 
 export function HomePageContent() {
@@ -12,8 +13,11 @@ export function HomePageContent() {
   }
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <BahayGoHomeMarketplace listingMode="rent" />
-    </Suspense>
+    <>
+      <PostLoginModal gate="client-home" />
+      <Suspense fallback={<div>Loading...</div>}>
+        <BahayGoHomeMarketplace listingMode="rent" />
+      </Suspense>
+    </>
   );
 }

@@ -43,6 +43,7 @@ import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { AgentCalendarModal } from "@/components/dashboard/agent-calendar-modal";
 import { AgentViewingsProvider, useAgentViewings } from "@/lib/agent-viewings-context";
+import { PostLoginModal } from "@/components/onboarding/post-login-modal";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { normalizeListingLocation } from "@/lib/duplicate-listing";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -785,7 +786,8 @@ export function AgentDashboard() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const agentViewingsRefetchRef = useRef<(() => Promise<void>) | null>(null);
 
-  const [tab, setTab] = useState<Tab>("pipeline");
+  /** Default overview so post-login welcome (`PostLoginModal`) matches the landing URL `/dashboard/agent` (tab sync adds `?tab=overview`). */
+  const [tab, setTab] = useState<Tab>("overview");
   const [agentUrlHydrated, setAgentUrlHydrated] = useState(false);
   const [streamChannelId, setStreamChannelId] = useState<string | null>(null);
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
@@ -2320,6 +2322,7 @@ export function AgentDashboard() {
         supabase={supabase}
         refetchRef={agentViewingsRefetchRef}
       >
+      {!isTeamMemberView && tab === "overview" ? <PostLoginModal gate="agent-overview" /> : null}
       <div className="flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
         {/* Desktop sidebar */}
         <aside

@@ -9,7 +9,6 @@ import { ClientAvatar } from "@/components/client/client-avatar";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { PostLoginModal } from "@/components/onboarding/post-login-modal";
 import { cn } from "@/lib/utils";
 
 const NAV: {
@@ -75,11 +74,6 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
     }
   }, [authLoading, user?.id, role, router]);
 
-  /**
-   * Mount for any signed-in user on this layout so `PostLoginModal` can run its effect as soon as `profile` exists.
-   * Non-clients are redirected away quickly; the modal no-ops until `profile` is loaded then uses `profile.role` for slides.
-   */
-  const mountPostLoginModal = !authLoading && Boolean(user?.id) && Boolean(profile?.id);
   const gateLoading = authLoading || !user?.id || role !== "client";
 
   const displayName = profile?.full_name?.trim() || user?.email?.trim() || "Client";
@@ -87,7 +81,6 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
 
   return (
     <>
-      {mountPostLoginModal ? <PostLoginModal /> : null}
       {gateLoading ? (
         <div className="flex min-h-screen items-center justify-center bg-[#FAF8F4] text-sm font-semibold text-[#2C2C2C]/60">
           <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#6B9E6E]" />
@@ -158,7 +151,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                 "min-w-0 flex-1 md:flex md:h-full md:min-h-0 md:flex-col",
                 isMessagesRoute
                   ? "px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
-                  : "px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 md:pb-10",
+                  : "px-4 py-5 md:overflow-y-auto md:px-6 md:py-5 md:pb-6",
               )}
             >
               {children}

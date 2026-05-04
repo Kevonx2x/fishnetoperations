@@ -6,7 +6,7 @@ import { Avatar, useChatContext } from "stream-chat-react";
 import type { ChannelPreviewUIComponentProps } from "stream-chat-react";
 
 import { cn } from "@/lib/utils";
-import { getPeerUser, previewPlainText } from "@/features/messaging/lib/channel-helpers";
+import { getPeerUser, isSupportChannel, previewPlainText } from "@/features/messaging/lib/channel-helpers";
 import { useChannelUnreadCount } from "@/features/messaging/hooks/use-unread-count";
 
 function toTimeString(timeSource: unknown): string {
@@ -28,10 +28,20 @@ export function ConversationPreview(
   const { setActiveChannel, channel: activeChannel, client } = useChatContext();
   const unreadCount = useChannelUnreadCount(channel, client);
 
+  const support = isSupportChannel(channel);
+  const data = channel.data as
+    | { display_name?: string; display_avatar_url?: string; name?: string }
+    | undefined;
+
   const peer = getPeerUser(channel, selfId);
-  const peerAvatar = peer?.image;
-  const title = getTitle({ displayTitle, peerName: peer?.name, peerId: peer?.id });
-  const preview = previewPlainText(latestMessagePreview as ReactNode, lastMessage as LocalMessage | undefined);
+  const peerAvatar = support
+    ? (data?.display_avatar_url?.trim() || "/apple-touch-icon.png")
+    : peer?.image;
+  const title = support
+    ? (data?.display_name?.trim() || "BahayGo Support")
+    : getTitle({ displayTitle, peerName: peer?.name, peerId: peer?.id });
+  const rawPreview = previewPlainText(latestMessagePreview as ReactNode, lastMessage as LocalMessage | undefined);
+  const previewText = rawPreview || (support ? "Get help from our team" : "No messages yet");
   const timeSource = (lastMessage as LocalMessage | undefined)?.created_at ?? channel.state?.last_message_at;
   const timeStr = toTimeString(timeSource);
   const pinned = Boolean(channel.state?.membership?.pinned_at);
@@ -99,6 +109,7 @@ export function ConversationPreview(
   };
 
   const togglePin = async () => {
+    if (support) return;
     try {
       if (pinned) await channel.unpin();
       else await channel.pin();
@@ -109,6 +120,7 @@ export function ConversationPreview(
   };
 
   const archiveChannel = async () => {
+    if (support) return;
     try {
       await channel.archive();
       if (activeChannel?.cid === channel.cid) setActiveChannel(undefined);
@@ -138,7 +150,7 @@ export function ConversationPreview(
     >
       <span className="relative shrink-0">
         <Avatar image={peerAvatar} name={title} className="h-11 w-11 [&_.str-chat__avatar-fallback]:text-sm" />
-        {peerOnline ? (
+        {!support && peerOnline ? (
           <span
             className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-surface-panel bg-brand-sage"
             aria-hidden
@@ -162,6 +174,11 @@ export function ConversationPreview(
             {title}
           </span>
           <div className="flex shrink-0 items-center gap-1.5">
+            {support ? (
+              <span className="rounded-md bg-brand-sage/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-sage">
+                Support
+              </span>
+            ) : null}
             {unreadCount > 0 ? (
               <span
                 className="rounded-full bg-fg/10 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-fg/80"
@@ -175,13 +192,13 @@ export function ConversationPreview(
         </div>
         <div className="mt-0.5 flex items-center gap-1.5">
           {pinned ? <Pin className="h-3 w-3 shrink-0 text-brand-sage" aria-hidden /> : null}
-          <p className="truncate text-[13px] leading-snug text-fg/50">{preview || "No messages yet"}</p>
+          <p className="truncate text-[13px] leading-snug text-fg/50">{previewText}</p>
         </div>
       </div>
       <div
         className={cn(
           "flex shrink-0 flex-col gap-1 pt-0.5 transition-opacity",
-          pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+          support ? "hidden" : pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100",
         )}
       >
         <button

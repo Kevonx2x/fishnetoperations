@@ -1,5 +1,16 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+
+import { ClientDashboardContinueCard } from "@/components/dashboard/client-dashboard-continue-card";
+import { ClientDashboardGreeting } from "@/components/dashboard/client-dashboard-greeting";
+import ClientDashboardNextViewing from "@/components/dashboard/client-dashboard-next-viewing";
+import ClientDashboardRecentActivity from "@/components/dashboard/client-dashboard-recent-activity";
+import ClientDashboardRecommended from "@/components/dashboard/client-dashboard-recommended";
+import ClientDashboardStatTiles from "@/components/dashboard/client-dashboard-stat-tiles";
+import { ClientDashboardStatTilesRefreshShell } from "@/components/dashboard/client-dashboard-stat-tiles-refresh-shell";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+/** Avoid stale HTML when running `next start` or aggressive caching; always re-fetch this route. */
+export const dynamic = "force-dynamic";
 
 type Search = Record<string, string | string[] | undefined>;
 
@@ -15,31 +26,46 @@ export default async function DashboardClientIndexPage({ searchParams }: { searc
     redirect(`/dashboard/client/pipeline${qs.toString() ? `?${qs.toString()}` : ""}`);
   }
 
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect(`/auth/login?next=${encodeURIComponent("/dashboard/client")}`);
+  }
+
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("first_name, full_name")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const firstName =
+    (prof?.first_name as string | undefined)?.trim() ||
+    (prof?.full_name as string | undefined)?.trim()?.split(/\s+/)?.[0] ||
+    "";
+
   return (
-    <>
-      <h1 className="font-serif text-3xl font-semibold tracking-tight text-[#2C2C2C] md:text-4xl">Dashboard</h1>
-      <p className="mt-2 max-w-2xl text-sm font-medium text-[#888888] md:text-base">
-        Welcome back. Here you&apos;ll soon see recent activity, upcoming viewings, and suggested listings. For now,
-        open your pipeline to track deals or browse the marketplace from <span className="font-semibold text-[#2C2C2C]/70">Back to site</span>.
-      </p>
-      <div className="mt-8 grid max-w-2xl gap-4 sm:grid-cols-2">
-        <Link
-          href="/dashboard/client/pipeline"
-          className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 text-left shadow-sm transition hover:border-[#6B9E6E]/40"
-        >
-          <p className="text-xs font-bold uppercase tracking-wider text-[#6B9E6E]">Pipeline</p>
-          <p className="mt-2 font-serif text-lg font-semibold text-[#2C2C2C]">Track your deals</p>
-          <p className="mt-1 text-sm text-[#888888]">Viewings, documents, and status per property.</p>
-        </Link>
-        <Link
-          href="/"
-          className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm transition hover:border-[#D4A843]/50"
-        >
-          <p className="text-xs font-bold uppercase tracking-wider text-[#D4A843]">Marketplace</p>
-          <p className="mt-2 font-serif text-lg font-semibold text-[#2C2C2C]">Browse listings</p>
-          <p className="mt-1 text-sm text-[#888888]">Return to the main BahayGo site.</p>
-        </Link>
-      </div>
-    </>
+    <div className="space-y-5 md:space-y-6">
+      <ClientDashboardGreeting firstName={firstName} />
+      <ClientDashboardContinueCard />
+
+      <ClientDashboardStatTilesRefreshShell>
+        <div className="space-y-4 md:space-y-5">
+          <ClientDashboardStatTiles />
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+            <div className="lg:col-span-3">
+              <ClientDashboardRecentActivity userId={user.id} />
+            </div>
+            <div className="lg:col-span-2">
+              <ClientDashboardNextViewing userId={user.id} />
+            </div>
+          </div>
+
+          <ClientDashboardRecommended userId={user.id} />
+        </div>
+      </ClientDashboardStatTilesRefreshShell>
+    </div>
   );
 }

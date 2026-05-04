@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import {
+  AuthGoogleDivider,
+  ContinueWithGoogleButton,
+} from "@/components/auth/continue-with-google-button";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -49,6 +53,14 @@ export default function SignupPage() {
     }, 1000);
     return () => window.clearInterval(t);
   }, [resendCooldown]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("error") === "oauth_failed") {
+      setError("Google sign-in could not be completed. Please try again.");
+    }
+  }, []);
 
   const handleResend = async () => {
     const trimmed = email.trim();
@@ -163,6 +175,8 @@ export default function SignupPage() {
       largeLogo
       staticBahayGoLogo
     >
+      <ContinueWithGoogleButton onError={setError} />
+      <AuthGoogleDivider />
       <form onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">

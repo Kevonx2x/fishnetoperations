@@ -16,6 +16,15 @@ export function isChannelArchived(ch: StreamChannel): boolean {
   return Boolean(ch.state?.membership?.archived_at);
 }
 
+/** BahayGo Support 1:1 channel (pinned in UI). */
+export function isSupportChannel(channel: StreamChannel | undefined): boolean {
+  if (!channel) return false;
+  const data = channel.data as Record<string, unknown> | undefined;
+  if (data?.is_support === true) return true;
+  const id = channel.id ?? (typeof data?.id === "string" ? data.id : undefined);
+  return typeof id === "string" && id.startsWith("support_");
+}
+
 export function getPeerUser(channel: StreamChannel | undefined, selfId: string) {
   const members = channel?.state?.members;
   if (!members) return null;

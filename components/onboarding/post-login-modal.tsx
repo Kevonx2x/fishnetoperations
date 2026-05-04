@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const CHANGELOG_VERSION = "v1.0";
-const OPEN_DELAY_MS = 4000;
+const OPEN_DELAY_MS = 5000;
 
 /** Backup if profile refetch lags: set on successful dismiss so the modal does not reopen. */
 const MODAL_LOCALSTORAGE_DISMISS_KEY = "bahaygo_modal_dismissed";
@@ -513,7 +513,7 @@ function PreviewClientTrustCarousel() {
 }
 
 /** One-shot chat sequence length (seconds); ends after message 6 is fully visible. */
-const SLIDE2_CHAT_SEQUENCE_S = 16.5;
+const SLIDE2_CHAT_SEQUENCE_S = 6.5;
 
 /** Typing shell: fade in 0.2s at fadeInStart, fade out 0.2s starting fadeOutStart. Opacity only; plays once. */
 function slide2TypingOpacityOnce(total: number, fadeInStart: number, fadeOutStart: number) {
@@ -563,17 +563,18 @@ function PreviewClientStayConnectedChat() {
   const L = SLIDE2_CHAT_SEQUENCE_S;
   const transitionOnce = { duration: L, repeat: 0, ease: "easeInOut" as const };
 
-  const ty2 = slide2TypingOpacityOnce(L, 0.3, 2.5);
-  const ty3 = slide2TypingOpacityOnce(L, 3.7, 5.7);
-  const ty4 = slide2TypingOpacityOnce(L, 6.9, 8.9);
-  const ty5 = slide2TypingOpacityOnce(L, 10.1, 12.1);
-  const ty6 = slide2TypingOpacityOnce(L, 13.3, 15.3);
+  /** ~400ms after previous message anchor, typing fades out as bubble enters (~600ms later). */
+  const ty2 = slide2TypingOpacityOnce(L, 0.4, 0.8);
+  const ty3 = slide2TypingOpacityOnce(L, 1.4, 1.8);
+  const ty4 = slide2TypingOpacityOnce(L, 2.4, 2.8);
+  const ty5 = slide2TypingOpacityOnce(L, 3.4, 3.8);
+  const ty6 = slide2TypingOpacityOnce(L, 4.4, 4.8);
 
-  const m2 = slide2MessageOpacityOnce(L, 2.7);
-  const m3 = slide2MessageOpacityOnce(L, 5.9);
-  const m4 = slide2MessageOpacityOnce(L, 9.1);
-  const m5 = slide2MessageOpacityOnce(L, 12.3);
-  const m6 = slide2MessageOpacityOnce(L, 15.5);
+  const m2 = slide2MessageOpacityOnce(L, 1.0);
+  const m3 = slide2MessageOpacityOnce(L, 2.0);
+  const m4 = slide2MessageOpacityOnce(L, 3.0);
+  const m5 = slide2MessageOpacityOnce(L, 4.0);
+  const m6 = slide2MessageOpacityOnce(L, 5.0);
 
   return (
     <RightStage>
@@ -1030,7 +1031,9 @@ function buildClientWhatsNewSlides(): SlideDef[] {
 
 const slideEase = [0.22, 1, 0.36, 1] as const;
 
-export function PostLoginModal() {
+export type PostLoginModalGate = "client-home" | "agent-overview";
+
+export function PostLoginModal({ gate }: { gate: PostLoginModalGate }) {
   const instanceRef = useRef<object | null>(null);
   if (instanceRef.current === null) instanceRef.current = {};
   const instance = instanceRef.current;
@@ -1050,17 +1053,27 @@ export function PostLoginModal() {
 
   useEffect(() => {
     if (authLoading || !user?.id || !profile) return;
+
+    if (gate === "client-home" && profile.role !== "client") return;
+    if (gate === "agent-overview" && profile.role === "client") return;
+
+    if (typeof window !== "undefined" && localStorage.getItem(MODAL_LOCALSTORAGE_DISMISS_KEY) === "true") {
+      return;
+    }
+
+    const changelogSeen = profile.last_seen_changelog === CHANGELOG_VERSION;
+    const dbTutorialDone = profile.tutorial_completed === true;
+    const tutorialDone =
+      TEMP_DISABLE_LEGACY_TUTORIAL_BACKSTOP && isLegacyProfileBeforeTutorialCutoff(profile.created_at)
+        ? false
+        : dbTutorialDone;
+
+    if (tutorialDone && changelogSeen) return;
+
     const id = window.setTimeout(() => {
       if (typeof window !== "undefined" && localStorage.getItem(MODAL_LOCALSTORAGE_DISMISS_KEY) === "true") {
         return;
       }
-      const changelogSeen = profile.last_seen_changelog === CHANGELOG_VERSION;
-      const dbTutorialDone = profile.tutorial_completed === true;
-      const tutorialDone =
-        TEMP_DISABLE_LEGACY_TUTORIAL_BACKSTOP &&
-        isLegacyProfileBeforeTutorialCutoff(profile.created_at)
-          ? false
-          : dbTutorialDone;
       if (!tutorialDone) {
         setTrack("onboarding");
         setSlideIndex(0);
@@ -1073,6 +1086,7 @@ export function PostLoginModal() {
     }, OPEN_DELAY_MS);
     return () => window.clearTimeout(id);
   }, [
+    gate,
     authLoading,
     user?.id,
     profile?.id,
@@ -1133,6 +1147,13 @@ export function PostLoginModal() {
   }, [isLast, persistAndClose]);
 
   if (authLoading || !user?.id || !profile) {
+    return null;
+  }
+
+  if (gate === "client-home" && profile.role !== "client") {
+    return null;
+  }
+  if (gate === "agent-overview" && profile.role === "client") {
     return null;
   }
 

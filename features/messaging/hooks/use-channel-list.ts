@@ -3,7 +3,13 @@ import type { Channel as StreamChannel, ChannelFilters, ChannelSort } from "stre
 import { useChatContext } from "stream-chat-react";
 
 import type { ConversationFilterMode } from "@/features/messaging/types";
-import { isChannelArchived, isChannelPinned, msFromDateLike, getPeerUser } from "@/features/messaging/lib/channel-helpers";
+import {
+  getPeerUser,
+  isChannelArchived,
+  isChannelPinned,
+  isSupportChannel,
+  msFromDateLike,
+} from "@/features/messaging/lib/channel-helpers";
 
 export type UseChannelListParams = {
   selfUserId: string;
@@ -50,6 +56,11 @@ export function useChannelList(params: UseChannelListParams) {
       const q = listSearch.trim().toLowerCase();
       if (q) {
         out = out.filter((ch) => {
+          if (isSupportChannel(ch)) {
+            const data = ch.data as { display_name?: string } | undefined;
+            const dn = (data?.display_name || "BahayGo Support").toLowerCase();
+            if (dn.includes(q)) return true;
+          }
           const peer = getPeerUser(ch, params.selfUserId);
           const chName = (ch.data as { name?: string } | undefined)?.name;
           const title = (peer?.name || peer?.id || chName || "").toLowerCase();
@@ -64,6 +75,10 @@ export function useChannelList(params: UseChannelListParams) {
       else out = out.filter((ch) => !isChannelArchived(ch));
 
       return [...out].sort((a, b) => {
+        const aSup = isSupportChannel(a);
+        const bSup = isSupportChannel(b);
+        if (aSup && !bSup) return -1;
+        if (!aSup && bSup) return 1;
         const aPinned = isChannelPinned(a);
         const bPinned = isChannelPinned(b);
         if (aPinned && !bPinned) return -1;

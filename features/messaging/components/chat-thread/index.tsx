@@ -1,20 +1,76 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 import { Channel, Window, useChannelStateContext, useChatContext } from "stream-chat-react";
 
+import { useAuth } from "@/contexts/auth-context";
 import { ChatHeader } from "@/features/messaging/components/chat-thread/chat-header";
 import { MessageList } from "@/features/messaging/components/chat-thread/message-list";
 import { MessageInput } from "@/features/messaging/components/chat-thread/message-input";
+import { MessagesOnlySupportWelcome } from "@/features/messaging/components/messages-only-support-welcome";
+import { isChannelArchived, isSupportChannel } from "@/features/messaging/lib/channel-helpers";
 
 export function ChatThreadPanel(props: {
   channelLoading: boolean;
   onLoaded: () => void;
   onBackToList: () => void;
 }) {
-  const { channel: activeChannel } = useChatContext();
+  const { channel: activeChannel, client } = useChatContext();
+  const { profile } = useAuth();
+  /** No active channel: full welcome if inbox is empty or only BahayGo Support; otherwise a short prompt. */
+  const [noSelectionKind, setNoSelectionKind] = useState<"checking" | "welcome" | "pick">("checking");
+
+  useEffect(() => {
+    if (activeChannel) {
+      setNoSelectionKind("checking");
+      return;
+    }
+    if (!client?.userID) return;
+    setNoSelectionKind("checking");
+    let cancelled = false;
+    void client
+      .queryChannels(
+        { type: "messaging", members: { $in: [client.userID] } },
+        [{ last_message_at: -1 }],
+        { limit: 40 },
+      )
+      .then((channels) => {
+        if (cancelled) return;
+        const visible = channels.filter((c) => !isChannelArchived(c));
+        const welcome =
+          visible.length === 0 || (visible.length === 1 && isSupportChannel(visible[0]!));
+        setNoSelectionKind(welcome ? "welcome" : "pick");
+      })
+      .catch(() => {
+        if (!cancelled) setNoSelectionKind("pick");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeChannel, client, client?.userID]);
+
+  if (!activeChannel) {
+    const variant = profile?.role === "client" ? "client" : "agent";
+    return (
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-page">
+        <ChatHeader onBack={props.onBackToList} className="md:hidden" />
+        <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-4 py-8 md:justify-center md:py-12">
+          {noSelectionKind === "checking" ? (
+            <div className="h-12 w-12 shrink-0 animate-pulse rounded-2xl bg-fg/[0.06]" aria-hidden />
+          ) : noSelectionKind === "welcome" ? (
+            <MessagesOnlySupportWelcome variant={variant} onBackToList={props.onBackToList} />
+          ) : (
+            <p className="max-w-md text-center text-sm font-semibold text-fg/45">
+              Select a conversation from the list
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <ChatHeader onBack={props.onBackToList} className="md:hidden" />

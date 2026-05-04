@@ -6,6 +6,7 @@ import { ConversationFilter } from "@/features/messaging/components/conversation
 import { SearchBar } from "@/features/messaging/components/conversation-list/search-bar";
 import { ConversationPreview } from "@/features/messaging/components/conversation-list/conversation-preview";
 import { CHANNEL_LIST_OPTIONS, CHANNEL_LIST_SORT, useChannelList } from "@/features/messaging/hooks/use-channel-list";
+import { useEnsureSupportChannel } from "@/features/messaging/hooks/use-ensure-support-channel";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 
 export function ConversationListPanel(props: {
@@ -25,6 +26,11 @@ export function ConversationListPanel(props: {
     setFilterMode,
     channelRenderFilterFn,
   } = useChannelList({ selfUserId: props.selfUserId });
+
+  useEnsureSupportChannel({
+    enabled: Boolean(filters && client.userID),
+    onEnsured: bumpChannelListKey,
+  });
 
   const Preview = useCallback(
     (p: ChannelPreviewUIComponentProps) => (

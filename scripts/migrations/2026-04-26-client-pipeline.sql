@@ -28,7 +28,7 @@ create policy "deal_documents_update_client"
         and l.client_id is not null
         and l.client_id = auth.uid()
     )
-  )
+
   with check (
     exists (
       select 1 from public.leads l
