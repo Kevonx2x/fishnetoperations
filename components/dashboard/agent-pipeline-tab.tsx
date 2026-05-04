@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { format, isValid, parseISO } from "date-fns";
 import {
   DndContext,
   type DragEndEvent,
@@ -85,6 +84,7 @@ import {
   manilaDateStringFromInstant,
   manilaLocalDateTimeToOffsetIso,
   manilaMonthDayLabelFromInstant,
+  manilaMonthDayYearLabelFromInstant,
   manilaTimeLabel12hFromInstant,
   manilaTimeStringFromInstant,
   normalizeTimeHmForInput,
@@ -721,6 +721,10 @@ function stageBarHex(stage: PipelineStageId): string {
   }
 }
 
+/** Gold “Reschedule pending” chip in the kanban card footer (left column); compact for h-6 footer. */
+const KANBAN_FOOTER_RESCHEDULE_BADGE =
+  "flex max-w-full shrink-0 flex-row items-center gap-0.5 rounded-md bg-[#D4A843]/12 px-1 py-0 text-[9px] font-semibold leading-none tracking-tight text-[#D4A843]";
+
 function pipelineColumnEmptyIcon(stage: PipelineStageId) {
   const ring =
     "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#E8E8E8] ring-1 ring-[#2C2C2C]/[0.06]";
@@ -763,6 +767,86 @@ function pipelineColumnEmptyIcon(stage: PipelineStageId) {
         </span>
       );
   }
+}
+
+function kanbanFooterInstant(raw: string | null | undefined): Date | null {
+  const s = raw?.trim();
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const d = new Date(`${s}T12:00:00+08:00`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Single-line footer under kanban cards (Manila date/time; matches former stage pill data). */
+function kanbanDealFooterPlainText(
+  deal: PipelineLeadRow,
+  scheduledViewing: ParsedViewing | null | undefined,
+  viewingRequestScheduledAt: string | null | undefined,
+  offerCreatedAt: string | null | undefined,
+  reservationCreatedAt: string | null | undefined,
+): string {
+  const raw = deal.pipeline_stage;
+  const stageLower = String(raw ?? "").trim().toLowerCase();
+  const pillStage: PipelineStageId | "declined" = stageLower === "declined" ? "declined" : (raw as PipelineStageId);
+
+  if (pillStage === "lead") {
+    const d = kanbanFooterInstant(deal.created_at);
+    if (!d) return "Received —";
+    return `Received ${manilaMonthDayYearLabelFromInstant(d)} · ${manilaTimeLabel12hFromInstant(d)}`;
+  }
+
+  if (pillStage === "viewing") {
+    const sv = scheduledViewing?.scheduledAt;
+    if (sv && !Number.isNaN(sv.getTime())) {
+      return `Viewing ${manilaMonthDayLabelFromInstant(sv)} · ${manilaTimeLabel12hFromInstant(sv)}`;
+    }
+    const rq = viewingRequestScheduledAt?.trim();
+    if (rq) {
+      const d = kanbanFooterInstant(rq);
+      if (d) {
+        return `Viewing requested ${manilaMonthDayLabelFromInstant(d)} · ${manilaTimeLabel12hFromInstant(d)}`;
+      }
+    }
+    return "Viewing —";
+  }
+
+  const monthDayFromTs = (ts: string | null | undefined): string | null => {
+    const d = kanbanFooterInstant(ts);
+    return d ? manilaMonthDayLabelFromInstant(d) : null;
+  };
+
+  if (pillStage === "offer") {
+    const part =
+      monthDayFromTs(offerCreatedAt ?? null) ?? monthDayFromTs(deal.updated_at) ?? monthDayFromTs(deal.created_at);
+    return part ? `Offer sent ${part}` : "Offer sent —";
+  }
+
+  if (pillStage === "reservation") {
+    const part =
+      monthDayFromTs(reservationCreatedAt ?? null) ??
+      monthDayFromTs(deal.updated_at) ??
+      monthDayFromTs(deal.created_at);
+    return part ? `Reserved ${part}` : "Reserved —";
+  }
+
+  if (pillStage === "closed") {
+    const part =
+      monthDayFromTs(deal.closed_at ?? null) ??
+      monthDayFromTs(deal.closed_date ?? null) ??
+      monthDayFromTs(deal.updated_at) ??
+      monthDayFromTs(deal.created_at);
+    return part ? `Closed ${part}` : "Closed —";
+  }
+
+  if (pillStage === "declined") {
+    const part = monthDayFromTs(deal.updated_at) ?? monthDayFromTs(deal.created_at);
+    return part ? `Declined ${part}` : "Declined —";
+  }
+
+  return "—";
 }
 
 function KanbanDealCard({
@@ -813,9 +897,9 @@ function KanbanDealCard({
   unviewedUploadedDocCount: number;
   /** Earliest non-cancelled `viewings` row for this lead (shared agent viewings context). */
   scheduledViewing?: ParsedViewing | null;
-  /** Latest offer created_at for this lead (for Offer stage pill). */
+  /** Latest offer `created_at` for footer (Offer stage). */
   offerCreatedAt?: string | null;
-  /** Latest reservation created_at for this lead (for Reservation stage pill). */
+  /** Latest reservation `created_at` for footer (Reservation stage). */
   reservationCreatedAt?: string | null;
   onSendOffer: (lead: PipelineLeadRow) => void;
   onCreateReservation: (lead: PipelineLeadRow) => void;
@@ -882,107 +966,25 @@ function KanbanDealCard({
     // Server-side `.is("new_lead_seen_at", null)` makes this safe if `deal` is briefly stale after refresh.
   }, [menuOpen, deal.id, onMarkNewLeadSeenOnMenuOpen, deal]);
 
-  const stagePill = useMemo(() => {
-    const stage = deal.pipeline_stage;
-    const stylesByStage: Record<PipelineStageId, string> = {
-      lead: "bg-[#6B9E6E]/10 text-[#6B9E6E]",
-      viewing: "bg-blue-50 text-blue-700",
-      offer: "bg-[#D4A843]/10 text-[#D4A843]",
-      reservation: "bg-purple-50 text-purple-700",
-      closed: "bg-green-50 text-green-700",
-    };
+  const kanbanFooterLine = useMemo(
+    () =>
+      kanbanDealFooterPlainText(
+        deal,
+        scheduledViewing,
+        viewingRequestMeta?.scheduled_at ?? null,
+        offerCreatedAt ?? null,
+        reservationCreatedAt ?? null,
+      ),
+    [
+      deal,
+      scheduledViewing,
+      viewingRequestMeta?.scheduled_at,
+      offerCreatedAt,
+      reservationCreatedAt,
+    ],
+  );
 
-    const labelByStage: Record<PipelineStageId, string> = {
-      lead: "New lead",
-      viewing: "Viewing",
-      offer: "Offer sent",
-      reservation: "Reserved",
-      closed: "Closed",
-    };
-
-    if (stage === "lead") {
-      const d = parseISO(deal.created_at);
-      if (!isValid(d)) {
-        return {
-          kind: "lead_ts" as const,
-          cls: stylesByStage.lead,
-          dateLine: "—",
-          timeLine: "\u00A0",
-        };
-      }
-      return {
-        kind: "lead_ts" as const,
-        cls: stylesByStage.lead,
-        dateLine: format(d, "MMM d, yyyy"),
-        timeLine: format(d, "h:mm a"),
-      };
-    }
-
-    if (stage === "viewing") {
-      if (scheduledViewing) {
-        return {
-          kind: "viewing" as const,
-          cls: stylesByStage.viewing,
-          dateLine: scheduledViewing.fullDateLabel,
-          timeLine: scheduledViewing.timeLabel,
-          reschedulePending: Boolean(reschedulePending),
-        };
-      }
-      return {
-        kind: "viewing_fallback" as const,
-        cls: stylesByStage.viewing,
-        reschedulePending: Boolean(reschedulePending),
-      };
-    }
-
-    const iso =
-      stage === "offer"
-        ? offerCreatedAt ?? deal.updated_at ?? deal.created_at
-        : stage === "reservation"
-          ? reservationCreatedAt ?? deal.updated_at ?? deal.created_at
-          : stage === "closed"
-            ? (deal.closed_at ?? deal.closed_date ?? deal.updated_at ?? deal.created_at)
-            : deal.updated_at ?? deal.created_at;
-
-    const formattedDate = (() => {
-      if (!iso) return null;
-      const d = parseISO(iso);
-      if (!isValid(d)) return null;
-      return format(d, "MMM d");
-    })();
-
-    if (stage === "closed") {
-      return {
-        kind: "default" as const,
-        label: "Closed",
-        date: formattedDate,
-        cls: "bg-green-50 text-green-700",
-        showCheckIcon: true,
-      };
-    }
-
-    return {
-      kind: "default" as const,
-      label: labelByStage[stage],
-      date: formattedDate,
-      cls: stylesByStage[stage],
-      showCheckIcon: false,
-    };
-  }, [
-    deal.created_at,
-    deal.pipeline_stage,
-    deal.updated_at,
-    deal.closed_at,
-    deal.closed_date,
-    deal.name,
-    deal.email,
-    deal.viewing_request_id,
-    scheduledViewing,
-    reschedulePending,
-    offerCreatedAt,
-    reservationCreatedAt,
-    propLine,
-  ]);
+  const showRescheduleFooterBadge = deal.pipeline_stage === "viewing" && Boolean(reschedulePending);
 
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const [menuAnchorRect, setMenuAnchorRect] = useState<DOMRect | null>(null);
@@ -1019,15 +1021,15 @@ function KanbanDealCard({
   } as const;
 
   return (
-    <div ref={setNodeRef} style={styleWithZ} className="relative">
+    <div ref={setNodeRef} style={styleWithZ} className="relative flex w-full flex-col">
       <div
         {...attributes}
         {...listeners}
         className={cn(
-          "relative flex min-h-[150px] cursor-grab flex-col overflow-hidden rounded-lg border border-[#2C2C2C]/[0.08] bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition",
+          "relative flex w-full min-h-[150px] cursor-grab flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.08] bg-white p-3 shadow-none ring-0 transition-colors [box-shadow:none]",
           next ? "pb-10" : "",
-          "hover:border-[#2C2C2C]/12 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]",
-          isDragging && "scale-[1.01] cursor-grabbing shadow-lg ring-1 ring-[#6B9E6E]/20",
+          "hover:border-[#2C2C2C]/12",
+          isDragging && "scale-[1.01] cursor-grabbing border-[#6B9E6E]/35",
         )}
         onClick={() => onOpenLeadDetails(deal.id)}
         role="button"
@@ -1069,60 +1071,6 @@ function KanbanDealCard({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div
-                  className={cn(
-                    "pointer-events-none absolute right-11 top-0 flex min-h-[28px] min-w-[56px] -translate-x-1 flex-col justify-center rounded-md px-1 py-0.5 leading-tight",
-                    stagePill.kind === "lead_ts"
-                      ? "max-w-[100px] items-end text-right"
-                      : "max-w-[72px] items-center text-center",
-                    stagePill.cls,
-                  )}
-                  aria-hidden
-                >
-                  {stagePill.kind === "lead_ts" ? (
-                    <>
-                      <span className="whitespace-nowrap text-[9px] font-semibold leading-none">{stagePill.dateLine}</span>
-                      <span className="whitespace-nowrap text-[9px] font-semibold leading-none opacity-95">
-                        {stagePill.timeLine}
-                      </span>
-                    </>
-                  ) : stagePill.kind === "viewing" ? (
-                    <>
-                      <span className="whitespace-nowrap text-[9px] font-bold leading-none">{stagePill.dateLine}</span>
-                      <span className="whitespace-nowrap text-[9px] font-bold leading-none opacity-95">
-                        {stagePill.timeLine}
-                      </span>
-                      {"reschedulePending" in stagePill && stagePill.reschedulePending ? (
-                        <span className="mt-0.5 flex items-center justify-center gap-0.5 text-[9px] font-semibold text-[#D4A843]">
-                          <Clock className="h-2.5 w-2.5 shrink-0 opacity-90" aria-hidden />
-                          Reschedule pending
-                        </span>
-                      ) : null}
-                    </>
-                  ) : stagePill.kind === "viewing_fallback" ? (
-                    <span className="flex flex-col items-center gap-0.5">
-                      <span className="text-center text-[8px] font-bold leading-tight text-blue-700/55">
-                        No date set
-                      </span>
-                      {"reschedulePending" in stagePill && stagePill.reschedulePending ? (
-                        <span className="flex items-center gap-0.5 text-[9px] font-semibold text-[#D4A843]">
-                          <Clock className="h-2.5 w-2.5 shrink-0 opacity-90" aria-hidden />
-                          Reschedule pending
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : (
-                    <>
-                      <span className="inline-flex items-center gap-1 whitespace-nowrap text-[9px] font-bold uppercase tracking-wide leading-none opacity-90">
-                        {stagePill.showCheckIcon ? <CircleCheck className="h-3 w-3" aria-hidden /> : null}
-                        {stagePill.label}
-                      </span>
-                      <span className="whitespace-nowrap text-[10px] font-bold leading-none">
-                        {stagePill.date ?? "\u00A0"}
-                      </span>
-                    </>
-                  )}
-                </div>
                 {pinned ? <Pin className="absolute -right-0.5 -top-0.5 h-4 w-4 text-[#6B9E6E]" aria-label="Pinned" /> : null}
                 <span className="relative inline-flex shrink-0">
                   <button
@@ -1525,8 +1473,6 @@ function KanbanDealCard({
                     )
                   : null}
               </div>
-
-              {null}
             </div>
           </div>
 
@@ -1557,7 +1503,7 @@ function KanbanDealCard({
             }}
             onPointerDown={(e) => e.stopPropagation()}
             className={cn(
-              "absolute bottom-3 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-sm hover:bg-[#5a8a5d]",
+              "absolute bottom-3 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-none ring-0 [box-shadow:none] hover:bg-[#5a8a5d]",
               anyMenuOpen && "pointer-events-none opacity-0",
             )}
           >
@@ -1566,6 +1512,29 @@ function KanbanDealCard({
             </span>
           </button>
         ) : null}
+      </div>
+      <div
+        className={cn(
+          "flex h-6 w-full shrink-0 items-center gap-2 rounded-b-2xl bg-[#2C2C2C]/[0.06] px-3",
+          showRescheduleFooterBadge ? "justify-between" : "justify-center",
+        )}
+      >
+        {showRescheduleFooterBadge ? (
+          <div className="flex min-w-0 shrink-0 items-center justify-start">
+            <span className={KANBAN_FOOTER_RESCHEDULE_BADGE}>
+              <Clock className="h-2 w-2 shrink-0 opacity-90" aria-hidden />
+              <span className="whitespace-nowrap">Reschedule pending</span>
+            </span>
+          </div>
+        ) : null}
+        <p
+          className={cn(
+            "min-w-0 truncate font-sans text-[10px] font-semibold tracking-tight text-[#2C2C2C]/55",
+            showRescheduleFooterBadge ? "flex-1 text-right" : "w-full text-center",
+          )}
+        >
+          {kanbanFooterLine}
+        </p>
       </div>
     </div>
   );
@@ -1691,12 +1660,14 @@ function KanbanStageColumn({
         )}
       >
         {list.length === 0 ? (
-          <div className="flex min-h-[152px] flex-col items-center justify-center rounded-lg border border-dashed border-[#2C2C2C]/[0.12] bg-[#ECEEEF]/80 px-3 py-6 text-center opacity-[0.78] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-            {pipelineColumnEmptyIcon(stage)}
-            <p className="mt-3 font-sans text-[12px] font-bold text-[#2C2C2C]/60">No deals yet</p>
-            <p className="mt-1 max-w-[200px] font-sans text-[10px] font-medium leading-snug text-[#2C2C2C]/40">
-              Drag deals here or wait for new leads.
-            </p>
+          <div className="flex flex-col">
+            <div className="flex min-h-[152px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#2C2C2C]/[0.12] bg-[#ECEEEF]/80 px-3 py-6 text-center opacity-[0.78] shadow-none ring-0 [box-shadow:none]">
+              {pipelineColumnEmptyIcon(stage)}
+              <p className="mt-3 font-sans text-[12px] font-bold text-[#2C2C2C]/60">No deals yet</p>
+              <p className="mt-1 max-w-[200px] font-sans text-[10px] font-medium leading-snug text-[#2C2C2C]/40">
+                Drag deals here or wait for new leads.
+              </p>
+            </div>
           </div>
         ) : (
           <SortableContext items={ids} strategy={verticalListSortingStrategy}>
@@ -2722,7 +2693,9 @@ export function AgentPipelineTab({
     Record<number, ReschedulePendingMeta>
   >({});
   const [offerCreatedAtByLeadId, setOfferCreatedAtByLeadId] = useState<Record<number, string | null>>({});
-  const [reservationCreatedAtByLeadId, setReservationCreatedAtByLeadId] = useState<Record<number, string | null>>({});
+  const [reservationCreatedAtByLeadId, setReservationCreatedAtByLeadId] = useState<
+    Record<number, string | null>
+  >({});
   const [offerLead, setOfferLead] = useState<PipelineLeadRow | null>(null);
   const [offerAmount, setOfferAmount] = useState("");
   const [offerMessage, setOfferMessage] = useState("");
@@ -3159,7 +3132,7 @@ export function AgentPipelineTab({
       for (const row of (data ?? []) as { lead_id: unknown; created_at: string }[]) {
         const lid = coerceLeadId(row.lead_id);
         if (lid == null) continue;
-        if (out[lid] != null) continue; // latest per lead (already ordered desc)
+        if (out[lid] != null) continue;
         out[lid] = row.created_at ?? null;
       }
       setOfferCreatedAtByLeadId(out);

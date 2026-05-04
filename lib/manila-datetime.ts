@@ -37,6 +37,16 @@ export function manilaMonthDayLabelFromInstant(d: Date): string {
   }).format(d);
 }
 
+/** e.g. "May 1, 2026" in Asia/Manila (for lead received timestamps). */
+export function manilaMonthDayYearLabelFromInstant(d: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: MANILA,
+  }).format(d);
+}
+
 export function manilaTimeLabel12hFromInstant(d: Date): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: MANILA,
