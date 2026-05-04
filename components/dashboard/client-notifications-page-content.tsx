@@ -19,10 +19,21 @@ import {
   ListChecks,
   MessageSquare,
   Sparkles,
+  Trash,
   TrendingDown,
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import type { NotificationListItem } from "@/components/notifications/notification-list";
 import { viewingRequestNotificationDisplay } from "@/components/notifications/notification-list";
@@ -106,6 +117,8 @@ export function ClientNotificationsPageContent() {
   const [loading, setLoading] = useState(true);
   const [markingAll, setMarkingAll] = useState(false);
   const [hasMoreHint, setHasMoreHint] = useState(false);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deleteAllBusy, setDeleteAllBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!user?.id) {
@@ -185,6 +198,29 @@ export function ClientNotificationsPageContent() {
     setMarkingAll(false);
   };
 
+  const confirmDeleteAll = async () => {
+    if (!user?.id || deleteAllBusy) return;
+    setDeleteAllBusy(true);
+    try {
+      const res = await fetch("/api/notifications/delete-all", {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; deletedCount?: number } | null;
+      if (!res.ok) {
+        toast.error(typeof json?.error === "string" ? json.error : "Could not delete notifications.");
+        return;
+      }
+      setRows([]);
+      setHasMoreHint(false);
+      setDeleteAllOpen(false);
+      window.dispatchEvent(new CustomEvent("bahaygo:notifications-read"));
+      toast.success("All notifications deleted");
+    } finally {
+      setDeleteAllBusy(false);
+    }
+  };
+
   const welcomeRail = (
     <div className="flex flex-col gap-4 lg:sticky lg:top-4">
       <div className="rounded-2xl bg-gradient-to-br from-[#F6F9F6] to-white p-6 ring-1 ring-[#2C2C2C]/[0.045]">
@@ -251,16 +287,28 @@ export function ClientNotificationsPageContent() {
         <h1 className="font-serif text-3xl font-semibold text-[#2C2C2C]">Notifications</h1>
         <p className="mt-1 text-sm text-gray-600">Updates and activity for your account.</p>
       </div>
-      {unreadCount > 0 ? (
-        <button
-          type="button"
-          onClick={() => void markAllRead()}
-          disabled={markingAll}
-          className="inline-flex items-center gap-2 rounded-full border border-[#6B9E6E] bg-white px-3 py-1.5 text-xs font-semibold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/5 disabled:opacity-50"
-        >
-          <CheckCheck className="size-3.5 shrink-0" aria-hidden />
-          {markingAll ? "…" : "Mark all as read"}
-        </button>
+      {rows.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setDeleteAllOpen(true)}
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-red-200 bg-white px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+          >
+            <Trash className="size-3.5 shrink-0" aria-hidden />
+            Delete all
+          </button>
+          {unreadCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => void markAllRead()}
+              disabled={markingAll}
+              className="inline-flex h-8 items-center gap-2 rounded-full border border-[#6B9E6E] bg-white px-3 py-1.5 text-xs font-semibold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/5 disabled:opacity-50"
+            >
+              <CheckCheck className="size-3.5 shrink-0" aria-hidden />
+              {markingAll ? "…" : "Mark all as read"}
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
@@ -275,6 +323,42 @@ export function ClientNotificationsPageContent() {
 
   return (
     <div className="mx-auto w-full max-w-6xl">
+      <Dialog
+        open={deleteAllOpen}
+        onOpenChange={(open) => {
+          if (!open && deleteAllBusy) return;
+          setDeleteAllOpen(open);
+        }}
+      >
+        <DialogContent className="max-w-md border border-[#2C2C2C]/10 bg-white font-sans text-[#2C2C2C] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-xl text-[#2C2C2C]">Delete all notifications?</DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-gray-600">
+              This will permanently remove all {rows.length} notifications from your account. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full rounded-full border-gray-300 text-[#2C2C2C] sm:w-auto"
+              disabled={deleteAllBusy}
+              onClick={() => setDeleteAllOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={deleteAllBusy}
+              onClick={() => void confirmDeleteAll()}
+              className="w-full rounded-full border-0 bg-red-600 px-5 text-white hover:bg-red-700 sm:w-auto"
+            >
+              {deleteAllBusy ? "…" : "Delete all"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
         <div className="min-w-0">
           {feedHeader}

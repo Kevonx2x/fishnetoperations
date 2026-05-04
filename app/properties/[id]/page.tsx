@@ -358,6 +358,42 @@ export default function PropertyPage() {
     },
     [allPhotos.length, heroIndex],
   );
+
+  const goPrevPhoto = useCallback(() => {
+    if (allPhotos.length < 2) return;
+    const i = heroIndex;
+    if (i <= 0) return;
+    setActivePhoto(String(allPhotos[i - 1]).trim());
+  }, [allPhotos, heroIndex]);
+
+  const goNextPhoto = useCallback(() => {
+    if (allPhotos.length < 2) return;
+    const i = heroIndex;
+    if (i >= allPhotos.length - 1) return;
+    setActivePhoto(String(allPhotos[i + 1]).trim());
+  }, [allPhotos, heroIndex]);
+
+  useEffect(() => {
+    if (!property || allPhotos.length < 2 || lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const t = e.target;
+      if (t instanceof HTMLElement) {
+        const tag = t.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable) return;
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        goPrevPhoto();
+      } else {
+        e.preventDefault();
+        goNextPhoto();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [property, allPhotos.length, lightboxOpen, goPrevPhoto, goNextPhoto]);
+
   const connectedAgents = useMemo(() => {
     if (!property) return [];
     const raw = property.property_agents ?? [];
@@ -589,7 +625,7 @@ export default function PropertyPage() {
                         <button
                           type="button"
                           onClick={() => openLightbox(heroIndex)}
-                          className="absolute inset-0 block"
+                          className="absolute inset-0 z-0 block"
                           aria-label={`Open photo ${heroIndex + 1}`}
                         >
                           <Image
@@ -602,6 +638,34 @@ export default function PropertyPage() {
                             priority
                           />
                         </button>
+                        {allPhotos.length > 1 ? (
+                          <>
+                            <button
+                              type="button"
+                              aria-label="Previous photo"
+                              disabled={heroIndex <= 0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                goPrevPhoto();
+                              }}
+                              className="absolute left-4 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-[#2C2C2C]/12 transition hover:scale-105 hover:bg-[#FAF8F4] disabled:pointer-events-none disabled:opacity-30 md:h-10 md:w-10"
+                            >
+                              <ChevronLeft className="h-5 w-5 text-[#2C2C2C]" aria-hidden strokeWidth={2} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Next photo"
+                              disabled={heroIndex >= allPhotos.length - 1}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                goNextPhoto();
+                              }}
+                              className="absolute right-4 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-[#2C2C2C]/12 transition hover:scale-105 hover:bg-[#FAF8F4] disabled:pointer-events-none disabled:opacity-30 md:h-10 md:w-10"
+                            >
+                              <ChevronRight className="h-5 w-5 text-[#2C2C2C]" aria-hidden strokeWidth={2} />
+                            </button>
+                          </>
+                        ) : null}
                         {!hideListingClientActions ? (
                           <div
                             className="absolute left-3 top-3 z-10 flex items-start gap-1.5"
