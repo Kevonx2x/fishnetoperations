@@ -94,6 +94,8 @@ export default function SignupPage() {
         password,
         options: {
           data: {
+            first_name: fn,
+            last_name: ln,
             full_name: fullNameCombined,
             name: fullNameCombined,
           },
