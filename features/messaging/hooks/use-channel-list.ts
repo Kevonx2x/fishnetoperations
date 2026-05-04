@@ -69,10 +69,18 @@ export function useChannelList(params: UseChannelListParams) {
         });
       }
 
-      if (filterMode === "unread") out = out.filter((ch) => ch.countUnread() > 0);
-      else if (filterMode === "pinned") out = out.filter((ch) => isChannelPinned(ch));
-      else if (filterMode === "archived") out = out.filter((ch) => isChannelArchived(ch));
-      else out = out.filter((ch) => !isChannelArchived(ch));
+      if (filterMode === "unread") {
+        out = out.filter(
+          (ch) =>
+            ch.countUnread() > 0 && (!isChannelArchived(ch) || isSupportChannel(ch)),
+        );
+      } else if (filterMode === "pinned") {
+        out = out.filter((ch) => isChannelPinned(ch) || isSupportChannel(ch));
+      } else if (filterMode === "archived") {
+        out = out.filter((ch) => isChannelArchived(ch) && !isSupportChannel(ch));
+      } else {
+        out = out.filter((ch) => !isChannelArchived(ch) || isSupportChannel(ch));
+      }
 
       return [...out].sort((a, b) => {
         const aSup = isSupportChannel(a);

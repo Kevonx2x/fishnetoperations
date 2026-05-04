@@ -38,7 +38,7 @@ export function ChatThreadPanel(props: {
       )
       .then((channels) => {
         if (cancelled) return;
-        const visible = channels.filter((c) => !isChannelArchived(c));
+        const visible = channels.filter((c) => !isChannelArchived(c) || isSupportChannel(c));
         const welcome =
           visible.length === 0 || (visible.length === 1 && isSupportChannel(visible[0]!));
         setNoSelectionKind(welcome ? "welcome" : "pick");
@@ -95,13 +95,14 @@ export function ChatThreadPanel(props: {
 function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
   const { loading, channel } = useChannelStateContext();
   const { setActiveChannel, channel: activeChannel } = useChatContext();
+  const supportThread = channel ? isSupportChannel(channel) : false;
 
   useEffect(() => {
     if (!loading) props.onLoaded();
   }, [loading, props]);
 
   const archiveOpenChannel = useCallback(async () => {
-    if (!channel) return;
+    if (!channel || isSupportChannel(channel)) return;
     try {
       await channel.archive();
       if (activeChannel?.cid === channel.cid) setActiveChannel(undefined);
@@ -122,20 +123,22 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
     <div className="bhg-chat-panel flex h-full min-h-0 w-full min-w-0 flex-col bg-surface-page">
       <header className="hidden shrink-0 items-center justify-between border-b border-subtle bg-surface-page px-4 py-4 md:flex">
         <ChatHeader className="min-w-0 flex-1 border-b-0 bg-transparent px-0 py-0" />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="hidden rounded-full p-2 text-fg/55 hover:bg-fg/[0.04] md:inline-flex"
-              aria-label="Conversation menu"
-            >
-              <MoreHorizontal className="h-5 w-5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[200px]">
-            <DropdownMenuItem onClick={() => void archiveOpenChannel()}>Archive conversation</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {!supportThread ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="hidden rounded-full p-2 text-fg/55 hover:bg-fg/[0.04] md:inline-flex"
+                aria-label="Conversation menu"
+              >
+                <MoreHorizontal className="h-5 w-5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[200px]">
+              <DropdownMenuItem onClick={() => void archiveOpenChannel()}>Archive conversation</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
       </header>
       <div
         className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col max-md:flex-none max-md:h-[calc(100dvh-56px-56px-64px)] max-md:overflow-y-auto max-md:[-webkit-overflow-scrolling:touch]"

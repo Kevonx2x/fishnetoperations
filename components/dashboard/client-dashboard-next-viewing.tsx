@@ -150,15 +150,6 @@ export default async function ClientDashboardNextViewing(props: { userId: string
 function NextViewingEmpty() {
   return (
     <section className="flex flex-col items-center rounded-2xl bg-white p-5 text-center ring-1 ring-[#2C2C2C]/[0.045] md:p-6">
-      <div className="relative mb-3 h-20 w-28">
-        <Image
-          src="/agent-illustration.png"
-          alt=""
-          fill
-          className="object-contain"
-          sizes="128px"
-        />
-      </div>
       <h2 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C]">No upcoming viewings</h2>
       <p className="mt-2 max-w-sm text-sm font-medium leading-relaxed text-[#2C2C2C]/55">
         Browse the marketplace to find your next home

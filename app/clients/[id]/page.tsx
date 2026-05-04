@@ -120,6 +120,31 @@ function pinnedRelativeLabel(iso: string): string {
   return `Pinned ${months} months ago`;
 }
 
+function likedRelativeLabel(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms)) return "Liked recently";
+  const totalHours = Math.floor(ms / (1000 * 60 * 60));
+  if (totalHours < 1) return "Liked just now";
+  if (totalHours < 24) return `Liked ${totalHours} hours ago`;
+  const totalDays = Math.floor(ms / (1000 * 60 * 60 * 24));
+  if (totalDays <= 6) return `Liked ${totalDays} days ago`;
+  if (totalDays < 30) {
+    const weeks = Math.floor(totalDays / 7);
+    return `Liked ${weeks} weeks ago`;
+  }
+  const months = Math.floor(totalDays / 30);
+  return `Liked ${months} months ago`;
+}
+
+function positiveCount(v: unknown): number | null {
+  if (v == null) return null;
+  if (typeof v === "number" && Number.isFinite(v) && v > 0) return Math.floor(v);
+  const s = String(v).replace(/,/g, "").trim();
+  if (!s) return null;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 function visaExpiryDisplay(iso: string | null | undefined): string {
   if (!iso?.trim()) return "";
   const d = new Date(`${iso.trim().slice(0, 10)}T12:00:00`);
@@ -191,6 +216,12 @@ const OWN_MAIN_TABS: { id: OwnMainTab; label: string }[] = [
   { id: "badges", label: "Badges" },
 ];
 
+/** `?tab=all|pins|likes|badges` maps to feed tabs; other values (e.g. `messages`) do not change feed tab state. */
+function ownMainTabFromUrlTabParam(tab: string | null): OwnMainTab | null {
+  if (tab === "all" || tab === "pins" || tab === "likes" || tab === "badges") return tab;
+  return null;
+}
+
 function overlayLabel(p: PropertyRow): "SOLD" | "OFF MARKET" | null {
   const ls = (p.listing_status ?? "").toLowerCase();
   if (ls === "sold") return "SOLD";
@@ -201,6 +232,20 @@ function overlayLabel(p: PropertyRow): "SOLD" | "OFF MARKET" | null {
 function ClientPublicProfilePageInner() {
   const params = useParams();
   const searchParams = useSearchParams();
+
+  const [ownMainTab, setOwnMainTab] = useState<OwnMainTab>(
+    () => ownMainTabFromUrlTabParam(searchParams.get("tab")) ?? "likes",
+  );
+
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    const main = ownMainTabFromUrlTabParam(t);
+    if (main != null) {
+      setOwnMainTab(main);
+    } else if (t === null || t === "") {
+      setOwnMainTab("likes");
+    }
+  }, [searchParams]);
   const router = useRouter();
   const rawId = typeof params.id === "string" ? params.id : "";
   const { user, profile, loading: authLoading } = useAuth();
@@ -246,7 +291,6 @@ function ClientPublicProfilePageInner() {
   const [selectedViewingProperty, setSelectedViewingProperty] = useState<PropertyRow | null>(null);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const [freeAgentWishlistPreview, setFreeAgentWishlistPreview] = useState(false);
-  const [ownMainTab, setOwnMainTab] = useState<OwnMainTab>("all");
   const [ownListingMode, setOwnListingMode] = useState<ListingMode>("rent");
 
   const clientId = rawId;
@@ -909,7 +953,11 @@ function ClientPublicProfilePageInner() {
     const isPinSaved = pins.has(p.id);
     const pinnedIso = pinnedAtByPropertyId[p.id];
     const activityIso = opts.activityIso ?? pinnedIso ?? null;
-    const activityLine = activityIso ? pinnedRelativeLabel(activityIso) : "Recently";
+    const activityLine = activityIso
+      ? opts.variant === "pinned"
+        ? pinnedRelativeLabel(activityIso)
+        : likedRelativeLabel(activityIso)
+      : "Recently";
     const listedLine = listingListedLabel(p.created_at);
     const title = p.name?.trim() || p.location || "Listing";
     const titleDisplay = truncateTitle(title, FEED_TITLE_MAX_BIG);
@@ -918,38 +966,52 @@ function ClientPublicProfilePageInner() {
     const hasAgents = agents.length > 0;
     const showPinRemove = isOwn && Boolean(pinnedIso);
 
+    const bedsShow = positiveCount(p.beds);
+    const bathsShow = positiveCount(p.baths);
+    const sqftShow = positiveCount(p.sqft);
+    const hasAnyDims = bedsShow != null || bathsShow != null || sqftShow != null;
+    const dimParts: string[] = [];
+    if (bedsShow != null) dimParts.push(`${bedsShow} beds`);
+    if (bathsShow != null) dimParts.push(`${bathsShow} baths`);
+    if (sqftShow != null) dimParts.push(`${sqftShow} sqft`);
+
     return (
       <article
         key={`${opts.variant}-${p.id}-${activityIso ?? ""}`}
         className={cn(
-          "overflow-hidden rounded-2xl border border-[#2C2C2C]/8 bg-white shadow-sm",
+          "overflow-hidden rounded-2xl bg-white p-0 ring-1 ring-[#2C2C2C]/[0.045]",
           listingRemoved && "opacity-50",
         )}
       >
-        <div className="flex items-start gap-3 px-4 pt-4">
-          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
+        <div className="flex items-center gap-3 px-4 pb-3 pt-4">
+          <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-black/10">
             {clientProfile.avatar_url?.trim() ? (
               <SupabasePublicImage
                 src={clientProfile.avatar_url}
                 alt=""
                 fill
-                sizes="40px"
+                sizes="32px"
                 className="object-cover"
               />
             ) : (
-              <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-sm font-bold text-white">
+              <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-xs font-bold text-white">
                 {agentAvatarInitials(displayName)}
               </span>
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-bold text-[#2C2C2C]">{displayName}</p>
-            <p className="text-xs font-medium text-[#2C2C2C]/50">{activityLine}</p>
-            <p className="text-xs font-medium text-[#2C2C2C]/50">{listedLine}</p>
+            <p className="font-bold leading-tight text-[#2C2C2C]">{displayName}</p>
+            <p className="mt-0.5 text-xs font-medium text-[#2C2C2C]/50">{activityLine}</p>
           </div>
+          <span
+            className="max-w-[45%] shrink-0 truncate rounded-full bg-[#D4A843]/18 px-2 py-0.5 text-center text-[10px] font-bold uppercase tracking-wide text-[#8a6d32] ring-1 ring-[#D4A843]/35"
+            title={listedLine}
+          >
+            {listedLine}
+          </span>
         </div>
 
-        <div className="relative mt-3 w-full overflow-hidden">
+        <div className="relative w-full overflow-hidden">
           {listingRemoved ? (
             <div className="relative block aspect-video w-full cursor-default bg-[#2C2C2C]/5">
               <Image
@@ -993,22 +1055,25 @@ function ClientPublicProfilePageInner() {
               </span>
             </div>
           ) : null}
-          <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
+          <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-row flex-wrap items-center gap-1.5">
             {opts.variant === "pinned" ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10">
-                <Pin className="h-3.5 w-3.5 shrink-0 text-[#D4A843]" aria-hidden />
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#D4A843] px-2 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-[#D4A843]/50">
+                <Pin className="h-3.5 w-3.5 shrink-0 text-[#2C2C2C]" aria-hidden />
                 Pinned
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-md ring-1 ring-black/10">
-                <Heart className="h-3.5 w-3.5 shrink-0 fill-red-500 text-red-500" aria-hidden />
+              <span className="inline-flex items-center gap-1 rounded-full bg-red-500 px-2 py-1 text-[11px] font-bold text-white shadow-md ring-1 ring-red-600/40">
+                <Heart className="h-3.5 w-3.5 shrink-0 fill-white text-white" aria-hidden />
                 Liked
               </span>
             )}
             <span
-              className={`rounded-full px-2.5 py-1 text-[11px] font-bold text-white shadow-md ${
-                p.status === "for_rent" ? "bg-[#D4A843] text-[#2C2C2C]" : "bg-[#6B9E6E]"
-              }`}
+              className={cn(
+                "rounded-full px-2.5 py-1 text-[11px] font-bold shadow-md ring-1",
+                p.status === "for_rent"
+                  ? "bg-[#D4A843] text-[#2C2C2C] ring-[#D4A843]/50"
+                  : "bg-[#6B9E6E] text-white ring-[#6B9E6E]/40",
+              )}
             >
               {statusLabel}
             </span>
@@ -1112,12 +1177,12 @@ function ClientPublicProfilePageInner() {
             <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
             <span>{p.location}</span>
           </p>
-          <p className="text-sm text-[#6B6B6B]">
-            {p.sqft} sqft · {p.beds} beds · {p.baths} baths
-          </p>
+          {hasAnyDims ? (
+            <p className="text-sm text-[#6B6B6B]">{dimParts.join(" · ")}</p>
+          ) : null}
         </div>
 
-        <div className="flex flex-col gap-2 px-4 pb-4 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex flex-col gap-2 px-4 pb-4 pt-0 sm:flex-row sm:flex-wrap sm:items-center">
           {listingRemoved ? (
             <span className="inline-flex w-full items-center justify-center rounded-full bg-gray-100 px-3 py-2.5 text-sm font-semibold text-gray-400 sm:w-auto">
               {removedOverlayLabel}
@@ -1125,36 +1190,43 @@ function ClientPublicProfilePageInner() {
           ) : (
             <Link
               href={`/properties/${encodeURIComponent(p.id)}`}
-              className="inline-flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] sm:w-auto"
+              className="inline-flex w-full items-center justify-center rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2.5 text-sm font-semibold text-[#6B9E6E] shadow-sm transition hover:bg-[#6B9E6E]/10 sm:w-auto"
             >
               View Property
             </Link>
           )}
-          <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
-            <button
-              type="button"
-              onClick={() => openViewingForProperty(p)}
-              disabled={authLoading || !hasAgents || viewingPrefsBlocked || listingRemoved}
-              title={
-                listingRemoved
-                  ? "This listing is no longer available"
-                  : user && !hasAgents
-                    ? "No agent available"
-                    : viewingPrefsBlocked
-                      ? "Complete your profile preferences to request a viewing."
-                      : undefined
-              }
-              className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-            >
-              <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
-              Request Viewing
-            </button>
-            {!hasAgents ? (
-              <p className="max-w-md text-xs leading-snug text-[#2C2C2C]/65">
-                No listing agent is assigned to this property yet, so viewing requests are unavailable.
-              </p>
-            ) : viewingPrefsBlocked ? (
-              <p className="max-w-md text-xs leading-snug text-[#2C2C2C]">
+          <div className="flex w-full min-w-0 flex-col sm:w-auto">
+            {!listingRemoved && !hasAgents ? (
+              <button
+                type="button"
+                disabled
+                className="inline-flex w-full cursor-not-allowed items-center justify-center gap-1.5 rounded-full border-2 border-[#2C2C2C]/15 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/40 sm:w-auto"
+              >
+                <Calendar className="h-3.5 w-3.5 shrink-0 text-[#2C2C2C]/35" aria-hidden />
+                Listing agent unavailable
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => openViewingForProperty(p)}
+                disabled={authLoading || !hasAgents || viewingPrefsBlocked || listingRemoved}
+                title={
+                  listingRemoved
+                    ? "This listing is no longer available"
+                    : user && !hasAgents
+                      ? "No agent available"
+                      : viewingPrefsBlocked
+                        ? "Complete your profile preferences to request a viewing."
+                        : undefined
+                }
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E]/35 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] transition hover:bg-[#6B9E6E]/8 disabled:cursor-not-allowed disabled:border-[#2C2C2C]/15 disabled:text-[#2C2C2C]/35 sm:w-auto"
+              >
+                <Calendar className="h-3.5 w-3.5 text-[#6B9E6E] disabled:text-[#2C2C2C]/35" aria-hidden />
+                Request Viewing
+              </button>
+            )}
+            {hasAgents && viewingPrefsBlocked ? (
+              <p className="mt-1.5 max-w-md text-xs leading-snug text-[#2C2C2C]">
                 Complete your profile preferences to request a viewing.{" "}
                 <Link
                   href="/settings?tab=profile"
@@ -1204,7 +1276,6 @@ function ClientPublicProfilePageInner() {
                 <p className="mt-4 text-sm font-semibold text-[#2C2C2C]">
                   <span className="text-[#6B9E6E]">{savedTotal}</span> properties saved
                 </p>
-                <p className="mt-1 text-xs text-[#2C2C2C]/45">0 properties viewed · coming soon</p>
                 {isOwn && clientPrefs ? (
                   <div className="mt-6 w-full space-y-3 text-left">
                     <div className="rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-4">

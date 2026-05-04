@@ -195,35 +195,37 @@ export function ConversationPreview(
           <p className="truncate text-[13px] leading-snug text-fg/50">{previewText}</p>
         </div>
       </div>
-      <div
-        className={cn(
-          "flex shrink-0 flex-col gap-1 pt-0.5 transition-opacity",
-          support ? "hidden" : pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-        )}
-      >
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            void togglePin();
-          }}
-          className="rounded-md p-1 text-fg/40 hover:bg-fg/[0.04] hover:text-brand-sage"
-          aria-label={pinned ? "Unpin conversation" : "Pin conversation"}
+      {!support ? (
+        <div
+          className={cn(
+            "flex shrink-0 flex-col gap-1 pt-0.5 transition-opacity",
+            pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+          )}
         >
-          <Pin className={cn("h-4 w-4", pinned && "fill-brand-sage text-brand-sage")} />
-        </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            void archiveChannel();
-          }}
-          className="rounded-md p-1 text-fg/40 hover:bg-fg/[0.04] hover:text-red-500/80"
-          aria-label="Archive conversation"
-        >
-          <Archive className="h-4 w-4" />
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              void togglePin();
+            }}
+            className="rounded-md p-1 text-fg/40 hover:bg-fg/[0.04] hover:text-brand-sage"
+            aria-label={pinned ? "Unpin conversation" : "Pin conversation"}
+          >
+            <Pin className={cn("h-4 w-4", pinned && "fill-brand-sage text-brand-sage")} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              void archiveChannel();
+            }}
+            className="rounded-md p-1 text-fg/40 hover:bg-fg/[0.04] hover:text-red-500/80"
+            aria-label="Archive conversation"
+          >
+            <Archive className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

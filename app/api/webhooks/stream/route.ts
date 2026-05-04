@@ -102,6 +102,7 @@ export async function POST(req: Request) {
   }
 
   const senderId = body.message?.user?.id ?? body.message?.user_id ?? "";
+  /* No Resend for support admin's own messages (e.g. automated welcome). */
   if (!senderId || senderId === adminId) {
     return NextResponse.json({ ok: true, skipped: "admin_or_anonymous" });
   }
