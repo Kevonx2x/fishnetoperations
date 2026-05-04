@@ -1,9 +1,5 @@
-import { ClientNotificationsPanel } from "@/components/notifications/client-notifications-panel";
+import { ClientNotificationsPageContent } from "@/components/dashboard/client-notifications-page-content";
 
 export default function ClientDashboardNotificationsPage() {
-  return (
-    <div className="max-w-2xl">
-      <ClientNotificationsPanel />
-    </div>
-  );
+  return <ClientNotificationsPageContent />;
 }
