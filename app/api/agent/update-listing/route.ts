@@ -42,6 +42,11 @@ const bodySchema = z.object({
   developer_name: z.string().max(300).nullable().optional(),
   turnover_date: z.string().max(32).nullable().optional(),
   unit_types: z.array(z.string().min(1).max(32)).max(20).optional(),
+  lat: z.number().finite().nullable().optional(),
+  lng: z.number().finite().nullable().optional(),
+  formatted_address: z.string().max(500).nullable().optional(),
+  place_id: z.string().max(256).nullable().optional(),
+  city: z.string().max(200).nullable().optional(),
 });
 
 export async function POST(req: Request) {
@@ -176,12 +181,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ duplicate: true as const, existing }, { status: 409 });
     }
 
+    const cityUpd =
+      parsed.data.city != null && String(parsed.data.city).trim().length > 0
+        ? normalizeCity(String(parsed.data.city).trim())
+        : normalizeCity(locTrimmed);
+    const latUpd =
+      parsed.data.lat != null &&
+      parsed.data.lng != null &&
+      Number.isFinite(parsed.data.lat) &&
+      Number.isFinite(parsed.data.lng)
+        ? parsed.data.lat
+        : null;
+    const lngUpd =
+      parsed.data.lat != null &&
+      parsed.data.lng != null &&
+      Number.isFinite(parsed.data.lat) &&
+      Number.isFinite(parsed.data.lng)
+        ? parsed.data.lng
+        : null;
+
     const baseUpd = sb
       .from("properties")
       .update({
         name: parsed.data.name?.trim() || null,
         location: locTrimmed,
-        city: normalizeCity(locTrimmed),
+        city: cityUpd,
         price: priceStr,
         listing_type: listingType,
         rent_price: rentPriceForDb,
@@ -196,6 +220,10 @@ export async function POST(req: Request) {
         developer_name: isPresale ? dev : null,
         turnover_date: isPresale && turn ? turn : null,
         unit_types: isPresale && units && units.length ? units : isPresale ? [] : [],
+        lat: latUpd,
+        lng: lngUpd,
+        formatted_address: parsed.data.formatted_address?.trim() || null,
+        place_id: parsed.data.place_id?.trim() || null,
         ...(isOwner && primaryImage ? { image_url: primaryImage } : {}),
       })
       .eq("id", parsed.data.propertyId);

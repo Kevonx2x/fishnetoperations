@@ -26,8 +26,12 @@ const bodySchema = z.object({
   expiry_notified_at: z.null().optional(),
   source_url: z.string().max(2000).nullable().optional(),
   source_hash: z.string().max(200).nullable().optional(),
-  lat: z.number().nullable().optional(),
-  lng: z.number().nullable().optional(),
+  lat: z.number().finite().nullable().optional(),
+  lng: z.number().finite().nullable().optional(),
+  formatted_address: z.string().max(500).nullable().optional(),
+  place_id: z.string().max(256).nullable().optional(),
+  /** When set (e.g. from Places), normalized for DB; otherwise derived from `location`. */
+  city: z.string().max(200).nullable().optional(),
 });
 
 export async function POST(req: Request) {
@@ -91,10 +95,19 @@ export async function POST(req: Request) {
         : null;
 
   const sb = await createSupabaseServerClient();
+  const cityFromBody =
+    body.city != null && String(body.city).trim().length > 0
+      ? normalizeCity(String(body.city).trim())
+      : normalizeCity(locTrimmed);
+  const latIns =
+    body.lat != null && body.lng != null && Number.isFinite(body.lat) && Number.isFinite(body.lng) ? body.lat : null;
+  const lngIns =
+    body.lat != null && body.lng != null && Number.isFinite(body.lat) && Number.isFinite(body.lng) ? body.lng : null;
+
   const insertRow = {
     name: body.name?.trim() || null,
     location: locTrimmed,
-    city: normalizeCity(locTrimmed),
+    city: cityFromBody,
     price: body.price.trim(),
     listing_type: lt,
     rent_price: rentForDb,
@@ -115,7 +128,10 @@ export async function POST(req: Request) {
     source_url: body.source_url?.trim() || null,
     source_hash: body.source_hash?.trim() || null,
     availability_state: "available" as const,
-    ...(body.lat != null && body.lng != null ? { lat: body.lat, lng: body.lng } : {}),
+    lat: latIns,
+    lng: lngIns,
+    formatted_address: body.formatted_address?.trim() || null,
+    place_id: body.place_id?.trim() || null,
   };
 
   const { data: newProperty, error: insErr } = await sb

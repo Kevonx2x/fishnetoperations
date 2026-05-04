@@ -68,7 +68,10 @@ import {
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
 import { ImportListingModal } from "@/components/dashboard/import-listing-modal";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
-import { PhLocationInput } from "@/components/ui/ph-location-input";
+import {
+  GooglePlacesInput,
+  type GooglePlaceSelectedPayload,
+} from "@/components/forms/google-places-input";
 import { PhPhoneInput } from "@/components/ui/ph-phone-input";
 import { isPhilippinePhoneMode, validatePhilippinePhoneInput } from "@/lib/phone-ph";
 import { formatListingPricePhp } from "@/lib/format-listing-price";
@@ -260,8 +263,11 @@ type PropertyRow = {
   deleted_at?: string | null;
   availability_state?: string | null;
   listed_by?: string | null;
+  city?: string | null;
   lat?: number | null;
   lng?: number | null;
+  formatted_address?: string | null;
+  place_id?: string | null;
 };
 
 const EDIT_PROPERTY_TYPES = [
@@ -545,6 +551,12 @@ type EditListingForm = {
   developer_name: string;
   turnover_date: string;
   unit_types: string[];
+  formatted_address: string | null;
+  place_id: string | null;
+  lat: number | null;
+  lng: number | null;
+  /** Locality from Places (or prior DB city) for API `city` when saving. */
+  placeCity: string | null;
 };
 
 /** UI labels → DB lead stages (existing check constraint). */
@@ -918,6 +930,11 @@ export function AgentDashboard() {
     developer_name: "",
     turnover_date: "",
     unit_types: [],
+    formatted_address: null,
+    place_id: null,
+    lat: null,
+    lng: null,
+    placeCity: null,
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editListingImages, setEditListingImages] = useState<string[]>([]);
@@ -949,9 +966,39 @@ export function AgentDashboard() {
     unit_types: [] as string[],
     source_url: null as string | null,
     source_hash: null as string | null,
+    formatted_address: null as string | null,
+    place_id: null as string | null,
+    lat: null as number | null,
+    lng: null as number | null,
+    placeCity: null as string | null,
   });
   const [listingFormErrors, setListingFormErrors] = useState<Record<string, string>>({});
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
+
+  const onEditListingLocationChange = useCallback((v: string) => {
+    setEditForm((f) => ({
+      ...f,
+      location: v,
+      formatted_address: null,
+      place_id: null,
+      lat: null,
+      lng: null,
+      placeCity: null,
+    }));
+  }, []);
+
+  const onEditListingPlaceSelected = useCallback((payload: GooglePlaceSelectedPayload) => {
+    setEditForm((f) => ({
+      ...f,
+      location: payload.location,
+      formatted_address: payload.formatted_address,
+      place_id: payload.place_id,
+      lat: payload.lat,
+      lng: payload.lng,
+      placeCity: payload.city,
+    }));
+  }, []);
+
   const editListingCompleteness = useMemo(
     () => computeListingCompleteness(editForm, editListingImages),
     [editForm, editListingImages],
@@ -1211,7 +1258,7 @@ export function AgentDashboard() {
         supabase
           .from("properties")
           .select(
-            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng, formatted_address, place_id",
           )
           .eq("listed_by", user.id)
           .order("created_at", { ascending: false }),
@@ -1365,6 +1412,11 @@ export function AgentDashboard() {
                 : null,
           listed_by: (p.listed_by as string | null) ?? null,
           availability_state: (p.availability_state as string | null) ?? "available",
+          city: (p.city as string | null) ?? null,
+          lat: typeof p.lat === "number" ? p.lat : p.lat != null ? Number(p.lat) : null,
+          lng: typeof p.lng === "number" ? p.lng : p.lng != null ? Number(p.lng) : null,
+          formatted_address: (p.formatted_address as string | null) ?? null,
+          place_id: (p.place_id as string | null) ?? null,
         };
       });
       const ownedIds = new Set(ownedList.map((p) => p.id));
@@ -1377,7 +1429,7 @@ export function AgentDashboard() {
         const { data: co } = await supabase
           .from("properties")
           .select(
-            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng, formatted_address, place_id",
           )
           .in("id", coIds)
           .order("created_at", { ascending: false });
@@ -1417,6 +1469,11 @@ export function AgentDashboard() {
                   : null,
             listed_by: (p.listed_by as string | null) ?? null,
             availability_state: (p.availability_state as string | null) ?? "available",
+            city: (p.city as string | null) ?? null,
+            lat: typeof p.lat === "number" ? p.lat : p.lat != null ? Number(p.lat) : null,
+            lng: typeof p.lng === "number" ? p.lng : p.lng != null ? Number(p.lng) : null,
+            formatted_address: (p.formatted_address as string | null) ?? null,
+            place_id: (p.place_id as string | null) ?? null,
           };
         });
       }
@@ -1840,6 +1897,11 @@ export function AgentDashboard() {
           developer_name: p.developer_name?.trim() ?? "",
           turnover_date: p.turnover_date ? String(p.turnover_date).slice(0, 10) : "",
           unit_types: Array.isArray(p.unit_types) ? [...p.unit_types] : [],
+          formatted_address: p.formatted_address ?? null,
+          place_id: p.place_id ?? null,
+          lat: p.lat ?? null,
+          lng: p.lng ?? null,
+          placeCity: p.city ?? null,
         });
         setEditListingImages(imageUrls);
         let galleryReadOnly = Boolean(user?.id && p.listed_by && p.listed_by !== user.id && p.isCoHost);
@@ -1977,6 +2039,11 @@ export function AgentDashboard() {
           developer_name: isPs ? editForm.developer_name.trim() : null,
           turnover_date: isPs ? editForm.turnover_date.trim() : null,
           unit_types: isPs ? editForm.unit_types : [],
+          lat: editForm.lat,
+          lng: editForm.lng,
+          formatted_address: editForm.formatted_address,
+          place_id: editForm.place_id,
+          city: editForm.placeCity,
         };
         if (!editGalleryReadOnly) {
           body.imageUrls = imageUrls;
@@ -2084,6 +2151,11 @@ export function AgentDashboard() {
     const createBody = {
       name: listingForm.name.trim() || null,
       location: trimmedLocation,
+      city: listingForm.placeCity,
+      formatted_address: listingForm.formatted_address,
+      place_id: listingForm.place_id,
+      lat: listingForm.lat,
+      lng: listingForm.lng,
       price: priceNum != null ? String(priceNum) : "",
       listing_type: listingTypeColumnForApi(isPs, lt),
       rent_price:
@@ -2188,6 +2260,11 @@ export function AgentDashboard() {
       unit_types: [],
       source_url: null,
       source_hash: null,
+      formatted_address: null,
+      place_id: null,
+      lat: null,
+      lng: null,
+      placeCity: null,
     });
     setListingFormErrors({});
     await loadData();
@@ -3023,13 +3100,14 @@ export function AgentDashboard() {
                 ) : null}
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Location
-                  <PhLocationInput
+                  <GooglePlacesInput
                     required
                     value={editForm.location}
-                    onChange={(v) => setEditForm((f) => ({ ...f, location: v }))}
-                    placeholder="e.g. BGC, Taguig"
+                    onChange={onEditListingLocationChange}
+                    onPlaceSelected={onEditListingPlaceSelected}
+                    placeholder="Search address or neighborhood…"
                     className="mt-1 w-full"
-                    inputClassName="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    inputClassName="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                   />
                 </label>
                 {editFormErrors.location ? (
@@ -3934,6 +4012,11 @@ function ListingsTab({
     unit_types: string[];
     source_url: string | null;
     source_hash: string | null;
+    formatted_address: string | null;
+    place_id: string | null;
+    lat: number | null;
+    lng: number | null;
+    placeCity: string | null;
   };
   setListingForm: React.Dispatch<React.SetStateAction<typeof listingForm>>;
   listingFormErrors: Record<string, string>;
@@ -3981,6 +4064,33 @@ function ListingsTab({
   const listingCompleteness = useMemo(
     () => computeListingCompleteness(listingForm, listingForm.listingImageUrls),
     [listingForm],
+  );
+
+  const onNewListingLocationChange = useCallback((v: string) => {
+    setListingForm((f) => ({
+      ...f,
+      location: v,
+      formatted_address: null,
+      place_id: null,
+      lat: null,
+      lng: null,
+      placeCity: null,
+    }));
+  }, [setListingForm]);
+
+  const onNewListingPlaceSelected = useCallback(
+    (payload: GooglePlaceSelectedPayload) => {
+      setListingForm((f) => ({
+        ...f,
+        location: payload.location,
+        formatted_address: payload.formatted_address,
+        place_id: payload.place_id,
+        lat: payload.lat,
+        lng: payload.lng,
+        placeCity: payload.city,
+      }));
+    },
+    [setListingForm],
   );
 
   useEffect(() => {
@@ -4061,6 +4171,11 @@ function ListingsTab({
         ...f,
         name: typeof d.name === "string" ? d.name : f.name,
         location: typeof d.location === "string" ? d.location : f.location,
+        formatted_address: null,
+        place_id: null,
+        lat: null,
+        lng: null,
+        placeCity: null,
         price:
           Number.isFinite(priceNum) && priceNum > 0
             ? formatPriceInputDigits(String(priceNum))
@@ -4459,13 +4574,14 @@ function ListingsTab({
                 <div className="min-w-0 flex-1 space-y-3">
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Location
-                  <PhLocationInput
+                  <GooglePlacesInput
                     required
                     value={listingForm.location}
-                    onChange={(v) => setListingForm((f) => ({ ...f, location: v }))}
-                    placeholder="e.g. BGC, Taguig"
+                    onChange={onNewListingLocationChange}
+                    onPlaceSelected={onNewListingPlaceSelected}
+                    placeholder="Search address or neighborhood…"
                     className="mt-1 w-full"
-                    inputClassName="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    inputClassName="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                   />
                 </label>
                 {listingFormErrors.location ? (

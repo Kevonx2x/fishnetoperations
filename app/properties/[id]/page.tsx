@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Heart, LayoutGrid, Pin, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Heart, LayoutGrid, MapPin, Pin as LucidePin, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
@@ -29,7 +29,17 @@ import {
   propertyDetailAvailabilityBanner,
   propertyEngagementLooksUnavailable,
 } from "@/lib/property-availability";
-import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
+import {
+  AdvancedMarker,
+  APIProvider,
+  InfoWindow,
+  Map,
+  Marker,
+  Pin,
+  useAdvancedMarkerRef,
+  useApiIsLoaded,
+  useMarkerRef,
+} from "@vis.gl/react-google-maps";
 import { toast } from "sonner";
 
 type ListingAgentProfile = {
@@ -57,6 +67,7 @@ type PropertyRow = {
   property_type: string | null;
   lat: number | null;
   lng: number | null;
+  formatted_address?: string | null;
   description: string | null;
   is_presale?: boolean;
   developer_name?: string | null;
@@ -167,7 +178,7 @@ export default function PropertyPage() {
         .from("properties")
         .select(
           `
-          id, created_at, name, location, price, rent_price, listing_type, status, sqft, beds, baths, image_url, listed_by, property_type, lat, lng, description,
+          id, created_at, name, location, price, rent_price, listing_type, status, sqft, beds, baths, image_url, listed_by, property_type, lat, lng, formatted_address, description,
           is_presale, developer_name, turnover_date, unit_types, availability_state, deleted_at,
           property_photos (url, sort_order),
           listing_agent:profiles!listed_by (id, full_name, avatar_url),
@@ -647,7 +658,7 @@ export default function PropertyPage() {
                                 }
                                 disabled={agentEngagementLocked}
                               >
-                                <Pin
+                                <LucidePin
                                   className={cn(
                                     "h-4 w-4",
                                     engagement.isPinned(property.id)
@@ -765,6 +776,8 @@ export default function PropertyPage() {
                   </p>
                 </div>
               ) : null}
+
+              <PropertyDetailLocationSection property={property} />
 
               {property.is_presale ? (
                 <div className="rounded-2xl border border-[#D4A843]/25 bg-[#FFF9F0] p-5 shadow-sm">
@@ -1030,35 +1043,169 @@ export default function PropertyPage() {
             <p className="text-sm font-semibold text-[#2C2C2C]">Similar properties</p>
           </section>
         )}
-
-        {!loading && !error && property && isValidMapCoordinate(property.lat) && isValidMapCoordinate(property.lng) ? (
-          <PropertyLocationMapSection lat={property.lat} lng={property.lng} />
-        ) : null}
       </main>
     </div>
   );
 }
 
-function PropertyLocationMapSection({ lat, lng }: { lat: number; lng: number }) {
+const SAGE_MAP_PIN_SVG = encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="56" viewBox="0 0 44 56"><path fill="#6B9E6E" stroke="#3d6b40" stroke-width="1.5" d="M22 4C13.2 4 6.3 10.6 6.3 19c0 11.2 15.7 31.8 15.7 31.8S37.7 30.2 37.7 19C37.7 10.6 30.8 4 22 4zm0 24.5a9.5 9.5 0 110-19 9.5 9.5 0 010 19z"/></svg>`,
+);
+
+function PropertyDetailLocationSection({ property }: { property: PropertyRow }) {
+  const subtitle =
+    (typeof property.formatted_address === "string" && property.formatted_address.trim()) ||
+    property.location;
+  const displayTitle = (property.name?.trim() || property.location).trim();
+  const infoAddress =
+    (typeof property.formatted_address === "string" && property.formatted_address.trim()) ||
+    property.location;
+  const hasCoords = isValidMapCoordinate(property.lat) && isValidMapCoordinate(property.lng);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API?.trim() ?? "";
-  if (!apiKey) return null;
+  const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID?.trim() ?? "";
+  const showMapEmbed = Boolean(apiKey && hasCoords);
+  const useAdvancedMarker = Boolean(mapId);
 
   return (
-    <section className="mt-10 w-full" aria-label="Property location">
-      <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">Location</h2>
-      <div className="mt-3 w-full overflow-hidden rounded-2xl ring-1 ring-[#2C2C2C]/10">
-        <APIProvider apiKey={apiKey}>
-          <Map
-            defaultCenter={{ lat, lng }}
-            defaultZoom={15}
-            gestureHandling="greedy"
-            className="h-[400px] w-full"
-          >
-            <Marker position={{ lat, lng }} />
-          </Map>
-        </APIProvider>
+    <section className="mt-8 w-full" aria-labelledby="property-detail-location-heading">
+      <h2
+        id="property-detail-location-heading"
+        className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]"
+      >
+        Location
+      </h2>
+      <p className="mt-2 text-sm text-gray-600">{subtitle}</p>
+      <div
+        className={cn(
+          "relative mt-4 w-full overflow-hidden rounded-2xl ring-1 ring-[#2C2C2C]/[0.045]",
+          "h-[280px] md:h-auto md:aspect-video",
+          !showMapEmbed && "bg-[#6B9E6E]/5",
+        )}
+      >
+        {showMapEmbed ? (
+          <div className="absolute inset-0">
+            <APIProvider apiKey={apiKey}>
+              <Map
+                {...(useAdvancedMarker ? { mapId } : {})}
+                defaultCenter={{ lat: property.lat as number, lng: property.lng as number }}
+                defaultZoom={16}
+                gestureHandling="greedy"
+                mapTypeId="roadmap"
+                className="h-full w-full"
+              >
+                {useAdvancedMarker ? (
+                  <PropertyLocationAdvancedMarkerWithInfoWindow
+                    lat={property.lat as number}
+                    lng={property.lng as number}
+                    title={displayTitle}
+                    addressLine={infoAddress}
+                  />
+                ) : (
+                  <PropertyLocationMarkerWithInfoWindow
+                    lat={property.lat as number}
+                    lng={property.lng as number}
+                    title={displayTitle}
+                    addressLine={infoAddress}
+                  />
+                )}
+              </Map>
+            </APIProvider>
+          </div>
+        ) : (
+          <div className="flex h-full min-h-[280px] w-full flex-col items-center justify-center px-6 text-center md:min-h-0 md:py-10">
+            <MapPin className="h-10 w-10 text-[#6B9E6E]/60" strokeWidth={1.5} aria-hidden />
+            <p className="mt-3 max-w-sm text-sm text-gray-600">
+              {!hasCoords
+                ? "Map will appear once the agent verifies the location."
+                : "Map preview isn’t available right now."}
+            </p>
+            <p className="mt-2 text-xs font-medium text-[#2C2C2C]/70">{property.location}</p>
+          </div>
+        )}
       </div>
     </section>
+  );
+}
+
+function PropertyLocationAdvancedMarkerWithInfoWindow({
+  lat,
+  lng,
+  title,
+  addressLine,
+}: {
+  lat: number;
+  lng: number;
+  title: string;
+  addressLine: string;
+}) {
+  const [markerRef, marker] = useAdvancedMarkerRef();
+  const [infoOpen, setInfoOpen] = useState(false);
+
+  return (
+    <>
+      <AdvancedMarker
+        ref={markerRef}
+        position={{ lat, lng }}
+        title={title}
+        clickable
+        onClick={() => setInfoOpen(true)}
+      >
+        <Pin background="#6B9E6E" borderColor="#3d6b40" glyphColor="#ffffff" />
+      </AdvancedMarker>
+      {infoOpen && marker ? (
+        <InfoWindow anchor={marker} onCloseClick={() => setInfoOpen(false)}>
+          <div className="max-w-[220px] px-1 py-0.5">
+            <p className="text-sm font-semibold text-[#2C2C2C]">{title}</p>
+            <p className="mt-1 text-xs leading-snug text-gray-600">{addressLine}</p>
+          </div>
+        </InfoWindow>
+      ) : null}
+    </>
+  );
+}
+
+function PropertyLocationMarkerWithInfoWindow({
+  lat,
+  lng,
+  title,
+  addressLine,
+}: {
+  lat: number;
+  lng: number;
+  title: string;
+  addressLine: string;
+}) {
+  const mapReady = useApiIsLoaded();
+  const [markerRef, marker] = useMarkerRef();
+  const [infoOpen, setInfoOpen] = useState(false);
+
+  const icon = useMemo((): google.maps.Icon | google.maps.Symbol | string | undefined => {
+    if (!mapReady || typeof google === "undefined") return undefined;
+    return {
+      url: `data:image/svg+xml;charset=UTF-8,${SAGE_MAP_PIN_SVG}`,
+      scaledSize: new google.maps.Size(44, 56),
+      anchor: new google.maps.Point(22, 56),
+    };
+  }, [mapReady]);
+
+  return (
+    <>
+      <Marker
+        ref={markerRef}
+        position={{ lat, lng }}
+        title={title}
+        onClick={() => setInfoOpen(true)}
+        {...(icon ? { icon } : {})}
+      />
+      {infoOpen && marker ? (
+        <InfoWindow anchor={marker} onCloseClick={() => setInfoOpen(false)}>
+          <div className="max-w-[220px] px-1 py-0.5">
+            <p className="text-sm font-semibold text-[#2C2C2C]">{title}</p>
+            <p className="mt-1 text-xs leading-snug text-gray-600">{addressLine}</p>
+          </div>
+        </InfoWindow>
+      ) : null}
+    </>
   );
 }
 
