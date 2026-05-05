@@ -15,7 +15,6 @@ import {
   CreditCard,
   Eye,
   GitBranch,
-  HelpCircle,
   House,
   LayoutList,
   Loader2,
@@ -44,9 +43,9 @@ import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { AgentCalendarModal } from "@/components/dashboard/agent-calendar-modal";
 import { AgentViewingsProvider, useAgentViewings } from "@/lib/agent-viewings-context";
-// Legacy onboarding modal — replaced by AgentSpotlightTour. Kept commented in case we want to revive.
+// Legacy onboarding modal — replaced by agent tour overlay. Kept commented in case we want to revive.
 // import { PostLoginModal } from "@/components/onboarding/post-login-modal";
-import { BAHAYGO_AGENT_TOUR_REPLAY_EVENT } from "@/components/onboarding/agent-spotlight-tour-host";
+import { AgentTourSidebarHelp } from "@/components/onboarding/agent-tour-trigger";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { normalizeListingLocation } from "@/lib/duplicate-listing";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -2401,13 +2400,11 @@ export function AgentDashboard() {
         supabase={supabase}
         refetchRef={agentViewingsRefetchRef}
       >
-      {/* Legacy onboarding card — replaced by AgentSpotlightTour. Kept commented in case we want to revive.
-      {!isTeamMemberView && tab === "overview" ? <PostLoginModal gate="agent-overview" /> : null}
-      */}
+      {/* Legacy PostLoginModal (agent-overview) — kept commented; agent onboarding uses AgentTourOverlay. */}
       <div className="flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
         {/* Desktop sidebar */}
         <aside
-          data-tour="agent-dashboard-sidebar"
+          data-tour="agent-sidebar"
           className={cn(
             "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:min-h-0 md:flex-col md:overflow-hidden md:px-2 md:py-5",
             tab === "messages" ? "w-[208px]" : "w-[180px]",
@@ -2502,19 +2499,7 @@ export function AgentDashboard() {
                 ))
               )}
             </nav>
-            {identityVerified && !isTeamMemberView ? (
-              <button
-                type="button"
-                title="Take the tour again."
-                aria-label="Take the tour again."
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent(BAHAYGO_AGENT_TOUR_REPLAY_EVENT));
-                }}
-                className="mx-1 mt-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#2C2C2C]/50 transition hover:bg-white/80 hover:text-[#6B9E6E]"
-              >
-                <HelpCircle className="h-5 w-5" aria-hidden />
-              </button>
-            ) : null}
+            {identityVerified && !isTeamMemberView ? <AgentTourSidebarHelp /> : null}
           </div>
 
           <AgentSidebarCalendarStrip setCalendarModalOpen={setCalendarModalOpen} />
@@ -2624,7 +2609,7 @@ export function AgentDashboard() {
               )}
               {tab === "messages" && user && (
                 <div
-                  data-tour="agent-messages-conversation-list"
+                  data-tour="messages-panel"
                   className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
                 >
                   <AgentMessagesInbox initialChannelId={streamChannelId} />

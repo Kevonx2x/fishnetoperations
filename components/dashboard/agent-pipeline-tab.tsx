@@ -1143,6 +1143,7 @@ function KanbanDealCard({
                       <AnimatePresence>
                         <motion.div
                           data-kanban-portal-menu="true"
+                          {...(tourViewingCardAnchor ? { "data-tour": "viewing-card-menu-content" as const } : {})}
                           initial={{ opacity: 0, y: menuOpenUp ? 4 : -4 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: menuOpenUp ? 4 : -4 }}

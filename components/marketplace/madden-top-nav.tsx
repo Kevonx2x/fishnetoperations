@@ -595,6 +595,7 @@ export function MaddenTopNav() {
                 <div className="relative">
                   <button
                     type="button"
+                    data-tour="avatar-button"
                     onClick={() => setAccountOpen((o) => !o)}
                     className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white shadow-sm ring-2 ring-[#D4A843]/25 hover:bg-[#FAF8F4]"
                     aria-expanded={accountOpen}
