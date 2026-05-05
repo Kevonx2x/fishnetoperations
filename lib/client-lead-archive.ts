@@ -21,6 +21,7 @@ export function labelForClientArchiveReason(
   note: string | null | undefined,
 ): string {
   const k = String(key ?? "").trim() as ClientArchiveReasonKey;
+  if (String(key ?? "").trim() === "property_unavailable") return "No longer available";
   if (k === "other" && note?.trim()) return note.trim();
   if (k && k in CLIENT_ARCHIVE_REASON_LABEL) return CLIENT_ARCHIVE_REASON_LABEL[k as ClientArchiveReasonKey];
   return key?.trim() || "—";

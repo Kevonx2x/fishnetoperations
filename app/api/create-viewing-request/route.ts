@@ -45,7 +45,7 @@ async function findActiveDuplicateLeadIdForViewing(
     .select("id")
     .eq("client_id", clientId)
     .eq("agent_id", agentId)
-    .eq("archived_by_client", false)
+    .is("archived_at", null)
     .not("pipeline_stage", "in", "(closed,declined)");
   if (propertyId) {
     q = q.eq("property_id", propertyId);
@@ -85,7 +85,7 @@ async function resolveActiveDuplicateLeadIdAfterDedupeInsert(
     .select("id")
     .eq("client_id", clientId)
     .eq("agent_id", agentUserId)
-    .eq("archived_by_client", false)
+    .is("archived_at", null)
     .not("pipeline_stage", "in", "(closed,declined)");
   if (propertyId) {
     q = q.eq("property_id", propertyId);

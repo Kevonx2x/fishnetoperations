@@ -117,13 +117,15 @@ export async function GET(req: Request) {
   const archivedParam = url.searchParams.get("archived");
   const archivedOnly = archivedParam === "1" || archivedParam === "true";
 
-  const { data: leadRows, error: leadsErr } = await admin
+  let leadsQ = admin
     .from("leads")
     .select(
       "id, created_at, updated_at, property_id, agent_id, client_id, pipeline_stage, property_interest, viewing_request_id, archived_by_client, archived_at, archive_reason, archive_note, stage_at_archive",
     )
-    .eq("client_id", clientId)
-    .eq("archived_by_client", archivedOnly)
+    .eq("client_id", clientId);
+  leadsQ = archivedOnly ? leadsQ.not("archived_at", "is", null) : leadsQ.is("archived_at", null);
+
+  const { data: leadRows, error: leadsErr } = await leadsQ
     .order("updated_at", { ascending: false })
     .limit(50);
 

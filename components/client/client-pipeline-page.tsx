@@ -873,14 +873,24 @@ function DealCard({
     const reasonLabel = labelForClientArchiveReason(deal.archive_reason, deal.archive_note);
     const archivedWhen = deal.archived_at ? formatRelativeTime(deal.archived_at) : "—";
     const stageSnap = String(deal.stage_at_archive ?? deal.pipeline_stage ?? "—");
+    const systemUnavailable = String(deal.archive_reason ?? "").trim() === "property_unavailable";
     return (
       <article
         id={`lead-${deal.lead_id}`}
-        className="relative isolate overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.05] bg-white shadow-[0_2px_20px_rgba(44,44,44,0.05)]"
+        className={cn(
+          "relative isolate overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.05] bg-white shadow-[0_2px_20px_rgba(44,44,44,0.05)]",
+          systemUnavailable && "opacity-70",
+        )}
       >
         <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-8 sm:py-6">
           <div className="min-w-0 flex-1 font-sans">
-            <StatusPill label="Archived" variant="neutral" />
+            {systemUnavailable ? (
+              <span className="shrink-0 rounded-full border border-red-300 bg-red-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700">
+                NO LONGER AVAILABLE
+              </span>
+            ) : (
+              <StatusPill label="Archived" variant="neutral" />
+            )}
             <h2 className="mt-3 break-words text-[0.9375rem] font-bold leading-snug tracking-tight text-[#2C2C2C] sm:text-[1rem]">
               {deal.property.title}
             </h2>
