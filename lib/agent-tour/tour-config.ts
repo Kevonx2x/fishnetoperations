@@ -16,7 +16,7 @@ export async function sleep(ms: number): Promise<void> {
   await new Promise((r) => window.setTimeout(r, ms));
 }
 
-export async function waitForSelector(selector: string, timeoutMs = 2000, intervalMs = 50): Promise<Element | null> {
+export async function waitForSelector(selector: string, timeoutMs = 1000, intervalMs = 40): Promise<Element | null> {
   const t0 = Date.now();
   while (Date.now() - t0 < timeoutMs) {
     const el = document.querySelector(selector);
@@ -80,7 +80,7 @@ export const AGENT_TOUR_STEPS: TourStepConfig[] = [
     beforeNext: async (ctx) => {
       const btn = document.querySelector<HTMLElement>("[data-tour=\"avatar-button\"]");
       btn?.click();
-      await ctx.sleep(300);
+      await ctx.sleep(150);
     },
     afterNext: async (ctx) => {
       ctx.router.push("/dashboard/agent");
@@ -97,9 +97,9 @@ export const AGENT_TOUR_STEPS: TourStepConfig[] = [
     primaryComplete: false,
     afterNext: async (ctx) => {
       ctx.router.push("/dashboard/agent?tab=pipeline");
-      const el = await ctx.waitForSelector("[data-tour=\"viewing-card\"]", 2000);
+      const el = await ctx.waitForSelector("[data-tour=\"viewing-card\"]", 1000);
       useAgentTourStore.getState().setStep3DemoFallback(!el);
-      await ctx.sleep(el ? 200 : 400);
+      await ctx.sleep(el ? 80 : 120);
     },
   },
   {
@@ -114,9 +114,9 @@ export const AGENT_TOUR_STEPS: TourStepConfig[] = [
       const trigger = document.querySelector<HTMLElement>("[data-tour=\"viewing-card-menu-trigger\"]");
       if (trigger) {
         trigger.click();
-        await ctx.sleep(300);
+        await ctx.sleep(150);
       } else {
-        await ctx.sleep(200);
+        await ctx.sleep(80);
       }
     },
   },
@@ -130,11 +130,11 @@ export const AGENT_TOUR_STEPS: TourStepConfig[] = [
     primaryComplete: false,
     beforeBack: async (ctx) => {
       closeKanbanMenu();
-      await ctx.sleep(200);
+      await ctx.sleep(100);
     },
     afterNext: async (ctx) => {
       closeKanbanMenu();
-      await ctx.sleep(200);
+      await ctx.sleep(100);
       ctx.router.push("/dashboard/agent?tab=messages");
       await ctx.sleep(500);
     },

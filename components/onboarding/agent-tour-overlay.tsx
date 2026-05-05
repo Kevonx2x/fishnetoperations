@@ -9,7 +9,8 @@ import {
   type TourActionContext,
 } from "@/lib/agent-tour/tour-config";
 import { useAgentTourStore, type AgentTourStepId } from "@/lib/agent-tour/tour-store";
-import { ChevronRight, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronRight, Loader2, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -134,16 +135,11 @@ export function AgentTourOverlay() {
     const onResize = () => measure();
     window.addEventListener("resize", onResize);
     window.addEventListener("scroll", onResize, true);
-    const id = window.requestAnimationFrame(function tick() {
-      measure();
-      window.requestAnimationFrame(tick);
-    });
     return () => {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("scroll", onResize, true);
-      window.cancelAnimationFrame(id);
     };
-  }, [isOpen, currentStep, step3Demo, measure]);
+  }, [isOpen, currentStep, step3Demo, pathname, search, measure]);
 
   const pageOk = pathMatchesTourPage(cfg.page, pathname, search);
 
@@ -197,14 +193,14 @@ export function AgentTourOverlay() {
 
       if (step === 2) {
         ctx.router.push("/");
-        await ctx.sleep(500);
+        await ctx.sleep(400);
         useAgentTourStore.getState().setStep(1);
         return;
       }
       if (step === 3) {
         useAgentTourStore.getState().setStep3DemoFallback(false);
         ctx.router.replace("/dashboard/agent", { scroll: false });
-        await ctx.sleep(500);
+        await ctx.sleep(400);
         useAgentTourStore.getState().setStep(2);
         return;
       }
@@ -216,10 +212,10 @@ export function AgentTourOverlay() {
       }
       if (step === 5) {
         ctx.router.push("/dashboard/agent?tab=pipeline");
-        await ctx.sleep(500);
-        const trig = await ctx.waitForSelector("[data-tour=\"viewing-card-menu-trigger\"]", 2000);
+        await ctx.sleep(400);
+        const trig = await ctx.waitForSelector("[data-tour=\"viewing-card-menu-trigger\"]", 1000);
         (trig as HTMLElement | null)?.click();
-        await ctx.sleep(350);
+        await ctx.sleep(150);
         useAgentTourStore.getState().setStep(4);
       }
     });
@@ -332,76 +328,90 @@ export function AgentTourOverlay() {
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={`agent-tour-title-${currentStep}`}
+        aria-busy={!pageOk}
+        aria-labelledby={pageOk ? `agent-tour-title-${currentStep}` : undefined}
         className="pointer-events-auto fixed w-full max-w-[380px] rounded-2xl bg-white p-7 shadow-xl"
         style={{ left: tooltipPos.left, top: tooltipPos.top, zIndex: TOOLTIP_Z }}
       >
-        {!pageOk ? (
-          <p className="text-xs text-amber-800">
-            Follow the tour navigation — this step expects to be on <span className="font-mono">{cfg.page}</span>.
-          </p>
-        ) : null}
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step {currentStep} of 5</p>
-        <h2
-          id={`agent-tour-title-${currentStep}`}
-          className={`mt-3 font-serif font-semibold tracking-tight text-[#2C2C2C] ${currentStep === 1 ? "text-2xl" : "text-xl"}`}
-        >
-          {cfg.headline({ firstName })}
-        </h2>
-        <p className="mt-3 text-sm leading-relaxed text-gray-700">{cfg.body}</p>
-
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
-          <button
-            type="button"
-            className="text-sm font-semibold text-gray-500 underline-offset-2 hover:underline"
-            onClick={() => void handleSkip()}
-            disabled={transitionLocked}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={pageOk ? `step-${currentStep}` : `sync-${currentStep}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
           >
-            Skip tour
-          </button>
-          <div className="flex items-center gap-2">
-            {cfg.showBack ? (
-              <button
-                type="button"
-                className="rounded-full border border-[#2C2C2C]/20 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#FAF8F4]"
-                onClick={() => void handleBack()}
-                disabled={transitionLocked}
-              >
-                Back
-              </button>
-            ) : null}
-            {cfg.primaryComplete ? (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
-                onClick={() => void handleComplete()}
-                disabled={transitionLocked}
-              >
-                Start using BahayGo
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
-                onClick={() => void handleNext()}
-                disabled={transitionLocked}
-              >
-                Next
-                <ChevronRight className="h-4 w-4" aria-hidden />
-              </button>
-            )}
-          </div>
-        </div>
+            {pageOk ? (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step {currentStep} of 5</p>
+                <h2
+                  id={`agent-tour-title-${currentStep}`}
+                  className={`mt-3 font-serif font-semibold tracking-tight text-[#2C2C2C] ${currentStep === 1 ? "text-2xl" : "text-xl"}`}
+                >
+                  {cfg.headline({ firstName })}
+                </h2>
+                <p className="mt-3 text-sm leading-relaxed text-gray-700">{cfg.body}</p>
 
-        <div className="mt-6 flex justify-center gap-2" role="tablist" aria-label="Tour progress">
-          {([1, 2, 3, 4, 5] as const).map((i) => (
-            <span
-              key={i}
-              className={`h-2 w-2 rounded-full ${i === currentStep ? "bg-[#6B9E6E]" : "bg-[#2C2C2C]/20"}`}
-              aria-current={i === currentStep ? "step" : undefined}
-            />
-          ))}
-        </div>
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    className="text-sm font-semibold text-gray-500 underline-offset-2 hover:underline"
+                    onClick={() => void handleSkip()}
+                    disabled={transitionLocked}
+                  >
+                    Skip tour
+                  </button>
+                  <div className="flex items-center gap-2">
+                    {cfg.showBack ? (
+                      <button
+                        type="button"
+                        className="rounded-full border border-[#2C2C2C]/20 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#FAF8F4]"
+                        onClick={() => void handleBack()}
+                        disabled={transitionLocked}
+                      >
+                        Back
+                      </button>
+                    ) : null}
+                    {cfg.primaryComplete ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
+                        onClick={() => void handleComplete()}
+                        disabled={transitionLocked}
+                      >
+                        Start using BahayGo
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
+                        onClick={() => void handleNext()}
+                        disabled={transitionLocked}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" aria-hidden />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-center gap-2" role="tablist" aria-label="Tour progress">
+                  {([1, 2, 3, 4, 5] as const).map((i) => (
+                    <span
+                      key={i}
+                      className={`h-2 w-2 rounded-full ${i === currentStep ? "bg-[#6B9E6E]" : "bg-[#2C2C2C]/20"}`}
+                      aria-current={i === currentStep ? "step" : undefined}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex min-h-[200px] flex-col items-center justify-center py-10" aria-label="Loading">
+                <Loader2 className="h-7 w-7 animate-spin text-[#6B9E6E]/50" aria-hidden />
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       <button
