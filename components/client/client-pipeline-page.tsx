@@ -618,12 +618,12 @@ function DocumentStatusPill({ status }: { status: string | null }) {
   );
 }
 
-function ClientPipelineStepper({ deal }: { deal: PipelineDeal }) {
+function ClientPipelineStepper({ deal, muted }: { deal: PipelineDeal; muted?: boolean }) {
   const cur = clientPipelineCurrentStepIndex(deal);
   /** Vertical center of circle row (h-7 slot) */
   const trackTop = "top-[13px]";
   return (
-    <div className="w-full min-w-0 shrink-0 font-sans">
+    <div className={cn("w-full min-w-0 shrink-0 font-sans", muted && "grayscale opacity-60")}>
       <div className="relative flex w-full min-w-0 items-start">
         {/* Continuous neutral track behind circles */}
         <div
@@ -681,6 +681,15 @@ function DealStatusBanner({ deal }: { deal: PipelineDeal }) {
   const viewingConfirmed = deal.viewing?.status === "confirmed";
   const viewingDeclined = deal.viewing?.status === "declined";
   const stage = String(deal.pipeline_stage ?? "").toLowerCase();
+  const listingRemovedUi = Boolean(deal.property.listing_removed);
+
+  if (listingRemovedUi) {
+    return (
+      <p className="mt-1 max-w-full font-sans text-xs font-semibold leading-snug text-[#2C2C2C]/55">
+        This property is no longer available. The agent has closed the inquiry.
+      </p>
+    );
+  }
 
   if (viewingConfirmed && deal.viewing?.scheduled_at) {
     let viewingWhenLine = "";
@@ -925,7 +934,7 @@ function DealCard({
         "group relative isolate overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.05] bg-white shadow-[0_2px_20px_rgba(44,44,44,0.05)] transition-all duration-200 ease-out",
         !listingRemovedUi && "hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(44,44,44,0.09)]",
         highlight && "ring-2 ring-[#D4A843]/50",
-        listingRemovedUi && "opacity-50",
+        listingRemovedUi && "opacity-60",
       )}
     >
       {onRequestRemove ? (
@@ -975,7 +984,7 @@ function DealCard({
             {listingRemovedUi ? (
               <div className="pointer-events-none absolute inset-0 z-[8] flex items-center justify-center bg-black/25 px-2">
                 <span className="rounded-full bg-gray-900/85 px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-gray-100">
-                  Listing removed
+                  No longer available
                 </span>
               </div>
             ) : null}
@@ -993,12 +1002,12 @@ function DealCard({
               {formatPipelineCardPrice(deal.property.price)}
             </p>
           </div>
-          <ClientPipelineStepper deal={deal} />
+          <ClientPipelineStepper deal={deal} muted={listingRemovedUi} />
           <div className="text-xs leading-snug text-[#6B728E]">
             <DealStatusBanner deal={deal} />
           </div>
           <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-20 -mx-4 flex gap-2 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-[#FAF8F4]/90">
-            {deal.agent.user_id ? (
+            {deal.agent.user_id && !listingRemovedUi ? (
               <StartChatButton
                 agentId={deal.agent.user_id}
                 clientId={clientUserId}
@@ -1013,7 +1022,9 @@ function DealCard({
                 className="h-11 min-h-[44px] flex-1 justify-center rounded-xl border-0 bg-[#6B9E6E] px-3 text-[13px] font-bold text-white hover:bg-[#5d8a60]"
               />
             ) : (
-              <span className="min-h-[44px] flex-1" />
+              <span className="flex h-11 min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-[12px] font-semibold text-gray-400">
+                Messaging unavailable
+              </span>
             )}
             {deal.property.id && !listingRemovedUi ? (
               <Link
@@ -1084,7 +1095,7 @@ function DealCard({
             {listingRemovedUi ? (
               <div className="pointer-events-none absolute inset-0 z-[8] flex items-center justify-center bg-black/25 px-2">
                 <span className="rounded-full bg-gray-900/85 px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-gray-100">
-                  Listing removed
+                  No longer available
                 </span>
               </div>
             ) : null}
@@ -1126,7 +1137,7 @@ function DealCard({
           </div>
 
           <div className="flex min-h-0 flex-1 items-center justify-center py-3">
-            <ClientPipelineStepper deal={deal} />
+            <ClientPipelineStepper deal={deal} muted={listingRemovedUi} />
           </div>
           <div className="min-h-0 shrink-0">
             <DealStatusBanner deal={deal} />
@@ -1138,6 +1149,11 @@ function DealCard({
           <p className="flex min-h-[24px] w-full shrink-0 items-start text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38 xl:min-h-[26px]">
             Your next steps
           </p>
+          {listingRemovedUi ? (
+            <div className="mt-4 rounded-xl border border-[#2C2C2C]/[0.06] bg-[#FAF8F4]/70 px-4 py-3 text-[13px] font-semibold text-[#2C2C2C]/70">
+              This property is no longer available. The agent has closed the inquiry.
+            </div>
+          ) : (
           <ul className="mt-4 space-y-3.5 text-sm text-[#2C2C2C]/80 sm:mt-5 sm:space-y-4 xl:min-h-0 xl:flex-1">
             <li className="flex items-start gap-2.5">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
@@ -1439,18 +1455,25 @@ function DealCard({
               </li>
             )}
           </ul>
+          )}
         </section>
 
         {/* Section 4 — status pill + quick actions (no border vs section 3; grid gap only) */}
         <div className="flex min-w-0 flex-col items-stretch font-sans">
           <div className="flex min-h-[24px] w-full shrink-0 items-start justify-end xl:min-h-[26px]">
-            <StatusPill label={deal.status_label} variant={statusPillVariant} />
+            {listingRemovedUi ? (
+              <span className="shrink-0 rounded-full border border-[#B5453A]/30 bg-[#B5453A]/[0.12] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#B5453A]">
+                NO LONGER AVAILABLE
+              </span>
+            ) : (
+              <StatusPill label={deal.status_label} variant={statusPillVariant} />
+            )}
           </div>
           <p className="mt-3 w-full shrink-0 text-center text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38">
             Quick actions
           </p>
           <div className="mt-6 flex w-full flex-col gap-2.5 sm:mt-7">
-            {deal.agent.user_id ? (
+            {deal.agent.user_id && !listingRemovedUi ? (
               <StartChatButton
                 agentId={deal.agent.user_id}
                 clientId={clientUserId}
@@ -1473,10 +1496,6 @@ function DealCard({
                 <Home className="h-3.5 w-3.5 shrink-0 text-[#2C2C2C]/45" aria-hidden />
                 View Property
               </Link>
-            ) : listingRemovedUi ? (
-              <span className="inline-flex h-10 w-full items-center justify-center rounded-full border border-gray-200 bg-gray-50 px-4 text-[13px] font-semibold text-gray-400">
-                Listing removed
-              </span>
             ) : null}
             <button
               type="button"
