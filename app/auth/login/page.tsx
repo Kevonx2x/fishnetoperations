@@ -38,11 +38,12 @@ function LoginForm() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, tutorial_completed")
         .eq("id", authData.user.id)
         .maybeSingle();
 
       const role = profile?.role;
+      const tutorialCompleted = (profile as { tutorial_completed?: boolean | null } | null)?.tutorial_completed;
       if (next === "back") {
         if (typeof window !== "undefined" && window.history.length > 1) {
           router.back();
@@ -56,7 +57,17 @@ function LoginForm() {
       } else {
         let dest: string;
         if (role === "agent") {
-          dest = "/dashboard/agent?tab=pipeline";
+          if (tutorialCompleted === false) {
+            const { data: ag } = await supabase
+              .from("agents")
+              .select("verification_status")
+              .eq("user_id", authData.user.id)
+              .maybeSingle();
+            dest =
+              ag?.verification_status === "verified" ? "/" : "/dashboard/agent?tab=pipeline";
+          } else {
+            dest = "/dashboard/agent?tab=pipeline";
+          }
         } else if (role === "client") {
           dest = "/";
         } else if (role === "admin" || role === "ops_admin" || role === "broker") {

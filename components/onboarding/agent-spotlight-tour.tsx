@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRight, Clock } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -12,23 +12,52 @@ import {
 } from "react";
 
 type Rect = { top: number; left: number; width: number; height: number };
+type TourStep = 1 | 2 | 3 | 4 | 5;
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
 
-function TourDots({ step }: { step: 1 | 2 | 3 }) {
+function sleep(ms: number) {
+  return new Promise<void>((r) => window.setTimeout(r, ms));
+}
+
+/** Poll for an element up to `timeoutMs` (default 2s). */
+function waitForElement(selector: string, timeoutMs = 2000): Promise<Element | null> {
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    const tick = () => {
+      const el = document.querySelector(selector);
+      if (el) {
+        resolve(el);
+        return;
+      }
+      if (performance.now() - t0 >= timeoutMs) {
+        resolve(null);
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
+function rectFromEl(el: Element | null): Rect | null {
+  if (!el || !(el instanceof HTMLElement)) return null;
+  const r = el.getBoundingClientRect();
+  if (r.width < 4 || r.height < 4) return null;
+  return { top: r.top, left: r.left, width: r.width, height: r.height };
+}
+
+function TourDots({ step }: { step: TourStep }) {
   return (
     <div className="mt-5 flex justify-center gap-2" aria-hidden>
-      {([0, 1, 2] as const).map((i) => {
-        const filled = step === 3 ? true : step === 1 ? i === 0 : i === 1;
-        return (
-          <span
-            key={i}
-            className={`h-2 w-2 rounded-full ${filled ? "bg-[#6B9E6E]" : "bg-gray-300"}`}
-          />
-        );
-      })}
+      {([0, 1, 2, 3, 4] as const).map((i) => (
+        <span
+          key={i}
+          className={`h-2 w-2 rounded-full ${i < step ? "bg-[#6B9E6E]" : "bg-gray-300"}`}
+        />
+      ))}
     </div>
   );
 }
@@ -66,12 +95,45 @@ function KanbanDemoCardForTour() {
   );
 }
 
+function SpotlightLayer({
+  maskId,
+  hole,
+  rx,
+}: {
+  maskId: string;
+  hole: Rect;
+  rx: number;
+}) {
+  return (
+    <>
+      <svg className="pointer-events-auto fixed inset-0 z-[10000] h-full w-full" aria-hidden>
+        <defs>
+          <mask id={`agent-spotlight-mask-${maskId}`}>
+            <rect width="100%" height="100%" fill="white" />
+            <rect x={hole.left} y={hole.top} width={hole.width} height={hole.height} rx={rx} ry={rx} fill="black" />
+          </mask>
+        </defs>
+        <rect width="100%" height="100%" fill="rgba(0,0,0,0.55)" mask={`url(#agent-spotlight-mask-${maskId})`} />
+      </svg>
+      <div
+        className="pointer-events-none fixed z-[10001] border-[3px] border-[#6B9E6E] bg-transparent"
+        style={{
+          left: hole.left,
+          top: hole.top,
+          width: hole.width,
+          height: hole.height,
+          borderRadius: rx,
+          boxShadow: "0 0 0 3px #6B9E6E, 0 0 24px rgba(107, 158, 110, 0.4)",
+        }}
+      />
+    </>
+  );
+}
+
 type AgentSpotlightTourProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   firstName: string;
-  onNavigatePipeline: () => void;
-  onNavigateOverview: () => void;
   onTutorialComplete: () => Promise<void>;
 };
 
@@ -79,26 +141,28 @@ export function AgentSpotlightTour({
   open,
   onOpenChange,
   firstName,
-  onNavigatePipeline,
-  onNavigateOverview,
   onTutorialComplete,
 }: AgentSpotlightTourProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const maskId = useId().replace(/:/g, "");
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<TourStep>(1);
   const [spotlightRect, setSpotlightRect] = useState<Rect | null>(null);
   const [useDemoCard, setUseDemoCard] = useState(false);
+  /** Viewing column had no real card / menu trigger — fake menu for step 4. */
+  const [useMockKanbanMenu, setUseMockKanbanMenu] = useState(false);
   const demoWrapRef = useRef<HTMLDivElement | null>(null);
-  const step1Ref = useRef<HTMLDivElement | null>(null);
-  const step2Ref = useRef<HTMLDivElement | null>(null);
-  const step3Ref = useRef<HTMLDivElement | null>(null);
+  const mockMenuWrapRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
-  const resolveTargetRect = useCallback((): Rect | null => {
-    const el = document.querySelector("[data-tour=\"viewing-card\"]") as HTMLElement | null;
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    if (r.width < 8 || r.height < 8) return null;
-    return { top: r.top, left: r.left, width: r.width, height: r.height };
+  const resolveViewingCardRect = useCallback((): Rect | null => {
+    return rectFromEl(document.querySelector("[data-tour=\"viewing-card\"]"));
+  }, []);
+
+  const resolveAvatarButton = useCallback((): HTMLButtonElement | null => {
+    return document.querySelector(
+      "header button[aria-haspopup=\"menu\"].rounded-full",
+    ) as HTMLButtonElement | null;
   }, []);
 
   useEffect(() => {
@@ -106,42 +170,77 @@ export function AgentSpotlightTour({
     setStep(1);
     setSpotlightRect(null);
     setUseDemoCard(false);
+    setUseMockKanbanMenu(false);
   }, [open]);
 
+  useEffect(() => {
+    if (!open || step !== 1) return;
+    if (pathname !== "/") router.replace("/");
+  }, [open, step, pathname, router]);
+
+  /** Re-measure spotlight target for the current step. */
   useLayoutEffect(() => {
-    if (!open || step !== 2) return;
+    if (!open) return;
 
     let cancelled = false;
-    const measure = () => {
+    const measure = async () => {
       if (cancelled) return;
-      const r = resolveTargetRect();
-      if (r) {
-        setSpotlightRect(r);
+
+      if (step === 1) {
+        const el = (await waitForElement("header button[aria-haspopup=\"menu\"].rounded-full")) as HTMLElement | null;
+        setSpotlightRect(rectFromEl(el));
         return;
       }
-      if (demoWrapRef.current) {
-        const dr = demoWrapRef.current.getBoundingClientRect();
-        if (dr.width > 4 && dr.height > 4) {
-          setSpotlightRect({ top: dr.top, left: dr.left, width: dr.width, height: dr.height });
+      if (step === 2) {
+        const el = (await waitForElement("[data-tour=\"agent-dashboard-sidebar\"]")) as HTMLElement | null;
+        setSpotlightRect(rectFromEl(el));
+        return;
+      }
+      if (step === 3) {
+        const r = resolveViewingCardRect();
+        if (r) {
+          setUseDemoCard(false);
+          setSpotlightRect(r);
+          return;
         }
+        setUseDemoCard(true);
+        return;
+      }
+      if (step === 4) {
+        if (useMockKanbanMenu) return;
+        const el = (await waitForElement("[data-kanban-portal-menu=\"true\"]")) as HTMLElement | null;
+        setSpotlightRect(rectFromEl(el));
+        return;
+      }
+      if (step === 5) {
+        const el = (await waitForElement("[data-tour=\"agent-messages-conversation-list\"]")) as HTMLElement | null;
+        setSpotlightRect(rectFromEl(el));
+        return;
       }
     };
 
-    const t = window.setTimeout(measure, 450);
-
-    window.addEventListener("resize", measure);
-    window.addEventListener("scroll", measure, true);
+    const t = window.setTimeout(() => void measure(), step === 4 ? 50 : 200);
+    const onResize = () => void measure();
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onResize, true);
     return () => {
       cancelled = true;
       window.clearTimeout(t);
-      window.removeEventListener("resize", measure);
-      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onResize, true);
     };
-  }, [open, step, useDemoCard, resolveTargetRect]);
+  }, [open, step, resolveViewingCardRect, useMockKanbanMenu]);
 
-  /** Demo card mounted after `useDemoCard`; measure on next frame. */
   useLayoutEffect(() => {
-    if (!open || step !== 2 || !useDemoCard) return;
+    if (!open || step !== 4 || !useMockKanbanMenu) return;
+    const id = window.setTimeout(() => {
+      if (mockMenuWrapRef.current) setSpotlightRect(rectFromEl(mockMenuWrapRef.current));
+    }, 80);
+    return () => clearTimeout(id);
+  }, [open, step, useMockKanbanMenu]);
+
+  useLayoutEffect(() => {
+    if (!open || step !== 3 || !useDemoCard) return;
     const id = requestAnimationFrame(() => {
       if (demoWrapRef.current) {
         const dr = demoWrapRef.current.getBoundingClientRect();
@@ -153,18 +252,35 @@ export function AgentSpotlightTour({
     return () => cancelAnimationFrame(id);
   }, [open, step, useDemoCard]);
 
+  const closeKanbanMenu = useCallback(() => {
+    if (useMockKanbanMenu) return;
+    if (!document.querySelector("[data-kanban-portal-menu=\"true\"]")) return;
+    const trigger = document.querySelector(
+      "[data-tour=\"viewing-card-menu-trigger\"]",
+    ) as HTMLButtonElement | null;
+    trigger?.click();
+  }, [useMockKanbanMenu]);
+
+  const closeAvatarMenu = useCallback(() => {
+    const btn = resolveAvatarButton();
+    if (btn?.getAttribute("aria-expanded") === "true") btn.click();
+  }, [resolveAvatarButton]);
+
   const finishAndClose = useCallback(
     async (completeTutorial: boolean) => {
+      setUseMockKanbanMenu(false);
+      closeKanbanMenu();
+      closeAvatarMenu();
       if (completeTutorial) {
         try {
           await onTutorialComplete();
         } catch {
-          // still close UI
+          // ignore
         }
       }
       onOpenChange(false);
     },
-    [onOpenChange, onTutorialComplete],
+    [closeAvatarMenu, closeKanbanMenu, onOpenChange, onTutorialComplete],
   );
 
   const handleSkip = useCallback(() => {
@@ -185,8 +301,7 @@ export function AgentSpotlightTour({
 
   useEffect(() => {
     if (!open) return;
-    const root =
-      step === 1 ? step1Ref.current : step === 2 ? step2Ref.current : step === 3 ? step3Ref.current : null;
+    const root = panelRef.current;
     if (!root) return;
     const focusables = root.querySelectorAll<HTMLElement>(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
@@ -197,10 +312,8 @@ export function AgentSpotlightTour({
 
   useEffect(() => {
     if (!open) return;
-    const root =
-      step === 1 ? step1Ref.current : step === 2 ? step2Ref.current : step === 3 ? step3Ref.current : null;
+    const root = panelRef.current;
     if (!root) return;
-
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
       const focusables = [
@@ -225,23 +338,88 @@ export function AgentSpotlightTour({
     return () => root.removeEventListener("keydown", handler);
   }, [open, step, spotlightRect]);
 
-  const goShowMe = () => {
-    onNavigatePipeline();
-    window.requestAnimationFrame(() => {
-      const el = document.querySelector("[data-tour=\"viewing-card\"]") as HTMLElement | null;
-      el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-    });
-    window.setTimeout(() => {
-      const r = resolveTargetRect();
-      setUseDemoCard(!r);
-      setStep(2);
-    }, 550);
+  const step1Next = async () => {
+    const avatarBtn = resolveAvatarButton();
+    if (avatarBtn && avatarBtn.getAttribute("aria-expanded") !== "true") {
+      avatarBtn.click();
+    }
+    await sleep(300);
+    if (avatarBtn && avatarBtn.getAttribute("aria-expanded") === "true") {
+      avatarBtn.click();
+    }
+    await sleep(100);
+    router.push("/dashboard/agent");
+    await sleep(500);
+    setStep(2);
+  };
+
+  const step2Next = async () => {
+    router.push("/dashboard/agent?tab=pipeline");
+    await sleep(500);
+    const r = resolveViewingCardRect();
+    setUseDemoCard(!r);
+    setStep(3);
+  };
+
+  const step3Next = async () => {
+    const menuBtn = document.querySelector(
+      "[data-tour=\"viewing-card-menu-trigger\"]",
+    ) as HTMLButtonElement | null;
+    if (menuBtn) {
+      setUseMockKanbanMenu(false);
+      if (!document.querySelector("[data-kanban-portal-menu=\"true\"]")) menuBtn.click();
+    } else {
+      setUseMockKanbanMenu(true);
+    }
+    await sleep(300);
+    setStep(4);
+  };
+
+  const step4Back = async () => {
+    closeKanbanMenu();
+    setUseMockKanbanMenu(false);
+    await sleep(200);
+    setStep(3);
+  };
+
+  const step4Next = async () => {
+    closeKanbanMenu();
+    setUseMockKanbanMenu(false);
+    await sleep(200);
+    router.push("/dashboard/agent?tab=messages");
+    await sleep(500);
+    setStep(5);
+  };
+
+  const step5Back = async () => {
+    router.push("/dashboard/agent?tab=pipeline");
+    await sleep(500);
+    const menuBtn = document.querySelector(
+      "[data-tour=\"viewing-card-menu-trigger\"]",
+    ) as HTMLButtonElement | null;
+    if (menuBtn && !document.querySelector("[data-kanban-portal-menu=\"true\"]")) {
+      menuBtn.click();
+    }
+    await sleep(350);
+    setStep(4);
+  };
+
+  const step2Back = async () => {
+    router.push("/");
+    await sleep(500);
+    setStep(1);
+  };
+
+  const step3Back = async () => {
+    router.push("/dashboard/agent");
+    await sleep(500);
+    setStep(2);
   };
 
   if (!open) return null;
 
   const pad = 6;
-  const rx = 16;
+  const rx = step === 2 ? 12 : 16;
   let hole = spotlightRect;
   if (hole) {
     hole = {
@@ -252,64 +430,62 @@ export function AgentSpotlightTour({
     };
   }
 
-  const tooltipRightOfSpotlight =
-    hole &&
-    (() => {
-      const gap = 16;
-      const tw = 380;
-      const left = hole.left + hole.width + gap;
-      const maxLeft = window.innerWidth - tw - 16;
-      const top = clamp(hole.top + hole.height / 2 - 120, 16, window.innerHeight - 280);
-      return { left: clamp(left, 16, maxLeft), top };
-    })();
+  const tw = 380;
+  const fallbackModalPos = { left: clamp((window.innerWidth - tw) / 2, 12, window.innerWidth - tw - 12), top: clamp((window.innerHeight - 280) / 2, 12, window.innerHeight - 300) };
 
-  const step2TooltipPosition =
-    tooltipRightOfSpotlight ??
-    (step === 2 ? { left: (window.innerWidth - 380) / 2, top: (window.innerHeight - 260) / 2 } : null);
+  let tooltipStyle: { left: number; top: number } = fallbackModalPos;
+  let showArrowLeft = false;
+  let showArrowTop = false;
+
+  if (hole) {
+    if (step === 1) {
+      const spaceBelow = window.innerHeight - (hole.top + hole.height);
+      const placeBelow = spaceBelow >= 200;
+      if (placeBelow) {
+        tooltipStyle = {
+          left: clamp(hole.left + hole.width / 2 - tw / 2, 12, window.innerWidth - tw - 12),
+          top: hole.top + hole.height + 16,
+        };
+        showArrowTop = true;
+      } else {
+        tooltipStyle = {
+          left: clamp(hole.left - tw - 16, 12, window.innerWidth - tw - 12),
+          top: clamp(hole.top + hole.height / 2 - 130, 12, window.innerHeight - 280),
+        };
+        showArrowLeft = true;
+      }
+    } else if (step === 2) {
+      tooltipStyle = {
+        left: clamp(hole.left + hole.width + 16, 12, window.innerWidth - tw - 12),
+        top: clamp(hole.top + 24, 12, window.innerHeight - 280),
+      };
+      showArrowLeft = true;
+    } else if (step === 3 || step === 4) {
+      tooltipStyle = {
+        left: clamp(hole.left + hole.width + 16, 12, window.innerWidth - tw - 12),
+        top: clamp(hole.top + hole.height / 2 - 130, 12, window.innerHeight - 300),
+      };
+      showArrowLeft = true;
+    } else {
+      tooltipStyle = {
+        left: clamp(hole.left + hole.width + 16, 12, window.innerWidth - tw - 12),
+        top: clamp(hole.top + 40, 12, window.innerHeight - 300),
+      };
+      showArrowLeft = true;
+    }
+  }
+
+  const showSpotlight = Boolean(hole && [1, 2, 3, 4, 5].includes(step));
+  const showDemo = step === 3 && useDemoCard;
 
   return (
     <div className="fixed inset-0 z-[10000] font-sans" role="presentation">
-      {step === 2 && !hole ? (
+      {showSpotlight && !hole ? (
         <div className="pointer-events-auto fixed inset-0 z-[9998] bg-black/55" aria-hidden />
       ) : null}
-      {step === 2 && hole ? (
-        <>
-          <svg className="pointer-events-auto fixed inset-0 h-full w-full" aria-hidden>
-            <defs>
-              <mask id={`agent-spotlight-mask-${maskId}`}>
-                <rect width="100%" height="100%" fill="white" />
-                <rect
-                  x={hole.left}
-                  y={hole.top}
-                  width={hole.width}
-                  height={hole.height}
-                  rx={rx}
-                  ry={rx}
-                  fill="black"
-                />
-              </mask>
-            </defs>
-            <rect
-              width="100%"
-              height="100%"
-              fill="rgba(0,0,0,0.55)"
-              mask={`url(#agent-spotlight-mask-${maskId})`}
-            />
-          </svg>
-          <div
-            className="pointer-events-none fixed z-[10001] rounded-2xl border-[3px] border-[#6B9E6E]"
-            style={{
-              left: hole.left,
-              top: hole.top,
-              width: hole.width,
-              height: hole.height,
-              boxShadow: "0 0 0 3px #6B9E6E, 0 0 24px rgba(107, 158, 110, 0.4)",
-            }}
-          />
-        </>
-      ) : null}
+      {showSpotlight && hole ? <SpotlightLayer maskId={maskId} hole={hole} rx={rx} /> : null}
 
-      {step === 2 && useDemoCard ? (
+      {showDemo ? (
         <div
           ref={demoWrapRef}
           className="fixed z-[10002]"
@@ -322,27 +498,53 @@ export function AgentSpotlightTour({
         </div>
       ) : null}
 
-      {step === 1 ? (
+      {step === 4 && useMockKanbanMenu ? (
         <div
-          className="pointer-events-auto fixed inset-0 flex items-center justify-center bg-black/55 p-4"
-          role="presentation"
+          ref={mockMenuWrapRef}
+          className="fixed z-[10002] w-[min(280px,calc(100vw-24px))] rounded-lg border border-[#E5E5E5] bg-white p-1.5 text-[#2C2C2C] shadow-lg"
+          style={{
+            top: "clamp(260px, 36vh, 400px)",
+            left: "clamp(200px, calc(180px + 32vw + 230px), 720px)",
+          }}
+          aria-hidden
         >
+          <div className="space-y-0.5 px-1 py-1 text-[13px] font-semibold">
+            <div className="rounded-md px-2.5 py-2 text-left text-[#2C2C2C]/80">View documents</div>
+            <div className="rounded-md px-2.5 py-2 text-left text-[#2C2C2C]/80">View viewing request</div>
+            <div className="rounded-md px-2.5 py-2 text-left text-[#2C2C2C]/80">Message client</div>
+          </div>
+        </div>
+      ) : null}
+
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`agent-tour-title-${step}`}
+        className="pointer-events-auto fixed z-[10003] w-full max-w-[380px] rounded-2xl bg-white p-7 shadow-xl"
+        style={{ left: tooltipStyle.left, top: tooltipStyle.top }}
+      >
+        {showArrowLeft && hole ? (
           <div
-            ref={step1Ref}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="agent-tour-s1-title"
-            className="relative w-full max-w-[380px] rounded-2xl bg-white p-7 shadow-xl"
-          >
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 1 of 3</p>
-            <h2
-              id="agent-tour-s1-title"
-              className="mt-3 font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C]"
-            >
+            className="absolute left-0 top-10 z-10 h-0 w-0 -translate-x-full border-y-[8px] border-r-[10px] border-y-transparent border-r-white drop-shadow-sm"
+            aria-hidden
+          />
+        ) : null}
+        {showArrowTop && hole ? (
+          <div
+            className="absolute left-1/2 top-0 z-10 h-0 w-0 -translate-x-1/2 -translate-y-full border-x-[8px] border-b-[10px] border-x-transparent border-b-white drop-shadow-sm"
+            aria-hidden
+          />
+        ) : null}
+
+        {step === 1 ? (
+          <>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 1 of 5</p>
+            <h2 id="agent-tour-title-1" className="mt-3 font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C]">
               Welcome to BahayGo, {firstName} 👋
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-gray-700">
-              Your pipeline is where every deal lives. Let&apos;s take a quick tour — under 30 seconds.
+              View your dashboard here to see your pipeline, messages, and more.
             </p>
             <div className="mt-6 flex items-center justify-between gap-3">
               <button
@@ -356,119 +558,197 @@ export function AgentSpotlightTour({
               <button
                 type="button"
                 className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
-                onClick={goShowMe}
-                aria-label="Show me"
-              >
-                Show me
-                <ChevronRight className="h-4 w-4" aria-hidden />
-              </button>
-            </div>
-            <TourDots step={1} />
-          </div>
-        </div>
-      ) : null}
-
-      {step === 2 && step2TooltipPosition ? (
-        <div
-          ref={step2Ref}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="agent-tour-s2-title"
-          className="pointer-events-auto fixed z-[10003] w-full max-w-[380px] rounded-2xl bg-white p-7 shadow-xl"
-          style={{
-            left: step2TooltipPosition.left,
-            top: step2TooltipPosition.top,
-          }}
-        >
-          {tooltipRightOfSpotlight ? (
-            <div
-              className="absolute left-0 top-8 z-10 h-0 w-0 -translate-x-full border-y-[8px] border-r-[10px] border-y-transparent border-r-white drop-shadow-sm"
-              aria-hidden
-            />
-          ) : null}
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 2 of 3</p>
-          <h2 id="agent-tour-s2-title" className="mt-3 font-serif text-xl font-semibold tracking-tight text-[#2C2C2C]">
-            Action lives here
-          </h2>
-          <p className="mt-3 text-sm leading-relaxed text-gray-700">
-            When a client sends a viewing request or asks to reschedule, you&apos;ll see a gold badge in the card
-            footer. Tap the three-dot menu to view documents, approve, or decline.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
-            <button
-              type="button"
-              className="text-sm font-semibold text-gray-500 underline-offset-2 hover:underline"
-              onClick={() => void handleSkip()}
-              aria-label="Skip tour"
-            >
-              Skip tour
-            </button>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="rounded-full border border-[#2C2C2C]/20 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#FAF8F4]"
-                onClick={() => setStep(1)}
-                aria-label="Back"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
-                onClick={() => setStep(3)}
+                onClick={() => void step1Next()}
                 aria-label="Next"
               >
                 Next
                 <ChevronRight className="h-4 w-4" aria-hidden />
               </button>
             </div>
-          </div>
-          <TourDots step={2} />
-        </div>
-      ) : null}
+            <TourDots step={1} />
+          </>
+        ) : null}
 
-      {step === 3 ? (
-        <div
-          className="pointer-events-auto fixed inset-0 flex items-center justify-center bg-black/55 p-4"
-          role="presentation"
-        >
-          <div
-            ref={step3Ref}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="agent-tour-s3-title"
-            className="relative w-full max-w-[380px] rounded-2xl bg-white p-7 shadow-xl"
-          >
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 3 of 3</p>
-            <h2 id="agent-tour-s3-title" className="mt-3 font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C]">
-              You&apos;re all set 🎉
+        {step === 2 ? (
+          <>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 2 of 5</p>
+            <h2 id="agent-tour-title-2" className="mt-3 font-serif text-xl font-semibold tracking-tight text-[#2C2C2C]">
+              Your dashboard
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-gray-700">
-              Add your first listing and start receiving inquiries. We&apos;re glad to have you.
+              Everything you need is here. Pipeline tracks your deals, Messages connects you with clients, Listings
+              manages your properties, and more.
             </p>
-            <button
-              type="button"
-              className="mt-8 w-full rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
-              onClick={() => {
-                void (async () => {
-                  try {
-                    await onTutorialComplete();
-                  } catch {
-                    // ignore
-                  }
-                  onNavigateOverview();
-                  router.replace("/dashboard/agent?tab=overview");
-                  onOpenChange(false);
-                })();
-              }}
-              aria-label="Start using BahayGo"
-            >
-              Start using BahayGo
-            </button>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                className="text-sm font-semibold text-gray-500 underline-offset-2 hover:underline"
+                onClick={() => void handleSkip()}
+                aria-label="Skip tour"
+              >
+                Skip tour
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-[#2C2C2C]/20 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#FAF8F4]"
+                  onClick={() => void step2Back()}
+                  aria-label="Back"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
+                  onClick={() => void step2Next()}
+                  aria-label="Next"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+            </div>
+            <TourDots step={2} />
+          </>
+        ) : null}
+
+        {step === 3 ? (
+          <>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 3 of 5</p>
+            <h2 id="agent-tour-title-3" className="mt-3 font-serif text-xl font-semibold tracking-tight text-[#2C2C2C]">
+              This is your deal card
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-gray-700">
+              Each card represents a deal in your pipeline. Tap to see client details, message them, and manage
+              documents.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                className="text-sm font-semibold text-gray-500 underline-offset-2 hover:underline"
+                onClick={() => void handleSkip()}
+                aria-label="Skip tour"
+              >
+                Skip tour
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-[#2C2C2C]/20 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#FAF8F4]"
+                  onClick={() => void step3Back()}
+                  aria-label="Back"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
+                  onClick={() => void step3Next()}
+                  aria-label="Next"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+            </div>
             <TourDots step={3} />
-          </div>
-        </div>
-      ) : null}
+          </>
+        ) : null}
+
+        {step === 4 ? (
+          <>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 4 of 5</p>
+            <h2 id="agent-tour-title-4" className="mt-3 font-serif text-xl font-semibold tracking-tight text-[#2C2C2C]">
+              Action items live here
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-gray-700">
+              Tap the three dots on any card to view documents, approve viewing requests, or message the client. A green
+              dot means there&apos;s something new for you.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                className="text-sm font-semibold text-gray-500 underline-offset-2 hover:underline"
+                onClick={() => void handleSkip()}
+                aria-label="Skip tour"
+              >
+                Skip tour
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-[#2C2C2C]/20 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#FAF8F4]"
+                  onClick={() => void step4Back()}
+                  aria-label="Back"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
+                  onClick={() => void step4Next()}
+                  aria-label="Next"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+            </div>
+            <TourDots step={4} />
+          </>
+        ) : null}
+
+        {step === 5 ? (
+          <>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 5 of 5</p>
+            <h2 id="agent-tour-title-5" className="mt-3 font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C]">
+              Stay connected
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-gray-700">
+              All client messages land here. Reply directly — no email back-and-forth needed.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                className="text-sm font-semibold text-gray-500 underline-offset-2 hover:underline"
+                onClick={() => void handleSkip()}
+                aria-label="Skip tour"
+              >
+                Skip tour
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-[#2C2C2C]/20 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#FAF8F4]"
+                  onClick={() => void step5Back()}
+                  aria-label="Back"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5a8a5d]"
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        await onTutorialComplete();
+                      } catch {
+                        // ignore
+                      }
+                      onOpenChange(false);
+                    })();
+                  }}
+                  aria-label="Start using BahayGo"
+                >
+                  Start using BahayGo
+                  <ChevronRight className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+            </div>
+            <TourDots step={5} />
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

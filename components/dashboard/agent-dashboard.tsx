@@ -44,8 +44,9 @@ import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
 import { AgentCalendarModal } from "@/components/dashboard/agent-calendar-modal";
 import { AgentViewingsProvider, useAgentViewings } from "@/lib/agent-viewings-context";
-import { PostLoginModal } from "@/components/onboarding/post-login-modal";
-import { AgentSpotlightTour } from "@/components/onboarding/agent-spotlight-tour";
+// Legacy onboarding modal — replaced by AgentSpotlightTour. Kept commented in case we want to revive.
+// import { PostLoginModal } from "@/components/onboarding/post-login-modal";
+import { BAHAYGO_AGENT_TOUR_REPLAY_EVENT } from "@/components/onboarding/agent-spotlight-tour-host";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { normalizeListingLocation } from "@/lib/duplicate-listing";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -795,12 +796,12 @@ function AgentSidebarCalendarStrip({ setCalendarModalOpen }: { setCalendarModalO
 
 export function AgentDashboard() {
   const router = useRouter();
-  const { user, loading: authLoading, role: authProfileRole, profile, refreshProfile } = useAuth();
+  const { user, loading: authLoading, role: authProfileRole } = useAuth();
   const streamMessagesUnreadTotal = useUnreadMessageCount();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const agentViewingsRefetchRef = useRef<(() => Promise<void>) | null>(null);
 
-  /** Default overview so post-login welcome (`PostLoginModal`) matches the landing URL `/dashboard/agent` (tab sync adds `?tab=overview`). */
+  /** Default overview tab; URL sync adds `?tab=overview` on `/dashboard/agent`. */
   const [tab, setTab] = useState<Tab>("overview");
   const [agentUrlHydrated, setAgentUrlHydrated] = useState(false);
   const [streamChannelId, setStreamChannelId] = useState<string | null>(null);
@@ -892,9 +893,6 @@ export function AgentDashboard() {
   const [yesterdayNewLeadsCount, setYesterdayNewLeadsCount] = useState(0);
   const [yesterdayPendingDocumentsCount, setYesterdayPendingDocumentsCount] = useState(0);
   const [yesterdayUnreadNotificationsCount, setYesterdayUnreadNotificationsCount] = useState(0);
-  const [agentSpotlightTourOpen, setAgentSpotlightTourOpen] = useState(false);
-  const [agentSpotlightTourKey, setAgentSpotlightTourKey] = useState(0);
-
   const [profileForm, setProfileForm] = useState({
     name: "",
     phone: "",
@@ -1644,21 +1642,6 @@ export function AgentDashboard() {
       credentials: "include",
     });
   }, [authLoading, user?.id, agent?.id, isTeamMemberView]);
-
-  const completeAgentSpotlightTutorial = useCallback(async () => {
-    const res = await fetch("/api/profile/complete-tutorial", {
-      method: "POST",
-      credentials: "include",
-    });
-    if (res.ok) await refreshProfile();
-  }, [refreshProfile]);
-
-  useEffect(() => {
-    if (authLoading || !loaded || !agent || isTeamMemberView || !identityVerified) return;
-    if (!profile || profile.tutorial_completed !== false) return;
-    const t = window.setTimeout(() => setAgentSpotlightTourOpen(true), 800);
-    return () => window.clearTimeout(t);
-  }, [authLoading, loaded, agent, isTeamMemberView, identityVerified, profile]);
 
   const profileComplete = useMemo(() => {
     if (!agent) return { pct: 0, checks: [] as { ok: boolean; label: string }[] };
@@ -2418,25 +2401,13 @@ export function AgentDashboard() {
         supabase={supabase}
         refetchRef={agentViewingsRefetchRef}
       >
+      {/* Legacy onboarding card — replaced by AgentSpotlightTour. Kept commented in case we want to revive.
       {!isTeamMemberView && tab === "overview" ? <PostLoginModal gate="agent-overview" /> : null}
-      {identityVerified && !isTeamMemberView ? (
-        <AgentSpotlightTour
-          key={agentSpotlightTourKey}
-          open={agentSpotlightTourOpen}
-          onOpenChange={setAgentSpotlightTourOpen}
-          firstName={
-            profile?.full_name?.trim().split(/\s+/).filter(Boolean)[0] ||
-            user?.email?.split("@")[0] ||
-            "there"
-          }
-          onNavigatePipeline={() => setTab("pipeline")}
-          onNavigateOverview={() => setTab("overview")}
-          onTutorialComplete={completeAgentSpotlightTutorial}
-        />
-      ) : null}
+      */}
       <div className="flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
         {/* Desktop sidebar */}
         <aside
+          data-tour="agent-dashboard-sidebar"
           className={cn(
             "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:min-h-0 md:flex-col md:overflow-hidden md:px-2 md:py-5",
             tab === "messages" ? "w-[208px]" : "w-[180px]",
@@ -2537,8 +2508,7 @@ export function AgentDashboard() {
                 title="Take the tour again."
                 aria-label="Take the tour again."
                 onClick={() => {
-                  setAgentSpotlightTourKey((k) => k + 1);
-                  setAgentSpotlightTourOpen(true);
+                  window.dispatchEvent(new CustomEvent(BAHAYGO_AGENT_TOUR_REPLAY_EVENT));
                 }}
                 className="mx-1 mt-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#2C2C2C]/50 transition hover:bg-white/80 hover:text-[#6B9E6E]"
               >
@@ -2653,7 +2623,10 @@ export function AgentDashboard() {
                 />
               )}
               {tab === "messages" && user && (
-                <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                <div
+                  data-tour="agent-messages-conversation-list"
+                  className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+                >
                   <AgentMessagesInbox initialChannelId={streamChannelId} />
                 </div>
               )}

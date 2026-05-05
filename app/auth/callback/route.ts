@@ -56,15 +56,33 @@ async function ensureProfileExistsForOAuthUser(session: Session): Promise<void> 
   }
 }
 
-function redirectForAuthenticatedUser(requestUrl: URL, role: string | null | undefined) {
-  // Clients always land on the public homepage after login.
-  const dest =
-    role === "client"
-      ? "/"
-      : role === "agent" || role === "team_member"
-        ? "/dashboard/agent?tab=pipeline"
-        : pathForRole(role ?? "client");
-  return NextResponse.redirect(new URL(dest, requestUrl));
+async function redirectForAuthenticatedUser(
+  requestUrl: URL,
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  userId: string,
+  role: string | null | undefined,
+  tutorialCompleted: boolean | null | undefined,
+) {
+  if (role === "client") {
+    return NextResponse.redirect(new URL("/", requestUrl));
+  }
+  if (role === "agent") {
+    if (tutorialCompleted === false) {
+      const { data: ag } = await supabase
+        .from("agents")
+        .select("verification_status")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (ag?.verification_status === "verified") {
+        return NextResponse.redirect(new URL("/", requestUrl));
+      }
+    }
+    return NextResponse.redirect(new URL("/dashboard/agent?tab=pipeline", requestUrl));
+  }
+  if (role === "team_member") {
+    return NextResponse.redirect(new URL("/dashboard/agent?tab=pipeline", requestUrl));
+  }
+  return NextResponse.redirect(new URL(pathForRole(role ?? "client"), requestUrl));
 }
 
 async function finalizeSessionAndRedirect(
@@ -81,11 +99,13 @@ async function finalizeSessionAndRedirect(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, tutorial_completed")
     .eq("id", session.user.id)
     .maybeSingle();
 
-  const role = (profile as { role?: string } | null)?.role ?? null;
+  const row = profile as { role?: string; tutorial_completed?: boolean | null } | null;
+  const role = row?.role ?? null;
+  const tutorialCompleted = row?.tutorial_completed ?? null;
 
   try {
     await notifyAdminNewClientFromSession(session);
@@ -93,7 +113,13 @@ async function finalizeSessionAndRedirect(
     /* admin SMS is best-effort */
   }
 
-  return redirectForAuthenticatedUser(new URL(request.url), role);
+  return redirectForAuthenticatedUser(
+    new URL(request.url),
+    supabase,
+    session.user.id,
+    role,
+    tutorialCompleted,
+  );
 }
 
 export async function GET(request: NextRequest) {

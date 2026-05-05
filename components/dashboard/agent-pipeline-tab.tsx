@@ -1111,6 +1111,7 @@ function KanbanDealCard({
                     aria-label="More options"
                     aria-expanded={menuOpen}
                     data-kanban-menu-button="true"
+                    {...(tourViewingCardAnchor ? { "data-tour": "viewing-card-menu-trigger" as const } : {})}
                     ref={menuButtonRef}
                     onClick={() => {
                       setMenuMoveOpen(false);
