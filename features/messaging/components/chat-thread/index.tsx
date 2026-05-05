@@ -120,7 +120,7 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
   }
 
   return (
-    <div className="bhg-chat-panel flex h-full min-h-0 w-full min-w-0 flex-col bg-surface-page">
+    <div className="bhg-chat-panel flex h-full min-h-0 w-full min-w-0 flex-col bg-surface-page max-lg:min-h-0 max-lg:flex-1">
       <header className="hidden shrink-0 items-center justify-between border-b border-subtle bg-surface-page px-4 py-4 md:flex">
         <ChatHeader className="min-w-0 flex-1 border-b-0 bg-transparent px-0 py-0" />
         {!supportThread ? (
@@ -141,11 +141,13 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
         ) : null}
       </header>
       <div
-        className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col max-md:flex-none max-md:h-[calc(100dvh-56px-56px-64px)] max-md:overflow-y-auto max-md:[-webkit-overflow-scrolling:touch]"
+        className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto [-webkit-overflow-scrolling:touch] max-lg:min-h-0 lg:min-h-0"
       >
         <MessageList />
       </div>
-      <MessageInput />
+      <div className="max-lg:shrink-0 max-lg:border-t max-lg:border-[#2C2C2C]/10 max-lg:bg-white max-lg:pb-[env(safe-area-inset-bottom,0px)]">
+        <MessageInput />
+      </div>
     </div>
   );
 }

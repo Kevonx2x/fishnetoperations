@@ -3,11 +3,21 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
+import {
+  Activity,
   BadgeCheck,
   Calendar,
   Check,
+  ChevronDown,
+  ChevronUp,
   Clock,
   ExternalLink,
   FileText,
@@ -18,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { StartChatButton } from "@/features/messaging/components/start-chat-button";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
 import { formatListingPricePhp } from "@/lib/format-listing-price";
 import { cn } from "@/lib/utils";
@@ -246,6 +257,275 @@ function formatViewingWhen(iso: string): string {
 }
 
 const CLIENT_PIPELINE_STEPS = ["Inquiry", "Viewing", "Offer", "Reservation", "Closed"] as const;
+
+const LG_MIN_PX = 1024;
+
+function subscribeMaxLg(cb: () => void) {
+  const mq = window.matchMedia(`(max-width: ${LG_MIN_PX - 1}px)`);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
+
+function getServerSnapshotMaxLg() {
+  return false;
+}
+
+/** True when viewport is below `lg` (mobile / narrow client pipeline layout). */
+function useIsBelowLg() {
+  return useSyncExternalStore(
+    subscribeMaxLg,
+    () => window.matchMedia(`(max-width: ${LG_MIN_PX - 1}px)`).matches,
+    getServerSnapshotMaxLg,
+  );
+}
+
+function MobileAccordion({ title, children }: { title: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-[#2C2C2C]/[0.08]">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-2 py-3 text-left"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className="font-sans text-[13px] font-bold text-[#2C2C2C]">{title}</span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 shrink-0 text-[#2C2C2C]/45" aria-hidden />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0 text-[#2C2C2C]/45" aria-hidden />
+        )}
+      </button>
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-200 ease-out",
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="pb-3 font-sans">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobilePipelineNextStepsSummary({ deal, pendingCount }: { deal: PipelineDeal; pendingCount: number }) {
+  const viewingConfirmed = deal.viewing?.status === "confirmed";
+  const viewingDeclined = deal.viewing?.status === "declined";
+  const stage = String(deal.pipeline_stage ?? "").toLowerCase();
+  const hasOfferProgress = ["offer", "reservation", "closed"].includes(stage);
+  const hasReservationProgress = ["reservation", "closed"].includes(stage);
+  const anyDocUploaded = deal.documents.some((d) => {
+    const s = String(d.status ?? "").toLowerCase();
+    return s === "uploaded" || s === "approved";
+  });
+
+  return (
+    <ul className="space-y-2.5 text-[13px] text-[#2C2C2C]/85">
+      <li className="flex items-start gap-2">
+        <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
+        <span>Inquiry sent</span>
+      </li>
+      <li className="flex items-start gap-2">
+        {viewingConfirmed ? (
+          <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
+        ) : viewingDeclined ? (
+          <span className="mt-0.5 h-4 w-4 shrink-0 text-center text-xs text-[#2C2C2C]/35" aria-hidden>
+            ×
+          </span>
+        ) : (
+          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A843]" aria-hidden />
+        )}
+        <span>
+          Viewing
+          {viewingConfirmed ? " · Scheduled" : viewingDeclined ? " · Declined" : " · Awaiting confirmation"}
+        </span>
+      </li>
+      <li className="flex items-start gap-2">
+        {pendingCount > 0 ? (
+          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A843]" aria-hidden />
+        ) : anyDocUploaded ? (
+          <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
+        ) : (
+          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#2C2C2C]/15" aria-hidden />
+        )}
+        <span>
+          Documents
+          {pendingCount > 0
+            ? ` · ${pendingCount} pending`
+            : anyDocUploaded
+              ? " · Submitted"
+              : deal.documents.length > 0
+                ? ""
+                : " · None yet"}
+        </span>
+      </li>
+      <li className="flex items-start gap-2">
+        {hasOfferProgress ? (
+          <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
+        ) : (
+          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#2C2C2C]/15" aria-hidden />
+        )}
+        <span>Offer{hasOfferProgress ? " · In progress or complete" : ""}</span>
+      </li>
+      <li className="flex items-start gap-2">
+        {hasReservationProgress ? (
+          <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
+        ) : (
+          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#2C2C2C]/15" aria-hidden />
+        )}
+        <span>Reservation{hasReservationProgress ? " · In progress or complete" : ""}</span>
+      </li>
+    </ul>
+  );
+}
+
+function DealMobileDocumentsList({
+  deal,
+  openingId,
+  uploadingId,
+  onPickFile,
+  openDoc,
+}: {
+  deal: PipelineDeal;
+  openingId: string | null;
+  uploadingId: string | null;
+  onPickFile: (docId: string, file: File | null) => void;
+  openDoc: (docId: string, fileUrl: string | null) => void;
+}) {
+  if (deal.documents.length === 0) {
+    return <p className="text-sm text-[#2C2C2C]/55">No documents for this deal yet.</p>;
+  }
+  return (
+    <ul className="space-y-2">
+      {deal.documents.map((d) => {
+        const s = String(d.status ?? "").toLowerCase();
+        const canView = (s === "uploaded" || s === "approved") && Boolean(d.file_url?.trim());
+        const showUpload = s === "pending";
+        const uploadedDate = s === "uploaded" || s === "approved" ? formatShortDate(d.created_at) : "";
+        return (
+          <li
+            key={d.id}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2C2C2C]/[0.06] bg-white px-3 py-2"
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-[#2C2C2C]">{d.display_label}</p>
+              {uploadedDate ? <p className="text-xs text-[#2C2C2C]/45">Uploaded {uploadedDate}</p> : null}
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <DocumentStatusPill status={d.status} />
+              <button
+                type="button"
+                disabled={openingId === d.id || !canView}
+                onClick={() => void openDoc(d.id, d.file_url)}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#6B9E6E] px-2.5 py-1 text-xs font-bold text-[#6B9E6E] hover:bg-[#6B9E6E]/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {openingId === d.id ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ExternalLink className="h-3.5 w-3.5" />
+                )}
+                View
+              </button>
+              {showUpload ? (
+                <label className="inline-flex w-fit cursor-pointer items-center gap-1 rounded-full border border-[#6B9E6E]/40 bg-[#6B9E6E]/8 px-2.5 py-1 text-xs font-semibold text-[#6B9E6E] hover:bg-[#6B9E6E]/15">
+                  <input
+                    type="file"
+                    className="sr-only"
+                    accept="image/*,.pdf,.doc,.docx"
+                    disabled={Boolean(uploadingId)}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      e.target.value = "";
+                      void onPickFile(d.id, f);
+                    }}
+                  />
+                  {uploadingId === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Upload
+                </label>
+              ) : null}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function DealMobileActivity({ deal, clientUserId }: { deal: PipelineDeal; clientUserId: string }) {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const [rows, setRows] = useState<
+    { id: string; created_at: string; title: string | null; body: string | null; type: string | null }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("id, created_at, title, body, type, metadata")
+        .eq("user_id", clientUserId)
+        .order("created_at", { ascending: false })
+        .limit(80);
+      if (cancelled) return;
+      if (error) {
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+      const leadId = deal.lead_id;
+      const propId = deal.property.id?.trim() ?? "";
+      const filtered = (data ?? []).filter((r) => {
+        const m = (r.metadata ?? {}) as Record<string, unknown>;
+        const lid = m.lead_id;
+        const pid = m.property_id;
+        if (lid != null && String(lid) === String(leadId)) return true;
+        if (propId && pid != null && String(pid) === propId) return true;
+        return false;
+      });
+      setRows(
+        filtered.map((r) => ({
+          id: String(r.id),
+          created_at: String(r.created_at ?? ""),
+          title: r.title ?? null,
+          body: r.body ?? null,
+          type: r.type ?? null,
+        })),
+      );
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, clientUserId, deal.lead_id, deal.property.id]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-4">
+        <Loader2 className="h-6 w-6 animate-spin text-[#6B9E6E]" aria-hidden />
+      </div>
+    );
+  }
+  if (rows.length === 0) {
+    return <p className="text-sm text-[#2C2C2C]/55">No activity yet for this deal.</p>;
+  }
+  return (
+    <ul className="space-y-3">
+      {rows.map((r) => (
+        <li key={r.id} className="border-l-2 border-[#6B9E6E]/35 pl-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/40">
+            {formatShortDate(r.created_at)}
+          </p>
+          <p className="mt-0.5 text-sm font-semibold text-[#2C2C2C]">{r.title ?? r.type ?? "Update"}</p>
+          {r.body?.trim() ? <p className="mt-1 text-xs leading-snug text-[#2C2C2C]/65">{r.body}</p> : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function clientArchiveConfirmCopy(pipelineStage: string): string {
   const s = String(pipelineStage ?? "").toLowerCase();
@@ -489,6 +769,10 @@ function DealCard({
 
   const pendingDocs = deal.documents.filter((d) => d.pending_upload);
   const pendingCount = pendingDocs.length;
+  const submittedDocCount = deal.documents.filter((d) => {
+    const s = String(d.status ?? "").toLowerCase();
+    return s === "uploaded" || s === "approved";
+  }).length;
 
   const pendingOffersNewestFirst = useMemo(() => {
     const list = [...(deal.offers ?? [])].filter((o) => String(o.status ?? "").toLowerCase() === "pending");
@@ -660,7 +944,108 @@ function DealCard({
           </DropdownMenu>
         </div>
       ) : null}
-      <div className="flex flex-col gap-5 px-6 py-5 sm:px-8 sm:py-6 xl:grid xl:grid-cols-4 xl:items-start xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:py-7 xl:[grid-template-columns:minmax(0,0.94fr)_minmax(0,1.28fr)_minmax(0,0.82fr)_minmax(0,0.92fr)]">
+
+      <div className="lg:hidden">
+        <div className="space-y-3 px-4 py-3 font-sans">
+          <div className="relative z-0 h-[140px] w-full shrink-0 overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04]">
+            {deal.property.hero_image ? (
+              <Image
+                src={deal.property.hero_image}
+                alt=""
+                fill
+                className={cn("object-cover", listingRemovedUi && "grayscale")}
+                sizes="(max-width: 1024px) 100vw, 280px"
+                unoptimized
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xs font-medium text-[#2C2C2C]/38">
+                No photo
+              </div>
+            )}
+            {listingRemovedUi ? (
+              <div className="pointer-events-none absolute inset-0 z-[8] flex items-center justify-center bg-black/25 px-2">
+                <span className="rounded-full bg-gray-900/85 px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-gray-100">
+                  Listing removed
+                </span>
+              </div>
+            ) : null}
+            {photosBadge ? (
+              <div className="pointer-events-none absolute bottom-2 left-2 z-10 rounded-full bg-[#2C2C2C]/80 px-2 py-0.5 font-sans text-[10px] font-medium text-white">
+                {photosBadge}
+              </div>
+            ) : null}
+          </div>
+          <div className="min-w-0">
+            <h2 className="break-words text-[0.9375rem] font-bold leading-snug tracking-tight text-[#2C2C2C]">
+              {deal.property.title}
+            </h2>
+            <p className="mt-0.5 text-[0.8125rem] font-semibold leading-tight text-[#D4A843]">
+              {formatPipelineCardPrice(deal.property.price)}
+            </p>
+          </div>
+          <ClientPipelineStepper deal={deal} />
+          <div className="text-xs leading-snug text-[#6B728E]">
+            <DealStatusBanner deal={deal} />
+          </div>
+          <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-20 -mx-4 flex gap-2 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-[#FAF8F4]/90">
+            {deal.agent.user_id ? (
+              <StartChatButton
+                agentId={deal.agent.user_id}
+                clientId={clientUserId}
+                label="Message Agent"
+                showMessageIcon
+                metadata={{
+                  property_id: deal.property.id ?? null,
+                  property_name: deal.property.title ?? null,
+                  property_price: deal.property.price ?? null,
+                  property_image: deal.property.hero_image ?? null,
+                }}
+                className="h-11 min-h-[44px] flex-1 justify-center rounded-xl border-0 bg-[#6B9E6E] px-3 text-[13px] font-bold text-white hover:bg-[#5d8a60]"
+              />
+            ) : (
+              <span className="min-h-[44px] flex-1" />
+            )}
+            {deal.property.id && !listingRemovedUi ? (
+              <Link
+                href={`/properties/${encodeURIComponent(deal.property.id)}`}
+                className="inline-flex h-11 min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border-2 border-[#6B9E6E] bg-white px-3 text-[13px] font-bold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/10"
+              >
+                <Home className="h-4 w-4 shrink-0" aria-hidden />
+                View Property
+              </Link>
+            ) : listingRemovedUi ? (
+              <span className="flex h-11 min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-[12px] font-semibold text-gray-400">
+                Unavailable
+              </span>
+            ) : null}
+          </div>
+          <div className="-mx-1 border-t border-[#2C2C2C]/[0.06] pt-1">
+            <MobileAccordion title="Your next steps">
+              <MobilePipelineNextStepsSummary deal={deal} pendingCount={pendingCount} />
+            </MobileAccordion>
+            <MobileAccordion title={`Documents (${submittedDocCount} submitted)`}>
+              <DealMobileDocumentsList
+                deal={deal}
+                openingId={openingId}
+                uploadingId={uploadingId}
+                onPickFile={onPickFile}
+                openDoc={openDoc}
+              />
+            </MobileAccordion>
+            <MobileAccordion title="Activity">
+              <div className="flex items-start gap-2 rounded-lg bg-[#FAF8F4]/80 px-2 py-2 text-[11px] text-[#2C2C2C]/55">
+                <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
+                <span>Updates from your agent and this listing appear here.</span>
+              </div>
+              <div className="mt-2">
+                <DealMobileActivity deal={deal} clientUserId={clientUserId} />
+              </div>
+            </MobileAccordion>
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden flex-col gap-5 px-6 py-5 sm:px-8 sm:py-6 lg:flex xl:grid xl:grid-cols-4 xl:items-start xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:py-7 xl:[grid-template-columns:minmax(0,0.94fr)_minmax(0,1.28fr)_minmax(0,0.82fr)_minmax(0,0.92fr)]">
         {/* Section 1 — title + price (tight), gap, then image */}
         <div className="flex min-w-0 flex-col font-sans">
           <div className="shrink-0">
@@ -1096,7 +1481,7 @@ function DealCard({
       </div>
 
       {docsOpen ? (
-        <div className="border-t border-[#2C2C2C]/[0.06] bg-[#FAF8F4]/80 px-6 py-6 sm:px-10">
+        <div className="hidden border-t border-[#2C2C2C]/[0.06] bg-[#FAF8F4]/80 px-6 py-6 sm:px-10 lg:block">
           <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">Documents</p>
           {deal.documents.length === 0 ? (
             <p className="mt-2 font-sans text-sm text-[#2C2C2C]/55">No documents for this deal yet.</p>

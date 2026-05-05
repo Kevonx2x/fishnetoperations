@@ -4,14 +4,15 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Bell, GitBranch, LayoutDashboard, Loader2, MessageSquare, Settings } from "lucide-react";
+import { Bell, GitBranch, Home, LayoutDashboard, Loader2, MessageSquare, Settings } from "lucide-react";
 import { ClientAvatar } from "@/components/client/client-avatar";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
-const NAV: {
+/** Desktop / tablet sidebar (md+) — unchanged labels and routes. */
+const SIDEBAR_NAV: {
   href: string;
   label: string;
   segment: string;
@@ -24,9 +25,37 @@ const NAV: {
   { href: "/dashboard/client/profile", label: "Profile", segment: "profile", Icon: Settings },
 ];
 
-function isActivePath(pathname: string, segment: string) {
+/** Mobile bottom bar only (< md): first tab opens marketplace home. */
+const MOBILE_BOTTOM_NAV: {
+  href: string;
+  label: string;
+  segment: string;
+  Icon: LucideIcon;
+}[] = [
+  { href: "/", label: "Home", segment: "home", Icon: Home },
+  { href: "/dashboard/client/pipeline", label: "Pipeline", segment: "pipeline", Icon: GitBranch },
+  { href: "/dashboard/client/messages", label: "Messages", segment: "messages", Icon: MessageSquare },
+  { href: "/dashboard/client/notifications", label: "Notifications", segment: "notifications", Icon: Bell },
+  { href: "/dashboard/client/profile", label: "Profile", segment: "profile", Icon: Settings },
+];
+
+function isSidebarActivePath(pathname: string, segment: string) {
   if (segment === "dashboard") {
     return pathname === "/dashboard/client" || pathname.startsWith("/dashboard/client/overview");
+  }
+  return pathname.startsWith(`/dashboard/client/${segment}`);
+}
+
+function isMobileBottomActivePath(pathname: string, segment: string) {
+  if (segment === "home") {
+    return (
+      pathname === "/" ||
+      pathname.startsWith("/properties") ||
+      pathname.startsWith("/agents")
+    );
+  }
+  if (segment === "pipeline") {
+    return pathname.startsWith("/dashboard/client/pipeline");
   }
   return pathname.startsWith(`/dashboard/client/${segment}`);
 }
@@ -103,8 +132,8 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                 </div>
               </div>
               <nav className="flex flex-1 flex-col gap-1">
-                {NAV.map((t) => {
-                  const active = isActivePath(pathname, t.segment);
+                {SIDEBAR_NAV.map((t) => {
+                  const active = isSidebarActivePath(pathname, t.segment);
                   const Icon = t.Icon;
                   return (
                     <Link
@@ -150,7 +179,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
               className={cn(
                 "min-w-0 flex-1 md:flex md:h-full md:min-h-0 md:flex-col",
                 isMessagesRoute
-                  ? "px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
+                  ? "max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
                   : "px-4 py-5 md:overflow-y-auto md:px-6 md:py-5 md:pb-6",
               )}
             >
@@ -159,12 +188,12 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
           </div>
 
           <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-0.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
-            {NAV.map((t) => {
-              const active = isActivePath(pathname, t.segment);
+            {MOBILE_BOTTOM_NAV.map((t) => {
+              const active = isMobileBottomActivePath(pathname, t.segment);
               const Icon = t.Icon;
               return (
                 <Link
-                  key={t.href}
+                  key={`${t.segment}-${t.href}`}
                   href={t.href}
                   className={cn(
                     "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[9px] font-bold sm:text-[10px]",
@@ -185,7 +214,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                     <span className={active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
                       <Icon className="h-5 w-5" aria-hidden />
                     </span>
-                    {t.segment === "dashboard" && streamMessagesUnreadTotal > 0 ? (
+                    {t.segment === "home" && streamMessagesUnreadTotal > 0 ? (
                       <span
                         className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]/95"
                         aria-hidden
