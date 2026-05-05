@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -129,6 +129,28 @@ type Tab =
   | "analytics"
   | "notifications"
   | "billing";
+
+const URL_TAB_QUERY_ALLOWED: Tab[] = [
+  "overview",
+  "pipeline",
+  "messages",
+  "documents",
+  "listings",
+  "team",
+  "profile",
+  "analytics",
+  "notifications",
+  "billing",
+];
+
+function tabFromSearchParamsString(queryString: string): Tab {
+  const sp = new URLSearchParams(queryString);
+  const raw = sp.get("tab");
+  if (raw === "leads" || raw === "viewings") return "pipeline";
+  if (raw === "dashboard") return "overview";
+  if (raw && URL_TAB_QUERY_ALLOWED.includes(raw as Tab)) return raw as Tab;
+  return "overview";
+}
 
 type AgentRow = {
   id: string;
@@ -796,14 +818,26 @@ function AgentSidebarCalendarStrip({ setCalendarModalOpen }: { setCalendarModalO
 
 export function AgentDashboard() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchQueryString = searchParams.toString();
   const { user, loading: authLoading, role: authProfileRole } = useAuth();
   const streamMessagesUnreadTotal = useUnreadMessageCount();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const agentViewingsRefetchRef = useRef<(() => Promise<void>) | null>(null);
 
-  /** Default overview tab; URL sync adds `?tab=overview` on `/dashboard/agent`. */
-  const [tab, setTab] = useState<Tab>("overview");
-  const [agentUrlHydrated, setAgentUrlHydrated] = useState(false);
+  const tab = useMemo(() => tabFromSearchParamsString(searchQueryString), [searchQueryString]);
+
+  const navigateAgentTab = useCallback(
+    (next: Tab) => {
+      const sp = new URLSearchParams(searchQueryString);
+      sp.set("tab", next);
+      const qs = sp.toString();
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+    },
+    [pathname, router, searchQueryString],
+  );
+
   const [streamChannelId, setStreamChannelId] = useState<string | null>(null);
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [agent, setAgent] = useState<AgentRow | null>(null);
@@ -816,26 +850,8 @@ export function AgentDashboard() {
       const sp = new URLSearchParams(window.location.search);
       const editProp = sp.get("editProperty");
       if (editProp) pendingEditPropertyIdRef.current = editProp;
-      const raw = sp.get("tab");
       const ch = sp.get("channel");
       if (ch) setStreamChannelId(ch);
-      const allowed: Tab[] = [
-        "overview",
-        "pipeline",
-        "messages",
-        "documents",
-        "listings",
-        "team",
-        "profile",
-        "analytics",
-        "notifications",
-        "billing",
-      ];
-      if (raw === "leads" || raw === "viewings") {
-        setTab("pipeline");
-      } else if (raw === "dashboard") {
-        setTab("overview");
-      } else if (raw && allowed.includes(raw as Tab)) setTab(raw as Tab);
 
       if (sp.get("payment") === "success") {
         const tier = sp.get("tier");
@@ -848,19 +864,7 @@ export function AgentDashboard() {
         window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
       }
     }
-    setAgentUrlHydrated(true);
   }, []);
-
-  useEffect(() => {
-    if (!agentUrlHydrated || typeof window === "undefined") return;
-    const sp = new URLSearchParams(window.location.search);
-    sp.set("tab", tab);
-    const qs = sp.toString();
-    const nextUrl = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
-    const curUrl = `${window.location.pathname}${window.location.search}`;
-    if (curUrl === nextUrl) return;
-    window.history.replaceState({}, "", nextUrl);
-  }, [tab, agentUrlHydrated]);
 
   const { showAlert } = useGlobalAlert();
   const paymentAlertShownRef = useRef(false);
@@ -1568,21 +1572,21 @@ export function AgentDashboard() {
       agent.verification_status !== "verified" &&
       (tab === "pipeline" || tab === "listings" || tab === "team")
     ) {
-      setTab("overview");
+      navigateAgentTab("overview");
     }
-  }, [agent, tab, isTeamMemberView]);
+  }, [agent, tab, isTeamMemberView, navigateAgentTab]);
 
   useEffect(() => {
     if (!isTeamMemberView && tab === "documents") {
-      setTab("pipeline");
+      navigateAgentTab("pipeline");
     }
-  }, [isTeamMemberView, tab]);
+  }, [isTeamMemberView, tab, navigateAgentTab]);
 
   useEffect(() => {
     if (!isTeamMemberView) return;
     const allowed: Tab[] = ["pipeline", "messages", "documents"];
-    if (!allowed.includes(tab)) setTab("pipeline");
-  }, [isTeamMemberView, tab]);
+    if (!allowed.includes(tab)) navigateAgentTab("pipeline");
+  }, [isTeamMemberView, tab, navigateAgentTab]);
 
   useEffect(() => {
     if (!agent || authProfileRole === "team_member") return;
@@ -1938,26 +1942,22 @@ export function AgentDashboard() {
     const p = properties.find((x) => x.id === pending);
     if (p) {
       pendingEditPropertyIdRef.current = null;
-      setTab("listings");
+      const sp = new URLSearchParams(searchQueryString);
+      sp.delete("editProperty");
+      sp.set("tab", "listings");
+      const qs = sp.toString();
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
       void openEditFormFromProperty(p);
-      if (typeof window !== "undefined") {
-        const sp = new URLSearchParams(window.location.search);
-        sp.delete("editProperty");
-        const qs = sp.toString();
-        window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
-      }
       return;
     }
     pendingEditPropertyIdRef.current = null;
-    if (typeof window !== "undefined") {
-      const sp = new URLSearchParams(window.location.search);
-      if (sp.has("editProperty")) {
-        sp.delete("editProperty");
-        const qs = sp.toString();
-        window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
-      }
+    const sp = new URLSearchParams(searchQueryString);
+    if (sp.has("editProperty")) {
+      sp.delete("editProperty");
+      const qs = sp.toString();
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
     }
-  }, [propertiesLoadVersion, properties, user?.id, openEditFormFromProperty]);
+  }, [propertiesLoadVersion, properties, user?.id, openEditFormFromProperty, pathname, router, searchQueryString]);
 
   const beginEditListing = useCallback(
     async (p: PropertyRow) => {
@@ -2271,7 +2271,7 @@ export function AgentDashboard() {
     setListingFormErrors({});
     await loadData();
     toast.success("Listing created");
-    setTab("listings");
+    navigateAgentTab("listings");
   };
 
   const createListing = async (e: React.FormEvent) => {
@@ -2435,7 +2435,7 @@ export function AgentDashboard() {
                   <button
                     key={t.id}
                     type="button"
-                    onClick={() => setTab(t.id)}
+                    onClick={() => navigateAgentTab(t.id)}
                     className={cn(
                       "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
                       (t.id === "analytics" || t.id === "team") && "opacity-55 hover:opacity-80",
@@ -2473,7 +2473,7 @@ export function AgentDashboard() {
                   <button
                     key={t.id}
                     type="button"
-                    onClick={() => setTab(t.id)}
+                    onClick={() => navigateAgentTab(t.id)}
                     className={cn(
                       "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
                       (t.id === "analytics" || t.id === "team") && "opacity-55 hover:opacity-80",
@@ -2575,7 +2575,7 @@ export function AgentDashboard() {
                   atListingLimit={atListingLimit}
                   atCoListLimit={atCoListLimit}
                   onNavigateTab={(next) => {
-                    setTab(next);
+                    navigateAgentTab(next);
                     setMoreDrawerOpen(false);
                   }}
                 />
@@ -2613,7 +2613,7 @@ export function AgentDashboard() {
                   onOpenMessagesForClient={(clientUserId) => {
                     if (!user?.id) return;
                     setStreamChannelId(streamDmChannelId(user.id, clientUserId));
-                    setTab("messages");
+                    navigateAgentTab("messages");
                   }}
                   onRefresh={refreshAfterPipelineChange}
                   onOpenLeadDetails={(leadId) => {
@@ -2728,7 +2728,7 @@ export function AgentDashboard() {
               key={tid}
               type="button"
               onClick={() => {
-                setTab(tid);
+                navigateAgentTab(tid);
                 setMoreDrawerOpen(false);
               }}
               className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[10px] font-bold ${
@@ -2817,7 +2817,7 @@ export function AgentDashboard() {
                       key={t.id}
                       type="button"
                       onClick={() => {
-                        setTab(t.id);
+                        navigateAgentTab(t.id);
                         setMoreDrawerOpen(false);
                       }}
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${
