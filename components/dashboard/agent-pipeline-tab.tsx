@@ -98,7 +98,7 @@ const DEFAULT_VIEWING_CONFIRM_TIME = "10:00";
 let viewingsRescheduleColumnHintLogged = false;
 
 export const PIPELINE_STAGES = [
-  { id: "lead", label: "Lead" },
+  { id: "lead", label: "Inquiry" },
   { id: "viewing", label: "Viewing" },
   { id: "offer", label: "Offer" },
   { id: "reservation", label: "Reservation" },
@@ -106,6 +106,14 @@ export const PIPELINE_STAGES = [
 ] as const;
 
 export type PipelineStageId = (typeof PIPELINE_STAGES)[number]["id"];
+
+/** Agent-facing pipeline stage label; DB still stores ids like `lead`. */
+export function agentPipelineStageDisplayLabel(stageRaw: string): string {
+  const sl = String(stageRaw ?? "").trim().toLowerCase();
+  if (!sl || sl === "—") return stageRaw;
+  const hit = PIPELINE_STAGES.find((s) => s.id === sl);
+  return hit?.label ?? stageRaw;
+}
 
 /** `viewing_requests` fields needed for Lead-stage “Requested viewing” menu (scheduled + updated subtitle). */
 export type ViewingRequestPipelineMeta = {
@@ -721,9 +729,18 @@ function stageBarHex(stage: PipelineStageId): string {
   }
 }
 
-/** Gold “Reschedule pending” chip in the kanban card footer (left column); compact for h-6 footer. */
-const KANBAN_FOOTER_RESCHEDULE_BADGE =
+/** Gold footer-left chip (reschedule / new viewing request); compact for h-6 footer. */
+const KANBAN_FOOTER_GOLD_BADGE_CLASS =
   "flex max-w-full shrink-0 flex-row items-center gap-0.5 rounded-md bg-[#D4A843]/12 px-1 py-0 text-[9px] font-semibold leading-none tracking-tight text-[#D4A843]";
+
+function KanbanFooterGoldBadge({ label }: { label: string }) {
+  return (
+    <span className={KANBAN_FOOTER_GOLD_BADGE_CLASS}>
+      <Clock className="h-2 w-2 shrink-0 opacity-90" aria-hidden />
+      <span className="whitespace-nowrap">{label}</span>
+    </span>
+  );
+}
 
 function pipelineColumnEmptyIcon(stage: PipelineStageId) {
   const ring =
@@ -885,6 +902,7 @@ function KanbanDealCard({
   onMarkNewLeadSeenOnMenuOpen,
   markViewingRequestSeen,
   onOpenMessagesForClient,
+  tourViewingCardAnchor,
 }: {
   deal: PipelineLeadRow;
   indexInStage: number;
@@ -927,6 +945,7 @@ function KanbanDealCard({
   onMarkNewLeadSeenOnMenuOpen: (d: PipelineLeadRow) => void;
   markViewingRequestSeen: (leadId: number) => void;
   onOpenMessagesForClient?: (clientUserId: string) => void;
+  tourViewingCardAnchor?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: String(deal.id),
@@ -985,6 +1004,19 @@ function KanbanDealCard({
   );
 
   const showRescheduleFooterBadge = deal.pipeline_stage === "viewing" && Boolean(reschedulePending);
+  const showNewRequestFooterBadge =
+    !showRescheduleFooterBadge &&
+    Boolean(deal.viewing_request_id?.trim()) &&
+    deal.new_viewing_request_seen_at == null;
+  const showFooterLeftBadge = showRescheduleFooterBadge || showNewRequestFooterBadge;
+  const footerLeftBadgeLabel = showRescheduleFooterBadge ? "Reschedule pending" : "New request";
+
+  const openKanbanLeadDetails = useCallback(() => {
+    if (deal.viewing_request_id?.trim() && deal.new_viewing_request_seen_at == null) {
+      void markViewingRequestSeen(deal.id);
+    }
+    onOpenLeadDetails(deal.id);
+  }, [deal.id, deal.new_viewing_request_seen_at, deal.viewing_request_id, markViewingRequestSeen, onOpenLeadDetails]);
 
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const [menuAnchorRect, setMenuAnchorRect] = useState<DOMRect | null>(null);
@@ -1025,17 +1057,18 @@ function KanbanDealCard({
       <div
         {...attributes}
         {...listeners}
+        {...(tourViewingCardAnchor ? { "data-tour": "viewing-card" as const } : {})}
         className={cn(
           "relative flex w-full min-h-[150px] cursor-grab flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.08] bg-white p-3 shadow-none ring-0 transition-colors [box-shadow:none]",
           next ? "pb-10" : "",
           "hover:border-[#2C2C2C]/12",
           isDragging && "scale-[1.01] cursor-grabbing border-[#6B9E6E]/35",
         )}
-        onClick={() => onOpenLeadDetails(deal.id)}
+        onClick={() => openKanbanLeadDetails()}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") onOpenLeadDetails(deal.id);
+          if (e.key === "Enter" || e.key === " ") openKanbanLeadDetails();
         }}
       >
         <div className="touch-none flex min-h-0 flex-1 flex-col pr-10 pt-2">
@@ -1047,7 +1080,7 @@ function KanbanDealCard({
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
-                onOpenLeadDetails(deal.id);
+                openKanbanLeadDetails();
               }}
             >
               <p
@@ -1263,7 +1296,7 @@ function KanbanDealCard({
                                   type="button"
                                   className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
                                   onClick={() => {
-                                    onOpenLeadDetails(deal.id);
+                                    openKanbanLeadDetails();
                                     setMenuOpenId(null);
                                   }}
                                 >
@@ -1516,21 +1549,18 @@ function KanbanDealCard({
       <div
         className={cn(
           "flex h-6 w-full shrink-0 items-center gap-2 rounded-b-2xl bg-[#2C2C2C]/[0.06] px-3",
-          showRescheduleFooterBadge ? "justify-between" : "justify-center",
+          showFooterLeftBadge ? "justify-between" : "justify-center",
         )}
       >
-        {showRescheduleFooterBadge ? (
+        {showFooterLeftBadge ? (
           <div className="flex min-w-0 shrink-0 items-center justify-start">
-            <span className={KANBAN_FOOTER_RESCHEDULE_BADGE}>
-              <Clock className="h-2 w-2 shrink-0 opacity-90" aria-hidden />
-              <span className="whitespace-nowrap">Reschedule pending</span>
-            </span>
+            <KanbanFooterGoldBadge label={footerLeftBadgeLabel} />
           </div>
         ) : null}
         <p
           className={cn(
             "min-w-0 truncate font-sans text-[10px] font-semibold tracking-tight text-[#2C2C2C]/55",
-            showRescheduleFooterBadge ? "flex-1 text-right" : "w-full text-center",
+            showFooterLeftBadge ? "flex-1 text-right" : "w-full text-center",
           )}
         >
           {kanbanFooterLine}
@@ -1665,7 +1695,7 @@ function KanbanStageColumn({
               {pipelineColumnEmptyIcon(stage)}
               <p className="mt-3 font-sans text-[12px] font-bold text-[#2C2C2C]/60">No deals yet</p>
               <p className="mt-1 max-w-[200px] font-sans text-[10px] font-medium leading-snug text-[#2C2C2C]/40">
-                Drag deals here or wait for new leads.
+                Drag deals here or wait for new inquiries.
               </p>
             </div>
           </div>
@@ -1701,7 +1731,7 @@ function KanbanStageColumn({
                   }}
                   onRequestDocuments={(d) => {
                     if (!d.client_id) {
-                      toast.error("This lead is not linked to a client account yet.");
+                      toast.error("This deal is not linked to a client account yet.");
                       return;
                     }
                     setRequestDocsLead(d);
@@ -1725,6 +1755,7 @@ function KanbanStageColumn({
                   onMarkNewLeadSeenOnMenuOpen={markNewLeadSeenOnMenuOpen}
                   markViewingRequestSeen={markViewingRequestSeen}
                   onOpenMessagesForClient={onOpenMessagesForClient}
+                  tourViewingCardAnchor={stage === "viewing" && i === 0}
                 />
               ))}
             </div>
@@ -2380,11 +2411,14 @@ export function AgentPipelineTab({
 
   const markViewingRequestSeen = useCallback(
     async (leadId: number) => {
-      await supabase
+      const { data } = await supabase
         .from("leads")
         .update({ new_viewing_request_seen_at: new Date().toISOString() })
-        .eq("id", leadId);
-      await Promise.resolve(onRefresh());
+        .eq("id", leadId)
+        .is("new_viewing_request_seen_at", null)
+        .select("id")
+        .maybeSingle();
+      if (data) await Promise.resolve(onRefresh());
     },
     [supabase, onRefresh],
   );
@@ -4192,7 +4226,7 @@ export function AgentPipelineTab({
           </div>
         </div>
         <p className="mt-2 text-center text-[9px] font-semibold text-gray-500">
-          Lead → Viewing → Offer → Reservation → Closed
+          Inquiry → Viewing → Offer → Reservation → Closed
         </p>
       </div>
 
@@ -4257,7 +4291,7 @@ export function AgentPipelineTab({
                   }}
                   onRequestDocuments={(d) => {
                     if (!d.client_id) {
-                      toast.error("This lead is not linked to a client account yet.");
+                      toast.error("This deal is not linked to a client account yet.");
                       return;
                     }
                     setRequestDocsLead(d);
@@ -4425,7 +4459,8 @@ export function AgentPipelineTab({
               {archivedVisibleLeads.map((row) => {
                 const propTitle = propertyLabel(row.property_id);
                 const reasonLabel = labelForClientArchiveReason(row.archive_reason, row.archive_note);
-                const stage = String(row.stage_at_archive ?? row.pipeline_stage ?? "—");
+                const stageRaw = String(row.stage_at_archive ?? row.pipeline_stage ?? "—");
+                const stage = agentPipelineStageDisplayLabel(stageRaw);
                 const archivedWhen = row.archived_at
                   ? formatRelativeTime(row.archived_at)
                   : "—";
