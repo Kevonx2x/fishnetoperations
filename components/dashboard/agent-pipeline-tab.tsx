@@ -1662,7 +1662,7 @@ function KanbanStageColumn({
     <div
       key={stage}
       className={cn(
-        "min-w-0 flex-1 max-w-[320px] min-w-[180px] sm:min-w-[200px] xl:min-w-[220px]",
+        "h-full min-w-0 flex-1 max-w-[320px] min-w-[180px] sm:min-w-[200px] xl:min-w-[220px]",
         idx > 0 && "border-l border-[#2C2C2C]/10",
       )}
     >
@@ -4334,7 +4334,7 @@ export function AgentPipelineTab({
           ) : null}
           <div
             ref={kanbanScrollRef}
-            className="relative isolate w-full min-w-0 overflow-y-visible bg-[#FAF8F4] px-1 py-2"
+            className="relative isolate w-full min-w-0 min-h-[calc(100vh-280px)] overflow-y-visible bg-[#FAF8F4] px-1 py-2"
           >
             {menuOpenId != null ? (
               <button
@@ -4367,7 +4367,7 @@ export function AgentPipelineTab({
               onDragCancel={handleKanbanDragCancel}
               onDragEnd={handleKanbanDragEnd}
             >
-              <div className="flex w-full flex-row items-stretch gap-2">
+              <div className="flex w-full min-h-full flex-row items-stretch gap-2">
                 {(filterStages && filterStages.length > 0
                   ? KANBAN_STAGE_ORDER.filter((s) => filterStages.includes(s))
                   : KANBAN_STAGE_ORDER

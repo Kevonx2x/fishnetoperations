@@ -2067,15 +2067,20 @@ export function AgentDashboard() {
           };
           error?: { message?: string };
         };
-        if (res.status === 409 && json?.duplicate && json.existing) {
-          setDuplicateListingModal({ existing: json.existing });
-          return;
-        }
         if (!res.ok) {
           toast.error(json?.error?.message ?? "Could not save listing.");
           return;
         }
-        toast.success("Listing updated successfully");
+        const warning = (json as { warning?: { type?: string; message?: string } } | null)?.warning;
+        if (warning?.type === "possible_duplicate") {
+          toast("Listing updated", {
+            description:
+              "We noticed a similar listing already exists. We've flagged this for review just in case — your changes are live.",
+            duration: 6000,
+          });
+        } else {
+          toast.success("Listing updated successfully");
+        }
         setEditFormErrors({});
         editListingPhotosLoadIdRef.current += 1;
         setEditFormOpen(false);
@@ -2095,53 +2100,6 @@ export function AgentDashboard() {
     const priceNum = parseListingPricePesos(listingForm.price);
     setSaving(true);
     const trimmedLocation = listingForm.location.trim();
-    const targetNorm = normalizeListingLocation(trimmedLocation);
-    // TODO: add lat/lng proximity check (within 0.0001 degrees) once Maps Tier 1 wires Google Places autocomplete and starts writing coordinates
-    const { data: dupes, error: dupSelectErr } = await supabase
-      .from("properties")
-      .select("id, name, location, listed_by")
-      .ilike("location", trimmedLocation)
-      .is("deleted_at", null)
-      .eq("availability_state", "available")
-      .limit(1);
-    if (!dupSelectErr && dupes && dupes.length > 0) {
-      const hit = dupes.find((row) => normalizeListingLocation(String(row.location ?? "")) === targetNorm);
-      if (hit) {
-        let agent_name = "Another agent";
-        let agent_id: string | null = null;
-        const lb = hit.listed_by as string | undefined | null;
-        if (lb) {
-          const { data: prof } = await supabase.from("profiles").select("full_name").eq("id", lb).maybeSingle();
-          const fn = (prof as { full_name?: string | null } | null)?.full_name?.trim();
-          if (fn) {
-            agent_name = fn;
-          } else {
-            const { data: agRow } = await supabase.from("agents").select("id, name").eq("user_id", lb).maybeSingle();
-            const ag = agRow as { id?: string; name?: string | null } | null;
-            if (ag?.id) {
-              agent_id = ag.id;
-              agent_name = String(ag.name ?? "").trim() || agent_name;
-            }
-          }
-          if (!agent_id && lb) {
-            const { data: agRow2 } = await supabase.from("agents").select("id").eq("user_id", lb).maybeSingle();
-            agent_id = (agRow2 as { id?: string } | null)?.id ?? null;
-          }
-        }
-        const nm = (hit.name as string | null)?.trim();
-        setSaving(false);
-        setDuplicateListingModal({
-          existing: {
-            id: hit.id,
-            name: nm ? nm : null,
-            location: String(hit.location ?? ""),
-            agent_id,
-            agent_name,
-          },
-        });
-        return;
-      }
-    }
     const beds = Number(listingForm.beds.replace(/\D/g, "")) || 0;
     const baths = Number(listingForm.baths.replace(/\D/g, "")) || 0;
     const mainImageUrl = listingForm.listingImageUrls[0]?.trim() || DEFAULT_LISTING_IMAGE;
@@ -2199,22 +2157,6 @@ export function AgentDashboard() {
       parsed = null;
     }
     setSaving(false);
-    if (res.status === 409) {
-      const dup = parsed as {
-        duplicate?: boolean;
-        existing?: {
-          id: string;
-          name: string | null;
-          location: string;
-          agent_name: string;
-          agent_id: string | null;
-        };
-      };
-      if (dup?.duplicate && dup.existing) {
-        setDuplicateListingModal({ existing: dup.existing });
-        return;
-      }
-    }
     if (!res.ok) {
       const errObj = parsed as { error?: string } | null;
       const msg = typeof errObj?.error === "string" ? errObj.error : "Could not create listing.";
@@ -2226,8 +2168,13 @@ export function AgentDashboard() {
       }
       return;
     }
-    const okJson = parsed as { ok?: boolean; id?: string };
-    const newId = okJson?.id;
+    const okJson = parsed as {
+      ok?: boolean;
+      id?: string;
+      property_id?: string;
+      warning?: { type?: string; message?: string };
+    };
+    const newId = okJson?.property_id ?? okJson?.id;
     if (!newId) {
       toast.error("Could not create listing.", { duration: 5000 });
       return;
@@ -2269,7 +2216,15 @@ export function AgentDashboard() {
     });
     setListingFormErrors({});
     await loadData();
-    toast.success("Listing created");
+    if (okJson?.warning?.type === "possible_duplicate") {
+      toast("Listing created", {
+        description:
+          "We noticed a similar listing already exists. We've flagged this for review just in case — your listing is live.",
+        duration: 6000,
+      });
+    } else {
+      toast.success("Listing created");
+    }
     navigateAgentTab("listings");
   };
 

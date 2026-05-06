@@ -78,10 +78,7 @@ export async function POST(req: Request) {
     prop_location: string;
     listed_by: string | null;
   } | null;
-  if (dup?.id) {
-    const existing = await duplicateExistingFromRpcRow(admin, dup);
-    return Response.json({ duplicate: true as const, existing }, { status: 409 });
-  }
+  const dupExisting = dup?.id ? await duplicateExistingFromRpcRow(admin, dup) : null;
 
   const isPs = body.is_presale === true || body.property_type === "Presale";
   const lt = body.listing_type;
@@ -149,6 +146,38 @@ export async function POST(req: Request) {
     return Response.json({ error: "Insert returned no id" }, { status: 500 });
   }
 
+  if (dupExisting?.id) {
+    // Warn-not-block: allow insert, but flag for admin review.
+    await admin
+      .from("properties")
+      .update({
+        flagged_for_admin_review: true,
+        duplicate_of_property_id: dupExisting.id,
+      })
+      .eq("id", id);
+
+    const { data: admins } = await admin.from("profiles").select("id").eq("role", "admin");
+    if (admins?.length) {
+      const { data: actorProfile } = await admin
+        .from("profiles")
+        .select("full_name")
+        .eq("id", session.userId)
+        .maybeSingle();
+      const actorName =
+        (actorProfile as { full_name?: string | null } | null)?.full_name?.trim() ||
+        session.email?.trim() ||
+        "An agent";
+      const notifRows = admins.map((a) => ({
+        user_id: (a as { id: string }).id,
+        type: "admin_review" as const,
+        title: "Possible duplicate listing detected",
+        body: `Agent ${actorName} just created a listing that may duplicate an existing one. Review in the admin panel.`,
+        metadata: { new_property_id: id, conflicting_property_id: dupExisting.id },
+      }));
+      await admin.from("notifications").insert(notifRows);
+    }
+  }
+
   const { data: agentLink } = await sb.from("agents").select("id").eq("user_id", session.userId).maybeSingle();
   const linkAgentId = (agentLink as { id?: string } | null)?.id;
   if (linkAgentId) {
@@ -161,5 +190,17 @@ export async function POST(req: Request) {
     }
   }
 
-  return Response.json({ ok: true as const, id });
+  return Response.json({
+    ok: true as const,
+    id,
+    property_id: id,
+    ...(dupExisting?.id
+      ? {
+          warning: {
+            type: "possible_duplicate" as const,
+            message: "A similar listing already exists. We've flagged this for admin review just in case.",
+          },
+        }
+      : {}),
+  });
 }

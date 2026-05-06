@@ -176,10 +176,7 @@ export async function POST(req: Request) {
       prop_location: string;
       listed_by: string | null;
     } | null;
-    if (dup?.id) {
-      const existing = await duplicateExistingFromRpcRow(sb, dup);
-      return NextResponse.json({ duplicate: true as const, existing }, { status: 409 });
-    }
+    const dupExisting = dup?.id ? await duplicateExistingFromRpcRow(sb, dup) : null;
 
     const cityUpd =
       parsed.data.city != null && String(parsed.data.city).trim().length > 0
@@ -231,6 +228,45 @@ export async function POST(req: Request) {
     const { error: updErr } = await (isOwner ? baseUpd.eq("listed_by", session.userId) : baseUpd);
 
     if (updErr) return fail("DATABASE_ERROR", updErr.message, 500);
+
+    if (dupExisting?.id) {
+      let admin: ReturnType<typeof createSupabaseAdmin> | null = null;
+      try {
+        admin = createSupabaseAdmin();
+      } catch {
+        admin = null;
+      }
+      if (admin) {
+        await admin
+          .from("properties")
+          .update({
+            flagged_for_admin_review: true,
+            duplicate_of_property_id: dupExisting.id,
+          })
+          .eq("id", parsed.data.propertyId);
+
+        const { data: admins } = await admin.from("profiles").select("id").eq("role", "admin");
+        if (admins?.length) {
+          const { data: actorProfile } = await admin
+            .from("profiles")
+            .select("full_name")
+            .eq("id", session.userId)
+            .maybeSingle();
+          const actorName =
+            (actorProfile as { full_name?: string | null } | null)?.full_name?.trim() ||
+            session.email?.trim() ||
+            "An agent";
+          const notifRows = admins.map((a) => ({
+            user_id: (a as { id: string }).id,
+            type: "admin_review" as const,
+            title: "Possible duplicate listing detected",
+            body: `Agent ${actorName} just edited a listing that may duplicate an existing one. Review in the admin panel.`,
+            metadata: { new_property_id: parsed.data.propertyId, conflicting_property_id: dupExisting.id },
+          }));
+          await admin.from("notifications").insert(notifRows);
+        }
+      }
+    }
 
     if (isOwner && imageUrls && imageUrls.length > 0) {
       const { error: delPh } = await sb
@@ -307,7 +343,18 @@ export async function POST(req: Request) {
     }
 
     if (!admin) {
-      return ok({ success: true, coAgentsNotified: 0 });
+      return ok({
+        success: true,
+        coAgentsNotified: 0,
+        ...(dupExisting?.id
+          ? {
+              warning: {
+                type: "possible_duplicate" as const,
+                message: "A similar listing already exists. We've flagged this for admin review just in case.",
+              },
+            }
+          : {}),
+      });
     }
 
     const myAgentId = (agentRow as { id?: string } | null)?.id;
@@ -339,7 +386,18 @@ export async function POST(req: Request) {
       if (!nErr) notified += 1;
     }
 
-    return ok({ success: true, coAgentsNotified: notified });
+    return ok({
+      success: true,
+      coAgentsNotified: notified,
+      ...(dupExisting?.id
+        ? {
+            warning: {
+              type: "possible_duplicate" as const,
+              message: "A similar listing already exists. We've flagged this for admin review just in case.",
+            },
+          }
+        : {}),
+    });
   } catch (e) {
     return fail(
       "INTERNAL_ERROR",
