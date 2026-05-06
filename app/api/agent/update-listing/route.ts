@@ -10,13 +10,18 @@ import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 import { duplicateExistingFromRpcRow } from "@/lib/duplicate-listing";
 
 const PROPERTY_TYPES = [
-  "House",
+  // New canonical set
   "Condo",
-  "Apartment",
-  "Studio",
-  "Commercial",
-  "Villa",
+  "House",
   "Townhouse",
+  "Lot",
+  "Apartment",
+  "Commercial",
+  "Warehouse",
+  "Office",
+  // Legacy values still present in existing rows / UI
+  "Studio",
+  "Villa",
   "Land",
   "Presale",
 ] as const;
@@ -31,6 +36,7 @@ const bodySchema = z.object({
   baths: z.number().int().min(0).max(99),
   sqft: z.string().max(80),
   property_type: z.enum(PROPERTY_TYPES),
+  sales_status: z.string().max(80).nullable().optional(),
   status: z.enum(["for_sale", "for_rent", "both"]),
   listing_type: z.enum(["sale", "rent", "both"]).optional(),
   rent_price: z.union([z.string().max(100), z.number()]).nullable().optional(),
@@ -47,6 +53,8 @@ const bodySchema = z.object({
   formatted_address: z.string().max(500).nullable().optional(),
   place_id: z.string().max(256).nullable().optional(),
   city: z.string().max(200).nullable().optional(),
+  region: z.string().max(200).nullable().optional(),
+  neighborhood: z.string().max(200).nullable().optional(),
 });
 
 export async function POST(req: Request) {
@@ -154,6 +162,12 @@ export async function POST(req: Request) {
         : undefined;
 
     const isPresale = parsed.data.property_type === "Presale" || parsed.data.is_presale === true;
+    const salesStatusForDb =
+      parsed.data.sales_status != null && String(parsed.data.sales_status).trim().length > 0
+        ? String(parsed.data.sales_status).trim()
+        : isPresale
+          ? "Presale"
+          : null;
     const dev = parsed.data.developer_name?.trim() || null;
     const turn = parsed.data.turnover_date?.trim() || null;
     const units = parsed.data.unit_types?.length ? parsed.data.unit_types : null;
@@ -203,6 +217,8 @@ export async function POST(req: Request) {
         name: parsed.data.name?.trim() || null,
         location: locTrimmed,
         city: cityUpd,
+        region: parsed.data.region?.trim() || null,
+        neighborhood: parsed.data.neighborhood?.trim() || null,
         price: priceStr,
         listing_type: listingType,
         rent_price: rentPriceForDb,
@@ -210,6 +226,7 @@ export async function POST(req: Request) {
         baths: parsed.data.baths,
         sqft: parsed.data.sqft.trim(),
         property_type: parsed.data.property_type,
+        sales_status: salesStatusForDb,
         status: parsed.data.status,
         listing_status: parsed.data.listing_status,
         description: parsed.data.description?.trim() || null,

@@ -581,6 +581,10 @@ type EditListingForm = {
   lng: number | null;
   /** Locality from Places (or prior DB city) for API `city` when saving. */
   placeCity: string | null;
+  /** Region/province from Places for API `region` when saving. */
+  placeRegion: string | null;
+  /** Neighborhood/sublocality from Places for API `neighborhood` when saving. */
+  placeNeighborhood: string | null;
 };
 
 /** UI labels → DB lead stages (existing check constraint). */
@@ -940,6 +944,8 @@ export function AgentDashboard() {
     lat: null,
     lng: null,
     placeCity: null,
+    placeRegion: null,
+    placeNeighborhood: null,
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editListingImages, setEditListingImages] = useState<string[]>([]);
@@ -976,6 +982,8 @@ export function AgentDashboard() {
     lat: null as number | null,
     lng: null as number | null,
     placeCity: null as string | null,
+    placeRegion: null as string | null,
+    placeNeighborhood: null as string | null,
   });
   const [listingFormErrors, setListingFormErrors] = useState<Record<string, string>>({});
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
@@ -989,6 +997,8 @@ export function AgentDashboard() {
       lat: null,
       lng: null,
       placeCity: null,
+      placeRegion: null,
+      placeNeighborhood: null,
     }));
   }, []);
 
@@ -1001,6 +1011,8 @@ export function AgentDashboard() {
       lat: payload.lat,
       lng: payload.lng,
       placeCity: payload.city,
+      placeRegion: payload.region,
+      placeNeighborhood: payload.neighborhood,
     }));
   }, []);
 
@@ -1907,6 +1919,8 @@ export function AgentDashboard() {
           lat: p.lat ?? null,
           lng: p.lng ?? null,
           placeCity: p.city ?? null,
+          placeRegion: (p as { region?: string | null }).region ?? null,
+          placeNeighborhood: (p as { neighborhood?: string | null }).neighborhood ?? null,
         });
         setEditListingImages(imageUrls);
         let galleryReadOnly = Boolean(user?.id && p.listed_by && p.listed_by !== user.id && p.isCoHost);
@@ -2045,6 +2059,8 @@ export function AgentDashboard() {
           formatted_address: editForm.formatted_address,
           place_id: editForm.place_id,
           city: editForm.placeCity,
+          region: editForm.placeRegion,
+          neighborhood: editForm.placeNeighborhood,
         };
         if (!editGalleryReadOnly) {
           body.imageUrls = imageUrls;
@@ -2111,6 +2127,8 @@ export function AgentDashboard() {
       name: listingForm.name.trim() || null,
       location: trimmedLocation,
       city: listingForm.placeCity,
+      region: listingForm.placeRegion,
+      neighborhood: listingForm.placeNeighborhood,
       formatted_address: listingForm.formatted_address,
       place_id: listingForm.place_id,
       lat: listingForm.lat,
@@ -2213,6 +2231,8 @@ export function AgentDashboard() {
       lat: null,
       lng: null,
       placeCity: null,
+      placeRegion: null,
+      placeNeighborhood: null,
     });
     setListingFormErrors({});
     await loadData();
@@ -3978,6 +3998,8 @@ function ListingsTab({
     lat: number | null;
     lng: number | null;
     placeCity: string | null;
+    placeRegion: string | null;
+    placeNeighborhood: string | null;
   };
   setListingForm: React.Dispatch<React.SetStateAction<typeof listingForm>>;
   listingFormErrors: Record<string, string>;
@@ -4036,6 +4058,8 @@ function ListingsTab({
       lat: null,
       lng: null,
       placeCity: null,
+      placeRegion: null,
+      placeNeighborhood: null,
     }));
   }, [setListingForm]);
 
@@ -4049,6 +4073,8 @@ function ListingsTab({
         lat: payload.lat,
         lng: payload.lng,
         placeCity: payload.city,
+        placeRegion: payload.region,
+        placeNeighborhood: payload.neighborhood,
       }));
     },
     [setListingForm],
@@ -4137,6 +4163,8 @@ function ListingsTab({
         lat: null,
         lng: null,
         placeCity: null,
+        placeRegion: null,
+        placeNeighborhood: null,
         price:
           Number.isFinite(priceNum) && priceNum > 0
             ? formatPriceInputDigits(String(priceNum))

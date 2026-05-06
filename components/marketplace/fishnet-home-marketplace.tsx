@@ -205,6 +205,44 @@ const FEATURED_CITIES: {
 /** Triplicate city strip for seamless infinite horizontal scroll (see Featured Locations section). */
 const FEATURED_LOCATIONS_LOOP_COPIES = 3;
 
+const FEATURED_LOCATIONS = [
+  {
+    label: "BGC",
+    match: { neighborhood: "BGC" },
+    imageUrl: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=300&h=200&fit=crop",
+  },
+  {
+    label: "Makati",
+    match: { city: "Makati" },
+    imageUrl: "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=300&h=200&fit=crop",
+  },
+  {
+    label: "Ortigas",
+    match: { neighborhood: "Ortigas Center" },
+    imageUrl: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=300&h=200&fit=crop",
+  },
+  {
+    label: "Cebu City",
+    match: { city: "Cebu City" },
+    imageUrl: "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=300&h=200&fit=crop",
+  },
+  {
+    label: "Davao",
+    match: { city: "Davao" },
+    imageUrl: "https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=300&h=200&fit=crop",
+  },
+  {
+    label: "Tagaytay",
+    match: { city: "Tagaytay" },
+    imageUrl: "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=300&h=200&fit=crop",
+  },
+  {
+    label: "Bacolod",
+    match: { city: "Bacolod" },
+    imageUrl: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400",
+  },
+] as const;
+
 function stripDiacritics(s: string) {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
@@ -778,6 +816,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const [error, setError] = useState<string | null>(null);
 
   const [neighborhoodFilter, setNeighborhoodFilter] = useState<string | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<
+    | { type: "neighborhood" | "city"; value: string; label: string }
+    | null
+  >(null);
+  const [selectedPropertyType, setSelectedPropertyType] = useState<string | null>(null);
+  const [featuredLocationCounts, setFeaturedLocationCounts] = useState<Record<string, number>>({});
+  const [propertyTypeCounts, setPropertyTypeCounts] = useState<{ property_type: string; count: number }[]>([]);
   const [showMoreCategories, setShowMoreCategories] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("newest");
@@ -806,7 +851,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     setLoading(true);
     setError(null);
     const selectQ = `
-          id, created_at, name, location, city, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
+          id, created_at, name, location, region, city, neighborhood, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
           is_presale, developer_name, turnover_date, unit_types, deleted_at, availability_state,
           property_photos (url, sort_order, created_at),
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
@@ -825,7 +870,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       .select(selectQ)
       .or(expiryOr)
       .is("deleted_at", null)
-      .eq("availability_state", "available");
+      .or("availability_state.eq.available,availability_state.is.null");
     if (cityOrClause) mainQuery = mainQuery.or(cityOrClause);
     mainQuery = mainQuery.order("created_at", { ascending: false });
 
@@ -835,7 +880,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       .eq("featured", true)
       .or(expiryOr)
       .is("deleted_at", null)
-      .eq("availability_state", "available");
+      .or("availability_state.eq.available,availability_state.is.null");
     if (cityOrClause) featQuery = featQuery.or(cityOrClause);
     featQuery = featQuery.limit(1);
 
@@ -914,6 +959,75 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   useEffect(() => {
     void loadAgentsDirectory();
   }, [loadAgentsDirectory]);
+
+  const clearGeoFilters = useCallback(() => {
+    setSelectedLocation(null);
+    setSelectedPropertyType(null);
+    setPropertyTypeCounts([]);
+  }, []);
+
+  const refreshFeaturedLocationCounts = useCallback(async () => {
+    const statusIn = mode === "buy" ? ["for_sale", "both"] : ["for_rent", "both"];
+    const rows = await Promise.all(
+      FEATURED_LOCATIONS.map(async (loc) => {
+        const field = "neighborhood" in loc.match ? "neighborhood" : "city";
+        const value = (loc.match as { neighborhood?: string; city?: string })[field] ?? "";
+        let q = supabase
+          .from("properties")
+          .select("id", { count: "exact", head: true })
+          .is("deleted_at", null)
+          .or("availability_state.eq.available,availability_state.is.null")
+          .in("status", statusIn);
+        q = field === "neighborhood" ? q.eq("neighborhood", value) : q.eq("city", value);
+        const { count, error } = await q;
+        return { label: loc.label, count: error ? 0 : count ?? 0 };
+      }),
+    );
+    const next: Record<string, number> = {};
+    for (const r of rows) next[r.label] = r.count;
+    setFeaturedLocationCounts(next);
+  }, [mode]);
+
+  const refreshPropertyTypeCounts = useCallback(
+    async (sel: { type: "neighborhood" | "city"; value: string; label: string } | null) => {
+      if (!sel) {
+        setPropertyTypeCounts([]);
+        return;
+      }
+      const statusIn = mode === "buy" ? ["for_sale", "both"] : ["for_rent", "both"];
+      let q = supabase
+        .from("properties")
+        .select("property_type")
+        .is("deleted_at", null)
+        .or("availability_state.eq.available,availability_state.is.null")
+        .in("status", statusIn);
+      q = sel.type === "neighborhood" ? q.eq("neighborhood", sel.value) : q.eq("city", sel.value);
+      const { data, error } = await q;
+      if (error) {
+        setPropertyTypeCounts([]);
+        return;
+      }
+      const m = new Map<string, number>();
+      for (const row of (data ?? []) as { property_type?: string | null }[]) {
+        const t = String(row.property_type ?? "").trim();
+        if (!t) continue;
+        m.set(t, (m.get(t) ?? 0) + 1);
+      }
+      const list = [...m.entries()]
+        .map(([property_type, count]) => ({ property_type, count }))
+        .sort((a, b) => b.count - a.count);
+      setPropertyTypeCounts(list);
+    },
+    [mode],
+  );
+
+  useEffect(() => {
+    void refreshFeaturedLocationCounts();
+  }, [refreshFeaturedLocationCounts]);
+
+  useEffect(() => {
+    void refreshPropertyTypeCounts(selectedLocation);
+  }, [selectedLocation, refreshPropertyTypeCounts]);
 
   useEffect(() => {
     const onVis = () => {
@@ -1054,19 +1168,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     return base.filter((p) => p.location.toLowerCase().includes(q));
   }, [properties, mode, search, neighborhoodFilter]);
 
-  const cityListingCounts = useMemo(() => {
-    const base = properties.filter((p) =>
-      mode === "buy"
-        ? p.status === "for_sale" || p.status === "both"
-        : p.status === "for_rent" || p.status === "both",
-    );
-    const m = new Map<string, number>();
-    for (const c of FEATURED_CITIES) {
-      m.set(c.key, base.filter((p) => c.match(propertyCanonicalCity(p))).length);
-    }
-    return m;
-  }, [properties, mode]);
-
   const filteredAllRows = useMemo(() => {
     return baseModeProperties.filter((p) => {
       const price = effectiveListingPriceForMode(p, mode);
@@ -1103,6 +1204,38 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     });
     return list;
   }, [filteredAllRows, sortMode, mode]);
+
+  const geoFilterActive = selectedLocation != null || selectedPropertyType != null;
+
+  const geoFilteredRows = useMemo(() => {
+    let list = sortedAllRows;
+    if (selectedLocation) {
+      if (selectedLocation.type === "neighborhood") {
+        list = list.filter((p) => (p.neighborhood ?? "").trim() === selectedLocation.value);
+      } else {
+        list = list.filter((p) => (p.city ?? "").trim() === selectedLocation.value);
+      }
+    }
+    if (selectedPropertyType) {
+      list = list.filter((p) => (p.property_type ?? "").trim() === selectedPropertyType);
+    }
+    return list;
+  }, [sortedAllRows, selectedLocation, selectedPropertyType]);
+
+  const pluralizePropertyType = useCallback((t: string) => {
+    const s = t.trim();
+    if (!s) return "Properties";
+    if (s === "Lot") return "Lots";
+    if (s === "Townhouse") return "Townhouses";
+    if (s === "Commercial") return "Commercial properties";
+    return `${s}s`;
+  }, []);
+
+  const geoHeaderTitle = useMemo(() => {
+    if (!selectedLocation) return "Newly Listed Rentals";
+    if (!selectedPropertyType) return `${selectedLocation.label} listings`;
+    return `${selectedLocation.label} ${pluralizePropertyType(selectedPropertyType)}`;
+  }, [selectedLocation, selectedPropertyType, pluralizePropertyType]);
 
   const propertyTrustScoreById = useMemo(() => {
     const m = new Map<string, number>();
@@ -1303,7 +1436,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       ro.disconnect();
       scrollEl.removeEventListener("scroll", onScroll);
     };
-  }, [cityListingCounts]);
+  }, [featuredLocationCounts]);
 
   const hasActiveSearchOrFilters = useMemo(() => {
     if (search.trim().length > 0 || neighborhoodFilter !== null) return true;
@@ -1520,6 +1653,15 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 Tap a city to filter listings
               </p>
             </div>
+            {geoFilterActive ? (
+              <button
+                type="button"
+                onClick={clearGeoFilters}
+                className="mx-auto mt-2 inline-flex w-fit items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-neutral-50 sm:mx-0 sm:mt-0"
+              >
+                Clear
+              </button>
+            ) : null}
           </div>
           <div className="relative -mx-4 mt-6">
             <button
@@ -1545,22 +1687,31 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
             >
               <div className="flex w-max flex-nowrap justify-start gap-3 sm:gap-4">
                 {Array.from({ length: FEATURED_LOCATIONS_LOOP_COPIES }, (_, copyIdx) =>
-                  FEATURED_CITIES.map((c) => {
-                    const count = cityListingCounts.get(c.key) ?? 0;
-                    const active = neighborhoodFilter === c.key;
+                  FEATURED_LOCATIONS.map((c) => {
+                    const count = featuredLocationCounts[c.label] ?? 0;
+                    const matchType = "neighborhood" in c.match ? ("neighborhood" as const) : ("city" as const);
+                    const matchValue = (c.match as { neighborhood?: string; city?: string })[matchType] ?? "";
+                    const active = selectedLocation?.type === matchType && selectedLocation?.value === matchValue;
                     return (
                       <button
-                        key={`fl-${copyIdx}-${c.key}`}
+                        key={`fl-${copyIdx}-${c.label}`}
                         type="button"
                         tabIndex={copyIdx === 1 ? undefined : -1}
-                        onClick={() => selectCityFilter(c.key)}
+                        onClick={() => {
+                          if (active) {
+                            clearGeoFilters();
+                            return;
+                          }
+                          setSelectedLocation({ type: matchType, value: matchValue, label: c.label });
+                          setSelectedPropertyType(null);
+                        }}
                         className={`group relative flex w-[130px] shrink-0 flex-col overflow-hidden rounded-2xl border text-left shadow-md transition hover:scale-[1.02] lg:w-[160px] ${
                           active
                             ? "border-[#6B9E6E] ring-2 ring-[#6B9E6E]/35"
                             : "border-[#2C2C2C]/10 hover:border-[#6B9E6E]/40"
                         }`}
                         style={{
-                          opacity: neighborhoodFilter && !active ? 0.4 : 1,
+                          opacity: selectedLocation && !active ? 0.4 : 1,
                           transition: "opacity 200ms ease",
                         }}
                       >
@@ -1590,6 +1741,48 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               </div>
             </div>
           </div>
+          <AnimatePresence initial={false}>
+            {selectedLocation && propertyTypeCounts.length >= 2 ? (
+              <motion.div
+                key="property-type-subfilter"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                transition={{ duration: 0.2 }}
+                className="mt-5"
+              >
+                <p className="text-[13px] font-semibold text-[#2C2C2C]/55">Property type</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPropertyType(null)}
+                    className={cn(
+                      "h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-black/10 transition",
+                      selectedPropertyType == null ? "bg-[#6B9E6E] text-white" : "bg-[#FAF8F4] text-[#2C2C2C]/70",
+                    )}
+                  >
+                    All
+                  </button>
+                  {propertyTypeCounts.map((r) => {
+                    const active = selectedPropertyType === r.property_type;
+                    return (
+                      <button
+                        key={`pt-${r.property_type}`}
+                        type="button"
+                        onClick={() => setSelectedPropertyType((cur) => (cur === r.property_type ? null : r.property_type))}
+                        className={cn(
+                          "h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-black/10 transition",
+                          active ? "bg-[#6B9E6E] text-white" : "bg-[#FAF8F4] text-[#2C2C2C]/70",
+                        )}
+                      >
+                        {r.property_type} ({r.count})
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </div>
       </section>
 
@@ -1824,7 +2017,81 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               </AnimatePresence>
 
               <AnimatePresence mode="wait" initial={false}>
-                {listingViewMode === "results" ? (
+                {geoFilterActive ? (
+                  <motion.div
+                    key="geo-filtered-grid"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.28 }}
+                    className="mt-8"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <p className="font-serif text-lg font-bold text-[#2C2C2C]">{geoHeaderTitle}</p>
+                      <button
+                        type="button"
+                        onClick={clearGeoFilters}
+                        className="shrink-0 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    {geoFilteredRows.length === 0 ? (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35 }}
+                        className="mt-12 flex flex-col items-center justify-center px-4 text-center"
+                      >
+                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#6B9E6E]/12 ring-2 ring-[#D4A843]/30">
+                          <Home className="h-10 w-10 text-[#6B9E6E]" aria-hidden />
+                        </div>
+                        <p className="mt-6 max-w-md font-serif text-xl font-bold leading-snug text-[#2C2C2C]">
+                          No listings found for this filter yet.
+                        </p>
+                      </motion.div>
+                    ) : (
+                      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        {geoFilteredRows.map((p, i) => (
+                          <NewlyListedCard
+                            key={`geo-${p.id}`}
+                            property={p}
+                            roomUrls={roomUrlsFor(p)}
+                            roomIdx={cardRoomIdx[p.id] ?? 0}
+                            onRoomPrev={() =>
+                              setCardRoomIdx((s) => ({
+                                ...s,
+                                [p.id]:
+                                  (roomUrlsFor(p).length + (s[p.id] ?? 0) - 1) %
+                                  Math.max(1, roomUrlsFor(p).length),
+                              }))
+                            }
+                            onRoomNext={() =>
+                              setCardRoomIdx((s) => ({
+                                ...s,
+                                [p.id]: ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
+                              }))
+                            }
+                            engagement={engagement}
+                            connectedAgents={allConnectedAgentsByPropertyId.get(p.id) ?? []}
+                            onOpenPropertyZoom={() => setZoomProperty(p)}
+                            grid
+                            viewerUserId={user?.id ?? null}
+                            verifiedListingAgent={viewerVerifiedListingAgent}
+                            listingImageLoadEager={i === 0}
+                          />
+                        ))}
+                        {Array.from({ length: Math.max(0, 4 - geoFilteredRows.length) }).map((_, i) => (
+                          <ListingsComingSoonPlaceholderCard
+                            key={`geo-grid-placeholder-${i}`}
+                            cardWidthClass="w-full"
+                            href={user ? "/register/agent" : "/auth/signup"}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                ) : listingViewMode === "results" ? (
                   <motion.div
                     key="listing-results"
                     initial={{ opacity: 0 }}

@@ -13,6 +13,13 @@ export type GooglePlaceSelectedPayload = {
   lng: number;
   /** City label derived from address_components or normalizeCity(location). */
   city: string;
+  /** Region/province derived from address_components (administrative_area_level_1). */
+  region: string | null;
+  /**
+   * Neighborhood derived from address_components (sublocality/neighborhood).
+   * Null when missing or too generic (e.g. barangay).
+   */
+  neighborhood: string | null;
 };
 
 const MANILA_BIAS_SW = { lat: 14.4, lng: 120.9 };
@@ -26,6 +33,50 @@ function pickCityLongName(components: google.maps.GeocoderAddressComponent[] | u
     if (n) return n;
   }
   return "";
+}
+
+function stripSuffix(s: string, suffix: string) {
+  const t = s.trim();
+  const re = new RegExp(`\\s+${suffix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+  return t.replace(re, "").trim();
+}
+
+function pickRegionLongName(components: google.maps.GeocoderAddressComponent[] | undefined): string {
+  if (!components?.length) return "";
+  const c = components.find((x) => x.types.includes("administrative_area_level_1"));
+  return c?.long_name?.trim() ?? "";
+}
+
+function normalizeRegion(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  const lower = t.toLowerCase();
+  if (lower === "national capital region" || lower === "ncr") return "Metro Manila";
+  if (lower.includes("metro manila")) return "Metro Manila";
+  const stripped = stripSuffix(stripSuffix(t, "Region"), "Province");
+  return stripped;
+}
+
+function pickNeighborhoodLongName(
+  components: google.maps.GeocoderAddressComponent[] | undefined,
+): string {
+  if (!components?.length) return "";
+  for (const t of ["sublocality_level_1", "sublocality", "neighborhood"] as const) {
+    const c = components.find((x) => x.types.includes(t));
+    const n = c?.long_name?.trim();
+    if (n) return n;
+  }
+  return "";
+}
+
+function normalizeNeighborhood(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  // Better omit than clutter: avoid generic barangay labels.
+  if (/(^|\b)(barangay|brgy)\b/i.test(t)) return "";
+  if (/^\d+$/i.test(t)) return "";
+  if (/^barangay\s*\d+$/i.test(t)) return "";
+  return t;
 }
 
 function buildLocationLine(place: google.maps.places.PlaceResult): string {
@@ -59,7 +110,14 @@ function placeToPayload(place: google.maps.places.PlaceResult): GooglePlaceSelec
   if (!location) return null;
 
   const cityRaw = pickCityLongName(place.address_components);
-  const city = cityRaw ? cityRaw : normalizeCity(location);
+  const cityClean = cityRaw ? stripSuffix(cityRaw, "City") : "";
+  const city = cityClean ? cityClean : normalizeCity(location);
+
+  const regionRaw = pickRegionLongName(place.address_components);
+  const regionClean = regionRaw ? normalizeRegion(regionRaw) : "";
+
+  const neighborhoodRaw = pickNeighborhoodLongName(place.address_components);
+  const neighborhoodClean = neighborhoodRaw ? normalizeNeighborhood(neighborhoodRaw) : "";
 
   return {
     location,
@@ -68,6 +126,8 @@ function placeToPayload(place: google.maps.places.PlaceResult): GooglePlaceSelec
     lat,
     lng,
     city,
+    region: regionClean || null,
+    neighborhood: neighborhoodClean || null,
   };
 }
 

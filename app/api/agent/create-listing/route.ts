@@ -17,6 +17,7 @@ const bodySchema = z.object({
   image_url: z.string().min(1).max(2000),
   status: z.enum(["for_sale", "for_rent", "both"]),
   property_type: z.string().min(1).max(80),
+  sales_status: z.string().max(80).nullable().optional(),
   description: z.string().max(20000).nullable().optional(),
   is_presale: z.boolean().optional(),
   developer_name: z.string().max(300).nullable().optional(),
@@ -32,6 +33,8 @@ const bodySchema = z.object({
   place_id: z.string().max(256).nullable().optional(),
   /** When set (e.g. from Places), normalized for DB; otherwise derived from `location`. */
   city: z.string().max(200).nullable().optional(),
+  region: z.string().max(200).nullable().optional(),
+  neighborhood: z.string().max(200).nullable().optional(),
 });
 
 export async function POST(req: Request) {
@@ -81,6 +84,12 @@ export async function POST(req: Request) {
   const dupExisting = dup?.id ? await duplicateExistingFromRpcRow(admin, dup) : null;
 
   const isPs = body.is_presale === true || body.property_type === "Presale";
+  const salesStatusForDb =
+    body.sales_status != null && String(body.sales_status).trim().length > 0
+      ? String(body.sales_status).trim()
+      : isPs
+        ? "Presale"
+        : null;
   const lt = body.listing_type;
   const rentForDb =
     !isPs && lt === "both"
@@ -105,6 +114,8 @@ export async function POST(req: Request) {
     name: body.name?.trim() || null,
     location: locTrimmed,
     city: cityFromBody,
+    region: body.region?.trim() || null,
+    neighborhood: body.neighborhood?.trim() || null,
     price: body.price.trim(),
     listing_type: lt,
     rent_price: rentForDb,
@@ -115,6 +126,7 @@ export async function POST(req: Request) {
     status: body.status,
     listed_by: session.userId,
     property_type: body.property_type,
+    sales_status: salesStatusForDb,
     description: body.description?.trim() || null,
     is_presale: isPs,
     developer_name: isPs ? body.developer_name?.trim() ?? null : null,
