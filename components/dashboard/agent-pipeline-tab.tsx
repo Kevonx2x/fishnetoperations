@@ -1059,8 +1059,7 @@ function KanbanDealCard({
         {...listeners}
         {...(tourViewingCardAnchor ? { "data-tour": "viewing-card" as const } : {})}
         className={cn(
-          "relative flex w-full min-h-[150px] cursor-grab flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.08] bg-white p-3 shadow-none ring-0 transition-colors [box-shadow:none]",
-          next ? "pb-10" : "",
+          "relative flex w-full cursor-grab flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.08] bg-white p-3 shadow-none ring-0 transition-colors [box-shadow:none]",
           "hover:border-[#2C2C2C]/12",
           isDragging && "scale-[1.01] cursor-grabbing border-[#6B9E6E]/35",
         )}
@@ -1071,7 +1070,7 @@ function KanbanDealCard({
           if (e.key === "Enter" || e.key === " ") openKanbanLeadDetails();
         }}
       >
-        <div className="touch-none flex min-h-0 flex-1 flex-col pr-10 pt-2">
+        <div className="touch-none flex flex-col pr-10 pt-1">
           {/* Row 1: Title + Menu */}
           <div className="flex items-start justify-between gap-2">
             <button
@@ -1512,11 +1511,11 @@ function KanbanDealCard({
           </div>
 
           {/* Row 2: Value (secondary) */}
-          <p className="mt-1.5 font-sans text-[12px] font-semibold tabular-nums text-[#2C2C2C]/55">
+          <p className="mt-1 font-sans text-[12px] font-semibold tabular-nums text-[#2C2C2C]/55">
             {dealValueLine ?? "—"}
           </p>
           {/* Row 3: Avatar + contact (tertiary) */}
-          <div className="absolute bottom-3 left-3 right-10 flex items-center gap-2">
+          <div className="mt-2 flex items-center gap-2">
             <div className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#6B9E6E]/12 text-[10px] font-bold text-[#6B9E6E]">
               {deal.client_avatar_url ? (
                 <SupabasePublicImage src={deal.client_avatar_url} alt="" fill sizes="24px" className="object-cover" />
@@ -1538,7 +1537,7 @@ function KanbanDealCard({
             }}
             onPointerDown={(e) => e.stopPropagation()}
             className={cn(
-              "absolute bottom-3 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-none ring-0 [box-shadow:none] hover:bg-[#5a8a5d]",
+              "absolute top-1/2 right-2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-none ring-0 [box-shadow:none] hover:bg-[#5a8a5d]",
               anyMenuOpen && "pointer-events-none opacity-0",
             )}
           >
