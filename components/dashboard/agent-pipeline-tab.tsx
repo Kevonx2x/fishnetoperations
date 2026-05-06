@@ -1059,7 +1059,7 @@ function KanbanDealCard({
         {...listeners}
         {...(tourViewingCardAnchor ? { "data-tour": "viewing-card" as const } : {})}
         className={cn(
-          "relative flex w-full cursor-grab flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.08] bg-white p-3 shadow-none ring-0 transition-colors [box-shadow:none]",
+          "relative flex w-full cursor-grab flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[#2C2C2C]/[0.08] bg-white p-3 shadow-none ring-0 transition-colors [box-shadow:none]",
           "hover:border-[#2C2C2C]/12",
           isDragging && "scale-[1.01] cursor-grabbing border-[#6B9E6E]/35",
         )}
@@ -1083,13 +1083,7 @@ function KanbanDealCard({
               }}
             >
               <p
-                className="font-sans text-[15px] font-bold leading-snug tracking-tight text-[#2C2C2C]"
-                style={{
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
+                className="line-clamp-2 break-words font-sans text-[15px] font-bold leading-snug tracking-tight text-[#2C2C2C]"
               >
                 {propLine}
               </p>
@@ -1667,7 +1661,10 @@ function KanbanStageColumn({
   return (
     <div
       key={stage}
-      className={cn("min-w-0 flex-1 px-2", idx > 0 && "border-l border-[#2C2C2C]/10")}
+      className={cn(
+        "min-w-0 flex-1 max-w-[320px] min-w-[180px] sm:min-w-[200px] xl:min-w-[220px]",
+        idx > 0 && "border-l border-[#2C2C2C]/10",
+      )}
     >
       <div className="overflow-hidden rounded-lg border border-[#2C2C2C]/[0.08] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div aria-hidden className="h-0.5 w-full" style={{ backgroundColor: barHex }} />
@@ -4337,7 +4334,7 @@ export function AgentPipelineTab({
           ) : null}
           <div
             ref={kanbanScrollRef}
-            className="relative isolate w-full min-w-0 overflow-x-auto overflow-y-visible overscroll-x-contain scroll-smooth bg-[#FAF8F4] px-1 py-2 scrollbar-hide"
+            className="relative isolate w-full min-w-0 overflow-y-visible bg-[#FAF8F4] px-1 py-2"
           >
             {menuOpenId != null ? (
               <button
@@ -4370,7 +4367,7 @@ export function AgentPipelineTab({
               onDragCancel={handleKanbanDragCancel}
               onDragEnd={handleKanbanDragEnd}
             >
-              <div className="flex items-stretch gap-0 max-[1439px]:w-max max-[1439px]:min-w-[1440px] min-[1440px]:w-full min-[1440px]:min-w-0">
+              <div className="flex w-full flex-row items-stretch gap-2">
                 {(filterStages && filterStages.length > 0
                   ? KANBAN_STAGE_ORDER.filter((s) => filterStages.includes(s))
                   : KANBAN_STAGE_ORDER
