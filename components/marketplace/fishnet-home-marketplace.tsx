@@ -243,6 +243,74 @@ const FEATURED_LOCATIONS = [
   },
 ] as const;
 
+type RowConfig = {
+  id: string;
+  label: string;
+  filter: {
+    sortBy?: "created_at_desc" | "likes_desc";
+    limit?: number;
+    listingTier?: ("featured" | "broker")[];
+    sales_status?: string;
+    listing_type?: "sale" | "rent" | "both";
+  };
+};
+
+const LOCATION_ROW_CONFIG: Record<string, RowConfig[]> = {
+  BGC: [
+    { id: "bgc-newly-listed", label: "Newly listed in BGC", filter: { sortBy: "created_at_desc", limit: 12 } },
+    { id: "bgc-featured", label: "Featured in BGC", filter: { listingTier: ["featured", "broker"], limit: 12 } },
+    { id: "bgc-presale", label: "BGC Presale condos", filter: { sales_status: "Presale", limit: 12 } },
+    { id: "bgc-rfo", label: "BGC Ready for occupancy", filter: { sales_status: "RFO", limit: 12 } },
+    { id: "bgc-rentals", label: "BGC Rentals", filter: { listing_type: "rent", limit: 12 } },
+    { id: "bgc-for-sale", label: "BGC For sale", filter: { listing_type: "sale", limit: 12 } },
+    { id: "bgc-most-liked", label: "Most liked in BGC", filter: { sortBy: "likes_desc", limit: 12 } },
+  ],
+  Makati: [
+    { id: "makati-newly-listed", label: "Newly listed in Makati", filter: { sortBy: "created_at_desc", limit: 12 } },
+    { id: "makati-featured", label: "Featured in Makati", filter: { listingTier: ["featured", "broker"], limit: 12 } },
+    { id: "makati-rentals", label: "Makati Rentals", filter: { listing_type: "rent", limit: 12 } },
+    { id: "makati-for-sale", label: "Makati For sale", filter: { listing_type: "sale", limit: 12 } },
+    { id: "makati-most-liked", label: "Most liked in Makati", filter: { sortBy: "likes_desc", limit: 12 } },
+  ],
+  "Ortigas Center": [
+    { id: "ortigas-newly-listed", label: "Newly listed in Ortigas", filter: { sortBy: "created_at_desc", limit: 12 } },
+    { id: "ortigas-featured", label: "Featured in Ortigas", filter: { listingTier: ["featured", "broker"], limit: 12 } },
+    { id: "ortigas-rentals", label: "Ortigas Rentals", filter: { listing_type: "rent", limit: 12 } },
+    { id: "ortigas-for-sale", label: "Ortigas For sale", filter: { listing_type: "sale", limit: 12 } },
+  ],
+  "Cebu City": [
+    { id: "cebu-newly-listed", label: "Newly listed in Cebu", filter: { sortBy: "created_at_desc", limit: 12 } },
+    { id: "cebu-featured", label: "Featured in Cebu", filter: { listingTier: ["featured", "broker"], limit: 12 } },
+    { id: "cebu-rentals", label: "Cebu Rentals", filter: { listing_type: "rent", limit: 12 } },
+    { id: "cebu-for-sale", label: "Cebu For sale", filter: { listing_type: "sale", limit: 12 } },
+  ],
+  Davao: [
+    { id: "davao-newly-listed", label: "Newly listed in Davao", filter: { sortBy: "created_at_desc", limit: 12 } },
+    { id: "davao-featured", label: "Featured in Davao", filter: { listingTier: ["featured", "broker"], limit: 12 } },
+    { id: "davao-rentals", label: "Davao Rentals", filter: { listing_type: "rent", limit: 12 } },
+    { id: "davao-for-sale", label: "Davao For sale", filter: { listing_type: "sale", limit: 12 } },
+  ],
+  Tagaytay: [
+    { id: "tagaytay-newly-listed", label: "Newly listed in Tagaytay", filter: { sortBy: "created_at_desc", limit: 12 } },
+    { id: "tagaytay-featured", label: "Featured in Tagaytay", filter: { listingTier: ["featured", "broker"], limit: 12 } },
+    { id: "tagaytay-rentals", label: "Tagaytay Rentals", filter: { listing_type: "rent", limit: 12 } },
+    { id: "tagaytay-for-sale", label: "Tagaytay For sale", filter: { listing_type: "sale", limit: 12 } },
+  ],
+  Bacolod: [
+    { id: "bacolod-newly-listed", label: "Newly listed in Bacolod", filter: { sortBy: "created_at_desc", limit: 12 } },
+    { id: "bacolod-featured", label: "Featured in Bacolod", filter: { listingTier: ["featured", "broker"], limit: 12 } },
+    { id: "bacolod-rentals", label: "Bacolod Rentals", filter: { listing_type: "rent", limit: 12 } },
+    { id: "bacolod-for-sale", label: "Bacolod For sale", filter: { listing_type: "sale", limit: 12 } },
+  ],
+};
+
+const DEFAULT_LOCATION_ROWS = (label: string): RowConfig[] => [
+  { id: `${label}-newly-listed`, label: `Newly listed in ${label}`, filter: { sortBy: "created_at_desc", limit: 12 } },
+  { id: `${label}-featured`, label: `Featured in ${label}`, filter: { listingTier: ["featured", "broker"], limit: 12 } },
+  { id: `${label}-rentals`, label: `${label} Rentals`, filter: { listing_type: "rent", limit: 12 } },
+  { id: `${label}-for-sale`, label: `${label} For sale`, filter: { listing_type: "sale", limit: 12 } },
+];
+
 function stripDiacritics(s: string) {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
@@ -823,6 +891,10 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const [selectedPropertyType, setSelectedPropertyType] = useState<string | null>(null);
   const [featuredLocationCounts, setFeaturedLocationCounts] = useState<Record<string, number>>({});
   const [propertyTypeCounts, setPropertyTypeCounts] = useState<{ property_type: string; count: number }[]>([]);
+  const [locationCuratedRows, setLocationCuratedRows] = useState<
+    { key: string; title: string; subtitle: string; items: DbProperty[]; featured?: boolean }[]
+  >([]);
+  const [locationCuratedLoading, setLocationCuratedLoading] = useState(false);
   const [showMoreCategories, setShowMoreCategories] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("newest");
@@ -836,7 +908,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
   const [zoomProperty, setZoomProperty] = useState<DbProperty | null>(null);
 
-  const { engagement } = usePropertyEngagementForProperties(properties);
+  const { engagement, likeCountsByPropertyId } = usePropertyEngagementForProperties(properties);
 
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const topAgentsRef = useRef<HTMLDivElement | null>(null);
@@ -854,7 +926,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           id, created_at, name, location, region, city, neighborhood, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
           is_presale, developer_name, turnover_date, unit_types, deleted_at, availability_state,
           property_photos (url, sort_order, created_at),
-          property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
+          property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, listing_tier, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
         `;
     const expiryOr = publicListingExpiryOrFilter();
     const featuredCityRow = neighborhoodFilter
@@ -1028,6 +1100,102 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   useEffect(() => {
     void refreshPropertyTypeCounts(selectedLocation);
   }, [selectedLocation, refreshPropertyTypeCounts]);
+
+  const loadCuratedRowsForLocation = useCallback(async () => {
+    if (!selectedLocation) {
+      setLocationCuratedRows([]);
+      setLocationCuratedLoading(false);
+      return;
+    }
+    setLocationCuratedLoading(true);
+    try {
+      const configKey = selectedLocation.type === "neighborhood" ? selectedLocation.value : selectedLocation.value;
+      const rowCfgs = LOCATION_ROW_CONFIG[configKey] ?? DEFAULT_LOCATION_ROWS(selectedLocation.label);
+      const statusIn = mode === "buy" ? (["for_sale", "both"] as const) : (["for_rent", "both"] as const);
+
+      const selectQ = `
+          id, created_at, name, location, region, city, neighborhood, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
+          is_presale, developer_name, turnover_date, unit_types, deleted_at, availability_state, featured,
+          property_photos (url, sort_order, created_at),
+          property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, listing_tier, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
+        `;
+
+      const fetchRow = async (cfg: RowConfig) => {
+        const limit = cfg.filter.limit ?? 12;
+        // Overfetch a bit to allow client-side tier + likes sorting without underfilling.
+        const softOverfetch = Math.max(limit * 4, 40);
+        let q = supabase
+          .from("properties")
+          .select(selectQ)
+          .is("deleted_at", null)
+          .or("availability_state.eq.available,availability_state.is.null")
+          .in("status", [...statusIn]);
+
+        q =
+          selectedLocation.type === "neighborhood"
+            ? q.eq("neighborhood", selectedLocation.value)
+            : q.eq("city", selectedLocation.value);
+
+        if (selectedPropertyType) {
+          q = q.eq("property_type", selectedPropertyType);
+        }
+        if (cfg.filter.sales_status) {
+          q = q.eq("sales_status", cfg.filter.sales_status);
+        }
+        if (cfg.filter.listing_type) {
+          q = q.eq("listing_type", cfg.filter.listing_type);
+        }
+
+        // Base ordering; likes sorting happens client-side using RPC counts already loaded for homepage properties.
+        q = q.order("created_at", { ascending: false }).limit(softOverfetch);
+
+        const { data, error } = await q;
+        if (error) return [] as DbProperty[];
+        let items = (data ?? []) as unknown as DbProperty[];
+
+        const tier = cfg.filter.listingTier;
+        if (tier && tier.length > 0) {
+          const allowed = new Set(tier);
+          items = items.filter((p) => {
+            const pas = (p.property_agents ?? []) as { agent?: unknown }[];
+            for (const pa of pas) {
+              const ag = pa?.agent as { listing_tier?: string | null } | undefined;
+              const t = String(ag?.listing_tier ?? "").trim() as "featured" | "broker" | "";
+              if (t && allowed.has(t)) return true;
+            }
+            return false;
+          });
+        }
+
+        if (cfg.filter.sortBy === "likes_desc") {
+          items = [...items].sort(
+            (a, b) => (likeCountsByPropertyId[b.id] ?? 0) - (likeCountsByPropertyId[a.id] ?? 0),
+          );
+        }
+
+        items = items.slice(0, limit);
+        return items;
+      };
+
+      const results = await Promise.all(rowCfgs.map(async (cfg) => ({ cfg, items: await fetchRow(cfg) })));
+      const visible = results
+        .filter((r) => r.items.length > 0)
+        .map((r) => ({
+          key: r.cfg.id,
+          title: r.cfg.label,
+          subtitle: "",
+          items: r.items,
+          featured: r.cfg.filter.listingTier?.includes("featured") ?? false,
+        }));
+      setLocationCuratedRows(visible);
+    } finally {
+      setLocationCuratedLoading(false);
+    }
+  }, [mode, selectedLocation, selectedPropertyType, likeCountsByPropertyId]);
+
+  useEffect(() => {
+    void loadCuratedRowsForLocation();
+  }, [loadCuratedRowsForLocation]);
 
   useEffect(() => {
     const onVis = () => {
@@ -1206,36 +1374,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   }, [filteredAllRows, sortMode, mode]);
 
   const geoFilterActive = selectedLocation != null || selectedPropertyType != null;
-
-  const geoFilteredRows = useMemo(() => {
-    let list = sortedAllRows;
-    if (selectedLocation) {
-      if (selectedLocation.type === "neighborhood") {
-        list = list.filter((p) => (p.neighborhood ?? "").trim() === selectedLocation.value);
-      } else {
-        list = list.filter((p) => (p.city ?? "").trim() === selectedLocation.value);
-      }
-    }
-    if (selectedPropertyType) {
-      list = list.filter((p) => (p.property_type ?? "").trim() === selectedPropertyType);
-    }
-    return list;
-  }, [sortedAllRows, selectedLocation, selectedPropertyType]);
-
-  const pluralizePropertyType = useCallback((t: string) => {
-    const s = t.trim();
-    if (!s) return "Properties";
-    if (s === "Lot") return "Lots";
-    if (s === "Townhouse") return "Townhouses";
-    if (s === "Commercial") return "Commercial properties";
-    return `${s}s`;
-  }, []);
-
-  const geoHeaderTitle = useMemo(() => {
-    if (!selectedLocation) return "Newly Listed Rentals";
-    if (!selectedPropertyType) return `${selectedLocation.label} listings`;
-    return `${selectedLocation.label} ${pluralizePropertyType(selectedPropertyType)}`;
-  }, [selectedLocation, selectedPropertyType, pluralizePropertyType]);
 
   const propertyTrustScoreById = useMemo(() => {
     const m = new Map<string, number>();
@@ -2017,78 +2155,64 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               </AnimatePresence>
 
               <AnimatePresence mode="wait" initial={false}>
-                {geoFilterActive ? (
+                {selectedLocation ? (
                   <motion.div
-                    key="geo-filtered-grid"
+                    key="location-curated-rows"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.28 }}
                     className="mt-8"
                   >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <p className="font-serif text-lg font-bold text-[#2C2C2C]">{geoHeaderTitle}</p>
-                      <button
-                        type="button"
-                        onClick={clearGeoFilters}
-                        className="shrink-0 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                    {geoFilteredRows.length === 0 ? (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.35 }}
-                        className="mt-12 flex flex-col items-center justify-center px-4 text-center"
-                      >
-                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#6B9E6E]/12 ring-2 ring-[#D4A843]/30">
-                          <Home className="h-10 w-10 text-[#6B9E6E]" aria-hidden />
-                        </div>
-                        <p className="mt-6 max-w-md font-serif text-xl font-bold leading-snug text-[#2C2C2C]">
-                          No listings found for this filter yet.
-                        </p>
-                      </motion.div>
-                    ) : (
-                      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        {geoFilteredRows.map((p, i) => (
-                          <NewlyListedCard
-                            key={`geo-${p.id}`}
-                            property={p}
-                            roomUrls={roomUrlsFor(p)}
-                            roomIdx={cardRoomIdx[p.id] ?? 0}
-                            onRoomPrev={() =>
-                              setCardRoomIdx((s) => ({
-                                ...s,
-                                [p.id]:
-                                  (roomUrlsFor(p).length + (s[p.id] ?? 0) - 1) %
-                                  Math.max(1, roomUrlsFor(p).length),
-                              }))
-                            }
-                            onRoomNext={() =>
-                              setCardRoomIdx((s) => ({
-                                ...s,
-                                [p.id]: ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
-                              }))
-                            }
-                            engagement={engagement}
-                            connectedAgents={allConnectedAgentsByPropertyId.get(p.id) ?? []}
-                            onOpenPropertyZoom={() => setZoomProperty(p)}
-                            grid
-                            viewerUserId={user?.id ?? null}
-                            verifiedListingAgent={viewerVerifiedListingAgent}
-                            listingImageLoadEager={i === 0}
-                          />
-                        ))}
-                        {Array.from({ length: Math.max(0, 4 - geoFilteredRows.length) }).map((_, i) => (
-                          <ListingsComingSoonPlaceholderCard
-                            key={`geo-grid-placeholder-${i}`}
-                            cardWidthClass="w-full"
-                            href={user ? "/register/agent" : "/auth/signup"}
-                          />
+                    {locationCuratedLoading ? (
+                      <div className="mt-2 grid min-h-[260px] grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <div
+                            key={`loc-row-skel-${i}`}
+                            className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md"
+                          >
+                            <div className="relative h-44 w-full animate-pulse bg-neutral-200/90 lg:h-52" />
+                            <div className="space-y-2 p-3">
+                              <div className="h-4 w-3/4 animate-pulse rounded bg-neutral-200/90" />
+                              <div className="h-4 w-1/2 animate-pulse rounded bg-neutral-200/90" />
+                            </div>
+                          </div>
                         ))}
                       </div>
+                    ) : locationCuratedRows.length === 0 ? (
+                      <div className="mt-8 rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center shadow-sm">
+                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#6B9E6E]/12 ring-2 ring-[#D4A843]/30">
+                          <MapPin className="h-10 w-10 text-[#6B9E6E]" aria-hidden />
+                        </div>
+                        <p className="mt-6 font-serif text-xl font-bold leading-snug text-[#2C2C2C]">
+                          No listings in {selectedLocation.label} yet
+                        </p>
+                        <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/55">
+                          Check back soon — agents are adding new listings every week.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={clearGeoFilters}
+                          className="mt-6 inline-flex rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[#6C8C70]"
+                        >
+                          Clear filter
+                        </button>
+                      </div>
+                    ) : (
+                      <PropertyRows
+                        rows={locationCuratedRows}
+                        showMore={showMoreCategories}
+                        onToggleShowMore={() => setShowMoreCategories((v) => !v)}
+                        rowRefs={rowRefs}
+                        cardRoomIdx={cardRoomIdx}
+                        setCardRoomIdx={setCardRoomIdx}
+                        engagement={engagement}
+                        connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
+                        viewerUserId={user?.id ?? null}
+                        onOpenPropertyZoom={setZoomProperty}
+                        viewerVerifiedListingAgent={viewerVerifiedListingAgent}
+                        listingsOnboardingHref={user ? "/register/agent" : "/auth/signup"}
+                      />
                     )}
                   </motion.div>
                 ) : listingViewMode === "results" ? (

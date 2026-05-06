@@ -93,6 +93,7 @@ interface AllAgentRow {
   verification_status?: string | null;
   broker_id: string | null;
   user_id: string;
+  listing_tier?: string | null;
   created_at: string;
   rejection_reason: string | null;
 }
@@ -356,6 +357,19 @@ const LEGAL_MANUAL_ITEMS: {
   },
 ];
 
+function normalizeTier(t: unknown): "free" | "pro" | "featured" | "broker" {
+  const s = String(t ?? "").trim().toLowerCase();
+  if (s === "pro" || s === "featured" || s === "broker" || s === "free") return s;
+  return "free";
+}
+
+function tierLabel(t: "free" | "pro" | "featured" | "broker"): string {
+  if (t === "free") return "Free";
+  if (t === "pro") return "Pro";
+  if (t === "featured") return "Featured";
+  return "Broker";
+}
+
 interface PropertyConnectedAgent {
   id: string;
   name: string;
@@ -574,6 +588,13 @@ export default function AdminPage() {
   const [allAgentsList, setAllAgentsList] = useState<AllAgentRow[]>([]);
   const [allAgentsLoading, setAllAgentsLoading] = useState(false);
   const [editAgent, setEditAgent] = useState<AllAgentRow | null>(null);
+  const [tierChangeOpen, setTierChangeOpen] = useState(false);
+  const [tierChangeBusy, setTierChangeBusy] = useState(false);
+  const [tierChangeDraft, setTierChangeDraft] = useState<{
+    agent: AllAgentRow;
+    oldTier: "free" | "pro" | "featured" | "broker";
+    newTier: "free" | "pro" | "featured" | "broker";
+  } | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [editForm, setEditForm] = useState({
@@ -1030,6 +1051,50 @@ export default function AdminPage() {
       setAllAgentsList([]);
     }
     setAllAgentsLoading(false);
+  };
+
+  const confirmTierChange = async () => {
+    if (!tierChangeDraft) return;
+    if (tierChangeDraft.oldTier === tierChangeDraft.newTier) {
+      setTierChangeOpen(false);
+      setTierChangeDraft(null);
+      return;
+    }
+    setTierChangeBusy(true);
+    try {
+      const res = await fetch("/api/admin/update-agent-tier", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          agent_id: tierChangeDraft.agent.id,
+          new_tier: tierChangeDraft.newTier,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: { ok?: boolean; new_tier?: string; expires_at?: string };
+        error?: { message?: string };
+      };
+      if (!res.ok || !json.success) {
+        toast.error(json?.error?.message ?? "Could not change tier");
+        return;
+      }
+      setAllAgentsList((prev) =>
+        prev.map((row) =>
+          row.id === tierChangeDraft.agent.id
+            ? { ...row, listing_tier: tierChangeDraft.newTier }
+            : row,
+        ),
+      );
+      toast.success(
+        `Tier updated to ${tierLabel(tierChangeDraft.newTier)} (30-day comp)`,
+      );
+      setTierChangeOpen(false);
+      setTierChangeDraft(null);
+    } finally {
+      setTierChangeBusy(false);
+    }
   };
 
   const fetchCoAgentRequests = async () => {
@@ -3670,6 +3735,7 @@ export default function AdminPage() {
                         <th className="px-4 py-3">License</th>
                         <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3">Verification</th>
+                        <th className="px-4 py-3">Tier</th>
                         <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -3691,6 +3757,24 @@ export default function AdminPage() {
                               >
                                 {verificationColumnLabel(a.verification_status)}
                               </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <select
+                                value={normalizeTier(a.listing_tier)}
+                                onChange={(e) => {
+                                  const oldTier = normalizeTier(a.listing_tier);
+                                  const newTier = normalizeTier(e.target.value);
+                                  // Keep UI selection until confirmed.
+                                  setTierChangeDraft({ agent: a, oldTier, newTier });
+                                  setTierChangeOpen(true);
+                                }}
+                                className="rounded-full border border-[#2C2C2C]/10 bg-white px-3 py-2 text-xs font-bold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50"
+                              >
+                                <option value="free">Free</option>
+                                <option value="pro">Pro</option>
+                                <option value="featured">Featured</option>
+                                <option value="broker">Broker</option>
+                              </select>
                             </td>
                             <td className="px-4 py-3 text-right">
                               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -3744,7 +3828,7 @@ export default function AdminPage() {
                           </tr>
                           {rejectOpen?.kind === "agent" && rejectOpen.id === a.id && (
                             <tr className="bg-amber-50/60">
-                              <td colSpan={6} className="px-4 py-3">
+                              <td colSpan={7} className="px-4 py-3">
                                 <p className="mb-2 text-xs font-semibold text-[#2C2C2C]">
                                   Rejection reason (sent to applicant)
                                 </p>
@@ -6452,6 +6536,64 @@ export default function AdminPage() {
                 className="rounded-full bg-[#2C2C2C] px-5 py-2 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
               >
                 {editSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {tierChangeOpen && tierChangeDraft ? (
+        <div className="fixed inset-0 z-[105] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close"
+            onClick={() => !tierChangeBusy && setTierChangeOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-tier-change-title"
+            className="relative z-[106] w-full max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2 id="admin-tier-change-title" className="font-serif text-xl font-bold text-[#2C2C2C]">
+                Confirm tier change
+              </h2>
+              <button
+                type="button"
+                disabled={tierChangeBusy}
+                onClick={() => setTierChangeOpen(false)}
+                className="rounded-full p-2 text-[#2C2C2C]/55 hover:bg-[#2C2C2C]/10 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mt-4 text-sm font-semibold text-[#2C2C2C]/70">
+              Change {tierChangeDraft.agent.name}&apos;s tier from {tierLabel(tierChangeDraft.oldTier)} to{" "}
+              {tierLabel(tierChangeDraft.newTier)}? This creates a 30-day comp subscription.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={tierChangeBusy}
+                onClick={() => {
+                  setTierChangeOpen(false);
+                  setTierChangeDraft(null);
+                }}
+                className="rounded-full border border-[#2C2C2C]/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={tierChangeBusy}
+                onClick={() => void confirmTierChange()}
+                className="rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#6b8a6d] disabled:opacity-50"
+              >
+                {tierChangeBusy ? "Applying…" : "Confirm"}
               </button>
             </div>
           </div>
