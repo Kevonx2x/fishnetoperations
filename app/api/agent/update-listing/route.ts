@@ -55,6 +55,9 @@ const bodySchema = z.object({
   city: z.string().max(200).nullable().optional(),
   region: z.string().max(200).nullable().optional(),
   neighborhood: z.string().max(200).nullable().optional(),
+  pet_friendly: z.boolean().optional(),
+  near_schools: z.boolean().optional(),
+  family_friendly: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -238,6 +241,9 @@ export async function POST(req: Request) {
         lng: lngUpd,
         formatted_address: parsed.data.formatted_address?.trim() || null,
         place_id: parsed.data.place_id?.trim() || null,
+        pet_friendly: parsed.data.pet_friendly ?? false,
+        near_schools: parsed.data.near_schools ?? false,
+        family_friendly: parsed.data.family_friendly ?? false,
         ...(isOwner && primaryImage ? { image_url: primaryImage } : {}),
       })
       .eq("id", parsed.data.propertyId);

@@ -5,6 +5,17 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeCity } from "@/lib/normalize-city";
 import { duplicateExistingFromRpcRow } from "@/lib/duplicate-listing";
 
+const LISTING_PROPERTY_TYPES = [
+  "Condo",
+  "House",
+  "Townhouse",
+  "Lot",
+  "Apartment",
+  "Commercial",
+  "Warehouse",
+  "Office",
+] as const;
+
 const bodySchema = z.object({
   name: z.string().max(300).nullable().optional(),
   location: z.string().min(1).max(500),
@@ -16,7 +27,10 @@ const bodySchema = z.object({
   baths: z.number().int().min(0).max(99),
   image_url: z.string().min(1).max(2000),
   status: z.enum(["for_sale", "for_rent", "both"]),
-  property_type: z.string().min(1).max(80),
+  property_type: z.enum(LISTING_PROPERTY_TYPES),
+  pet_friendly: z.boolean().optional().default(false),
+  near_schools: z.boolean().optional().default(false),
+  family_friendly: z.boolean().optional().default(false),
   sales_status: z.string().max(80).nullable().optional(),
   description: z.string().max(20000).nullable().optional(),
   is_presale: z.boolean().optional(),
@@ -83,7 +97,7 @@ export async function POST(req: Request) {
   } | null;
   const dupExisting = dup?.id ? await duplicateExistingFromRpcRow(admin, dup) : null;
 
-  const isPs = body.is_presale === true || body.property_type === "Presale";
+  const isPs = body.is_presale === true;
   const salesStatusForDb =
     body.sales_status != null && String(body.sales_status).trim().length > 0
       ? String(body.sales_status).trim()
@@ -141,6 +155,9 @@ export async function POST(req: Request) {
     lng: lngIns,
     formatted_address: body.formatted_address?.trim() || null,
     place_id: body.place_id?.trim() || null,
+    pet_friendly: body.pet_friendly,
+    near_schools: body.near_schools,
+    family_friendly: body.family_friendly,
   };
 
   const { data: newProperty, error: insErr } = await sb

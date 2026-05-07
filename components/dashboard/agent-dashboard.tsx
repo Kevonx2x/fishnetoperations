@@ -296,6 +296,9 @@ type PropertyRow = {
   place_id?: string | null;
   /** Tutorial seed listing; excluded from marketplace. */
   is_demo?: boolean | null;
+  pet_friendly?: boolean | null;
+  near_schools?: boolean | null;
+  family_friendly?: boolean | null;
 };
 
 const EDIT_PROPERTY_TYPES = [
@@ -309,6 +312,39 @@ const EDIT_PROPERTY_TYPES = [
   "Land",
   "Presale",
 ] as const;
+
+/** New listing + standard resale/rent types (presale uses separate `Presale` option in edit when applicable). */
+const LISTING_PROPERTY_TYPE_OPTIONS = [
+  "Condo",
+  "House",
+  "Townhouse",
+  "Lot",
+  "Apartment",
+  "Commercial",
+  "Warehouse",
+  "Office",
+] as const;
+
+function listingPropertyTypeOptionsForEdit(current: string | null | undefined, isPresaleListing: boolean): string[] {
+  const opts = new Set<string>([...LISTING_PROPERTY_TYPE_OPTIONS]);
+  const cur = (current ?? "").trim();
+  if (isPresaleListing || cur === "Presale") opts.add("Presale");
+  if (cur && !opts.has(cur)) opts.add(cur);
+  return [...opts];
+}
+
+function normalizeNewListingPropertyType(
+  raw: string | null | undefined,
+): (typeof LISTING_PROPERTY_TYPE_OPTIONS)[number] {
+  const t = (raw ?? "").trim();
+  if ((LISTING_PROPERTY_TYPE_OPTIONS as readonly string[]).includes(t)) {
+    return t as (typeof LISTING_PROPERTY_TYPE_OPTIONS)[number];
+  }
+  if (t === "Studio") return "Condo";
+  if (t === "Villa") return "House";
+  if (t === "Land") return "Lot";
+  return "Condo";
+}
 
 const PRESALE_UNIT_TYPE_OPTIONS = ["Studio", "1BR", "2BR", "3BR", "4BR+"] as const;
 
@@ -579,6 +615,9 @@ type EditListingForm = {
   developer_name: string;
   turnover_date: string;
   unit_types: string[];
+  pet_friendly: boolean;
+  near_schools: boolean;
+  family_friendly: boolean;
   formatted_address: string | null;
   place_id: string | null;
   lat: number | null;
@@ -943,6 +982,9 @@ export function AgentDashboard() {
     developer_name: "",
     turnover_date: "",
     unit_types: [],
+    pet_friendly: false,
+    near_schools: false,
+    family_friendly: false,
     formatted_address: null,
     place_id: null,
     lat: null,
@@ -988,6 +1030,9 @@ export function AgentDashboard() {
     placeCity: null as string | null,
     placeRegion: null as string | null,
     placeNeighborhood: null as string | null,
+    pet_friendly: false,
+    near_schools: false,
+    family_friendly: false,
   });
   const [listingFormErrors, setListingFormErrors] = useState<Record<string, string>>({});
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
@@ -1281,7 +1326,7 @@ export function AgentDashboard() {
         supabase
           .from("properties")
           .select(
-            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng, formatted_address, place_id, is_demo",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng, formatted_address, place_id, is_demo, pet_friendly, near_schools, family_friendly",
           )
           .eq("listed_by", user.id)
           .order("created_at", { ascending: false }),
@@ -1441,6 +1486,9 @@ export function AgentDashboard() {
           formatted_address: (p.formatted_address as string | null) ?? null,
           place_id: (p.place_id as string | null) ?? null,
           is_demo: Boolean(p.is_demo),
+          pet_friendly: Boolean(p.pet_friendly),
+          near_schools: Boolean(p.near_schools),
+          family_friendly: Boolean(p.family_friendly),
         };
       });
       const ownedIds = new Set(ownedList.map((p) => p.id));
@@ -1453,7 +1501,7 @@ export function AgentDashboard() {
         const { data: co } = await supabase
           .from("properties")
           .select(
-            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng, formatted_address, place_id, is_demo",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng, formatted_address, place_id, is_demo, pet_friendly, near_schools, family_friendly",
           )
           .in("id", coIds)
           .order("created_at", { ascending: false });
@@ -1499,6 +1547,9 @@ export function AgentDashboard() {
             formatted_address: (p.formatted_address as string | null) ?? null,
             place_id: (p.place_id as string | null) ?? null,
             is_demo: Boolean(p.is_demo),
+            pet_friendly: Boolean(p.pet_friendly),
+            near_schools: Boolean(p.near_schools),
+            family_friendly: Boolean(p.family_friendly),
           };
         });
       }
@@ -1937,10 +1988,19 @@ export function AgentDashboard() {
         const rowsForListing = (photoRows ?? []).filter(
           (row) => String((row as { property_id?: string }).property_id ?? "") === propertyId,
         );
-        const pt = (p.property_type ?? "House").trim();
-        const safeType = EDIT_PROPERTY_TYPES.includes(pt as (typeof EDIT_PROPERTY_TYPES)[number])
-          ? pt
-          : "House";
+        const ptRaw = (p.property_type ?? "").trim();
+        const isPsListing = Boolean(p.is_presale) || ptRaw === "Presale";
+        const safeType = isPsListing
+          ? "Presale"
+          : normalizeNewListingPropertyType(
+              ptRaw === "Studio"
+                ? "Condo"
+                : ptRaw === "Villa"
+                  ? "House"
+                  : ptRaw === "Land"
+                    ? "Lot"
+                    : ptRaw,
+            );
         const imageUrls = buildEditListingImageUrls(p.image_url, rowsForListing as PropertyPhotoRow[]);
         if (loadId !== editListingPhotosLoadIdRef.current) return;
         setEditPropertyId(propertyId);
@@ -1973,6 +2033,9 @@ export function AgentDashboard() {
           placeCity: p.city ?? null,
           placeRegion: (p as { region?: string | null }).region ?? null,
           placeNeighborhood: (p as { neighborhood?: string | null }).neighborhood ?? null,
+          pet_friendly: Boolean(p.pet_friendly),
+          near_schools: Boolean(p.near_schools),
+          family_friendly: Boolean(p.family_friendly),
         });
         setEditListingImages(imageUrls);
         let galleryReadOnly = Boolean(user?.id && p.listed_by && p.listed_by !== user.id && p.isCoHost);
@@ -2113,6 +2176,9 @@ export function AgentDashboard() {
           city: editForm.placeCity,
           region: editForm.placeRegion,
           neighborhood: editForm.placeNeighborhood,
+          pet_friendly: editForm.pet_friendly,
+          near_schools: editForm.near_schools,
+          family_friendly: editForm.family_friendly,
         };
         if (!editGalleryReadOnly) {
           body.imageUrls = imageUrls;
@@ -2203,6 +2269,9 @@ export function AgentDashboard() {
       image_url: mainImageUrl,
       status: listingStatusForApi(isPs, lt),
       property_type: listingForm.property_type,
+      pet_friendly: listingForm.pet_friendly,
+      near_schools: listingForm.near_schools,
+      family_friendly: listingForm.family_friendly,
       description: listingForm.description.trim() || null,
       is_presale: isPs,
       developer_name: isPs ? listingForm.developer_name.trim() : null,
@@ -2285,6 +2354,9 @@ export function AgentDashboard() {
       placeCity: null,
       placeRegion: null,
       placeNeighborhood: null,
+      pet_friendly: false,
+      near_schools: false,
+      family_friendly: false,
     });
     setListingFormErrors({});
     await loadData();
@@ -3217,6 +3289,7 @@ export function AgentDashboard() {
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Property type
                   <select
+                    required
                     value={editForm.property_type}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -3228,13 +3301,62 @@ export function AgentDashboard() {
                     }}
                     className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
                   >
-                    {EDIT_PROPERTY_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
+                    {listingPropertyTypeOptionsForEdit(editForm.property_type, editForm.property_type === "Presale").map(
+                      (t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ),
+                    )}
                   </select>
                 </label>
+                <div className="rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/70 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Features</p>
+                  <div className="mt-2 space-y-2.5">
+                    <label className="flex cursor-pointer items-start gap-2.5 text-sm font-semibold text-[#2C2C2C]">
+                      <input
+                        type="checkbox"
+                        checked={editForm.pet_friendly}
+                        onChange={(e) => setEditForm((f) => ({ ...f, pet_friendly: e.target.checked }))}
+                        className="mt-0.5 rounded border-[#2C2C2C]/25"
+                      />
+                      <span>
+                        Pet-friendly
+                        <span className="mt-0.5 block text-[11px] font-medium text-[#2C2C2C]/50">
+                          Suitable for tenants or buyers with pets.
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex cursor-pointer items-start gap-2.5 text-sm font-semibold text-[#2C2C2C]">
+                      <input
+                        type="checkbox"
+                        checked={editForm.near_schools}
+                        onChange={(e) => setEditForm((f) => ({ ...f, near_schools: e.target.checked }))}
+                        className="mt-0.5 rounded border-[#2C2C2C]/25"
+                      />
+                      <span>
+                        Near schools
+                        <span className="mt-0.5 block text-[11px] font-medium text-[#2C2C2C]/50">
+                          Walking distance or short commute to schools.
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex cursor-pointer items-start gap-2.5 text-sm font-semibold text-[#2C2C2C]">
+                      <input
+                        type="checkbox"
+                        checked={editForm.family_friendly}
+                        onChange={(e) => setEditForm((f) => ({ ...f, family_friendly: e.target.checked }))}
+                        className="mt-0.5 rounded border-[#2C2C2C]/25"
+                      />
+                      <span>
+                        Family-friendly
+                        <span className="mt-0.5 block text-[11px] font-medium text-[#2C2C2C]/50">
+                          3+ bedrooms or has a play area / family-oriented layout.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
                 {editForm.property_type === "Presale" ? (
                   <div className="space-y-3 rounded-xl border border-[#D4A843]/25 bg-[#FAF8F4]/80 p-3">
                     <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
@@ -4001,20 +4123,23 @@ function propertyExpiryBadgeInfo(expiresAt: string | null | undefined): {
   return { label: `Expires in ${daysLeft} days`, className: "bg-emerald-100 text-emerald-900", showRenew: false };
 }
 
-function mapAiPropertyTypeToForm(raw: unknown): string {
+function mapAiPropertyTypeToForm(raw: unknown): (typeof LISTING_PROPERTY_TYPE_OPTIONS)[number] {
   const k = String(raw ?? "condo")
     .toLowerCase()
     .trim();
-  const map: Record<string, string> = {
+  const map: Record<string, (typeof LISTING_PROPERTY_TYPE_OPTIONS)[number]> = {
     condo: "Condo",
     house: "House",
     apartment: "Apartment",
     townhouse: "Townhouse",
     commercial: "Commercial",
-    land: "Land",
-    presale: "Presale",
-    villa: "Villa",
-    studio: "Studio",
+    warehouse: "Warehouse",
+    office: "Office",
+    lot: "Lot",
+    land: "Lot",
+    villa: "House",
+    studio: "Condo",
+    presale: "Condo",
   };
   return map[k] ?? "Condo";
 }
@@ -4071,6 +4196,9 @@ function ListingsTab({
     placeCity: string | null;
     placeRegion: string | null;
     placeNeighborhood: string | null;
+    pet_friendly: boolean;
+    near_schools: boolean;
+    family_friendly: boolean;
   };
   setListingForm: React.Dispatch<React.SetStateAction<typeof listingForm>>;
   listingFormErrors: Record<string, string>;
@@ -4222,8 +4350,7 @@ function ListingsTab({
       const rawLt = String(d.listing_type ?? "sale").toLowerCase().trim();
       const listingType: "sale" | "rent" | "both" =
         rawLt === "rent" ? "rent" : rawLt === "both" ? "both" : "sale";
-      const isPs = Boolean(d.is_presale);
-      const propType = isPs ? "Presale" : mapAiPropertyTypeToForm(d.property_type);
+      const propType = mapAiPropertyTypeToForm(d.property_type);
 
       setListingForm((f) => ({
         ...f,
@@ -4245,7 +4372,7 @@ function ListingsTab({
         sqft: String(sqftN),
         description: typeof d.description === "string" ? d.description : f.description,
         property_type: propType,
-        listing_type: propType === "Presale" ? "sale" : listingType,
+        listing_type: listingType,
         developer_name:
           typeof d.developer_name === "string" && d.developer_name.trim()
             ? d.developer_name.trim()
@@ -4758,6 +4885,7 @@ function ListingsTab({
                 <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
                   Property type
                   <select
+                    required
                     value={listingForm.property_type}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -4769,13 +4897,60 @@ function ListingsTab({
                     }}
                     className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold"
                   >
-                    {EDIT_PROPERTY_TYPES.map((t) => (
+                    {LISTING_PROPERTY_TYPE_OPTIONS.map((t) => (
                       <option key={t} value={t}>
                         {t}
                       </option>
                     ))}
                   </select>
                 </label>
+                <div className="rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/70 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Features</p>
+                  <div className="mt-2 space-y-2.5">
+                    <label className="flex cursor-pointer items-start gap-2.5 text-sm font-semibold text-[#2C2C2C]">
+                      <input
+                        type="checkbox"
+                        checked={listingForm.pet_friendly}
+                        onChange={(e) => setListingForm((f) => ({ ...f, pet_friendly: e.target.checked }))}
+                        className="mt-0.5 rounded border-[#2C2C2C]/25"
+                      />
+                      <span>
+                        Pet-friendly
+                        <span className="mt-0.5 block text-[11px] font-medium text-[#2C2C2C]/50">
+                          Suitable for tenants or buyers with pets.
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex cursor-pointer items-start gap-2.5 text-sm font-semibold text-[#2C2C2C]">
+                      <input
+                        type="checkbox"
+                        checked={listingForm.near_schools}
+                        onChange={(e) => setListingForm((f) => ({ ...f, near_schools: e.target.checked }))}
+                        className="mt-0.5 rounded border-[#2C2C2C]/25"
+                      />
+                      <span>
+                        Near schools
+                        <span className="mt-0.5 block text-[11px] font-medium text-[#2C2C2C]/50">
+                          Walking distance or short commute to schools.
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex cursor-pointer items-start gap-2.5 text-sm font-semibold text-[#2C2C2C]">
+                      <input
+                        type="checkbox"
+                        checked={listingForm.family_friendly}
+                        onChange={(e) => setListingForm((f) => ({ ...f, family_friendly: e.target.checked }))}
+                        className="mt-0.5 rounded border-[#2C2C2C]/25"
+                      />
+                      <span>
+                        Family-friendly
+                        <span className="mt-0.5 block text-[11px] font-medium text-[#2C2C2C]/50">
+                          3+ bedrooms or has a play area / family-oriented layout.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
                 {listingForm.property_type === "Presale" ? (
                   <div className="space-y-3 rounded-xl border border-[#D4A843]/25 bg-[#FAF8F4]/80 p-3">
                     <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
