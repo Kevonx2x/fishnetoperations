@@ -1053,15 +1053,22 @@ function KanbanDealCard({
   } as const;
 
   return (
-    <div ref={setNodeRef} style={styleWithZ} className="relative flex w-full flex-col">
+    <div
+      ref={setNodeRef}
+      style={styleWithZ}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        "relative flex w-full flex-col cursor-grab active:cursor-grabbing",
+        isDragging && "cursor-grabbing",
+      )}
+    >
       <div
-        {...attributes}
-        {...listeners}
         {...(tourViewingCardAnchor ? { "data-tour": "viewing-card" as const } : {})}
         className={cn(
-          "relative flex w-full cursor-grab flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[#2C2C2C]/[0.08] bg-white p-3 shadow-none ring-0 transition-colors [box-shadow:none]",
+          "relative flex w-full flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[#2C2C2C]/[0.08] bg-white p-3 shadow-none ring-0 transition-colors [box-shadow:none]",
           "hover:border-[#2C2C2C]/12",
-          isDragging && "scale-[1.01] cursor-grabbing border-[#6B9E6E]/35",
+          isDragging && "scale-[1.01] border-[#6B9E6E]/35",
         )}
         onClick={() => openKanbanLeadDetails()}
         role="button"
