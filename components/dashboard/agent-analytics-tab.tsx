@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { BarChart3, TrendingUp, Users } from "lucide-react";
+import { BarChart3, TrendingUp } from "lucide-react";
 
 type LeadRow = {
   id: number;
@@ -267,124 +267,6 @@ export function AgentAnalyticsTab({
           <h2 className="mt-4 font-serif text-2xl font-bold text-[#2C2C2C]">Analytics — Coming Soon</h2>
           <p className="mt-2 text-sm font-medium leading-relaxed text-[#2C2C2C]/65">
             We&apos;re polishing the score and performance system. Check back soon.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Same blurred shell + "coming soon" overlay as {@link AgentAnalyticsTab}; team-themed heading and icon only. */
-export function AgentTeamPlaceholderTab() {
-  const phSix = [
-    { month: "Jan", count: 1 },
-    { month: "Feb", count: 2 },
-    { month: "Mar", count: 1 },
-    { month: "Apr", count: 3 },
-    { month: "May", count: 2 },
-    { month: "Jun", count: 2 },
-  ];
-  const phTop = [
-    { name: "Co-Agent", count: 2 },
-    { name: "Assistant", count: 1 },
-  ];
-  return (
-    <div className="relative min-h-[420px]">
-      <div className="pointer-events-none select-none blur-[4px]" aria-hidden>
-        <div className="space-y-8">
-          <div>
-            <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Team</h1>
-            <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">Staff invites and roster management.</p>
-          </div>
-
-          <div className="rounded-2xl border border-[#D4A843]/25 bg-gradient-to-br from-[#D4A843]/10 to-white p-5 shadow-sm">
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-[#D4A843]" />
-              <p className="font-bold text-[#2C2C2C]">Quick wins</p>
-            </div>
-            <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/75">
-              You have <span className="text-[#6B9E6E]">2</span> pending invitations this week.
-            </p>
-          </div>
-
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-wider text-[#2C2C2C]/45">This month vs last month</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCompare label="Leads received" current={4} prev={3} />
-              <StatCompare label="Viewings scheduled" current={2} prev={1} />
-              <StatCompare label="Deals closed" current={1} prev={0} />
-              <StatCompare label="Response rate" current={88} prev={82} suffix="%" />
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-wider text-[#2C2C2C]/45">All time</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
-                <p className="text-[11px] font-bold uppercase text-[#2C2C2C]/45">Total closings</p>
-                <p className="mt-2 font-serif text-2xl font-bold text-[#6B9E6E]">0</p>
-              </div>
-              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
-                <p className="text-[11px] font-bold uppercase text-[#2C2C2C]/45">Avg. response time</p>
-                <p className="mt-2 font-serif text-2xl font-bold text-[#2C2C2C]">—</p>
-              </div>
-              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
-                <p className="text-[11px] font-bold uppercase text-[#2C2C2C]/45">Most inquired topic</p>
-                <p className="mt-2 line-clamp-2 font-serif text-lg font-bold text-[#D4A843]">—</p>
-              </div>
-              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
-                <p className="text-[11px] font-bold uppercase text-[#2C2C2C]/45">Profile views</p>
-                <p className="mt-2 font-serif text-2xl font-bold text-[#2C2C2C]">…</p>
-                <p className="mt-1 text-[10px] font-semibold text-[#2C2C2C]/35">Stored locally</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
-            <h2 className="font-serif text-lg font-bold text-[#2C2C2C]">Leads per month (6 months)</h2>
-            <div className="mt-4 h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={phSix}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ebe6dc" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#5c5c5c" }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "#5c5c5c" }} />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: 12,
-                      border: "1px solid #e0dcd4",
-                      background: "#FAF8F4",
-                    }}
-                  />
-                  <Bar dataKey="count" fill="#6B9E6E" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
-            <h2 className="font-serif text-lg font-bold text-[#2C2C2C]">Top inquiry topics</h2>
-            <ul className="mt-4 space-y-2">
-              {phTop.map((row) => (
-                <li
-                  key={row.name}
-                  className="flex items-center justify-between rounded-xl bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-                >
-                  <span className="truncate pr-2">{row.name}</span>
-                  <span className="shrink-0 rounded-full bg-[#D4A843]/20 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                    {row.count}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
-      <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
-        <div className="pointer-events-auto max-w-md rounded-2xl border border-[#2C2C2C]/10 bg-white/95 p-8 text-center shadow-lg backdrop-blur-sm">
-          <Users className="mx-auto h-10 w-10 text-[#6B9E6E]" aria-hidden />
-          <h2 className="mt-4 font-serif text-2xl font-bold text-[#2C2C2C]">Team — Coming Soon</h2>
-          <p className="mt-2 text-sm font-medium leading-relaxed text-[#2C2C2C]/65">
-            We&apos;re polishing team invites and permissions. Check back soon.
           </p>
         </div>
       </div>

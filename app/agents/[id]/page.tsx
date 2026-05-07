@@ -34,10 +34,9 @@ import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
-import { AgentContactOptionsModal } from "@/components/marketplace/agent-contact-options-modal";
 import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewing-prompt-modal";
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
-import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
+import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import { useAuth } from "@/contexts/auth-context";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
@@ -353,13 +352,10 @@ export default function AgentProfilePage() {
   const [listings, setListings] = useState<ListingRow[]>([]);
   const [similarAgents, setSimilarAgents] = useState<MarketplaceAgent[]>([]);
   const [similarLoading, setSimilarLoading] = useState(false);
-  const [showContactModal, setShowContactModal] = useState(false);
   const [showViewingModal, setShowViewingModal] = useState(false);
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null);
 
-  const [contactPropertyId, setContactPropertyId] = useState<string | null>(null);
-  const [contactPropertyTitle, setContactPropertyTitle] = useState("General Inquiry");
   const [viewingPropertyId, setViewingPropertyId] = useState<string | null>(null);
   const [viewingPropertyTitle, setViewingPropertyTitle] = useState("");
 
@@ -367,11 +363,6 @@ export default function AgentProfilePage() {
   const [listingSort, setListingSort] = useState<ListingSort>("newest");
 
   const { engagement } = usePropertyEngagementForProperties(listings);
-
-  const contactModalAgent = useMemo<MarketplaceAgent | null>(() => {
-    if (!agent) return null;
-    return mapRowToMarketplaceAgent(agent as Parameters<typeof mapRowToMarketplaceAgent>[0]);
-  }, [agent]);
 
   const isOwnProfile = Boolean(user?.id && agent?.user_id && user.id === agent.user_id);
   const [messageBusy, setMessageBusy] = useState(false);
@@ -1001,31 +992,6 @@ export default function AgentProfilePage() {
     [authLoading, user],
   );
 
-  const openContactHeader = useCallback(() => {
-    if (authLoading) return;
-    if (!user) {
-      setSignInPromptOpen(true);
-      return;
-    }
-    setContactPropertyId(null);
-    setContactPropertyTitle("General Inquiry");
-    setShowContactModal(true);
-  }, [authLoading, user]);
-
-  const openContactForListing = useCallback(
-    (p: ListingRow) => {
-      if (authLoading) return;
-      if (!user) {
-        setSignInPromptOpen(true);
-        return;
-      }
-      setContactPropertyId(p.id);
-      setContactPropertyTitle(p.name?.trim() || p.location);
-      setShowContactModal(true);
-    },
-    [authLoading, user],
-  );
-
   const onMessageAgent = useCallback(async (opts?: {
     propertyId?: string | null;
     propertyName?: string | null;
@@ -1243,18 +1209,6 @@ export default function AgentProfilePage() {
                       <p className="mt-2 text-center text-[13px] italic text-[#2C2C2C]/45">No bio yet</p>
                     )}
                   </div>
-
-                  {!isOwnProfile ? (
-                    <button
-                      type="button"
-                      onClick={openContactHeader}
-                      disabled={authLoading}
-                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[#2C2C2C] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#2C2C2C]/90 disabled:opacity-50"
-                    >
-                      <Mail className="h-4 w-4 shrink-0" aria-hidden />
-                      Message
-                    </button>
-                  ) : null}
 
                   {sidebarSpecialties.length > 0 ? (
                     <div className="mt-5 border-t border-[#2C2C2C]/10 pt-4">
@@ -1730,15 +1684,6 @@ export default function AgentProfilePage() {
                                 <>
                                   <button
                                     type="button"
-                                    onClick={() => openContactForListing(p)}
-                                    disabled={authLoading}
-                                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-[#2C2C2C] px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#2C2C2C]/90 disabled:opacity-50 sm:w-auto"
-                                  >
-                                    <Mail className="h-3.5 w-3.5" />
-                                    Contact Agent
-                                  </button>
-                                  <button
-                                    type="button"
                                     onClick={() =>
                                       void onMessageAgent({
                                         propertyId: p.id,
@@ -2079,19 +2024,6 @@ export default function AgentProfilePage() {
             agentUserId={agent.user_id}
           />
           <SignInViewingPromptModal open={signInPromptOpen} onOpenChange={setSignInPromptOpen} />
-          <AgentContactOptionsModal
-            open={showContactModal}
-            onOpenChange={(open) => {
-              setShowContactModal(open);
-              if (!open) {
-                setContactPropertyId(null);
-                setContactPropertyTitle("General Inquiry");
-              }
-            }}
-            agent={contactModalAgent}
-            propertyId={contactPropertyId}
-            propertyTitle={contactPropertyTitle}
-          />
         </>
       )}
     </div>

@@ -29,12 +29,13 @@ import {
   Globe,
   Phone,
   User,
+  UserCircle,
   Users,
   X,
 } from "lucide-react";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { AgentBillingTab } from "@/components/dashboard/agent-billing-tab";
-import { AgentAnalyticsTab, AgentTeamPlaceholderTab } from "@/components/dashboard/agent-analytics-tab";
+import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
 import {
   AgentPipelineTab,
@@ -70,7 +71,6 @@ import {
   isUnlimitedOwned,
   listingLimitForTier,
   normalizeListingTier,
-  teamMemberLimitForTier,
   TIER_LABEL,
 } from "@/lib/agent-listing-limits";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
@@ -129,7 +129,7 @@ type Tab =
   | "messages"
   | "documents"
   | "listings"
-  | "team"
+  | "profile"
   | "analytics"
   | "notifications"
   | "billing";
@@ -140,7 +140,7 @@ const URL_TAB_QUERY_ALLOWED: Tab[] = [
   "messages",
   "documents",
   "listings",
-  "team",
+  "profile",
   "analytics",
   "notifications",
   "billing",
@@ -151,6 +151,8 @@ function tabFromSearchParamsString(queryString: string): Tab {
   const raw = sp.get("tab");
   if (raw === "leads" || raw === "viewings") return "pipeline";
   if (raw === "dashboard") return "overview";
+  /** Legacy bookmarks */
+  if (raw === "team") return "profile";
   if (raw && URL_TAB_QUERY_ALLOWED.includes(raw as Tab)) return raw as Tab;
   return "overview";
 }
@@ -1685,10 +1687,7 @@ export function AgentDashboard() {
 
   useEffect(() => {
     if (!agent || isTeamMemberView) return;
-    if (
-      agent.verification_status !== "verified" &&
-      (tab === "pipeline" || tab === "listings" || tab === "team")
-    ) {
+    if (agent.verification_status !== "verified" && (tab === "pipeline" || tab === "listings")) {
       navigateAgentTab("overview");
     }
   }, [agent, tab, isTeamMemberView, navigateAgentTab]);
@@ -2466,7 +2465,7 @@ export function AgentDashboard() {
     { id: "messages", label: "Messages", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-[18px] w-[18px]" /> },
     { id: "listings", label: "Listings", icon: <LayoutList className="h-[18px] w-[18px]" /> },
-    { id: "team", label: "Team", icon: <Users className="h-[18px] w-[18px]" /> },
+    { id: "profile", label: "Public profile", icon: <UserCircle className="h-[18px] w-[18px]" /> },
     { id: "billing", label: "Billing", icon: <CreditCard className="h-[18px] w-[18px]" /> },
     { id: "notifications", label: "Notifications", icon: <Bell className="h-[18px] w-[18px]" /> },
   ];
@@ -2479,7 +2478,7 @@ export function AgentDashboard() {
     ? teamMemberNavTabs
     : identityVerified
       ? allTabs
-      : allTabs.filter((t) => t.id !== "pipeline" && t.id !== "listings" && t.id !== "team");
+      : allTabs.filter((t) => t.id !== "pipeline" && t.id !== "listings");
 
   const mobilePrimaryTabIds: Tab[] = isTeamMemberView
     ? ["pipeline", "messages", "documents"]
@@ -2489,8 +2488,8 @@ export function AgentDashboard() {
   const mobileMoreTabIds: Tab[] = isTeamMemberView
     ? []
     : identityVerified
-      ? ["overview", "listings", "team", "analytics", "billing", "notifications"]
-      : ["listings", "team", "analytics", "billing", "notifications"];
+      ? ["overview", "profile", "listings", "analytics", "billing", "notifications"]
+      : ["profile", "listings", "analytics", "billing", "notifications"];
 
   const viewingsAgentUserId = isTeamMemberView ? agent.user_id : user.id;
 
@@ -2555,7 +2554,7 @@ export function AgentDashboard() {
                     onClick={() => navigateAgentTab(t.id)}
                     className={cn(
                       "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
-                      (t.id === "analytics" || t.id === "team") && "opacity-55 hover:opacity-80",
+                      t.id === "analytics" && "opacity-55 hover:opacity-80",
                       tab === t.id
                         ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
                         : "text-[#2C2C2C]/65 hover:bg-white/80",
@@ -2593,7 +2592,7 @@ export function AgentDashboard() {
                     onClick={() => navigateAgentTab(t.id)}
                     className={cn(
                       "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
-                      (t.id === "analytics" || t.id === "team") && "opacity-55 hover:opacity-80",
+                      t.id === "analytics" && "opacity-55 hover:opacity-80",
                       tab === t.id
                         ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
                         : "text-[#2C2C2C]/65 hover:bg-white/80",
@@ -2754,8 +2753,25 @@ export function AgentDashboard() {
               {tab === "analytics" && (
                 <AgentAnalyticsTab leads={leads} viewings={viewings} agent={agent} />
               )}
-              {tab === "team" && identityVerified && user && agent && !isTeamMemberView && (
-                <AgentTeamPlaceholderTab />
+              {tab === "profile" && user && agent && !isTeamMemberView && (
+                <ProfileTab
+                  agent={agent}
+                  listingTier={agent.listing_tier}
+                  ownedListingCount={ownedListingCount}
+                  responseRatePct={responseRatePct}
+                  profileForm={profileForm}
+                  setProfileForm={setProfileForm}
+                  onSave={saveProfile}
+                  saving={saving}
+                  onUpload={uploadAvatar}
+                  supabase={supabase}
+                  userId={user.id}
+                  onAvailabilitySaved={loadData}
+                  onAvailabilityMessage={(msg) => {
+                    if (!msg.trim()) return;
+                    toast.success(msg);
+                  }}
+                />
               )}
               {tab === "listings" && identityVerified && (
                 <ListingsTab
@@ -2799,7 +2815,6 @@ export function AgentDashboard() {
                   onDismissPaymentBanner={() => setPaymentBannerTier(null)}
                 />
               )}
-              {/* Profile editing moved to public profile page (/agents/[id]) */}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -3636,7 +3651,7 @@ function OverviewTab({
 
     if (closings === 0) items.push({ label: "Close your first deal to boost your score", tab: "pipeline" });
     if (!verified) items.push({ label: "Complete PRC verification", tab: "overview" });
-    if (profilePct < 100) items.push({ label: "Complete your profile", tab: "overview" });
+    if (profilePct < 100) items.push({ label: "Complete your profile", tab: "profile" });
     if (listingsCount < 3) items.push({ label: "Add more listings to increase visibility", tab: "listings" });
     if (hasUnrespondedLeadsOver24h) items.push({ label: "You have unresponded leads", tab: "pipeline" });
 
@@ -5074,191 +5089,6 @@ function ListingsTab({
   );
 }
 
-type TeamMemberRow = {
-  id: string;
-  assistant_email: string;
-  assistant_name: string | null;
-  status: string;
-  created_at: string;
-};
-
-function MyTeamSection({
-  agentId,
-  agentName,
-  supabase,
-  teamMemberLimit,
-}: {
-  agentId: string;
-  agentName: string;
-  supabase: ReturnType<typeof createSupabaseBrowserClient>;
-  teamMemberLimit: number;
-}) {
-  const [rows, setRows] = useState<TeamMemberRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState("");
-  const [assistantDisplayName, setAssistantDisplayName] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [removingId, setRemovingId] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("agent_team_members")
-      .select("id, assistant_email, assistant_name, status, created_at")
-      .eq("agent_id", agentId)
-      .order("created_at", { ascending: false });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    setRows((data ?? []) as TeamMemberRow[]);
-  }, [agentId, supabase]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const atTeamLimit = Number.isFinite(teamMemberLimit) && rows.length >= teamMemberLimit;
-
-  const addMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (atTeamLimit) {
-      toast.error(
-        Number.isFinite(teamMemberLimit) && teamMemberLimit === 0
-          ? "Your plan does not include team seats. Upgrade on the pricing page to invite assistants."
-          : `You've reached your plan limit of ${teamMemberLimit} team member${teamMemberLimit === 1 ? "" : "s"}.`,
-      );
-      return;
-    }
-    const em = email.trim().toLowerCase();
-    if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
-      toast.error("Enter a valid email address.");
-      return;
-    }
-    setSaving(true);
-    const { error } = await supabase.from("agent_team_members").insert({
-      agent_id: agentId,
-      assistant_email: em,
-      assistant_name: assistantDisplayName.trim() || null,
-      status: "invited",
-    });
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    toast.success(
-      "Invitation saved. If they have a BahayGo account with that email, they’ll get an in-app notification.",
-    );
-    setEmail("");
-    setAssistantDisplayName("");
-    void load();
-  };
-
-  const remove = async (id: string) => {
-    setRemovingId(id);
-    const { error } = await supabase.from("agent_team_members").delete().eq("id", id);
-    setRemovingId(null);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    toast.success("Removed from team");
-    void load();
-  };
-
-  return (
-    <section className="mt-10 max-w-xl rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-[#2C2C2C]">
-          <Users className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">My Team</h2>
-          <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/60">
-            Add showing assistants by email. They appear as <span className="text-[#2C2C2C]">Showing Assistant</span>{" "}
-            under you. Invites notify them in-app when their email matches a BahayGo account.
-          </p>
-          <p className="mt-2 text-xs font-semibold text-[#2C2C2C]/50">
-            Team seats: {rows.length}/
-            {Number.isFinite(teamMemberLimit) ? teamMemberLimit : "∞"} on your plan
-            {Number.isFinite(teamMemberLimit) && teamMemberLimit === 0 ? " — upgrade to Pro or higher for seats." : "."}
-          </p>
-        </div>
-      </div>
-
-      <form onSubmit={(e) => void addMember(e)} className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end">
-        <label className="min-w-0 flex-1 text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="assistant@example.com"
-            className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-            autoComplete="off"
-          />
-        </label>
-        <label className="min-w-0 flex-1 text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-          Name (optional)
-          <input
-            value={assistantDisplayName}
-            onChange={(e) => setAssistantDisplayName(e.target.value)}
-            placeholder="First Last"
-            className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={saving || atTeamLimit}
-          className="shrink-0 rounded-full bg-[#2C2C2C] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {saving ? "Adding…" : "Add"}
-        </button>
-      </form>
-
-      <div className="mt-6 border-t border-[#2C2C2C]/10 pt-4">
-        {loading ? (
-          <p className="text-sm font-semibold text-[#2C2C2C]/50">Loading team…</p>
-        ) : rows.length === 0 ? (
-          <p className="text-sm font-semibold text-[#2C2C2C]/50">No assistants yet.</p>
-        ) : (
-          <ul className="space-y-2">
-            {rows.map((r) => (
-              <li
-                key={r.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-2.5"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-[#2C2C2C]">{r.assistant_email}</p>
-                  {r.assistant_name ? (
-                    <p className="truncate text-xs font-semibold text-[#2C2C2C]/55">{r.assistant_name}</p>
-                  ) : null}
-                  <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-[#6B9E6E]">
-                    Showing Assistant · {r.status}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={removingId === r.id}
-                  onClick={() => void remove(r.id)}
-                  className="shrink-0 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-bold text-red-800 hover:bg-red-100 disabled:opacity-50"
-                >
-                  {removingId === r.id ? "…" : "Remove"}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <p className="mt-4 text-[11px] font-semibold text-[#2C2C2C]/45">
-        Listing agent: {agentName}. Permissions for assistants are coming later.
-      </p>
-    </section>
-  );
-}
-
 type ProfileFormState = {
   name: string;
   phone: string;
@@ -5353,7 +5183,8 @@ function ProfileTab({
       .eq("user_id", userId);
     setAvailSaving(false);
     if (error) {
-      onAvailabilityMessage(error.message);
+      toast.error(error.message);
+      onAvailabilityMessage("");
       return;
     }
     onAvailabilityMessage(on ? "You’re shown as Available Now on listings." : "You’re shown as Offline. Last seen was updated.");
@@ -5364,9 +5195,9 @@ function ProfileTab({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">My Profile</h1>
+          <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Public profile</h1>
           <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
-            This is what clients see. Click any field to edit.
+            How you appear on BahayGo listings and your agent page. Fields save as you go.
           </p>
         </div>
         <Link
@@ -5599,13 +5430,6 @@ function ProfileTab({
           </div>
         </div>
       </div>
-
-      <MyTeamSection
-        agentId={agent.id}
-        agentName={agent.name}
-        supabase={supabase}
-        teamMemberLimit={teamMemberLimitForTier(listingTier)}
-      />
 
       <AgentAvailabilitySchedule
         key={JSON.stringify(agent.availability_schedule ?? {})}
