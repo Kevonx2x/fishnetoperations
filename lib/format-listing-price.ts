@@ -1,5 +1,5 @@
 /** Parse DB / form values: PostgREST may return numeric as string or number. */
-function parsePriceToNumber(raw: string | number | bigint | null | undefined): number | null {
+export function parsePriceToNumber(raw: string | number | bigint | null | undefined): number | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
   if (typeof raw === "bigint") return Number(raw);

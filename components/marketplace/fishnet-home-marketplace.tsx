@@ -52,7 +52,7 @@ import {
   availabilityCardOverlayLabel,
   propertyEngagementLooksUnavailable,
 } from "@/lib/property-availability";
-import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
+import { formatPropertyPriceDisplay, parsePriceToNumber } from "@/lib/format-listing-price";
 import { propertyCanonicalCity } from "@/lib/normalize-city";
 import { CoListRequestModal } from "@/components/marketplace/co-list-request-modal";
 import { toast } from "sonner";
@@ -265,11 +265,21 @@ type RowConfig = {
   id: string;
   label: string;
   filter: {
-    sortBy?: "created_at_desc" | "likes_desc";
+    sortBy?: "created_at_desc" | "likes_desc" | "views_desc";
     limit?: number;
     listingTier?: ("featured" | "broker")[];
     sales_status?: string;
     listing_type?: "sale" | "rent" | "both";
+    /** Status + listing_type scoped to rentals (rent prices). Ignores buy/rent mode. */
+    rent_segment?: boolean;
+    /** Status + listing_type scoped to sales (sale prices). Ignores buy/rent mode. */
+    sale_segment?: boolean;
+    /** Restrict to `property_type = Condo` (sale-band rows). */
+    condo_only?: boolean;
+    min_price?: number;
+    max_price?: number;
+    beds?: number;
+    beds_gte?: number;
     pet_friendly?: boolean;
     family_friendly?: boolean;
     near_schools?: boolean;
@@ -280,31 +290,84 @@ function stripDiacritics(s: string) {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-/** Distinct listing filters per featured area (chip uses `neighborhood` or `city` match; rows add these filters). */
-function standardFeaturedLocationRows(placeLabel: string, idPrefix: string): RowConfig[] {
+function passesLocationRowPriceFilter(
+  p: DbProperty,
+  f: RowConfig["filter"],
+): boolean {
+  if (f.min_price == null && f.max_price == null) return true;
+  const raw = f.rent_segment ? p.rent_price : p.price;
+  const n = parsePriceToNumber(raw);
+  if (n == null) return false;
+  if (f.min_price != null && n < f.min_price) return false;
+  if (f.max_price != null && n > f.max_price) return false;
+  return true;
+}
+
+/** ~18 dense rows per featured area (no `views` column — “most viewed” omitted). Mirrors across all configured locations. */
+function denseFeaturedLocationRows(placeLabel: string, idPrefix: string): RowConfig[] {
   const lim = 12 as const;
   return [
     { id: `${idPrefix}-newest`, label: `Newest in ${placeLabel}`, filter: { sortBy: "created_at_desc", limit: lim } },
-    { id: `${idPrefix}-pet-friendly`, label: `Pet-friendly in ${placeLabel}`, filter: { pet_friendly: true, limit: lim } },
-    { id: `${idPrefix}-family`, label: `Family-friendly in ${placeLabel}`, filter: { family_friendly: true, limit: lim } },
-    { id: `${idPrefix}-near-schools`, label: `Near schools in ${placeLabel}`, filter: { near_schools: true, limit: lim } },
-    { id: `${idPrefix}-presale`, label: `${placeLabel} Presale condos`, filter: { sales_status: "Presale", limit: lim } },
+    { id: `${idPrefix}-trending`, label: `Trending in ${placeLabel}`, filter: { sortBy: "likes_desc", limit: lim } },
+    {
+      id: `${idPrefix}-rent-under-30k`,
+      label: `${placeLabel} under ₱30,000/mo`,
+      filter: { rent_segment: true, max_price: 29_999, limit: lim },
+    },
+    {
+      id: `${idPrefix}-rent-30-60k`,
+      label: `${placeLabel} ₱30,000–₱60,000/mo`,
+      filter: { rent_segment: true, min_price: 30_000, max_price: 59_999, limit: lim },
+    },
+    {
+      id: `${idPrefix}-rent-luxury`,
+      label: `${placeLabel} luxury rentals (₱60,000+/mo)`,
+      filter: { rent_segment: true, min_price: 60_000, limit: lim },
+    },
+    {
+      id: `${idPrefix}-sale-under-10m`,
+      label: `${placeLabel} condos for sale under ₱10M`,
+      filter: { sale_segment: true, condo_only: true, max_price: 9_999_999, limit: lim },
+    },
+    {
+      id: `${idPrefix}-sale-10-20m`,
+      label: `${placeLabel} condos for sale ₱10M–₱20M`,
+      filter: {
+        sale_segment: true,
+        condo_only: true,
+        min_price: 10_000_000,
+        max_price: 19_999_999,
+        limit: lim,
+      },
+    },
+    {
+      id: `${idPrefix}-sale-luxury`,
+      label: `${placeLabel} luxury for sale (₱20M+)`,
+      filter: { sale_segment: true, condo_only: true, min_price: 20_000_000, limit: lim },
+    },
+    { id: `${idPrefix}-studios`, label: `${placeLabel} studios`, filter: { beds: 0, limit: lim } },
+    { id: `${idPrefix}-bed-1`, label: `${placeLabel} 1-bedroom`, filter: { beds: 1, limit: lim } },
+    { id: `${idPrefix}-bed-2`, label: `${placeLabel} 2-bedroom`, filter: { beds: 2, limit: lim } },
+    { id: `${idPrefix}-bed-3p`, label: `${placeLabel} 3+ bedroom`, filter: { beds_gte: 3, limit: lim } },
+    { id: `${idPrefix}-pet`, label: `${placeLabel} Pet-friendly`, filter: { pet_friendly: true, limit: lim } },
+    { id: `${idPrefix}-family`, label: `${placeLabel} Family-friendly`, filter: { family_friendly: true, limit: lim } },
+    { id: `${idPrefix}-schools`, label: `${placeLabel} Near schools`, filter: { near_schools: true, limit: lim } },
+    { id: `${idPrefix}-presale`, label: `${placeLabel} Presale`, filter: { sales_status: "Presale", limit: lim } },
     { id: `${idPrefix}-rfo`, label: `${placeLabel} Ready for occupancy`, filter: { sales_status: "RFO", limit: lim } },
-    { id: `${idPrefix}-rentals`, label: `${placeLabel} Rentals`, filter: { listing_type: "rent", limit: lim } },
-    { id: `${idPrefix}-for-sale`, label: `${placeLabel} For sale`, filter: { listing_type: "sale", limit: lim } },
+    { id: `${idPrefix}-resale`, label: `${placeLabel} Resale`, filter: { sales_status: "Resale", limit: lim } },
   ];
 }
 
 const LOCATION_ROW_CONFIG: Record<string, RowConfig[]> = {
-  BGC: standardFeaturedLocationRows("BGC", "bgc"),
-  Makati: standardFeaturedLocationRows("Makati", "makati"),
-  "Ortigas Center": standardFeaturedLocationRows("Ortigas Center", "ortigas-center"),
-  /** City-wide Pasig selection; copy references Ortigas Center as requested. */
-  Pasig: standardFeaturedLocationRows("Ortigas Center", "pasig"),
-  "Cebu City": standardFeaturedLocationRows("Cebu", "cebu"),
-  Davao: standardFeaturedLocationRows("Davao", "davao"),
-  Tagaytay: standardFeaturedLocationRows("Tagaytay", "tagaytay"),
-  Bacolod: standardFeaturedLocationRows("Bacolod", "bacolod"),
+  BGC: denseFeaturedLocationRows("BGC", "bgc"),
+  Makati: denseFeaturedLocationRows("Makati", "makati"),
+  "Ortigas Center": denseFeaturedLocationRows("Ortigas Center", "ortigas-center"),
+  /** City-wide Pasig selection; labels use Ortigas Center. */
+  Pasig: denseFeaturedLocationRows("Ortigas Center", "pasig"),
+  "Cebu City": denseFeaturedLocationRows("Cebu", "cebu"),
+  Davao: denseFeaturedLocationRows("Davao", "davao"),
+  Tagaytay: denseFeaturedLocationRows("Tagaytay", "tagaytay"),
+  Bacolod: denseFeaturedLocationRows("Bacolod", "bacolod"),
 };
 
 function defaultLocationRowIdPrefix(label: string): string {
@@ -317,7 +380,7 @@ function defaultLocationRowIdPrefix(label: string): string {
 
 const DEFAULT_LOCATION_ROWS = (label: string): RowConfig[] => {
   const prefix = defaultLocationRowIdPrefix(label);
-  return standardFeaturedLocationRows(label, prefix);
+  return denseFeaturedLocationRows(label, prefix);
 };
 
 /** Featured Locations card: compare persisted/derived canonical city to this card. */
@@ -1203,15 +1266,28 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
       const fetchRow = async (cfg: RowConfig) => {
         const limit = cfg.filter.limit ?? 12;
-        // Overfetch a bit to allow client-side tier + likes sorting without underfilling.
-        const softOverfetch = Math.max(limit * 4, 40);
+        if (cfg.filter.sortBy === "views_desc") {
+          return [] as DbProperty[];
+        }
+
+        const softOverfetch = Math.max(limit * 6, 120);
+
+        let statusForRow: readonly string[];
+        if (cfg.filter.rent_segment) {
+          statusForRow = ["for_rent", "both"];
+        } else if (cfg.filter.sale_segment) {
+          statusForRow = ["for_sale", "both"];
+        } else {
+          statusForRow = statusIn;
+        }
+
         let q = supabase
           .from("properties")
           .select(selectQ)
           .is("deleted_at", null)
           .or(hideTutorialDemoPropertiesOrFilter())
           .or("availability_state.eq.available,availability_state.is.null")
-          .in("status", [...statusIn]);
+          .in("status", [...statusForRow]);
 
         q =
           selectedLocation.type === "neighborhood"
@@ -1220,11 +1296,17 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
         if (selectedPropertyType) {
           q = q.eq("property_type", selectedPropertyType);
+        } else if (cfg.filter.condo_only) {
+          q = q.eq("property_type", "Condo");
         }
         if (cfg.filter.sales_status) {
           q = q.eq("sales_status", cfg.filter.sales_status);
         }
-        if (cfg.filter.listing_type) {
+        if (cfg.filter.rent_segment) {
+          q = q.in("listing_type", ["rent", "both"]);
+        } else if (cfg.filter.sale_segment) {
+          q = q.in("listing_type", ["sale", "both"]);
+        } else if (cfg.filter.listing_type) {
           q = q.eq("listing_type", cfg.filter.listing_type);
         }
         if (cfg.filter.pet_friendly === true) {
@@ -1236,13 +1318,25 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         if (cfg.filter.near_schools === true) {
           q = q.eq("near_schools", true);
         }
+        if (cfg.filter.beds !== undefined) {
+          q = q.eq("beds", cfg.filter.beds);
+        }
+        if (cfg.filter.beds_gte !== undefined) {
+          q = q.gte("beds", cfg.filter.beds_gte);
+        }
 
-        // Base ordering; likes sorting happens client-side using RPC counts already loaded for homepage properties.
         q = q.order("created_at", { ascending: false }).limit(softOverfetch);
 
         const { data, error } = await q;
         if (error) return [] as DbProperty[];
         let items = (data ?? []) as unknown as DbProperty[];
+
+        const priceNarrow =
+          (cfg.filter.rent_segment === true || cfg.filter.sale_segment === true) &&
+          (cfg.filter.min_price != null || cfg.filter.max_price != null);
+        if (priceNarrow) {
+          items = items.filter((p) => passesLocationRowPriceFilter(p, cfg.filter));
+        }
 
         const tier = cfg.filter.listingTier;
         if (tier && tier.length > 0) {
