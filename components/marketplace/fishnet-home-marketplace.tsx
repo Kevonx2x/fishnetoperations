@@ -292,11 +292,6 @@ function standardFeaturedLocationRows(placeLabel: string, idPrefix: string): Row
     { id: `${idPrefix}-rfo`, label: `${placeLabel} Ready for occupancy`, filter: { sales_status: "RFO", limit: lim } },
     { id: `${idPrefix}-rentals`, label: `${placeLabel} Rentals`, filter: { listing_type: "rent", limit: lim } },
     { id: `${idPrefix}-for-sale`, label: `${placeLabel} For sale`, filter: { listing_type: "sale", limit: lim } },
-    {
-      id: `${idPrefix}-featured`,
-      label: `Featured agents in ${placeLabel}`,
-      filter: { listingTier: ["featured", "broker"], limit: lim },
-    },
   ];
 }
 
