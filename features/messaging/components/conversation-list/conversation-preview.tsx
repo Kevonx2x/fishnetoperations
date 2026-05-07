@@ -144,7 +144,7 @@ export function ConversationPreview(
       onClick={handleRowClick}
       onKeyDown={handleRowKeyDown}
       className={cn(
-        "group relative flex w-full cursor-pointer items-start gap-3 px-3 py-3 text-left outline-none transition-colors hover:bg-fg/[0.03] focus-visible:ring-2 focus-visible:ring-brand-sage/40",
+        "group relative flex w-full cursor-pointer items-start gap-3 border-b border-fg/[0.06] px-3 py-3 text-left outline-none transition-colors last:border-b-0 hover:bg-fg/[0.03] focus-visible:ring-2 focus-visible:ring-brand-sage/40",
         active ? "bg-fg/[0.06]" : "bg-transparent",
       )}
     >

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
+import { MessageSquareText, MoreHorizontal } from "lucide-react";
 import { Channel, Window, useChannelStateContext, useChatContext } from "stream-chat-react";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -62,9 +62,55 @@ export function ChatThreadPanel(props: {
           ) : noSelectionKind === "welcome" ? (
             <MessagesOnlySupportWelcome variant={variant} onBackToList={props.onBackToList} />
           ) : (
-            <p className="max-w-md text-center text-sm font-semibold text-fg/45">
-              Select a conversation from the list
-            </p>
+            <div className="flex flex-col items-center justify-center">
+              <div
+                className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-fg/[0.03] ring-1 ring-fg/10"
+                aria-hidden
+              >
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(107,158,110,0.22),transparent_55%),radial-gradient(circle_at_70%_75%,rgba(212,168,67,0.18),transparent_55%)]" />
+                <div className="absolute inset-0 opacity-[0.55] [background-image:radial-gradient(rgba(44,44,44,0.08)_1px,transparent_1px)] [background-size:10px_10px]" />
+                <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-white/70 shadow-sm ring-1 ring-fg/10">
+                  <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 28 28"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="text-fg/60"
+                  >
+                    <path
+                      d="M8.2 12.2V10.1C8.2 7.5 10.3 5.4 12.9 5.4H15.1C17.7 5.4 19.8 7.5 19.8 10.1V12.2"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M7.4 12.8C7.4 11.8 8.2 11 9.2 11H18.8C19.8 11 20.6 11.8 20.6 12.8V18.5C20.6 19.6 19.7 20.5 18.6 20.5H12L8.8 22.6V20.5H9.4C8.3 20.5 7.4 19.6 7.4 18.5V12.8Z"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M11 15.2H16.9"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      opacity="0.8"
+                    />
+                    <path
+                      d="M11 17.6H15.1"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      opacity="0.65"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <p className="mt-4 max-w-md text-center text-sm font-semibold text-fg/45">
+                Select a conversation from the list
+              </p>
+            </div>
           )}
         </div>
       </div>
