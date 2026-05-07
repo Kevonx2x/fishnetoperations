@@ -8,22 +8,32 @@ import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Activity,
   ArrowDown,
-  Filter,
+  Building2,
+  Car,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronsUp,
+  Columns,
+  Filter,
   Heart,
-  Pin,
   Home,
+  Landmark,
+  LayoutGrid,
   MapPin,
-  Shield,
-  BadgeCheck,
-  Lock,
+  PawPrint,
+  Pin,
   Search,
+  Shield,
   Star,
   UserPlus,
   Flame,
+  Waves,
+  Wind,
+  BadgeCheck,
+  Lock,
   X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -829,12 +839,34 @@ function HeroFloatingPropertyCards() {
   );
 }
 
+type HomePropertyKind = "any" | "condo" | "house" | "townhouse" | "lot";
+type TransactionFilter = "any" | "for_sale" | "for_rent";
+type FurnishingFilter = "any" | "furnished" | "semi" | "unfurnished";
+type AmenityFilterKey =
+  | "parking"
+  | "pool"
+  | "gym"
+  | "aircon"
+  | "balcony"
+  | "elevator"
+  | "pet";
+
 type FiltersState = {
   minPrice: number;
   maxPrice: number;
   beds: "any" | 1 | 2 | 3 | 4;
   baths: "any" | 1 | 2 | 3 | 4;
+  /** @deprecated Legacy dropdown; chips use {@link FiltersState.homePropertyKind}. Kept for chip label mapping. */
   propertyType: "any" | "House" | "Condo" | "Villa" | "Land" | "Studio" | "Presale";
+  homePropertyKind: HomePropertyKind;
+  transactionType: TransactionFilter;
+  furnishing: FurnishingFilter;
+  floorAreaMin: string;
+  floorAreaMax: string;
+  /** `null` = any featured location; label must match {@link FEATURED_LOCATIONS} entry. */
+  locationLabel: string | null;
+  amenities: AmenityFilterKey[];
+  amenityExtra: { nearSchools: boolean; familyFriendly: boolean };
 };
 
 function inferredType(p: DbProperty): FiltersState["propertyType"] {
@@ -845,6 +877,121 @@ function inferredType(p: DbProperty): FiltersState["propertyType"] {
   if (loc.includes("villa") || loc.includes("estate")) return "Villa";
   if (loc.includes("land")) return "Land";
   return "House";
+}
+
+const AMENITY_KEYWORD: Record<Exclude<AmenityFilterKey, "pet">, RegExp> = {
+  parking: /\b(parking|car\s*park|parking\s*slot)\b/i,
+  pool: /\b(pool|swimming)\b/i,
+  gym: /\b(gym|fitness)\b/i,
+  aircon: /\b(aircon|air[\s-]?con|a\/c|air\s*conditioning)\b/i,
+  balcony: /\b(balcony|veranda)\b/i,
+  elevator: /\b(elevator|lift)\b/i,
+};
+
+function propertyMarketingText(p: DbProperty): string {
+  return `${p.name ?? ""} ${p.location} ${p.description ?? ""}`;
+}
+
+function parseSqmApprox(raw: string | null | undefined): number | null {
+  if (raw == null || typeof raw !== "string") return null;
+  const m = raw.replace(/,/g, "").match(/(\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function matchesHomePropertyKind(p: DbProperty, kind: HomePropertyKind): boolean {
+  if (kind === "any") return true;
+  const raw = (p.property_type ?? "").trim().toLowerCase();
+  const inf = inferredType(p);
+  if (kind === "condo") {
+    if (raw.includes("condo") || raw.includes("apartment") || raw.includes("studio")) return true;
+    return inf === "Condo" || inf === "Studio" || Boolean(p.is_presale);
+  }
+  if (kind === "house") {
+    if (raw.includes("house") && !raw.includes("townhouse")) return true;
+    return inf === "House" || inf === "Villa";
+  }
+  if (kind === "townhouse") {
+    return raw.includes("townhouse") || raw.includes("town house");
+  }
+  if (kind === "lot") {
+    if (raw.includes("lot") || raw.includes("land")) return true;
+    return inf === "Land";
+  }
+  return true;
+}
+
+function matchesTransactionFilter(p: DbProperty, tx: TransactionFilter): boolean {
+  if (tx === "any") return true;
+  const lt = String(p.listing_type ?? "sale");
+  const st = p.status;
+  if (tx === "for_sale") {
+    return (lt === "sale" || lt === "both") && (st === "for_sale" || st === "both");
+  }
+  if (tx === "for_rent") {
+    return (lt === "rent" || lt === "both") && (st === "for_rent" || st === "both");
+  }
+  return true;
+}
+
+function matchesFurnishingFilter(p: DbProperty, f: FurnishingFilter): boolean {
+  if (f === "any") return true;
+  const text = propertyMarketingText(p);
+  if (f === "furnished") {
+    return /\bf(?:ully)?\s*furnished\b/i.test(text) || /\bfurnished\b/i.test(text);
+  }
+  if (f === "semi") return /\bsemi[\s-]?furnished\b/i.test(text);
+  if (f === "unfurnished") {
+    return /\bunfurnished\b/i.test(text) || /\bbare\b/i.test(text) || /\bun[\s-]?furnished\b/i.test(text);
+  }
+  return true;
+}
+
+function matchesFloorAreaFilter(p: DbProperty, minS: string, maxS: string): boolean {
+  const val = parseSqmApprox(p.sqft);
+  if (val == null) {
+    if (minS.trim() || maxS.trim()) return false;
+    return true;
+  }
+  const minN = minS.trim() ? Number(minS.replace(/,/g, "")) : null;
+  const maxN = maxS.trim() ? Number(maxS.replace(/,/g, "")) : null;
+  if (minN != null && Number.isFinite(minN) && val < minN) return false;
+  if (maxN != null && Number.isFinite(maxN) && val > maxN) return false;
+  return true;
+}
+
+function propertyMatchesFeaturedLocationByLabel(p: DbProperty, label: string): boolean {
+  const entry = FEATURED_LOCATIONS.find((x) => x.label === label);
+  if (!entry) return false;
+  if ("neighborhood" in entry.match) {
+    const v = entry.match.neighborhood ?? "";
+    return (p.neighborhood ?? "").trim() === v || p.location.toLowerCase().includes(v.toLowerCase());
+  }
+  const city = entry.match.city ?? "";
+  return (
+    propertyCanonicalCity(p).toLowerCase() === city.toLowerCase() ||
+    (p.city ?? "").trim().toLowerCase() === city.toLowerCase() ||
+    p.location.toLowerCase().includes(city.toLowerCase())
+  );
+}
+
+function matchesAmenitySelection(p: DbProperty, keys: AmenityFilterKey[], extra: FiltersState["amenityExtra"]): boolean {
+  if (extra.nearSchools && !p.near_schools) return false;
+  if (extra.familyFriendly && !p.family_friendly) return false;
+  if (keys.length === 0) return true;
+  const text = propertyMarketingText(p);
+  for (const k of keys) {
+    if (k === "pet") {
+      if (!p.pet_friendly && !/\bpet[\s-]?friendly\b/i.test(text)) return false;
+    } else if (!AMENITY_KEYWORD[k].test(text)) return false;
+  }
+  return true;
+}
+
+function formatPesoInputLong(n: number): string {
+  if (!Number.isFinite(n)) return "₱ 0";
+  return `₱ ${Math.round(n).toLocaleString("en-PH")}`;
 }
 
 export type { PropertyEngagement } from "@/hooks/use-property-engagement";
@@ -1089,7 +1236,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   >([]);
   const [locationCuratedLoading, setLocationCuratedLoading] = useState(false);
   const [showMoreCategories, setShowMoreCategories] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [filters, setFilters] = useState<FiltersState>({
     minPrice: 0,
@@ -1097,6 +1245,14 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     beds: "any",
     baths: "any",
     propertyType: "any",
+    homePropertyKind: "any",
+    transactionType: "any",
+    furnishing: "any",
+    floorAreaMin: "",
+    floorAreaMax: "",
+    locationLabel: null,
+    amenities: [],
+    amenityExtra: { nearSchools: false, familyFriendly: false },
   });
   const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
   const [zoomProperty, setZoomProperty] = useState<DbProperty | null>(null);
@@ -1614,11 +1770,12 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           if (p.baths < 4) return false;
         } else if (p.baths !== filters.baths) return false;
       }
-      if (filters.propertyType !== "any") {
-        if (filters.propertyType === "Presale") {
-          if (!p.is_presale) return false;
-        } else if (inferredType(p) !== filters.propertyType) return false;
-      }
+      if (!matchesHomePropertyKind(p, filters.homePropertyKind)) return false;
+      if (!matchesTransactionFilter(p, filters.transactionType)) return false;
+      if (!matchesFurnishingFilter(p, filters.furnishing)) return false;
+      if (!matchesFloorAreaFilter(p, filters.floorAreaMin, filters.floorAreaMax)) return false;
+      if (filters.locationLabel && !propertyMatchesFeaturedLocationByLabel(p, filters.locationLabel)) return false;
+      if (!matchesAmenitySelection(p, filters.amenities, filters.amenityExtra)) return false;
       return true;
     });
   }, [baseModeProperties, filters, mode]);
@@ -1994,7 +2151,14 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const hasActiveSearchOrFilters = useMemo(() => {
     if (search.trim().length > 0 || neighborhoodFilter !== null) return true;
     if (filters.minPrice !== 0 || filters.maxPrice !== HOMEPAGE_FILTER_MAX_PRICE) return true;
-    if (filters.beds !== "any" || filters.baths !== "any" || filters.propertyType !== "any") return true;
+    if (filters.beds !== "any" || filters.baths !== "any") return true;
+    if (filters.homePropertyKind !== "any") return true;
+    if (filters.transactionType !== "any") return true;
+    if (filters.furnishing !== "any") return true;
+    if (filters.floorAreaMin.trim() || filters.floorAreaMax.trim()) return true;
+    if (filters.locationLabel) return true;
+    if (filters.amenities.length > 0) return true;
+    if (filters.amenityExtra.nearSchools || filters.amenityExtra.familyFriendly) return true;
     if (sortMode !== "newest") return true;
     return false;
   }, [search, neighborhoodFilter, filters, sortMode]);
@@ -2009,7 +2173,16 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       beds: "any",
       baths: "any",
       propertyType: "any",
+      homePropertyKind: "any",
+      transactionType: "any",
+      furnishing: "any",
+      floorAreaMin: "",
+      floorAreaMax: "",
+      locationLabel: null,
+      amenities: [],
+      amenityExtra: { nearSchools: false, familyFriendly: false },
     });
+    setAmenitiesExpanded(false);
     setSortMode("newest");
     router.replace(mode === "buy" ? "/buy" : "/", { scroll: false });
   };
@@ -2375,7 +2548,17 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     clearPrice: () => setFilters((s) => ({ ...s, minPrice: 0, maxPrice: HOMEPAGE_FILTER_MAX_PRICE })),
                     clearBeds: () => setFilters((s) => ({ ...s, beds: "any" })),
                     clearBaths: () => setFilters((s) => ({ ...s, baths: "any" })),
-                    clearType: () => setFilters((s) => ({ ...s, propertyType: "any" })),
+                    clearKind: () => setFilters((s) => ({ ...s, homePropertyKind: "any", propertyType: "any" })),
+                    clearTransaction: () => setFilters((s) => ({ ...s, transactionType: "any" })),
+                    clearFurnishing: () => setFilters((s) => ({ ...s, furnishing: "any" })),
+                    clearFloor: () => setFilters((s) => ({ ...s, floorAreaMin: "", floorAreaMax: "" })),
+                    clearLocation: () => setFilters((s) => ({ ...s, locationLabel: null })),
+                    clearAmenities: () =>
+                      setFilters((s) => ({
+                        ...s,
+                        amenities: [],
+                        amenityExtra: { nearSchools: false, familyFriendly: false },
+                      })),
                     clearSort: () => setSortMode("newest"),
                   }).map((chip) => (
                     <button
@@ -2399,14 +2582,19 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   ) : null}
                 </div>
 
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <div className="mt-3 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <button
                     type="button"
                     onClick={() => setFiltersOpen((v) => !v)}
-                    className="relative inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50"
+                    className={cn(
+                      "relative inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold shadow-sm transition hover:bg-neutral-50 sm:w-auto",
+                      filtersOpen
+                        ? "border border-black/10 text-[#2C2C2C]/80"
+                        : "border-2 border-[#6B9E6E] text-[#6B9E6E]",
+                    )}
                   >
                     <Filter className="h-4 w-4" />
-                    Filters
+                    {filtersOpen ? "Hide Filters" : "Filters"}
                     {countActiveFilters(filters, sortMode) > 0 ? (
                       <span className="absolute right-2.5 top-2 h-2 w-2 rounded-full bg-[#6B9E6E]" aria-hidden />
                     ) : null}
@@ -2415,7 +2603,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   <select
                     value={sortMode}
                     onChange={(e) => setSortMode(e.target.value as SortMode)}
-                    className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50 focus-visible:outline-none"
+                    className="w-full rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50 focus-visible:outline-none sm:w-auto"
                     aria-label="Sort"
                   >
                     <option value="newest">Newest</option>
@@ -2434,30 +2622,16 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.18 }}
-                    className="mt-4 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm"
+                    className="mt-4 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm sm:p-6"
                   >
-                    {neighborhoodFilter ? (
-                      <div className="mb-4 flex flex-wrap items-center justify-end gap-2 border-b border-[#2C2C2C]/10 pb-3">
-                        <label htmlFor="listings-sort-city" className="sr-only">
-                          Sort listings
-                        </label>
-                        <select
-                          id="listings-sort-city"
-                          value={sortMode}
-                          onChange={(e) => setSortMode(e.target.value as SortMode)}
-                          className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50 focus-visible:outline-none"
-                          aria-label="Sort"
-                        >
-                          <option value="newest">Newest</option>
-                          <option value="price_low">Price Low-High</option>
-                          <option value="price_high">Price High-Low</option>
-                          <option value="most_beds">Most Beds</option>
-                        </select>
-                      </div>
-                    ) : null}
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Price range</p>
-                      <div className="mt-2 max-w-xl">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">
+                        Price range{" "}
+                        <span className="font-bold text-[#2C2C2C]/80">
+                          {formatPesoInputLong(filters.minPrice)} – {formatPesoInputLong(filters.maxPrice)}
+                        </span>
+                      </p>
+                      <div className="mt-3 max-w-3xl">
                         <HomepageFilterDualPriceSlider
                           minPrice={filters.minPrice}
                           maxPrice={filters.maxPrice}
@@ -2466,10 +2640,75 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       </div>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap items-end gap-x-5 gap-y-3">
+                    <div className="mt-7">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">
+                        Property type
+                      </p>
+                      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+                        {(
+                          [
+                            ["any", LayoutGrid, "Any"] as const,
+                            ["condo", Building2, "Condo"] as const,
+                            ["house", Home, "House"] as const,
+                            ["townhouse", Landmark, "Townhouse"] as const,
+                            ["lot", MapPin, "Lot"] as const,
+                          ] as const
+                        ).map(([kind, Icon, label]) => {
+                          const k = kind as HomePropertyKind;
+                          const on = filters.homePropertyKind === k;
+                          return (
+                            <button
+                              key={kind}
+                              type="button"
+                              onClick={() =>
+                                setFilters((s) => ({
+                                  ...s,
+                                  homePropertyKind: k,
+                                  propertyType: "any",
+                                }))
+                              }
+                              className={homePropertyKindChipClass(on)}
+                            >
+                              <Icon className={cn("h-5 w-5", on ? "text-[#6B9E6E]" : "text-[#2C2C2C]/40")} aria-hidden />
+                              <span>{label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="mt-7">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">
+                        Transaction type
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(
+                          [
+                            ["any", "Any"],
+                            ["for_rent", "For Rent"],
+                            ["for_sale", "For Sale"],
+                          ] as const
+                        ).map(([val, label]) => {
+                          const v = val as TransactionFilter;
+                          const on = filters.transactionType === v;
+                          return (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => setFilters((s) => ({ ...s, transactionType: v }))}
+                              className={transactionPillClass(on)}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="mt-7 grid gap-6 sm:grid-cols-2">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Beds</p>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">Bedrooms</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
                           {(
                             [
                               ["any", "Any"],
@@ -2488,7 +2727,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                                   beds: (val === "any" ? "any" : Number(val)) as FiltersState["beds"],
                                 }))
                               }
-                              className={filterPillClass(
+                              className={filterBedBathPill(
                                 val === "any" ? filters.beds === "any" : filters.beds === Number(val),
                               )}
                             >
@@ -2498,8 +2737,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         </div>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Baths</p>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">Bathrooms</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
                           {(
                             [
                               ["any", "Any"],
@@ -2518,7 +2757,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                                   baths: (val === "any" ? "any" : Number(val)) as FiltersState["baths"],
                                 }))
                               }
-                              className={filterPillClass(
+                              className={filterBedBathPill(
                                 val === "any" ? filters.baths === "any" : filters.baths === Number(val),
                               )}
                             >
@@ -2527,27 +2766,185 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           ))}
                         </div>
                       </div>
-                      <div className="min-w-[min(100%,12rem)] flex-1">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Type</p>
+                    </div>
+
+                    <div className="mt-7 grid gap-6 md:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">Furnishing</p>
                         <select
-                          value={filters.propertyType}
+                          value={filters.furnishing}
                           onChange={(e) =>
-                            setFilters((s) => ({
-                              ...s,
-                              propertyType: e.target.value as FiltersState["propertyType"],
-                            }))
+                            setFilters((s) => ({ ...s, furnishing: e.target.value as FurnishingFilter }))
                           }
-                          className="mt-2 w-full rounded-xl border border-black/10 bg-neutral-50 px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80"
+                          className="mt-3 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85"
+                          aria-label="Furnishing"
                         >
                           <option value="any">Any</option>
-                          <option value="House">House</option>
-                          <option value="Condo">Condo</option>
-                          <option value="Villa">Villa</option>
-                          <option value="Land">Land</option>
-                          <option value="Studio">Studio</option>
-                          <option value="Presale">Presale</option>
+                          <option value="furnished">Furnished</option>
+                          <option value="semi">Semi-furnished</option>
+                          <option value="unfurnished">Unfurnished</option>
                         </select>
                       </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">
+                          Floor area (sqm)
+                        </p>
+                        <div className="mt-3 flex gap-2">
+                          <input
+                            value={filters.floorAreaMin}
+                            onChange={(e) =>
+                              setFilters((s) => ({ ...s, floorAreaMin: e.target.value.replace(/[^\d]/g, "") }))
+                            }
+                            placeholder="Min"
+                            className="w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 placeholder:text-[#2C2C2C]/35"
+                            inputMode="numeric"
+                            aria-label="Minimum floor area"
+                          />
+                          <input
+                            value={filters.floorAreaMax}
+                            onChange={(e) =>
+                              setFilters((s) => ({ ...s, floorAreaMax: e.target.value.replace(/[^\d]/g, "") }))
+                            }
+                            placeholder="Max"
+                            className="w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 placeholder:text-[#2C2C2C]/35"
+                            inputMode="numeric"
+                            aria-label="Maximum floor area"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-7">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">Location</p>
+                      <select
+                        value={filters.locationLabel ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setFilters((s) => ({ ...s, locationLabel: v ? v : null }));
+                        }}
+                        className="mt-3 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85"
+                        aria-label="Filter by location"
+                      >
+                        <option value="">Any location</option>
+                        {FEATURED_LOCATIONS.map((loc) => (
+                          <option key={loc.label} value={loc.label}>
+                            {loc.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="mt-7">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">Amenities</p>
+                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+                        {(
+                          [
+                            ["parking", Car, "Parking"],
+                            ["pool", Waves, "Pool"],
+                            ["gym", Activity, "Gym"],
+                            ["aircon", Wind, "Aircon"],
+                            ["balcony", Columns, "Balcony"],
+                            ["elevator", ChevronsUp, "Elevator"],
+                            ["pet", PawPrint, "Pet friendly"],
+                          ] as const
+                        ).map(([key, Icon, label]) => {
+                          const k = key as AmenityFilterKey;
+                          const checked = filters.amenities.includes(k);
+                          return (
+                            <label
+                              key={k}
+                              className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-[#2C2C2C]/75"
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-black/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                                checked={checked}
+                                onChange={() =>
+                                  setFilters((s) => ({
+                                    ...s,
+                                    amenities: s.amenities.includes(k)
+                                      ? s.amenities.filter((x) => x !== k)
+                                      : [...s.amenities, k],
+                                  }))
+                                }
+                              />
+                              <Icon className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
+                              {label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setAmenitiesExpanded((e) => !e)}
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#6B9E6E] hover:underline"
+                      >
+                        {amenitiesExpanded ? "Show less" : "Show more"}
+                        <ArrowDown
+                          className={cn("h-3.5 w-3.5 transition", amenitiesExpanded && "rotate-180")}
+                          aria-hidden
+                        />
+                      </button>
+                      {amenitiesExpanded ? (
+                        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 border-t border-[#2C2C2C]/8 pt-3">
+                          <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-[#2C2C2C]/75">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-black/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                              checked={filters.amenityExtra.nearSchools}
+                              onChange={(e) =>
+                                setFilters((s) => ({
+                                  ...s,
+                                  amenityExtra: { ...s.amenityExtra, nearSchools: e.target.checked },
+                                }))
+                              }
+                            />
+                            Near schools
+                          </label>
+                          <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-[#2C2C2C]/75">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-black/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                              checked={filters.amenityExtra.familyFriendly}
+                              onChange={(e) =>
+                                setFilters((s) => ({
+                                  ...s,
+                                  amenityExtra: { ...s.amenityExtra, familyFriendly: e.target.checked },
+                                }))
+                              }
+                            />
+                            Family friendly
+                          </label>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-[#2C2C2C]/10 pt-5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFilters({
+                            minPrice: 0,
+                            maxPrice: HOMEPAGE_FILTER_MAX_PRICE,
+                            beds: "any",
+                            baths: "any",
+                            propertyType: "any",
+                            homePropertyKind: "any",
+                            transactionType: "any",
+                            furnishing: "any",
+                            floorAreaMin: "",
+                            floorAreaMax: "",
+                            locationLabel: null,
+                            amenities: [],
+                            amenityExtra: { nearSchools: false, familyFriendly: false },
+                          });
+                          setAmenitiesExpanded(false);
+                          setSortMode("newest");
+                        }}
+                        className="text-sm font-semibold text-[#6B9E6E] hover:underline"
+                      >
+                        Clear all
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -2555,13 +2952,15 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             setListingViewMode(
                               isFeaturedCityNeighborhoodKey(neighborhoodFilter) ? "browse" : "results",
                             );
-                            setFiltersOpen(false);
                           }
+                          setFiltersOpen(false);
+                          requestAnimationFrame(() => {
+                            document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          });
                         }}
-                        disabled={!hasActiveSearchOrFilters}
-                        className="ml-auto shrink-0 rounded-full bg-[#6B9E6E] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-45"
+                        className="inline-flex min-w-[8.5rem] items-center justify-center rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5d8a60]"
                       >
-                        Apply
+                        Apply filters
                       </button>
                     </div>
                   </motion.div>
@@ -3566,6 +3965,29 @@ function filterPillClass(selected: boolean): string {
   );
 }
 
+function filterBedBathPill(selected: boolean): string {
+  return cn(
+    "flex h-9 min-w-[2.25rem] items-center justify-center rounded-full px-2.5 text-xs font-semibold transition",
+    selected ? "bg-[#6B9E6E] text-white shadow-sm" : "border border-black/12 bg-[#F3F1EC] text-[#2C2C2C]/78",
+  );
+}
+
+function homePropertyKindChipClass(selected: boolean): string {
+  return cn(
+    "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl border px-1 py-2.5 text-[10px] font-semibold transition sm:gap-1.5 sm:px-2 sm:text-[11px]",
+    selected
+      ? "border-[#6B9E6E] bg-[#6B9E6E]/10 text-[#6B9E6E]"
+      : "border-black/10 bg-white text-[#2C2C2C]/65 hover:border-[#6B9E6E]/30",
+  );
+}
+
+function transactionPillClass(selected: boolean): string {
+  return cn(
+    "rounded-full px-4 py-2 text-xs font-semibold transition ring-1",
+    selected ? "bg-white text-[#6B9E6E] ring-[#6B9E6E]" : "bg-[#FAF8F4] text-[#2C2C2C]/55 ring-black/10",
+  );
+}
+
 function HomepageFilterDualPriceSlider({
   minPrice,
   maxPrice,
@@ -3639,6 +4061,47 @@ function HomepageFilterDualPriceSlider({
           className={cn(rangeBase, active === "max" ? "z-[36]" : "z-[32]")}
         />
       </div>
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#2C2C2C]/40">
+            Min
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={formatPesoInputLong(minPrice)}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/[^\d]/g, "");
+              const n = digits ? Number(digits) : 0;
+              if (!Number.isFinite(n)) return;
+              onChange({ minPrice: Math.min(Math.max(0, n), maxPrice), maxPrice });
+            }}
+            className="w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]/85"
+            aria-label="Minimum price (pesos)"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#2C2C2C]/40">
+            Max
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={formatPesoInputLong(maxPrice)}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/[^\d]/g, "");
+              const n = digits ? Number(digits) : HOMEPAGE_FILTER_MAX_PRICE;
+              if (!Number.isFinite(n)) return;
+              onChange({
+                minPrice,
+                maxPrice: Math.max(Math.min(HOMEPAGE_FILTER_MAX_PRICE, n), minPrice),
+              });
+            }}
+            className="w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]/85"
+            aria-label="Maximum price (pesos)"
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -3648,7 +4111,14 @@ function countActiveFilters(filters: FiltersState, sortMode: SortMode): number {
   if (filters.minPrice !== 0 || filters.maxPrice !== HOMEPAGE_FILTER_MAX_PRICE) n++;
   if (filters.beds !== "any") n++;
   if (filters.baths !== "any") n++;
-  if (filters.propertyType !== "any") n++;
+  if (filters.homePropertyKind !== "any") n++;
+  if (filters.transactionType !== "any") n++;
+  if (filters.furnishing !== "any") n++;
+  if (filters.floorAreaMin.trim() || filters.floorAreaMax.trim()) n++;
+  if (filters.locationLabel) n++;
+  if (filters.amenities.length > 0) n++;
+  if (filters.amenityExtra.nearSchools) n++;
+  if (filters.amenityExtra.familyFriendly) n++;
   if (sortMode !== "newest") n++;
   return n;
 }
@@ -3660,7 +4130,12 @@ function activeFilterChips(
     clearPrice: () => void;
     clearBeds: () => void;
     clearBaths: () => void;
-    clearType: () => void;
+    clearKind: () => void;
+    clearTransaction: () => void;
+    clearFurnishing: () => void;
+    clearFloor: () => void;
+    clearLocation: () => void;
+    clearAmenities: () => void;
     clearSort: () => void;
   },
 ) {
@@ -3678,8 +4153,52 @@ function activeFilterChips(
   if (filters.baths !== "any") {
     chips.push({ key: "baths", label: `Baths ${filters.baths === 4 ? "4+" : filters.baths}`, onRemove: actions.clearBaths });
   }
-  if (filters.propertyType !== "any") {
-    chips.push({ key: "type", label: `Type ${filters.propertyType}`, onRemove: actions.clearType });
+  if (filters.homePropertyKind !== "any") {
+    const k = filters.homePropertyKind;
+    const t =
+      k === "condo"
+        ? "Condo"
+        : k === "house"
+          ? "House"
+          : k === "townhouse"
+            ? "Townhouse"
+            : "Lot";
+    chips.push({
+      key: "kind",
+      label: `Type ${t}`,
+      onRemove: actions.clearKind,
+    });
+  }
+  if (filters.transactionType !== "any") {
+    chips.push({
+      key: "tx",
+      label: filters.transactionType === "for_rent" ? "Rent" : "Sale",
+      onRemove: actions.clearTransaction,
+    });
+  }
+  if (filters.furnishing !== "any") {
+    chips.push({
+      key: "furnish",
+      label: `Furnishing ${filters.furnishing}`,
+      onRemove: actions.clearFurnishing,
+    });
+  }
+  if (filters.floorAreaMin.trim() || filters.floorAreaMax.trim()) {
+    chips.push({
+      key: "sqm",
+      label: `Area ${filters.floorAreaMin || "—"}–${filters.floorAreaMax || "—"} sqm`,
+      onRemove: actions.clearFloor,
+    });
+  }
+  if (filters.locationLabel) {
+    chips.push({ key: "loc", label: filters.locationLabel, onRemove: actions.clearLocation });
+  }
+  if (filters.amenities.length > 0 || filters.amenityExtra.nearSchools || filters.amenityExtra.familyFriendly) {
+    chips.push({
+      key: "amen",
+      label: `Amenities (${filters.amenities.length + (filters.amenityExtra.nearSchools ? 1 : 0) + (filters.amenityExtra.familyFriendly ? 1 : 0)})`,
+      onRemove: actions.clearAmenities,
+    });
   }
   if (sortMode !== "newest") {
     const label =
