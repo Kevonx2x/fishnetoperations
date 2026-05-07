@@ -116,6 +116,14 @@ function LoginForm() {
             className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
           />
         </label>
+        <div className="-mt-2">
+          <Link
+            href="/auth/forgot-password"
+            className="text-[13px] font-semibold text-[#6B9E6E] hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
         {(error || showOauthError) && (
           <p className="text-sm text-red-600">
             {error ||
@@ -130,11 +138,6 @@ function LoginForm() {
           {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>
-      <p className="mt-6 text-center text-sm text-gray-500">
-        <Link href="/auth/forgot-password" className="underline hover:text-gray-800">
-          Forgot password?
-        </Link>
-      </p>
       <p className="mt-3 text-center text-sm text-gray-500">
         No account?{" "}
         <Link href="/auth/signup" className="font-medium text-gray-900 underline">

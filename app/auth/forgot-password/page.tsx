@@ -2,20 +2,19 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function ForgotPasswordPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setMessage("");
     setBusy(true);
     try {
       const origin =
@@ -25,9 +24,7 @@ export default function ForgotPasswordPage() {
         { redirectTo: `${origin}/auth/reset-password` },
       );
       if (err) throw err;
-      setMessage(
-        "If an account exists for that email, we sent a link to reset your password.",
-      );
+      toast.success("Check your email for a reset link");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");
     }
@@ -51,9 +48,6 @@ export default function ForgotPasswordPage() {
             className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
           />
         </label>
-        {message && (
-          <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{message}</p>
-        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"

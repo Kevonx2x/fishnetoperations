@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -30,8 +31,8 @@ export default function ResetPasswordPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
       return;
     }
     if (password !== confirm) {
@@ -42,7 +43,8 @@ export default function ResetPasswordPage() {
     try {
       const { error: err } = await supabase.auth.updateUser({ password });
       if (err) throw err;
-      router.replace("/auth/login");
+      toast.success("Password updated");
+      router.replace("/dashboard");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update password");
@@ -68,7 +70,7 @@ export default function ResetPasswordPage() {
               type="password"
               autoComplete="new-password"
               required
-              minLength={6}
+              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
@@ -80,7 +82,7 @@ export default function ResetPasswordPage() {
               type="password"
               autoComplete="new-password"
               required
-              minLength={6}
+              minLength={8}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
