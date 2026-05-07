@@ -67,18 +67,32 @@ export async function POST(request: NextRequest) {
     const emailTrim = parsed.data.email.trim();
     const nameTrim = parsed.data.name.trim();
 
-    const { error: profileErr } = await supabase.rpc("ensure_agent_profile", {
-      p_id: userData.user.id,
-      p_email: emailTrim,
-      p_full_name: nameTrim,
-    });
-    if (profileErr) {
-      return fail("DATABASE_ERROR", profileErr.message, 500);
+    const { data: existingProfile, error: profErr } = await supabase
+      .from("profiles")
+      .select("full_name, avatar_url")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    if (profErr) {
+      return fail("DATABASE_ERROR", profErr.message, 500);
+    }
+    const existingFullName = String((existingProfile as { full_name?: string | null } | null)?.full_name ?? "").trim();
+    const existingAvatar = String((existingProfile as { avatar_url?: string | null } | null)?.avatar_url ?? "").trim();
+
+    // If the user already has a client profile with identity fields set, do not overwrite them.
+    if (!(existingFullName && existingAvatar)) {
+      const { error: profileErr } = await supabase.rpc("ensure_agent_profile", {
+        p_id: userData.user.id,
+        p_email: emailTrim,
+        p_full_name: nameTrim,
+      });
+      if (profileErr) {
+        return fail("DATABASE_ERROR", profileErr.message, 500);
+      }
     }
 
     const row = {
       user_id: userData.user.id,
-      name: nameTrim,
+      name: existingFullName || nameTrim,
       license_number: parsed.data.license_number,
       license_expiry: parsed.data.license_expiry?.trim() || null,
       phone: parsed.data.phone?.trim() || null,

@@ -232,6 +232,7 @@ function normalizeApprovedBrokerRows(raw: unknown): ApprovedBroker[] {
 type FieldErrors = Partial<
   Record<
     | "name"
+    | "avatar"
     | "email"
     | "password"
     | "confirmPassword"
@@ -353,6 +354,9 @@ export default function RegisterAgentPage() {
   const [authFieldErrors, setAuthFieldErrors] = useState<FieldErrors>({});
 
   const [name, setName] = useState("");
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const [profileNameLocked, setProfileNameLocked] = useState(false);
+  const [profilePhotoLocked, setProfilePhotoLocked] = useState(false);
   const [licenseNumber, setLicenseNumber] = useState("");
   const [licenseExpiry, setLicenseExpiry] = useState("");
   const [phone, setPhone] = useState("");
@@ -375,6 +379,32 @@ export default function RegisterAgentPage() {
     setSessionReady(!!session);
     if (session?.user?.email) {
       setRegEmail((prev) => prev || session.user.email || "");
+    }
+    if (session?.user?.id) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name, avatar_url")
+        .eq("id", session.user.id)
+        .maybeSingle();
+      const fullName = String((prof as { full_name?: string | null } | null)?.full_name ?? "").trim();
+      const avatarUrl = String((prof as { avatar_url?: string | null } | null)?.avatar_url ?? "").trim();
+      if (fullName) {
+        setName(fullName);
+        setProfileNameLocked(true);
+      } else {
+        setProfileNameLocked(false);
+      }
+      if (avatarUrl) {
+        setProfileAvatarUrl(avatarUrl);
+        setProfilePhotoLocked(true);
+      } else {
+        setProfileAvatarUrl(null);
+        setProfilePhotoLocked(false);
+      }
+    } else {
+      setProfileAvatarUrl(null);
+      setProfileNameLocked(false);
+      setProfilePhotoLocked(false);
     }
   };
 
@@ -808,15 +838,35 @@ export default function RegisterAgentPage() {
             </div>
             <form onSubmit={handleRegister} className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6">
               <h2 className="text-sm font-semibold text-gray-900">Agent details</h2>
+              {profilePhotoLocked && profileAvatarUrl ? (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                  <p className="text-xs font-medium text-gray-500">Profile photo</p>
+                  <div className="mt-2 flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={profileAvatarUrl}
+                      alt=""
+                      className="h-12 w-12 rounded-full object-cover ring-1 ring-black/10 opacity-70"
+                    />
+                    <p className="text-xs text-gray-500">Photo is from your client profile.</p>
+                  </div>
+                </div>
+              ) : null}
               <div>
                 <label className="block text-xs font-medium text-gray-500">
                   Full name
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
+                    disabled={profileNameLocked}
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-gray-400 ${
+                      profileNameLocked ? "border-gray-200 bg-gray-100 text-gray-500" : "border-gray-200 bg-white"
+                    }`}
                   />
                 </label>
+                {profileNameLocked ? (
+                  <p className="mt-1 text-xs text-gray-500">Update name in Profile settings</p>
+                ) : null}
                 {detailErrors.name ? <p className="mt-1 text-sm text-red-600">{detailErrors.name}</p> : null}
               </div>
               <PrcLicenseInput
