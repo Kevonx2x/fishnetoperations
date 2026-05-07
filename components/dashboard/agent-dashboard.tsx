@@ -16,6 +16,7 @@ import {
   Eye,
   GitBranch,
   House,
+  Info,
   LayoutList,
   Loader2,
   MessageSquare,
@@ -182,6 +183,7 @@ type AgentRow = {
 
 type LeadRow = {
   id: number;
+  is_demo?: boolean | null;
   name: string;
   email: string;
   phone: string | null;
@@ -292,6 +294,8 @@ type PropertyRow = {
   lng?: number | null;
   formatted_address?: string | null;
   place_id?: string | null;
+  /** Tutorial seed listing; excluded from marketplace. */
+  is_demo?: boolean | null;
 };
 
 const EDIT_PROPERTY_TYPES = [
@@ -824,7 +828,7 @@ export function AgentDashboard() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchQueryString = searchParams.toString();
-  const { user, loading: authLoading, role: authProfileRole } = useAuth();
+  const { user, profile, loading: authLoading, role: authProfileRole } = useAuth();
   const streamMessagesUnreadTotal = useUnreadMessageCount();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const agentViewingsRefetchRef = useRef<(() => Promise<void>) | null>(null);
@@ -1024,6 +1028,8 @@ export function AgentDashboard() {
   /** Bumps when a new edit open starts or the edit modal closes, so stale photo fetches cannot apply the wrong listing's images. */
   const editListingPhotosLoadIdRef = useRef(0);
   const [propertiesLoadVersion, setPropertiesLoadVersion] = useState(0);
+  const sampleSeedAttemptedRef = useRef(false);
+  const [removeSampleBusy, setRemoveSampleBusy] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
@@ -1091,7 +1097,7 @@ export function AgentDashboard() {
       if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
         const supervisorUserId = (a as AgentRow).user_id;
         const leadSel =
-          "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at";
+          "id, is_demo, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at";
         const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
         const [{ data: ld }, { data: ldArchived }, unreadRes, pipelineUnreadRes] = await Promise.all([
           supabase
@@ -1255,7 +1261,7 @@ export function AgentDashboard() {
 
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
       const leadSel =
-        "id, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at";
+        "id, is_demo, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at";
       const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
       const [{ data: ld }, { data: ldArchived }, { data: owned }, { data: paRows }, vwRes, viewsRes, unreadRes, pipelineUnreadRes] =
         await Promise.all([
@@ -1275,7 +1281,7 @@ export function AgentDashboard() {
         supabase
           .from("properties")
           .select(
-            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng, formatted_address, place_id",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng, formatted_address, place_id, is_demo",
           )
           .eq("listed_by", user.id)
           .order("created_at", { ascending: false }),
@@ -1434,6 +1440,7 @@ export function AgentDashboard() {
           lng: typeof p.lng === "number" ? p.lng : p.lng != null ? Number(p.lng) : null,
           formatted_address: (p.formatted_address as string | null) ?? null,
           place_id: (p.place_id as string | null) ?? null,
+          is_demo: Boolean(p.is_demo),
         };
       });
       const ownedIds = new Set(ownedList.map((p) => p.id));
@@ -1446,7 +1453,7 @@ export function AgentDashboard() {
         const { data: co } = await supabase
           .from("properties")
           .select(
-            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng, formatted_address, place_id",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng, formatted_address, place_id, is_demo",
           )
           .in("id", coIds)
           .order("created_at", { ascending: false });
@@ -1491,6 +1498,7 @@ export function AgentDashboard() {
             lng: typeof p.lng === "number" ? p.lng : p.lng != null ? Number(p.lng) : null,
             formatted_address: (p.formatted_address as string | null) ?? null,
             place_id: (p.place_id as string | null) ?? null,
+            is_demo: Boolean(p.is_demo),
           };
         });
       }
@@ -1556,6 +1564,50 @@ export function AgentDashboard() {
 
   const identityVerified = agent?.verification_status === "verified";
   const isTeamMemberView = sessionDashboardKind === "team_member";
+
+  const hasTutorialDemoData = useMemo(
+    () => properties.some((p) => p.is_demo) || leads.some((l) => Boolean(l.is_demo)),
+    [properties, leads],
+  );
+
+  useEffect(() => {
+    if (!loaded || isTeamMemberView) return;
+    if (!identityVerified || !agent) return;
+    if (profile?.tutorial_completed === true) return;
+    if (properties.length > 0) return;
+    if (propertiesLoadVersion <= 0) return;
+    if (sampleSeedAttemptedRef.current) return;
+    sampleSeedAttemptedRef.current = true;
+    void (async () => {
+      await fetch("/api/agent/seed-sample-data", { method: "POST", credentials: "include" }).catch(() => null);
+      await loadData();
+    })();
+  }, [
+    loaded,
+    isTeamMemberView,
+    identityVerified,
+    agent,
+    profile?.tutorial_completed,
+    properties.length,
+    propertiesLoadVersion,
+    loadData,
+  ]);
+
+  const removeTutorialSampleData = useCallback(async () => {
+    setRemoveSampleBusy(true);
+    try {
+      const res = await fetch("/api/agent/remove-sample-data", { method: "POST", credentials: "include" });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        toast.error(json.error ?? "Could not remove sample data", { duration: 5000 });
+        return;
+      }
+      router.refresh();
+      await loadData();
+    } finally {
+      setRemoveSampleBusy(false);
+    }
+  }, [router, loadData]);
 
   useEffect(() => {
     if (!agent?.user_id || isTeamMemberView) return;
@@ -2370,6 +2422,25 @@ export function AgentDashboard() {
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0">
+      {hasTutorialDemoData && !isTeamMemberView ? (
+        <div
+          role="note"
+          className="flex shrink-0 items-center justify-between gap-3 border-l-4 border-[#D4A843] bg-[#D4A843]/10 px-3 py-3 text-sm font-semibold text-[#2C2C2C] md:px-4"
+        >
+          <div className="flex min-w-0 items-start gap-2">
+            <Info className="mt-0.5 h-5 w-5 shrink-0 text-[#B8942E]" aria-hidden />
+            <p className="min-w-0 leading-snug">These are sample listings to help you explore. Remove anytime.</p>
+          </div>
+          <button
+            type="button"
+            disabled={removeSampleBusy}
+            onClick={() => void removeTutorialSampleData()}
+            className="shrink-0 rounded-full border border-[#6B9E6E] bg-transparent px-3 py-1 text-xs font-bold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/10 disabled:opacity-50"
+          >
+            {removeSampleBusy ? "Removing…" : "Remove sample data"}
+          </button>
+        </div>
+      ) : null}
       <AgentViewingsProvider
         agentUserId={viewingsAgentUserId}
         supabase={supabase}

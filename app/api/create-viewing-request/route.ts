@@ -355,13 +355,16 @@ export async function POST(req: Request) {
     if (propertyId) {
       const { data: propCheck, error: propCheckErr } = await admin
         .from("properties")
-        .select("id, deleted_at, availability_state")
+        .select("id, deleted_at, availability_state, is_demo")
         .eq("id", propertyId)
         .maybeSingle();
       if (propCheckErr) {
         return fail("DATABASE_ERROR", propCheckErr.message, 500);
       }
       if (!propCheck) {
+        return fail("BAD_REQUEST", "Property not found", 404);
+      }
+      if ((propCheck as { is_demo?: boolean | null }).is_demo === true) {
         return fail("BAD_REQUEST", "Property not found", 404);
       }
       if (

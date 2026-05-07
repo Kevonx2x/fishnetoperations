@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { cloudinaryPropertyPhotoDisplayUrl } from "@/lib/cloudinary-property-photo-url";
 import { propertyEngagementLooksUnavailable } from "@/lib/property-availability";
+import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
 
 export type PropertyPhoto = { url: string; sort_order: number | null };
 
@@ -19,6 +20,7 @@ export type PropertyRow = {
   deleted_at?: string | null;
   availability_state?: string | null;
   property_photos?: PropertyPhoto[] | null;
+  is_demo?: boolean | null;
 };
 
 export type SavedJoinRow = { created_at: string; properties: PropertyRow | PropertyRow[] | null };
@@ -437,6 +439,7 @@ export function useClientActivityFeed(userId: string | undefined) {
             status,
             image_url,
             deleted_at,
+            is_demo,
             property_photos (url, sort_order)
           )
         `,
@@ -457,6 +460,7 @@ export function useClientActivityFeed(userId: string | undefined) {
             status,
             image_url,
             deleted_at,
+            is_demo,
             property_photos (url, sort_order)
           )
         `,
@@ -570,17 +574,17 @@ export function useClientActivityFeed(userId: string | undefined) {
     const savedIdSet = new Set<string>();
     for (const r of (savedRes.data ?? []) as SavedJoinRow[]) {
       const p = oneProperty(r.properties);
-      if (p?.id) savedIdSet.add(p.id);
+      if (p?.id && !p.is_demo) savedIdSet.add(p.id);
     }
 
     const profileIdSetEarly = new Set<string>();
     for (const r of (savedRes.data ?? []) as SavedJoinRow[]) {
       const p = oneProperty(r.properties);
-      if (p?.id) profileIdSetEarly.add(p.id);
+      if (p?.id && !p.is_demo) profileIdSetEarly.add(p.id);
     }
     for (const r of (likesRes.data ?? []) as LikeJoinRow[]) {
       const p = oneProperty(r.properties);
-      if (p?.id) profileIdSetEarly.add(p.id);
+      if (p?.id && !p.is_demo) profileIdSetEarly.add(p.id);
     }
 
     const propertyIds = new Set<string>(profileIdSetEarly);
@@ -607,11 +611,14 @@ export function useClientActivityFeed(userId: string | undefined) {
           image_url,
           deleted_at,
           availability_state,
+          is_demo,
           property_photos (url, sort_order)
         `,
         )
-        .in("id", [...propertyIds]);
+        .in("id", [...propertyIds])
+        .or(hideTutorialDemoPropertiesOrFilter());
       for (const row of (props ?? []) as PropertyRow[]) {
+        if (row.is_demo) continue;
         propMap.set(row.id, row);
       }
     }
@@ -823,10 +830,12 @@ export function useClientActivityFeed(userId: string | undefined) {
             created_at,
             deleted_at,
             availability_state,
+            is_demo,
             property_photos (url, sort_order)
           `,
           )
           .in("id", propIdsFollow)
+          .or(hideTutorialDemoPropertiesOrFilter())
           .is("deleted_at", null)
           .eq("availability_state", "available")
           .gte("created_at", thirtyDaysAgo)
@@ -851,7 +860,7 @@ export function useClientActivityFeed(userId: string | undefined) {
 
         for (const raw of followProps ?? []) {
           const p = raw as PropertyRow;
-          if (!p.id) continue;
+          if (!p.id || p.is_demo) continue;
           const candidates = paByProp.get(p.id) ?? [];
           const chosen =
             candidates.find((c) => followedAgentIds.includes(c.agent_id)) ?? candidates[0];

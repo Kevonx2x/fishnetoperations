@@ -6,6 +6,7 @@ import { ClientAvatar } from "@/components/client/client-avatar";
 import { manilaLongDateLabelFromInstant } from "@/lib/manila-long-date";
 import { manilaTimeLabel12hFromInstant } from "@/lib/manila-datetime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
 
 function pickPropertyImageUrl(
   imageUrl: string | null | undefined,
@@ -71,8 +72,9 @@ export default async function ClientDashboardNextViewing(props: { userId: string
   const [{ data: property, error: pErr }, { data: agent, error: aErr }, { data: photos }] = await Promise.all([
     supabase
       .from("properties")
-      .select("id, name, location, city, image_url, deleted_at, availability_state")
+      .select("id, name, location, city, image_url, deleted_at, availability_state, is_demo")
       .eq("id", leadRow.property_id)
+      .or(hideTutorialDemoPropertiesOrFilter())
       .maybeSingle(),
     supabase.from("profiles").select("full_name, avatar_url").eq("id", leadRow.agent_id).maybeSingle(),
     supabase.from("property_photos").select("url, sort_order").eq("property_id", leadRow.property_id),

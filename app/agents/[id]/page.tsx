@@ -40,6 +40,7 @@ import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketpla
 import { useAuth } from "@/contexts/auth-context";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
+import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
 import {
   availabilityCardOverlayLabel,
   normalizePropertyAvailabilityState,
@@ -462,7 +463,10 @@ export default function AgentProfilePage() {
         .eq("listed_by", agentUserId)
         .or(publicListingExpiryOrFilter());
       if (!isOwnerViewer) {
-        ownedQ = ownedQ.is("deleted_at", null).eq("availability_state", "available");
+        ownedQ = ownedQ
+          .or(hideTutorialDemoPropertiesOrFilter())
+          .is("deleted_at", null)
+          .eq("availability_state", "available");
       }
 
       const [ownedRes, linksRes] = await Promise.all([
@@ -483,7 +487,10 @@ export default function AgentProfilePage() {
           .in("id", linkIds)
           .or(publicListingExpiryOrFilter());
         if (!isOwnerViewer) {
-          linkedQ = linkedQ.is("deleted_at", null).eq("availability_state", "available");
+          linkedQ = linkedQ
+            .or(hideTutorialDemoPropertiesOrFilter())
+            .is("deleted_at", null)
+            .eq("availability_state", "available");
         }
         const { data: linkedRows } = await linkedQ;
         if (cancelled) return;

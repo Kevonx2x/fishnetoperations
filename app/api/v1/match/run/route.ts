@@ -9,6 +9,7 @@ import type { PropertyRow } from "@/lib/property-match";
 import { logActivity } from "@/lib/activity-log";
 import { createSupabaseUserClient } from "@/lib/supabase-route";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
+import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
 
 /**
  * Evaluates saved searches against all properties and inserts property_matches + notifications (DB trigger).
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
       .from("properties")
       .select("id, location, price, sqft, beds, baths, image_url")
       .or(publicListingExpiryOrFilter())
+      .or(hideTutorialDemoPropertiesOrFilter())
       .is("deleted_at", null)
       .eq("availability_state", "available");
 

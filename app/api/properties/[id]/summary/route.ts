@@ -1,5 +1,6 @@
 import { ok, fail } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
+import { isAdminPanelRole } from "@/lib/auth-roles";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 
@@ -38,7 +39,7 @@ export async function GET(
   const sb = createSupabaseAdmin();
   const { data, error } = await sb
     .from("properties")
-    .select("id, name, location, price, beds, baths, sqft, image_url, deleted_at")
+    .select("id, name, location, price, beds, baths, sqft, image_url, deleted_at, is_demo, listed_by")
     .eq("id", id)
     .maybeSingle();
 
@@ -46,6 +47,15 @@ export async function GET(
     return fail("DATABASE_ERROR", error.message, 500);
   }
   if (!data?.id) {
+    return fail("NOT_FOUND", "Property not found", 404);
+  }
+
+  const row = data as { is_demo?: boolean | null; listed_by?: string | null };
+  if (
+    row.is_demo === true &&
+    !isAdminPanelRole(session.role) &&
+    row.listed_by !== session.userId
+  ) {
     return fail("NOT_FOUND", "Property not found", 404);
   }
 

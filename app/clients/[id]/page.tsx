@@ -36,6 +36,7 @@ import {
 } from "@/lib/property-availability";
 import { ReportProfileButton } from "@/components/report-profile-button";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
+import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
 import {
   filterFeedItemsByListingMode,
   filterLikeRowsByMode,
@@ -661,7 +662,8 @@ function ClientPublicProfilePageInner() {
             )
           `,
           )
-          .in("id", ids);
+          .in("id", ids)
+          .or(hideTutorialDemoPropertiesOrFilter());
 
         if (cancelled) return;
 

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { manilaCalendarAddDays, manilaDateStringFromInstant, manilaLocalDateTimeToOffsetIso } from "@/lib/manila-datetime";
+import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
 
 export type ClientDashboardViewingTodayRow = {
   scheduled_at: string;
@@ -116,7 +117,11 @@ export async function fetchClientViewingsTodayManila(
 
     const cityByProperty = new Map<string, string | null>();
     if (propertyIds.length) {
-      const { data: props, error: pErr } = await supabase.from("properties").select("id, city").in("id", propertyIds);
+      const { data: props, error: pErr } = await supabase
+        .from("properties")
+        .select("id, city")
+        .in("id", propertyIds)
+        .or(hideTutorialDemoPropertiesOrFilter());
       if (pErr) return { ok: false };
       for (const p of (props ?? []) as { id: string; city: string | null }[]) {
         cityByProperty.set(p.id, p.city ?? null);

@@ -2,6 +2,7 @@ import {
   ClientDashboardRecommendedClient,
   type RecommendedPropertyCardModel,
 } from "@/components/dashboard/client-dashboard-recommended-client";
+import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function pickPropertyImageUrl(
@@ -69,6 +70,7 @@ export default async function ClientDashboardRecommended(props: { userId: string
     .select(
       "id, created_at, name, city, location, price, beds, baths, sqft, image_url, status, deleted_at, availability_state, property_photos(url, sort_order)",
     )
+    .or(hideTutorialDemoPropertiesOrFilter())
     .eq("availability_state", "available")
     .is("deleted_at", null)
     .order("created_at", { ascending: false })

@@ -44,6 +44,7 @@ import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { cn } from "@/lib/utils";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
+import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
 import {
   availabilityCardOverlayClasses,
   availabilityCardOverlayLabel,
@@ -462,6 +463,7 @@ type AgentHomeExtra = {
   yearsExperience: number | null;
   languagesSpoken: string | null;
   serviceAreaPills: string[];
+  followersCount?: number | null;
 };
 
 function parseServiceAreasForPills(raw: string | null | undefined): string[] {
@@ -494,44 +496,39 @@ function HomeTopAgentCard({
     rawYears != null && Number.isFinite(rawYears) && rawYears >= 0 && rawYears > 0
       ? `${rawYears} ${rawYears === 1 ? "year" : "years"} experience`
       : "New agent";
-  const languagesLine = extra?.languagesSpoken?.trim() ? extra.languagesSpoken.trim() : "Not specified";
-  const closingsN =
-    typeof agent.closings === "number" && Number.isFinite(agent.closings) && agent.closings >= 0
-      ? agent.closings
-      : 0;
+  const locations = (extra?.serviceAreaPills ?? []).filter(Boolean).slice(0, 2);
+  const followersN =
+    typeof extra?.followersCount === "number" && Number.isFinite(extra.followersCount) && extra.followersCount >= 0
+      ? extra.followersCount
+      : null;
 
   return (
-    <div className="group flex min-h-[340px] w-full min-w-[160px] max-w-[300px] shrink-0 flex-col rounded-2xl border border-[#2C2C2C]/10 bg-white p-3 shadow-md transition-all duration-200 ease-in-out will-change-transform hover:-translate-y-1 hover:scale-[1.02] hover:border-[#2C2C2C]/15 hover:shadow-xl lg:w-[300px]">
+    <div className="group flex min-h-[328px] w-full min-w-[180px] max-w-[300px] shrink-0 flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white p-3 shadow-md transition-all duration-200 ease-in-out will-change-transform hover:-translate-y-1 hover:scale-[1.02] hover:border-[#2C2C2C]/15 hover:shadow-xl lg:w-[300px]">
       <div className="flex min-h-0 flex-1 flex-col items-center">
-        <div className="relative mx-auto h-14 w-14 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
-          <AgentAvatarFill name={agent.name} imageUrl={agent.image} sizes="56px" textClassName="text-base" />
+        <div className="w-full rounded-2xl bg-[#FAF8F4] px-3 py-4 text-center ring-1 ring-black/5">
+          <div className="relative mx-auto h-20 w-20 overflow-hidden rounded-full bg-white ring-2 ring-[#D4A843]/25 shadow-sm">
+            <AgentAvatarFill name={agent.name} imageUrl={agent.image} sizes="80px" textClassName="text-lg" />
+          </div>
+          <p className="mt-2 line-clamp-1 text-sm font-bold text-[#2C2C2C]">{agent.name}</p>
+          <div className="mt-1 flex items-center justify-center gap-2 text-xs tabular-nums text-[#2C2C2C]/55">
+            <span>{scoreRight ? `⭐ ${scoreRight}` : "⭐ —"}</span>
+            {agent.verified ? (
+              <span className="inline-flex h-5 items-center justify-center rounded-full bg-[#6B9E6E] px-2 text-[10px] font-semibold text-white">
+                Verified
+              </span>
+            ) : null}
+          </div>
         </div>
-        <div className="mt-2 flex w-full flex-col items-center px-0.5 text-center">
-          <p className="line-clamp-2 min-h-[2.5rem] w-full text-sm font-bold leading-snug text-[#2C2C2C]">
-            {agent.name}
+
+        <div className="mt-3 w-full space-y-1.5 px-1 text-center">
+          <p className="text-[11px] font-semibold text-[#2C2C2C]/55">
+            {followersN == null ? "— followers" : `${followersN} ${followersN === 1 ? "follower" : "followers"}`}
           </p>
-          <p className="mt-0.5 min-h-[1.25rem] text-xs tabular-nums text-gray-500">
-            {scoreRight ? `⭐ ${scoreRight}` : "⭐ —"}
+          <p className="line-clamp-1 text-[11px] font-semibold text-[#2C2C2C]/55">{experienceLine}</p>
+          <p className="line-clamp-2 min-h-[2rem] text-[11px] font-semibold leading-snug text-[#2C2C2C]/55">
+            {locations.length ? `Specializes in ${locations.join(", ")}` : "Specializes in —"}
           </p>
         </div>
-        {agent.verified ? (
-          <span className="mt-1 inline-flex h-6 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] px-2 py-0.5 text-[10px] font-semibold text-white">
-            Verified
-          </span>
-        ) : (
-          <span className="mt-1 inline-flex h-6 shrink-0 items-center justify-center rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold text-gray-600">
-            Unverified
-          </span>
-        )}
-        <p className="mt-2 min-h-[1rem] text-xs tabular-nums text-gray-500">
-          {closingsN} {closingsN === 1 ? "closing" : "closings"}
-        </p>
-        <p className="mt-1 line-clamp-2 min-h-[2.75rem] w-full text-center text-[11px] leading-snug text-gray-500">
-          {experienceLine}
-        </p>
-        <p className="mt-0.5 line-clamp-2 min-h-[2.75rem] w-full text-center text-[11px] leading-snug text-gray-500">
-          {languagesLine}
-        </p>
       </div>
       <Link
         href={`/agents/${encodeURIComponent(agent.id)}`}
@@ -941,6 +938,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       .from("properties")
       .select(selectQ)
       .or(expiryOr)
+      .or(hideTutorialDemoPropertiesOrFilter())
       .is("deleted_at", null)
       .or("availability_state.eq.available,availability_state.is.null");
     if (cityOrClause) mainQuery = mainQuery.or(cityOrClause);
@@ -951,6 +949,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       .select(selectQ)
       .eq("featured", true)
       .or(expiryOr)
+      .or(hideTutorialDemoPropertiesOrFilter())
       .is("deleted_at", null)
       .or("availability_state.eq.available,availability_state.is.null");
     if (cityOrClause) featQuery = featQuery.or(cityOrClause);
@@ -1048,6 +1047,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           .from("properties")
           .select("id", { count: "exact", head: true })
           .is("deleted_at", null)
+          .or(hideTutorialDemoPropertiesOrFilter())
           .or("availability_state.eq.available,availability_state.is.null")
           .in("status", statusIn);
         q = field === "neighborhood" ? q.eq("neighborhood", value) : q.eq("city", value);
@@ -1071,6 +1071,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         .from("properties")
         .select("property_type")
         .is("deleted_at", null)
+        .or(hideTutorialDemoPropertiesOrFilter())
         .or("availability_state.eq.available,availability_state.is.null")
         .in("status", statusIn);
       q = sel.type === "neighborhood" ? q.eq("neighborhood", sel.value) : q.eq("city", sel.value);
@@ -1128,6 +1129,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           .from("properties")
           .select(selectQ)
           .is("deleted_at", null)
+          .or(hideTutorialDemoPropertiesOrFilter())
           .or("availability_state.eq.available,availability_state.is.null")
           .in("status", [...statusIn]);
 
@@ -1466,6 +1468,37 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         .slice(0, 10),
     [agents, mergeLiveAvailability],
   );
+
+  const topAgentsKey = useMemo(() => topAgents.map((a) => a.id).join(","), [topAgents]);
+
+  useEffect(() => {
+    if (!topAgents.length) return;
+    let cancelled = false;
+    void (async () => {
+      const ids = topAgents.map((a) => a.id).filter(Boolean);
+      const rows = await Promise.all(
+        ids.map(async (agentId) => {
+          const { count, error: cErr } = await supabase
+            .from("agent_followers")
+            .select("id", { count: "exact", head: true })
+            .eq("agent_id", agentId);
+          return { agentId, count: cErr ? null : count ?? 0 };
+        }),
+      );
+      if (cancelled) return;
+      setAgentHomeExtrasById((prev) => {
+        const next = { ...prev };
+        for (const r of rows) {
+          const existing = next[r.agentId] ?? { yearsExperience: null, languagesSpoken: null, serviceAreaPills: [] };
+          next[r.agentId] = { ...existing, followersCount: r.count };
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [topAgentsKey]);
 
   const cityFilterMeta = useMemo(
     () =>

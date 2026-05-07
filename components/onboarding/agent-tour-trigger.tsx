@@ -41,19 +41,34 @@ export function AgentTourBootstrap() {
     if (pathname !== "/") return;
 
     if (useAgentTourStore.getState().pendingHelpStart) {
-      useAgentTourStore.getState().consumeHelpStart();
-      useAgentTourStore.getState().start(firstName);
-      return;
+      let cancelled = false;
+      void (async () => {
+        await fetch("/api/agent/seed-sample-data", { method: "POST", credentials: "include" }).catch(() => null);
+        if (cancelled) return;
+        useAgentTourStore.getState().consumeHelpStart();
+        useAgentTourStore.getState().start(firstName);
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
 
     if (profile.tutorial_completed !== false) return;
 
+    let timerCancelled = false;
     const t = window.setTimeout(() => {
       if (useAgentTourStore.getState().isOpen) return;
-      useAgentTourStore.getState().start(firstName);
+      void (async () => {
+        await fetch("/api/agent/seed-sample-data", { method: "POST", credentials: "include" }).catch(() => null);
+        if (timerCancelled || useAgentTourStore.getState().isOpen) return;
+        useAgentTourStore.getState().start(firstName);
+      })();
     }, 800);
 
-    return () => window.clearTimeout(t);
+    return () => {
+      timerCancelled = true;
+      window.clearTimeout(t);
+    };
   }, [loading, user?.id, profile, role, agentVerified, pathname, firstName]);
 
   return null;

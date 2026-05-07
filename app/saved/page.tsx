@@ -26,6 +26,7 @@ type PropertyCard = {
   image_url: string;
   deleted_at?: string | null;
   availability_state?: string | null;
+  is_demo?: boolean | null;
 };
 
 export default function SavedPage() {
@@ -54,14 +55,14 @@ export default function SavedPage() {
       setError(null);
       const { data, error: fetchErr } = await supabase
         .from("properties")
-        .select("id, location, price, status, beds, baths, sqft, image_url, deleted_at, availability_state")
+        .select("id, location, price, status, beds, baths, sqft, image_url, deleted_at, availability_state, is_demo")
         .in("id", ids);
       if (cancelled) return;
       if (fetchErr) {
         setError(fetchErr.message);
         setRows([]);
       } else {
-        const list = (data ?? []) as unknown as PropertyCard[];
+        const list = ((data ?? []) as unknown as PropertyCard[]).filter((p) => !p.is_demo);
         const byId = new Map(list.map((p) => [p.id, p]));
         setRows(ids.map((id) => byId.get(id)).filter(Boolean) as PropertyCard[]);
       }

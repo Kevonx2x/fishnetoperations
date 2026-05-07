@@ -14,6 +14,7 @@ import {
   Train,
 } from "lucide-react";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
+import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { NewlyListedCard } from "@/components/marketplace/fishnet-home-marketplace";
@@ -95,6 +96,7 @@ function LandmarksContent() {
         `,
       )
       .or(publicListingExpiryOrFilter())
+      .or(hideTutorialDemoPropertiesOrFilter())
       .is("deleted_at", null)
       .eq("availability_state", "available")
       .order("created_at", { ascending: false });

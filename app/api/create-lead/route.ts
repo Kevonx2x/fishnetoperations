@@ -114,10 +114,13 @@ export async function POST(req: Request) {
       if (propertyId) {
         const { data: prop } = await admin
           .from("properties")
-          .select("name, location, deleted_at")
+          .select("name, location, deleted_at, is_demo")
           .eq("id", propertyId)
           .maybeSingle();
         if (!prop) {
+          return fail("BAD_REQUEST", "Property not found", 404);
+        }
+        if ((prop as { is_demo?: boolean | null }).is_demo === true) {
           return fail("BAD_REQUEST", "Property not found", 404);
         }
         if (isPropertyListingRemoved(prop as { deleted_at?: string | null })) {
@@ -269,13 +272,16 @@ export async function POST(req: Request) {
     if (propertyId) {
       const { data: propContact, error: pcErr } = await admin
         .from("properties")
-        .select("id, deleted_at")
+        .select("id, deleted_at, is_demo")
         .eq("id", propertyId)
         .maybeSingle();
       if (pcErr) {
         return fail("DATABASE_ERROR", pcErr.message, 500);
       }
       if (!propContact) {
+        return fail("BAD_REQUEST", "Property not found", 404);
+      }
+      if ((propContact as { is_demo?: boolean | null }).is_demo === true) {
         return fail("BAD_REQUEST", "Property not found", 404);
       }
       if (isPropertyListingRemoved(propContact as { deleted_at?: string | null })) {

@@ -78,6 +78,7 @@ type PropertyRow = {
   property_photos?: { url: string; sort_order: number }[];
   availability_state?: string | null;
   deleted_at?: string | null;
+  is_demo?: boolean | null;
 };
 
 function formatPresaleTurnoverMonthYear(iso: string): string {
@@ -110,6 +111,7 @@ export default function PropertyPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
   const { user, profile, loading: authLoading } = useAuth();
+  const isAdminViewer = profile?.role === "admin" || profile?.role === "ops_admin";
 
   const [property, setProperty] = useState<PropertyRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -179,7 +181,7 @@ export default function PropertyPage() {
         .select(
           `
           id, created_at, name, location, price, rent_price, listing_type, status, sqft, beds, baths, image_url, listed_by, property_type, lat, lng, formatted_address, description,
-          is_presale, developer_name, turnover_date, unit_types, availability_state, deleted_at,
+          is_presale, developer_name, turnover_date, unit_types, availability_state, deleted_at, is_demo,
           property_photos (url, sort_order),
           listing_agent:profiles!listed_by (id, full_name, avatar_url),
           property_agents (
@@ -202,35 +204,47 @@ export default function PropertyPage() {
         setProperty(null);
       } else {
         const next = (data ?? null) as unknown as PropertyRow | null;
-        // Avatar source of truth is profiles.avatar_url; keep a safety-net fallback for legacy agent photos.
         if (
-          next?.listed_by &&
-          next?.listing_agent &&
-          !String(next.listing_agent.avatar_url ?? "").trim()
+          next &&
+          next.is_demo === true &&
+          !isAdminViewer &&
+          !(user?.id && next.listed_by && user.id === next.listed_by)
         ) {
-          try {
-            const { data: agentRow } = await supabase
-              .from("agents")
-              .select("image_url")
-              .eq("user_id", next.listed_by)
-              .maybeSingle();
-            const fallback = (agentRow?.image_url as string | null | undefined)?.trim() || "";
-            if (fallback && next.listing_agent) {
-              (next.listing_agent as { avatar_url?: string | null }).avatar_url = fallback;
+          setProperty(null);
+          setError("This listing is not available.");
+        } else if (next) {
+          // Avatar source of truth is profiles.avatar_url; keep a safety-net fallback for legacy agent photos.
+          if (
+            next.listed_by &&
+            next.listing_agent &&
+            !String(next.listing_agent.avatar_url ?? "").trim()
+          ) {
+            try {
+              const { data: agentRow } = await supabase
+                .from("agents")
+                .select("image_url")
+                .eq("user_id", next.listed_by)
+                .maybeSingle();
+              const fallback = (agentRow?.image_url as string | null | undefined)?.trim() || "";
+              if (fallback && next.listing_agent) {
+                (next.listing_agent as { avatar_url?: string | null }).avatar_url = fallback;
+              }
+            } catch {
+              /* ignore */
             }
-          } catch {
-            /* ignore */
           }
+          setProperty(next);
+          if (next.id) recordRecentlyViewedPropertyId(next.id);
+        } else {
+          setProperty(null);
         }
-        setProperty(next);
-        if (next?.id) recordRecentlyViewedPropertyId(next.id);
       }
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, user?.id, profile?.role, isAdminViewer]);
 
   useEffect(() => {
     if (!user?.id || authLoading) {
