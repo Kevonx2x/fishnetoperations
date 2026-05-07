@@ -253,68 +253,60 @@ type RowConfig = {
     listingTier?: ("featured" | "broker")[];
     sales_status?: string;
     listing_type?: "sale" | "rent" | "both";
+    pet_friendly?: boolean;
+    family_friendly?: boolean;
+    near_schools?: boolean;
   };
 };
-
-const LOCATION_ROW_CONFIG: Record<string, RowConfig[]> = {
-  BGC: [
-    { id: "bgc-newly-listed", label: "Newly listed in BGC", filter: { sortBy: "created_at_desc", limit: 12 } },
-    { id: "bgc-featured", label: "Featured in BGC", filter: { listingTier: ["featured", "broker"], limit: 12 } },
-    { id: "bgc-presale", label: "BGC Presale condos", filter: { sales_status: "Presale", limit: 12 } },
-    { id: "bgc-rfo", label: "BGC Ready for occupancy", filter: { sales_status: "RFO", limit: 12 } },
-    { id: "bgc-rentals", label: "BGC Rentals", filter: { listing_type: "rent", limit: 12 } },
-    { id: "bgc-for-sale", label: "BGC For sale", filter: { listing_type: "sale", limit: 12 } },
-    { id: "bgc-most-liked", label: "Most liked in BGC", filter: { sortBy: "likes_desc", limit: 12 } },
-  ],
-  Makati: [
-    { id: "makati-newly-listed", label: "Newly listed in Makati", filter: { sortBy: "created_at_desc", limit: 12 } },
-    { id: "makati-featured", label: "Featured in Makati", filter: { listingTier: ["featured", "broker"], limit: 12 } },
-    { id: "makati-rentals", label: "Makati Rentals", filter: { listing_type: "rent", limit: 12 } },
-    { id: "makati-for-sale", label: "Makati For sale", filter: { listing_type: "sale", limit: 12 } },
-    { id: "makati-most-liked", label: "Most liked in Makati", filter: { sortBy: "likes_desc", limit: 12 } },
-  ],
-  "Ortigas Center": [
-    { id: "ortigas-newly-listed", label: "Newly listed in Ortigas", filter: { sortBy: "created_at_desc", limit: 12 } },
-    { id: "ortigas-featured", label: "Featured in Ortigas", filter: { listingTier: ["featured", "broker"], limit: 12 } },
-    { id: "ortigas-rentals", label: "Ortigas Rentals", filter: { listing_type: "rent", limit: 12 } },
-    { id: "ortigas-for-sale", label: "Ortigas For sale", filter: { listing_type: "sale", limit: 12 } },
-  ],
-  "Cebu City": [
-    { id: "cebu-newly-listed", label: "Newly listed in Cebu", filter: { sortBy: "created_at_desc", limit: 12 } },
-    { id: "cebu-featured", label: "Featured in Cebu", filter: { listingTier: ["featured", "broker"], limit: 12 } },
-    { id: "cebu-rentals", label: "Cebu Rentals", filter: { listing_type: "rent", limit: 12 } },
-    { id: "cebu-for-sale", label: "Cebu For sale", filter: { listing_type: "sale", limit: 12 } },
-  ],
-  Davao: [
-    { id: "davao-newly-listed", label: "Newly listed in Davao", filter: { sortBy: "created_at_desc", limit: 12 } },
-    { id: "davao-featured", label: "Featured in Davao", filter: { listingTier: ["featured", "broker"], limit: 12 } },
-    { id: "davao-rentals", label: "Davao Rentals", filter: { listing_type: "rent", limit: 12 } },
-    { id: "davao-for-sale", label: "Davao For sale", filter: { listing_type: "sale", limit: 12 } },
-  ],
-  Tagaytay: [
-    { id: "tagaytay-newly-listed", label: "Newly listed in Tagaytay", filter: { sortBy: "created_at_desc", limit: 12 } },
-    { id: "tagaytay-featured", label: "Featured in Tagaytay", filter: { listingTier: ["featured", "broker"], limit: 12 } },
-    { id: "tagaytay-rentals", label: "Tagaytay Rentals", filter: { listing_type: "rent", limit: 12 } },
-    { id: "tagaytay-for-sale", label: "Tagaytay For sale", filter: { listing_type: "sale", limit: 12 } },
-  ],
-  Bacolod: [
-    { id: "bacolod-newly-listed", label: "Newly listed in Bacolod", filter: { sortBy: "created_at_desc", limit: 12 } },
-    { id: "bacolod-featured", label: "Featured in Bacolod", filter: { listingTier: ["featured", "broker"], limit: 12 } },
-    { id: "bacolod-rentals", label: "Bacolod Rentals", filter: { listing_type: "rent", limit: 12 } },
-    { id: "bacolod-for-sale", label: "Bacolod For sale", filter: { listing_type: "sale", limit: 12 } },
-  ],
-};
-
-const DEFAULT_LOCATION_ROWS = (label: string): RowConfig[] => [
-  { id: `${label}-newly-listed`, label: `Newly listed in ${label}`, filter: { sortBy: "created_at_desc", limit: 12 } },
-  { id: `${label}-featured`, label: `Featured in ${label}`, filter: { listingTier: ["featured", "broker"], limit: 12 } },
-  { id: `${label}-rentals`, label: `${label} Rentals`, filter: { listing_type: "rent", limit: 12 } },
-  { id: `${label}-for-sale`, label: `${label} For sale`, filter: { listing_type: "sale", limit: 12 } },
-];
 
 function stripDiacritics(s: string) {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
+
+/** Distinct listing filters per featured area (chip uses `neighborhood` or `city` match; rows add these filters). */
+function standardFeaturedLocationRows(placeLabel: string, idPrefix: string): RowConfig[] {
+  const lim = 12 as const;
+  return [
+    { id: `${idPrefix}-newest`, label: `Newest in ${placeLabel}`, filter: { sortBy: "created_at_desc", limit: lim } },
+    { id: `${idPrefix}-pet-friendly`, label: `Pet-friendly in ${placeLabel}`, filter: { pet_friendly: true, limit: lim } },
+    { id: `${idPrefix}-family`, label: `Family-friendly in ${placeLabel}`, filter: { family_friendly: true, limit: lim } },
+    { id: `${idPrefix}-near-schools`, label: `Near schools in ${placeLabel}`, filter: { near_schools: true, limit: lim } },
+    { id: `${idPrefix}-presale`, label: `${placeLabel} Presale condos`, filter: { sales_status: "Presale", limit: lim } },
+    { id: `${idPrefix}-rfo`, label: `${placeLabel} Ready for occupancy`, filter: { sales_status: "RFO", limit: lim } },
+    { id: `${idPrefix}-rentals`, label: `${placeLabel} Rentals`, filter: { listing_type: "rent", limit: lim } },
+    { id: `${idPrefix}-for-sale`, label: `${placeLabel} For sale`, filter: { listing_type: "sale", limit: lim } },
+    {
+      id: `${idPrefix}-featured`,
+      label: `Featured agents in ${placeLabel}`,
+      filter: { listingTier: ["featured", "broker"], limit: lim },
+    },
+  ];
+}
+
+const LOCATION_ROW_CONFIG: Record<string, RowConfig[]> = {
+  BGC: standardFeaturedLocationRows("BGC", "bgc"),
+  Makati: standardFeaturedLocationRows("Makati", "makati"),
+  "Ortigas Center": standardFeaturedLocationRows("Ortigas Center", "ortigas-center"),
+  /** City-wide Pasig selection; copy references Ortigas Center as requested. */
+  Pasig: standardFeaturedLocationRows("Ortigas Center", "pasig"),
+  "Cebu City": standardFeaturedLocationRows("Cebu", "cebu"),
+  Davao: standardFeaturedLocationRows("Davao", "davao"),
+  Tagaytay: standardFeaturedLocationRows("Tagaytay", "tagaytay"),
+  Bacolod: standardFeaturedLocationRows("Bacolod", "bacolod"),
+};
+
+function defaultLocationRowIdPrefix(label: string): string {
+  const slug = stripDiacritics(label)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return slug.length > 0 ? slug : "location";
+}
+
+const DEFAULT_LOCATION_ROWS = (label: string): RowConfig[] => {
+  const prefix = defaultLocationRowIdPrefix(label);
+  return standardFeaturedLocationRows(label, prefix);
+};
 
 /** Featured Locations card: compare persisted/derived canonical city to this card. */
 function featuredMatchCanon(canon: string, label: string, key: string) {
@@ -1146,6 +1138,15 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         }
         if (cfg.filter.listing_type) {
           q = q.eq("listing_type", cfg.filter.listing_type);
+        }
+        if (cfg.filter.pet_friendly === true) {
+          q = q.eq("pet_friendly", true);
+        }
+        if (cfg.filter.family_friendly === true) {
+          q = q.eq("family_friendly", true);
+        }
+        if (cfg.filter.near_schools === true) {
+          q = q.eq("near_schools", true);
         }
 
         // Base ordering; likes sorting happens client-side using RPC counts already loaded for homepage properties.
