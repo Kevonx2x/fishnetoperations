@@ -16,7 +16,7 @@ export function HomePageContent() {
     <>
       <PostLoginModal gate="client-home" />
       <Suspense fallback={<div>Loading...</div>}>
-        <BahayGoHomeMarketplace listingMode="rent" />
+        <BahayGoHomeMarketplace listingMode="all" />
       </Suspense>
     </>
   );

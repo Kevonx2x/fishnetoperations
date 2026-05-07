@@ -265,21 +265,16 @@ type RowConfig = {
   id: string;
   label: string;
   filter: {
-    sortBy?: "created_at_desc" | "likes_desc" | "views_desc";
+    sortBy?: "created_at_desc" | "likes_desc" | "views_desc" | "price_asc" | "price_desc";
     limit?: number;
     listingTier?: ("featured" | "broker")[];
     sales_status?: string;
-    listing_type?: "sale" | "rent" | "both";
-    /** Status + listing_type scoped to rentals (rent prices). Ignores buy/rent mode. */
-    rent_segment?: boolean;
-    /** Status + listing_type scoped to sales (sale prices). Ignores buy/rent mode. */
-    sale_segment?: boolean;
-    /** Restrict to `property_type = Condo` (sale-band rows). */
-    condo_only?: boolean;
+    /** Local-only: used only when mode is `all`. */
+    listing_type?: "sale" | "rent";
     min_price?: number;
     max_price?: number;
-    beds?: number;
-    beds_gte?: number;
+    bedrooms?: number;
+    bedrooms_gte?: number;
     pet_friendly?: boolean;
     family_friendly?: boolean;
     near_schools?: boolean;
@@ -290,21 +285,23 @@ function stripDiacritics(s: string) {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-function passesLocationRowPriceFilter(
-  p: DbProperty,
-  f: RowConfig["filter"],
-): boolean {
+function listingPriceForMode(p: DbProperty, mode: "buy" | "rent" | "all"): number | null {
+  if (mode === "rent") return parsePriceToNumber(p.rent_price);
+  if (mode === "buy") return parsePriceToNumber(p.price);
+  // all: use rent_price when present, else sale price
+  return parsePriceToNumber(p.rent_price ?? "") ?? parsePriceToNumber(p.price);
+}
+
+function passesLocationRowPriceFilter(p: DbProperty, f: RowConfig["filter"], mode: "buy" | "rent" | "all"): boolean {
   if (f.min_price == null && f.max_price == null) return true;
-  const raw = f.rent_segment ? p.rent_price : p.price;
-  const n = parsePriceToNumber(raw);
+  const n = listingPriceForMode(p, mode);
   if (n == null) return false;
   if (f.min_price != null && n < f.min_price) return false;
   if (f.max_price != null && n > f.max_price) return false;
   return true;
 }
 
-/** ~18 dense rows per featured area (no `views` column — “most viewed” omitted). Mirrors across all configured locations. */
-function denseFeaturedLocationRows(placeLabel: string, idPrefix: string): RowConfig[] {
+function rentLocationRows(placeLabel: string, idPrefix: string): RowConfig[] {
   const lim = 12 as const;
   return [
     { id: `${idPrefix}-newest`, label: `Newest in ${placeLabel}`, filter: { sortBy: "created_at_desc", limit: lim } },
@@ -312,62 +309,89 @@ function denseFeaturedLocationRows(placeLabel: string, idPrefix: string): RowCon
     {
       id: `${idPrefix}-rent-under-30k`,
       label: `${placeLabel} under ₱30,000/mo`,
-      filter: { rent_segment: true, max_price: 29_999, limit: lim },
+      filter: { max_price: 30_000, limit: lim },
     },
     {
       id: `${idPrefix}-rent-30-60k`,
       label: `${placeLabel} ₱30,000–₱60,000/mo`,
-      filter: { rent_segment: true, min_price: 30_000, max_price: 59_999, limit: lim },
+      filter: { min_price: 30_000, max_price: 60_000, limit: lim },
     },
     {
       id: `${idPrefix}-rent-luxury`,
       label: `${placeLabel} luxury rentals (₱60,000+/mo)`,
-      filter: { rent_segment: true, min_price: 60_000, limit: lim },
+      filter: { min_price: 60_000, limit: lim },
     },
-    {
-      id: `${idPrefix}-sale-under-10m`,
-      label: `${placeLabel} condos for sale under ₱10M`,
-      filter: { sale_segment: true, condo_only: true, max_price: 9_999_999, limit: lim },
-    },
-    {
-      id: `${idPrefix}-sale-10-20m`,
-      label: `${placeLabel} condos for sale ₱10M–₱20M`,
-      filter: {
-        sale_segment: true,
-        condo_only: true,
-        min_price: 10_000_000,
-        max_price: 19_999_999,
-        limit: lim,
-      },
-    },
-    {
-      id: `${idPrefix}-sale-luxury`,
-      label: `${placeLabel} luxury for sale (₱20M+)`,
-      filter: { sale_segment: true, condo_only: true, min_price: 20_000_000, limit: lim },
-    },
-    { id: `${idPrefix}-studios`, label: `${placeLabel} studios`, filter: { beds: 0, limit: lim } },
-    { id: `${idPrefix}-bed-1`, label: `${placeLabel} 1-bedroom`, filter: { beds: 1, limit: lim } },
-    { id: `${idPrefix}-bed-2`, label: `${placeLabel} 2-bedroom`, filter: { beds: 2, limit: lim } },
-    { id: `${idPrefix}-bed-3p`, label: `${placeLabel} 3+ bedroom`, filter: { beds_gte: 3, limit: lim } },
+    { id: `${idPrefix}-studios`, label: `${placeLabel} studios`, filter: { bedrooms: 0, limit: lim } },
+    { id: `${idPrefix}-bed-1`, label: `${placeLabel} 1-bedroom`, filter: { bedrooms: 1, limit: lim } },
+    { id: `${idPrefix}-bed-2`, label: `${placeLabel} 2-bedroom`, filter: { bedrooms: 2, limit: lim } },
+    { id: `${idPrefix}-bed-3p`, label: `${placeLabel} 3+ bedroom`, filter: { bedrooms_gte: 3, limit: lim } },
     { id: `${idPrefix}-pet`, label: `${placeLabel} Pet-friendly`, filter: { pet_friendly: true, limit: lim } },
     { id: `${idPrefix}-family`, label: `${placeLabel} Family-friendly`, filter: { family_friendly: true, limit: lim } },
     { id: `${idPrefix}-schools`, label: `${placeLabel} Near schools`, filter: { near_schools: true, limit: lim } },
-    { id: `${idPrefix}-presale`, label: `${placeLabel} Presale`, filter: { sales_status: "Presale", limit: lim } },
-    { id: `${idPrefix}-rfo`, label: `${placeLabel} Ready for occupancy`, filter: { sales_status: "RFO", limit: lim } },
-    { id: `${idPrefix}-resale`, label: `${placeLabel} Resale`, filter: { sales_status: "Resale", limit: lim } },
   ];
 }
 
-const LOCATION_ROW_CONFIG: Record<string, RowConfig[]> = {
-  BGC: denseFeaturedLocationRows("BGC", "bgc"),
-  Makati: denseFeaturedLocationRows("Makati", "makati"),
-  "Ortigas Center": denseFeaturedLocationRows("Ortigas Center", "ortigas-center"),
-  /** City-wide Pasig selection; labels use Ortigas Center. */
-  Pasig: denseFeaturedLocationRows("Ortigas Center", "pasig"),
-  "Cebu City": denseFeaturedLocationRows("Cebu", "cebu"),
-  Davao: denseFeaturedLocationRows("Davao", "davao"),
-  Tagaytay: denseFeaturedLocationRows("Tagaytay", "tagaytay"),
-  Bacolod: denseFeaturedLocationRows("Bacolod", "bacolod"),
+function buyLocationRows(placeLabel: string, idPrefix: string): RowConfig[] {
+  const lim = 12 as const;
+  return [
+    {
+      id: `${idPrefix}-newest`,
+      label: `Newest for sale in ${placeLabel}`,
+      filter: { sortBy: "created_at_desc", limit: lim },
+    },
+    {
+      id: `${idPrefix}-trending`,
+      label: `Trending for sale in ${placeLabel}`,
+      filter: { sortBy: "likes_desc", limit: lim },
+    },
+    { id: `${idPrefix}-under-5m`, label: `${placeLabel} under ₱5M`, filter: { max_price: 5_000_000, limit: lim } },
+    {
+      id: `${idPrefix}-5-10m`,
+      label: `${placeLabel} ₱5M–₱10M`,
+      filter: { min_price: 5_000_000, max_price: 10_000_000, limit: lim },
+    },
+    {
+      id: `${idPrefix}-10-20m`,
+      label: `${placeLabel} ₱10M–₱20M`,
+      filter: { min_price: 10_000_000, max_price: 20_000_000, limit: lim },
+    },
+    { id: `${idPrefix}-luxury`, label: `${placeLabel} luxury (₱20M+)`, filter: { min_price: 20_000_000, limit: lim } },
+    { id: `${idPrefix}-presale`, label: `${placeLabel} Presale`, filter: { sales_status: "Presale", limit: lim } },
+    { id: `${idPrefix}-rfo`, label: `${placeLabel} Ready for occupancy`, filter: { sales_status: "RFO", limit: lim } },
+    { id: `${idPrefix}-resale`, label: `${placeLabel} Resale`, filter: { sales_status: "Resale", limit: lim } },
+    { id: `${idPrefix}-studios`, label: `${placeLabel} studios`, filter: { bedrooms: 0, limit: lim } },
+    { id: `${idPrefix}-bed-1`, label: `${placeLabel} 1-bedroom`, filter: { bedrooms: 1, limit: lim } },
+    { id: `${idPrefix}-bed-2`, label: `${placeLabel} 2-bedroom`, filter: { bedrooms: 2, limit: lim } },
+    { id: `${idPrefix}-bed-3p`, label: `${placeLabel} 3+ bedroom`, filter: { bedrooms_gte: 3, limit: lim } },
+    { id: `${idPrefix}-pet`, label: `${placeLabel} Pet-friendly`, filter: { pet_friendly: true, limit: lim } },
+    { id: `${idPrefix}-family`, label: `${placeLabel} Family-friendly`, filter: { family_friendly: true, limit: lim } },
+    { id: `${idPrefix}-schools`, label: `${placeLabel} Near schools`, filter: { near_schools: true, limit: lim } },
+  ];
+}
+
+const LOCATION_ROW_CONFIG: Record<"rent" | "buy", Record<string, RowConfig[]>> = {
+  rent: {
+    BGC: rentLocationRows("BGC", "bgc"),
+    Makati: rentLocationRows("Makati", "makati"),
+    "Ortigas Center": rentLocationRows("Ortigas Center", "ortigas-center"),
+    /** City-wide Pasig selection; labels use Ortigas Center. */
+    Pasig: rentLocationRows("Ortigas Center", "pasig"),
+    "Cebu City": rentLocationRows("Cebu", "cebu"),
+    Davao: rentLocationRows("Davao", "davao"),
+    Tagaytay: rentLocationRows("Tagaytay", "tagaytay"),
+    Bacolod: rentLocationRows("Bacolod", "bacolod"),
+  },
+  buy: {
+    BGC: buyLocationRows("BGC", "bgc"),
+    Makati: buyLocationRows("Makati", "makati"),
+    "Ortigas Center": buyLocationRows("Ortigas Center", "ortigas-center"),
+    /** City-wide Pasig selection; labels use Ortigas Center. */
+    Pasig: buyLocationRows("Ortigas Center", "pasig"),
+    "Cebu City": buyLocationRows("Cebu", "cebu"),
+    Davao: buyLocationRows("Davao", "davao"),
+    Tagaytay: buyLocationRows("Tagaytay", "tagaytay"),
+    Bacolod: buyLocationRows("Bacolod", "bacolod"),
+  },
 };
 
 function defaultLocationRowIdPrefix(label: string): string {
@@ -378,9 +402,9 @@ function defaultLocationRowIdPrefix(label: string): string {
   return slug.length > 0 ? slug : "location";
 }
 
-const DEFAULT_LOCATION_ROWS = (label: string): RowConfig[] => {
+const DEFAULT_LOCATION_ROWS = (mode: "buy" | "rent", label: string): RowConfig[] => {
   const prefix = defaultLocationRowIdPrefix(label);
-  return denseFeaturedLocationRows(label, prefix);
+  return mode === "buy" ? buyLocationRows(label, prefix) : rentLocationRows(label, prefix);
 };
 
 /** Featured Locations card: compare persisted/derived canonical city to this card. */
@@ -470,11 +494,13 @@ function parsePesoToNumber(price: string): number {
   return Number.isFinite(num) ? num : 0;
 }
 
-/** Buy vs rent search: dual listings use sale price in buy mode and monthly rent in rent mode. */
-function effectiveListingPriceForMode(p: DbProperty, mode: "buy" | "rent"): number {
-  if (p.status === "both" || p.listing_type === "both") {
-    return mode === "buy" ? parsePesoToNumber(p.price) : parsePesoToNumber(p.rent_price ?? "");
-  }
+/** Buy vs rent search: uses sale price in buy mode and monthly rent in rent mode. */
+function effectiveListingPriceForMode(p: DbProperty, mode: "buy" | "rent" | "all"): number {
+  if (mode === "rent") return parsePesoToNumber(p.rent_price ?? "");
+  if (mode === "buy") return parsePesoToNumber(p.price);
+  // all: prefer rent price when present, otherwise sale price
+  const rent = parsePesoToNumber(p.rent_price ?? "");
+  if (rent > 0) return rent;
   return parsePesoToNumber(p.price);
 }
 
@@ -966,7 +992,7 @@ const DynamicHomepageTopAgents = dynamic(
   { ssr: false, loading: () => null },
 );
 
-export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" }) {
+export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" | "all" }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1012,6 +1038,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   }, [user, router]);
 
   const mode = listingMode;
+  const listingTypeFilter: "sale" | "rent" | null = mode === "buy" ? "sale" : mode === "rent" ? "rent" : null;
   const [search, setSearch] = useState("");
   const [listingViewMode, setListingViewMode] = useState<"browse" | "results">("browse");
 
@@ -1084,6 +1111,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       .or(hideTutorialDemoPropertiesOrFilter())
       .is("deleted_at", null)
       .or("availability_state.eq.available,availability_state.is.null");
+    if (listingTypeFilter) mainQuery = mainQuery.eq("listing_type", listingTypeFilter);
     if (cityOrClause) mainQuery = mainQuery.or(cityOrClause);
     mainQuery = mainQuery.order("created_at", { ascending: false });
 
@@ -1095,6 +1123,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       .or(hideTutorialDemoPropertiesOrFilter())
       .is("deleted_at", null)
       .or("availability_state.eq.available,availability_state.is.null");
+    if (listingTypeFilter) featQuery = featQuery.eq("listing_type", listingTypeFilter);
     if (cityOrClause) featQuery = featQuery.or(cityOrClause);
     featQuery = featQuery.limit(1);
 
@@ -1120,7 +1149,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       setFeaturedHomeIsAdminFeatured(isAdminFeatured);
     }
     setLoading(false);
-  }, [neighborhoodFilter]);
+  }, [neighborhoodFilter, listingTypeFilter]);
 
   const loadAgentsDirectory = useCallback(async () => {
     const { data, error: fetchErr } = await supabase
@@ -1181,7 +1210,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   }, []);
 
   const refreshFeaturedLocationCounts = useCallback(async () => {
-    const statusIn = mode === "buy" ? ["for_sale", "both"] : ["for_rent", "both"];
+    const statusIn = mode === "buy" ? ["for_sale", "both"] : mode === "rent" ? ["for_rent", "both"] : ["for_sale", "for_rent", "both"];
     const rows = await Promise.all(
       FEATURED_LOCATIONS.map(async (loc) => {
         const field = "neighborhood" in loc.match ? "neighborhood" : "city";
@@ -1193,6 +1222,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           .or(hideTutorialDemoPropertiesOrFilter())
           .or("availability_state.eq.available,availability_state.is.null")
           .in("status", statusIn);
+        if (listingTypeFilter) q = q.eq("listing_type", listingTypeFilter);
         q = field === "neighborhood" ? q.eq("neighborhood", value) : q.eq("city", value);
         const { count, error } = await q;
         return { label: loc.label, count: error ? 0 : count ?? 0 };
@@ -1201,7 +1231,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     const next: Record<string, number> = {};
     for (const r of rows) next[r.label] = r.count;
     setFeaturedLocationCounts(next);
-  }, [mode]);
+  }, [listingTypeFilter, mode]);
 
   const refreshPropertyTypeCounts = useCallback(
     async (sel: { type: "neighborhood" | "city"; value: string; label: string } | null) => {
@@ -1209,7 +1239,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         setPropertyTypeCounts([]);
         return;
       }
-      const statusIn = mode === "buy" ? ["for_sale", "both"] : ["for_rent", "both"];
+      const statusIn = mode === "buy" ? ["for_sale", "both"] : mode === "rent" ? ["for_rent", "both"] : ["for_sale", "for_rent", "both"];
       let q = supabase
         .from("properties")
         .select("property_type")
@@ -1217,6 +1247,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         .or(hideTutorialDemoPropertiesOrFilter())
         .or("availability_state.eq.available,availability_state.is.null")
         .in("status", statusIn);
+      if (listingTypeFilter) q = q.eq("listing_type", listingTypeFilter);
       q = sel.type === "neighborhood" ? q.eq("neighborhood", sel.value) : q.eq("city", sel.value);
       const { data, error } = await q;
       if (error) {
@@ -1234,7 +1265,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         .sort((a, b) => b.count - a.count);
       setPropertyTypeCounts(list);
     },
-    [mode],
+    [listingTypeFilter, mode],
   );
 
   useEffect(() => {
@@ -1254,8 +1285,15 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     setLocationCuratedLoading(true);
     try {
       const configKey = selectedLocation.type === "neighborhood" ? selectedLocation.value : selectedLocation.value;
-      const rowCfgs = LOCATION_ROW_CONFIG[configKey] ?? DEFAULT_LOCATION_ROWS(selectedLocation.label);
-      const statusIn = mode === "buy" ? (["for_sale", "both"] as const) : (["for_rent", "both"] as const);
+      const cfgMode = mode === "buy" ? "buy" : "rent";
+      const rowCfgs =
+        LOCATION_ROW_CONFIG[cfgMode][configKey] ?? DEFAULT_LOCATION_ROWS(cfgMode, selectedLocation.label);
+      const statusIn =
+        mode === "buy"
+          ? (["for_sale", "both"] as const)
+          : mode === "rent"
+            ? (["for_rent", "both"] as const)
+            : (["for_sale", "for_rent", "both"] as const);
 
       const selectQ = `
           id, created_at, name, location, region, city, neighborhood, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
@@ -1272,14 +1310,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
         const softOverfetch = Math.max(limit * 6, 120);
 
-        let statusForRow: readonly string[];
-        if (cfg.filter.rent_segment) {
-          statusForRow = ["for_rent", "both"];
-        } else if (cfg.filter.sale_segment) {
-          statusForRow = ["for_sale", "both"];
-        } else {
-          statusForRow = statusIn;
-        }
+        const statusForRow: readonly string[] = statusIn;
 
         let q = supabase
           .from("properties")
@@ -1288,6 +1319,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           .or(hideTutorialDemoPropertiesOrFilter())
           .or("availability_state.eq.available,availability_state.is.null")
           .in("status", [...statusForRow]);
+        if (listingTypeFilter) q = q.eq("listing_type", listingTypeFilter);
 
         q =
           selectedLocation.type === "neighborhood"
@@ -1296,17 +1328,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
         if (selectedPropertyType) {
           q = q.eq("property_type", selectedPropertyType);
-        } else if (cfg.filter.condo_only) {
-          q = q.eq("property_type", "Condo");
         }
         if (cfg.filter.sales_status) {
           q = q.eq("sales_status", cfg.filter.sales_status);
         }
-        if (cfg.filter.rent_segment) {
-          q = q.in("listing_type", ["rent", "both"]);
-        } else if (cfg.filter.sale_segment) {
-          q = q.in("listing_type", ["sale", "both"]);
-        } else if (cfg.filter.listing_type) {
+        if (!listingTypeFilter && cfg.filter.listing_type) {
           q = q.eq("listing_type", cfg.filter.listing_type);
         }
         if (cfg.filter.pet_friendly === true) {
@@ -1318,11 +1344,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         if (cfg.filter.near_schools === true) {
           q = q.eq("near_schools", true);
         }
-        if (cfg.filter.beds !== undefined) {
-          q = q.eq("beds", cfg.filter.beds);
+        if (cfg.filter.bedrooms !== undefined) {
+          q = q.eq("beds", cfg.filter.bedrooms);
         }
-        if (cfg.filter.beds_gte !== undefined) {
-          q = q.gte("beds", cfg.filter.beds_gte);
+        if (cfg.filter.bedrooms_gte !== undefined) {
+          q = q.gte("beds", cfg.filter.bedrooms_gte);
         }
 
         q = q.order("created_at", { ascending: false }).limit(softOverfetch);
@@ -1331,11 +1357,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         if (error) return [] as DbProperty[];
         let items = (data ?? []) as unknown as DbProperty[];
 
-        const priceNarrow =
-          (cfg.filter.rent_segment === true || cfg.filter.sale_segment === true) &&
-          (cfg.filter.min_price != null || cfg.filter.max_price != null);
-        if (priceNarrow) {
-          items = items.filter((p) => passesLocationRowPriceFilter(p, cfg.filter));
+        if (cfg.filter.min_price != null || cfg.filter.max_price != null) {
+          items = items.filter((p) => passesLocationRowPriceFilter(p, cfg.filter, mode));
         }
 
         const tier = cfg.filter.listingTier;
@@ -1356,6 +1379,14 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           items = [...items].sort(
             (a, b) => (likeCountsByPropertyId[b.id] ?? 0) - (likeCountsByPropertyId[a.id] ?? 0),
           );
+        }
+        if (cfg.filter.sortBy === "price_asc" || cfg.filter.sortBy === "price_desc") {
+          const dir = cfg.filter.sortBy === "price_asc" ? 1 : -1;
+          items = [...items].sort((a, b) => {
+            const na = listingPriceForMode(a, mode) ?? Number.POSITIVE_INFINITY;
+            const nb = listingPriceForMode(b, mode) ?? Number.POSITIVE_INFINITY;
+            return dir * (na - nb);
+          });
         }
 
         items = items.slice(0, limit);
@@ -1506,11 +1537,12 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   }, [properties, mergeLiveAvailability]);
 
   const baseModeProperties = useMemo(() => {
-    const base = properties.filter((p) =>
-      mode === "buy"
-        ? p.status === "for_sale" || p.status === "both"
-        : p.status === "for_rent" || p.status === "both",
-    );
+    const base = properties.filter((p) => {
+      if (listingTypeFilter) {
+        return p.listing_type === listingTypeFilter;
+      }
+      return true;
+    });
     if (neighborhoodFilter) {
       const city = FEATURED_CITIES.find((c) => c.key === neighborhoodFilter);
       if (city) return base.filter((p) => city.match(propertyCanonicalCity(p)));
@@ -1519,7 +1551,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     const q = search.trim().toLowerCase();
     if (!q) return base;
     return base.filter((p) => p.location.toLowerCase().includes(q));
-  }, [properties, mode, search, neighborhoodFilter]);
+  }, [listingTypeFilter, neighborhoodFilter, properties, search]);
 
   const filteredAllRows = useMemo(() => {
     return baseModeProperties.filter((p) => {
