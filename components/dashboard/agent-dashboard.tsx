@@ -19,10 +19,14 @@ import {
   Info,
   LayoutList,
   Loader2,
+  MapPin,
   MessageSquare,
   MoreHorizontal,
+  Pencil,
   Settings,
     Sparkles,
+  Globe,
+  Phone,
   User,
   Users,
   X,
@@ -2788,6 +2792,8 @@ export function AgentDashboard() {
                 <ProfileTab
                   agent={agent}
                   listingTier={agent.listing_tier}
+                  ownedListingCount={ownedListingCount}
+                  responseRatePct={responseRatePct}
                   profileForm={profileForm}
                   setProfileForm={setProfileForm}
                   onSave={saveProfile}
@@ -5284,6 +5290,8 @@ function toggleProfileMulti(arr: string[], v: string) {
 function ProfileTab({
   agent,
   listingTier,
+  ownedListingCount,
+  responseRatePct,
   profileForm,
   setProfileForm,
   onSave,
@@ -5296,6 +5304,8 @@ function ProfileTab({
 }: {
   agent: AgentRow;
   listingTier?: string | null;
+  ownedListingCount: number;
+  responseRatePct: number;
   profileForm: ProfileFormState;
   setProfileForm: React.Dispatch<React.SetStateAction<ProfileFormState>>;
   onSave: (e: React.FormEvent) => void;
@@ -5307,7 +5317,40 @@ function ProfileTab({
   onAvailabilityMessage: (msg: string) => void;
 }) {
   const [availSaving, setAvailSaving] = useState(false);
+  const [followersCount, setFollowersCount] = useState<number | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showAvailableNow = isAgentAvailableNow(agent.availability);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { count, error } = await supabase
+        .from("agent_followers")
+        .select("id", { head: true, count: "exact" })
+        .eq("agent_id", agent.id);
+      if (cancelled) return;
+      setFollowersCount(error ? null : count ?? 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agent.id, supabase]);
+
+  const autosaveProfile = useCallback(
+    (toastLabel = "Saved") => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        // Reuse existing validation + persistence logic through the parent `onSave`.
+        // We intentionally submit the whole profile form to avoid partial update drift.
+        const ev = { preventDefault() {} } as unknown as React.FormEvent;
+        void (async () => {
+          await onSave(ev);
+          toast.success(toastLabel, { duration: 1200 });
+        })();
+      }, 350);
+    },
+    [onSave],
+  );
 
   const setAvailableNow = async (on: boolean) => {
     setAvailSaving(true);
@@ -5326,19 +5369,37 @@ function ProfileTab({
   };
 
   return (
-    <div>
-      <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Profile settings</h1>
-      <form onSubmit={onSave} className="mt-8 max-w-xl space-y-5 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Photo</p>
-          <div className="mt-2 flex items-center gap-4">
-            <div className="relative h-20 w-20 overflow-hidden rounded-full bg-[#EBE6DC] ring-2 ring-[#D4A843]/30">
-              {agent.image_url ? (
-                <SupabasePublicImage src={agent.image_url} alt="" fill className="object-cover" sizes="80px" />
-              ) : null}
-            </div>
-            <label className="cursor-pointer rounded-full border border-[#6B9E6E] bg-[#6B9E6E]/10 px-4 py-2 text-sm font-semibold text-[#2C2C2C] hover:bg-[#6B9E6E]/20">
-              Upload
+          <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">My Profile</h1>
+          <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+            This is what clients see. Click any field to edit.
+          </p>
+        </div>
+        <Link
+          href={`/agents/${encodeURIComponent(agent.id)}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 rounded-full border border-[#2C2C2C]/15 bg-white px-4 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4]"
+        >
+          <ArrowUpRight className="h-4 w-4" aria-hidden />
+          Preview public profile
+        </Link>
+      </div>
+
+      <div className="w-full max-w-[380px] rounded-2xl border border-[#2C2C2C]/8 bg-white p-4 shadow-md">
+        <div className="relative mx-auto h-24 w-24">
+          <div className="group relative h-full w-full overflow-hidden rounded-full bg-[#FAF8F4] ring-2 ring-white">
+            {agent.image_url ? (
+              <SupabasePublicImage src={agent.image_url} alt={agent.name} fill sizes="96px" className="object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center font-serif text-3xl font-bold text-[#2C2C2C]/25">
+                {agent.name.slice(0, 1)}
+              </div>
+            )}
+            <label className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/40 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100">
+              Change photo
               <input
                 type="file"
                 accept="image/*"
@@ -5350,142 +5411,97 @@ function ProfileTab({
               />
             </label>
           </div>
-        </div>
-        <div className="flex items-center justify-between gap-4 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-4 py-3">
-          <div>
-            <p className="text-sm font-bold text-[#2C2C2C]">Show as Available Now</p>
-            <p className="mt-0.5 text-xs font-semibold text-[#2C2C2C]/55">
-              When off, buyers see you as Offline with last seen time.
-            </p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={showAvailableNow}
-            disabled={availSaving}
-            onClick={() => void setAvailableNow(!showAvailableNow)}
-            className={`relative h-9 w-14 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:opacity-50 ${
-              showAvailableNow ? "bg-[#6B9E6E]" : "bg-[#2C2C2C]/20"
-            }`}
-          >
+          {agent.verification_status === "verified" ? (
             <span
-              className={`absolute top-1 left-1 h-7 w-7 rounded-full bg-white shadow transition-transform ${
-                showAvailableNow ? "translate-x-5" : "translate-x-0"
-              }`}
-            />
-          </button>
+              className="absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#D4A843] shadow-md ring-2 ring-white"
+              title="Verified"
+            >
+              <Check className="h-4 w-4 text-white" aria-hidden />
+            </span>
+          ) : null}
         </div>
-        <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-          Name
+
+        <div className="mt-3 flex justify-center">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#D4A843]/18 px-3 py-1 text-[11px] font-bold text-[#8a6d32]">
+            {normalizeListingTier(listingTier) === "featured" ? "Gold Agent" : normalizeListingTier(listingTier) === "pro" ? "Silver Agent" : "Agent"}
+          </span>
+        </div>
+
+        <div className="mt-3 text-center">
           <input
-            required
             value={profileForm.name}
             onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
+            onBlur={() => autosaveProfile("Saved")}
+            className="w-full bg-transparent text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] focus-visible:outline-none"
+            aria-label="Name"
           />
-        </label>
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45" htmlFor="agent-dash-phone">
-            Phone
-          </label>
-          <PhPhoneInput
-            id="agent-dash-phone"
-            value={profileForm.phone}
-            onChange={(v) => setProfileForm((f) => ({ ...f, phone: v }))}
-            className="mt-1"
-            inputClassName="border-black/10 bg-[#FAF8F4] font-semibold"
-          />
+          <p className="mt-0.5 text-sm font-semibold text-[#2C2C2C]/55">Real Estate Agent</p>
         </div>
-        <div className="rounded-xl bg-[#FAF8F4] px-4 py-3 text-sm">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">License (read-only)</p>
-          <p className="mt-1 font-semibold text-[#2C2C2C]">{agent.license_number}</p>
-          <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
-            Expires: {agent.license_expiry ? formatLicenseDate(agent.license_expiry) : "—"}
-          </p>
-          <LicenseExpiryBadge licenseExpiry={agent.license_expiry} />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-            Age
-            <input
-              type="number"
-              min={18}
-              max={80}
-              inputMode="numeric"
-              value={profileForm.age}
-              onChange={(e) =>
-                setProfileForm((f) => ({ ...f, age: e.target.value.replace(/\D/g, "").slice(0, 2) }))
-              }
-              placeholder="18–80"
-              className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
-            />
-          </label>
-          <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-            Years of experience
-            <input
-              type="number"
-              min={0}
-              max={50}
-              inputMode="numeric"
-              value={profileForm.yearsExperience}
-              onChange={(e) =>
-                setProfileForm((f) => ({
-                  ...f,
-                  yearsExperience: e.target.value.replace(/\D/g, "").slice(0, 2),
-                }))
-              }
-              placeholder="0–50"
-              className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
-            />
-          </label>
-        </div>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Languages spoken</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {LANGUAGE_OPTIONS.map((lang) => {
-              const on = profileForm.languages.includes(lang);
-              return (
-                <button
-                  key={lang}
-                  type="button"
-                  onClick={() =>
-                    setProfileForm((f) => ({
-                      ...f,
-                      languages: toggleProfileMulti(f.languages, lang),
-                    }))
-                  }
-                  className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
-                    on
-                      ? "bg-[#6B9E6E] text-white"
-                      : "border border-[#2C2C2C]/15 bg-[#FAF8F4] text-[#2C2C2C]/75 hover:bg-white"
-                  }`}
-                >
-                  {lang}
-                </button>
-              );
-            })}
+
+        <button
+          type="button"
+          className="mx-auto mt-2 flex items-center justify-center gap-1.5 text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
+          onClick={() => {
+            // reveal service areas editor by focusing draft input below
+            const el = document.getElementById("profile-service-areas");
+            (el as HTMLInputElement | null)?.focus?.();
+          }}
+        >
+          <MapPin className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
+          <span className="max-w-[18rem] truncate">
+            {profileForm.serviceAreaTags[0] ? profileForm.serviceAreaTags[0] : "Add location"}
+          </span>
+          <Pencil className="h-3.5 w-3.5 opacity-60" aria-hidden />
+        </button>
+
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="text-center">
+            <p className="text-lg font-bold text-[#2C2C2C] tabular-nums">{followersCount ?? "—"}</p>
+            <p className="text-[11px] font-semibold text-[#2C2C2C]/45">Followers</p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold text-[#2C2C2C] tabular-nums">{ownedListingCount}</p>
+            <p className="text-[11px] font-semibold text-[#2C2C2C]/45">Properties</p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold text-[#6B9E6E] tabular-nums">{responseRatePct}%</p>
+            <p className="text-[11px] font-semibold text-[#2C2C2C]/45">Response Rate</p>
           </div>
         </div>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Specialties</p>
-          <div className="mt-2 flex flex-wrap gap-2">
+
+        <div className="mt-4">
+          <textarea
+            value={profileForm.bio}
+            onChange={(e) => setProfileForm((f) => ({ ...f, bio: e.target.value.slice(0, 280) }))}
+            onBlur={() => autosaveProfile("Saved")}
+            rows={4}
+            maxLength={280}
+            placeholder="Write a short bio (280 chars)…"
+            className="w-full resize-none rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-2 text-sm font-medium text-[#2C2C2C]/80 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+            aria-label="Bio"
+          />
+          <p className="mt-1 text-right text-[11px] font-semibold text-[#2C2C2C]/45">{profileForm.bio.length}/280</p>
+        </div>
+
+        <div className="mt-4 border-t border-[#2C2C2C]/10 pt-4">
+          <p className="text-center text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">Specialties</p>
+          <div className="mt-2 flex flex-wrap justify-center gap-2">
             {SPECIALTY_OPTIONS.map((spec) => {
               const on = profileForm.specialties.includes(spec);
               return (
                 <button
                   key={spec}
                   type="button"
-                  onClick={() =>
-                    setProfileForm((f) => ({
-                      ...f,
-                      specialties: toggleProfileMulti(f.specialties, spec),
-                    }))
-                  }
-                  className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                  onClick={() => {
+                    setProfileForm((f) => ({ ...f, specialties: toggleProfileMulti(f.specialties, spec) }));
+                    autosaveProfile("Saved");
+                  }}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-xs font-bold transition",
                     on
                       ? "bg-[#D4A843] text-[#2C2C2C]"
-                      : "border border-[#2C2C2C]/15 bg-[#FAF8F4] text-[#2C2C2C]/75 hover:bg-white"
-                  }`}
+                      : "border border-[#2C2C2C]/15 bg-[#FAF8F4] text-[#2C2C2C]/75 hover:bg-white",
+                  )}
                 >
                   {spec}
                 </button>
@@ -5493,82 +5509,104 @@ function ProfileTab({
             })}
           </div>
         </div>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Service areas</p>
+
+        <div className="mt-4 border-t border-[#2C2C2C]/10 pt-4">
+          <p className="text-center text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">Languages</p>
+          <div className="mt-2 flex flex-wrap justify-center gap-2">
+            {LANGUAGE_OPTIONS.map((lang) => {
+              const on = profileForm.languages.includes(lang);
+              return (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => {
+                    setProfileForm((f) => ({ ...f, languages: toggleProfileMulti(f.languages, lang) }));
+                    autosaveProfile("Saved");
+                  }}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-xs font-bold transition",
+                    on
+                      ? "bg-[#6B9E6E] text-white"
+                      : "border border-[#2C2C2C]/15 bg-[#FAF8F4] text-[#2C2C2C]/75 hover:bg-white",
+                  )}
+                >
+                  {lang}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-4 border-t border-[#2C2C2C]/10 pt-4">
+          <p className="text-center text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">Connect</p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {[
+              { key: "linkedin", icon: <User className="h-4 w-4" />, label: "LinkedIn", value: profileForm.linkedin, set: (v: string) => setProfileForm((f) => ({ ...f, linkedin: v })) },
+              { key: "facebook", icon: <User className="h-4 w-4" />, label: "Facebook", value: profileForm.facebook, set: (v: string) => setProfileForm((f) => ({ ...f, facebook: v })) },
+              { key: "instagram", icon: <User className="h-4 w-4" />, label: "Instagram", value: profileForm.instagram, set: (v: string) => setProfileForm((f) => ({ ...f, instagram: v })) },
+              { key: "website", icon: <Globe className="h-4 w-4" />, label: "Website", value: profileForm.website, set: (v: string) => setProfileForm((f) => ({ ...f, website: v })) },
+              { key: "phone", icon: <Phone className="h-4 w-4" />, label: "Phone", value: profileForm.phone, set: (v: string) => setProfileForm((f) => ({ ...f, phone: v })) },
+            ].map((it) => (
+              <div key={it.key} className="w-full">
+                <label className="flex items-center gap-2 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-2 text-xs font-semibold text-[#2C2C2C]/70">
+                  <span className="text-[#6B9E6E]">{it.icon}</span>
+                  <span className="w-24">{it.label}</span>
+                  <input
+                    value={it.value}
+                    onChange={(e) => it.set(e.target.value)}
+                    onBlur={() => autosaveProfile("Saved")}
+                    placeholder={it.key === "phone" ? "+63…" : "https://…"}
+                    className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-[#2C2C2C]/70 placeholder:text-[#2C2C2C]/35 focus-visible:outline-none"
+                  />
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 border-t border-[#2C2C2C]/10 pt-4">
+          <p className="text-center text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">Location</p>
           <div className="mt-2">
             <ServiceAreasMultiInput
               id="profile-service-areas"
               values={profileForm.serviceAreaTags}
-              onChange={(values) => setProfileForm((f) => ({ ...f, serviceAreaTags: values }))}
+              onChange={(values) => {
+                setProfileForm((f) => ({ ...f, serviceAreaTags: values }));
+                autosaveProfile("Saved");
+              }}
               draft={profileForm.serviceAreaDraft}
               onDraftChange={(v) => setProfileForm((f) => ({ ...f, serviceAreaDraft: v }))}
             />
           </div>
         </div>
-        <label className="block text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
-          Bio / About
-          <textarea
-            value={profileForm.bio}
-            onChange={(e) => setProfileForm((f) => ({ ...f, bio: e.target.value.slice(0, 500) }))}
-            rows={5}
-            maxLength={500}
-            className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
-          />
-          <span className="mt-1 block text-right text-[11px] font-semibold text-[#2C2C2C]/45">
-            {profileForm.bio.length}/500
-          </span>
-        </label>
-        <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Social links</p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-xs font-semibold text-[#2C2C2C]/55 sm:col-span-2">
-            Facebook
-            <input
-              type="url"
-              placeholder="https://facebook.com/…"
-              value={profileForm.facebook}
-              onChange={(e) => setProfileForm((f) => ({ ...f, facebook: e.target.value }))}
-              className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
-            />
-          </label>
-          <label className="text-xs font-semibold text-[#2C2C2C]/55">
-            Instagram
-            <input
-              type="url"
-              placeholder="https://instagram.com/…"
-              value={profileForm.instagram}
-              onChange={(e) => setProfileForm((f) => ({ ...f, instagram: e.target.value }))}
-              className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
-            />
-          </label>
-          <label className="text-xs font-semibold text-[#2C2C2C]/55">
-            LinkedIn
-            <input
-              type="url"
-              placeholder="https://linkedin.com/in/…"
-              value={profileForm.linkedin}
-              onChange={(e) => setProfileForm((f) => ({ ...f, linkedin: e.target.value }))}
-              className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
-            />
-          </label>
-          <label className="text-xs font-semibold text-[#2C2C2C]/55 sm:col-span-2">
-            Website (optional)
-            <input
-              type="url"
-              placeholder="https://…"
-              value={profileForm.website}
-              onChange={(e) => setProfileForm((f) => ({ ...f, website: e.target.value }))}
-              className="mt-1 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold"
-            />
-          </label>
+
+        <div className="mt-4 border-t border-[#2C2C2C]/10 pt-4">
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[#2C2C2C]">Show as Available Now</p>
+              <p className="mt-0.5 text-xs font-semibold text-[#2C2C2C]/55">
+                Controls how you appear on listings.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showAvailableNow}
+              disabled={availSaving}
+              onClick={() => void setAvailableNow(!showAvailableNow)}
+              className={`relative h-9 w-14 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:opacity-50 ${
+                showAvailableNow ? "bg-[#6B9E6E]" : "bg-[#2C2C2C]/20"
+              }`}
+            >
+              <span
+                className={`absolute top-1 left-1 h-7 w-7 rounded-full bg-white shadow transition-transform ${
+                  showAvailableNow ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
         </div>
-        <button
-          type="submit"
-          disabled={saving}
-          className="w-full rounded-full bg-[#2C2C2C] py-3 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:opacity-50"
-        >
-          {saving ? "Saving…" : "Save profile"}
-        </button>
-      </form>
+      </div>
 
       <MyTeamSection
         agentId={agent.id}
