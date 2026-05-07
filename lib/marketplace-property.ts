@@ -63,5 +63,6 @@ export function roomUrlsFor(p: DbProperty): string[] {
     .filter((u) => u.length > 0)
     .map((u) => cloudinaryPropertyPhotoDisplayUrl(u));
   if (fromDb.length) return fromDb;
-  return [p.image_url];
+  const main = String(p.image_url ?? "").trim();
+  return [main ? cloudinaryPropertyPhotoDisplayUrl(main) : main].filter(Boolean);
 }

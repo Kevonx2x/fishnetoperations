@@ -27,6 +27,8 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { cloudinaryPropertyPhotoHeroUrl } from "@/lib/cloudinary-property-photo-url";
+import { isCloudinaryDeliveryUrl } from "@/lib/cloudinary";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import type { DbProperty, SortMode } from "@/lib/marketplace-property";
@@ -68,6 +70,21 @@ function firstBrowseListingThumbKey(
     if (first) return `${r.key}-${first.id}`;
   }
   return undefined;
+}
+
+/** First N listing cards (row order) for `next/image` priority budget (~4–6 above the fold). */
+function listingThumbPriorityKeys(
+  rows: { key: string; items: DbProperty[] }[],
+  max: number,
+): Set<string> {
+  const s = new Set<string>();
+  for (const r of rows) {
+    for (const p of r.items) {
+      if (s.size >= max) return s;
+      s.add(`${r.key}-${p.id}`);
+    }
+  }
+  return s;
 }
 
 const FEATURED_CITIES: {
@@ -538,21 +555,106 @@ const HERO_FLOATING_CARDS = [
     id: "hero-1",
     name: "BGC Luxury Condo",
     location: "BGC, Taguig",
-    image_url: "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=600&h=400&fit=crop",
+    image_url: "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=800&h=533&fit=crop&q=80",
   },
   {
     id: "hero-2",
     name: "Makati Penthouse",
     location: "Makati CBD, Makati",
-    image_url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&h=400&fit=crop",
+    image_url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&h=533&fit=crop&q=80",
   },
   {
     id: "hero-3",
     name: "Ortigas Modern Home",
     location: "Ortigas Center, Pasig",
-    image_url: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&h=400&fit=crop",
+    image_url: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&h=533&fit=crop&q=80",
   },
 ] as const;
+
+function HeroFloatingCardImage({ src, priority, eager }: { src: string; priority: boolean; eager: boolean }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <>
+      <div
+        className={cn(
+          "absolute inset-0 z-[1] animate-pulse bg-[#FAF8F4]/60 transition-opacity duration-500",
+          loaded && "pointer-events-none opacity-0",
+        )}
+        aria-hidden
+      />
+      <Image
+        src={src}
+        alt=""
+        fill
+        className={cn(
+          "z-[2] object-cover transition-opacity duration-500",
+          loaded ? "opacity-100" : "opacity-0",
+        )}
+        sizes="(max-width: 768px) 100vw, 292px"
+        priority={priority}
+        loading={eager ? "eager" : "lazy"}
+        onLoadingComplete={() => setLoaded(true)}
+      />
+    </>
+  );
+}
+
+function FeaturedLocationStripImage({ src, priority, eager }: { src: string; priority: boolean; eager: boolean }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <>
+      <div
+        className={cn(
+          "absolute inset-0 z-[1] animate-pulse bg-[#FAF8F4]/60 transition-opacity duration-500",
+          loaded && "pointer-events-none opacity-0",
+        )}
+        aria-hidden
+      />
+      <Image
+        src={src}
+        alt=""
+        fill
+        className={cn(
+          "z-[2] object-cover transition-[opacity,transform] duration-500 group-hover:scale-105",
+          loaded ? "opacity-100" : "opacity-0",
+        )}
+        sizes="(min-width: 1024px) 160px, 130px"
+        priority={priority}
+        loading={eager ? "eager" : "lazy"}
+        onLoadingComplete={() => setLoaded(true)}
+      />
+    </>
+  );
+}
+
+function FeaturedListingHeroImage({ src, alt }: { src: string; alt: string }) {
+  const [loaded, setLoaded] = useState(false);
+  if (!src) {
+    return <div className="absolute inset-0 z-[1] animate-pulse bg-[#FAF8F4]/60" aria-hidden />;
+  }
+  const cloud = isCloudinaryDeliveryUrl(src);
+  return (
+    <>
+      <div
+        className={cn(
+          "absolute inset-0 z-[1] animate-pulse bg-[#FAF8F4]/60 transition-opacity duration-500",
+          loaded && "pointer-events-none opacity-0",
+        )}
+        aria-hidden
+      />
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        unoptimized={cloud}
+        className={cn("z-[2] object-cover transition-opacity duration-500", loaded ? "opacity-100" : "opacity-0")}
+        sizes="(max-width: 1024px) 100vw, 672px"
+        loading="lazy"
+        onLoadingComplete={() => setLoaded(true)}
+      />
+    </>
+  );
+}
 
 function HeroFloatingPropertyCards() {
   const configs = [
@@ -598,16 +700,7 @@ function HeroFloatingPropertyCards() {
             )}
           >
             <div className="relative aspect-video w-full">
-              <Image
-                src={card.image_url}
-                alt=""
-                width={600}
-                height={400}
-                className="h-full w-full object-cover"
-                sizes="(max-width: 768px) 100vw, 292px"
-                priority={idx === 0}
-                loading={idx === 0 ? "eager" : "lazy"}
-              />
+              <HeroFloatingCardImage src={card.image_url} priority={idx < 3} eager={idx < 3} />
               <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/5 to-transparent" />
               <span className="absolute left-2.5 top-2.5 rounded-full bg-[#D4A843] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#2C2C2C] shadow-sm">
                 Verified
@@ -1526,6 +1619,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     [featuredHomeProperty],
   );
 
+  const featuredHomeHeroSrc = useMemo(() => {
+    if (!featuredHomeProperty) return "";
+    const raw = String(featuredPhotos[0] ?? featuredHomeProperty.image_url ?? "").trim();
+    if (!raw) return "";
+    return isCloudinaryDeliveryUrl(raw) ? cloudinaryPropertyPhotoHeroUrl(raw) : raw;
+  }, [featuredHomeProperty, featuredPhotos]);
+
   const scrollRow = (ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") => {
     const el = ref.current;
     if (!el) return;
@@ -1859,7 +1959,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
             >
               <div className="flex w-max flex-nowrap justify-start gap-3 sm:gap-4">
                 {Array.from({ length: FEATURED_LOCATIONS_LOOP_COPIES }, (_, copyIdx) =>
-                  FEATURED_LOCATIONS.map((c) => {
+                  FEATURED_LOCATIONS.map((c, flIdx) => {
                     const count = featuredLocationCounts[c.label] ?? 0;
                     const matchType = "neighborhood" in c.match ? ("neighborhood" as const) : ("city" as const);
                     const matchValue = (c.match as { neighborhood?: string; city?: string })[matchType] ?? "";
@@ -1888,16 +1988,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         }}
                       >
                         <div className="relative h-[110px] w-full shrink-0 overflow-hidden lg:h-[130px]">
-                          <Image
+                          <FeaturedLocationStripImage
                             src={c.imageUrl}
-                            alt=""
-                            fill
-                            className="object-cover transition duration-500 group-hover:scale-105"
-                            sizes="(min-width: 1024px) 160px, 130px"
-                            loading="lazy"
+                            priority={copyIdx === 0 && flIdx < 2}
+                            eager={copyIdx === 0 && flIdx < 2}
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
-                          <div className="absolute bottom-0 left-0 right-0 p-2 lg:p-2.5">
+                          <div className="absolute inset-0 z-[3] bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
+                          <div className="absolute bottom-0 left-0 right-0 z-[5] p-2 lg:p-2.5">
                             <p className="text-xs font-bold text-white drop-shadow-sm lg:font-serif lg:text-base lg:font-bold lg:drop-shadow-sm">
                               {c.label}
                             </p>
@@ -2205,7 +2302,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             key={`loc-row-skel-${i}`}
                             className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md"
                           >
-                            <div className="relative h-44 w-full animate-pulse bg-neutral-200/90 lg:h-52" />
+                            <div className="relative h-44 w-full animate-pulse bg-[#FAF8F4]/60 lg:h-52" />
                             <div className="space-y-2 p-3">
                               <div className="h-4 w-3/4 animate-pulse rounded bg-neutral-200/90" />
                               <div className="h-4 w-1/2 animate-pulse rounded bg-neutral-200/90" />
@@ -2318,7 +2415,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             grid
                             viewerUserId={user?.id ?? null}
                             verifiedListingAgent={viewerVerifiedListingAgent}
-                            listingImageLoadEager={i === 0}
+                            listingImageLoadEager={i < 4}
+                            listingImagePriority={i < 4}
                           />
                         ))}
                         {Array.from({ length: Math.max(0, 4 - sortedAllRows.length) }).map((_, i) => (
@@ -2511,16 +2609,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     className="block overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm transition hover:shadow-md"
                   >
                     <div className="relative h-48 w-full bg-black/5 lg:h-64">
-                      <Image
-                        src={String(
-                          featuredPhotos[0] ?? featuredHomeProperty.image_url ?? "",
-                        ).trim()}
+                      <FeaturedListingHeroImage
+                        src={featuredHomeHeroSrc}
                         alt={featuredHomeProperty.name ?? featuredHomeProperty.location}
-                        fill
-                        quality={95}
-                        className="object-cover"
-                        sizes={LISTING_IMAGE_SIZES}
-                        loading="lazy"
                       />
                       {featuredHomeIsAdminFeatured ? (
                         <span className="absolute left-3 top-3 z-10 rounded-full bg-[#D4A843] px-3 py-1 text-xs font-medium text-white">
@@ -2760,6 +2851,7 @@ export function NewlyListedCard({
   compact,
   verifiedListingAgent,
   listingImageLoadEager,
+  listingImagePriority = false,
 }: {
   property: DbProperty;
   roomUrls: string[];
@@ -2780,6 +2872,8 @@ export function NewlyListedCard({
   verifiedListingAgent?: boolean;
   /** First listing thumbnail in browse/search results uses eager loading. */
   listingImageLoadEager?: boolean;
+  /** Small set of above-the-fold cards: `next/image` priority + eager fetch. */
+  listingImagePriority?: boolean;
 }) {
   const listedLabel = listingListedLabel(property.created_at);
   const listingRemoved = propertyEngagementLooksUnavailable(property);
@@ -2802,6 +2896,11 @@ export function NewlyListedCard({
   const [coListOpen, setCoListOpen] = useState(false);
   const [coListError, setCoListError] = useState<string | null>(null);
   const [coListSubmitting, setCoListSubmitting] = useState(false);
+  const [listingImgLoaded, setListingImgLoaded] = useState(false);
+
+  useEffect(() => {
+    setListingImgLoaded(!img);
+  }, [img]);
 
   const firstAgent = connectedAgents[0] ?? null;
   const moreAgentCount = Math.max(0, connectedAgents.length - 1);
@@ -2833,15 +2932,30 @@ export function NewlyListedCard({
       )}
     >
       <div className="relative h-44 w-full shrink-0 overflow-hidden bg-neutral-900 lg:h-52">
-        <Image
-          src={img}
-          alt={property.name ?? property.location}
-          fill
-          quality={92}
-          className={cn("object-cover", listingRemoved && "grayscale")}
-          sizes={LISTING_IMAGE_SIZES}
-          loading={listingImageLoadEager ? "eager" : "lazy"}
+        <div
+          className={cn(
+            "absolute inset-0 z-[1] animate-pulse bg-[#FAF8F4]/60 transition-opacity duration-500",
+            listingImgLoaded && "pointer-events-none opacity-0",
+          )}
+          aria-hidden
         />
+        {img ? (
+          <Image
+            src={img}
+            alt={property.name ?? property.location}
+            fill
+            unoptimized={isCloudinaryDeliveryUrl(img)}
+            className={cn(
+              "z-[2] object-cover transition-opacity duration-500",
+              listingImgLoaded ? "opacity-100" : "opacity-0",
+              listingRemoved && "grayscale",
+            )}
+            sizes={LISTING_IMAGE_SIZES}
+            priority={listingImagePriority}
+            loading={listingImageLoadEager || listingImagePriority ? "eager" : "lazy"}
+            onLoadingComplete={() => setListingImgLoaded(true)}
+          />
+        ) : null}
         <button
           type="button"
           onClick={listingRemoved ? undefined : onOpenPropertyZoom}
@@ -3352,6 +3466,7 @@ function PropertyRows({
   rowTitleSuffix?: string;
 }) {
   const eagerListingThumbKey = useMemo(() => firstBrowseListingThumbKey(rows), [rows]);
+  const priorityListingThumbKeys = useMemo(() => listingThumbPriorityKeys(rows, 4), [rows]);
   const first = rows.slice(0, 4);
   const rest = rows.slice(4);
 
@@ -3377,6 +3492,7 @@ function PropertyRows({
             viewerVerifiedListingAgent={viewerVerifiedListingAgent}
             listingsOnboardingHref={listingsOnboardingHref}
             eagerListingThumbKey={eagerListingThumbKey}
+            priorityListingThumbKeys={priorityListingThumbKeys}
           />
           {i < first.length - 1 ? (
             <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
@@ -3422,6 +3538,7 @@ function PropertyRows({
                   viewerVerifiedListingAgent={viewerVerifiedListingAgent}
                   listingsOnboardingHref={listingsOnboardingHref}
                   eagerListingThumbKey={eagerListingThumbKey}
+                  priorityListingThumbKeys={priorityListingThumbKeys}
                 />
                 <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
               </div>
@@ -3627,6 +3744,7 @@ function RowCarousel({
   viewerVerifiedListingAgent,
   listingsOnboardingHref,
   eagerListingThumbKey,
+  priorityListingThumbKeys,
 }: {
   rowKey: string;
   title: string;
@@ -3643,6 +3761,7 @@ function RowCarousel({
   viewerVerifiedListingAgent: boolean;
   listingsOnboardingHref: string;
   eagerListingThumbKey?: string;
+  priorityListingThumbKeys?: Set<string>;
 }) {
   const scroll = (dir: "prev" | "next") => {
     const el = rowRefs.current[rowKey];
@@ -3697,6 +3816,7 @@ function RowCarousel({
             compact
             verifiedListingAgent={viewerVerifiedListingAgent}
             listingImageLoadEager={eagerListingThumbKey === `${rowKey}-${p.id}`}
+            listingImagePriority={priorityListingThumbKeys?.has(`${rowKey}-${p.id}`) ?? false}
           />
         ))}
         {Array.from({ length: fillerCount }).map((_, i) => (

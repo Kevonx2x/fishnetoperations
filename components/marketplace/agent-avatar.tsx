@@ -23,10 +23,13 @@ export function AgentAvatarFill({
   textClassName?: string;
 }) {
   if (imageUrl?.trim()) {
-    if (isSupabasePublicStorageUrl(imageUrl)) {
-      return <img src={imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />;
+    const trimmed = imageUrl.trim();
+    if (isSupabasePublicStorageUrl(trimmed)) {
+      return (
+        <Image src={trimmed} alt="" fill sizes={sizes} className="object-cover" unoptimized />
+      );
     }
-    return <Image src={imageUrl} alt="" fill sizes={sizes} className="object-cover" />;
+    return <Image src={trimmed} alt="" fill sizes={sizes} className="object-cover" />;
   }
   return (
     <span
