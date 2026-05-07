@@ -1212,7 +1212,17 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           serviceAreaPills: parseServiceAreasForPills(r.service_areas).slice(0, 2),
         };
       }
-      setAgentHomeExtrasById(extras);
+      // Preserve async follower counts already fetched for top agents.
+      setAgentHomeExtrasById((prev) => {
+        const merged: Record<string, AgentHomeExtra> = { ...prev };
+        for (const [id, nextExtra] of Object.entries(extras)) {
+          merged[id] = {
+            ...nextExtra,
+            followersCount: prev[id]?.followersCount ?? nextExtra.followersCount,
+          };
+        }
+        return merged;
+      });
       setAgents(
         filtered
           .map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]))
@@ -3241,7 +3251,7 @@ export function NewlyListedCard({
               className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30"
               aria-label="Previous room photo"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-5 w-5 text-[#2C2C2C]" />
             </button>
             <button
               type="button"
@@ -3253,7 +3263,7 @@ export function NewlyListedCard({
               className="absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30"
               aria-label="Next room photo"
             >
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="h-5 w-5 text-[#2C2C2C]" />
             </button>
           </>
         ) : null}
