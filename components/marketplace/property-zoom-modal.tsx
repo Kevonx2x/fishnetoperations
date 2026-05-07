@@ -306,21 +306,21 @@ function PropertyDetailsSection({
     <>
       <h2
         id={withA11yIds ? "property-zoom-title" : undefined}
-        className="font-serif text-2xl font-bold leading-tight text-[#2C2C2C]"
+        className="text-2xl font-semibold leading-tight text-[#2C2C2C]"
       >
         {property.name ?? property.location}
       </h2>
       {isDual ? (
         <div className="mt-2 space-y-1">
-          <p className="font-serif text-2xl font-bold text-[#D4A843]">
+          <p className="text-2xl font-semibold text-[#D4A843]">
             Sale {formatPropertyPriceDisplay(property.price, "for_sale")}
           </p>
-          <p className="font-serif text-xl font-bold text-[#2C2C2C]/90">
+          <p className="text-xl font-semibold text-[#2C2C2C]/90">
             Rent {formatPropertyPriceDisplay(property.rent_price, "for_rent")}
           </p>
         </div>
       ) : (
-        <p className="mt-2 font-serif text-2xl font-bold text-[#D4A843]">
+        <p className="mt-2 text-2xl font-semibold text-[#D4A843]">
           {formatPropertyPriceDisplay(property.price, property.status)}
         </p>
       )}
@@ -689,7 +689,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
                 descriptionNodeId={detailsId}
               />
             ) : null}
-            <h3 className="mt-8 font-serif text-lg font-bold text-[#2C2C2C]">Contact an Agent</h3>
+            <h3 className="mt-8 font-serif text-lg font-semibold text-[#2C2C2C]">Contact an Agent</h3>
             <div className="mt-4">
               <AgentsList
                 modalAgents={modalAgents}
@@ -747,7 +747,7 @@ export function PropertyZoomModal({ property, agents, onClose, engagement }: Pro
           <div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-[#2C2C2C]/10 bg-white md:w-[40%] md:max-w-[40%] md:flex-none md:border-l md:border-t-0">
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 pt-4 md:pt-5">
               {desc ? <DescriptionPreview propertyId={property.id} desc={desc} onClose={onClose} /> : null}
-              <h3 className="font-serif text-lg font-bold text-[#2C2C2C]">Contact an Agent</h3>
+              <h3 className="font-serif text-lg font-semibold text-[#2C2C2C]">Contact an Agent</h3>
               <div className="mt-4">
                 <AgentsList
                   modalAgents={modalAgents}

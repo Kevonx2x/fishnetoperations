@@ -20,7 +20,7 @@ function VerifiedBadge({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-full bg-[#D4A843]/18 px-2 py-1 text-[11px] font-bold text-[#8a6d32]",
+        "inline-flex shrink-0 items-center gap-1 rounded-full bg-[#D4A843]/18 px-2 py-1 text-[11px] font-semibold text-[#8a6d32]",
         className,
       )}
     >
@@ -109,7 +109,7 @@ export function AgentDirectoryCard({
               textClassName="text-sm"
             />
           </div>
-          <span className="min-w-0 flex-1 truncate text-xs font-bold text-[#2C2C2C] transition-colors duration-150 ease-out group-hover:text-[#2C2C2C]">
+          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#2C2C2C] transition-colors duration-150 ease-out group-hover:text-[#2C2C2C]">
             {agent.name.length > 12 ? `${agent.name.slice(0, 12)}…` : agent.name}
           </span>
           {agent.verified ? (
@@ -120,7 +120,7 @@ export function AgentDirectoryCard({
               ⭐ {scoreRight}
             </span>
           ) : !scoreBesideName ? (
-            <span className="shrink-0 text-xs font-bold text-[#2C2C2C]/80 transition-colors duration-150 ease-out group-hover:text-[#2C2C2C]">
+            <span className="shrink-0 text-xs font-semibold text-[#2C2C2C]/80 transition-colors duration-150 ease-out group-hover:text-[#2C2C2C]">
               {formatAgentScore(agent.score)}
             </span>
           ) : null}
@@ -144,7 +144,7 @@ export function AgentDirectoryCard({
           </div>
           {scoreBesideName ? (
             <div className="flex w-full max-w-full items-center justify-between gap-2 px-1">
-              <p className="line-clamp-1 min-w-0 flex-1 text-left text-base font-bold text-[#2C2C2C]">{agent.name}</p>
+              <p className="line-clamp-1 min-w-0 flex-1 text-left text-base font-semibold text-[#2C2C2C]">{agent.name}</p>
               {scoreRight ? (
                 <span className="flex shrink-0 items-center gap-0.5 text-xs text-gray-500">
                   ⭐ {scoreRight}
@@ -152,7 +152,7 @@ export function AgentDirectoryCard({
               ) : null}
             </div>
           ) : (
-            <p className="w-full max-w-full truncate px-1 text-base font-bold text-[#2C2C2C]">{agent.name}</p>
+            <p className="w-full max-w-full truncate px-1 text-base font-semibold text-[#2C2C2C]">{agent.name}</p>
           )}
           <div className="flex h-[26px] w-full shrink-0 items-center justify-center">
             {agent.verified ? <VerifiedBadge /> : null}

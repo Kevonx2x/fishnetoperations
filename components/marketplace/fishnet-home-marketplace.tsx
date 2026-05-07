@@ -518,7 +518,7 @@ function HomeTopAgentCard({
           <div className="relative mx-auto h-20 w-20 overflow-hidden rounded-full bg-white ring-2 ring-[#D4A843]/25 shadow-sm">
             <AgentAvatarFill name={agent.name} imageUrl={agent.image} sizes="80px" textClassName="text-lg" />
           </div>
-          <p className="mt-2 line-clamp-1 text-sm font-bold text-[#2C2C2C]">{agent.name}</p>
+          <p className="mt-2 line-clamp-1 text-sm font-semibold text-[#2C2C2C]">{agent.name}</p>
           <div className="mt-1 flex items-center justify-center gap-2 text-xs tabular-nums text-[#2C2C2C]/55">
             <span>{scoreRight ? `⭐ ${scoreRight}` : "⭐ —"}</span>
             {agent.verified ? (
@@ -702,13 +702,13 @@ function HeroFloatingPropertyCards() {
             <div className="relative aspect-video w-full">
               <HeroFloatingCardImage src={card.image_url} priority={idx < 3} eager={idx < 3} />
               <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/5 to-transparent" />
-              <span className="absolute left-2.5 top-2.5 rounded-full bg-[#D4A843] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#2C2C2C] shadow-sm">
+              <span className="absolute left-2.5 top-2.5 rounded-full bg-[#D4A843] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#2C2C2C] shadow-sm">
                 Verified
               </span>
             </div>
             <div className="flex items-center gap-2 border-t border-[#2C2C2C]/8 bg-[#FAF8F4] px-3 py-2.5">
               <MapPin className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
-              <span className="line-clamp-2 text-left text-xs font-bold leading-snug text-[#2C2C2C]">
+              <span className="line-clamp-2 text-left text-xs font-semibold leading-snug text-[#2C2C2C]">
                 {locShort}
               </span>
             </div>
@@ -784,7 +784,7 @@ function HomepageFaqSection({
       className={cn("mx-auto max-w-3xl px-4 pb-16", className)}
       aria-labelledby="homepage-faq-heading"
     >
-      <h2 id="homepage-faq-heading" className="text-center font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
+      <h2 id="homepage-faq-heading" className="text-center font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] md:text-3xl">
         Frequently Asked Questions
       </h2>
       <p className="mt-2 text-center text-sm font-medium text-[#2C2C2C]/70">
@@ -858,7 +858,7 @@ function HomepageTopVerifiedAgentsSection({
   return (
     <section className="mt-12">
       <div>
-        <h2 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Top Verified Agents This Week</h2>
+        <h2 className="font-serif text-3xl font-semibold tracking-tight text-[#2C2C2C]">Top Verified Agents This Week</h2>
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">High scores, fast responses, proven closings</p>
       </div>
       <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-4">
@@ -1803,7 +1803,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           <button
             type="button"
             onClick={onSearchSubmit}
-            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-full bg-[#D4A843] px-6 py-3 text-sm font-bold text-[#2C2C2C] shadow-md transition hover:bg-[#c49a38] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 sm:w-auto"
+            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-full bg-[#D4A843] px-6 py-3 text-sm font-semibold text-[#2C2C2C] shadow-md transition hover:bg-[#c49a38] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 sm:w-auto"
           >
             <Search className="h-4 w-4" aria-hidden />
             Search
@@ -1873,7 +1873,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B9E6E]">
                   Verified Agents · Real Listings · 100% Filipino
                 </p>
-                <h1 className="mt-4 font-serif text-2xl font-bold leading-tight tracking-tight text-[#2C2C2C] sm:text-3xl">
+                <h1 className="mt-4 font-serif text-2xl font-semibold leading-tight tracking-tight text-[#2C2C2C] sm:text-3xl">
                   FIND YOUR HOME IN THE PHILIPPINES
                 </h1>
                 <p className="mt-3 text-sm font-semibold text-[#2C2C2C]/65">
@@ -1885,7 +1885,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6B9E6E]">
                   Verified Agents · Real Listings · 100% Filipino
                 </p>
-                <h1 className="mt-4 font-serif text-5xl font-bold leading-[1.08] tracking-tight text-[#2C2C2C]">
+                <h1 className="mt-4 font-serif text-5xl font-semibold leading-[1.08] tracking-tight text-[#2C2C2C]">
                   Find Your Home in the Philippines
                 </h1>
                 <p className="mt-4 text-lg font-medium text-[#2C2C2C]/70">
@@ -1918,7 +1918,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         <div className="mx-auto max-w-7xl px-4 sm:px-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0 text-center sm:text-left">
-              <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">
+              <h2 className="font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">
                 Featured Locations
               </h2>
               <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
@@ -1995,7 +1995,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           />
                           <div className="absolute inset-0 z-[3] bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
                           <div className="absolute bottom-0 left-0 right-0 z-[5] p-2 lg:p-2.5">
-                            <p className="text-xs font-bold text-white drop-shadow-sm lg:font-serif lg:text-base lg:font-bold lg:drop-shadow-sm">
+                            <p className="text-xs font-semibold text-white drop-shadow-sm lg:text-base">
                               {c.label}
                             </p>
                             <p className="mt-0.5 text-[10px] font-semibold text-white/90 lg:text-[11px]">
@@ -2173,7 +2173,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       </div>
                     ) : null}
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Price range</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Price range</p>
                       <div className="mt-2 max-w-xl">
                         <HomepageFilterDualPriceSlider
                           minPrice={filters.minPrice}
@@ -2185,7 +2185,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
                     <div className="mt-4 flex flex-wrap items-end gap-x-5 gap-y-3">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Beds</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Beds</p>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {(
                             [
@@ -2215,7 +2215,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         </div>
                       </div>
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Baths</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Baths</p>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {(
                             [
@@ -2245,7 +2245,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         </div>
                       </div>
                       <div className="min-w-[min(100%,12rem)] flex-1">
-                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Type</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/35">Type</p>
                         <select
                           value={filters.propertyType}
                           onChange={(e) =>
@@ -2315,7 +2315,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#6B9E6E]/12 ring-2 ring-[#D4A843]/30">
                           <MapPin className="h-10 w-10 text-[#6B9E6E]" aria-hidden />
                         </div>
-                        <p className="mt-6 font-serif text-xl font-bold leading-snug text-[#2C2C2C]">
+                        <p className="mt-6 text-xl font-semibold leading-snug text-[#2C2C2C]">
                           No listings in {selectedLocation.label} yet
                         </p>
                         <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/55">
@@ -2356,7 +2356,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     className="mt-8"
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <p className="font-serif text-lg font-bold text-[#2C2C2C]">
+                      <p className="text-lg font-semibold text-[#2C2C2C]">
                         {sortedAllRows.length} {sortedAllRows.length === 1 ? "property" : "properties"} match your search
                       </p>
                       <button
@@ -2377,7 +2377,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#6B9E6E]/12 ring-2 ring-[#D4A843]/30">
                           <Home className="h-10 w-10 text-[#6B9E6E]" aria-hidden />
                         </div>
-                        <p className="mt-6 max-w-md font-serif text-xl font-bold leading-snug text-[#2C2C2C]">
+                        <p className="mt-6 max-w-md text-xl font-semibold leading-snug text-[#2C2C2C]">
                           No listings found in that area yet. Be the first to list here.
                         </p>
                         <Link
@@ -2535,7 +2535,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
               {neighborhoodFilter && cityFilterMeta ? (
                 <div className="mt-12 rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
-                  <h2 className="font-serif text-xl font-bold tracking-tight text-[#2C2C2C] sm:text-2xl">
+                  <h2 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl">
                     Top Agents in {cityFilterMeta.label}
                   </h2>
                   <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
@@ -2620,16 +2620,16 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       ) : null}
                     </div>
                     <div className="p-5 md:p-6">
-                      <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
+                      <h2 className="text-2xl font-semibold tracking-tight text-[#2C2C2C] md:text-3xl">
                         {featuredHomeProperty.name ?? featuredHomeProperty.location}
                       </h2>
                       {featuredHomeProperty.status === "both" ||
                       featuredHomeProperty.listing_type === "both" ? (
                         <div className="mt-2 space-y-1">
-                          <p className="font-serif text-xl font-bold text-[#D4A843] md:text-2xl">
+                          <p className="text-xl font-semibold text-[#D4A843] md:text-2xl">
                             Sale {formatPropertyPriceDisplay(featuredHomeProperty.price, "for_sale")}
                           </p>
-                          <p className="font-serif text-lg font-bold text-[#2C2C2C]/90 md:text-xl">
+                          <p className="text-lg font-semibold text-[#2C2C2C]/90 md:text-xl">
                             Rent{" "}
                             {formatPropertyPriceDisplay(
                               featuredHomeProperty.rent_price,
@@ -2638,7 +2638,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           </p>
                         </div>
                       ) : (
-                        <p className="mt-2 font-serif text-xl font-bold text-[#D4A843] md:text-2xl">
+                        <p className="mt-2 text-xl font-semibold text-[#D4A843] md:text-2xl">
                           {formatPropertyPriceDisplay(
                             featuredHomeProperty.price,
                             featuredHomeProperty.status,
@@ -2731,7 +2731,7 @@ function CategorySection({
   return (
     <>
       <div>
-        <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">{title}</h2>
+        <h2 className="font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">{title}</h2>
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
       </div>
 
@@ -2972,7 +2972,7 @@ export function NewlyListedCard({
             className={`pointer-events-none absolute inset-0 z-[25] flex items-center justify-center px-2 ${overlayMeta.overlayTintClass}`}
           >
             <span
-              className={`rounded-full px-3 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide ${overlayMeta.badgeClass}`}
+              className={`rounded-full px-3 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide ${overlayMeta.badgeClass}`}
             >
               {overlayLabel}
             </span>
@@ -3106,13 +3106,13 @@ export function NewlyListedCard({
         ) : null}
 
         <div className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-5rem)] flex-col items-start gap-1.5">
-          <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-xs font-bold text-[#2C2C2C] shadow-sm ring-1 ring-black/5">
+          <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-xs font-semibold text-[#2C2C2C] shadow-sm ring-1 ring-black/5">
             {listedLabel}
           </span>
           {showYourListingBadge ? (
             <Link
               href="/dashboard/agent"
-              className="pointer-events-auto rounded-full bg-[#D4A843]/95 px-2 py-0.5 text-xs font-bold text-[#2C2C2C] shadow-sm ring-1 ring-[#8a6d32]/30 hover:bg-[#D4A843]"
+              className="pointer-events-auto rounded-full bg-[#D4A843]/95 px-2 py-0.5 text-xs font-semibold text-[#2C2C2C] shadow-sm ring-1 ring-[#8a6d32]/30 hover:bg-[#D4A843]"
               onClick={(e) => e.stopPropagation()}
             >
               This is your listing
@@ -3128,19 +3128,19 @@ export function NewlyListedCard({
           {isDualListing ? (
             <div className="space-y-0.5">
               <p
-                className={`truncate font-serif font-bold tracking-tight text-[#D4A843] ${compact ? "text-sm" : "text-base sm:text-lg"}`}
+                className={`truncate font-semibold tracking-tight text-[#D4A843] ${compact ? "text-sm" : "text-base sm:text-lg"}`}
               >
                 Sale {formatPropertyPriceDisplay(property.price, "for_sale")}
               </p>
               <p
-                className={`truncate font-serif font-bold tracking-tight text-[#2C2C2C]/90 ${compact ? "text-xs" : "text-sm sm:text-base"}`}
+                className={`truncate font-semibold tracking-tight text-[#2C2C2C]/90 ${compact ? "text-xs" : "text-sm sm:text-base"}`}
               >
                 Rent {formatPropertyPriceDisplay(property.rent_price, "for_rent")}
               </p>
             </div>
           ) : (
             <p
-              className={`truncate font-serif font-bold tracking-tight text-[#D4A843] ${compact ? "text-base" : "text-lg sm:text-xl"}`}
+              className={`truncate font-semibold tracking-tight text-[#D4A843] ${compact ? "text-base" : "text-lg sm:text-xl"}`}
             >
               {formatPropertyPriceDisplay(property.price, property.status)}
             </p>
@@ -3148,7 +3148,7 @@ export function NewlyListedCard({
         </div>
         <div className="h-[48px] shrink-0 overflow-hidden">
           <p
-            className={`line-clamp-2 text-[#2C2C2C] ${compact ? "text-sm font-bold" : "text-base font-bold"}`}
+            className={`line-clamp-2 text-[#2C2C2C] ${compact ? "text-sm font-semibold" : "text-base font-semibold"}`}
           >
             {titleLine}
           </p>
@@ -3329,13 +3329,13 @@ function HomepageFilterDualPriceSlider({
     <div className="w-full">
       <div className="relative mx-1 h-7 min-h-[1.75rem]">
         <span
-          className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[11px] font-bold leading-none text-[#2C2C2C]"
+          className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold leading-none text-[#2C2C2C]"
           style={{ left: `${minPct}%` }}
         >
           {formatHomepageFilterPrice(minPrice)}
         </span>
         <span
-          className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[11px] font-bold leading-none text-[#2C2C2C]"
+          className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold leading-none text-[#2C2C2C]"
           style={{ left: `${maxPct}%` }}
         >
           {formatHomepageFilterPrice(maxPrice)}
@@ -3571,7 +3571,7 @@ function ListingsComingSoonPlaceholderCard({
         )}
       >
         <Home className="mb-3 h-11 w-11 text-[#6B9E6E]" strokeWidth={1.5} aria-hidden />
-        <p className="font-serif text-sm font-bold text-[#2C2C2C]">More listings coming soon</p>
+        <p className="text-sm font-semibold text-[#2C2C2C]">More listings coming soon</p>
         <p className="mt-2 text-xs font-semibold text-[#6B9E6E]">Be the first to list here →</p>
       </Link>
     </motion.div>
@@ -3585,7 +3585,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
   if (compact) {
     return (
       <div className="w-full rounded-xl border border-[#6B9E6E]/40 bg-[#6B9E6E]/15 p-3 shadow-sm">
-        <p className="text-center font-serif text-[10px] font-bold uppercase tracking-[0.12em] text-[#2C2C2C]/55">
+        <p className="text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-[#2C2C2C]/55">
           Score guide
         </p>
         <div className="mt-2 rounded-xl border border-[#2C2C2C]/10 bg-white p-2.5 shadow-sm">
@@ -3604,7 +3604,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">
                 <p className="text-sm font-semibold text-[#2C2C2C]">Maria Santos</p>
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#D4A843]/18 px-1.5 py-0.5 text-[9px] font-bold text-[#8a6d32]">
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#D4A843]/18 px-1.5 py-0.5 text-[9px] font-semibold text-[#8a6d32]">
                   <Flame className="h-2.5 w-2.5 text-[#D4A843]" aria-hidden />
                   Verified
                 </span>
@@ -3617,7 +3617,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
           </div>
         </div>
         <div className="mt-2.5">
-          <h3 className="font-serif text-sm font-bold text-[#2C2C2C]">How Scores Work</h3>
+          <h3 className="font-serif text-sm font-semibold text-[#2C2C2C]">How Scores Work</h3>
           <ul className="mt-1.5 space-y-1 text-[11px] font-medium text-[#2C2C2C]/85">
             <li className="flex gap-1.5">
               <Star className="mt-0.5 h-3 w-3 shrink-0 text-[#D4A843]" aria-hidden />
@@ -3648,7 +3648,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
 
   return (
     <div className="relative flex h-full min-h-[300px] w-full flex-col rounded-2xl border border-[#6B9E6E]/40 bg-[#6B9E6E]/15 p-5 shadow-sm">
-      <p className="text-center font-serif text-xs font-bold uppercase tracking-[0.12em] text-[#2C2C2C]/55">
+      <p className="text-center text-xs font-semibold uppercase tracking-[0.12em] text-[#2C2C2C]/55">
         Score guide
       </p>
       <div className="mt-3 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
@@ -3667,7 +3667,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-semibold text-[#2C2C2C]">Maria Santos</p>
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#D4A843]/18 px-2 py-0.5 text-[10px] font-bold text-[#8a6d32]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#D4A843]/18 px-2 py-0.5 text-[10px] font-semibold text-[#8a6d32]">
                 <Flame className="h-3 w-3 text-[#D4A843]" aria-hidden />
                 Verified
               </span>
@@ -3680,7 +3680,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
         </div>
       </div>
       <div className="mt-4 flex-1">
-        <h3 className="font-serif text-lg font-bold text-[#2C2C2C]">How Scores Work</h3>
+        <h3 className="font-serif text-lg font-semibold text-[#2C2C2C]">How Scores Work</h3>
         <ul className="mt-3 space-y-2 text-sm font-medium text-[#2C2C2C]/85">
           <li className="flex">
             <Star className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-[#D4A843]" aria-hidden />
@@ -3721,7 +3721,7 @@ function MoreAgentsComingSoonCard() {
         className="flex min-h-[340px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-4 py-8 text-center shadow-sm transition hover:bg-[#F4F1EA] md:min-h-[340px]"
       >
         <UserPlus className="mb-3 h-11 w-11 text-[#6B9E6E]" strokeWidth={1.5} aria-hidden />
-        <h3 className="font-serif text-lg font-bold tracking-tight text-[#2C2C2C]">More Agents Coming Soon</h3>
+        <h3 className="font-serif text-lg font-semibold tracking-tight text-[#2C2C2C]">More Agents Coming Soon</h3>
         <p className="mt-2 text-sm font-semibold text-[#2C2C2C]">Join as a verified agent</p>
       </Link>
     </motion.div>
@@ -3835,7 +3835,7 @@ function RowCarousel({
       <div className="mb-3">
         <div className="flex flex-wrap items-center gap-2">
           {featured ? <Star className="h-4 w-4 shrink-0 text-[#D4A843]" /> : null}
-          <h2 className="min-w-0 font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-3xl">{title}</h2>
+          <h2 className="min-w-0 font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">{title}</h2>
         </div>
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
       </div>

@@ -150,7 +150,7 @@ function MobileNavSection({
             return (
               <li
                 key={`p-${title}-${i}`}
-                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold italic text-[#2C2C2C]/35"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-[#2C2C2C]/35"
               >
                 <span className="text-[#6B9E6E]/40 [&>svg]:h-4 [&>svg]:w-4">{it.icon}</span>
                 <span className="flex-1">{it.label}</span>
@@ -230,7 +230,7 @@ function NavDropdownMenu({ label, entries }: { label: string; entries: NavDropdo
                       className="flex cursor-default select-none items-center gap-2 rounded-lg px-3 py-2.5"
                     >
                       <span className="text-[#6B9E6E]/40 [&>svg]:h-4 [&>svg]:w-4">{it.icon}</span>
-                      <span className="flex-1 text-sm font-semibold italic text-gray-300">{it.label}</span>
+                      <span className="flex-1 text-sm font-semibold text-gray-300">{it.label}</span>
                       <span className="shrink-0 rounded-full bg-[#D4A843]/18 px-1.5 py-0.5 text-[10px] font-bold text-[#8a6d32]">
                         (Soon)
                       </span>
@@ -536,7 +536,7 @@ export function MaddenTopNav() {
                 <path fill="#D4A843" d="M20 2 L36 14 L36 32 L4 32 L4 14 Z" />
                 <rect x="16" y="22" width="8" height="10" rx="1" fill="#FAF8F4" />
               </svg>
-              <span className="inline-flex items-baseline font-serif text-[1.35rem] font-semibold leading-none tracking-tight">
+              <span className="inline-flex items-baseline text-[1.35rem] font-semibold leading-none tracking-tight">
                 <span className="text-[#2C2C2C]">Bahay</span>
                 <span className="text-[#6B9E6E]">Go</span>
               </span>
@@ -608,7 +608,7 @@ export function MaddenTopNav() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-xs font-bold text-white">
+                      <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-xs font-semibold text-white">
                         {profile?.full_name?.trim()
                           ? agentAvatarInitials(profile.full_name)
                           : (user.email?.[0] ?? "?").toUpperCase()}
@@ -873,7 +873,7 @@ export function MaddenTopNav() {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex shrink-0 items-center justify-between border-b border-[#2C2C2C]/10 px-4 py-3">
-            <span className="font-serif text-lg font-bold text-[#2C2C2C]">Menu</span>
+            <span className="text-lg font-semibold text-[#2C2C2C]">Menu</span>
             <button
               type="button"
               onClick={closeMobileNav}

@@ -53,7 +53,7 @@ export function CoListRequestModal({
           <X className="h-4 w-4" aria-hidden />
         </button>
 
-        <h2 id="co-list-request-title" className="font-serif text-lg font-bold leading-snug text-[#2C2C2C]">
+        <h2 id="co-list-request-title" className="font-serif text-lg font-semibold leading-snug text-[#2C2C2C]">
           Request to Co-list
         </h2>
         <p className="mt-2 text-sm font-semibold leading-relaxed text-[#2C2C2C]/75">
@@ -87,7 +87,7 @@ export function CoListRequestModal({
             type="button"
             onClick={() => void onSubmit(message)}
             disabled={submitting}
-            className="rounded-full bg-[#2C2C2C] px-5 py-2 text-sm font-bold text-white hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full bg-[#2C2C2C] px-5 py-2 text-sm font-semibold text-white hover:bg-[#6B9E6E] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "Sending…" : "Send request"}
           </button>
