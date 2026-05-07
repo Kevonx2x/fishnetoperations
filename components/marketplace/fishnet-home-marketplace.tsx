@@ -441,6 +441,32 @@ export function resolveFeaturedCitySlugToKey(slug: string): string | null {
   return null;
 }
 
+function featuredCityLabelToSlug(label: string): string {
+  const raw = stripDiacritics(label).toLowerCase();
+  const slug = raw.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return slug || "locations";
+}
+
+function dedupeRowsTopToBottom<T extends { id: string }>(
+  rows: { key: string; items: T[] }[],
+): { rows: { key: string; items: T[] }[]; seen: Set<string> } {
+  const seen = new Set<string>();
+  const out: { key: string; items: T[] }[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]!;
+    if (i === 0) {
+      out.push(r);
+      for (const it of r.items) seen.add(it.id);
+      continue;
+    }
+    const filtered = r.items.filter((it) => !seen.has(it.id));
+    if (filtered.length < 3) continue;
+    for (const it of filtered) seen.add(it.id);
+    out.push({ ...r, items: filtered });
+  }
+  return { rows: out, seen };
+}
+
 function isFeaturedCityNeighborhoodKey(key: string | null): boolean {
   return key != null && FEATURED_CITIES.some((c) => c.key === key);
 }
@@ -1394,7 +1420,18 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       };
 
       const results = await Promise.all(rowCfgs.map(async (cfg) => ({ cfg, items: await fetchRow(cfg) })));
+      const seen = new Set<string>();
       const visible = results
+        .map((r, idx) => {
+          if (idx === 0) {
+            for (const p of r.items) seen.add(p.id);
+            return r;
+          }
+          const filtered = r.items.filter((p) => !seen.has(p.id));
+          if (filtered.length < 3) return { ...r, items: [] as DbProperty[] };
+          for (const p of filtered) seen.add(p.id);
+          return { ...r, items: filtered };
+        })
         .filter((r) => r.items.length > 0)
         .map((r) => ({
           key: r.cfg.id,
@@ -1627,6 +1664,62 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return list;
   }, [sortedAllRows]);
+
+  const newestAcrossAllLocations = useMemo(() => {
+    const list = [...baseModeProperties];
+    list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return list;
+  }, [baseModeProperties]);
+
+  const topInBGC = useMemo(
+    () =>
+      newestAcrossAllLocations
+        .filter((p) => String(p.neighborhood ?? "").trim().toLowerCase() === "bgc")
+        .slice(0, 6),
+    [newestAcrossAllLocations],
+  );
+
+  const topInMakati = useMemo(
+    () =>
+      newestAcrossAllLocations
+        .filter((p) => String(p.city ?? "").trim().toLowerCase() === "makati")
+        .slice(0, 6),
+    [newestAcrossAllLocations],
+  );
+
+  const topInOrtigas = useMemo(
+    () =>
+      newestAcrossAllLocations
+        .filter((p) => String(p.neighborhood ?? "").trim().toLowerCase() === "ortigas center")
+        .slice(0, 6),
+    [newestAcrossAllLocations],
+  );
+
+  const topInCebu = useMemo(
+    () =>
+      newestAcrossAllLocations
+        .filter((p) => String(p.city ?? "").trim().toLowerCase() === "cebu city")
+        .slice(0, 6),
+    [newestAcrossAllLocations],
+  );
+
+  const topInDavao = useMemo(
+    () =>
+      newestAcrossAllLocations
+        .filter((p) => String(p.city ?? "").trim().toLowerCase() === "davao")
+        .slice(0, 6),
+    [newestAcrossAllLocations],
+  );
+
+  const newestAcrossAllUnique = useMemo(() => {
+    const seen = new Set<string>();
+    for (const p of topInBGC) seen.add(p.id);
+    for (const p of topInMakati) seen.add(p.id);
+    for (const p of topInOrtigas) seen.add(p.id);
+    for (const p of topInCebu) seen.add(p.id);
+    for (const p of topInDavao) seen.add(p.id);
+    return newestAcrossAllLocations.filter((p) => !seen.has(p.id));
+  }, [newestAcrossAllLocations, topInBGC, topInCebu, topInDavao, topInMakati, topInOrtigas]);
 
   const bgcListings = useMemo(() => {
     return sortedAllRows.filter((p) => {
@@ -2559,40 +2652,44 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     transition={{ duration: 0.28 }}
                     className="mt-8"
                   >
-                    {mode === "buy" ? (
+                    {!neighborhoodFilter ? (
                       <PropertyRows
                         rows={[
-                          { key: "buy-featured", title: "Featured Picks", subtitle: "Recommended for you", items: featuredPicks, featured: true },
                           {
-                            key: "buy-presale",
-                            title: "🏗️ Presale Developments",
-                            subtitle: "New projects & pre-selling inventory",
-                            items: presaleDevelopments,
+                            key: "top-bgc",
+                            title: "Top in BGC",
+                            subtitle: "Newest listings in Bonifacio Global City",
+                            items: topInBGC,
+                            titleHref: buildMarketplaceHref("BGC", mode === "buy" ? "buy" : "rent"),
                           },
                           {
-                            key: "buy-for-sale",
-                            title: "For Sale",
-                            subtitle: "Sale listings (non-presale), newest first",
-                            items: forSaleListings,
+                            key: "top-makati",
+                            title: "Top in Makati",
+                            subtitle: "Newest listings in Makati",
+                            items: topInMakati,
+                            titleHref: buildMarketplaceHref("Makati", mode === "buy" ? "buy" : "rent"),
                           },
                           {
-                            key: "buy-bgc",
-                            title: "BGC listings",
-                            subtitle: "BGC & Taguig",
-                            items: bgcListings,
+                            key: "top-ortigas",
+                            title: "Top in Ortigas",
+                            subtitle: "Newest listings in Ortigas Center",
+                            items: topInOrtigas,
+                            titleHref: buildMarketplaceHref("Ortigas", mode === "buy" ? "buy" : "rent"),
                           },
                           {
-                            key: "buy-makati",
-                            title: "Makati listings",
-                            subtitle: "Makati City & CBD",
-                            items: makatiListings,
+                            key: "top-cebu",
+                            title: "Top in Cebu",
+                            subtitle: "Newest listings in Cebu City",
+                            items: topInCebu,
+                            titleHref: buildMarketplaceHref("Cebu City", mode === "buy" ? "buy" : "rent"),
                           },
-                          { key: "buy-lux", title: "Luxury Homes ₱50M+", subtitle: "Premium listings above ₱50M", items: luxury50m },
-                          { key: "buy-schools", title: "Near Schools & Parks", subtitle: "Nearby family-friendly areas", items: nearSchoolsParks },
-                          { key: "buy-pet", title: "Pet Friendly", subtitle: "Mock badge selection", items: petFriendly },
-                          { key: "buy-gated", title: "Gated Communities", subtitle: "Mock badge selection", items: gated },
-                          { key: "buy-open", title: "Open House This Weekend", subtitle: "Mock badge selection", items: openHouse },
-                          { key: "buy-deals", title: "Foreclosures & Deals", subtitle: "Mock badge selection", items: deals },
+                          {
+                            key: "top-davao",
+                            title: "Top in Davao",
+                            subtitle: "Newest listings in Davao",
+                            items: topInDavao,
+                            titleHref: buildMarketplaceHref("Davao", mode === "buy" ? "buy" : "rent"),
+                          },
                         ]}
                         showMore={showMoreCategories}
                         onToggleShowMore={() => setShowMoreCategories((v) => !v)}
@@ -2607,37 +2704,47 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         listingsOnboardingHref={user ? "/register/agent" : "/auth/signup"}
                         rowTitleSuffix={browseRowTitleSuffix}
                       />
+                    ) : mode === "buy" ? (
+                      <PropertyRows
+                        rows={[
+                          {
+                            key: "buy-for-sale",
+                            title: "For Sale",
+                            subtitle: "Sale listings (non-presale), newest first",
+                            items: forSaleListings,
+                          },
+                          {
+                            key: "buy-presale",
+                            title: "🏗️ Presale Developments",
+                            subtitle: "New projects & pre-selling inventory",
+                            items: presaleDevelopments,
+                          },
+                        ]}
+                        showMore={false}
+                        onToggleShowMore={() => {}}
+                        rowRefs={rowRefs}
+                        cardRoomIdx={cardRoomIdx}
+                        setCardRoomIdx={setCardRoomIdx}
+                        engagement={engagement}
+                        connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
+                        viewerUserId={user?.id ?? null}
+                        onOpenPropertyZoom={setZoomProperty}
+                        viewerVerifiedListingAgent={viewerVerifiedListingAgent}
+                        listingsOnboardingHref={user ? "/register/agent" : "/auth/signup"}
+                        rowTitleSuffix={browseRowTitleSuffix}
+                      />
                     ) : (
                       <PropertyRows
                         rows={[
-                          { key: "rent-featured", title: "Featured Picks", subtitle: "Recommended for you", items: featuredPicks, featured: true },
                           {
                             key: "rent-new",
                             title: "Newly Listed Rentals",
                             subtitle: "Newest rentals first",
                             items: newlyListedRentals,
                           },
-                          {
-                            key: "rent-bgc",
-                            title: "BGC listings",
-                            subtitle: "BGC & Taguig",
-                            items: bgcListings,
-                          },
-                          {
-                            key: "rent-makati",
-                            title: "Makati listings",
-                            subtitle: "Makati City & CBD",
-                            items: makatiListings,
-                          },
-                          { key: "rent-pet", title: "Pet Friendly Rentals", subtitle: "Mock badge selection", items: rentPetFriendly },
-                          { key: "rent-furnished", title: "Furnished & Move-in Ready", subtitle: "Mock badge selection", items: furnished },
-                          { key: "rent-bd", title: "Near Business Districts", subtitle: "BGC · Makati · Ortigas", items: nearBD },
-                          { key: "rent-studio", title: "Studio & Condos", subtitle: "Beds ≤ 1", items: studiosCondos },
-                          { key: "rent-short", title: "Short Term Available", subtitle: "Mock badge selection", items: shortTerm },
-                          { key: "rent-family", title: "Family Homes for Rent", subtitle: "Beds ≥ 3", items: familyRent },
                         ]}
-                        showMore={showMoreCategories}
-                        onToggleShowMore={() => setShowMoreCategories((v) => !v)}
+                        showMore={false}
+                        onToggleShowMore={() => {}}
                         rowRefs={rowRefs}
                         cardRoomIdx={cardRoomIdx}
                         setCardRoomIdx={setCardRoomIdx}
@@ -2681,20 +2788,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 </div>
               ) : null}
             </section>
-
-            <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10 lg:mt-12" />
-
-            {/* 6. TOP VERIFIED AGENTS THIS WEEK (deferred client load) */}
-            <div>
-              <DynamicHomepageTopAgents
-                topAgents={topAgents}
-                topAgentsRef={topAgentsRef}
-                scrollRow={scrollRow}
-                agentHomeExtrasById={agentHomeExtrasById}
-              />
-            </div>
-
-            <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10 lg:mt-12" />
 
             {/* 7. WHY FISHNET TRUST SECTION */}
             <section className="mt-6 lg:mt-12">
@@ -2788,6 +2881,48 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   </Link>
                 </div>
               </section>
+            ) : null}
+
+            {/* 6. TOP VERIFIED AGENTS THIS WEEK (deferred client load) */}
+            <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10 lg:mt-12" />
+            <div className="mt-6 lg:mt-12">
+              <DynamicHomepageTopAgents
+                topAgents={topAgents}
+                topAgentsRef={topAgentsRef}
+                scrollRow={scrollRow}
+                agentHomeExtrasById={agentHomeExtrasById}
+              />
+            </div>
+
+            {/* Newest across all locations (last row). */}
+            {!selectedLocation && listingViewMode === "browse" && !neighborhoodFilter && newestAcrossAllUnique.length >= 3 ? (
+              <>
+                <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10 lg:mt-12" />
+                <div className="mt-6 lg:mt-12">
+                  <RowCarousel
+                    rowKey="newest-across"
+                    title="Newest across all locations"
+                    subtitle="Fresh listings across the Philippines"
+                    items={newestAcrossAllUnique.slice(0, 12)}
+                    featured={false}
+                    rowRefs={rowRefs}
+                    cardRoomIdx={cardRoomIdx}
+                    setCardRoomIdx={setCardRoomIdx}
+                    engagement={engagement}
+                    connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
+                    viewerUserId={user?.id ?? null}
+                    onOpenPropertyZoom={setZoomProperty}
+                    viewerVerifiedListingAgent={viewerVerifiedListingAgent}
+                    listingsOnboardingHref={user ? "/register/agent" : "/auth/signup"}
+                    eagerListingThumbKey={
+                      newestAcrossAllUnique[0] ? `newest-across-${newestAcrossAllUnique[0].id}` : undefined
+                    }
+                    priorityListingThumbKeys={
+                      new Set(newestAcrossAllUnique.slice(0, 4).map((p) => `newest-across-${p.id}`))
+                    }
+                  />
+                </div>
+              </>
             ) : null}
 
             <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10" />
@@ -3571,7 +3706,14 @@ function PropertyRows({
   listingsOnboardingHref,
   rowTitleSuffix,
 }: {
-  rows: { key: string; title: string; subtitle: string; items: DbProperty[]; featured?: boolean }[];
+  rows: {
+    key: string;
+    title: string;
+    subtitle: string;
+    items: DbProperty[];
+    featured?: boolean;
+    titleHref?: string;
+  }[];
   showMore: boolean;
   onToggleShowMore: () => void;
   rowRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
@@ -3586,10 +3728,30 @@ function PropertyRows({
   /** When set (featured city browse), append to each row title, e.g. " in Makati". */
   rowTitleSuffix?: string;
 }) {
-  const eagerListingThumbKey = useMemo(() => firstBrowseListingThumbKey(rows), [rows]);
-  const priorityListingThumbKeys = useMemo(() => listingThumbPriorityKeys(rows, 4), [rows]);
-  const first = rows.slice(0, 4);
-  const rest = rows.slice(4);
+  const dedupedRows = useMemo(() => {
+    if (rows.length <= 1) return rows;
+    const seen = new Set<string>();
+    const out: typeof rows = [];
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]!;
+      if (out.length === 0) {
+        if (r.items.length === 0) continue;
+        out.push(r);
+        for (const p of r.items) seen.add(p.id);
+        continue;
+      }
+      const filtered = r.items.filter((p) => !seen.has(p.id));
+      if (filtered.length < 3) continue;
+      for (const p of filtered) seen.add(p.id);
+      out.push({ ...r, items: filtered });
+    }
+    return out;
+  }, [rows]);
+
+  const eagerListingThumbKey = useMemo(() => firstBrowseListingThumbKey(dedupedRows), [dedupedRows]);
+  const priorityListingThumbKeys = useMemo(() => listingThumbPriorityKeys(dedupedRows, 4), [dedupedRows]);
+  const first = dedupedRows.slice(0, 4);
+  const rest = dedupedRows.slice(4);
 
   const titleWithSuffix = (t: string) => (rowTitleSuffix ? `${t}${rowTitleSuffix}` : t);
 
@@ -3603,6 +3765,7 @@ function PropertyRows({
             subtitle={r.subtitle}
             items={r.items}
             featured={!!r.featured}
+            titleHref={r.titleHref}
             rowRefs={rowRefs}
             cardRoomIdx={cardRoomIdx}
             setCardRoomIdx={setCardRoomIdx}
@@ -3649,6 +3812,7 @@ function PropertyRows({
                   subtitle={r.subtitle}
                   items={r.items}
                   featured={!!r.featured}
+                  titleHref={r.titleHref}
                   rowRefs={rowRefs}
                   cardRoomIdx={cardRoomIdx}
                   setCardRoomIdx={setCardRoomIdx}
@@ -3855,6 +4019,7 @@ function RowCarousel({
   subtitle,
   items,
   featured,
+  titleHref,
   rowRefs,
   cardRoomIdx,
   setCardRoomIdx,
@@ -3872,6 +4037,7 @@ function RowCarousel({
   subtitle: string;
   items: DbProperty[];
   featured: boolean;
+  titleHref?: string;
   rowRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
   cardRoomIdx: Record<string, number>;
   setCardRoomIdx: React.Dispatch<React.SetStateAction<Record<string, number>>>;
@@ -3956,7 +4122,18 @@ function RowCarousel({
       <div className="mb-3">
         <div className="flex flex-wrap items-center gap-2">
           {featured ? <Star className="h-4 w-4 shrink-0 text-[#D4A843]" /> : null}
-          <h2 className="min-w-0 font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">{title}</h2>
+          {titleHref ? (
+            <Link
+              href={titleHref}
+              className="min-w-0 font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] hover:underline sm:text-3xl"
+            >
+              {title}
+            </Link>
+          ) : (
+            <h2 className="min-w-0 font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">
+              {title}
+            </h2>
+          )}
         </div>
         <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
       </div>
