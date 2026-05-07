@@ -3,6 +3,11 @@ import { notifyAdminNewAgentRegistered } from "@/lib/admin-notify-sms";
 import { registerAgentSchema } from "@/lib/api/schemas/phase1-batch2";
 import { fail, fromZodError, ok } from "@/lib/api/response";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  DEFAULT_AGENT_BIO_TAGLINE,
+  DEFAULT_AGENT_LANGUAGES_COMMAS,
+  DEFAULT_AGENT_SPECIALTIES_COMMAS,
+} from "@/lib/agent-profile-defaults";
 import { createSupabaseUserClient } from "@/lib/supabase-route";
 
 export async function POST(request: NextRequest) {
@@ -97,7 +102,9 @@ export async function POST(request: NextRequest) {
       license_expiry: parsed.data.license_expiry?.trim() || null,
       phone: parsed.data.phone?.trim() || null,
       email: emailTrim,
-      bio: parsed.data.bio?.trim() || null,
+      bio: parsed.data.bio?.trim() || DEFAULT_AGENT_BIO_TAGLINE,
+      languages_spoken: DEFAULT_AGENT_LANGUAGES_COMMAS,
+      specialties: DEFAULT_AGENT_SPECIALTIES_COMMAS,
       broker_id: brokerId,
       prc_document_url: parsed.data.prc_document_url,
       selfie_url: parsed.data.selfie_url,

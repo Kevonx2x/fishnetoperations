@@ -45,6 +45,11 @@ import {
   normalizePropertyAvailabilityState,
   propertyEngagementLooksUnavailable,
 } from "@/lib/property-availability";
+import {
+  DEFAULT_AGENT_BIO_TAGLINE,
+  DEFAULT_AGENT_LANGUAGES_COMMAS,
+  DEFAULT_AGENT_SPECIALTIES_COMMAS,
+} from "@/lib/agent-profile-defaults";
 import { normalizeListingTier } from "@/lib/agent-listing-limits";
 import { cn } from "@/lib/utils";
 import { fetchSimilarAgents } from "@/lib/similar-agents";
@@ -64,7 +69,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 /** Sidebar tagline; kept very short so the sticky sidebar stays tidy. */
-const PROFILE_TAGLINE_MAX = 25;
+const PROFILE_TAGLINE_MAX = 40;
 
 type AgentRow = {
   id: string;
@@ -365,6 +370,8 @@ export default function AgentProfilePage() {
   const { engagement } = usePropertyEngagementForProperties(listings);
 
   const isOwnProfile = Boolean(user?.id && agent?.user_id && user.id === agent.user_id);
+  /** Agents use client messaging elsewhere; block starting a client↔agent thread from another agent's public page. */
+  const messageDisabledForAgentViewer = Boolean(!isOwnProfile && profile?.role === "agent");
   const [messageBusy, setMessageBusy] = useState(false);
 
   const [savingOwnerBio, setSavingOwnerBio] = useState(false);
@@ -431,14 +438,14 @@ export default function AgentProfilePage() {
     user?.id && profile?.role === "client" && !isOwnProfile && agent?.id,
   );
 
-  const sidebarSpecialties = useMemo(
-    () => splitCsvPublic(agent?.specialties).slice(0, 8),
-    [agent?.specialties],
-  );
-  const sidebarLanguages = useMemo(
-    () => splitCsvPublic(agent?.languages_spoken).slice(0, 8),
-    [agent?.languages_spoken],
-  );
+  const sidebarSpecialties = useMemo(() => {
+    const raw = splitCsvPublic(agent?.specialties);
+    return (raw.length ? raw : splitCsvPublic(DEFAULT_AGENT_SPECIALTIES_COMMAS)).slice(0, 8);
+  }, [agent?.specialties]);
+  const sidebarLanguages = useMemo(() => {
+    const raw = splitCsvPublic(agent?.languages_spoken);
+    return (raw.length ? raw : splitCsvPublic(DEFAULT_AGENT_LANGUAGES_COMMAS)).slice(0, 8);
+  }, [agent?.languages_spoken]);
   const sidebarLocationLine = useMemo(() => {
     const parts = splitServiceAreasPublic(agent?.service_areas);
     if (!parts.length) return null;
@@ -1206,7 +1213,9 @@ export default function AgentProfilePage() {
                         {sidebarTaglineText(agent.bio)}
                       </p>
                     ) : (
-                      <p className="mt-2 text-center text-[13px] italic text-[#2C2C2C]/45">No bio yet</p>
+                      <p className="mt-2 px-1 text-center text-[13px] font-medium leading-snug text-[#2C2C2C]/80">
+                        {sidebarTaglineText(DEFAULT_AGENT_BIO_TAGLINE)}
+                      </p>
                     )}
                   </div>
 
@@ -1692,8 +1701,8 @@ export default function AgentProfilePage() {
                                         propertyImage: p.image_url ?? null,
                                       })
                                     }
-                                    disabled={authLoading || messageBusy}
-                                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-[#5d8a60] disabled:opacity-50 sm:w-auto"
+                                    disabled={authLoading || messageBusy || messageDisabledForAgentViewer}
+                                    className="inline-flex w-full cursor-not-allowed items-center justify-center gap-1.5 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-[#5d8a60] disabled:pointer-events-none disabled:opacity-50 sm:w-auto enabled:cursor-pointer enabled:hover:bg-[#5d8a60]"
                                   >
                                     <MessageSquare className="h-3.5 w-3.5" aria-hidden />
                                     Message

@@ -4,7 +4,7 @@ import { fail, fromZodError, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const TAGLINE_MAX = 25;
+const TAGLINE_MAX = 40;
 
 const bodySchema = z.object({
   agentId: z.string().min(1),

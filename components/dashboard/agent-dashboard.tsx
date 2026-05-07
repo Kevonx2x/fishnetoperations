@@ -73,6 +73,10 @@ import {
   normalizeListingTier,
   TIER_LABEL,
 } from "@/lib/agent-listing-limits";
+import {
+  DEFAULT_AGENT_LANGUAGES_COMMAS,
+  DEFAULT_AGENT_SPECIALTIES_COMMAS,
+} from "@/lib/agent-profile-defaults";
 import { ListingLimitUpgradeModal } from "@/components/marketplace/listing-limit-upgrade-modal";
 import { ImportListingModal } from "@/components/dashboard/import-listing-modal";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
@@ -1709,6 +1713,8 @@ export function AgentDashboard() {
     const sl = (agent.social_links ?? {}) as Record<string, string>;
     const spec = splitCsv(agent.specialties);
     const langs = splitCsv(agent.languages_spoken);
+    const specEffective = spec.length ? spec : splitCsv(DEFAULT_AGENT_SPECIALTIES_COMMAS);
+    const langsEffective = langs.length ? langs : splitCsv(DEFAULT_AGENT_LANGUAGES_COMMAS);
     const areas = splitServiceAreas(agent.service_areas);
     setProfileForm({
       name: agent.name,
@@ -1716,8 +1722,8 @@ export function AgentDashboard() {
       bio: agent.bio ?? "",
       age: agent.age != null ? String(agent.age) : "",
       yearsExperience: agent.years_experience != null ? String(agent.years_experience) : "",
-      languages: langs.filter((x) => (LANGUAGE_OPTIONS as readonly string[]).includes(x)),
-      specialties: spec.filter((x) => (SPECIALTY_OPTIONS as readonly string[]).includes(x)),
+      languages: langsEffective.filter((x) => (LANGUAGE_OPTIONS as readonly string[]).includes(x)),
+      specialties: specEffective.filter((x) => (SPECIALTY_OPTIONS as readonly string[]).includes(x)),
       serviceAreaTags: areas,
       serviceAreaDraft: "",
       instagram: sl.instagram ?? "",
