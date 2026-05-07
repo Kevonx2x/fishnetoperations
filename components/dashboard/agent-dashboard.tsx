@@ -3232,6 +3232,13 @@ export function AgentDashboard() {
                     placeholder="Search address or neighborhood…"
                     className="mt-1 w-full"
                     inputClassName="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    addressMapPreview
+                    mapPreviewInstanceId="agent-listing-edit-address-map"
+                    mapPreviewCenter={
+                      editForm.lat != null && editForm.lng != null
+                        ? { lat: editForm.lat, lng: editForm.lng }
+                        : null
+                    }
                   />
                 </label>
                 {editFormErrors.location ? (
@@ -4769,6 +4776,13 @@ function ListingsTab({
                     placeholder="Search address or neighborhood…"
                     className="mt-1 w-full"
                     inputClassName="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                    addressMapPreview
+                    mapPreviewInstanceId="agent-listing-new-address-map"
+                    mapPreviewCenter={
+                      listingForm.lat != null && listingForm.lng != null
+                        ? { lat: listingForm.lat, lng: listingForm.lng }
+                        : null
+                    }
                   />
                 </label>
                 {listingFormErrors.location ? (
