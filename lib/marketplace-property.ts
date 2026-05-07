@@ -26,6 +26,10 @@ export type DbProperty = {
   listed_by?: string | null;
   description?: string | null;
   property_type?: string | null;
+  sales_status?: string | null;
+  pet_friendly?: boolean | null;
+  near_schools?: boolean | null;
+  family_friendly?: boolean | null;
   /** Presale development overlay (see `is_presale`). */
   is_presale?: boolean;
   developer_name?: string | null;

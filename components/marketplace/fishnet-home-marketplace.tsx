@@ -1665,61 +1665,118 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     return list;
   }, [sortedAllRows]);
 
-  const newestAcrossAllLocations = useMemo(() => {
+  const defaultHomepageList = useMemo(() => {
     const list = [...baseModeProperties];
     list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return list;
   }, [baseModeProperties]);
 
-  const topInBGC = useMemo(
-    () =>
-      newestAcrossAllLocations
-        .filter((p) => String(p.neighborhood ?? "").trim().toLowerCase() === "bgc")
-        .slice(0, 6),
-    [newestAcrossAllLocations],
-  );
+  const metroManilaSet = useMemo(() => {
+    return new Set(
+      [
+        "manila",
+        "makati",
+        "taguig",
+        "pasig",
+        "mandaluyong",
+        "quezon city",
+        "pasay",
+        "paranaque",
+        "parañaque",
+        "las piñas",
+        "las pinas",
+        "muntinlupa",
+        "san juan",
+        "caloocan",
+      ].map((x) => x.toLowerCase()),
+    );
+  }, []);
 
-  const topInMakati = useMemo(
-    () =>
-      newestAcrossAllLocations
-        .filter((p) => String(p.city ?? "").trim().toLowerCase() === "makati")
-        .slice(0, 6),
-    [newestAcrossAllLocations],
-  );
+  const defaultHomepageRows = useMemo(() => {
+    const byType = (t: string) => (p: DbProperty) => String(p.property_type ?? "").trim().toLowerCase() === t.toLowerCase();
+    const byBeds = (n: number) => (p: DbProperty) => p.beds === n;
+    const byBedsGte = (n: number) => (p: DbProperty) => p.beds >= n;
+    const priceN = (p: DbProperty) => (mode === "buy" ? parsePriceToNumber(p.price) : parsePriceToNumber(p.rent_price));
+    const within = (min?: number, max?: number) => (p: DbProperty) => {
+      const n = priceN(p);
+      if (n == null) return false;
+      if (min != null && n < min) return false;
+      if (max != null && n > max) return false;
+      return true;
+    };
 
-  const topInOrtigas = useMemo(
-    () =>
-      newestAcrossAllLocations
-        .filter((p) => String(p.neighborhood ?? "").trim().toLowerCase() === "ortigas center")
-        .slice(0, 6),
-    [newestAcrossAllLocations],
-  );
+    const trending = [...defaultHomepageList].sort(
+      (a, b) => (likeCountsByPropertyId[b.id] ?? 0) - (likeCountsByPropertyId[a.id] ?? 0),
+    );
 
-  const topInCebu = useMemo(
-    () =>
-      newestAcrossAllLocations
-        .filter((p) => String(p.city ?? "").trim().toLowerCase() === "cebu city")
-        .slice(0, 6),
-    [newestAcrossAllLocations],
-  );
+    const metroManilaNewest = defaultHomepageList.filter((p) => {
+      const city = String(p.city ?? "").trim().toLowerCase();
+      if (city && metroManilaSet.has(city)) return true;
+      const loc = String(p.location ?? "").toLowerCase();
+      return (
+        loc.includes("manila") ||
+        loc.includes("makati") ||
+        loc.includes("taguig") ||
+        loc.includes("pasig") ||
+        loc.includes("mandaluyong") ||
+        loc.includes("quezon") ||
+        loc.includes("pasay") ||
+        loc.includes("parañaque") ||
+        loc.includes("paranaque") ||
+        loc.includes("las piñas") ||
+        loc.includes("las pinas") ||
+        loc.includes("muntinlupa") ||
+        loc.includes("san juan")
+      );
+    });
 
-  const topInDavao = useMemo(
-    () =>
-      newestAcrossAllLocations
-        .filter((p) => String(p.city ?? "").trim().toLowerCase() === "davao")
-        .slice(0, 6),
-    [newestAcrossAllLocations],
-  );
+    const shown = (items: DbProperty[], n = 12) => items.slice(0, n);
 
-  const newestAcrossAllUnique = useMemo(() => {
-    const seen = new Set<string>();
-    for (const p of topInBGC) seen.add(p.id);
-    for (const p of topInMakati) seen.add(p.id);
-    for (const p of topInOrtigas) seen.add(p.id);
-    for (const p of topInCebu) seen.add(p.id);
-    for (const p of topInDavao) seen.add(p.id);
-    return newestAcrossAllLocations.filter((p) => !seen.has(p.id));
-  }, [newestAcrossAllLocations, topInBGC, topInCebu, topInDavao, topInMakati, topInOrtigas]);
+    if (mode === "buy") {
+      return [
+        { key: "buy-featured", title: "Featured Picks (for sale)", subtitle: "Recommended for you", items: shown(featuredPicks, 8), featured: true },
+        { key: "buy-new", title: "Newly Listed for Sale", subtitle: "Newest listings first", items: shown(defaultHomepageList) },
+        { key: "buy-trending", title: "Trending listings for sale", subtitle: "Most liked right now", items: shown(trending) },
+        { key: "buy-houses", title: "Single Family Homes for Sale", subtitle: "Houses on the market", items: shown(defaultHomepageList.filter(byType("House"))) },
+        { key: "buy-condos", title: "Condos for Sale", subtitle: "Condo inventory, newest first", items: shown(defaultHomepageList.filter(byType("Condo"))) },
+        { key: "buy-presale", title: "Presale condos", subtitle: "New projects & pre-selling inventory", items: shown(defaultHomepageList.filter((p) => p.sales_status === "Presale")) },
+        { key: "buy-rfo", title: "Ready for Occupancy condos", subtitle: "Move-in ready listings", items: shown(defaultHomepageList.filter((p) => p.sales_status === "RFO")) },
+        { key: "buy-resale", title: "Resale condos", subtitle: "Existing unit resales", items: shown(defaultHomepageList.filter((p) => p.sales_status === "Resale")) },
+        { key: "buy-affordable", title: "Affordable condos (under ₱5M)", subtitle: "Budget-friendly finds", items: shown(defaultHomepageList.filter(within(undefined, 5_000_000)).filter(byType("Condo"))) },
+        { key: "buy-luxury", title: "Luxury homes (₱20M+)", subtitle: "Premium inventory", items: shown(defaultHomepageList.filter(within(20_000_000))) },
+        { key: "buy-townhouses", title: "Townhouses for Sale", subtitle: "Townhouse listings", items: shown(defaultHomepageList.filter(byType("Townhouse"))) },
+        { key: "buy-lots", title: "Lots for Sale", subtitle: "Land & lots", items: shown(defaultHomepageList.filter((p) => byType("Lot")(p) || byType("Land")(p))) },
+        { key: "buy-studios", title: "Studios for Sale", subtitle: "Studio units", items: shown(defaultHomepageList.filter(byBeds(0))) },
+        { key: "buy-bed1", title: "1-bedroom for Sale", subtitle: "1BR units", items: shown(defaultHomepageList.filter(byBeds(1))) },
+        { key: "buy-bed2", title: "2-bedroom for Sale", subtitle: "2BR units", items: shown(defaultHomepageList.filter(byBeds(2))) },
+        { key: "buy-bed3p", title: "3+ bedroom for Sale", subtitle: "Bigger homes", items: shown(defaultHomepageList.filter(byBedsGte(3))) },
+        { key: "buy-pet", title: "Pet-friendly homes for sale", subtitle: "Agent-marked pet-friendly", items: shown(defaultHomepageList.filter((p) => p.pet_friendly)) },
+        { key: "buy-family", title: "Family-friendly homes for sale", subtitle: "Agent-marked family-friendly", items: shown(defaultHomepageList.filter((p) => p.family_friendly)) },
+        { key: "buy-schools", title: "Near schools (for sale)", subtitle: "Agent-marked near schools", items: shown(defaultHomepageList.filter((p) => p.near_schools)) },
+        { key: "buy-mm", title: "Newest in Metro Manila for sale", subtitle: "Newest listings in Metro Manila", items: shown(metroManilaNewest) },
+      ];
+    }
+
+    return [
+      { key: "rent-featured", title: "Featured Picks (rentals)", subtitle: "Recommended for you", items: shown(featuredPicks, 8), featured: true },
+      { key: "rent-new", title: "Newly Listed Rentals", subtitle: "Newest rentals first", items: shown(newlyListedRentals) },
+      { key: "rent-trending", title: "Trending Rentals", subtitle: "Most liked right now", items: shown(trending) },
+      { key: "rent-houses", title: "Single Family Homes for Rent", subtitle: "Houses for rent", items: shown(defaultHomepageList.filter(byType("House"))) },
+      { key: "rent-condos", title: "Condos for Rent", subtitle: "Condo rentals", items: shown(defaultHomepageList.filter(byType("Condo"))) },
+      { key: "rent-pet", title: "Pet-friendly rentals", subtitle: "Agent-marked pet-friendly", items: shown(defaultHomepageList.filter((p) => p.pet_friendly)) },
+      { key: "rent-family", title: "Family-friendly rentals", subtitle: "Agent-marked family-friendly", items: shown(defaultHomepageList.filter((p) => p.family_friendly)) },
+      { key: "rent-schools", title: "Near schools (rentals)", subtitle: "Agent-marked near schools", items: shown(defaultHomepageList.filter((p) => p.near_schools)) },
+      { key: "rent-affordable", title: "Affordable rentals (under ₱25,000/mo)", subtitle: "Great value picks", items: shown(defaultHomepageList.filter(within(undefined, 25_000))) },
+      { key: "rent-luxury", title: "Luxury rentals (₱60,000+/mo)", subtitle: "Premium rentals", items: shown(defaultHomepageList.filter(within(60_000))) },
+      { key: "rent-townhouses", title: "Townhouses for Rent", subtitle: "Townhouse rentals", items: shown(defaultHomepageList.filter(byType("Townhouse"))) },
+      { key: "rent-apartments", title: "Apartments for Rent", subtitle: "Apartment rentals", items: shown(defaultHomepageList.filter(byType("Apartment"))) },
+      { key: "rent-studios", title: "Studios for Rent", subtitle: "Studio rentals", items: shown(defaultHomepageList.filter(byBeds(0))) },
+      { key: "rent-bed1", title: "1-bedroom rentals", subtitle: "1BR rentals", items: shown(defaultHomepageList.filter(byBeds(1))) },
+      { key: "rent-bed2", title: "2-bedroom rentals", subtitle: "2BR rentals", items: shown(defaultHomepageList.filter(byBeds(2))) },
+      { key: "rent-bed3p", title: "3+ bedroom rentals", subtitle: "Bigger rentals", items: shown(defaultHomepageList.filter(byBedsGte(3))) },
+      { key: "rent-mm", title: "Newest in Metro Manila", subtitle: "Newest rentals in Metro Manila", items: shown(metroManilaNewest) },
+    ];
+  }, [baseModeProperties, defaultHomepageList, featuredPicks, likeCountsByPropertyId, metroManilaSet, mode, newlyListedRentals]);
 
   const bgcListings = useMemo(() => {
     return sortedAllRows.filter((p) => {
@@ -1975,12 +2032,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         <div className="inline-flex gap-2 rounded-full bg-[#EBE6DC]/90 p-1 ring-1 ring-[#D4A843]/35 backdrop-blur-sm">
           {mode === "rent" ? (
             <>
-              <Link
-                href={buildMarketplaceHref(search, "buy")}
-                className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50"
+              <button
+                type="button"
+                onClick={() => router.replace(buildMarketplaceHref(search, "buy"), { scroll: false })}
+                className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
               >
                 Buy
-              </Link>
+              </button>
               <span className="rounded-full bg-gradient-to-b from-[#8faf91] to-[#6B9E6E] px-5 py-2 text-xs font-semibold text-white shadow-sm ring-1 ring-[#D4A843]/50">
                 Rent
               </span>
@@ -1990,12 +2048,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               <span className="rounded-full bg-gradient-to-b from-[#8faf91] to-[#6B9E6E] px-5 py-2 text-xs font-semibold text-white shadow-sm ring-1 ring-[#D4A843]/50">
                 Buy
               </span>
-              <Link
-                href={buildMarketplaceHref(search, "rent")}
-                className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50"
+              <button
+                type="button"
+                onClick={() => router.replace(buildMarketplaceHref(search, "rent"), { scroll: false })}
+                className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
               >
                 Rent
-              </Link>
+              </button>
             </>
           )}
         </div>
@@ -2654,43 +2713,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   >
                     {!neighborhoodFilter ? (
                       <PropertyRows
-                        rows={[
-                          {
-                            key: "top-bgc",
-                            title: "Top in BGC",
-                            subtitle: "Newest listings in Bonifacio Global City",
-                            items: topInBGC,
-                            titleHref: buildMarketplaceHref("BGC", mode === "buy" ? "buy" : "rent"),
-                          },
-                          {
-                            key: "top-makati",
-                            title: "Top in Makati",
-                            subtitle: "Newest listings in Makati",
-                            items: topInMakati,
-                            titleHref: buildMarketplaceHref("Makati", mode === "buy" ? "buy" : "rent"),
-                          },
-                          {
-                            key: "top-ortigas",
-                            title: "Top in Ortigas",
-                            subtitle: "Newest listings in Ortigas Center",
-                            items: topInOrtigas,
-                            titleHref: buildMarketplaceHref("Ortigas", mode === "buy" ? "buy" : "rent"),
-                          },
-                          {
-                            key: "top-cebu",
-                            title: "Top in Cebu",
-                            subtitle: "Newest listings in Cebu City",
-                            items: topInCebu,
-                            titleHref: buildMarketplaceHref("Cebu City", mode === "buy" ? "buy" : "rent"),
-                          },
-                          {
-                            key: "top-davao",
-                            title: "Top in Davao",
-                            subtitle: "Newest listings in Davao",
-                            items: topInDavao,
-                            titleHref: buildMarketplaceHref("Davao", mode === "buy" ? "buy" : "rent"),
-                          },
-                        ]}
+                        rows={defaultHomepageRows}
                         showMore={showMoreCategories}
                         onToggleShowMore={() => setShowMoreCategories((v) => !v)}
                         rowRefs={rowRefs}
@@ -2893,37 +2916,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 agentHomeExtrasById={agentHomeExtrasById}
               />
             </div>
-
-            {/* Newest across all locations (last row). */}
-            {!selectedLocation && listingViewMode === "browse" && !neighborhoodFilter && newestAcrossAllUnique.length >= 3 ? (
-              <>
-                <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10 lg:mt-12" />
-                <div className="mt-6 lg:mt-12">
-                  <RowCarousel
-                    rowKey="newest-across"
-                    title="Newest across all locations"
-                    subtitle="Fresh listings across the Philippines"
-                    items={newestAcrossAllUnique.slice(0, 12)}
-                    featured={false}
-                    rowRefs={rowRefs}
-                    cardRoomIdx={cardRoomIdx}
-                    setCardRoomIdx={setCardRoomIdx}
-                    engagement={engagement}
-                    connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
-                    viewerUserId={user?.id ?? null}
-                    onOpenPropertyZoom={setZoomProperty}
-                    viewerVerifiedListingAgent={viewerVerifiedListingAgent}
-                    listingsOnboardingHref={user ? "/register/agent" : "/auth/signup"}
-                    eagerListingThumbKey={
-                      newestAcrossAllUnique[0] ? `newest-across-${newestAcrossAllUnique[0].id}` : undefined
-                    }
-                    priorityListingThumbKeys={
-                      new Set(newestAcrossAllUnique.slice(0, 4).map((p) => `newest-across-${p.id}`))
-                    }
-                  />
-                </div>
-              </>
-            ) : null}
 
             <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10" />
           </>
@@ -3200,7 +3192,9 @@ export function NewlyListedCard({
             src={img}
             alt={property.name ?? property.location}
             fill
-            unoptimized={isCloudinaryDeliveryUrl(img)}
+            // PERF: avoid Next image optimizer bottleneck for large grids.
+            // This preserves the exact source URL (no Cloudinary transform changes) and dimensions/layout.
+            unoptimized
             className={cn(
               "z-[2] object-cover transition-opacity duration-500",
               listingImgLoaded ? "opacity-100" : "opacity-0",
@@ -3732,6 +3726,8 @@ function PropertyRows({
     if (rows.length <= 1) return rows;
     const seen = new Set<string>();
     const out: typeof rows = [];
+    const MIN_ITEMS_PER_ROW = 3;
+    const MIN_ITEMS_SPARSE = 2;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
       if (out.length === 0) {
@@ -3740,10 +3736,20 @@ function PropertyRows({
         for (const p of r.items) seen.add(p.id);
         continue;
       }
-      const filtered = r.items.filter((p) => !seen.has(p.id));
-      if (filtered.length < 3) continue;
-      for (const p of filtered) seen.add(p.id);
-      out.push({ ...r, items: filtered });
+      const unique = r.items.filter((p) => !seen.has(p.id));
+      // If a row doesn’t have enough unique listings (common because many rows are derived
+      // from the same base list), allow a controlled amount of overlap so we render
+      // multiple rows instead of collapsing the entire homepage into 1 row.
+      let nextItems = unique;
+      if (nextItems.length < MIN_ITEMS_PER_ROW && r.items.length >= MIN_ITEMS_PER_ROW) {
+        const need = MIN_ITEMS_PER_ROW - nextItems.length;
+        const overlap = r.items.filter((p) => seen.has(p.id)).slice(0, need);
+        nextItems = [...nextItems, ...overlap];
+      }
+
+      if (nextItems.length < MIN_ITEMS_SPARSE) continue;
+      for (const p of nextItems) seen.add(p.id);
+      out.push({ ...r, items: nextItems });
     }
     return out;
   }, [rows]);
