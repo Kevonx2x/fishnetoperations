@@ -63,7 +63,7 @@ export function ReportProfileButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-3 text-xs font-medium text-gray-400 transition hover:text-gray-500"
+        className="mt-1 text-xs font-semibold text-sky-600 transition hover:text-sky-700"
       >
         Report
       </button>

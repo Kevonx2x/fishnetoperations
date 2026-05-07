@@ -20,6 +20,7 @@ import {
   LayoutList,
   Loader2,
   MapPin,
+  ExternalLink,
   MessageSquare,
   MoreHorizontal,
   Pencil,
@@ -129,7 +130,6 @@ type Tab =
   | "documents"
   | "listings"
   | "team"
-  | "profile"
   | "analytics"
   | "notifications"
   | "billing";
@@ -141,7 +141,6 @@ const URL_TAB_QUERY_ALLOWED: Tab[] = [
   "documents",
   "listings",
   "team",
-  "profile",
   "analytics",
   "notifications",
   "billing",
@@ -2470,7 +2469,6 @@ export function AgentDashboard() {
     { id: "team", label: "Team", icon: <Users className="h-[18px] w-[18px]" /> },
     { id: "billing", label: "Billing", icon: <CreditCard className="h-[18px] w-[18px]" /> },
     { id: "notifications", label: "Notifications", icon: <Bell className="h-[18px] w-[18px]" /> },
-    { id: "profile", label: "Profile", icon: <Settings className="h-[18px] w-[18px]" /> },
   ];
   const teamMemberNavTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-[18px] w-[18px]" /> },
@@ -2491,8 +2489,8 @@ export function AgentDashboard() {
   const mobileMoreTabIds: Tab[] = isTeamMemberView
     ? []
     : identityVerified
-      ? ["overview", "listings", "team", "analytics", "billing", "notifications", "profile"]
-      : ["listings", "team", "analytics", "billing", "notifications", "profile"];
+      ? ["overview", "listings", "team", "analytics", "billing", "notifications"]
+      : ["listings", "team", "analytics", "billing", "notifications"];
 
   const viewingsAgentUserId = isTeamMemberView ? agent.user_id : user.id;
 
@@ -2625,6 +2623,19 @@ export function AgentDashboard() {
           </div>
 
           <AgentSidebarCalendarStrip setCalendarModalOpen={setCalendarModalOpen} />
+          <div className="mt-3 px-2">
+            <Link
+              href={`/agents/${encodeURIComponent(agent.id)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full items-center gap-2 rounded-xl border border-[#2C2C2C]/10 bg-white px-2.5 py-2 text-sm font-semibold text-[#2C2C2C]/70 transition hover:bg-[#FAF8F4]"
+            >
+              <span className="text-[#6B9E6E]">
+                <ExternalLink className="h-[18px] w-[18px]" aria-hidden />
+              </span>
+              View public profile
+            </Link>
+          </div>
           <Link
             href="/"
             className="mt-auto px-2 py-2 text-sm font-semibold text-[#2C2C2C]/55 hover:text-[#2C2C2C]"
@@ -2788,26 +2799,7 @@ export function AgentDashboard() {
                   onDismissPaymentBanner={() => setPaymentBannerTier(null)}
                 />
               )}
-              {tab === "profile" && user && agent && (
-                <ProfileTab
-                  agent={agent}
-                  listingTier={agent.listing_tier}
-                  ownedListingCount={ownedListingCount}
-                  responseRatePct={responseRatePct}
-                  profileForm={profileForm}
-                  setProfileForm={setProfileForm}
-                  onSave={saveProfile}
-                  saving={saving}
-                  onUpload={uploadAvatar}
-                  supabase={supabase}
-                  userId={user.id}
-                  onAvailabilitySaved={loadData}
-                  onAvailabilityMessage={(m) => toast.error(m, { duration: 5000 })}
-                />
-              )}
-              {tab === "profile" && user && !agent && loaded && (
-                <p className="text-sm font-semibold text-[#2C2C2C]/55">No agent profile found.</p>
-              )}
+              {/* Profile editing moved to public profile page (/agents/[id]) */}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -3643,8 +3635,8 @@ function OverviewTab({
     const profilePct = profileComplete.pct ?? 0;
 
     if (closings === 0) items.push({ label: "Close your first deal to boost your score", tab: "pipeline" });
-    if (!verified) items.push({ label: "Complete PRC verification", tab: "profile" });
-    if (profilePct < 100) items.push({ label: "Complete your profile", tab: "profile" });
+    if (!verified) items.push({ label: "Complete PRC verification", tab: "overview" });
+    if (profilePct < 100) items.push({ label: "Complete your profile", tab: "overview" });
     if (listingsCount < 3) items.push({ label: "Add more listings to increase visibility", tab: "listings" });
     if (hasUnrespondedLeadsOver24h) items.push({ label: "You have unresponded leads", tab: "pipeline" });
 
@@ -4089,7 +4081,7 @@ function OverviewTab({
 
         <button
           type="button"
-          onClick={() => onNavigateTab("profile")}
+          onClick={() => onNavigateTab("overview")}
           className="mt-4 rounded-full border border-[#6B9E6E] px-5 py-2 text-sm font-medium text-[#6B9E6E] transition hover:bg-[#6B9E6E] hover:text-white"
         >
           Improve your profile

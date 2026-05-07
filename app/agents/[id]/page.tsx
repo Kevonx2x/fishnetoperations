@@ -3,30 +3,31 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import {
   ArrowRight,
   BadgeCheck,
+  BriefcaseBusiness,
+  Building2,
   Calendar,
+  Camera,
+  Globe,
   Heart,
-  Pin,
+  Home,
+  Key,
   LayoutGrid,
   Loader2,
   Mail,
   MapPin,
-  MoreHorizontal,
   MessageSquare,
-  Pencil,
+  MoreHorizontal,
+  Phone,
+  Pin,
   Plus,
-  Star,
-  Trophy,
+  Shield,
+  Sparkles,
+  Sprout,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
@@ -38,7 +39,6 @@ import { SignInViewingPromptModal } from "@/components/marketplace/sign-in-viewi
 import { ViewingRequestModal } from "@/components/marketplace/viewing-request-modal";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { useAuth } from "@/contexts/auth-context";
-import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
 import {
@@ -46,6 +46,7 @@ import {
   normalizePropertyAvailabilityState,
   propertyEngagementLooksUnavailable,
 } from "@/lib/property-availability";
+import { normalizeListingTier } from "@/lib/agent-listing-limits";
 import { cn } from "@/lib/utils";
 import { fetchSimilarAgents } from "@/lib/similar-agents";
 import { listingListedLabel } from "@/lib/listing-listed-time";
@@ -62,6 +63,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+/** Sidebar tagline; kept very short so the sticky sidebar stays tidy. */
+const PROFILE_TAGLINE_MAX = 25;
 
 type AgentRow = {
   id: string;
@@ -87,6 +91,8 @@ type AgentRow = {
   profiles?: { email?: string | null; phone?: string | null } | null;
   listing_tier?: string | null;
   updated_at?: string | null;
+  languages_spoken?: string | null;
+  social_links?: Record<string, string> | null;
 };
 
 type ListingRow = {
@@ -158,52 +164,141 @@ function isAgentIdentityVerified(agent: AgentRow): boolean {
   return agent.verification_status === "verified";
 }
 
-function AgentBioBlock({ bio }: { bio: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const textRef = useRef<HTMLParagraphElement>(null);
-  const [hasOverflow, setHasOverflow] = useState(false);
+function sidebarTaglineText(bio: string | null | undefined): string {
+  const t = (bio ?? "").trim();
+  if (!t) return "";
+  return t.length > PROFILE_TAGLINE_MAX ? `${t.slice(0, PROFILE_TAGLINE_MAX)}…` : t;
+}
 
-  const text = bio.trim();
+function splitCsvPublic(s: string | null | undefined): string[] {
+  if (!s?.trim()) return [];
+  return s
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
 
-  useLayoutEffect(() => {
-    const el = textRef.current;
-    if (!el) return;
-    if (expanded) return;
-    setHasOverflow(el.scrollHeight > el.clientHeight);
-  }, [expanded, text]);
+function splitServiceAreasPublic(s: string | null | undefined): string[] {
+  if (!s?.trim()) return [];
+  return s
+    .split(/[;|\n]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
 
-  const showGradient = !expanded && hasOverflow;
-  const showButton = expanded || hasOverflow;
+function publicTierLabel(tier: string | null | undefined): string {
+  const t = normalizeListingTier(tier);
+  if (t === "featured") return "Gold Agent";
+  if (t === "pro") return "Silver Agent";
+  if (t === "broker") return "Broker Partner";
+  return "Agent";
+}
 
-  return (
-    <div className="mt-2">
-      <div className="relative overflow-hidden">
-        <p
-          ref={textRef}
-          className={`text-center text-sm font-medium leading-relaxed text-[#2C2C2C]/75 whitespace-pre-wrap ${
-            expanded ? "" : "line-clamp-3"
-          }`}
-        >
-          {text}
-        </p>
-        {showGradient ? (
-          <div
-            className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-b from-transparent to-[#FAF8F4]"
-            aria-hidden
-          />
-        ) : null}
-      </div>
-      {showButton ? (
-        <button
-          type="button"
-          onClick={() => setExpanded((e) => !e)}
-          className="mt-1 w-full text-center font-medium text-[#6B9E6E]"
-        >
-          {expanded ? "Show less" : "Read more"}
-        </button>
-      ) : null}
-    </div>
+function tierPillClass(tier: string | null | undefined): string {
+  const t = normalizeListingTier(tier);
+  if (t === "featured") return "border-[#D4A843]/50 bg-[#D4A843]/12 text-[#8a6d32]";
+  if (t === "pro") return "border-slate-400/45 bg-slate-50 text-slate-700";
+  if (t === "broker") return "border-[#6B9E6E]/50 bg-[#6B9E6E]/10 text-[#2C2C2C]/85";
+  return "border-[#2C2C2C]/12 bg-[#FAF8F4] text-[#2C2C2C]/65";
+}
+
+function sidebarResponseStat(responseTime: string | null | undefined): string {
+  const s = (responseTime ?? "").trim();
+  if (!s) return "—";
+  const m = s.match(/(\d{1,3})\s*%/);
+  if (m) return `${m[1]}%`;
+  return s.length > 12 ? `${s.slice(0, 12)}…` : s;
+}
+
+function connectHref(kind: "web" | "phone" | "email", raw: string): string | null {
+  const v = raw.trim();
+  if (!v) return null;
+  if (kind === "email") return `mailto:${v}`;
+  if (kind === "phone") {
+    const digits = v.replace(/[^\d+]/g, "");
+    return digits ? `tel:${digits}` : null;
+  }
+  if (/^https?:\/\//i.test(v)) return v;
+  return `https://${v}`;
+}
+
+/** Reads social_links with common key variants (API / legacy). */
+function socialLinkPick(sl: Record<string, string>, ...keys: string[]): string {
+  for (const k of keys) {
+    const raw = sl[k];
+    if (typeof raw === "string" && raw.trim()) return raw.trim();
+  }
+  return "";
+}
+
+function AgentSidebarConnectSlot({
+  href,
+  label,
+  children,
+}: {
+  href: string | null;
+  label: string;
+  children: ReactNode;
+}) {
+  const inactive = !href;
+  const ring = cn(
+    "flex h-10 w-10 items-center justify-center rounded-full border border-[#2C2C2C]/12 shadow-sm",
+    inactive ? "cursor-default bg-[#FAF8F4]/90 opacity-[0.38]" : "bg-[#FAF8F4] transition hover:border-[#6B9E6E]/40 hover:bg-white",
   );
+  if (inactive) {
+    return (
+      <span className={ring} title={`${label} not added`} aria-label={`${label} not added`}>
+        {children}
+      </span>
+    );
+  }
+  return (
+    <a
+      href={href}
+      target={href.startsWith("http") ? "_blank" : undefined}
+      rel={href.startsWith("http") ? "noreferrer noopener" : undefined}
+      aria-label={label}
+      className={ring}
+      title={label}
+    >
+      {children}
+    </a>
+  );
+}
+
+function ConnectLinkedInGlyph() {
+  return (
+    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0A66C2] text-[11px] font-black leading-none text-white shadow-sm">
+      in
+    </span>
+  );
+}
+
+function ConnectFacebookGlyph() {
+  return (
+    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1877F2] text-[15px] font-black leading-none text-white shadow-sm">
+      f
+    </span>
+  );
+}
+
+function ConnectInstagramGlyph() {
+  return (
+    <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#f58529] via-[#dd2a7b] to-[#8134af] shadow-sm">
+      <Camera className="relative z-[1] h-4 w-4 stroke-[2.25] text-white" aria-hidden />
+    </span>
+  );
+}
+
+function specialtyIconFor(spec: string): LucideIcon {
+  const lower = spec.toLowerCase();
+  if (lower.includes("rent")) return Key;
+  if (lower.includes("commercial")) return BriefcaseBusiness;
+  if (lower.includes("farm")) return Sprout;
+  if (lower.includes("luxury")) return Sparkles;
+  if (lower.includes("house")) return Home;
+  if (lower.includes("condo")) return Building2;
+  return Building2;
 }
 
 type EngagementEngager = {
@@ -281,6 +376,62 @@ export default function AgentProfilePage() {
   const isOwnProfile = Boolean(user?.id && agent?.user_id && user.id === agent.user_id);
   const [messageBusy, setMessageBusy] = useState(false);
 
+  const [savingOwnerBio, setSavingOwnerBio] = useState(false);
+  const [ownerDraftBio, setOwnerDraftBio] = useState("");
+
+  useEffect(() => {
+    if (!agent) return;
+    setOwnerDraftBio((agent.bio ?? "").trim().slice(0, PROFILE_TAGLINE_MAX));
+  }, [agent?.id, agent?.bio]);
+
+  const postOwnerPatch = useCallback(
+    async (patch: { bio: string | null }) => {
+      if (!agent?.id) return false;
+      setSavingOwnerBio(true);
+      try {
+        const res = await fetch("/api/agent/update-profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            agentId: agent.id,
+            patch,
+          }),
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          error?: string | { message?: string };
+          data?: { agent?: AgentRow };
+        };
+        if (!res.ok) {
+          const msg =
+            typeof json.error === "string"
+              ? json.error
+              : json.error && typeof json.error === "object" && "message" in json.error
+                ? String((json.error as { message?: string }).message ?? "")
+                : "";
+          toast.error(msg || "Couldn't save — try again");
+          return false;
+        }
+        const updated = json.data?.agent ?? null;
+        if (updated) setAgent((prev) => (prev ? { ...prev, ...(updated as AgentRow) } : prev));
+        toast.success("Saved", { duration: 1200 });
+        return true;
+      } finally {
+        setSavingOwnerBio(false);
+      }
+    },
+    [agent?.id],
+  );
+
+  const saveOwnerBioIfChanged = useCallback(() => {
+    if (!agent || !isOwnProfile) return;
+    const next = ownerDraftBio.trim().slice(0, PROFILE_TAGLINE_MAX);
+    const prev = (agent.bio ?? "").trim().slice(0, PROFILE_TAGLINE_MAX);
+    if (next === prev) return;
+    void postOwnerPatch({ bio: next.length ? next : null });
+  }, [agent, isOwnProfile, ownerDraftBio, postOwnerPatch]);
+
   const [followerCount, setFollowerCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followActionLoading, setFollowActionLoading] = useState(false);
@@ -288,6 +439,79 @@ export default function AgentProfilePage() {
   const showClientFollowUi = Boolean(
     user?.id && profile?.role === "client" && !isOwnProfile && agent?.id,
   );
+
+  const sidebarSpecialties = useMemo(
+    () => splitCsvPublic(agent?.specialties).slice(0, 8),
+    [agent?.specialties],
+  );
+  const sidebarLanguages = useMemo(
+    () => splitCsvPublic(agent?.languages_spoken).slice(0, 8),
+    [agent?.languages_spoken],
+  );
+  const sidebarLocationLine = useMemo(() => {
+    const parts = splitServiceAreasPublic(agent?.service_areas);
+    if (!parts.length) return null;
+    return parts.slice(0, 2).join(", ");
+  }, [agent?.service_areas]);
+  const sidebarPropertyCount = listings.length;
+  const sidebarConnectSlots = useMemo(() => {
+    if (!agent) return [] as { key: string; label: string; href: string | null; glyph: ReactNode }[];
+    const sl = (agent.social_links ?? {}) as Record<string, string>;
+    const li = socialLinkPick(sl, "linkedin", "LinkedIn");
+    const fb = socialLinkPick(sl, "facebook", "Facebook", "fb");
+    const ig = socialLinkPick(sl, "instagram", "Instagram");
+    const web = socialLinkPick(sl, "website", "Website", "url");
+    return [
+      {
+        key: "linkedin",
+        label: "LinkedIn",
+        href: connectHref("web", li),
+        glyph: <ConnectLinkedInGlyph />,
+      },
+      {
+        key: "facebook",
+        label: "Facebook",
+        href: connectHref("web", fb),
+        glyph: <ConnectFacebookGlyph />,
+      },
+      {
+        key: "instagram",
+        label: "Instagram",
+        href: connectHref("web", ig),
+        glyph: <ConnectInstagramGlyph />,
+      },
+      {
+        key: "website",
+        label: "Website",
+        href: connectHref("web", web),
+        glyph: (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2C2C2C]/88 text-white shadow-sm">
+            <Globe className="h-4 w-4" aria-hidden strokeWidth={2.25} />
+          </span>
+        ),
+      },
+      {
+        key: "phone",
+        label: "Phone",
+        href: connectHref("phone", agent.phone ?? ""),
+        glyph: (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-sm">
+            <Phone className="h-4 w-4" aria-hidden strokeWidth={2.25} />
+          </span>
+        ),
+      },
+      {
+        key: "email",
+        label: "Email",
+        href: connectHref("email", agent.email ?? ""),
+        glyph: (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FAF8F4] shadow-sm ring-1 ring-[#2C2C2C]/12">
+            <Mail className="h-4 w-4 text-[#2C2C2C]/80" aria-hidden strokeWidth={2.25} />
+          </span>
+        ),
+      },
+    ];
+  }, [agent]);
 
   useEffect(() => {
     if (!agent?.id) return;
@@ -895,14 +1119,14 @@ export default function AgentProfilePage() {
               {/* LEFT SIDEBAR */}
               <aside className="self-start lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:scrollbar-hide">
                 <div className="rounded-2xl border border-[#2C2C2C]/8 bg-white p-4 shadow-md">
-                  <div className="relative mx-auto h-20 w-20">
+                  <div className="relative mx-auto h-[5.25rem] w-[5.25rem]">
                     <div className="relative h-full w-full overflow-hidden rounded-full bg-[#FAF8F4] ring-2 ring-white">
                       {agent.image_url ? (
                         <SupabasePublicImage
                           src={agent.image_url}
                           alt={agent.name}
                           fill
-                          sizes="80px"
+                          sizes="84px"
                           className="object-cover"
                         />
                       ) : (
@@ -922,7 +1146,7 @@ export default function AgentProfilePage() {
                   </div>
 
                   {showClientFollowUi ? (
-                    <div className="mt-3 flex w-full flex-col items-center gap-1.5">
+                    <div className="mt-3 flex justify-center">
                       <button
                         type="button"
                         disabled={followActionLoading}
@@ -935,74 +1159,154 @@ export default function AgentProfilePage() {
                       >
                         {followActionLoading ? "…" : isFollowing ? "Unfollow" : "Follow"}
                       </button>
-                      <p className="text-center text-[11px] text-[#2C2C2C]/45">
-                        {followerCount === 1 ? "1 follower" : `${followerCount} followers`}
-                      </p>
                     </div>
-                  ) : (
-                    <p className="mt-3 text-center text-[11px] text-[#2C2C2C]/45">
-                      {followerCount === 1 ? "1 follower" : `${followerCount} followers`}
-                    </p>
-                  )}
+                  ) : null}
 
-                  <h1 className="mt-4 text-center font-serif text-lg font-bold tracking-tight text-[#2C2C2C]">
-                    {agent.name}
-                  </h1>
-
-                  <div className="mt-4 flex flex-wrap justify-center gap-2">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-bold text-[#2C2C2C]/85">
-                      <Trophy className="h-3 w-3 text-[#6B9E6E]" />
-                      {agent.closings} closings
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[#D4A843]/35 bg-[#D4A843]/10 px-2.5 py-1 text-[11px] font-bold text-[#8a6d32]">
-                      <Star className="h-3 w-3 text-[#D4A843]" />
-                      {formatAgentScore(agent.score)}
+                  <div className={cn(showClientFollowUi ? "mt-3" : "mt-4", "flex justify-center")}>
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-bold",
+                        tierPillClass(agent.listing_tier),
+                      )}
+                    >
+                      <Shield className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                      {publicTierLabel(agent.listing_tier)}
                     </span>
                   </div>
 
-                  <div className="mt-5 border-t border-[#2C2C2C]/10 pt-4">
-                    <p className="text-center font-serif text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  <div className="mt-3 text-center">
+                    <h1 className="font-serif text-xl font-bold tracking-tight text-[#2C2C2C]">{agent.name}</h1>
+                    <p className="mt-1 text-[12px] font-semibold text-[#2C2C2C]/50">Real Estate Agent</p>
+                  </div>
+
+                  {sidebarLocationLine ? (
+                    <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[12px] font-semibold leading-snug text-[#6B9E6E]">
+                      <MapPin className="h-3.5 w-3.5 shrink-0 opacity-95" aria-hidden />
+                      <span className="line-clamp-2">{sidebarLocationLine}</span>
+                    </p>
+                  ) : null}
+
+                  <div className="mt-4 grid grid-cols-3 gap-2 border-y border-[#2C2C2C]/10 py-4">
+                    <div className="text-center">
+                      <p className="text-[15px] font-bold tabular-nums text-[#2C2C2C]">{followerCount}</p>
+                      <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                        Followers
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[15px] font-bold tabular-nums text-[#2C2C2C]">{sidebarPropertyCount}</p>
+                      <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                        Properties
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p
+                        className={cn(
+                          "text-[15px] font-bold tabular-nums leading-tight",
+                          sidebarResponseStat(agent.response_time).includes("%")
+                            ? "text-[#6B9E6E]"
+                            : "text-[#2C2C2C]",
+                        )}
+                      >
+                        {sidebarResponseStat(agent.response_time)}
+                      </p>
+                      <p className="mt-0.5 text-[10px] font-semibold uppercase leading-tight tracking-wide text-[#2C2C2C]/45">
+                        Response rate
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <p className="text-center font-serif text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
                       About
                     </p>
-                    {agent.bio?.trim() ? (
-                      <AgentBioBlock bio={agent.bio} />
-                    ) : (
-                      <div className="mt-2 flex justify-center">
-                        {isOwnProfile ? (
-                          <Link
-                            href="/dashboard/agent?tab=profile"
-                            className="inline-flex items-center gap-1.5 text-sm italic text-[#6B9E6E] underline decoration-[#6B9E6E]/40 underline-offset-2 hover:text-[#2C2C2C]"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            No bio yet — add one
-                          </Link>
-                        ) : (
-                          <p className="text-center text-sm italic text-[#2C2C2C]/45">No bio yet</p>
-                        )}
+                    {isOwnProfile ? (
+                      <div className="mt-2">
+                        <input
+                          value={ownerDraftBio}
+                          onChange={(e) =>
+                            setOwnerDraftBio(e.target.value.slice(0, PROFILE_TAGLINE_MAX))
+                          }
+                          onBlur={() => saveOwnerBioIfChanged()}
+                          maxLength={PROFILE_TAGLINE_MAX}
+                          disabled={savingOwnerBio}
+                          aria-label="Public profile bio"
+                          placeholder="Short line for your sidebar…"
+                          className="mx-auto block w-full max-w-[280px] bg-transparent text-center text-[13px] font-medium leading-snug text-[#2C2C2C]/85 placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/30 disabled:opacity-55"
+                        />
                       </div>
+                    ) : sidebarTaglineText(agent.bio) ? (
+                      <p className="mt-2 px-1 text-center text-[13px] font-medium leading-snug text-[#2C2C2C]/80">
+                        {sidebarTaglineText(agent.bio)}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-center text-[13px] italic text-[#2C2C2C]/45">No bio yet</p>
                     )}
                   </div>
 
-                  <div className="mt-4 space-y-2 border-t border-[#2C2C2C]/10 pt-4">
-                    <p className="text-center text-xs font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
-                      Contact
-                    </p>
-                    <p className="break-all text-center text-sm font-medium text-[#2C2C2C]/80">{agent.email}</p>
-                  </div>
-
-                  <div className="mt-4 space-y-2">
+                  {!isOwnProfile ? (
                     <button
                       type="button"
                       onClick={openContactHeader}
                       disabled={authLoading}
-                      className="flex w-full items-center justify-center gap-2 rounded-full bg-[#2C2C2C] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#2C2C2C]/90 disabled:opacity-50"
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[#2C2C2C] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#2C2C2C]/90 disabled:opacity-50"
                     >
-                      <Mail className="h-4 w-4" />
-                      Contact
+                      <Mail className="h-4 w-4 shrink-0" aria-hidden />
+                      Message
                     </button>
+                  ) : null}
+
+                  {sidebarSpecialties.length > 0 ? (
+                    <div className="mt-5 border-t border-[#2C2C2C]/10 pt-4">
+                      <p className="text-center font-serif text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                        Specialties
+                      </p>
+                      <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+                        {sidebarSpecialties.map((spec) => {
+                          const SI = specialtyIconFor(spec);
+                          return (
+                            <span
+                              key={spec}
+                              className="inline-flex max-w-full items-center gap-1 rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-2.5 py-1 text-[10px] font-bold text-[#2C2C2C]/80"
+                              title={spec}
+                            >
+                              <SI className="h-3 w-3 shrink-0 text-[#6B9E6E]" aria-hidden />
+                              <span className="truncate">{spec}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {sidebarLanguages.length > 0 ? (
+                    <div className="mt-3 border-t border-[#2C2C2C]/10 pt-3">
+                      <p className="text-center font-serif text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                        Languages
+                      </p>
+                      <p className="mt-1 px-2 text-center text-[11px] font-semibold leading-snug text-[#2C2C2C]/80">
+                        {sidebarLanguages.join(" · ")}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-3 border-t border-[#2C2C2C]/10 pt-3">
+                    <p className="text-center font-serif text-[11px] font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                      Connect
+                    </p>
+                    <div className="mt-2 flex flex-wrap justify-center gap-2">
+                      {sidebarConnectSlots.map((slot) => (
+                        <AgentSidebarConnectSlot key={slot.key} href={slot.href} label={slot.label}>
+                          {slot.glyph}
+                        </AgentSidebarConnectSlot>
+                      ))}
+                    </div>
                   </div>
-                  {agent ? (
-                    <ReportProfileButton reportedUserId={agent.user_id} disabled={isOwnProfile} />
+
+                  {!isOwnProfile && agent ? (
+                    <div className="mt-5 flex flex-col items-center border-t border-[#2C2C2C]/10 pt-3">
+                      <ReportProfileButton reportedUserId={agent.user_id} disabled={false} />
+                    </div>
                   ) : null}
                 </div>
               </aside>
