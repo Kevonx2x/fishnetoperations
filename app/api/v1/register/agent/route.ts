@@ -49,16 +49,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const brokerId = parsed.data.broker_id?.trim() || null;
-    if (brokerId) {
-      const { data: broker } = await supabase
+    const brokersInput = Array.isArray(parsed.data.brokers) ? parsed.data.brokers : null;
+    const legacyBrokerId = parsed.data.broker_id?.trim() || null;
+    const brokers =
+      brokersInput && brokersInput.length
+        ? brokersInput
+        : legacyBrokerId
+          ? [{ broker_id: legacyBrokerId, is_primary: true }]
+          : [];
+
+    const normalizedBrokers = (() => {
+      const seen = new Set<string>();
+      const out: { broker_id: string; is_primary: boolean }[] = [];
+      for (const b of brokers) {
+        const id = b.broker_id.trim();
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push({ broker_id: id, is_primary: Boolean(b.is_primary) });
+      }
+      // Enforce at most one primary: first true wins, otherwise default to first row.
+      let primaryIdx = out.findIndex((x) => x.is_primary);
+      if (primaryIdx < 0 && out.length > 0) primaryIdx = 0;
+      return out.map((x, idx) => ({ ...x, is_primary: primaryIdx >= 0 ? idx === primaryIdx : false }));
+    })();
+
+    if (normalizedBrokers.length) {
+      const ids = normalizedBrokers.map((b) => b.broker_id);
+      const { data: rows, error: bErr } = await supabase
         .from("brokers")
         .select("id")
-        .eq("id", brokerId)
+        .in("id", ids)
         .eq("status", "approved")
-        .eq("verified", true)
-        .maybeSingle();
-      if (!broker) {
+        .eq("verified", true);
+      if (bErr) return fail("DATABASE_ERROR", bErr.message, 500);
+      const ok = new Set((rows ?? []).map((r) => String((r as { id?: string }).id ?? "")));
+      const bad = ids.find((id) => !ok.has(id));
+      if (bad) {
         return fail(
           "VALIDATION_ERROR",
           "Selected brokerage is invalid or not yet approved",
@@ -68,6 +94,9 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+
+    const primaryBrokerId =
+      normalizedBrokers.find((b) => b.is_primary)?.broker_id ?? normalizedBrokers[0]?.broker_id ?? null;
 
     const emailTrim = parsed.data.email.trim();
     const nameTrim = parsed.data.name.trim();
@@ -105,7 +134,7 @@ export async function POST(request: NextRequest) {
       bio: parsed.data.bio?.trim() || DEFAULT_AGENT_BIO_TAGLINE,
       languages_spoken: DEFAULT_AGENT_LANGUAGES_COMMAS,
       specialties: DEFAULT_AGENT_SPECIALTIES_COMMAS,
-      broker_id: brokerId,
+      broker_id: primaryBrokerId,
       prc_document_url: parsed.data.prc_document_url,
       selfie_url: parsed.data.selfie_url,
       verification_status: "pending" as const,
@@ -119,6 +148,21 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       return fail("DATABASE_ERROR", error.message, 500);
+    }
+
+    // Sync agent_brokers junction rows (best-effort, but should usually succeed).
+    if (normalizedBrokers.length) {
+      const agentId = String((data as { id?: string }).id ?? "");
+      if (agentId) {
+        await supabase.from("agent_brokers").delete().eq("agent_id", agentId);
+        const payload = normalizedBrokers.map((b) => ({
+          agent_id: agentId,
+          broker_id: b.broker_id,
+          is_primary: b.is_primary,
+        }));
+        const { error: abErr } = await supabase.from("agent_brokers").insert(payload);
+        if (abErr) return fail("DATABASE_ERROR", abErr.message, 500);
+      }
     }
 
     try {

@@ -72,6 +72,18 @@ export const registerAgentSchema = z.object({
     }),
   email: z.string().email(),
   bio: z.string().max(5000).optional().nullable(),
+  brokers: z
+    .array(
+      z
+        .object({
+          broker_id: z.string().uuid(),
+          is_primary: z.boolean().optional().default(false),
+        })
+        .strict(),
+    )
+    .max(10)
+    .optional()
+    .nullable(),
   broker_id: z.preprocess(
     (v) => {
       if (v === undefined || v === null) return null;

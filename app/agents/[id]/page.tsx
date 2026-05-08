@@ -99,6 +99,12 @@ type AgentRow = {
   social_links?: Record<string, string> | null;
 };
 
+type AgentBrokerChip = {
+  broker_id: string;
+  is_primary: boolean;
+  brokers: { id: string; company_name: string; logo_url: string | null } | null;
+};
+
 type ListingRow = {
   id: string;
   created_at: string;
@@ -376,11 +382,37 @@ export default function AgentProfilePage() {
 
   const [savingOwnerBio, setSavingOwnerBio] = useState(false);
   const [ownerDraftBio, setOwnerDraftBio] = useState("");
+  const [agentBrokers, setAgentBrokers] = useState<AgentBrokerChip[]>([]);
 
   useEffect(() => {
     if (!agent) return;
     setOwnerDraftBio((agent.bio ?? "").trim().slice(0, PROFILE_TAGLINE_MAX));
   }, [agent?.id, agent?.bio]);
+
+  useEffect(() => {
+    if (!agent?.id) {
+      setAgentBrokers([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("agent_brokers")
+        .select("broker_id, is_primary, brokers(id, company_name, logo_url)")
+        .eq("agent_id", agent.id);
+      if (cancelled) return;
+      if (error) {
+        setAgentBrokers([]);
+        return;
+      }
+      const rows = (data ?? []) as unknown as AgentBrokerChip[];
+      const sorted = [...rows].sort((a, b) => Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary)));
+      setAgentBrokers(sorted);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agent?.id]);
 
   const postOwnerPatch = useCallback(
     async (patch: { bio: string | null }) => {
@@ -1150,6 +1182,35 @@ export default function AgentProfilePage() {
                   <div className="mt-3 text-center">
                     <h1 className="font-serif text-xl font-bold tracking-tight text-[#2C2C2C]">{agent.name}</h1>
                     <p className="mt-1 text-[12px] font-semibold text-[#2C2C2C]/50">Real Estate Agent</p>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap justify-center gap-2">
+                    {agentBrokers.length > 0 ? (
+                      agentBrokers.map((ab) => {
+                        const b = ab.brokers;
+                        if (!b?.id || !b.company_name) return null;
+                        return (
+                          <Link
+                            key={`${ab.broker_id}-${ab.is_primary ? "p" : "s"}`}
+                            href={`/brokers/${encodeURIComponent(b.id)}`}
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-sm",
+                              ab.is_primary
+                                ? "border-[#D4A843]/40 bg-[#D4A843]/10 text-[#8a6d32]"
+                                : "border-[#2C2C2C]/10 bg-[#FAF8F4] text-[#2C2C2C]/65 hover:bg-white",
+                            )}
+                            title={ab.is_primary ? "Primary brokerage" : "Brokerage"}
+                          >
+                            <span className="truncate">{b.company_name}</span>
+                            {ab.is_primary ? <span className="text-[10px] leading-none">★</span> : null}
+                          </Link>
+                        );
+                      })
+                    ) : (
+                      <span className="inline-flex items-center rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-semibold text-[#2C2C2C]/65">
+                        Independent Agent
+                      </span>
+                    )}
                   </div>
 
                   {sidebarLocationLine ? (

@@ -66,6 +66,7 @@ import { formatPropertyPriceDisplay, parsePriceToNumber } from "@/lib/format-lis
 import { propertyCanonicalCity } from "@/lib/normalize-city";
 import { CoListRequestModal } from "@/components/marketplace/co-list-request-modal";
 import { toast } from "sonner";
+import { DEFAULT_AGENT_SPECIALTIES_COMMAS } from "@/lib/agent-profile-defaults";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { roomUrlsFor } from "@/lib/marketplace-property";
@@ -601,6 +602,18 @@ function parseServiceAreasForPills(raw: string | null | undefined): string[] {
     .split(/[,;\n]+/)
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/** Homepage “Specializes in …” line: prefer service areas, then specialty chips, then registration default. */
+function specializePillsForHomeCard(
+  serviceAreas: string | null | undefined,
+  specialties: string | null | undefined,
+): string[] {
+  const fromAreas = parseServiceAreasForPills(serviceAreas).slice(0, 2);
+  if (fromAreas.length > 0) return fromAreas;
+  const fromSpecs = parseServiceAreasForPills(specialties).slice(0, 2);
+  if (fromSpecs.length > 0) return fromSpecs;
+  return parseServiceAreasForPills(DEFAULT_AGENT_SPECIALTIES_COMMAS).slice(0, 2);
 }
 
 /** 10.0 scale for score beside name (matches agent directory card). */
@@ -1350,6 +1363,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           years_experience?: number | string | null;
           languages_spoken?: string | null;
           service_areas?: string | null;
+          specialties?: string | null;
         };
         const id = String(r.id ?? "");
         if (!id) continue;
@@ -1365,7 +1379,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           yearsExperience,
           languagesSpoken:
             typeof r.languages_spoken === "string" && r.languages_spoken.trim() ? r.languages_spoken.trim() : null,
-          serviceAreaPills: parseServiceAreasForPills(r.service_areas).slice(0, 2),
+          serviceAreaPills: specializePillsForHomeCard(r.service_areas, r.specialties),
         };
       }
       // Preserve async follower counts already fetched for top agents.
