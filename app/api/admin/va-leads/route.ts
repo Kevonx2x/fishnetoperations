@@ -2,6 +2,10 @@ import { fail, ok } from "@/lib/api/response";
 import { requireAdminSession } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
+function fullEscape(value: string): string {
+  return value.replace(/[%_,():"\\]/g, "\\$&");
+}
+
 function startOfTodayIso(): string {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -45,7 +49,7 @@ export async function GET(req: Request) {
   if (status) q = q.eq("status", status);
   if (assignedTo) q = q.eq("assigned_to", assignedTo);
   if (search) {
-    const esc = search.replace(/%/g, "\\%");
+    const esc = fullEscape(search);
     q = q.or(
       `name.ilike.%${esc}%,email.ilike.%${esc}%,phone.ilike.%${esc}%,platform.ilike.%${esc}%`,
     );
