@@ -18,9 +18,9 @@ import {
 } from "@/lib/manila-datetime";
 function statusClasses(statusRaw: string | null | undefined) {
   const status = String(statusRaw ?? "scheduled").toLowerCase();
-  if (status === "completed") return "bg-[#D4A843]/[0.12] border-l-[#D4A843]";
-  if (status === "cancelled") return "bg-[#888888]/[0.08] border-l-[#888888] opacity-40";
-  return "bg-[#6B9E6E]/[0.12] border-l-[#6B9E6E]";
+  if (status === "completed") return "bg-[#D4A843]/[0.12] border-l-[#D4A843] text-[#2C2C2C]";
+  if (status === "cancelled") return "bg-[#888888]/[0.08] border-l-[#888888] opacity-40 text-[#2C2C2C]";
+  return "bg-[#6B9E6E]/[0.12] border-l-[#6B9E6E] text-[#2C2C2C]";
 }
 
 /** Hour tick label in Manila (12h). */
@@ -67,6 +67,15 @@ export function AgentCalendarModal(props: { open: boolean; onClose: () => void }
 
   const highlightYmd = selectedYmd ?? todayYmd;
 
+  const nowMins = useMemo(() => manilaMinutesSinceMidnightFromInstant(new Date()), [props.open, weekStartYmd]);
+  const showNowLine = highlightYmd === todayYmd;
+  const nowTop = useMemo(() => {
+    const startMins = START_HOUR * 60;
+    const endMins = END_HOUR * 60 + 60;
+    if (nowMins < startMins || nowMins >= endMins) return null;
+    return ((nowMins - startMins) / 60) * HOUR_ROW_PX + 1;
+  }, [nowMins, HOUR_ROW_PX]);
+
   useEffect(() => {
     if (!props.open) return;
     setSelectedYmd(todayYmd);
@@ -94,7 +103,7 @@ export function AgentCalendarModal(props: { open: boolean; onClose: () => void }
             role="dialog"
             aria-modal="true"
             aria-label="Calendar"
-            className="relative z-10 flex max-h-[94vh] w-full max-w-[1180px] flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
+            className="relative z-10 flex max-h-[94vh] w-full max-w-[1180px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
@@ -110,46 +119,48 @@ export function AgentCalendarModal(props: { open: boolean; onClose: () => void }
               <X className="h-4 w-4" strokeWidth={2} />
             </button>
 
-            <div className="shrink-0 px-4 pt-3 pb-2 md:px-5 md:pt-4">
+            <div className="shrink-0 border-b border-gray-100 px-4 pt-3 pb-3 md:px-6 md:pt-4">
               <div className="flex items-center gap-3 pr-10">
                 <button
                   type="button"
                   onClick={() => setWeekStartYmd((s) => manilaCalendarAddDays(s, -7))}
-                  className="shrink-0 text-[#888888] transition hover:text-[#2C2C2C]"
+                  className="shrink-0 rounded-full p-1.5 text-[#888888] transition hover:bg-gray-50 hover:text-[#2C2C2C]"
                   aria-label="Previous week"
                 >
                   <ChevronLeft className="h-5 w-5" aria-hidden />
                 </button>
                 <div className="flex-1 text-center">
-                  <div className="text-lg font-semibold text-[#2C2C2C]">{monthTitle}</div>
-                  <div className="mt-0.5 text-[11px] font-medium text-[#2C2C2C]/50">Times shown in Philippines (UTC+08:00)</div>
+                  <div className="text-xl font-semibold tracking-tight text-[#2C2C2C]">{monthTitle}</div>
+                  <div className="mt-0.5 text-[11px] font-medium text-[#2C2C2C]/45">
+                    Times shown in Philippines (UTC+08:00)
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setWeekStartYmd((s) => manilaCalendarAddDays(s, 7))}
-                  className="shrink-0 text-[#888888] transition hover:text-[#2C2C2C]"
+                  className="shrink-0 rounded-full p-1.5 text-[#888888] transition hover:bg-gray-50 hover:text-[#2C2C2C]"
                   aria-label="Next week"
                 >
                   <ChevronRight className="h-5 w-5" aria-hidden />
                 </button>
               </div>
 
-              <div className="mt-2 flex items-center justify-between">
+              <div className="mt-3 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => {
                     setWeekStartYmd(manilaStartOfWeekSundayYmd(manilaDateStringFromInstant(new Date())));
                   }}
-                  className="rounded-full border border-[#6B9E6E]/30 px-3 py-1 text-xs font-semibold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/5"
+                  className="rounded-full border border-[#6B9E6E]/30 bg-white px-3 py-1 text-xs font-semibold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/5"
                 >
                   Today
                 </button>
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-auto px-3 pb-4 md:px-5 md:pb-5">
+            <div className="min-h-0 flex-1 overflow-auto bg-[#FAF8F4]/35 px-3 pb-4 pt-3 md:px-6 md:pb-6 md:pt-4">
               <div className="min-w-[720px]">
-                <div className="sticky top-0 z-20 grid grid-cols-[52px_1fr] border-b border-gray-100 bg-white">
+                <div className="sticky top-0 z-20 grid grid-cols-[56px_1fr] border-b border-gray-100 bg-white/95 backdrop-blur">
                   <div className="border-r border-gray-100" />
                   <div className="grid grid-cols-7">
                     {weekDayYmds.map((ymd, colIdx) => {
@@ -161,7 +172,7 @@ export function AgentCalendarModal(props: { open: boolean; onClose: () => void }
                           type="button"
                           onClick={() => setSelectedYmd(ymd)}
                           className={cn(
-                            "border-l border-gray-100 px-2 py-1.5 text-left transition-colors",
+                            "border-l border-gray-100 px-2 py-2 text-left transition-colors",
                             colIdx === 0 && "border-l-0",
                             isHighlighted && "bg-[#6B9E6E]/[0.06]",
                           )}
@@ -188,12 +199,12 @@ export function AgentCalendarModal(props: { open: boolean; onClose: () => void }
                   </div>
                 </div>
 
-                <div className="grid grid-cols-[52px_1fr]">
+                <div className="grid grid-cols-[56px_1fr] rounded-xl border border-gray-100 bg-white shadow-sm">
                   <div className="border-r border-gray-100">
                     {hours.map((h) => (
                       <div
                         key={h}
-                        className="border-t border-gray-200 pr-1.5 text-right text-[10px] font-medium leading-none text-[#888888]"
+                        className="border-t border-gray-100 pr-2 text-right text-[10px] font-medium leading-none text-[#888888]"
                         style={{ height: HOUR_ROW_PX, paddingTop: 2 }}
                       >
                         {manilaHourTickLabel(h)}
@@ -218,8 +229,21 @@ export function AgentCalendarModal(props: { open: boolean; onClose: () => void }
                             )}
                           >
                             {hours.map((h) => (
-                              <div key={h} className="border-t border-gray-200" style={{ height: HOUR_ROW_PX }} />
+                              <div key={h} className="border-t border-gray-100" style={{ height: HOUR_ROW_PX }} />
                             ))}
+
+                            {showNowLine && ymd === todayYmd && nowTop != null ? (
+                              <div
+                                className="pointer-events-none absolute left-0 right-0 z-20"
+                                style={{ top: nowTop }}
+                                aria-hidden
+                              >
+                                <div className="mx-1 flex items-center gap-2">
+                                  <span className="h-2 w-2 rounded-full bg-[#D4A843]" />
+                                  <span className="h-[2px] flex-1 rounded-full bg-[#D4A843]/80" />
+                                </div>
+                              </div>
+                            ) : null}
 
                             {dayEvents.map((v) => {
                               const mins = manilaMinutesSinceMidnightFromInstant(v.scheduledAt);
@@ -234,15 +258,15 @@ export function AgentCalendarModal(props: { open: boolean; onClose: () => void }
                                 <div
                                   key={v.id}
                                   className={cn(
-                                    "absolute left-0.5 right-0.5 min-w-0 overflow-hidden rounded border-l-[3px] px-1 py-0.5 md:left-1 md:right-1 md:px-1.5",
+                                    "absolute left-0.5 right-0.5 min-w-0 overflow-hidden rounded-md border border-black/5 border-l-[3px] px-1.5 py-1 shadow-[0_1px_0_rgba(0,0,0,0.05)] md:left-1 md:right-1",
                                     cls,
                                     cancelled && "line-through",
                                   )}
                                   style={{ top, height }}
                                 >
-                                  <div className="min-w-0 text-[10px] font-semibold leading-tight text-[#2C2C2C] md:text-[11px]">
+                                  <div className="min-w-0 text-[10px] font-semibold leading-tight md:text-[11px]">
                                     <span className="block truncate whitespace-nowrap">{v.propertyName}</span>
-                                    <span className="block truncate whitespace-nowrap text-[#2C2C2C]/75">{v.timeLabel}</span>
+                                    <span className="block truncate whitespace-nowrap text-[#2C2C2C]/70">{v.timeLabel}</span>
                                   </div>
                                 </div>
                               );
