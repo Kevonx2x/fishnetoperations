@@ -1059,16 +1059,19 @@ function KanbanDealCard({
       {...attributes}
       {...listeners}
       className={cn(
-        "relative flex w-full flex-col cursor-grab active:cursor-grabbing",
+        // KANBAN-PREMIUM-REVERT: sortable motion — drop duration-200 ease-out from next line
+        "relative flex w-full flex-col cursor-grab transition-transform duration-200 ease-out active:cursor-grabbing",
         isDragging && "cursor-grabbing",
       )}
     >
       <div
         {...(tourViewingCardAnchor ? { "data-tour": "viewing-card" as const } : {})}
         className={cn(
-          "relative flex w-full flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[#2C2C2C]/[0.08] bg-white p-3 shadow-none ring-0 transition-colors [box-shadow:none]",
-          "hover:border-[#2C2C2C]/12",
-          isDragging && "scale-[1.01] border-[#6B9E6E]/35",
+          // KANBAN-PREMIUM-REVERT: card depth — restore: shadow-none ring-0 transition-colors [box-shadow:none] hover:border-[#2C2C2C]/12 isDragging scale-[1.01]
+          "relative flex w-full flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[#2C2C2C]/[0.08] bg-white p-3",
+          "shadow-[0_1px_2px_rgba(0,0,0,0.045)] transition-[box-shadow,transform,border-color] duration-200 ease-out",
+          "hover:border-[#2C2C2C]/14 hover:shadow-[0_6px_16px_rgba(0,0,0,0.07)]",
+          isDragging && "scale-[1.02] border-[#6B9E6E]/35 shadow-[0_8px_24px_rgba(0,0,0,0.1)]",
         )}
         onClick={() => openKanbanLeadDetails()}
         role="button"
@@ -1578,7 +1581,6 @@ function stageContainerId(stage: PipelineStageId): string {
 
 function KanbanStageColumn({
   stage,
-  idx,
   label,
   count,
   barHex,
@@ -1620,7 +1622,6 @@ function KanbanStageColumn({
   onOpenCounterReschedule,
 }: {
   stage: PipelineStageId;
-  idx: number;
   label: string;
   count: number;
   barHex: string;
@@ -1668,45 +1669,54 @@ function KanbanStageColumn({
   return (
     <div
       key={stage}
-      className={cn(
-        "h-full min-w-0 flex-1 max-w-[320px] min-w-[180px] sm:min-w-[200px] xl:min-w-[220px]",
-        idx > 0 && "border-l border-[#2C2C2C]/10",
-      )}
+      className="flex max-w-[320px] min-w-[180px] flex-1 flex-col self-stretch sm:min-w-[200px] xl:min-w-[220px]"
     >
-      <div className="overflow-hidden rounded-lg border border-[#2C2C2C]/[0.08] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div aria-hidden className="h-0.5 w-full" style={{ backgroundColor: barHex }} />
-        <div className="flex min-h-[52px] flex-col justify-center border-b border-[#2C2C2C]/[0.06] px-3 py-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="min-w-0 truncate font-sans text-[13px] font-bold uppercase tracking-wide text-[#2C2C2C]/85">
-              {label}
-            </p>
-            <span className="shrink-0 rounded-md bg-[#F4F5F6] px-2 py-0.5 text-[11px] font-bold tabular-nums text-[#2C2C2C]/70">
-              {count}
-            </span>
-          </div>
-        </div>
-      </div>
-
+      {/* KANBAN-PREMIUM-REVERT: lane-well — delete this wrapper and restore header + droppable as direct children of the column */}
       <div
-        ref={setNodeRef}
         className={cn(
-          "mt-2 min-h-[168px] rounded-lg border border-transparent transition-colors",
-          isOver ? "border-[#6B9E6E]/25 bg-[#6B9E6E]/[0.07]" : "bg-[#F4F5F6]/60",
+          "flex min-h-0 flex-1 flex-col gap-2 rounded-xl p-2",
+          "bg-[#2C2C2C]/[0.028] ring-1 ring-inset ring-[#2C2C2C]/[0.055]",
+          "transition-[background-color,box-shadow] duration-200 ease-out",
         )}
       >
-        {list.length === 0 ? (
-          <div className="flex flex-col">
-            <div className="flex min-h-[152px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#2C2C2C]/[0.12] bg-[#ECEEEF]/80 px-3 py-6 text-center opacity-[0.78] shadow-none ring-0 [box-shadow:none]">
-              {pipelineColumnEmptyIcon(stage)}
-              <p className="mt-3 font-sans text-[12px] font-bold text-[#2C2C2C]/60">No deals yet</p>
-              <p className="mt-1 max-w-[200px] font-sans text-[10px] font-medium leading-snug text-[#2C2C2C]/40">
-                Drag deals here or wait for new inquiries.
+        <div className="shrink-0 overflow-hidden rounded-lg border border-[#2C2C2C]/[0.07] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+          <div aria-hidden className="h-0.5 w-full" style={{ backgroundColor: barHex }} />
+          <div className="flex min-h-[52px] flex-col justify-center border-b border-[#2C2C2C]/[0.06] px-3 py-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="min-w-0 truncate font-sans text-[13px] font-bold uppercase tracking-[0.06em] text-[#2C2C2C]/88">
+                {label}
               </p>
+              <span className="shrink-0 rounded-full bg-[#F4F5F6] px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-[#2C2C2C]/72 ring-1 ring-[#2C2C2C]/[0.06]">
+                {count}
+              </span>
             </div>
           </div>
-        ) : (
-          <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-            <div className="space-y-2 pb-2">
+        </div>
+
+        <div
+          ref={setNodeRef}
+          className={cn(
+            "flex flex-1 flex-col rounded-lg border border-transparent bg-transparent",
+            "transition-[background-color,border-color,box-shadow] duration-200 ease-out",
+            isOver &&
+              "border-[#6B9E6E]/30 bg-[#6B9E6E]/[0.08] shadow-[inset_0_0_0_1px_rgba(107,158,110,0.12)]",
+          )}
+        >
+          {list.length === 0 ? (
+            <div className="flex flex-col">
+              {/* KANBAN-PREMIUM-REVERT: empty-state — restore rounded-2xl bg-[#ECEEEF]/80 opacity-[0.78] */}
+              <div className="flex min-h-[152px] flex-col items-center justify-center rounded-lg border border-dashed border-[#2C2C2C]/[0.11] bg-white/55 px-3 py-6 text-center shadow-[0_1px_2px_rgba(0,0,0,0.03)] backdrop-blur-[2px]">
+                {pipelineColumnEmptyIcon(stage)}
+                <p className="mt-3 font-sans text-[12px] font-bold text-[#2C2C2C]/60">No deals yet</p>
+                <p className="mt-1 max-w-[200px] font-sans text-[10px] font-medium leading-snug text-[#2C2C2C]/42">
+                  Drag deals here or wait for new inquiries.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+              {/* KANBAN-PREMIUM-REVERT: card stack rhythm — restore space-y-2 */}
+              <div className="space-y-2.5 pb-2">
               {list.map((deal, i) => (
                 <KanbanDealCard
                   key={deal.id}
@@ -1763,9 +1773,10 @@ function KanbanStageColumn({
                   tourViewingCardAnchor={stage === "viewing" && i === 0}
                 />
               ))}
-            </div>
-          </SortableContext>
-        )}
+              </div>
+            </SortableContext>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -4341,7 +4352,7 @@ export function AgentPipelineTab({
           ) : null}
           <div
             ref={kanbanScrollRef}
-            className="relative isolate w-full min-w-0 min-h-[calc(100vh-280px)] overflow-y-visible bg-[#FAF8F4] px-1 py-2"
+            className="relative isolate flex min-h-[calc(100vh-280px)] w-full min-w-0 flex-col overflow-x-auto overflow-y-visible bg-[#FAF8F4] px-1 py-2 scrollbar-hide"
           >
             {menuOpenId != null ? (
               <button
@@ -4374,11 +4385,17 @@ export function AgentPipelineTab({
               onDragCancel={handleKanbanDragCancel}
               onDragEnd={handleKanbanDragEnd}
             >
-              <div className="flex w-full min-h-full flex-row items-stretch gap-2">
+              {/*
+                Board uses min-height (not fixed h) so lanes can grow with content; main Pipeline scrolls.
+                Row flex-1 fills at least that min-height when content is short.
+              */}
+              <div className="flex w-full min-w-0 flex-1 flex-col">
+                {/* KANBAN-PREMIUM-REVERT: column gutters — restore gap-2 */}
+                <div className="flex w-full min-w-0 flex-1 flex-row items-stretch gap-3">
                 {(filterStages && filterStages.length > 0
                   ? KANBAN_STAGE_ORDER.filter((s) => filterStages.includes(s))
                   : KANBAN_STAGE_ORDER
-                ).map((stage, idx) => {
+                ).map((stage) => {
                   const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
                   const list = dealsByStage[stage];
                   const count = stageTotals[stage]?.count ?? list.length;
@@ -4389,7 +4406,6 @@ export function AgentPipelineTab({
                     <KanbanStageColumn
                       key={stage}
                       stage={stage}
-                      idx={idx}
                       label={label}
                       count={count}
                       barHex={barHex}
@@ -4435,16 +4451,17 @@ export function AgentPipelineTab({
                     />
                   );
                 })}
-              </div>
-              <DragOverlay dropAnimation={null}>
-                {activeKanbanDealId ? (
-                  <div className="w-[220px]">
-                    <div className="rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-2xl">
-                      <div className="font-sans text-[12px] font-semibold text-[#2C2C2C]/60">Moving deal…</div>
+                </div>
+                <DragOverlay dropAnimation={null}>
+                  {activeKanbanDealId ? (
+                    <div className="w-[220px]">
+                      <div className="rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-2xl">
+                        <div className="font-sans text-[12px] font-semibold text-[#2C2C2C]/60">Moving deal…</div>
+                      </div>
                     </div>
-                  </div>
-                ) : null}
-              </DragOverlay>
+                  ) : null}
+                </DragOverlay>
+              </div>
             </DndContext>
         </div>
       </div>
