@@ -116,8 +116,20 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
           Loading…
         </div>
       ) : (
-        <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] font-sans text-[#2C2C2C] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0">
-          <div className="flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
+        <div
+          className={cn(
+            "min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] font-sans text-[#2C2C2C] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0",
+            /* Mobile messages: bounded viewport height so flex + min-h-0 chains resolve; avoids composer pushed below fold on long threads. */
+            isMessagesRoute &&
+              "max-md:flex max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:min-h-0 max-md:flex-col max-md:overflow-hidden",
+          )}
+        >
+          <div
+            className={cn(
+              "flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden",
+              isMessagesRoute && "max-md:min-h-0 max-md:flex-1",
+            )}
+          >
             <aside
               className={cn(
                 "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:flex-col md:overflow-hidden md:px-2 md:py-5",

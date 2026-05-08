@@ -2500,7 +2500,13 @@ export function AgentDashboard() {
   const viewingsAgentUserId = isTeamMemberView ? agent.user_id : user.id;
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0">
+    <div
+      className={cn(
+        "min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0",
+        tab === "messages" &&
+          "max-md:flex max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:min-h-0 max-md:flex-col max-md:overflow-hidden",
+      )}
+    >
       {hasTutorialDemoData && !isTeamMemberView ? (
         <div
           role="note"
@@ -2526,7 +2532,12 @@ export function AgentDashboard() {
         refetchRef={agentViewingsRefetchRef}
       >
       {/* Legacy PostLoginModal (agent-overview) — kept commented; agent onboarding uses AgentTourOverlay. */}
-      <div className="flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
+      <div
+        className={cn(
+          "flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden",
+          tab === "messages" && "max-md:min-h-0 max-md:flex-1",
+        )}
+      >
         {/* Desktop sidebar */}
         <aside
           data-tour="agent-sidebar"
@@ -2655,7 +2666,7 @@ export function AgentDashboard() {
           className={cn(
             "min-w-0 flex-1 md:flex md:h-full md:min-h-0 md:flex-col",
             tab === "messages"
-              ? "px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
+              ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
               : tab === "pipeline"
                 ? "px-4 py-3 md:overflow-y-auto md:px-8 md:py-5 md:pb-5"
                 : "px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 md:pb-10",

@@ -1236,7 +1236,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   >([]);
   const [locationCuratedLoading, setLocationCuratedLoading] = useState(false);
   const [showMoreCategories, setShowMoreCategories] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [filters, setFilters] = useState<FiltersState>({
@@ -2622,16 +2622,16 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.18 }}
-                    className="mt-4 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm sm:p-6"
+                    className="mt-3 rounded-xl border border-[#2C2C2C]/10 bg-white p-3 shadow-sm sm:p-4"
                   >
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
                         Price range{" "}
                         <span className="font-bold text-[#2C2C2C]/80">
                           {formatPesoInputLong(filters.minPrice)} – {formatPesoInputLong(filters.maxPrice)}
                         </span>
                       </p>
-                      <div className="mt-3 max-w-3xl">
+                      <div className="mt-2 max-w-2xl">
                         <HomepageFilterDualPriceSlider
                           minPrice={filters.minPrice}
                           maxPrice={filters.maxPrice}
@@ -2640,11 +2640,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       </div>
                     </div>
 
-                    <div className="mt-7">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">
+                    <div className="mt-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
                         Property type
                       </p>
-                      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+                      <div className="mt-2 grid grid-cols-3 gap-1 sm:grid-cols-5 sm:gap-1.5">
                         {(
                           [
                             ["any", LayoutGrid, "Any"] as const,
@@ -2669,7 +2669,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                               }
                               className={homePropertyKindChipClass(on)}
                             >
-                              <Icon className={cn("h-5 w-5", on ? "text-[#6B9E6E]" : "text-[#2C2C2C]/40")} aria-hidden />
+                              <Icon className={cn("h-4 w-4", on ? "text-[#6B9E6E]" : "text-[#2C2C2C]/40")} aria-hidden />
                               <span>{label}</span>
                             </button>
                           );
@@ -2677,11 +2677,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       </div>
                     </div>
 
-                    <div className="mt-7">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">
+                    <div className="mt-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
                         Transaction type
                       </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-2 flex flex-wrap gap-1.5">
                         {(
                           [
                             ["any", "Any"],
@@ -2705,10 +2705,10 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       </div>
                     </div>
 
-                    <div className="mt-7 grid gap-6 sm:grid-cols-2">
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2 sm:gap-3">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">Bedrooms</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">Bedrooms</p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
                           {(
                             [
                               ["any", "Any"],
@@ -2737,8 +2737,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         </div>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">Bathrooms</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">Bathrooms</p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
                           {(
                             [
                               ["any", "Any"],
@@ -2768,15 +2768,15 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       </div>
                     </div>
 
-                    <div className="mt-7 grid gap-6 md:grid-cols-2">
+                    <div className="mt-4 grid gap-2 md:grid-cols-2 md:gap-3">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">Furnishing</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">Furnishing</p>
                         <select
                           value={filters.furnishing}
                           onChange={(e) =>
                             setFilters((s) => ({ ...s, furnishing: e.target.value as FurnishingFilter }))
                           }
-                          className="mt-3 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85"
+                          className="mt-2 w-full rounded-lg border border-black/10 bg-[#FAF8F4] px-2.5 py-2 text-xs font-semibold text-[#2C2C2C]/85"
                           aria-label="Furnishing"
                         >
                           <option value="any">Any</option>
@@ -2786,17 +2786,17 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         </select>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
                           Floor area (sqm)
                         </p>
-                        <div className="mt-3 flex gap-2">
+                        <div className="mt-2 flex gap-2">
                           <input
                             value={filters.floorAreaMin}
                             onChange={(e) =>
                               setFilters((s) => ({ ...s, floorAreaMin: e.target.value.replace(/[^\d]/g, "") }))
                             }
                             placeholder="Min"
-                            className="w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 placeholder:text-[#2C2C2C]/35"
+                            className="w-full rounded-lg border border-black/10 bg-[#FAF8F4] px-2.5 py-2 text-xs font-semibold text-[#2C2C2C]/85 placeholder:text-[#2C2C2C]/35"
                             inputMode="numeric"
                             aria-label="Minimum floor area"
                           />
@@ -2806,7 +2806,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                               setFilters((s) => ({ ...s, floorAreaMax: e.target.value.replace(/[^\d]/g, "") }))
                             }
                             placeholder="Max"
-                            className="w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 placeholder:text-[#2C2C2C]/35"
+                            className="w-full rounded-lg border border-black/10 bg-[#FAF8F4] px-2.5 py-2 text-xs font-semibold text-[#2C2C2C]/85 placeholder:text-[#2C2C2C]/35"
                             inputMode="numeric"
                             aria-label="Maximum floor area"
                           />
@@ -2814,15 +2814,15 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       </div>
                     </div>
 
-                    <div className="mt-7">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">Location</p>
+                    <div className="mt-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">Location</p>
                       <select
                         value={filters.locationLabel ?? ""}
                         onChange={(e) => {
                           const v = e.target.value;
                           setFilters((s) => ({ ...s, locationLabel: v ? v : null }));
                         }}
-                        className="mt-3 w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85"
+                        className="mt-2 w-full rounded-lg border border-black/10 bg-[#FAF8F4] px-2.5 py-2 text-xs font-semibold text-[#2C2C2C]/85"
                         aria-label="Filter by location"
                       >
                         <option value="">Any location</option>
@@ -2834,9 +2834,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       </select>
                     </div>
 
-                    <div className="mt-7">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2C2C2C]/45">Amenities</p>
-                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+                    <div className="mt-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">Amenities</p>
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5">
                         {(
                           [
                             ["parking", Car, "Parking"],
@@ -2853,11 +2853,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           return (
                             <label
                               key={k}
-                              className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-[#2C2C2C]/75"
+                              className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/75"
                             >
                               <input
                                 type="checkbox"
-                                className="h-4 w-4 rounded border-black/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
+                                className="h-3.5 w-3.5 shrink-0 rounded border-black/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
                                 checked={checked}
                                 onChange={() =>
                                   setFilters((s) => ({
@@ -2886,7 +2886,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         />
                       </button>
                       {amenitiesExpanded ? (
-                        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 border-t border-[#2C2C2C]/8 pt-3">
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5 border-t border-[#2C2C2C]/8 pt-2">
                           <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-[#2C2C2C]/75">
                             <input
                               type="checkbox"
@@ -2919,7 +2919,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       ) : null}
                     </div>
 
-                    <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-[#2C2C2C]/10 pt-5">
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#2C2C2C]/10 pt-2">
                       <button
                         type="button"
                         onClick={() => {
@@ -2941,7 +2941,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           setAmenitiesExpanded(false);
                           setSortMode("newest");
                         }}
-                        className="text-sm font-semibold text-[#6B9E6E] hover:underline"
+                        className="text-xs font-semibold text-[#6B9E6E] hover:underline"
                       >
                         Clear all
                       </button>
@@ -2958,7 +2958,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
                           });
                         }}
-                        className="inline-flex min-w-[8.5rem] items-center justify-center rounded-full bg-[#6B9E6E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                        className="inline-flex min-w-[6.75rem] items-center justify-center rounded-full bg-[#6B9E6E] px-4 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#5d8a60]"
                       >
                         Apply filters
                       </button>
@@ -3967,14 +3967,14 @@ function filterPillClass(selected: boolean): string {
 
 function filterBedBathPill(selected: boolean): string {
   return cn(
-    "flex h-9 min-w-[2.25rem] items-center justify-center rounded-full px-2.5 text-xs font-semibold transition",
+    "flex h-8 min-w-[2rem] items-center justify-center rounded-full px-2 text-[11px] font-semibold transition",
     selected ? "bg-[#6B9E6E] text-white shadow-sm" : "border border-black/12 bg-[#F3F1EC] text-[#2C2C2C]/78",
   );
 }
 
 function homePropertyKindChipClass(selected: boolean): string {
   return cn(
-    "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl border px-1 py-2.5 text-[10px] font-semibold transition sm:gap-1.5 sm:px-2 sm:text-[11px]",
+    "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-[10px] font-semibold transition sm:gap-1 sm:px-1.5 sm:py-2 sm:text-[11px]",
     selected
       ? "border-[#6B9E6E] bg-[#6B9E6E]/10 text-[#6B9E6E]"
       : "border-black/10 bg-white text-[#2C2C2C]/65 hover:border-[#6B9E6E]/30",
@@ -3983,7 +3983,7 @@ function homePropertyKindChipClass(selected: boolean): string {
 
 function transactionPillClass(selected: boolean): string {
   return cn(
-    "rounded-full px-4 py-2 text-xs font-semibold transition ring-1",
+    "rounded-full px-2.5 py-1 text-[11px] font-semibold transition ring-1",
     selected ? "bg-white text-[#6B9E6E] ring-[#6B9E6E]" : "bg-[#FAF8F4] text-[#2C2C2C]/55 ring-black/10",
   );
 }
@@ -4002,31 +4002,31 @@ function HomepageFilterDualPriceSlider({
   const [active, setActive] = useState<"min" | "max" | null>(null);
 
   const rangeBase =
-    "pointer-events-none absolute left-0 top-1/2 h-0 w-full -translate-y-1/2 appearance-none bg-transparent outline-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:cursor-grab [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-[#6B9E6E] [&::-webkit-slider-thumb]:shadow-md [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:cursor-grab [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-[#6B9E6E] [&::-moz-range-thumb]:shadow-md";
+    "pointer-events-none absolute left-0 top-1/2 h-0 w-full -translate-y-1/2 appearance-none bg-transparent outline-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:cursor-grab [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-[#6B9E6E] [&::-webkit-slider-thumb]:shadow-md [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:cursor-grab [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-[#6B9E6E] [&::-moz-range-thumb]:shadow-md";
 
   const minPct = (minPrice / maxP) * 100;
   const maxPct = (maxPrice / maxP) * 100;
 
   return (
     <div className="w-full">
-      <div className="relative mx-1 h-7 min-h-[1.75rem]">
+      <div className="relative mx-1 h-5 min-h-[1.25rem]">
         <span
-          className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold leading-none text-[#2C2C2C]"
+          className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold leading-none text-[#2C2C2C]"
           style={{ left: `${minPct}%` }}
         >
           {formatHomepageFilterPrice(minPrice)}
         </span>
         <span
-          className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold leading-none text-[#2C2C2C]"
+          className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold leading-none text-[#2C2C2C]"
           style={{ left: `${maxPct}%` }}
         >
           {formatHomepageFilterPrice(maxPrice)}
         </span>
       </div>
-      <div className="relative mx-1 mt-1 h-9 touch-none" onPointerUp={() => setActive(null)}>
-        <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-neutral-200" />
+      <div className="relative mx-1 mt-0.5 h-7 touch-none" onPointerUp={() => setActive(null)}>
+        <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-neutral-200" />
         <div
-          className="pointer-events-none absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-[#6B9E6E]"
+          className="pointer-events-none absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-[#6B9E6E]"
           style={{
             left: `${minPct}%`,
             width: `${Math.max(0, maxPct - minPct)}%`,
@@ -4061,9 +4061,9 @@ function HomepageFilterDualPriceSlider({
           className={cn(rangeBase, active === "max" ? "z-[36]" : "z-[32]")}
         />
       </div>
-      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#2C2C2C]/40">
+          <label className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-[#2C2C2C]/40">
             Min
           </label>
           <input
@@ -4076,12 +4076,12 @@ function HomepageFilterDualPriceSlider({
               if (!Number.isFinite(n)) return;
               onChange({ minPrice: Math.min(Math.max(0, n), maxPrice), maxPrice });
             }}
-            className="w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]/85"
+            className="w-full rounded-lg border border-black/10 bg-[#FAF8F4] px-2.5 py-2 text-xs font-semibold text-[#2C2C2C]/85"
             aria-label="Minimum price (pesos)"
           />
         </div>
         <div>
-          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#2C2C2C]/40">
+          <label className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-[#2C2C2C]/40">
             Max
           </label>
           <input
@@ -4097,7 +4097,7 @@ function HomepageFilterDualPriceSlider({
                 maxPrice: Math.max(Math.min(HOMEPAGE_FILTER_MAX_PRICE, n), minPrice),
               });
             }}
-            className="w-full rounded-xl border border-black/10 bg-[#FAF8F4] px-3 py-2 text-sm font-semibold text-[#2C2C2C]/85"
+            className="w-full rounded-lg border border-black/10 bg-[#FAF8F4] px-2.5 py-2 text-xs font-semibold text-[#2C2C2C]/85"
             aria-label="Maximum price (pesos)"
           />
         </div>

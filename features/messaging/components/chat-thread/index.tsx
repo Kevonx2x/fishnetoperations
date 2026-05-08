@@ -186,12 +186,11 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
           </DropdownMenu>
         ) : null}
       </header>
-      <div
-        className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto [-webkit-overflow-scrolling:touch] max-lg:min-h-0 lg:min-h-0"
-      >
+      {/* Scroll lives on Stream's `.str-chat__list`; wrapping with overflow-y-auto here nests scrollers and breaks flex height + composer placement on mobile. */}
+      <div className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col max-lg:min-h-0 lg:min-h-0">
         <MessageList />
       </div>
-      <div className="max-lg:shrink-0 max-lg:border-t max-lg:border-[#2C2C2C]/10 max-lg:bg-white max-lg:pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="relative z-10 max-lg:shrink-0 max-lg:border-t max-lg:border-[#2C2C2C]/10 max-lg:bg-white max-lg:pb-[env(safe-area-inset-bottom,0px)]">
         <MessageInput />
       </div>
     </div>

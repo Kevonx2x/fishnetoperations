@@ -518,10 +518,35 @@
     padding-bottom: 12px;
   }
 
-  /* Higher specificity when Stream nests the composer under `.str-chat__main-panel`. */
-  .bahaygo-stream-chat .str-chat__main-panel .str-chat__message-input {
-    margin-bottom: 24px;
-    padding-bottom: 0;
+  /*
+   * Mobile: dashboard shell already reserves space above the fixed tab bar (`pb-[calc(4rem+safe-area)]`).
+   * Extra margin + panel padding stacked gap between composer and nav ("floating" input).
+   */
+  @media (max-width: 767px) {
+    .bahaygo-stream-chat .str-chat__message-input {
+      margin-bottom: 0;
+      margin-left: 16px;
+      margin-right: 16px;
+      max-width: none;
+      padding-right: 0;
+      width: auto;
+    }
+
+    .bahaygo-stream-chat .bhg-chat-panel {
+      padding-bottom: 0;
+    }
+
+    .bahaygo-stream-chat .str-chat__main-panel .str-chat__message-input {
+      margin-bottom: 0;
+    }
+  }
+
+  /* Desktop+: duplicate rule previously defeated mobile zero-margin — scope to md+ only. */
+  @media (min-width: 768px) {
+    .bahaygo-stream-chat .str-chat__main-panel .str-chat__message-input {
+      margin-bottom: 24px;
+      padding-bottom: 0;
+    }
   }
 
   /* Designed pill: attachment + compositor + send in one field */
