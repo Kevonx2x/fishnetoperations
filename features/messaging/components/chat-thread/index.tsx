@@ -11,6 +11,7 @@ import { MessageList } from "@/features/messaging/components/chat-thread/message
 import { MessageInput } from "@/features/messaging/components/chat-thread/message-input";
 import { MessagesOnlySupportWelcome } from "@/features/messaging/components/messages-only-support-welcome";
 import { isChannelArchived, isSupportChannel } from "@/features/messaging/lib/channel-helpers";
+import type { ChannelPropertyMetadata } from "@/features/messaging/types";
 
 export function ChatThreadPanel(props: {
   channelLoading: boolean;
@@ -142,6 +143,10 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
   const { loading, channel } = useChannelStateContext();
   const { setActiveChannel, channel: activeChannel } = useChatContext();
   const supportThread = channel ? isSupportChannel(channel) : false;
+  const meta = (channel?.data ?? {}) as ChannelPropertyMetadata;
+  const dealKind = (meta.deal_context_kind ?? "").toString().trim();
+  const dealPropertyName = (meta.deal_context_property_name ?? "").toString().trim();
+  const dealPropertyId = (meta.deal_context_property_id ?? "").toString().trim();
 
   useEffect(() => {
     if (!loading) props.onLoaded();
@@ -186,6 +191,22 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
           </DropdownMenu>
         ) : null}
       </header>
+      {!supportThread && dealKind && dealPropertyName ? (
+        <div className="shrink-0 border-b border-subtle bg-surface-panel px-4 py-2 text-[11px] font-semibold text-fg/65">
+          {dealKind === "co_listing" ? "Co-listing" : "Re:"}{" "}
+          {dealPropertyId ? (
+            <a
+              href={`/properties/${encodeURIComponent(dealPropertyId)}`}
+              className="font-bold text-fg hover:underline"
+            >
+              {dealPropertyName}
+            </a>
+          ) : (
+            <span className="font-bold text-fg">{dealPropertyName}</span>
+          )}
+          {dealKind === "cross_deal" ? <span className="text-fg/50"> — your client</span> : null}
+        </div>
+      ) : null}
       {/* Scroll lives on Stream's `.str-chat__list`; wrapping with overflow-y-auto here nests scrollers and breaks flex height + composer placement on mobile. */}
       <div className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col max-lg:min-h-0 lg:min-h-0">
         <MessageList />

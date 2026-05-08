@@ -4,6 +4,7 @@ import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getStreamClient } from "@/lib/stream";
 import { streamDmChannelId } from "@/features/messaging/lib/stream-dm-channel-id";
+import { canAgentMessageAgent } from "@/lib/messaging-permissions";
 
 type ChannelMetadataBody = {
   property_id?: string | null;
@@ -40,8 +41,8 @@ export async function postStreamChannel(req: Request) {
 
     const admin = createSupabaseAdmin();
     const [{ data: agentProfile }, { data: clientProfile }, { data: agentRow }] = await Promise.all([
-      admin.from("profiles").select("id, full_name, avatar_url").eq("id", agentId).maybeSingle(),
-      admin.from("profiles").select("id, full_name, avatar_url").eq("id", clientId).maybeSingle(),
+      admin.from("profiles").select("id, full_name, avatar_url, role").eq("id", agentId).maybeSingle(),
+      admin.from("profiles").select("id, full_name, avatar_url, role").eq("id", clientId).maybeSingle(),
       admin.from("agents").select("image_url").eq("user_id", agentId).maybeSingle(),
     ]);
 
@@ -71,12 +72,35 @@ export async function postStreamChannel(req: Request) {
     const channelId = streamDmChannelId(agentId, clientId);
 
     const meta = body.metadata ?? {};
-    const channelData = {
+    const channelData: Record<string, unknown> = {
       ...(meta.property_id ? { property_id: meta.property_id } : {}),
       ...(meta.property_name ? { property_name: meta.property_name } : {}),
       ...(meta.property_price ? { property_price: meta.property_price } : {}),
       ...(meta.property_image ? { property_image: meta.property_image } : {}),
     };
+
+    // Agent↔agent guard: disallow peer messaging unless there is shared deal context.
+    const agentRole = String((agentProfile as { role?: string | null } | null)?.role ?? "").trim();
+    const clientRole = String((clientProfile as { role?: string | null } | null)?.role ?? "").trim();
+    const agentToAgent = agentRole === "agent" && clientRole === "agent";
+    if (agentToAgent) {
+      const [{ data: aRow }, { data: bRow }] = await Promise.all([
+        admin.from("agents").select("id").eq("user_id", agentId).maybeSingle(),
+        admin.from("agents").select("id").eq("user_id", clientId).maybeSingle(),
+      ]);
+      const aAgentId = String((aRow as { id?: string } | null)?.id ?? "");
+      const bAgentId = String((bRow as { id?: string } | null)?.id ?? "");
+      if (!aAgentId || !bAgentId) {
+        return NextResponse.json({ error: "Messaging is only available for co-listings or shared deals." }, { status: 403 });
+      }
+      const ctx = await canAgentMessageAgent(admin, aAgentId, bAgentId);
+      if (!ctx.allowed) {
+        return NextResponse.json({ error: "Messaging is only available for co-listings or shared deals." }, { status: 403 });
+      }
+      channelData.deal_context_kind = ctx.kind;
+      channelData.deal_context_property_id = ctx.property_id;
+      channelData.deal_context_property_name = ctx.property_name;
+    }
 
     const existing = await stream.queryChannels({ type: "messaging", id: channelId }, { last_message_at: -1 }, { limit: 1 });
     if (existing.length > 0) {

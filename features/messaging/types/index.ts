@@ -9,6 +9,9 @@ export type ChannelPropertyMetadata = {
   property_name?: string | null;
   property_price?: string | null;
   property_image?: string | null;
+  deal_context_kind?: "co_listing" | "cross_deal" | null;
+  deal_context_property_id?: string | null;
+  deal_context_property_name?: string | null;
 };
 
 export type PeerInfo = {

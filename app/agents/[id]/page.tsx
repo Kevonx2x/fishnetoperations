@@ -61,6 +61,7 @@ import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import type { CreateMessagingChannelErrorBody, CreateMessagingChannelResponse } from "@/features/messaging/types";
 import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagement";
 import { ReportProfileButton } from "@/components/report-profile-button";
+import { canAgentMessageAgent, type AgentToAgentDealContext } from "@/lib/messaging-permissions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -376,9 +377,9 @@ export default function AgentProfilePage() {
   const { engagement } = usePropertyEngagementForProperties(listings);
 
   const isOwnProfile = Boolean(user?.id && agent?.user_id && user.id === agent.user_id);
-  /** Agents use client messaging elsewhere; block starting a client↔agent thread from another agent's public page. */
-  const messageDisabledForAgentViewer = Boolean(!isOwnProfile && profile?.role === "agent");
+  const viewerIsAgent = profile?.role === "agent";
   const [messageBusy, setMessageBusy] = useState(false);
+  const [agentToAgentCtx, setAgentToAgentCtx] = useState<AgentToAgentDealContext>({ allowed: false });
 
   const [savingOwnerBio, setSavingOwnerBio] = useState(false);
   const [ownerDraftBio, setOwnerDraftBio] = useState("");
@@ -1043,6 +1044,7 @@ export default function AgentProfilePage() {
       return;
     }
     if (!agent?.user_id || user.id === agent.user_id) return;
+    if (viewerIsAgent && !agentToAgentCtx.allowed) return;
     setMessageBusy(true);
     try {
       const metadata = {
@@ -1058,7 +1060,14 @@ export default function AgentProfilePage() {
         body: JSON.stringify({
           agent_user_id: agent.user_id,
           client_user_id: user.id,
-          metadata,
+          metadata:
+            viewerIsAgent && agentToAgentCtx.allowed
+              ? {
+                  ...metadata,
+                  property_id: agentToAgentCtx.property_id,
+                  property_name: agentToAgentCtx.property_name,
+                }
+              : metadata,
         }),
       });
       const data: unknown = await res.json().catch(() => ({}));
@@ -1072,7 +1081,29 @@ export default function AgentProfilePage() {
     } finally {
       setMessageBusy(false);
     }
-  }, [agent?.user_id, authLoading, messageBusy, router, user?.id]);
+  }, [agent?.user_id, agentToAgentCtx, authLoading, messageBusy, router, user?.id, viewerIsAgent]);
+
+  useEffect(() => {
+    if (!viewerIsAgent || isOwnProfile || !user?.id || !agent?.id) {
+      setAgentToAgentCtx({ allowed: false });
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data: viewerAgent } = await supabase
+        .from("agents")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const viewerAgentId = String((viewerAgent as { id?: string } | null)?.id ?? "");
+      if (!viewerAgentId) return;
+      const ctx = await canAgentMessageAgent(supabase, viewerAgentId, agent.id);
+      if (!cancelled) setAgentToAgentCtx(ctx);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agent?.id, isOwnProfile, user?.id, viewerIsAgent]);
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#2C2C2C]">
@@ -1750,7 +1781,7 @@ export default function AgentProfilePage() {
                             </div>
 
                             <div className="flex flex-col gap-2 px-4 pb-4 sm:flex-row sm:flex-wrap sm:items-center">
-                              {!isOwnProfile ? (
+                              {!isOwnProfile && !(viewerIsAgent && !agentToAgentCtx.allowed) ? (
                                 <>
                                   <button
                                     type="button"
@@ -1762,8 +1793,8 @@ export default function AgentProfilePage() {
                                         propertyImage: p.image_url ?? null,
                                       })
                                     }
-                                    disabled={authLoading || messageBusy || messageDisabledForAgentViewer}
-                                    className="inline-flex w-full cursor-not-allowed items-center justify-center gap-1.5 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-[#5d8a60] disabled:pointer-events-none disabled:opacity-50 sm:w-auto enabled:cursor-pointer enabled:hover:bg-[#5d8a60]"
+                                    disabled={authLoading || messageBusy}
+                                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-[#5d8a60] disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
                                   >
                                     <MessageSquare className="h-3.5 w-3.5" aria-hidden />
                                     Message
