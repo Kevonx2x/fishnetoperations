@@ -26,12 +26,19 @@ function formatPesoAbbrev(n: number): string {
   return `₱${Math.round(n).toLocaleString("en-PH")}`;
 }
 
-/** Sum property prices for active pipeline leads (client-side). */
+/** Sum property prices for active pipeline leads (client-side; matches non-archived + open-stage rules). */
 export function computePipelinePulseStats(
-  deals: { pipeline_stage: string; property_id: string | null; created_at: string; updated_at?: string | null }[],
+  deals: {
+    pipeline_stage: string;
+    property_id: string | null;
+    created_at: string;
+    updated_at?: string | null;
+    archived_at?: string | null;
+  }[],
   priceByPropertyId: Record<string, number>,
 ): PipelinePulseStats {
   const active = deals.filter((d) => {
+    if (d.archived_at != null && String(d.archived_at).trim() !== "") return false;
     const s = String(d.pipeline_stage ?? "").trim().toLowerCase();
     return s !== "closed" && s !== "declined";
   });
@@ -91,7 +98,7 @@ function PulseDropSlot({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex min-h-[76px] min-w-0 flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-[#2C2C2C]/25 bg-white/70 px-2 py-2 text-center transition-[border-color,background-color,box-shadow] duration-150",
+        "flex min-h-[76px] min-w-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#2C2C2C]/22 bg-white/85 px-2 py-2 text-center shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-[border-color,background-color,box-shadow] duration-150",
         isOver &&
           (tone === "lost"
             ? "border-red-400/70 bg-red-50/95 shadow-sm"
@@ -122,8 +129,9 @@ export function PipelinePulseBar({ stats }: { stats: PipelinePulseStats }) {
   return (
     <div
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-20 border-t border-stone-200 bg-[#FAF8F4] py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]",
-        "px-4 supports-[backdrop-filter]:bg-[#FAF8F4]/95 supports-[backdrop-filter]:backdrop-blur-sm",
+        "fixed bottom-0 left-0 right-0 z-20 rounded-t-2xl border-t border-[#C9C4BC]/70 py-3.5",
+        "bg-[rgba(251,250,248,0.96)] shadow-[0_-10px_40px_-8px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.85)]",
+        "px-4 supports-[backdrop-filter]:bg-[rgba(251,250,248,0.9)] supports-[backdrop-filter]:backdrop-blur-md",
         /* Desktop agent shell: aside is w-[180px] on non-messages tabs; align with main horizontal padding (md:px-8). */
         "lg:left-[180px] lg:px-8",
       )}
@@ -144,7 +152,7 @@ export function PipelinePulseBar({ stats }: { stats: PipelinePulseStats }) {
                 <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/50">
                   Pipeline value
                 </p>
-                <p className="mt-1 font-sans text-lg font-bold tabular-nums text-[#2C2C2C]">
+                <p className="mt-1 font-sans text-lg font-bold tabular-nums tracking-tight text-[#141414]">
                   {stats.pipelineValueLine}
                 </p>
               </div>
@@ -168,7 +176,9 @@ export function PipelinePulseBar({ stats }: { stats: PipelinePulseStats }) {
                 <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/50">
                   Avg time in pipeline
                 </p>
-                <p className="mt-1 font-sans text-lg font-bold tabular-nums text-[#2C2C2C]">{stats.avgTimeLine}</p>
+                <p className="mt-1 font-sans text-lg font-bold tabular-nums tracking-tight text-[#141414]">
+                  {stats.avgTimeLine}
+                </p>
               </div>
             </motion.div>
           ) : (

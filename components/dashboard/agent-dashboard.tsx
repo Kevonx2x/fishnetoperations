@@ -223,8 +223,6 @@ type LeadRow = {
   archive_reason?: string | null;
   archive_note?: string | null;
   stage_at_archive?: string | null;
-  /** Agent hid lead from active pipeline (see `archived_by_agent` migration). */
-  archived_by_agent?: boolean | null;
 };
 
 async function fetchViewingRequestMetaByLeadId(
@@ -1160,14 +1158,13 @@ export function AgentDashboard() {
             .from("leads")
             .select(leadSel)
             .eq("agent_id", supervisorUserId)
-            .eq("archived_by_client", false)
-            .eq("archived_by_agent", false)
+            .is("archived_at", null)
             .order("created_at", { ascending: false }),
           supabase
             .from("leads")
             .select(leadSelArchived)
             .eq("agent_id", supervisorUserId)
-            .eq("archived_by_client", true)
+            .not("archived_at", "is", null)
             .order("archived_at", { ascending: false })
             .limit(150),
           supabase
@@ -1234,8 +1231,7 @@ export function AgentDashboard() {
           .from("leads")
           .select("id", { count: "exact", head: true })
           .eq("agent_id", supervisorUserId)
-          .eq("archived_by_client", false)
-          .eq("archived_by_agent", false)
+          .is("archived_at", null)
           .gte("created_at", startYesterdayIso)
           .lt("created_at", startTodayIso);
         setYesterdayNewLeadsCount(yLeadRes.error ? 0 : (yLeadRes.count ?? 0));
@@ -1327,14 +1323,13 @@ export function AgentDashboard() {
           .from("leads")
           .select(leadSel)
           .eq("agent_id", user.id)
-          .eq("archived_by_client", false)
-          .eq("archived_by_agent", false)
+          .is("archived_at", null)
           .order("created_at", { ascending: false }),
         supabase
           .from("leads")
           .select(leadSelArchived)
           .eq("agent_id", user.id)
-          .eq("archived_by_client", true)
+          .not("archived_at", "is", null)
           .order("archived_at", { ascending: false })
           .limit(150),
         supabase
@@ -1418,8 +1413,7 @@ export function AgentDashboard() {
         .from("leads")
         .select("id", { count: "exact", head: true })
         .eq("agent_id", user.id)
-        .eq("archived_by_client", false)
-        .eq("archived_by_agent", false)
+        .is("archived_at", null)
         .gte("created_at", startYesterdayIso)
         .lt("created_at", startTodayIso);
       setYesterdayNewLeadsCount(yLeadRes.error ? 0 : (yLeadRes.count ?? 0));

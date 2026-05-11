@@ -770,8 +770,8 @@ function KanbanFooterGoldBadge({ label }: { label: string }) {
 
 function pipelineColumnEmptyIcon(stage: PipelineStageId) {
   const ring =
-    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#E8E8E8] ring-1 ring-[#2C2C2C]/[0.06]";
-  const ic = "h-5 w-5 text-[#2C2C2C]/35";
+    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#DFDAD3]/90 ring-1 ring-[#2C2C2C]/[0.05]";
+  const ic = "h-5 w-5 text-[#2C2C2C]/22";
   switch (stage) {
     case "lead":
       return (
@@ -1095,11 +1095,11 @@ function KanbanDealCard({
       <div
         {...(tourViewingCardAnchor ? { "data-tour": "viewing-card" as const } : {})}
         className={cn(
-          // KANBAN-PREMIUM-REVERT: card depth — restore: shadow-none ring-0 transition-colors [box-shadow:none] hover:border-[#2C2C2C]/12 isDragging scale-[1.01]
-          "relative flex w-full flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[#2C2C2C]/[0.08] bg-white p-3",
-          "shadow-[0_1px_2px_rgba(0,0,0,0.045)] transition-[box-shadow,transform,border-color] duration-200 ease-out",
-          "hover:border-[#2C2C2C]/14 hover:shadow-[0_6px_16px_rgba(0,0,0,0.07)]",
-          isDragging && "scale-[1.02] border-[#6B9E6E]/35 shadow-[0_8px_24px_rgba(0,0,0,0.1)]",
+          "relative flex w-full flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[#2C2C2C]/[0.11] bg-white p-3",
+          "shadow-[inset_0_1px_0_rgba(255,255,255,0.88),0_4px_18px_rgba(0,0,0,0.055)] transition-[box-shadow,transform,border-color] duration-200 ease-out",
+          "hover:border-[#2C2C2C]/16 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_28px_rgba(0,0,0,0.085)]",
+          isDragging &&
+            "scale-[1.02] border-[#6B9E6E]/40 shadow-[0_12px_32px_rgba(0,0,0,0.12),0_0_0_1px_rgba(107,158,110,0.25)]",
         )}
         onClick={() => openKanbanLeadDetails()}
         role="button"
@@ -1120,9 +1120,7 @@ function KanbanDealCard({
                 openKanbanLeadDetails();
               }}
             >
-              <p
-                className="line-clamp-2 break-words font-sans text-[15px] font-bold leading-normal tracking-tight text-[#2C2C2C]"
-              >
+              <p className="line-clamp-2 break-words font-sans text-[15px] font-bold leading-snug tracking-tight text-[#171717]">
                 {propLine}
               </p>
             </button>
@@ -1587,7 +1585,7 @@ function KanbanDealCard({
           </div>
 
           {/* Row 2: Value (secondary) */}
-          <p className="mt-1 font-sans text-[12px] font-semibold tabular-nums text-[#2C2C2C]/55">
+          <p className="mt-1 font-sans text-[12px] font-bold tabular-nums text-[#2C4A30]/90">
             {dealValueLine ?? "—"}
           </p>
           {/* Row 3: Avatar + contact (tertiary) */}
@@ -1599,7 +1597,7 @@ function KanbanDealCard({
                 clientInitials(deal.name)
               )}
             </div>
-            <span className="truncate font-sans text-[11px] font-medium text-[#888888]">{deal.name}</span>
+            <span className="truncate font-sans text-[11px] font-medium text-[#2C2C2C]/48">{deal.name}</span>
           </div>
         </div>
 
@@ -1613,7 +1611,7 @@ function KanbanDealCard({
             }}
             onPointerDown={(e) => e.stopPropagation()}
             className={cn(
-              "absolute top-1/2 right-2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-none ring-0 [box-shadow:none] hover:bg-[#5a8a5d]",
+              "absolute top-1/2 right-2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-[0_2px_8px_rgba(107,158,110,0.45)] ring-1 ring-white/25 hover:bg-[#5a8a5d] hover:shadow-[0_3px_10px_rgba(107,158,110,0.5)]",
               anyMenuOpen && "pointer-events-none opacity-0",
             )}
           >
@@ -1625,7 +1623,7 @@ function KanbanDealCard({
       </div>
       <div
         className={cn(
-          "flex h-6 w-full shrink-0 items-center gap-2 rounded-b-2xl bg-[#2C2C2C]/[0.06] px-3",
+          "flex h-6 w-full shrink-0 items-center gap-2 rounded-b-2xl border-t border-[#2C2C2C]/[0.06] bg-[#EDE9E1]/95 px-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
           showFooterLeftBadge ? "justify-between" : "justify-center",
         )}
       >
@@ -1744,15 +1742,15 @@ function KanbanStageColumn({
     <div
       className={cn(
         "flex h-full w-full max-w-[320px] min-w-[180px] flex-col gap-2 rounded-xl p-2 sm:min-w-[200px] xl:min-w-[220px]",
-        "bg-[#2C2C2C]/[0.028] ring-1 ring-inset ring-[#2C2C2C]/[0.055]",
+        "bg-[#E8E4DC]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-inset ring-[#2C2C2C]/[0.07]",
         "transition-[background-color,box-shadow] duration-200 ease-out",
       )}
     >
-      <div className="shrink-0 overflow-hidden rounded-lg border border-[#2C2C2C]/[0.07] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+      <div className="shrink-0 overflow-hidden rounded-lg border border-[#2C2C2C]/[0.08] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.055),0_1px_0_rgba(255,255,255,0.9)_inset]">
         <div aria-hidden className="h-0.5 w-full" style={{ backgroundColor: barHex }} />
         <div className="flex min-h-[52px] flex-col justify-center border-b border-[#2C2C2C]/[0.06] px-3 py-2.5">
           <div className="flex items-center justify-between gap-2">
-            <p className="min-w-0 truncate font-sans text-[13px] font-bold uppercase tracking-[0.06em] text-[#2C2C2C]/88">
+            <p className="min-w-0 truncate font-sans text-[13px] font-bold uppercase tracking-[0.06em] text-[#2C2C2C]/92">
               {label}
             </p>
             <span className="shrink-0 rounded-full bg-[#F4F5F6] px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-[#2C2C2C]/72 ring-1 ring-[#2C2C2C]/[0.06]">
@@ -1773,8 +1771,8 @@ function KanbanStageColumn({
         {list.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center px-3 py-10 text-center">
             {pipelineColumnEmptyIcon(stage)}
-            <p className="mt-3 font-sans text-[12px] font-bold text-[#2C2C2C]/60">No deals yet</p>
-            <p className="mt-1 max-w-[200px] font-sans text-[10px] font-medium leading-snug text-[#2C2C2C]/40">
+            <p className="mt-3 font-sans text-[12px] font-semibold text-[#2C2C2C]/45">No deals yet</p>
+            <p className="mt-1 max-w-[200px] font-sans text-[10px] font-medium leading-snug text-[#2C2C2C]/32">
               Drag deals here or wait for new inquiries.
             </p>
           </div>
@@ -1977,7 +1975,7 @@ function SortableDealCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "relative rounded-lg border border-[#2C2C2C]/10 bg-white p-4 shadow-sm",
+        "relative rounded-xl border border-[#2C2C2C]/[0.11] bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.05)] transition-shadow duration-200 hover:shadow-[0_6px_20px_rgba(0,0,0,0.075)]",
         isDragging && "scale-105 shadow-xl",
         isArchived && "opacity-50 grayscale-[30%]",
         propRemoved && !isArchived && "opacity-50",
@@ -4560,7 +4558,7 @@ export function AgentPipelineTab({
             <div className="flex w-full min-w-0 flex-col">
               <div
                 ref={kanbanScrollRef}
-                className="relative isolate w-full min-w-0 overflow-x-auto overflow-y-visible bg-[#FAF8F4] px-1 py-2 scrollbar-hide"
+                className="relative isolate w-full min-w-0 overflow-x-auto overflow-y-visible bg-gradient-to-b from-[#FAF8F4] to-[#F3EFE8] px-1 py-2 scrollbar-hide"
               >
                 {menuOpenId != null ? (
                   <button
@@ -4602,19 +4600,21 @@ export function AgentPipelineTab({
                     const stageDeals = dealsByStage[stage];
                     const count = stageTotals[stage]?.count ?? stageDeals.length;
                     const rawBoardIds = kanbanIdsByStage[stage];
-                    /** `??` does not treat `[]` as missing — empty board state must fall back to deal ids or columns stay blank. */
-                    const ids =
-                      rawBoardIds != null && rawBoardIds.length > 0
-                        ? rawBoardIds
-                        : stageDeals.map((d) => String(d.id));
                     const byId = new Map(stageDeals.map((d) => [String(d.id), d]));
-                    let listForColumn = ids
-                      .map((id) => byId.get(id))
+                    /**
+                     * Board ids can be empty, stale, or out of sync with `dealsByStage` (filters, refresh, races).
+                     * `SortableContext` items MUST match every mounted `useSortable` id — mismatches can blank the column.
+                     * Order: valid board sequence first, then any deals missing from that sequence (stage default order).
+                     */
+                    const fromBoard = (rawBoardIds ?? [])
+                      .map((id) => byId.get(String(id)))
                       .filter((d): d is PipelineLeadRow => !!d);
-                    if (listForColumn.length < stageDeals.length) {
-                      const seen = new Set(listForColumn.map((d) => d.id));
-                      listForColumn = [...listForColumn, ...stageDeals.filter((d) => !seen.has(d.id))];
-                    }
+                    const seenDealIds = new Set(fromBoard.map((d) => d.id));
+                    const listForColumn = [
+                      ...fromBoard,
+                      ...stageDeals.filter((d) => !seenDealIds.has(d.id)),
+                    ];
+                    const ids = listForColumn.map((d) => String(d.id));
                     const barHex = stageBarHex(stage);
 
                     return (
