@@ -77,6 +77,28 @@ export async function POST(req: Request) {
         return out.map((x, idx) => ({ ...x, is_primary: primaryIdx >= 0 ? idx === primaryIdx : false }));
       })();
 
+      if (normalized.length) {
+        const ids = normalized.map((b) => b.broker_id);
+        const { data: rows, error: bErr } = await sb
+          .from("brokers")
+          .select("id")
+          .in("id", ids)
+          .eq("status", "approved")
+          .eq("verified", true);
+        if (bErr) return fail("DATABASE_ERROR", bErr.message, 500);
+        const ok = new Set((rows ?? []).map((r) => String((r as { id?: string }).id ?? "")));
+        const bad = ids.find((brokerId) => !ok.has(brokerId));
+        if (bad) {
+          return fail(
+            "VALIDATION_ERROR",
+            "Selected brokerage is invalid or not yet approved",
+            422,
+            undefined,
+            "brokers",
+          );
+        }
+      }
+
       const primaryBrokerId =
         normalized.find((b) => b.is_primary)?.broker_id ?? normalized[0]?.broker_id ?? null;
       agentUpdate.broker_id = primaryBrokerId;
