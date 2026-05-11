@@ -1,8 +1,7 @@
 "use client";
 
-import { useDndMonitor, useDroppable } from "@dnd-kit/core";
-import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
+import { useDndMonitor, useDroppable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 
 export const PIPELINE_PULSE_DROP_IDS = {
@@ -137,75 +136,74 @@ export function PipelinePulseBar({ stats }: { stats: PipelinePulseStats }) {
       )}
       data-tour="pipeline-pulse-bar"
     >
-      <div className="relative mx-auto flex w-full max-w-[1600px] min-w-0 items-center justify-around">
-        <AnimatePresence mode="wait" initial={false}>
-          {!dragging ? (
-            <motion.div
-              key="idle"
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.15 }}
-              className="flex w-full flex-row flex-wrap items-start justify-around gap-4 sm:flex-nowrap sm:items-center"
-            >
-              <div className="min-w-0 flex-1 text-center">
-                <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/50">
-                  Pipeline value
-                </p>
-                <p className="mt-1 font-sans text-lg font-bold tabular-nums tracking-tight text-[#141414]">
-                  {stats.pipelineValueLine}
-                </p>
-              </div>
-              <div className="min-w-0 flex-1 text-center">
-                <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/50">
-                  Hot leads
-                </p>
-                <p
-                  className={cn(
-                    "mt-1 flex items-center justify-center gap-1.5 font-sans text-sm font-bold",
-                    stats.hotLeadsCaughtUp ? "text-[#6B9E6E]" : "text-[#2C2C2C]",
-                  )}
-                >
-                  {!stats.hotLeadsCaughtUp ? (
-                    <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-[#D4A843]" aria-hidden />
-                  ) : null}
-                  {stats.hotLeadsLine}
-                </p>
-              </div>
-              <div className="min-w-0 flex-1 text-center">
-                <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/50">
-                  Avg time in pipeline
-                </p>
-                <p className="mt-1 font-sans text-lg font-bold tabular-nums tracking-tight text-[#141414]">
-                  {stats.avgTimeLine}
-                </p>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="drag"
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.15 }}
-              className="flex w-full flex-row items-stretch justify-around gap-3"
-            >
-              <PulseDropSlot
-                id={PIPELINE_PULSE_DROP_IDS.won}
-                label="Won"
-                sub="Mark closed as won"
-                tone="won"
-              />
-              <PulseDropSlot id={PIPELINE_PULSE_DROP_IDS.lost} label="Lost" sub="Decline this deal" tone="lost" />
-              <PulseDropSlot
-                id={PIPELINE_PULSE_DROP_IDS.archive}
-                label="Archive"
-                sub="Hide from active pipeline"
-                tone="neutral"
-              />
-            </motion.div>
+      <div className="relative mx-auto flex w-full max-w-[1600px] min-w-0">
+        {/*
+          Keep Won/Lost/Archive droppables mounted at all times. Previously AnimatePresence mode="wait"
+          mounted them only after drag start, which re-registered collision targets mid-drag and caused
+          empty columns (e.g. Viewing) to miss highlights until layout settled.
+        */}
+        <div
+          className={cn(
+            "flex w-full flex-row flex-wrap items-start justify-around gap-4 transition-opacity duration-150 ease-out sm:flex-nowrap sm:items-center",
+            dragging ? "pointer-events-none opacity-0" : "opacity-100",
           )}
-        </AnimatePresence>
+          aria-hidden={dragging}
+        >
+          <div className="min-w-0 flex-1 text-center">
+            <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/50">
+              Pipeline value
+            </p>
+            <p className="mt-1 font-sans text-lg font-bold tabular-nums tracking-tight text-[#141414]">
+              {stats.pipelineValueLine}
+            </p>
+          </div>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/50">
+              Hot leads
+            </p>
+            <p
+              className={cn(
+                "mt-1 flex items-center justify-center gap-1.5 font-sans text-sm font-bold",
+                stats.hotLeadsCaughtUp ? "text-[#6B9E6E]" : "text-[#2C2C2C]",
+              )}
+            >
+              {!stats.hotLeadsCaughtUp ? (
+                <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-[#D4A843]" aria-hidden />
+              ) : null}
+              {stats.hotLeadsLine}
+            </p>
+          </div>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/50">
+              Avg time in pipeline
+            </p>
+            <p className="mt-1 font-sans text-lg font-bold tabular-nums tracking-tight text-[#141414]">
+              {stats.avgTimeLine}
+            </p>
+          </div>
+        </div>
+
+        <div
+          className={cn(
+            "absolute inset-0 flex w-full flex-row items-stretch justify-around gap-3 transition-opacity duration-150 ease-out",
+            dragging ? "opacity-100" : "pointer-events-none opacity-0",
+          )}
+          aria-hidden={!dragging}
+        >
+          <PulseDropSlot
+            id={PIPELINE_PULSE_DROP_IDS.won}
+            label="Won"
+            sub="Mark closed as won"
+            tone="won"
+          />
+          <PulseDropSlot id={PIPELINE_PULSE_DROP_IDS.lost} label="Lost" sub="Decline this deal" tone="lost" />
+          <PulseDropSlot
+            id={PIPELINE_PULSE_DROP_IDS.archive}
+            label="Archive"
+            sub="Hide from active pipeline"
+            tone="neutral"
+          />
+        </div>
       </div>
     </div>
   );

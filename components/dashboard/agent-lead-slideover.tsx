@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Trash2, X } from "lucide-react";
+import { ImageIcon, Trash2, X } from "lucide-react";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -15,15 +15,8 @@ type LeadRow = {
   message: string | null;
   stage: string;
   created_at: string;
+  property_cover_photo_url?: string | null;
 };
-
-const LEAD_STAGE_OPTIONS = [
-  { label: "New", value: "new" },
-  { label: "Contacted", value: "contacted" },
-  { label: "Viewing Scheduled", value: "viewing" },
-  { label: "Closed", value: "closed_won" },
-  { label: "Lost", value: "closed_lost" },
-] as const;
 
 type NoteRow = {
   id: string;
@@ -38,14 +31,12 @@ export function AgentLeadSlideOver({
   agentAvatarUrl,
   agentName,
   onClose,
-  onStageChange,
 }: {
   lead: LeadRow;
   agentUserId: string;
   agentAvatarUrl: string | null;
   agentName: string;
   onClose: () => void;
-  onStageChange: (id: number, stage: string) => void;
 }) {
   const supabase = createSupabaseBrowserClient();
   const [notes, setNotes] = useState<NoteRow[]>([]);
@@ -96,6 +87,8 @@ export function AgentLeadSlideOver({
     await loadNotes();
   };
 
+  const coverUrl = lead.property_cover_photo_url?.trim() || null;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -139,23 +132,25 @@ export function AgentLeadSlideOver({
               <dt className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Received</dt>
               <dd className="font-semibold text-[#2C2C2C]">{new Date(lead.created_at).toLocaleString()}</dd>
             </div>
-            <div>
-              <dt className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Status</dt>
-              <dd className="mt-1">
-                <select
-                  value={lead.stage}
-                  onChange={(e) => onStageChange(lead.id, e.target.value)}
-                  className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 font-semibold"
-                >
-                  {LEAD_STAGE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </dd>
-            </div>
           </dl>
+        </div>
+
+        <div className="shrink-0 border-b border-[#2C2C2C]/10 px-6 pb-6">
+          <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-stone-200 bg-stone-100 shadow-sm">
+            {coverUrl ? (
+              <SupabasePublicImage
+                src={coverUrl}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="(max-width: 28rem) 100vw, 28rem"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-stone-100">
+                <ImageIcon className="h-8 w-8 text-stone-300" strokeWidth={1.25} aria-hidden />
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">

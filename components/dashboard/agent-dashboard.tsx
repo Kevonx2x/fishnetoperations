@@ -223,7 +223,59 @@ type LeadRow = {
   archive_reason?: string | null;
   archive_note?: string | null;
   stage_at_archive?: string | null;
+  /** First listing gallery image for the linked property (from `property_photos`, same query as leads). */
+  property_cover_photo_url?: string | null;
 };
+
+/** Supabase `leads` select including nested first-property photos (flattened to `property_cover_photo_url`). */
+const AGENT_DASHBOARD_LEAD_SELECT =
+  "id, is_demo, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at, properties(property_photos(url, sort_order, created_at))";
+
+type LeadQueryPropertiesJoin = {
+  /** PostgREST usually returns an object; an array is accepted defensively. */
+  properties?:
+    | {
+        property_photos?: { url: string | null; sort_order: number | null; created_at: string | null }[] | null;
+      }
+    | {
+        property_photos?: { url: string | null; sort_order: number | null; created_at: string | null }[] | null;
+      }[]
+    | null;
+};
+
+function firstPropertyCoverPhotoUrl(
+  photos: { url: string | null; sort_order: number | null; created_at: string | null }[] | null | undefined,
+): string | null {
+  if (!photos?.length) return null;
+  const sorted = [...photos].sort((a, b) => {
+    const sa = typeof a.sort_order === "number" ? a.sort_order : Number(a.sort_order) || 0;
+    const sb = typeof b.sort_order === "number" ? b.sort_order : Number(b.sort_order) || 0;
+    if (sa !== sb) return sa - sb;
+    return String(a.created_at ?? "").localeCompare(String(b.created_at ?? ""));
+  });
+  const u = sorted[0]?.url?.trim();
+  return u || null;
+}
+
+function propertyPhotosFromLeadPropertiesJoin(
+  properties: LeadQueryPropertiesJoin["properties"],
+): { url: string | null; sort_order: number | null; created_at: string | null }[] | null {
+  if (properties == null) return null;
+  const node = Array.isArray(properties) ? properties[0] : properties;
+  return node?.property_photos ?? null;
+}
+
+function leadRowFromQueryRow(
+  row: LeadRow & LeadQueryPropertiesJoin,
+  clientAvatarUrl: string | null,
+): LeadRow {
+  const { properties, ...rest } = row;
+  return {
+    ...rest,
+    client_avatar_url: clientAvatarUrl,
+    property_cover_photo_url: firstPropertyCoverPhotoUrl(propertyPhotosFromLeadPropertiesJoin(properties)),
+  };
+}
 
 async function fetchViewingRequestMetaByLeadId(
   sb: SupabaseClient,
@@ -1150,8 +1202,7 @@ export function AgentDashboard() {
 
       if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
         const supervisorUserId = (a as AgentRow).user_id;
-        const leadSel =
-          "id, is_demo, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at";
+        const leadSel = AGENT_DASHBOARD_LEAD_SELECT;
         const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
         const [{ data: ld }, { data: ldArchived }, unreadRes, pipelineUnreadRes] = await Promise.all([
           supabase
@@ -1179,8 +1230,8 @@ export function AgentDashboard() {
             .is("read_at", null)
             .in("type", [...AGENT_PIPELINE_TAB_NOTIFICATION_TYPES]),
         ]);
-        const leadRows = (ld as LeadRow[]) ?? [];
-        const archivedRows = ((ldArchived as LeadRow[]) ?? []) as LeadRow[];
+        const leadRows = ((ld ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
+        const archivedRows = ((ldArchived ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
 
         const clientIds = Array.from(
           new Set(
@@ -1201,14 +1252,12 @@ export function AgentDashboard() {
           );
         }
 
-        const leadRowsWithAvatar = leadRows.map((l) => ({
-          ...l,
-          client_avatar_url: avatarByClientId.get(l.client_id ?? "") ?? null,
-        }));
-        const archivedRowsWithAvatar = archivedRows.map((l) => ({
-          ...l,
-          client_avatar_url: avatarByClientId.get(l.client_id ?? "") ?? null,
-        }));
+        const leadRowsWithAvatar = leadRows.map((l) =>
+          leadRowFromQueryRow(l, avatarByClientId.get(l.client_id ?? "") ?? null),
+        );
+        const archivedRowsWithAvatar = archivedRows.map((l) =>
+          leadRowFromQueryRow(l, avatarByClientId.get(l.client_id ?? "") ?? null),
+        );
 
         setLeads(leadRowsWithAvatar);
         setArchivedLeads(archivedRowsWithAvatar);
@@ -1314,8 +1363,7 @@ export function AgentDashboard() {
     }
 
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
-      const leadSel =
-        "id, is_demo, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at";
+      const leadSel = AGENT_DASHBOARD_LEAD_SELECT;
       const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
       const [{ data: ld }, { data: ldArchived }, { data: owned }, { data: paRows }, vwRes, viewsRes, unreadRes, pipelineUnreadRes] =
         await Promise.all([
@@ -1362,8 +1410,8 @@ export function AgentDashboard() {
           .is("read_at", null)
           .in("type", [...AGENT_PIPELINE_TAB_NOTIFICATION_TYPES]),
       ]);
-      const leadRows = (ld as LeadRow[]) ?? [];
-      const archivedRows = ((ldArchived as LeadRow[]) ?? []) as LeadRow[];
+      const leadRows = ((ld ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
+      const archivedRows = ((ldArchived ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
 
       const clientIds = Array.from(
         new Set(
@@ -1384,14 +1432,12 @@ export function AgentDashboard() {
         );
       }
 
-      const leadRowsWithAvatar = leadRows.map((l) => ({
-        ...l,
-        client_avatar_url: avatarByClientId.get(l.client_id ?? "") ?? null,
-      }));
-      const archivedRowsWithAvatar = archivedRows.map((l) => ({
-        ...l,
-        client_avatar_url: avatarByClientId.get(l.client_id ?? "") ?? null,
-      }));
+      const leadRowsWithAvatar = leadRows.map((l) =>
+        leadRowFromQueryRow(l, avatarByClientId.get(l.client_id ?? "") ?? null),
+      );
+      const archivedRowsWithAvatar = archivedRows.map((l) =>
+        leadRowFromQueryRow(l, avatarByClientId.get(l.client_id ?? "") ?? null),
+      );
 
       setLeads(leadRowsWithAvatar);
       setArchivedLeads(archivedRowsWithAvatar);
@@ -1920,16 +1966,6 @@ export function AgentDashboard() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const updateLeadStage = async (leadId: number, stage: string) => {
-    const { error } = await supabase.from("leads").update({ stage }).eq("id", leadId);
-    if (error) {
-      toast.error(error.message, { duration: 5000 });
-      return;
-    }
-    setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, stage } : l)));
-    setSelectedLead((s) => (s && s.id === leadId ? { ...s, stage } : s));
   };
 
   const deleteListing = async (propertyId: string) => {
@@ -3574,7 +3610,6 @@ export function AgentDashboard() {
             agentAvatarUrl={agent.image_url}
             agentName={agent.name}
             onClose={() => setSelectedLead(null)}
-            onStageChange={updateLeadStage}
           />
         ) : null}
       </AnimatePresence>

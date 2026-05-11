@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   DndContext,
+  type Collision,
+  type CollisionDetection,
   type DragEndEvent,
-  type DragStartEvent,
   DragOverlay,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
-  TouchSensor,
   closestCenter,
   useDroppable,
   useSensor,
@@ -22,6 +23,7 @@ import {
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
+  type AnimateLayoutChanges,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { AnimatePresence, motion } from "framer-motion";
@@ -42,7 +44,6 @@ import {
   Loader2,
   MessageSquare,
   MoreHorizontal,
-  Pin,
   Pencil,
   RefreshCw,
   Search,
@@ -246,6 +247,44 @@ function findKanbanStageForLeadId(board: Record<PipelineStageId, string[]>, id: 
   return null;
 }
 
+function isPointerInRect(
+  point: { x: number; y: number },
+  rect: { top: number; left: number; bottom: number; right: number },
+): boolean {
+  return rect.top <= point.y && point.y <= rect.bottom && rect.left <= point.x && point.x <= rect.right;
+}
+
+/**
+ * Fast path: pointer-in-rect over all droppables, pick smallest target (card beats wide column body).
+ * Avoids @dnd-kit `pointerWithin` (corner-distance math per droppable per frame), which is very costly with many cards.
+ */
+const pipelineKanbanCollisionDetection: CollisionDetection = (args) => {
+  const { droppableContainers, droppableRects, pointerCoordinates } = args;
+  if (!pointerCoordinates) return closestCenter(args);
+
+  const hits: Collision[] = [];
+  for (const droppableContainer of droppableContainers) {
+    const { id } = droppableContainer;
+    const rect = droppableRects.get(id);
+    if (!rect) continue;
+    if (!isPointerInRect(pointerCoordinates, rect)) continue;
+    const area = rect.width * rect.height;
+    hits.push({
+      id,
+      data: {
+        droppableContainer,
+        value: area,
+      },
+    });
+  }
+  if (hits.length === 0) return closestCenter(args);
+  hits.sort((a, b) => (Number(a.data?.value) || 0) - (Number(b.data?.value) || 0));
+  return [hits[0]];
+};
+
+/** Kanban: skip default layout tween so cards snap under the pointer (default ~250ms fights drag). */
+const kanbanSortableAnimateLayoutChanges: AnimateLayoutChanges = () => false;
+
 function nextStage(s: PipelineStageId): PipelineStageId | null {
   const i = STAGE_ORDER.indexOf(s);
   if (i < 0 || i >= STAGE_ORDER.length - 1) return null;
@@ -268,7 +307,6 @@ const AGENT_PIPELINE_MENU_SEND_OFFER = false;
 
 /** Keys for the pipeline card overflow menu (Kanban + mobile list), filtered by `agentPipelineCardMenuKeysForStage`. */
 type AgentPipelineCardMenuKey =
-  | "pin"
   | "viewDetails"
   | "viewDocuments"
   | "messages"
@@ -284,7 +322,6 @@ type AgentPipelineCardMenuKey =
   | "moveTo";
 
 const AGENT_PIPELINE_CARD_MENU_HEAD_KEYS: AgentPipelineCardMenuKey[] = [
-  "pin",
   "viewDetails",
   "viewDocuments",
   "messages",
@@ -310,7 +347,6 @@ function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipe
   }
   if (s === "closed") {
     return new Set<AgentPipelineCardMenuKey>([
-      "pin",
       "viewDetails",
       "viewDocuments",
       "messages",
@@ -321,7 +357,6 @@ function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipe
   }
   if (s === "lead") {
     return new Set<AgentPipelineCardMenuKey>([
-      "pin",
       "viewDetails",
       "messages",
       "editNotes",
@@ -335,7 +370,6 @@ function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipe
   }
   if (s === "viewing") {
     return new Set<AgentPipelineCardMenuKey>([
-      "pin",
       "viewDetails",
       "viewDocuments",
       "messages",
@@ -350,7 +384,6 @@ function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipe
   }
   if (s === "offer") {
     return new Set<AgentPipelineCardMenuKey>([
-      "pin",
       "viewDetails",
       "viewDocuments",
       "messages",
@@ -366,7 +399,6 @@ function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipe
   }
   if (s === "reservation") {
     return new Set<AgentPipelineCardMenuKey>([
-      "pin",
       "viewDetails",
       "viewDocuments",
       "messages",
@@ -892,12 +924,11 @@ function kanbanDealFooterPlainText(
   return "—";
 }
 
-function KanbanDealCard({
+function KanbanDealCardImpl({
   deal,
   indexInStage,
   propertyLabel,
   dealValueLine,
-  pinned,
   uploadedRequestedDocCount,
   unviewedUploadedDocCount,
   scheduledViewing,
@@ -917,7 +948,6 @@ function KanbanDealCard({
   onRequestDocuments,
   onRequestDecline,
   onAgentArchive,
-  onTogglePin,
   onMoveToStage,
   moveBusyId,
   viewingRequestMeta,
@@ -935,7 +965,6 @@ function KanbanDealCard({
   indexInStage: number;
   propertyLabel: (propertyId: string | null) => string;
   dealValueLine: string | null;
-  pinned: boolean;
   /** Client-uploaded pipeline documents (requested row, status uploaded). */
   uploadedRequestedDocCount: number;
   /** Subset of uploaded client docs the agent has not acknowledged in the drawer yet. */
@@ -960,7 +989,6 @@ function KanbanDealCard({
   onRequestDocuments: (lead: PipelineLeadRow) => void;
   onRequestDecline: (lead: PipelineLeadRow) => void;
   onAgentArchive: (lead: PipelineLeadRow) => void;
-  onTogglePin: (lead: PipelineLeadRow) => void;
   onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveBusyId: number | null;
   /** Linked `viewing_requests` row for Lead-stage cards (menu time + “Updated” hint). */
@@ -977,6 +1005,7 @@ function KanbanDealCard({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: String(deal.id),
+    animateLayoutChanges: kanbanSortableAnimateLayoutChanges,
   });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -1087,16 +1116,15 @@ function KanbanDealCard({
       {...attributes}
       {...listeners}
       className={cn(
-        // KANBAN-PREMIUM-REVERT: sortable motion — drop duration-200 ease-out from next line
-        "relative flex w-full flex-col cursor-grab transition-transform duration-200 ease-out active:cursor-grabbing",
-        isDragging && "cursor-grabbing",
+        "relative flex w-full cursor-grab flex-col active:cursor-grabbing",
+        /* Do not add CSS transition on transform here — dnd-kit updates transform every frame; tailwind transitions cause stubborn lag. */
       )}
     >
       <div
         {...(tourViewingCardAnchor ? { "data-tour": "viewing-card" as const } : {})}
         className={cn(
-          "relative flex w-full flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[#2C2C2C]/[0.11] bg-white p-3",
-          "shadow-[inset_0_1px_0_rgba(255,255,255,0.88),0_4px_18px_rgba(0,0,0,0.055)] transition-[box-shadow,transform,border-color] duration-200 ease-out",
+          "relative flex w-full cursor-grab flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[#2C2C2C]/[0.11] bg-white p-3 active:cursor-grabbing",
+          "shadow-[inset_0_1px_0_rgba(255,255,255,0.88),0_4px_18px_rgba(0,0,0,0.055)] transition-[box-shadow,border-color] duration-200 ease-out",
           "hover:border-[#2C2C2C]/16 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_28px_rgba(0,0,0,0.085)]",
           isDragging &&
             "scale-[1.02] border-[#6B9E6E]/40 shadow-[0_12px_32px_rgba(0,0,0,0.12),0_0_0_1px_rgba(107,158,110,0.25)]",
@@ -1108,33 +1136,34 @@ function KanbanDealCard({
           if (e.key === "Enter" || e.key === " ") openKanbanLeadDetails();
         }}
       >
-        <div className="touch-none flex flex-col pr-10 pt-1">
-          {/* Row 1: Title + Menu */}
-          <div className="flex items-start justify-between gap-2">
-            <button
-              type="button"
-              className="min-w-0 flex-1 pr-16 text-left"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                openKanbanLeadDetails();
-              }}
-            >
-              <p className="line-clamp-2 break-words font-sans text-[15px] font-bold leading-snug tracking-tight text-[#171717]">
-                {propLine}
-              </p>
-            </button>
-
-            <div className="pointer-events-auto shrink-0">
-              {/* Pinned top-right controls */}
-              <div
-                ref={menuOpen ? menuWrapRef : undefined}
-                className="absolute right-2 top-2 z-10"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
+        <div className="flex min-w-0 flex-col pt-0.5">
+          <div className="flex min-w-0 shrink-0 items-start justify-between gap-2 touch-none">
+            <div className="min-w-0 flex-1 pr-8">
+              <button
+                type="button"
+                className="block w-full cursor-grab rounded-none border-0 bg-transparent text-left active:cursor-grabbing focus-visible:outline-none focus-visible:ring-0"
+                title={propLine}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openKanbanLeadDetails();
+                }}
               >
-                {pinned ? <Pin className="absolute -right-0.5 -top-0.5 h-4 w-4 text-[#6B9E6E]" aria-label="Pinned" /> : null}
-                <span className="relative inline-flex shrink-0">
+                <h3 className="truncate font-sans text-[15px] font-bold leading-snug tracking-tight text-[#171717]">
+                  {propLine}
+                </h3>
+              </button>
+              <p className="mt-1 truncate font-sans text-[12px] font-bold tabular-nums text-[#2C4A30]/90">
+                {dealValueLine ?? "—"}
+              </p>
+            </div>
+
+            <div
+              ref={menuOpen ? menuWrapRef : undefined}
+              className="pointer-events-auto relative z-10 shrink-0"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span className="relative z-10 inline-flex shrink-0">
                   <button
                     type="button"
                     aria-label="More options"
@@ -1158,7 +1187,7 @@ function KanbanDealCard({
                   {showCornerPulseDot ? (
                     <span
                       className={cn(
-                        "pointer-events-none absolute -right-0.5 -top-0.5 z-[12] h-2 w-2 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]",
+                        "pointer-events-none absolute -right-0.5 -top-0.5 z-20 h-2 w-2 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]",
                         "bhg-doc-badge-pulse",
                         anyMenuOpen && "opacity-0",
                       )}
@@ -1305,22 +1334,6 @@ function KanbanDealCard({
                                   ) : null}
                                   <div className="my-1 h-px bg-[#EEEEEE]" />
                                 </>
-                              ) : null}
-                              {pipelineMenuKeys.has("pin") ? (
-                                <button
-                                  type="button"
-                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                  onClick={() => {
-                                    onTogglePin(deal);
-                                    setMenuOpenId(null);
-                                  }}
-                                >
-                                  <Pin
-                                    className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
-                                    aria-hidden
-                                  />
-                                  {pinned ? "Unpin" : "Pin to top"}
-                                </button>
                               ) : null}
                               {pipelineMenuKeys.has("viewDetails") ? (
                                 <button
@@ -1580,16 +1593,11 @@ function KanbanDealCard({
                       document.body,
                     )
                   : null}
-              </div>
             </div>
           </div>
 
-          {/* Row 2: Value (secondary) */}
-          <p className="mt-1 font-sans text-[12px] font-bold tabular-nums text-[#2C4A30]/90">
-            {dealValueLine ?? "—"}
-          </p>
-          {/* Row 3: Avatar + contact (tertiary) */}
-          <div className="mt-2 flex items-center gap-2">
+          {/* Avatar + contact (tertiary) */}
+          <div className="mt-3 flex shrink-0 items-center gap-2">
             <div className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#6B9E6E]/12 text-[10px] font-bold text-[#6B9E6E]">
               {deal.client_avatar_url ? (
                 <SupabasePublicImage src={deal.client_avatar_url} alt="" fill sizes="24px" className="object-cover" />
@@ -1623,7 +1631,7 @@ function KanbanDealCard({
       </div>
       <div
         className={cn(
-          "flex h-6 w-full shrink-0 items-center gap-2 rounded-b-2xl border-t border-[#2C2C2C]/[0.06] bg-[#EDE9E1]/95 px-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
+          "flex h-6 w-full shrink-0 items-center gap-2 rounded-b-2xl border-t border-[#2C2C2C]/12 bg-[#D5CFC4] px-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]",
           showFooterLeftBadge ? "justify-between" : "justify-center",
         )}
       >
@@ -1634,7 +1642,7 @@ function KanbanDealCard({
         ) : null}
         <p
           className={cn(
-            "min-w-0 truncate font-sans text-[10px] font-semibold tracking-tight text-[#2C2C2C]/55",
+            "min-w-0 truncate font-sans text-[10px] font-semibold tracking-tight text-[#2C2C2C]/72",
             showFooterLeftBadge ? "flex-1 text-right" : "w-full text-center",
           )}
         >
@@ -1644,6 +1652,8 @@ function KanbanDealCard({
     </div>
   );
 }
+
+const KanbanDealCard = memo(KanbanDealCardImpl);
 
 function stageContainerId(stage: PipelineStageId): string {
   return `stage:${stage}`;
@@ -1679,7 +1689,6 @@ function KanbanStageColumn({
   setReqDocSelections,
   setDeclineDeal,
   onAgentArchive,
-  onTogglePin,
   moveDealToStage,
   moveToStageBusyId,
   viewingRequestMetaByLeadId,
@@ -1723,7 +1732,6 @@ function KanbanStageColumn({
   >;
   setDeclineDeal: (d: PipelineLeadRow | null) => void;
   onAgentArchive: (lead: PipelineLeadRow) => void;
-  onTogglePin: (lead: PipelineLeadRow) => void;
   moveDealToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveToStageBusyId: number | null;
   viewingRequestMetaByLeadId: Record<number, ViewingRequestPipelineMeta>;
@@ -1736,6 +1744,38 @@ function KanbanStageColumn({
   onRescheduleDecline: (viewingId: string) => void | Promise<void>;
   onOpenCounterReschedule: (lead: PipelineLeadRow, meta: ReschedulePendingMeta) => void;
 }) {
+  const handleRequestNotes = useCallback(
+    (d: PipelineLeadRow) => {
+      setNotesLead(d);
+      setNotesDraft(d.closing_notes ?? "");
+    },
+    [setNotesLead, setNotesDraft],
+  );
+
+  const handleRequestDocuments = useCallback(
+    (d: PipelineLeadRow) => {
+      if (!d.client_id) {
+        toast.error("This deal is not linked to a client account yet.");
+        return;
+      }
+      setRequestDocsLead(d);
+      setReqDocSelections({
+        valid_id: false,
+        proof_of_funds: false,
+        visa: false,
+        other: false,
+      });
+    },
+    [setRequestDocsLead, setReqDocSelections],
+  );
+
+  const handleRequestDecline = useCallback(
+    (d: PipelineLeadRow) => {
+      setDeclineDeal(d);
+    },
+    [setDeclineDeal],
+  );
+
   const containerId = stageContainerId(stage);
   const { setNodeRef, isOver } = useDroppable({ id: containerId });
   return (
@@ -1743,7 +1783,7 @@ function KanbanStageColumn({
       className={cn(
         "flex h-full w-full max-w-[320px] min-w-[180px] flex-col gap-2 rounded-xl p-2 sm:min-w-[200px] xl:min-w-[220px]",
         "bg-[#E8E4DC]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-inset ring-[#2C2C2C]/[0.07]",
-        "transition-[background-color,box-shadow] duration-200 ease-out",
+        "transition-[background-color,box-shadow] duration-100 ease-out",
       )}
     >
       <div className="shrink-0 overflow-hidden rounded-lg border border-[#2C2C2C]/[0.08] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.055),0_1px_0_rgba(255,255,255,0.9)_inset]">
@@ -1763,7 +1803,7 @@ function KanbanStageColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          "flex min-h-0 flex-1 flex-col rounded-lg border border-transparent transition-[border-color,box-shadow] duration-200 ease-out",
+          "flex min-h-0 flex-1 flex-col rounded-lg border border-transparent transition-none",
           isOver &&
             "border-[#6B9E6E]/40 shadow-[inset_0_0_0_1px_rgba(107,158,110,0.12)]",
         )}
@@ -1786,7 +1826,6 @@ function KanbanStageColumn({
                   indexInStage={i}
                   propertyLabel={propertyLabel}
                   dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
-                  pinned={Boolean(deal.pinned)}
                   uploadedRequestedDocCount={uploadedRequestedDocCountByLeadId[deal.id] ?? 0}
                   unviewedUploadedDocCount={unviewedUploadedDocCountByLeadId[deal.id] ?? 0}
                   scheduledViewing={scheduledViewingByLeadId.get(deal.id) ?? null}
@@ -1802,26 +1841,10 @@ function KanbanStageColumn({
                   setMenuMoveOpen={setMenuMoveOpen}
                   menuWrapRef={menuWrapRef}
                   onOpenLeadDetails={onOpenLeadDetails}
-                  onRequestNotes={(d) => {
-                    setNotesLead(d);
-                    setNotesDraft(d.closing_notes ?? "");
-                  }}
-                  onRequestDocuments={(d) => {
-                    if (!d.client_id) {
-                      toast.error("This deal is not linked to a client account yet.");
-                      return;
-                    }
-                    setRequestDocsLead(d);
-                    setReqDocSelections({
-                      valid_id: false,
-                      proof_of_funds: false,
-                      visa: false,
-                      other: false,
-                    });
-                  }}
-                  onRequestDecline={(d) => setDeclineDeal(d)}
+                  onRequestNotes={handleRequestNotes}
+                  onRequestDocuments={handleRequestDocuments}
+                  onRequestDecline={handleRequestDecline}
                   onAgentArchive={onAgentArchive}
-                  onTogglePin={onTogglePin}
                   onMoveToStage={moveDealToStage}
                   moveBusyId={moveToStageBusyId}
                   viewingRequestMeta={viewingRequestMetaByLeadId[deal.id] ?? null}
@@ -1849,7 +1872,6 @@ function SortableDealCard({
   indexInStage,
   propertyLabel,
   dealValueLine,
-  pinned,
   uploadedRequestedDocCount,
   unviewedUploadedDocCount,
   onOpenDocs,
@@ -1866,7 +1888,6 @@ function SortableDealCard({
   onRequestDocuments,
   onRequestDecline,
   onAgentArchive,
-  onTogglePin,
   onMoveToStage,
   moveBusyId,
   propertyMetaById,
@@ -1885,7 +1906,6 @@ function SortableDealCard({
   indexInStage: number;
   propertyLabel: (propertyId: string | null) => string;
   dealValueLine: string | null;
-  pinned: boolean;
   uploadedRequestedDocCount: number;
   unviewedUploadedDocCount: number;
   onOpenDocs: (lead: PipelineLeadRow) => void;
@@ -1902,7 +1922,6 @@ function SortableDealCard({
   onRequestDocuments: (lead: PipelineLeadRow) => void;
   onRequestDecline: (lead: PipelineLeadRow) => void;
   onAgentArchive: (lead: PipelineLeadRow) => void;
-  onTogglePin: (lead: PipelineLeadRow) => void;
   onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveBusyId: number | null;
   propertyMetaById: Record<string, PropertyMeta>;
@@ -2009,8 +2028,6 @@ function SortableDealCard({
             onPointerDown={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2">
-              {pinned ? <Pin className="h-4 w-4 text-[#6B9E6E]" aria-label="Pinned" /> : null}
-              {null}
               <span className="relative inline-flex shrink-0">
                 <button
                   type="button"
@@ -2027,7 +2044,7 @@ function SortableDealCard({
                 {showCornerPulseDot ? (
                   <span
                     className={cn(
-                      "pointer-events-none absolute -right-0.5 -top-0.5 z-[12] h-2 w-2 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]",
+                      "pointer-events-none absolute -right-0.5 -top-0.5 z-20 h-2 w-2 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]",
                       "bhg-doc-badge-pulse",
                       anyMenuOpen && "opacity-0",
                     )}
@@ -2159,19 +2176,6 @@ function SortableDealCard({
                         ) : null}
                         <div className="my-1 h-px bg-gray-200" />
                       </>
-                    ) : null}
-                    {pipelineMenuKeys.has("pin") ? (
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-semibold hover:bg-gray-50"
-                        onClick={() => {
-                          onTogglePin(deal);
-                          setMenuOpenId(null);
-                        }}
-                      >
-                        <Pin className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
-                        {pinned ? "Unpin" : "Pin to top"}
-                      </button>
                     ) : null}
                     {pipelineMenuKeys.has("viewDetails") ? (
                       <button
@@ -2509,7 +2513,6 @@ export function AgentPipelineTab({
   const [sortMode, setSortMode] = useState<PipelineSortMode>("last_activity_desc");
   const [filterStages, setFilterStages] = useState<PipelineStageId[] | null>(null);
   const [filterCities, setFilterCities] = useState<string[]>([]);
-  const [optimisticPinById, setOptimisticPinById] = useState<Record<number, { pinned: boolean; pinned_at: string | null }>>({});
 
   const streamUnreadByLeadId = useLeadStreamUnreadMap(
     messagingAgentUserId ?? null,
@@ -2574,7 +2577,6 @@ export function AgentPipelineTab({
 
   const kanbanScrollRef = useRef<HTMLDivElement | null>(null);
   const [kanbanFadeRight, setKanbanFadeRight] = useState(false);
-  const [activeKanbanDealId, setActiveKanbanDealId] = useState<string | null>(null);
   const [declineDeal, setDeclineDeal] = useState<PipelineLeadRow | null>(null);
   const [declineReasonKey, setDeclineReasonKey] =
     useState<(typeof DECLINE_REASON_OPTIONS)[number]["key"]>("unavailable");
@@ -2930,43 +2932,6 @@ export function AgentPipelineTab({
     return stageCount + filterCities.length;
   }, [filterStages, filterCities.length]);
 
-  const togglePin = useCallback(
-    async (lead: PipelineLeadRow) => {
-      const leadId = lead.id;
-      const nextPinned = !Boolean(lead.pinned);
-      const optimisticAt = nextPinned ? new Date().toISOString() : null;
-      setOptimisticPinById((prev) => ({ ...prev, [leadId]: { pinned: nextPinned, pinned_at: optimisticAt } }));
-      try {
-        const res = await fetch(`/api/agent/leads/${leadId}/pin`, { method: "POST", credentials: "include" });
-        const json = (await res.json().catch(() => ({}))) as {
-          pinned?: boolean;
-          pinned_at?: string | null;
-          error?: string;
-        };
-        if (!res.ok) {
-          toast.error(json.error ?? "Could not update pin");
-          setOptimisticPinById((prev) => {
-            const { [leadId]: _omit, ...rest } = prev;
-            return rest;
-          });
-          return;
-        }
-        setOptimisticPinById((prev) => ({
-          ...prev,
-          [leadId]: { pinned: Boolean(json.pinned), pinned_at: json.pinned_at ?? null },
-        }));
-        void onRefresh();
-      } catch {
-        setOptimisticPinById((prev) => {
-          const { [leadId]: _omit, ...rest } = prev;
-          return rest;
-        });
-        toast.error("Could not update pin");
-      }
-    },
-    [onRefresh],
-  );
-
   useEffect(() => {
     if (requestDocsLead) setReqOtherDocumentName("");
   }, [requestDocsLead?.id]);
@@ -2974,13 +2939,7 @@ export function AgentPipelineTab({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 150,
-        tolerance: 5,
+        distance: 6,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -3041,10 +3000,6 @@ export function AgentPipelineTab({
     const stageSet = filterStages && filterStages.length > 0 ? new Set(filterStages) : null;
     const citySet = filterCities.length > 0 ? new Set(filterCities.map((c) => c.toLocaleLowerCase())) : null;
     return deals
-      .map((d) => {
-        const optimistic = optimisticPinById[d.id];
-        return optimistic ? { ...d, pinned: optimistic.pinned, pinned_at: optimistic.pinned_at } : d;
-      })
       .filter((d) => (stageSet ? stageSet.has(d.pipeline_stage) : true))
       .filter((d) => {
         if (!citySet) return true;
@@ -3052,7 +3007,7 @@ export function AgentPipelineTab({
         const c = (propertyMetaById[d.property_id]?.city ?? "").toLocaleLowerCase();
         return c ? citySet.has(c) : false;
       });
-  }, [deals, filterStages, filterCities, optimisticPinById, propertyMetaById]);
+  }, [deals, filterStages, filterCities, propertyMetaById]);
 
   const visibleDeals = useMemo(
     () =>
@@ -3070,6 +3025,17 @@ export function AgentPipelineTab({
     [archivedLeads, pipelineSearchQuery, propertyLabel, propertyMetaById],
   );
 
+  /**
+   * While dragging a deal into Viewing we optimistically bucket it in `dealsByStage` so the card renders
+   * in the target column before the server confirms (modal still collects date/time).
+   */
+  const [kanbanStageOverrides, setKanbanStageOverrides] = useState<Partial<Record<number, PipelineStageId>>>({});
+  /** When true, `kanbanIdsByStage` is not overwritten from `dealsByStage` (preserves drop order during viewing confirm). */
+  const [suppressKanbanIdsSync, setSuppressKanbanIdsSync] = useState(false);
+  const viewingDragKanbanRevertRef = useRef<{ board: Record<PipelineStageId, string[]>; leadId: number } | null>(
+    null,
+  );
+
   const counts = useMemo(() => {
     const c: Record<PipelineStageId, number> = {
       lead: 0,
@@ -3079,10 +3045,11 @@ export function AgentPipelineTab({
       closed: 0,
     };
     for (const d of visibleDeals) {
-      c[d.pipeline_stage]++;
+      const st = (kanbanStageOverrides[d.id] ?? d.pipeline_stage) as PipelineStageId;
+      if (st in c) c[st]++;
     }
     return c;
-  }, [visibleDeals]);
+  }, [visibleDeals, kanbanStageOverrides]);
 
   const stageSorter = useMemo(() => sortDealsInStage({ sortMode, propertyMetaById }), [propertyMetaById, sortMode]);
 
@@ -3098,16 +3065,24 @@ export function AgentPipelineTab({
       reservation: [],
       closed: [],
     };
-    for (const d of visibleDeals) m[d.pipeline_stage].push(d);
+    for (const d of visibleDeals) {
+      const raw = kanbanStageOverrides[d.id] ?? d.pipeline_stage;
+      const st = (KANBAN_STAGE_ORDER.includes(raw as PipelineStageId) ? raw : d.pipeline_stage) as PipelineStageId;
+      m[st].push({ ...d, pipeline_stage: st });
+    }
     for (const s of STAGE_ORDER) m[s] = m[s].slice().sort(stageSorter);
     return m;
-  }, [visibleDeals, stageSorter]);
+  }, [visibleDeals, stageSorter, kanbanStageOverrides]);
 
   const leadById = useMemo(() => {
     const m = new Map<string, PipelineLeadRow>();
-    for (const d of visibleDeals) m.set(String(d.id), d);
+    for (const d of visibleDeals) {
+      const raw = kanbanStageOverrides[d.id] ?? d.pipeline_stage;
+      const st = (KANBAN_STAGE_ORDER.includes(raw as PipelineStageId) ? raw : d.pipeline_stage) as PipelineStageId;
+      m.set(String(d.id), { ...d, pipeline_stage: st });
+    }
     return m;
-  }, [visibleDeals]);
+  }, [visibleDeals, kanbanStageOverrides]);
 
   const [kanbanIdsByStage, setKanbanIdsByStage] = useState<Record<PipelineStageId, string[]>>({
     lead: [],
@@ -3131,6 +3106,7 @@ export function AgentPipelineTab({
 
   useEffect(() => {
     if (kanbanBoardMutationDepth > 0) return;
+    if (suppressKanbanIdsSync) return;
     setKanbanIdsByStage({
       lead: dealsByStage.lead.map((d) => String(d.id)),
       viewing: dealsByStage.viewing.map((d) => String(d.id)),
@@ -3138,7 +3114,7 @@ export function AgentPipelineTab({
       reservation: dealsByStage.reservation.map((d) => String(d.id)),
       closed: dealsByStage.closed.map((d) => String(d.id)),
     });
-  }, [dealsByStage, kanbanBoardMutationDepth]);
+  }, [dealsByStage, kanbanBoardMutationDepth, suppressKanbanIdsSync]);
 
   const stageTotals = useMemo(() => {
     const out: Record<PipelineStageId, { count: number; total: number }> = {
@@ -3541,6 +3517,19 @@ export function AgentPipelineTab({
     [markViewedThenReloadDocs],
   );
 
+  const onKanbanCardSendOffer = useCallback((lead: PipelineLeadRow) => {
+    setOfferLead(lead);
+  }, []);
+
+  const onKanbanCardCreateReservation = useCallback((lead: PipelineLeadRow) => {
+    setReservationLead(lead);
+  }, []);
+
+  const onKanbanCardMarkClosed = useCallback((lead: PipelineLeadRow) => {
+    setCloseLead(lead);
+    setCloseBusy(false);
+  }, []);
+
   const openAgentDealDocumentUrl = async (doc: DealDocCheckRow) => {
     const path = doc.file_url?.trim();
     if (!path) {
@@ -3725,17 +3714,8 @@ export function AgentPipelineTab({
     }
   };
 
-  const handleKanbanDragStart = (event: DragStartEvent) => {
-    setActiveKanbanDealId(event.active?.id ? String(event.active.id) : null);
-  };
-
-  const handleKanbanDragCancel = () => {
-    setActiveKanbanDealId(null);
-  };
-
   const handleKanbanDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    setActiveKanbanDealId(null);
     if (!over) return;
     const activeId = String(active.id);
     const overId = String(over.id);
@@ -3784,12 +3764,24 @@ export function AgentPipelineTab({
 
     if (toStage === "viewing" && fromStage !== "viewing") {
       const lead = leadById.get(activeId);
-      if (lead) {
-        setViewingConfirmMode("confirm");
-        setCounterRescheduleViewingId(null);
-        setCounterRescheduleRefs(null);
-        setViewingConfirmLead(lead);
-      }
+      if (!lead) return;
+      const revertBoard = cloneKanbanIdsByStage(kanbanIdsByStage);
+      const leadNum = Number(activeId);
+      viewingDragKanbanRevertRef.current = { board: revertBoard, leadId: leadNum };
+      setSuppressKanbanIdsSync(true);
+      setKanbanStageOverrides((o) => ({ ...o, [leadNum]: "viewing" }));
+      setKanbanIdsByStage((s) => {
+        const fromIds = s[fromStage].filter((x) => x !== activeId);
+        const toIds = s.viewing;
+        const overIndex = toIds.includes(overId) ? toIds.indexOf(overId) : toIds.length;
+        const nextTo = toIds.slice();
+        nextTo.splice(overIndex, 0, activeId);
+        return { ...s, [fromStage]: fromIds, viewing: nextTo };
+      });
+      setViewingConfirmMode("confirm");
+      setCounterRescheduleViewingId(null);
+      setCounterRescheduleRefs(null);
+      setViewingConfirmLead(lead);
       return;
     }
 
@@ -3896,7 +3888,6 @@ export function AgentPipelineTab({
           return;
         }
 
-        await new Promise((r) => setTimeout(r, 500));
         await Promise.resolve(onRefresh());
       } finally {
         setMoveToStageBusyId(null);
@@ -3967,6 +3958,17 @@ export function AgentPipelineTab({
 
   const closeViewingConfirmModal = () => {
     if (viewingConfirmBusy) return;
+    const snap = viewingDragKanbanRevertRef.current;
+    if (snap) {
+      setKanbanIdsByStage(snap.board);
+      setKanbanStageOverrides((o) => {
+        if (!(snap.leadId in o)) return o;
+        const { [snap.leadId]: _, ...rest } = o;
+        return rest;
+      });
+      viewingDragKanbanRevertRef.current = null;
+    }
+    setSuppressKanbanIdsSync(false);
     setViewingConfirmInlineError(null);
     setViewingConfirmMode("confirm");
     setCounterRescheduleViewingId(null);
@@ -3976,6 +3978,7 @@ export function AgentPipelineTab({
 
   const submitViewingConfirm = async () => {
     if (!viewingConfirmLead) return;
+    const confirmingLeadId = viewingConfirmLead.id;
     setViewingConfirmInlineError(null);
     const normalized = normalizeTimeHmForInput(viewingConfirmTime.trim());
     if (!viewingConfirmDate.trim() || !normalized) {
@@ -4024,10 +4027,16 @@ export function AgentPipelineTab({
         setViewingConfirmMode("confirm");
         setCounterRescheduleViewingId(null);
         setCounterRescheduleRefs(null);
-        setViewingConfirmLead(null);
         await refetchAgentViewings();
-        await new Promise((r) => setTimeout(r, 200));
         await Promise.resolve(onRefresh());
+        viewingDragKanbanRevertRef.current = null;
+        setSuppressKanbanIdsSync(false);
+        setKanbanStageOverrides((o) => {
+          if (!(confirmingLeadId in o)) return o;
+          const { [confirmingLeadId]: _, ...rest } = o;
+          return rest;
+        });
+        setViewingConfirmLead(null);
         return;
       }
 
@@ -4057,9 +4066,15 @@ export function AgentPipelineTab({
       setViewingConfirmMode("confirm");
       setCounterRescheduleViewingId(null);
       setCounterRescheduleRefs(null);
-      setViewingConfirmLead(null);
-      await new Promise((r) => setTimeout(r, 400));
       await Promise.resolve(onRefresh());
+      viewingDragKanbanRevertRef.current = null;
+      setSuppressKanbanIdsSync(false);
+      setKanbanStageOverrides((o) => {
+        if (!(confirmingLeadId in o)) return o;
+        const { [confirmingLeadId]: _, ...rest } = o;
+        return rest;
+      });
+      setViewingConfirmLead(null);
     } finally {
       setViewingConfirmBusy(false);
       setKanbanBoardMutationDepth((d) => d - 1);
@@ -4482,7 +4497,6 @@ export function AgentPipelineTab({
                   indexInStage={idx}
                   propertyLabel={propertyLabel}
                   dealValueLine={deal.property_id ? dealValueByPropertyId[deal.property_id] ?? null : null}
-                  pinned={Boolean(deal.pinned)}
                   uploadedRequestedDocCount={uploadedRequestedDocCountByLeadId[deal.id] ?? 0}
                   unviewedUploadedDocCount={unviewedUploadedDocCountByLeadId[deal.id] ?? 0}
                   onOpenDocs={openDocs}
@@ -4517,7 +4531,6 @@ export function AgentPipelineTab({
                   }}
                   onRequestDecline={(d) => setDeclineDeal(d)}
                   onAgentArchive={handleAgentArchiveFromMenu}
-                  onTogglePin={togglePin}
                   onMoveToStage={moveDealToStage}
                   moveBusyId={moveToStageBusyId}
                   propertyMetaById={propertyMetaById}
@@ -4550,9 +4563,9 @@ export function AgentPipelineTab({
           ) : null}
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleKanbanDragStart}
-            onDragCancel={handleKanbanDragCancel}
+            collisionDetection={pipelineKanbanCollisionDetection}
+            autoScroll={false}
+            measuring={{ droppable: { strategy: MeasuringStrategy.BeforeDragging } }}
             onDragEnd={handleKanbanDragEnd}
           >
             <div className="flex w-full min-w-0 flex-col">
@@ -4634,12 +4647,9 @@ export function AgentPipelineTab({
                           offerCreatedAtByLeadId={offerCreatedAtByLeadId}
                           reservationCreatedAtByLeadId={reservationCreatedAtByLeadId}
                           openDocs={openDocs}
-                          onSendOffer={(lead) => setOfferLead(lead)}
-                          onCreateReservation={(lead) => setReservationLead(lead)}
-                          onMarkClosed={(lead) => {
-                            setCloseLead(lead);
-                            setCloseBusy(false);
-                          }}
+                          onSendOffer={onKanbanCardSendOffer}
+                          onCreateReservation={onKanbanCardCreateReservation}
+                          onMarkClosed={onKanbanCardMarkClosed}
                           menuOpenId={menuOpenId}
                           setMenuOpenId={setMenuOpenId}
                           menuMoveOpen={menuMoveOpen}
@@ -4652,7 +4662,6 @@ export function AgentPipelineTab({
                           setReqDocSelections={setReqDocSelections}
                           setDeclineDeal={setDeclineDeal}
                           onAgentArchive={handleAgentArchiveFromMenu}
-                          onTogglePin={togglePin}
                           moveDealToStage={moveDealToStage}
                           moveToStageBusyId={moveToStageBusyId}
                           viewingRequestMetaByLeadId={viewingRequestMetaByLeadId}
@@ -4673,13 +4682,11 @@ export function AgentPipelineTab({
               <PipelinePulseBar stats={pipelinePulseStats} />
             </div>
             <DragOverlay dropAnimation={null}>
-              {activeKanbanDealId ? (
-                <div className="w-[220px]">
-                  <div className="rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-2xl">
-                    <div className="font-sans text-[12px] font-semibold text-[#2C2C2C]/60">Moving deal…</div>
-                  </div>
+              <div className="w-[220px]">
+                <div className="rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-2xl">
+                  <div className="font-sans text-[12px] font-semibold text-[#2C2C2C]/60">Moving deal…</div>
                 </div>
-              ) : null}
+              </div>
             </DragOverlay>
           </DndContext>
         </div>
