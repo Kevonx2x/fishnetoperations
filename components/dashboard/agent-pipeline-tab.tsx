@@ -1566,7 +1566,7 @@ function KanbanDealCardImpl({
       </div>
       <div
         className={cn(
-          "flex h-6 w-full shrink-0 items-center gap-2 rounded-b-2xl border-t border-[#2C2C2C]/12 bg-[#D5CFC4] px-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]",
+          "flex h-6 w-full shrink-0 items-center gap-2 rounded-b-2xl border-t border-[#2C2C2C]/12 bg-[#E8EDE5] px-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]",
           showFooterLeftBadge ? "justify-between" : "justify-center",
         )}
       >
@@ -1704,7 +1704,7 @@ function KanbanStageColumn({
   return (
     <div
       className={cn(
-        "flex w-full max-w-[320px] min-w-[180px] flex-col gap-2 rounded-xl p-2 sm:min-w-[200px] xl:min-w-[220px]",
+        "flex h-full min-h-[300vh] w-full max-w-[320px] min-w-[180px] flex-col gap-2 rounded-xl p-2 sm:min-w-[200px] xl:min-w-[220px]",
         "bg-[#E8E4DC]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-inset ring-[#2C2C2C]/[0.07]",
         "transition-[background-color,box-shadow] duration-100 ease-out",
       )}
@@ -1732,7 +1732,7 @@ function KanbanStageColumn({
         )}
       >
         {list.length === 0 ? (
-          <div className="flex flex-col items-center justify-center px-3 py-10 text-center">
+          <div className="flex flex-col items-center justify-start px-3 pb-10 pt-10 text-center">
             {pipelineColumnEmptyIcon(stage)}
             <p className="mt-3 font-sans text-[12px] font-semibold text-[#2C2C2C]/45">No deals yet</p>
             <p className="mt-1 max-w-[200px] font-sans text-[10px] font-medium leading-snug text-[#2C2C2C]/32">
@@ -4593,7 +4593,7 @@ export function AgentPipelineTab({
                   />
                 ) : null}
                 <div
-                  className="grid w-full min-w-0 items-start gap-3 pb-20"
+                  className="grid w-full min-w-0 items-stretch gap-3 pb-20"
                   style={{
                     gridTemplateColumns: `repeat(${(filterStages && filterStages.length > 0
                       ? KANBAN_STAGE_ORDER.filter((s) => filterStages.includes(s))
@@ -4627,7 +4627,7 @@ export function AgentPipelineTab({
                     const barHex = stageBarHex(stage);
 
                     return (
-                      <div key={stage} className="flex min-w-0 justify-center self-start">
+                      <div key={stage} className="flex h-full min-w-0 justify-center">
                         <KanbanStageColumn
                           stage={stage}
                           label={label}
