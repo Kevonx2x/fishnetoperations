@@ -122,8 +122,10 @@ export function PipelinePulseBar({ stats }: { stats: PipelinePulseStats }) {
   return (
     <div
       className={cn(
-        "sticky bottom-0 z-20 -mx-1 mt-1 border-t border-stone-200 bg-[#FAF8F4] px-3 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]",
-        "supports-[backdrop-filter]:bg-[#FAF8F4]/95 supports-[backdrop-filter]:backdrop-blur-sm",
+        "fixed bottom-0 left-0 right-0 z-20 border-t border-stone-200 bg-[#FAF8F4] py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]",
+        "px-4 supports-[backdrop-filter]:bg-[#FAF8F4]/95 supports-[backdrop-filter]:backdrop-blur-sm",
+        /* Desktop agent shell: aside is w-[180px] on non-messages tabs; align with main horizontal padding (md:px-8). */
+        "lg:left-[180px] lg:px-8",
       )}
       data-tour="pipeline-pulse-bar"
     >

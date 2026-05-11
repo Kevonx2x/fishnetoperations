@@ -4541,8 +4541,8 @@ export function AgentPipelineTab({
       </div>
       </div>
 
-      {/* Desktop: grid lanes + sticky pulse bar (stats / drop zones while dragging); horizontal scroll on columns only */}
-      <div className="hidden w-full min-w-0 max-w-full overflow-x-hidden lg:block">
+      {/* Desktop: grid lanes + fixed pulse bar; avoid overflow-x-hidden here (breaks sticky/fixed + can clip). Horizontal scroll stays on the inner scroller. */}
+      <div className="hidden w-full min-w-0 max-w-full lg:block">
         <div className="relative w-full min-w-0">
           {kanbanFadeRight ? (
             <div
@@ -4599,9 +4599,22 @@ export function AgentPipelineTab({
                     : KANBAN_STAGE_ORDER
                   ).map((stage) => {
                     const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
-                    const list = dealsByStage[stage];
-                    const count = stageTotals[stage]?.count ?? list.length;
-                    const ids = kanbanIdsByStage[stage] ?? list.map((d) => String(d.id));
+                    const stageDeals = dealsByStage[stage];
+                    const count = stageTotals[stage]?.count ?? stageDeals.length;
+                    const rawBoardIds = kanbanIdsByStage[stage];
+                    /** `??` does not treat `[]` as missing — empty board state must fall back to deal ids or columns stay blank. */
+                    const ids =
+                      rawBoardIds != null && rawBoardIds.length > 0
+                        ? rawBoardIds
+                        : stageDeals.map((d) => String(d.id));
+                    const byId = new Map(stageDeals.map((d) => [String(d.id), d]));
+                    let listForColumn = ids
+                      .map((id) => byId.get(id))
+                      .filter((d): d is PipelineLeadRow => !!d);
+                    if (listForColumn.length < stageDeals.length) {
+                      const seen = new Set(listForColumn.map((d) => d.id));
+                      listForColumn = [...listForColumn, ...stageDeals.filter((d) => !seen.has(d.id))];
+                    }
                     const barHex = stageBarHex(stage);
 
                     return (
@@ -4612,7 +4625,7 @@ export function AgentPipelineTab({
                           count={count}
                           barHex={barHex}
                           ids={ids}
-                          list={ids.map((id) => leadById.get(String(id))).filter((d): d is PipelineLeadRow => !!d)}
+                          list={listForColumn}
                           propertyLabel={propertyLabel}
                           dealValueByPropertyId={dealValueByPropertyId}
                           uploadedRequestedDocCountByLeadId={uploadedRequestedDocCountByLeadId}

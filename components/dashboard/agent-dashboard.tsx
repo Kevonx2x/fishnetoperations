@@ -2698,9 +2698,9 @@ export function AgentDashboard() {
                   "flex w-full min-w-0 flex-col",
                   tab === "pipeline" ? "min-h-0" : "h-full min-h-0 flex-1",
                 )}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
+                initial={{ opacity: 0, ...(tab === "pipeline" ? {} : { y: 8 }) }}
+                animate={{ opacity: 1, ...(tab === "pipeline" ? {} : { y: 0 }) }}
+                exit={{ opacity: 0, ...(tab === "pipeline" ? {} : { y: -6 }) }}
                 transition={{ duration: 0.2 }}
               >
               {tab === "overview" && (
