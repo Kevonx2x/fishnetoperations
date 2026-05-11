@@ -39,6 +39,7 @@ import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
 import {
   AgentPipelineTab,
+  type PipelineLeadRow,
   type PipelineStageId,
   type ViewingRequestPipelineMeta,
 } from "@/components/dashboard/agent-pipeline-tab";
@@ -1365,7 +1366,7 @@ export function AgentDashboard() {
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
       const leadSel = AGENT_DASHBOARD_LEAD_SELECT;
       const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
-      const [{ data: ld }, { data: ldArchived }, { data: owned }, { data: paRows }, vwRes, viewsRes, unreadRes, pipelineUnreadRes] =
+      const [{ data: ld }, { data: ldArchived }, { data: owned }, { data: paRows }, vwRes, unreadRes, pipelineUnreadRes] =
         await Promise.all([
         supabase
           .from("leads")
@@ -1393,11 +1394,6 @@ export function AgentDashboard() {
           .select("*")
           .eq("agent_user_id", user.id)
           .order("scheduled_at", { ascending: true }),
-        supabase
-          .from("activity_log")
-          .select("id", { count: "exact", head: true })
-          .eq("action", "profile_view")
-          .eq("agent_id", a.id),
         supabase
           .from("notifications")
           .select("id", { count: "exact", head: true })
@@ -1442,7 +1438,8 @@ export function AgentDashboard() {
       setLeads(leadRowsWithAvatar);
       setArchivedLeads(archivedRowsWithAvatar);
       setViewingRequestMetaByLeadId(await fetchViewingRequestMetaByLeadId(supabase, leadRowsWithAvatar));
-      setProfileViewsCount(viewsRes.error ? 0 : (viewsRes.count ?? 0));
+      /* activity_log has no agent_id column; client RLS also limits what agents can count here. */
+      setProfileViewsCount(0);
       setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
       setPipelineTabUnreadCount(pipelineUnreadRes.error ? 0 : (pipelineUnreadRes.count ?? 0));
 
@@ -1632,64 +1629,16 @@ export function AgentDashboard() {
     setPropertiesLoadVersion((v) => v + 1);
   }, [supabase, user?.id]);
 
-  /**
-   * After pipeline stage/reorder mutations: refresh only active leads + VR meta + viewings context.
-   * Avoids full `loadData()` (properties, notifications, counts, …) so UI stays responsive.
-   */
-  const refreshPipelineLeadsOnly = useCallback(async () => {
-    if (!user?.id) return;
-
-    if (sessionDashboardKind === "team_member") {
-      const supervisorUserId = agent?.user_id ?? null;
-      if (
-        !supervisorUserId ||
-        agent?.status !== "approved" ||
-        agent?.verification_status !== "verified"
-      ) {
-        return;
-      }
-      const leadSel = AGENT_DASHBOARD_LEAD_SELECT;
-      const { data: ld, error } = await supabase
-        .from("leads")
-        .select(leadSel)
-        .eq("agent_id", supervisorUserId)
-        .is("archived_at", null)
-        .order("created_at", { ascending: false });
-      if (error) return;
-      const leadRows = ((ld ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
-      const leadRowsMapped = leadRows.map((l) => leadRowFromQueryRow(l, null));
-      setLeads(leadRowsMapped);
-      setViewingRequestMetaByLeadId(await fetchViewingRequestMetaByLeadId(supabase, leadRowsMapped));
-      setPropertiesLoadVersion((v) => v + 1);
-      return;
-    }
-
-    if (!agent || agent.status !== "approved" || agent.verification_status !== "verified") return;
-
-    const leadSel = AGENT_DASHBOARD_LEAD_SELECT;
-    const { data: ld, error: ldErr } = await supabase
-      .from("leads")
-      .select(leadSel)
-      .eq("agent_id", user.id)
-      .is("archived_at", null)
-      .order("created_at", { ascending: false });
-    if (ldErr) return;
-    const leadRows = ((ld ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
-    const leadRowsMapped = leadRows.map((l) => leadRowFromQueryRow(l, null));
-    setLeads(leadRowsMapped);
-    setViewingRequestMetaByLeadId(await fetchViewingRequestMetaByLeadId(supabase, leadRowsMapped));
-    setPropertiesLoadVersion((v) => v + 1);
-  }, [supabase, user?.id, agent, sessionDashboardKind]);
-
-  const refreshAfterPipelineChange = useCallback(async () => {
-    await refreshPipelineLeadsOnly();
-    await agentViewingsRefetchRef.current?.();
-  }, [refreshPipelineLeadsOnly]);
+  const patchLead = useCallback((leadId: number, patch: Partial<PipelineLeadRow>) => {
+    setLeads((prev) =>
+      prev.map((l) => (l.id === leadId ? ({ ...l, ...patch } as LeadRow) : l)),
+    );
+  }, []);
 
   useEffect(() => {
     if (authLoading || !user?.id || tab !== "pipeline") return;
     const refetch = () => {
-      void refreshAfterPipelineChange();
+      void loadData();
     };
     const onVisibility = () => {
       if (document.visibilityState === "visible") refetch();
@@ -1700,7 +1649,7 @@ export function AgentDashboard() {
       window.removeEventListener("focus", refetch);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [authLoading, user?.id, tab, refreshAfterPipelineChange]);
+  }, [authLoading, user?.id, tab, loadData]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -2842,7 +2791,8 @@ export function AgentDashboard() {
                     setStreamChannelId(streamDmChannelId(user.id, clientUserId));
                     navigateAgentTab("messages");
                   }}
-                  onRefresh={refreshAfterPipelineChange}
+                  onRefresh={loadData}
+                  onPatchLead={patchLead}
                   onFullRefresh={loadData}
                   onOpenLeadDetails={(leadId) => {
                     const row = [...leads, ...archivedLeads].find((x) => x.id === leadId);

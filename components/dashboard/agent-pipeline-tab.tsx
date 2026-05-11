@@ -2483,6 +2483,7 @@ export function AgentPipelineTab({
   propertyLabel,
   supabase,
   onRefresh,
+  onPatchLead,
   onFullRefresh,
   onOpenLeadDetails,
   /** `agents.id` for the listing agent whose pipeline is shown (supervisor when logged in as team_member). */
@@ -2500,6 +2501,8 @@ export function AgentPipelineTab({
   propertyLabel: (propertyId: string | null) => string;
   supabase: SupabaseClient;
   onRefresh: () => void | Promise<void>;
+  /** Merge fields into a single lead in dashboard state (optimistic pipeline moves; no refetch). */
+  onPatchLead?: (leadId: number, patch: Partial<PipelineLeadRow>) => void;
   /** When omitted, toolbar refresh falls back to `onRefresh`. */
   onFullRefresh?: () => void | Promise<void>;
   onOpenLeadDetails: (leadId: number) => void;
@@ -2511,7 +2514,6 @@ export function AgentPipelineTab({
   viewingRequestMetaByLeadId?: Record<number, ViewingRequestPipelineMeta>;
   onOpenMessagesForClient?: (clientUserId: string) => void;
 }) {
-  void leadsAgentUserId;
   const sortStorageKey = useMemo(() => `bhg:pipeline:sort:${pipelineAgentId}`, [pipelineAgentId]);
   const [sortMode, setSortMode] = useState<PipelineSortMode>("last_activity_desc");
   const [filterStages, setFilterStages] = useState<PipelineStageId[] | null>(null);
@@ -2596,6 +2598,31 @@ export function AgentPipelineTab({
       }));
   }, [leads]);
 
+  /** Primitives so effects do not re-fire when only pipeline_stage/order changes (same lead & property sets). */
+  const sideDataLeadIdsKey = deals
+    .map((d) => coerceLeadId(d.id))
+    .filter((id): id is number => id != null)
+    .sort((a, b) => a - b)
+    .join(",");
+  const viewingRescheduleLeadIdsKey = deals
+    .filter((d) => String(d.pipeline_stage).toLowerCase() === "viewing")
+    .map((d) => d.id)
+    .filter((id): id is number => typeof id === "number")
+    .sort((a, b) => a - b)
+    .join(",");
+  const propertySideDataKey = (() => {
+    const set = new Set<string>();
+    for (const d of deals) {
+      const id = d.property_id;
+      if (typeof id === "string" && id.trim()) set.add(id.trim());
+    }
+    for (const a of archivedLeads) {
+      const id = a.property_id;
+      if (typeof id === "string" && id.trim()) set.add(id.trim());
+    }
+    return [...set].sort().join(",");
+  })();
+
   const { viewings: agentViewings, refetch: refetchAgentViewings } = useAgentViewings();
   const scheduledViewingByLeadId = useMemo(() => {
     const want = new Set(deals.map((d) => coerceLeadId(d.id)).filter((id): id is number => id != null));
@@ -2624,12 +2651,11 @@ export function AgentPipelineTab({
         }
         toast.success("Viewing updated");
         await refetchAgentViewings();
-        await Promise.resolve(onRefresh());
       } catch {
         toast.error("Could not accept reschedule");
       }
     },
-    [refetchAgentViewings, onRefresh],
+    [refetchAgentViewings],
   );
 
   const handleRescheduleDecline = useCallback(
@@ -2649,12 +2675,11 @@ export function AgentPipelineTab({
         }
         toast.success("Reschedule dismissed");
         await refetchAgentViewings();
-        await Promise.resolve(onRefresh());
       } catch {
         toast.error("Could not decline reschedule");
       }
     },
-    [refetchAgentViewings, onRefresh],
+    [refetchAgentViewings],
   );
 
   const openCounterRescheduleModal = useCallback((lead: PipelineLeadRow, meta: ReschedulePendingMeta) => {
@@ -2668,10 +2693,9 @@ export function AgentPipelineTab({
   }, []);
 
   useEffect(() => {
-    const viewingLeadIds = deals
-      .filter((d) => String(d.pipeline_stage).toLowerCase() === "viewing")
-      .map((d) => d.id)
-      .filter((id): id is number => typeof id === "number");
+    const viewingLeadIds = viewingRescheduleLeadIdsKey
+      ? viewingRescheduleLeadIdsKey.split(",").map((s) => Number(s.trim())).filter((n) => Number.isFinite(n))
+      : [];
     if (viewingLeadIds.length === 0) {
       setReschedulePendingByLeadId({});
       return;
@@ -2750,23 +2774,16 @@ export function AgentPipelineTab({
     return () => {
       cancelled = true;
     };
-  }, [deals, supabase]);
+  }, [viewingRescheduleLeadIdsKey, supabase]);
 
   const [dealValueByPropertyId, setDealValueByPropertyId] = useState<Record<string, string>>({});
   const [dealValueNumberByPropertyId, setDealValueNumberByPropertyId] = useState<Record<string, number>>({});
   const [propertyMetaById, setPropertyMetaById] = useState<Record<string, PropertyMeta>>({});
 
   useEffect(() => {
-    const set = new Set<string>();
-    for (const d of deals) {
-      const id = d.property_id;
-      if (typeof id === "string" && id.trim()) set.add(id.trim());
-    }
-    for (const a of archivedLeads) {
-      const id = a.property_id;
-      if (typeof id === "string" && id.trim()) set.add(id.trim());
-    }
-    const ids = [...set];
+    const ids = propertySideDataKey
+      ? propertySideDataKey.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
     if (ids.length === 0) {
       setDealValueByPropertyId({});
       setDealValueNumberByPropertyId({});
@@ -2825,7 +2842,7 @@ export function AgentPipelineTab({
     return () => {
       cancelled = true;
     };
-  }, [deals, archivedLeads, supabase]);
+  }, [propertySideDataKey, supabase]);
 
   const [filterStage, setFilterStage] = useState<PipelineStageId>("lead");
   const [docsLead, setDocsLead] = useState<PipelineLeadRow | null>(null);
@@ -3163,7 +3180,9 @@ export function AgentPipelineTab({
   }, [filterStage]);
 
   useEffect(() => {
-    const leadIds = deals.map((d) => coerceLeadId(d.id)).filter((id): id is number => id != null);
+    const leadIds = sideDataLeadIdsKey
+      ? sideDataLeadIdsKey.split(",").map((s) => Number(s.trim())).filter((n) => Number.isFinite(n))
+      : [];
     if (leadIds.length === 0) {
       setUploadedRequestedDocCountByLeadId({});
       setUnviewedUploadedDocCountByLeadId({});
@@ -3206,10 +3225,12 @@ export function AgentPipelineTab({
     return () => {
       cancelled = true;
     };
-  }, [deals, supabase]);
+  }, [sideDataLeadIdsKey, supabase]);
 
   useEffect(() => {
-    const leadIds = deals.map((d) => coerceLeadId(d.id)).filter((id): id is number => id != null);
+    const leadIds = sideDataLeadIdsKey
+      ? sideDataLeadIdsKey.split(",").map((s) => Number(s.trim())).filter((n) => Number.isFinite(n))
+      : [];
     if (leadIds.length === 0) {
       setReservationCreatedAtByLeadId({});
       return;
@@ -3243,10 +3264,12 @@ export function AgentPipelineTab({
     return () => {
       cancelled = true;
     };
-  }, [deals, supabase]);
+  }, [sideDataLeadIdsKey, supabase]);
 
   useEffect(() => {
-    const leadIds = deals.map((d) => coerceLeadId(d.id)).filter((id): id is number => id != null);
+    const leadIds = sideDataLeadIdsKey
+      ? sideDataLeadIdsKey.split(",").map((s) => Number(s.trim())).filter((n) => Number.isFinite(n))
+      : [];
     if (leadIds.length === 0) {
       setOfferCreatedAtByLeadId({});
       return;
@@ -3280,7 +3303,7 @@ export function AgentPipelineTab({
     return () => {
       cancelled = true;
     };
-  }, [deals, supabase]);
+  }, [sideDataLeadIdsKey, supabase]);
 
   useEffect(() => {
     if (!viewingConfirmLead) return;
@@ -3689,7 +3712,7 @@ export function AgentPipelineTab({
     );
   }, [dealDocCheckRows, docsLeadLive]);
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const ids = displayDeals.map((d) => d.id);
@@ -3697,24 +3720,38 @@ export function AgentPipelineTab({
     const newIndex = ids.findIndex((id) => String(id) === String(over.id));
     if (oldIndex < 0 || newIndex < 0) return;
     const newOrder = arrayMove(ids, oldIndex, newIndex);
+    const revertOrder = [...ids];
     setOptimisticOrderIds(newOrder);
-    try {
-      const res = await fetch("/api/agent/pipeline-reorder", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ pipeline_stage: filterStage, lead_ids: newOrder }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-      if (!res.ok) {
-        toast.error(json?.error?.message ?? "Could not save order");
+    void fetch("/api/agent/pipeline-reorder", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ pipeline_stage: filterStage, lead_ids: newOrder }),
+    })
+      .then(async (res) => {
+        const json = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          data?: { success?: boolean };
+          error?: { message?: string };
+        };
+        const apiOk = res.ok && json.success === true && json.data?.success === true;
+        if (!apiOk) {
+          toast.error(json?.error?.message ?? "Could not save order");
+          setOptimisticOrderIds(revertOrder);
+          return;
+        }
+        const nowIso = new Date().toISOString();
+        newOrder.forEach((leadId, index) => {
+          onPatchLead?.(leadId, { pipeline_position: index, updated_at: nowIso });
+        });
+      })
+      .catch(() => {
+        toast.error("Could not reach server. Check your connection.");
+        setOptimisticOrderIds(revertOrder);
+      })
+      .finally(() => {
         setOptimisticOrderIds(null);
-        return;
-      }
-      onRefresh();
-    } finally {
-      setOptimisticOrderIds(null);
-    }
+      });
   };
 
   const handleKanbanDragEnd = (event: DragEndEvent) => {
@@ -3793,20 +3830,37 @@ export function AgentPipelineTab({
       const oldIndex = ids.indexOf(activeId);
       const newIndex = ids.indexOf(overId);
       if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
+      const revertIds = [...ids];
       const nextIds = arrayMove(ids, oldIndex, newIndex);
       setKanbanIdsByStage((s) => ({ ...s, [fromStage]: nextIds }));
       const payload = nextIds.map((x) => Number(x)).filter((n) => Number.isFinite(n));
-      void (async () => {
-        const res = await fetch("/api/agent/pipeline-reorder", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ pipeline_stage: fromStage, lead_ids: payload }),
+      void fetch("/api/agent/pipeline-reorder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ pipeline_stage: fromStage, lead_ids: payload }),
+      })
+        .then(async (res) => {
+          const json = (await res.json().catch(() => ({}))) as {
+            success?: boolean;
+            data?: { success?: boolean };
+            error?: { message?: string };
+          };
+          const apiOk = res.ok && json.success === true && json.data?.success === true;
+          if (!apiOk) {
+            toast.error(json?.error?.message ?? "Could not save order");
+            setKanbanIdsByStage((s) => ({ ...s, [fromStage]: revertIds }));
+            return;
+          }
+          const nowIso = new Date().toISOString();
+          payload.forEach((leadId, index) => {
+            onPatchLead?.(leadId, { pipeline_position: index, updated_at: nowIso });
+          });
+        })
+        .catch(() => {
+          toast.error("Could not reach server. Check your connection.");
+          setKanbanIdsByStage((s) => ({ ...s, [fromStage]: revertIds }));
         });
-        const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-        if (!res.ok) toast.error(json?.error?.message ?? "Could not save order");
-        else onRefresh();
-      })();
       return;
     }
 
@@ -3845,7 +3899,7 @@ export function AgentPipelineTab({
   };
 
   const moveDealToStage = useCallback(
-    async (
+    (
       lead: PipelineLeadRow,
       stage: PipelineStageId,
       opts?: { revertSnapshot?: Record<PipelineStageId, string[]>; kanbanAlreadyUpdated?: boolean },
@@ -3863,8 +3917,18 @@ export function AgentPipelineTab({
       const from = findKanbanStageForLeadId(boardNow, id) ?? lead.pipeline_stage;
       if (from === stage) return;
 
-      setKanbanBoardMutationDepth((d) => d + 1);
+      const prevSnapshot: Partial<PipelineLeadRow> = {
+        pipeline_stage: lead.pipeline_stage,
+        updated_at: lead.updated_at ?? null,
+        closed_at: lead.closed_at ?? null,
+        closed_date: lead.closed_date ?? null,
+        closed_by: lead.closed_by ?? null,
+        closure_confirmed_by_client: lead.closure_confirmed_by_client ?? null,
+      };
+
       const revert = opts?.revertSnapshot ?? cloneKanbanIdsByStage(boardNow);
+
+      setKanbanBoardMutationDepth((d) => d + 1);
 
       if (!opts?.kanbanAlreadyUpdated) {
         setKanbanIdsByStage((s0) => {
@@ -3876,46 +3940,53 @@ export function AgentPipelineTab({
         });
       }
 
-      setMoveToStageBusyId(lead.id);
-      try {
-        let res: Response;
-        try {
-          res = await fetch("/api/agent/pipeline-set-stage", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ leadId: lead.id, pipeline_stage: stage }),
-          });
-        } catch {
+      const nowIso = new Date().toISOString();
+      const optimisticPatch: Partial<PipelineLeadRow> = {
+        pipeline_stage: stage,
+        updated_at: nowIso,
+      };
+      if (stage === "closed") {
+        optimisticPatch.closed_at = nowIso;
+        optimisticPatch.closed_date = nowIso.slice(0, 10);
+        optimisticPatch.closed_by = leadsAgentUserId;
+        optimisticPatch.closure_confirmed_by_client = null;
+      }
+      onPatchLead?.(lead.id, optimisticPatch);
+      setKanbanStageOverrides((o) => {
+        if (!(lead.id in o)) return o;
+        const { [lead.id]: _, ...rest } = o;
+        return rest;
+      });
+
+      void fetch("/api/agent/pipeline-set-stage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ leadId: lead.id, pipeline_stage: stage }),
+      })
+        .then(async (res) => {
+          const json = (await res.json().catch(() => ({}))) as {
+            success?: boolean;
+            data?: { success?: boolean };
+            error?: { message?: string };
+          };
+          const apiOk = res.ok && json.success === true && json.data?.success === true;
+          if (!apiOk) {
+            toast.error(json?.error?.message ?? "Could not move deal");
+            setKanbanIdsByStage(revert);
+            onPatchLead?.(lead.id, prevSnapshot);
+          }
+        })
+        .catch(() => {
           toast.error("Could not reach server. Check your connection.");
           setKanbanIdsByStage(revert);
-          try {
-            await Promise.resolve(onRefresh());
-          } catch {
-            /* ignore */
-          }
-          return;
-        }
-        const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-        if (!res.ok) {
-          toast.error(json?.error?.message ?? "Could not move deal");
-          setKanbanIdsByStage(revert);
-          try {
-            await Promise.resolve(onRefresh());
-          } catch {
-            /* ignore */
-          }
-          return;
-        }
-
-        setMoveToStageBusyId(null);
-        void Promise.resolve(onRefresh()).catch(() => {});
-      } finally {
-        setMoveToStageBusyId(null);
-        setKanbanBoardMutationDepth((d) => d - 1);
-      }
+          onPatchLead?.(lead.id, prevSnapshot);
+        })
+        .finally(() => {
+          setKanbanBoardMutationDepth((d) => d - 1);
+        });
     },
-    [onRefresh],
+    [onPatchLead, leadsAgentUserId],
   );
 
   const archiveLeadFromBoard = useCallback(
@@ -4050,19 +4121,16 @@ export function AgentPipelineTab({
         );
         const json = (await res.json().catch(() => ({}))) as {
           success?: boolean;
+          data?: { success?: boolean };
           error?: { message?: string };
         };
-        if (!res.ok || !json.success) {
+        const apiOk = res.ok && json.success === true && json.data?.success === true;
+        if (!apiOk) {
           const msg = json?.error?.message ?? "Could not send counter proposal";
           if (msg.includes("past") || msg.includes("future")) {
             setViewingConfirmInlineError("Pick a future date and time.");
           } else {
             toast.error(msg);
-          }
-          try {
-            await Promise.resolve(onRefresh());
-          } catch {
-            /* ignore */
           }
           return;
         }
@@ -4072,7 +4140,6 @@ export function AgentPipelineTab({
         setCounterRescheduleViewingId(null);
         setCounterRescheduleRefs(null);
         void Promise.resolve(refetchAgentViewings()).catch(() => {});
-        void Promise.resolve(onRefresh()).catch(() => {});
         viewingDragKanbanRevertRef.current = null;
         setSuppressKanbanIdsSync(false);
         setKanbanStageOverrides((o) => {
@@ -4095,18 +4162,29 @@ export function AgentPipelineTab({
           notes: viewingConfirmNotes.trim() ? viewingConfirmNotes.trim().slice(0, 300) : null,
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-      if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: { success?: boolean; scheduled_at?: string };
+        error?: { message?: string };
+      };
+      const apiOk = res.ok && json.success === true && json.data?.success === true;
+      if (!apiOk) {
         const msg = json?.error?.message ?? "Could not confirm viewing";
         if (msg.includes("scheduled_at cannot be in the past") || msg.includes("in the past")) {
           setViewingConfirmInlineError("Pick a future date and time.");
         } else {
           toast.error(msg);
         }
-        try {
-          await Promise.resolve(onRefresh());
-        } catch {
-          /* ignore */
+        const snap = viewingDragKanbanRevertRef.current;
+        if (snap && snap.leadId === confirmingLeadId) {
+          setKanbanIdsByStage(snap.board);
+          setKanbanStageOverrides((o) => {
+            if (!(snap.leadId in o)) return o;
+            const { [snap.leadId]: _, ...rest } = o;
+            return rest;
+          });
+          viewingDragKanbanRevertRef.current = null;
+          setSuppressKanbanIdsSync(false);
         }
         return;
       }
@@ -4115,8 +4193,13 @@ export function AgentPipelineTab({
       setViewingConfirmMode("confirm");
       setCounterRescheduleViewingId(null);
       setCounterRescheduleRefs(null);
+      const seenIso = new Date().toISOString();
+      onPatchLead?.(confirmingLeadId, {
+        pipeline_stage: "viewing",
+        new_viewing_request_seen_at: seenIso,
+        updated_at: seenIso,
+      });
       void Promise.resolve(refetchAgentViewings()).catch(() => {});
-      void Promise.resolve(onRefresh()).catch(() => {});
       viewingDragKanbanRevertRef.current = null;
       setSuppressKanbanIdsSync(false);
       setKanbanStageOverrides((o) => {
