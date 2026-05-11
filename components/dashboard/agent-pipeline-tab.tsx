@@ -1596,7 +1596,7 @@ function KanbanDealCardImpl({
             </div>
           </div>
 
-          {/* Avatar + contact (tertiary) */}
+          {/* Avatar + contact (tertiary); advance arrow aligns bottom-right with avatar row */}
           <div className="mt-3 flex shrink-0 items-center gap-2">
             <div className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#6B9E6E]/12 text-[10px] font-bold text-[#6B9E6E]">
               {deal.client_avatar_url ? (
@@ -1605,29 +1605,28 @@ function KanbanDealCardImpl({
                 clientInitials(deal.name)
               )}
             </div>
-            <span className="truncate font-sans text-[11px] font-medium text-[#2C2C2C]/48">{deal.name}</span>
+            <span className="min-w-0 flex-1 truncate font-sans text-[11px] font-medium text-[#2C2C2C]/48">{deal.name}</span>
+            {next ? (
+              <button
+                type="button"
+                aria-label={`Advance to ${PIPELINE_STAGES.find((s) => s.id === next)?.label ?? "next stage"}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMoveToStage(deal, next);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className={cn(
+                  "z-10 ml-auto flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/50 text-[#2C2C2C]/85 shadow-[0_1px_4px_rgba(44,44,44,0.08)] ring-1 ring-[#2C2C2C]/10 hover:bg-[#6B9E6E]/65 hover:text-[#171717]",
+                  anyMenuOpen && "pointer-events-none opacity-0",
+                )}
+              >
+                <span aria-hidden className="text-[10px] font-semibold leading-none tracking-tight">
+                  ›
+                </span>
+              </button>
+            ) : null}
           </div>
         </div>
-
-        {next ? (
-          <button
-            type="button"
-            aria-label={`Advance to ${PIPELINE_STAGES.find((s) => s.id === next)?.label ?? "next stage"}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onMoveToStage(deal, next);
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-            className={cn(
-              "absolute top-1/2 right-2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-[0_2px_8px_rgba(107,158,110,0.45)] ring-1 ring-white/25 hover:bg-[#5a8a5d] hover:shadow-[0_3px_10px_rgba(107,158,110,0.5)]",
-              anyMenuOpen && "pointer-events-none opacity-0",
-            )}
-          >
-            <span aria-hidden className="text-[11px] font-semibold leading-none tracking-tight">
-              ›
-            </span>
-          </button>
-        ) : null}
       </div>
       <div
         className={cn(
@@ -1781,7 +1780,7 @@ function KanbanStageColumn({
   return (
     <div
       className={cn(
-        "flex h-full w-full max-w-[320px] min-w-[180px] flex-col gap-2 rounded-xl p-2 sm:min-w-[200px] xl:min-w-[220px]",
+        "flex w-full max-w-[320px] min-w-[180px] flex-col gap-2 rounded-xl p-2 sm:min-w-[200px] xl:min-w-[220px]",
         "bg-[#E8E4DC]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-inset ring-[#2C2C2C]/[0.07]",
         "transition-[background-color,box-shadow] duration-100 ease-out",
       )}
@@ -1803,13 +1802,13 @@ function KanbanStageColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          "flex min-h-0 flex-1 flex-col rounded-lg border border-transparent transition-none",
+          "flex min-h-0 flex-1 flex-col rounded-lg border border-transparent pb-[200px] transition-none",
           isOver &&
             "border-[#6B9E6E]/40 shadow-[inset_0_0_0_1px_rgba(107,158,110,0.12)]",
         )}
       >
         {list.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-3 py-10 text-center">
+          <div className="flex flex-col items-center justify-center px-3 py-10 text-center">
             {pipelineColumnEmptyIcon(stage)}
             <p className="mt-3 font-sans text-[12px] font-semibold text-[#2C2C2C]/45">No deals yet</p>
             <p className="mt-1 max-w-[200px] font-sans text-[10px] font-medium leading-snug text-[#2C2C2C]/32">
@@ -1818,7 +1817,7 @@ function KanbanStageColumn({
           </div>
         ) : (
           <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-            <div className="flex min-h-0 flex-1 flex-col space-y-2.5 pb-2">
+            <div className="flex min-h-0 flex-1 flex-col space-y-2.5">
               {list.map((deal, i) => (
                 <KanbanDealCard
                   key={deal.id}
@@ -4730,7 +4729,7 @@ export function AgentPipelineTab({
                   />
                 ) : null}
                 <div
-                  className="grid w-full min-w-0 items-stretch gap-3 pb-32"
+                  className="grid w-full min-w-0 items-start gap-3 pb-20"
                   style={{
                     gridTemplateColumns: `repeat(${(filterStages && filterStages.length > 0
                       ? KANBAN_STAGE_ORDER.filter((s) => filterStages.includes(s))
@@ -4764,7 +4763,7 @@ export function AgentPipelineTab({
                     const barHex = stageBarHex(stage);
 
                     return (
-                      <div key={stage} className="flex h-full min-w-0 justify-center">
+                      <div key={stage} className="flex min-w-0 justify-center self-start">
                         <KanbanStageColumn
                           stage={stage}
                           label={label}
