@@ -2483,6 +2483,7 @@ export function AgentPipelineTab({
   propertyLabel,
   supabase,
   onRefresh,
+  onFullRefresh,
   onOpenLeadDetails,
   /** `agents.id` for the listing agent whose pipeline is shown (supervisor when logged in as team_member). */
   pipelineAgentId,
@@ -2498,7 +2499,9 @@ export function AgentPipelineTab({
   archivedLeads: PipelineLeadRow[];
   propertyLabel: (propertyId: string | null) => string;
   supabase: SupabaseClient;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
+  /** When omitted, toolbar refresh falls back to `onRefresh`. */
+  onFullRefresh?: () => void | Promise<void>;
   onOpenLeadDetails: (leadId: number) => void;
   pipelineAgentId: string;
   /** Profile UUID matching `leads.agent_id` (must match `AgentViewingsProvider` agentUserId). */
@@ -3875,20 +3878,38 @@ export function AgentPipelineTab({
 
       setMoveToStageBusyId(lead.id);
       try {
-        const res = await fetch("/api/agent/pipeline-set-stage", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ leadId: lead.id, pipeline_stage: stage }),
-        });
+        let res: Response;
+        try {
+          res = await fetch("/api/agent/pipeline-set-stage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ leadId: lead.id, pipeline_stage: stage }),
+          });
+        } catch {
+          toast.error("Could not reach server. Check your connection.");
+          setKanbanIdsByStage(revert);
+          try {
+            await Promise.resolve(onRefresh());
+          } catch {
+            /* ignore */
+          }
+          return;
+        }
         const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
         if (!res.ok) {
           toast.error(json?.error?.message ?? "Could not move deal");
           setKanbanIdsByStage(revert);
+          try {
+            await Promise.resolve(onRefresh());
+          } catch {
+            /* ignore */
+          }
           return;
         }
 
-        await Promise.resolve(onRefresh());
+        setMoveToStageBusyId(null);
+        void Promise.resolve(onRefresh()).catch(() => {});
       } finally {
         setMoveToStageBusyId(null);
         setKanbanBoardMutationDepth((d) => d - 1);
@@ -3918,20 +3939,38 @@ export function AgentPipelineTab({
       setKanbanBoardMutationDepth((d) => d + 1);
       setMoveToStageBusyId(lead.id);
       try {
-        const res = await fetch("/api/agent/archive-lead", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ lead_id: lead.id }),
-        });
+        let res: Response;
+        try {
+          res = await fetch("/api/agent/archive-lead", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ lead_id: lead.id }),
+          });
+        } catch {
+          toast.error("Could not reach server. Check your connection.");
+          setKanbanIdsByStage(revert);
+          try {
+            await Promise.resolve(onRefresh());
+          } catch {
+            /* ignore */
+          }
+          return;
+        }
         const json = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           toast.error(json.error ?? "Could not archive");
           setKanbanIdsByStage(revert);
+          try {
+            await Promise.resolve(onRefresh());
+          } catch {
+            /* ignore */
+          }
           return;
         }
         toast.success("Archived");
-        await Promise.resolve(onRefresh());
+        setMoveToStageBusyId(null);
+        void Promise.resolve(onRefresh()).catch(() => {});
       } finally {
         setMoveToStageBusyId(null);
         setKanbanBoardMutationDepth((d) => d - 1);
@@ -4020,6 +4059,11 @@ export function AgentPipelineTab({
           } else {
             toast.error(msg);
           }
+          try {
+            await Promise.resolve(onRefresh());
+          } catch {
+            /* ignore */
+          }
           return;
         }
         toast.success("Counter proposal sent");
@@ -4027,8 +4071,8 @@ export function AgentPipelineTab({
         setViewingConfirmMode("confirm");
         setCounterRescheduleViewingId(null);
         setCounterRescheduleRefs(null);
-        await refetchAgentViewings();
-        await Promise.resolve(onRefresh());
+        void Promise.resolve(refetchAgentViewings()).catch(() => {});
+        void Promise.resolve(onRefresh()).catch(() => {});
         viewingDragKanbanRevertRef.current = null;
         setSuppressKanbanIdsSync(false);
         setKanbanStageOverrides((o) => {
@@ -4059,6 +4103,11 @@ export function AgentPipelineTab({
         } else {
           toast.error(msg);
         }
+        try {
+          await Promise.resolve(onRefresh());
+        } catch {
+          /* ignore */
+        }
         return;
       }
       toast.success("Viewing scheduled");
@@ -4066,7 +4115,8 @@ export function AgentPipelineTab({
       setViewingConfirmMode("confirm");
       setCounterRescheduleViewingId(null);
       setCounterRescheduleRefs(null);
-      await Promise.resolve(onRefresh());
+      void Promise.resolve(refetchAgentViewings()).catch(() => {});
+      void Promise.resolve(onRefresh()).catch(() => {});
       viewingDragKanbanRevertRef.current = null;
       setSuppressKanbanIdsSync(false);
       setKanbanStageOverrides((o) => {
@@ -4204,7 +4254,7 @@ export function AgentPipelineTab({
                   </button>
                   <button
                     type="button"
-                    onClick={onRefresh}
+                    onClick={() => void Promise.resolve((onFullRefresh ?? onRefresh)()).catch(() => {})}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#2C2C2C]/45 hover:bg-[#FAF8F4]"
                     aria-label="Refresh"
                   >

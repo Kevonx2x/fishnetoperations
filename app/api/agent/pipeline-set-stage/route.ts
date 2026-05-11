@@ -46,8 +46,15 @@ async function recompactStagePositions(
   const { data: list } = await q;
   const rows = (list as { id: number }[] | null) ?? [];
   const now = new Date().toISOString();
-  for (let i = 0; i < rows.length; i++) {
-    await sb.from("leads").update({ pipeline_position: i, updated_at: now }).eq("id", rows[i].id);
+  const CHUNK = 10;
+  for (let start = 0; start < rows.length; start += CHUNK) {
+    const slice = rows.slice(start, start + CHUNK);
+    await Promise.all(
+      slice.map((row, j) => {
+        const i = start + j;
+        return sb.from("leads").update({ pipeline_position: i, updated_at: now }).eq("id", row.id);
+      }),
+    );
   }
 }
 
