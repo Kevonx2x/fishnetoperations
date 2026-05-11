@@ -32,11 +32,13 @@ export function computePipelinePulseStats(
     property_id: string | null;
     created_at: string;
     updated_at?: string | null;
+    archived_by_agent?: boolean | null;
     archived_at?: string | null;
   }[],
   priceByPropertyId: Record<string, number>,
 ): PipelinePulseStats {
   const active = deals.filter((d) => {
+    if (d.archived_by_agent) return false;
     if (d.archived_at != null && String(d.archived_at).trim() !== "") return false;
     const s = String(d.pipeline_stage ?? "").trim().toLowerCase();
     return s !== "closed" && s !== "declined";

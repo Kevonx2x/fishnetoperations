@@ -473,7 +473,12 @@ export async function POST(req: Request) {
         }
         const { error: leadSeenErr } = await admin
           .from("leads")
-          .update({ new_viewing_request_seen_at: null, updated_at: nowIso })
+          .update({
+            new_viewing_request_seen_at: null,
+            archived_by_agent: false,
+            archived_by_agent_at: null,
+            updated_at: nowIso,
+          })
           .eq("id", existingLeadId);
         if (leadSeenErr) {
           console.error("[create-viewing-request] lead update failed (reschedule)", leadSeenErr);
@@ -512,6 +517,8 @@ export async function POST(req: Request) {
         viewing_request_id: viewingRequestId,
         new_viewing_request_seen_at: null,
         archived_by_client: false,
+        archived_by_agent: false,
+        archived_by_agent_at: null,
         archived_at: null,
         archive_reason: null,
         archive_note: null,
@@ -610,7 +617,12 @@ export async function POST(req: Request) {
             }
             const { error: raceLeadSeen } = await admin
               .from("leads")
-              .update({ new_viewing_request_seen_at: null, updated_at: nowIsoRace })
+              .update({
+                new_viewing_request_seen_at: null,
+                archived_by_agent: false,
+                archived_by_agent_at: null,
+                updated_at: nowIsoRace,
+              })
               .eq("id", raceLeadId);
             if (raceLeadSeen) {
               console.error("[create-viewing-request] race lead update failed (reschedule)", raceLeadSeen);
@@ -649,6 +661,8 @@ export async function POST(req: Request) {
             viewing_request_id: viewingRequestId,
             new_viewing_request_seen_at: null,
             archived_by_client: false,
+            archived_by_agent: false,
+            archived_by_agent_at: null,
             archived_at: null,
             archive_reason: null,
             archive_note: null,
