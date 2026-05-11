@@ -219,6 +219,8 @@ type LeadRow = {
   new_lead_seen_at?: string | null;
   new_viewing_request_seen_at?: string | null;
   archived_by_client?: boolean | null;
+  archived_by_agent?: boolean | null;
+  archived_by_agent_at?: string | null;
   archived_at?: string | null;
   archive_reason?: string | null;
   archive_note?: string | null;
@@ -229,7 +231,7 @@ type LeadRow = {
 
 /** Supabase `leads` select including nested first-property photos (flattened to `property_cover_photo_url`). */
 const AGENT_DASHBOARD_LEAD_SELECT =
-  "id, is_demo, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at, properties(property_photos(url, sort_order, created_at))";
+  "id, is_demo, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at, archived_by_client, archived_by_agent, archived_by_agent_at, properties(property_photos(url, sort_order, created_at))";
 
 type LeadQueryPropertiesJoin = {
   /** PostgREST usually returns an object; an array is accepted defensively. */
@@ -1209,13 +1211,14 @@ export function AgentDashboard() {
             .from("leads")
             .select(leadSel)
             .eq("agent_id", supervisorUserId)
-            .is("archived_at", null)
+            .eq("archived_by_client", false)
+            .eq("archived_by_agent", false)
             .order("created_at", { ascending: false }),
           supabase
             .from("leads")
             .select(leadSelArchived)
             .eq("agent_id", supervisorUserId)
-            .not("archived_at", "is", null)
+            .eq("archived_by_client", true)
             .order("archived_at", { ascending: false })
             .limit(150),
           supabase
@@ -1280,7 +1283,8 @@ export function AgentDashboard() {
           .from("leads")
           .select("id", { count: "exact", head: true })
           .eq("agent_id", supervisorUserId)
-          .is("archived_at", null)
+          .eq("archived_by_client", false)
+          .eq("archived_by_agent", false)
           .gte("created_at", startYesterdayIso)
           .lt("created_at", startTodayIso);
         setYesterdayNewLeadsCount(yLeadRes.error ? 0 : (yLeadRes.count ?? 0));
@@ -1371,13 +1375,14 @@ export function AgentDashboard() {
           .from("leads")
           .select(leadSel)
           .eq("agent_id", user.id)
-          .is("archived_at", null)
+          .eq("archived_by_client", false)
+          .eq("archived_by_agent", false)
           .order("created_at", { ascending: false }),
         supabase
           .from("leads")
           .select(leadSelArchived)
           .eq("agent_id", user.id)
-          .not("archived_at", "is", null)
+          .eq("archived_by_client", true)
           .order("archived_at", { ascending: false })
           .limit(150),
         supabase
@@ -1459,7 +1464,8 @@ export function AgentDashboard() {
         .from("leads")
         .select("id", { count: "exact", head: true })
         .eq("agent_id", user.id)
-        .is("archived_at", null)
+        .eq("archived_by_client", false)
+        .eq("archived_by_agent", false)
         .gte("created_at", startYesterdayIso)
         .lt("created_at", startTodayIso);
       setYesterdayNewLeadsCount(yLeadRes.error ? 0 : (yLeadRes.count ?? 0));
@@ -1653,7 +1659,8 @@ export function AgentDashboard() {
         .from("leads")
         .select(leadSel)
         .eq("agent_id", supervisorUserId)
-        .is("archived_at", null)
+        .eq("archived_by_client", false)
+        .eq("archived_by_agent", false)
         .order("created_at", { ascending: false });
       if (error) return;
       const leadRows = ((ld ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
@@ -1671,7 +1678,8 @@ export function AgentDashboard() {
       .from("leads")
       .select(leadSel)
       .eq("agent_id", user.id)
-      .is("archived_at", null)
+      .eq("archived_by_client", false)
+      .eq("archived_by_agent", false)
       .order("created_at", { ascending: false });
     if (ldErr) return;
     const leadRows = ((ld ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
@@ -1909,6 +1917,9 @@ export function AgentDashboard() {
         closing_notes: l.closing_notes ?? null,
         pinned: l.pinned ?? null,
         pinned_at: l.pinned_at ?? null,
+        archived_by_client: l.archived_by_client ?? null,
+        archived_by_agent: l.archived_by_agent ?? null,
+        archived_by_agent_at: l.archived_by_agent_at ?? null,
         archived_at: l.archived_at ?? null,
         archive_reason: l.archive_reason ?? null,
         archive_note: l.archive_note ?? null,

@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
   const { data: lead, error: leadErr } = await admin
     .from("leads")
-    .select("id, agent_id, broker_id, archived_at")
+    .select("id, agent_id, broker_id, archived_by_agent")
     .eq("id", leadId)
     .maybeSingle();
 
@@ -58,14 +58,14 @@ export async function POST(req: Request) {
     return Response.json({ error: "Not your lead" }, { status: 403 });
   }
 
-  if ((lead as { archived_at?: string | null }).archived_at) {
+  if ((lead as { archived_by_agent?: boolean | null }).archived_by_agent) {
     return Response.json({ ok: true, already: true });
   }
 
   const now = new Date().toISOString();
   const { error: updErr } = await admin
     .from("leads")
-    .update({ archived_at: now, updated_at: now })
+    .update({ archived_by_agent: true, archived_by_agent_at: now, updated_at: now })
     .eq("id", leadId);
 
   if (updErr) {

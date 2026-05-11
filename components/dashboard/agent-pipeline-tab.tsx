@@ -149,6 +149,9 @@ export type PipelineLeadRow = {
   pinned?: boolean | null;
   pinned_at?: string | null;
   closing_notes?: string | null;
+  archived_by_client?: boolean | null;
+  archived_by_agent?: boolean | null;
+  archived_by_agent_at?: string | null;
   archived_at?: string | null;
   archive_reason?: string | null;
   archive_note?: string | null;
