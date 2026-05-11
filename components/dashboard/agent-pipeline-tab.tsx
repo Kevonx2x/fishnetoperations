@@ -44,7 +44,6 @@ import {
   Loader2,
   MessageSquare,
   MoreHorizontal,
-  Pencil,
   RefreshCw,
   Search,
   User,
@@ -307,10 +306,8 @@ const AGENT_PIPELINE_MENU_SEND_OFFER = false;
 
 /** Keys for the pipeline card overflow menu (Kanban + mobile list), filtered by `agentPipelineCardMenuKeysForStage`. */
 type AgentPipelineCardMenuKey =
-  | "viewDetails"
   | "viewDocuments"
   | "messages"
-  | "editNotes"
   | "requestDocuments"
   | "sendOffer"
   | "createReservation"
@@ -321,13 +318,7 @@ type AgentPipelineCardMenuKey =
   | "declineArchive"
   | "moveTo";
 
-const AGENT_PIPELINE_CARD_MENU_HEAD_KEYS: AgentPipelineCardMenuKey[] = [
-  "viewDetails",
-  "viewDocuments",
-  "messages",
-  "editNotes",
-  "requestDocuments",
-];
+const AGENT_PIPELINE_CARD_MENU_HEAD_KEYS: AgentPipelineCardMenuKey[] = ["viewDocuments", "messages", "requestDocuments"];
 
 const AGENT_PIPELINE_CARD_MENU_TAIL_KEYS: AgentPipelineCardMenuKey[] = [
   "sendOffer",
@@ -343,23 +334,14 @@ const AGENT_PIPELINE_CARD_MENU_TAIL_KEYS: AgentPipelineCardMenuKey[] = [
 function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipelineCardMenuKey> {
   const s = String(pipelineStage ?? "").trim().toLowerCase();
   if (s === "declined") {
-    return new Set<AgentPipelineCardMenuKey>(["viewDetails", "viewDocuments"]);
+    return new Set<AgentPipelineCardMenuKey>(["viewDocuments"]);
   }
   if (s === "closed") {
-    return new Set<AgentPipelineCardMenuKey>([
-      "viewDetails",
-      "viewDocuments",
-      "messages",
-      "editNotes",
-      "markLost",
-      "agentArchive",
-    ]);
+    return new Set<AgentPipelineCardMenuKey>(["viewDocuments", "messages", "markLost", "agentArchive"]);
   }
   if (s === "lead") {
     return new Set<AgentPipelineCardMenuKey>([
-      "viewDetails",
       "messages",
-      "editNotes",
       "requestDocuments",
       "markWon",
       "markLost",
@@ -370,10 +352,8 @@ function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipe
   }
   if (s === "viewing") {
     return new Set<AgentPipelineCardMenuKey>([
-      "viewDetails",
       "viewDocuments",
       "messages",
-      "editNotes",
       "requestDocuments",
       "markWon",
       "markLost",
@@ -384,10 +364,8 @@ function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipe
   }
   if (s === "offer") {
     return new Set<AgentPipelineCardMenuKey>([
-      "viewDetails",
       "viewDocuments",
       "messages",
-      "editNotes",
       "requestDocuments",
       "createReservation",
       "markWon",
@@ -399,10 +377,8 @@ function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipe
   }
   if (s === "reservation") {
     return new Set<AgentPipelineCardMenuKey>([
-      "viewDetails",
       "viewDocuments",
       "messages",
-      "editNotes",
       "requestDocuments",
       "markClosed",
       "markLost",
@@ -944,7 +920,6 @@ function KanbanDealCardImpl({
   setMenuMoveOpen,
   menuWrapRef,
   onOpenLeadDetails,
-  onRequestNotes,
   onRequestDocuments,
   onRequestDecline,
   onAgentArchive,
@@ -985,7 +960,6 @@ function KanbanDealCardImpl({
   setMenuMoveOpen: (v: boolean) => void;
   menuWrapRef: React.RefObject<HTMLDivElement | null>;
   onOpenLeadDetails: (leadId: number) => void;
-  onRequestNotes: (lead: PipelineLeadRow) => void;
   onRequestDocuments: (lead: PipelineLeadRow) => void;
   onRequestDecline: (lead: PipelineLeadRow) => void;
   onAgentArchive: (lead: PipelineLeadRow) => void;
@@ -1148,11 +1122,11 @@ function KanbanDealCardImpl({
                   openKanbanLeadDetails();
                 }}
               >
-                <h3 className="truncate font-sans text-[15px] font-bold leading-snug tracking-tight text-[#171717]">
+                <h3 className="truncate font-sans text-[15px] font-extrabold leading-snug tracking-tight text-[#171717]">
                   {propLine}
                 </h3>
               </button>
-              <p className="mt-1 truncate font-sans text-[12px] font-bold tabular-nums text-[#2C4A30]/90">
+              <p className="mt-1 truncate font-sans text-[12px] font-extrabold tabular-nums tracking-tight text-[#2C4A30]/90">
                 {dealValueLine ?? "—"}
               </p>
             </div>
@@ -1335,28 +1309,6 @@ function KanbanDealCardImpl({
                                   <div className="my-1 h-px bg-[#EEEEEE]" />
                                 </>
                               ) : null}
-                              {pipelineMenuKeys.has("viewDetails") ? (
-                                <button
-                                  type="button"
-                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                  onClick={() => {
-                                    openKanbanLeadDetails();
-                                    setMenuOpenId(null);
-                                  }}
-                                >
-                                  <Eye
-                                    className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
-                                    aria-hidden
-                                  />
-                                  View Details
-                                  {showLeadMenuDot ? (
-                                    <span
-                                      aria-hidden
-                                      className="ml-auto mr-1 h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
-                                    />
-                                  ) : null}
-                                </button>
-                              ) : null}
                               {pipelineMenuKeys.has("viewDocuments") ? (
                                 <button
                                   type="button"
@@ -1399,22 +1351,6 @@ function KanbanDealCardImpl({
                                       className="ml-auto mr-1 h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
                                     />
                                   ) : null}
-                                </button>
-                              ) : null}
-                              {pipelineMenuKeys.has("editNotes") ? (
-                                <button
-                                  type="button"
-                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C] transition-colors duration-150 hover:bg-[#F0F4F0]"
-                                  onClick={() => {
-                                    onRequestNotes(deal);
-                                    setMenuOpenId(null);
-                                  }}
-                                >
-                                  <Pencil
-                                    className="h-4 w-4 shrink-0 text-[#6B9E6E] transition-colors duration-150 group-hover:text-[#2C2C2C]"
-                                    aria-hidden
-                                  />
-                                  Edit Notes
                                 </button>
                               ) : null}
                               {pipelineMenuKeys.has("requestDocuments") ? (
@@ -1682,8 +1618,6 @@ function KanbanStageColumn({
   setMenuMoveOpen,
   menuWrapRef,
   onOpenLeadDetails,
-  setNotesLead,
-  setNotesDraft,
   setRequestDocsLead,
   setReqDocSelections,
   setDeclineDeal,
@@ -1723,8 +1657,6 @@ function KanbanStageColumn({
   setMenuMoveOpen: (v: boolean) => void;
   menuWrapRef: React.RefObject<HTMLDivElement | null>;
   onOpenLeadDetails: (leadId: number) => void;
-  setNotesLead: (d: PipelineLeadRow | null) => void;
-  setNotesDraft: (v: string) => void;
   setRequestDocsLead: (d: PipelineLeadRow | null) => void;
   setReqDocSelections: React.Dispatch<
     React.SetStateAction<{ valid_id: boolean; proof_of_funds: boolean; visa: boolean; other: boolean }>
@@ -1743,14 +1675,6 @@ function KanbanStageColumn({
   onRescheduleDecline: (viewingId: string) => void | Promise<void>;
   onOpenCounterReschedule: (lead: PipelineLeadRow, meta: ReschedulePendingMeta) => void;
 }) {
-  const handleRequestNotes = useCallback(
-    (d: PipelineLeadRow) => {
-      setNotesLead(d);
-      setNotesDraft(d.closing_notes ?? "");
-    },
-    [setNotesLead, setNotesDraft],
-  );
-
   const handleRequestDocuments = useCallback(
     (d: PipelineLeadRow) => {
       if (!d.client_id) {
@@ -1840,7 +1764,6 @@ function KanbanStageColumn({
                   setMenuMoveOpen={setMenuMoveOpen}
                   menuWrapRef={menuWrapRef}
                   onOpenLeadDetails={onOpenLeadDetails}
-                  onRequestNotes={handleRequestNotes}
                   onRequestDocuments={handleRequestDocuments}
                   onRequestDecline={handleRequestDecline}
                   onAgentArchive={onAgentArchive}
@@ -1883,7 +1806,6 @@ function SortableDealCard({
   setMenuMoveOpen,
   menuWrapRef,
   onOpenLeadDetails,
-  onRequestNotes,
   onRequestDocuments,
   onRequestDecline,
   onAgentArchive,
@@ -1917,7 +1839,6 @@ function SortableDealCard({
   setMenuMoveOpen: (v: boolean) => void;
   menuWrapRef: React.RefObject<HTMLDivElement | null>;
   onOpenLeadDetails: (leadId: number) => void;
-  onRequestNotes: (lead: PipelineLeadRow) => void;
   onRequestDocuments: (lead: PipelineLeadRow) => void;
   onRequestDecline: (lead: PipelineLeadRow) => void;
   onAgentArchive: (lead: PipelineLeadRow) => void;
@@ -2176,24 +2097,6 @@ function SortableDealCard({
                         <div className="my-1 h-px bg-gray-200" />
                       </>
                     ) : null}
-                    {pipelineMenuKeys.has("viewDetails") ? (
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                        onClick={() => {
-                          onOpenLeadDetails(deal.id);
-                          setMenuOpenId(null);
-                        }}
-                      >
-                        <span className="min-w-0 flex-1">View Details</span>
-                        {showLeadMenuDot ? (
-                          <span
-                            aria-hidden
-                            className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
-                          />
-                        ) : null}
-                      </button>
-                    ) : null}
                     {pipelineMenuKeys.has("viewDocuments") ? (
                       <button
                         type="button"
@@ -2230,18 +2133,6 @@ function SortableDealCard({
                             className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E] shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
                           />
                         ) : null}
-                      </button>
-                    ) : null}
-                    {pipelineMenuKeys.has("editNotes") ? (
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                        onClick={() => {
-                          onRequestNotes(deal);
-                          setMenuOpenId(null);
-                        }}
-                      >
-                        Edit Notes
                       </button>
                     ) : null}
                     {pipelineMenuKeys.has("requestDocuments") ? (
@@ -2921,9 +2812,6 @@ export function AgentPipelineTab({
   const [optimisticOrderIds, setOptimisticOrderIds] = useState<number[] | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [menuMoveOpen, setMenuMoveOpen] = useState(false);
-  const [notesLead, setNotesLead] = useState<PipelineLeadRow | null>(null);
-  const [notesDraft, setNotesDraft] = useState("");
-  const [notesSaving, setNotesSaving] = useState(false);
   const [moveToStageBusyId, setMoveToStageBusyId] = useState<number | null>(null);
   const [requestDocsLead, setRequestDocsLead] = useState<PipelineLeadRow | null>(null);
   const [reqDocSelections, setReqDocSelections] = useState({
@@ -3877,26 +3765,6 @@ export function AgentPipelineTab({
     if (lead) void moveDealToStage(lead, toStage, { revertSnapshot, kanbanAlreadyUpdated: true });
   };
 
-  const saveClosingNotesOnBlur = async () => {
-    if (!notesLead) return;
-    setNotesSaving(true);
-    try {
-      const { error } = await supabase
-        .from("leads")
-        .update({ closing_notes: notesDraft.trim() || null, updated_at: new Date().toISOString() })
-        .eq("id", notesLead.id);
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      toast.success("Notes saved");
-      setNotesLead(null);
-      onRefresh();
-    } finally {
-      setNotesSaving(false);
-    }
-  };
-
   const moveDealToStage = useCallback(
     (
       lead: PipelineLeadRow,
@@ -4644,10 +4512,6 @@ export function AgentPipelineTab({
                   setMenuMoveOpen={setMenuMoveOpen}
                   menuWrapRef={menuWrapRef}
                   onOpenLeadDetails={onOpenLeadDetails}
-                  onRequestNotes={(d) => {
-                    setNotesLead(d);
-                    setNotesDraft(d.closing_notes ?? "");
-                  }}
                   onRequestDocuments={(d) => {
                     if (!d.client_id) {
                       toast.error("This deal is not linked to a client account yet.");
@@ -4788,8 +4652,6 @@ export function AgentPipelineTab({
                           setMenuMoveOpen={setMenuMoveOpen}
                           menuWrapRef={menuWrapRef}
                           onOpenLeadDetails={onOpenLeadDetails}
-                          setNotesLead={setNotesLead}
-                          setNotesDraft={setNotesDraft}
                           setRequestDocsLead={setRequestDocsLead}
                           setReqDocSelections={setReqDocSelections}
                           setDeclineDeal={setDeclineDeal}
@@ -4868,47 +4730,6 @@ export function AgentPipelineTab({
           )}
         </div>
       )}
-
-      <AnimatePresence>
-        {notesLead ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[72] flex items-end justify-center bg-black/45 p-4 sm:items-center"
-            onClick={() => !notesSaving && setNotesLead(null)}
-          >
-            <motion.div
-              initial={{ y: 24, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 24, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-5 shadow-xl"
-            >
-              <p className="font-serif text-lg font-bold text-[#2C2C2C]">Closing notes</p>
-              <p className="mt-1 text-xs text-gray-500">{notesLead.name}</p>
-              <textarea
-                value={notesDraft}
-                onChange={(e) => setNotesDraft(e.target.value)}
-                onBlur={() => void saveClosingNotesOnBlur()}
-                rows={5}
-                className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#2C2C2C] outline-none focus:border-[#6B9E6E]/50 focus:ring-2 focus:ring-[#6B9E6E]/20"
-                placeholder="Notes saved to this lead on blur…"
-                disabled={notesSaving}
-              />
-              <div className="mt-3 flex justify-end gap-2">
-                <button
-                  type="button"
-                  className="rounded-full px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
-                  onClick={() => setNotesLead(null)}
-                >
-                  Close
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
 
       <Dialog
         open={viewingConfirmLead != null}
