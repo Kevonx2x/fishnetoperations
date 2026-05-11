@@ -72,6 +72,7 @@ import { isClientDocumentType, labelForClientDocType } from "@/lib/client-docume
 import { coerceLeadId, type ParsedViewing } from "@/lib/viewings";
 import { useAgentViewings } from "@/lib/agent-viewings-context";
 import { Button } from "@/components/ui/button";
+import { computePipelinePulseStats, PipelinePulseBar } from "@/components/dashboard/pipeline-pulse-bar";
 import {
   Dialog,
   DialogContent,
@@ -276,6 +277,9 @@ type AgentPipelineCardMenuKey =
   | "sendOffer"
   | "createReservation"
   | "markClosed"
+  | "markWon"
+  | "markLost"
+  | "agentArchive"
   | "declineArchive"
   | "moveTo";
 
@@ -292,6 +296,9 @@ const AGENT_PIPELINE_CARD_MENU_TAIL_KEYS: AgentPipelineCardMenuKey[] = [
   "sendOffer",
   "createReservation",
   "markClosed",
+  "markWon",
+  "markLost",
+  "agentArchive",
   "declineArchive",
   "moveTo",
 ];
@@ -302,7 +309,15 @@ function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipe
     return new Set<AgentPipelineCardMenuKey>(["viewDetails", "viewDocuments"]);
   }
   if (s === "closed") {
-    return new Set<AgentPipelineCardMenuKey>(["pin", "viewDetails", "viewDocuments", "messages", "editNotes"]);
+    return new Set<AgentPipelineCardMenuKey>([
+      "pin",
+      "viewDetails",
+      "viewDocuments",
+      "messages",
+      "editNotes",
+      "markLost",
+      "agentArchive",
+    ]);
   }
   if (s === "lead") {
     return new Set<AgentPipelineCardMenuKey>([
@@ -311,6 +326,9 @@ function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipe
       "messages",
       "editNotes",
       "requestDocuments",
+      "markWon",
+      "markLost",
+      "agentArchive",
       "declineArchive",
       "moveTo",
     ]);
@@ -323,6 +341,9 @@ function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipe
       "messages",
       "editNotes",
       "requestDocuments",
+      "markWon",
+      "markLost",
+      "agentArchive",
       "declineArchive",
       "moveTo",
     ]);
@@ -336,6 +357,9 @@ function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipe
       "editNotes",
       "requestDocuments",
       "createReservation",
+      "markWon",
+      "markLost",
+      "agentArchive",
       "declineArchive",
       "moveTo",
     ]);
@@ -349,6 +373,8 @@ function agentPipelineCardMenuKeysForStage(pipelineStage: string): Set<AgentPipe
       "editNotes",
       "requestDocuments",
       "markClosed",
+      "markLost",
+      "agentArchive",
       "declineArchive",
       "moveTo",
     ]);
@@ -890,6 +916,7 @@ function KanbanDealCard({
   onRequestNotes,
   onRequestDocuments,
   onRequestDecline,
+  onAgentArchive,
   onTogglePin,
   onMoveToStage,
   moveBusyId,
@@ -932,6 +959,7 @@ function KanbanDealCard({
   onRequestNotes: (lead: PipelineLeadRow) => void;
   onRequestDocuments: (lead: PipelineLeadRow) => void;
   onRequestDecline: (lead: PipelineLeadRow) => void;
+  onAgentArchive: (lead: PipelineLeadRow) => void;
   onTogglePin: (lead: PipelineLeadRow) => void;
   onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveBusyId: number | null;
@@ -1093,7 +1121,7 @@ function KanbanDealCard({
               }}
             >
               <p
-                className="line-clamp-2 break-words font-sans text-[15px] font-bold leading-snug tracking-tight text-[#2C2C2C]"
+                className="line-clamp-2 break-words font-sans text-[15px] font-bold leading-normal tracking-tight text-[#2C2C2C]"
               >
                 {propLine}
               </p>
@@ -1444,6 +1472,50 @@ function KanbanDealCard({
                                 </button>
                               ) : null}
 
+                              {pipelineMenuKeys.has("markWon") ? (
+                                <button
+                                  type="button"
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C5F32] transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                  onClick={() => {
+                                    onMarkClosed(deal);
+                                    setMenuOpenId(null);
+                                  }}
+                                >
+                                  <CircleCheck className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                                  Mark as Won
+                                </button>
+                              ) : null}
+
+                              {pipelineMenuKeys.has("markLost") ? (
+                                <button
+                                  type="button"
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-red-600 transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                  onClick={() => {
+                                    onRequestDecline(deal);
+                                    setMenuOpenId(null);
+                                    setMenuMoveOpen(false);
+                                  }}
+                                >
+                                  <X className="h-4 w-4 shrink-0 text-red-600" aria-hidden />
+                                  Mark as Lost
+                                </button>
+                              ) : null}
+
+                              {pipelineMenuKeys.has("agentArchive") ? (
+                                <button
+                                  type="button"
+                                  className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-[#2C2C2C]/70 transition-colors duration-150 hover:bg-[#F0F4F0]"
+                                  onClick={() => {
+                                    onAgentArchive(deal);
+                                    setMenuOpenId(null);
+                                    setMenuMoveOpen(false);
+                                  }}
+                                >
+                                  <Archive className="h-4 w-4 shrink-0 text-[#2C2C2C]/55" aria-hidden />
+                                  Archive
+                                </button>
+                              ) : null}
+
                               {pipelineMenuKeys.has("declineArchive") ? (
                                 <button
                                   type="button"
@@ -1608,6 +1680,7 @@ function KanbanStageColumn({
   setRequestDocsLead,
   setReqDocSelections,
   setDeclineDeal,
+  onAgentArchive,
   onTogglePin,
   moveDealToStage,
   moveToStageBusyId,
@@ -1651,6 +1724,7 @@ function KanbanStageColumn({
     React.SetStateAction<{ valid_id: boolean; proof_of_funds: boolean; visa: boolean; other: boolean }>
   >;
   setDeclineDeal: (d: PipelineLeadRow | null) => void;
+  onAgentArchive: (lead: PipelineLeadRow) => void;
   onTogglePin: (lead: PipelineLeadRow) => void;
   moveDealToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveToStageBusyId: number | null;
@@ -1668,55 +1742,45 @@ function KanbanStageColumn({
   const { setNodeRef, isOver } = useDroppable({ id: containerId });
   return (
     <div
-      key={stage}
-      className="flex max-w-[320px] min-w-[180px] flex-1 flex-col self-stretch sm:min-w-[200px] xl:min-w-[220px]"
+      className={cn(
+        "flex h-full w-full max-w-[320px] min-w-[180px] flex-col gap-2 rounded-xl p-2 sm:min-w-[200px] xl:min-w-[220px]",
+        "bg-[#2C2C2C]/[0.028] ring-1 ring-inset ring-[#2C2C2C]/[0.055]",
+        "transition-[background-color,box-shadow] duration-200 ease-out",
+      )}
     >
-      {/* KANBAN-PREMIUM-REVERT: lane-well — delete this wrapper and restore header + droppable as direct children of the column */}
-      <div
-        className={cn(
-          "flex min-h-0 flex-1 flex-col gap-2 rounded-xl p-2",
-          "bg-[#2C2C2C]/[0.028] ring-1 ring-inset ring-[#2C2C2C]/[0.055]",
-          "transition-[background-color,box-shadow] duration-200 ease-out",
-        )}
-      >
-        <div className="shrink-0 overflow-hidden rounded-lg border border-[#2C2C2C]/[0.07] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <div aria-hidden className="h-0.5 w-full" style={{ backgroundColor: barHex }} />
-          <div className="flex min-h-[52px] flex-col justify-center border-b border-[#2C2C2C]/[0.06] px-3 py-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="min-w-0 truncate font-sans text-[13px] font-bold uppercase tracking-[0.06em] text-[#2C2C2C]/88">
-                {label}
-              </p>
-              <span className="shrink-0 rounded-full bg-[#F4F5F6] px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-[#2C2C2C]/72 ring-1 ring-[#2C2C2C]/[0.06]">
-                {count}
-              </span>
-            </div>
+      <div className="shrink-0 overflow-hidden rounded-lg border border-[#2C2C2C]/[0.07] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+        <div aria-hidden className="h-0.5 w-full" style={{ backgroundColor: barHex }} />
+        <div className="flex min-h-[52px] flex-col justify-center border-b border-[#2C2C2C]/[0.06] px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="min-w-0 truncate font-sans text-[13px] font-bold uppercase tracking-[0.06em] text-[#2C2C2C]/88">
+              {label}
+            </p>
+            <span className="shrink-0 rounded-full bg-[#F4F5F6] px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-[#2C2C2C]/72 ring-1 ring-[#2C2C2C]/[0.06]">
+              {count}
+            </span>
           </div>
         </div>
+      </div>
 
-        <div
-          ref={setNodeRef}
-          className={cn(
-            "flex flex-1 flex-col rounded-lg border border-transparent bg-transparent",
-            "transition-[background-color,border-color,box-shadow] duration-200 ease-out",
-            isOver &&
-              "border-[#6B9E6E]/30 bg-[#6B9E6E]/[0.08] shadow-[inset_0_0_0_1px_rgba(107,158,110,0.12)]",
-          )}
-        >
-          {list.length === 0 ? (
-            <div className="flex flex-col">
-              {/* KANBAN-PREMIUM-REVERT: empty-state — restore rounded-2xl bg-[#ECEEEF]/80 opacity-[0.78] */}
-              <div className="flex min-h-[152px] flex-col items-center justify-center rounded-lg border border-dashed border-[#2C2C2C]/[0.11] bg-white/55 px-3 py-6 text-center shadow-[0_1px_2px_rgba(0,0,0,0.03)] backdrop-blur-[2px]">
-                {pipelineColumnEmptyIcon(stage)}
-                <p className="mt-3 font-sans text-[12px] font-bold text-[#2C2C2C]/60">No deals yet</p>
-                <p className="mt-1 max-w-[200px] font-sans text-[10px] font-medium leading-snug text-[#2C2C2C]/42">
-                  Drag deals here or wait for new inquiries.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-              {/* KANBAN-PREMIUM-REVERT: card stack rhythm — restore space-y-2 */}
-              <div className="space-y-2.5 pb-2">
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "flex min-h-0 flex-1 flex-col rounded-lg border border-transparent transition-[border-color,box-shadow] duration-200 ease-out",
+          isOver &&
+            "border-[#6B9E6E]/40 shadow-[inset_0_0_0_1px_rgba(107,158,110,0.12)]",
+        )}
+      >
+        {list.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-3 py-10 text-center">
+            {pipelineColumnEmptyIcon(stage)}
+            <p className="mt-3 font-sans text-[12px] font-bold text-[#2C2C2C]/60">No deals yet</p>
+            <p className="mt-1 max-w-[200px] font-sans text-[10px] font-medium leading-snug text-[#2C2C2C]/40">
+              Drag deals here or wait for new inquiries.
+            </p>
+          </div>
+        ) : (
+          <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+            <div className="flex min-h-0 flex-1 flex-col space-y-2.5 pb-2">
               {list.map((deal, i) => (
                 <KanbanDealCard
                   key={deal.id}
@@ -1758,6 +1822,7 @@ function KanbanStageColumn({
                     });
                   }}
                   onRequestDecline={(d) => setDeclineDeal(d)}
+                  onAgentArchive={onAgentArchive}
                   onTogglePin={onTogglePin}
                   onMoveToStage={moveDealToStage}
                   moveBusyId={moveToStageBusyId}
@@ -1773,10 +1838,9 @@ function KanbanStageColumn({
                   tourViewingCardAnchor={stage === "viewing" && i === 0}
                 />
               ))}
-              </div>
-            </SortableContext>
-          )}
-        </div>
+            </div>
+          </SortableContext>
+        )}
       </div>
     </div>
   );
@@ -1803,6 +1867,7 @@ function SortableDealCard({
   onRequestNotes,
   onRequestDocuments,
   onRequestDecline,
+  onAgentArchive,
   onTogglePin,
   onMoveToStage,
   moveBusyId,
@@ -1838,6 +1903,7 @@ function SortableDealCard({
   onRequestNotes: (lead: PipelineLeadRow) => void;
   onRequestDocuments: (lead: PipelineLeadRow) => void;
   onRequestDecline: (lead: PipelineLeadRow) => void;
+  onAgentArchive: (lead: PipelineLeadRow) => void;
   onTogglePin: (lead: PipelineLeadRow) => void;
   onMoveToStage: (lead: PipelineLeadRow, stage: PipelineStageId) => void;
   moveBusyId: number | null;
@@ -2227,6 +2293,47 @@ function SortableDealCard({
                       >
                         <CircleCheck className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
                         <span className="min-w-0 flex-1">Mark as Closed</span>
+                      </button>
+                    ) : null}
+                    {pipelineMenuKeys.has("markWon") ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-semibold text-[#2C5F32] hover:bg-gray-50"
+                        onClick={() => {
+                          onMarkClosed(deal);
+                          setMenuOpenId(null);
+                        }}
+                      >
+                        <CircleCheck className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                        <span className="min-w-0 flex-1">Mark as Won</span>
+                      </button>
+                    ) : null}
+                    {pipelineMenuKeys.has("markLost") ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-semibold text-red-600 hover:bg-gray-50"
+                        onClick={() => {
+                          onRequestDecline(deal);
+                          setMenuOpenId(null);
+                          setMenuMoveOpen(false);
+                        }}
+                      >
+                        <X className="h-4 w-4 shrink-0 text-red-600" aria-hidden />
+                        <span className="min-w-0 flex-1">Mark as Lost</span>
+                      </button>
+                    ) : null}
+                    {pipelineMenuKeys.has("agentArchive") ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-semibold text-[#2C2C2C]/70 hover:bg-gray-50"
+                        onClick={() => {
+                          onAgentArchive(deal);
+                          setMenuOpenId(null);
+                          setMenuMoveOpen(false);
+                        }}
+                      >
+                        <Archive className="h-4 w-4 shrink-0 text-[#2C2C2C]/55" aria-hidden />
+                        <span className="min-w-0 flex-1">Archive</span>
                       </button>
                     ) : null}
                     {pipelineMenuKeys.has("declineArchive") ? (
@@ -3019,6 +3126,11 @@ export function AgentPipelineTab({
     kanbanIdsRef.current = kanbanIdsByStage;
   }, [kanbanIdsByStage]);
 
+  const pipelinePulseStats = useMemo(
+    () => computePipelinePulseStats(deals, dealValueNumberByPropertyId),
+    [deals, dealValueNumberByPropertyId],
+  );
+
   useEffect(() => {
     if (kanbanBoardMutationDepth > 0) return;
     setKanbanIdsByStage({
@@ -3637,6 +3749,34 @@ export function AgentPipelineTab({
       return null;
     };
 
+    if (overId.startsWith("kanban-zone:")) {
+      const zone = overId.slice("kanban-zone:".length);
+      const lead = leadById.get(activeId);
+      if (!lead) return;
+      if (zone === "won") {
+        setCloseLead(lead);
+        setCloseBusy(false);
+        return;
+      }
+      if (zone === "lost") {
+        setDeclineDeal(lead);
+        return;
+      }
+      if (zone === "archive") {
+        const revertSnapshot = cloneKanbanIdsByStage(kanbanIdsRef.current);
+        setKanbanIdsByStage((s) => {
+          const next = { ...s } as Record<PipelineStageId, string[]>;
+          for (const st of KANBAN_STAGE_ORDER) {
+            next[st] = next[st].filter((x) => x !== activeId);
+          }
+          return next;
+        });
+        void archiveLeadFromBoard(lead, { revertSnapshot, kanbanAlreadyUpdated: true });
+        return;
+      }
+      return;
+    }
+
     const fromStage = findStageForId(activeId);
     if (!fromStage) return;
 
@@ -3766,6 +3906,65 @@ export function AgentPipelineTab({
       }
     },
     [onRefresh],
+  );
+
+  const archiveLeadFromBoard = useCallback(
+    async (
+      lead: PipelineLeadRow,
+      opts?: { revertSnapshot?: Record<PipelineStageId, string[]>; kanbanAlreadyUpdated?: boolean },
+    ) => {
+      const id = String(lead.id);
+      const revert = opts?.revertSnapshot ?? cloneKanbanIdsByStage(kanbanIdsRef.current);
+
+      if (!opts?.kanbanAlreadyUpdated) {
+        setKanbanIdsByStage((s0) => {
+          const next = { ...s0 } as Record<PipelineStageId, string[]>;
+          for (const st of KANBAN_STAGE_ORDER) {
+            next[st] = next[st].filter((x) => x !== id);
+          }
+          return next;
+        });
+      }
+
+      setKanbanBoardMutationDepth((d) => d + 1);
+      setMoveToStageBusyId(lead.id);
+      try {
+        const res = await fetch("/api/agent/archive-lead", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ lead_id: lead.id }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { error?: string };
+        if (!res.ok) {
+          toast.error(json.error ?? "Could not archive");
+          setKanbanIdsByStage(revert);
+          return;
+        }
+        toast.success("Archived");
+        await Promise.resolve(onRefresh());
+      } finally {
+        setMoveToStageBusyId(null);
+        setKanbanBoardMutationDepth((d) => d - 1);
+      }
+    },
+    [onRefresh],
+  );
+
+  const handleAgentArchiveFromMenu = useCallback(
+    (lead: PipelineLeadRow) => {
+      const revertSnapshot = cloneKanbanIdsByStage(kanbanIdsRef.current);
+      const id = String(lead.id);
+      setKanbanIdsByStage((s0) => {
+        const next = { ...s0 } as Record<PipelineStageId, string[]>;
+        for (const st of KANBAN_STAGE_ORDER) {
+          next[st] = next[st].filter((x) => x !== id);
+        }
+        return next;
+      });
+      void archiveLeadFromBoard(lead, { revertSnapshot, kanbanAlreadyUpdated: true });
+    },
+    [archiveLeadFromBoard],
   );
 
   const closeViewingConfirmModal = () => {
@@ -3958,7 +4157,7 @@ export function AgentPipelineTab({
   );
 
   return (
-    <div className="w-full min-w-0 max-w-full bg-[#FAF8F4] font-sans text-[#2C2C2C]">
+    <div className="flex w-full min-w-0 max-w-full flex-col bg-[#FAF8F4] font-sans text-[#2C2C2C]">
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -3970,7 +4169,7 @@ export function AgentPipelineTab({
 `,
         }}
       />
-      <div className="flex w-full min-w-0 flex-col gap-2 pb-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-x-3 lg:gap-y-2 lg:pb-4">
+      <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 pb-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-x-3 lg:gap-y-2 lg:pb-4">
         {pipelineVault === "active" ? (
           <>
             <div className="scrollbar-hide flex min-w-0 max-w-full flex-nowrap items-center gap-3 overflow-x-auto">
@@ -4180,7 +4379,7 @@ export function AgentPipelineTab({
       </div>
 
       {pipelineVault === "active" ? (
-        <>
+        <div className="flex w-full min-w-0 flex-col">
       {pipelineSearchQuery.trim() ? (
         <p className="rounded-lg border border-[#6B9E6E]/25 bg-[#6B9E6E]/10 px-3 py-2 text-center font-sans text-xs font-semibold text-[#2C2C2C]">
           Showing {visibleDeals.length} deal{visibleDeals.length === 1 ? "" : "s"} matching{" "}
@@ -4319,6 +4518,7 @@ export function AgentPipelineTab({
                     });
                   }}
                   onRequestDecline={(d) => setDeclineDeal(d)}
+                  onAgentArchive={handleAgentArchiveFromMenu}
                   onTogglePin={togglePin}
                   onMoveToStage={moveDealToStage}
                   moveBusyId={moveToStageBusyId}
@@ -4341,7 +4541,7 @@ export function AgentPipelineTab({
       </div>
       </div>
 
-      {/* Desktop: Pipedrive-style kanban columns — toolbar stays fixed; columns scroll horizontally */}
+      {/* Desktop: grid lanes + sticky pulse bar (stats / drop zones while dragging); horizontal scroll on columns only */}
       <div className="hidden w-full min-w-0 max-w-full overflow-x-hidden lg:block">
         <div className="relative w-full min-w-0">
           {kanbanFadeRight ? (
@@ -4350,123 +4550,128 @@ export function AgentPipelineTab({
               className="pointer-events-none absolute inset-y-0 right-0 z-20 w-10 bg-gradient-to-l from-[#FAF8F4] to-transparent"
             />
           ) : null}
-          <div
-            ref={kanbanScrollRef}
-            className="relative isolate flex min-h-[calc(100vh-280px)] w-full min-w-0 flex-col overflow-x-auto overflow-y-visible bg-[#FAF8F4] px-1 py-2 scrollbar-hide"
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleKanbanDragStart}
+            onDragCancel={handleKanbanDragCancel}
+            onDragEnd={handleKanbanDragEnd}
           >
-            {menuOpenId != null ? (
-              <button
-                type="button"
-                aria-label="Close menu"
-                data-kanban-menu-backdrop="true"
-                className="absolute inset-0 z-[9000] bg-black/5"
-                onClick={() => {
-                  setMenuOpenId(null);
-                  setMenuMoveOpen(false);
-                }}
-                onPointerDown={(e) => {
-                  // Prevent underlying card clicks; allow one-click switching to another ⋯ menu.
-                  const x = e.clientX;
-                  const y = e.clientY;
-                  setMenuOpenId(null);
-                  setMenuMoveOpen(false);
-                  requestAnimationFrame(() => {
-                    const el = document.elementFromPoint(x, y) as HTMLElement | null;
-                    const btn = el?.closest?.("[data-kanban-menu-button='true']") as HTMLElement | null;
-                    btn?.click?.();
-                  });
-                }}
-              />
-            ) : null}
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={handleKanbanDragStart}
-              onDragCancel={handleKanbanDragCancel}
-              onDragEnd={handleKanbanDragEnd}
-            >
-              {/*
-                Board uses min-height (not fixed h) so lanes can grow with content; main Pipeline scrolls.
-                Row flex-1 fills at least that min-height when content is short.
-              */}
-              <div className="flex w-full min-w-0 flex-1 flex-col">
-                {/* KANBAN-PREMIUM-REVERT: column gutters — restore gap-2 */}
-                <div className="flex w-full min-w-0 flex-1 flex-row items-stretch gap-3">
-                {(filterStages && filterStages.length > 0
-                  ? KANBAN_STAGE_ORDER.filter((s) => filterStages.includes(s))
-                  : KANBAN_STAGE_ORDER
-                ).map((stage) => {
-                  const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
-                  const list = dealsByStage[stage];
-                  const count = stageTotals[stage]?.count ?? list.length;
-                  const ids = kanbanIdsByStage[stage] ?? list.map((d) => String(d.id));
-                  const barHex = stageBarHex(stage);
+            <div className="flex w-full min-w-0 flex-col">
+              <div
+                ref={kanbanScrollRef}
+                className="relative isolate w-full min-w-0 overflow-x-auto overflow-y-visible bg-[#FAF8F4] px-1 py-2 scrollbar-hide"
+              >
+                {menuOpenId != null ? (
+                  <button
+                    type="button"
+                    aria-label="Close menu"
+                    data-kanban-menu-backdrop="true"
+                    className="absolute inset-0 z-[9000] bg-black/5"
+                    onClick={() => {
+                      setMenuOpenId(null);
+                      setMenuMoveOpen(false);
+                    }}
+                    onPointerDown={(e) => {
+                      const x = e.clientX;
+                      const y = e.clientY;
+                      setMenuOpenId(null);
+                      setMenuMoveOpen(false);
+                      requestAnimationFrame(() => {
+                        const el = document.elementFromPoint(x, y) as HTMLElement | null;
+                        const btn = el?.closest?.("[data-kanban-menu-button='true']") as HTMLElement | null;
+                        btn?.click?.();
+                      });
+                    }}
+                  />
+                ) : null}
+                <div
+                  className="grid w-full min-w-0 items-stretch gap-3 pb-32"
+                  style={{
+                    gridTemplateColumns: `repeat(${(filterStages && filterStages.length > 0
+                      ? KANBAN_STAGE_ORDER.filter((s) => filterStages.includes(s))
+                      : KANBAN_STAGE_ORDER
+                    ).length}, minmax(180px, 1fr))`,
+                  }}
+                >
+                  {(filterStages && filterStages.length > 0
+                    ? KANBAN_STAGE_ORDER.filter((s) => filterStages.includes(s))
+                    : KANBAN_STAGE_ORDER
+                  ).map((stage) => {
+                    const label = PIPELINE_STAGES.find((s) => s.id === stage)?.label ?? stage;
+                    const list = dealsByStage[stage];
+                    const count = stageTotals[stage]?.count ?? list.length;
+                    const ids = kanbanIdsByStage[stage] ?? list.map((d) => String(d.id));
+                    const barHex = stageBarHex(stage);
 
-                  return (
-                    <KanbanStageColumn
-                      key={stage}
-                      stage={stage}
-                      label={label}
-                      count={count}
-                      barHex={barHex}
-                      ids={ids}
-                      list={ids.map((id) => leadById.get(String(id))).filter((d): d is PipelineLeadRow => !!d)}
-                      propertyLabel={propertyLabel}
-                      dealValueByPropertyId={dealValueByPropertyId}
-                      uploadedRequestedDocCountByLeadId={uploadedRequestedDocCountByLeadId}
-                      unviewedUploadedDocCountByLeadId={unviewedUploadedDocCountByLeadId}
-                      scheduledViewingByLeadId={scheduledViewingByLeadId}
-                      offerCreatedAtByLeadId={offerCreatedAtByLeadId}
-                      reservationCreatedAtByLeadId={reservationCreatedAtByLeadId}
-                      openDocs={openDocs}
-                      onSendOffer={(lead) => setOfferLead(lead)}
-                      onCreateReservation={(lead) => setReservationLead(lead)}
-                      onMarkClosed={(lead) => {
-                        setCloseLead(lead);
-                        setCloseBusy(false);
-                      }}
-                      menuOpenId={menuOpenId}
-                      setMenuOpenId={setMenuOpenId}
-                      menuMoveOpen={menuMoveOpen}
-                      setMenuMoveOpen={setMenuMoveOpen}
-                      menuWrapRef={menuWrapRef}
-                      onOpenLeadDetails={onOpenLeadDetails}
-                      setNotesLead={setNotesLead}
-                      setNotesDraft={setNotesDraft}
-                      setRequestDocsLead={setRequestDocsLead}
-                      setReqDocSelections={setReqDocSelections}
-                      setDeclineDeal={setDeclineDeal}
-                      onTogglePin={togglePin}
-                      moveDealToStage={moveDealToStage}
-                      moveToStageBusyId={moveToStageBusyId}
-                      viewingRequestMetaByLeadId={viewingRequestMetaByLeadId}
-                      reschedulePendingByLeadId={reschedulePendingByLeadId}
-                      streamUnreadByLeadId={streamUnreadByLeadId}
-                      markNewLeadSeenOnMenuOpen={markNewLeadSeenOnMenuOpen}
-                      markViewingRequestSeen={markViewingRequestSeen}
-                      onOpenMessagesForClient={onOpenMessagesForClient}
-                      onRescheduleAccept={handleRescheduleAccept}
-                      onRescheduleDecline={handleRescheduleDecline}
-                      onOpenCounterReschedule={openCounterRescheduleModal}
-                    />
-                  );
-                })}
-                </div>
-                <DragOverlay dropAnimation={null}>
-                  {activeKanbanDealId ? (
-                    <div className="w-[220px]">
-                      <div className="rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-2xl">
-                        <div className="font-sans text-[12px] font-semibold text-[#2C2C2C]/60">Moving deal…</div>
+                    return (
+                      <div key={stage} className="flex h-full min-w-0 justify-center">
+                        <KanbanStageColumn
+                          stage={stage}
+                          label={label}
+                          count={count}
+                          barHex={barHex}
+                          ids={ids}
+                          list={ids.map((id) => leadById.get(String(id))).filter((d): d is PipelineLeadRow => !!d)}
+                          propertyLabel={propertyLabel}
+                          dealValueByPropertyId={dealValueByPropertyId}
+                          uploadedRequestedDocCountByLeadId={uploadedRequestedDocCountByLeadId}
+                          unviewedUploadedDocCountByLeadId={unviewedUploadedDocCountByLeadId}
+                          scheduledViewingByLeadId={scheduledViewingByLeadId}
+                          offerCreatedAtByLeadId={offerCreatedAtByLeadId}
+                          reservationCreatedAtByLeadId={reservationCreatedAtByLeadId}
+                          openDocs={openDocs}
+                          onSendOffer={(lead) => setOfferLead(lead)}
+                          onCreateReservation={(lead) => setReservationLead(lead)}
+                          onMarkClosed={(lead) => {
+                            setCloseLead(lead);
+                            setCloseBusy(false);
+                          }}
+                          menuOpenId={menuOpenId}
+                          setMenuOpenId={setMenuOpenId}
+                          menuMoveOpen={menuMoveOpen}
+                          setMenuMoveOpen={setMenuMoveOpen}
+                          menuWrapRef={menuWrapRef}
+                          onOpenLeadDetails={onOpenLeadDetails}
+                          setNotesLead={setNotesLead}
+                          setNotesDraft={setNotesDraft}
+                          setRequestDocsLead={setRequestDocsLead}
+                          setReqDocSelections={setReqDocSelections}
+                          setDeclineDeal={setDeclineDeal}
+                          onAgentArchive={handleAgentArchiveFromMenu}
+                          onTogglePin={togglePin}
+                          moveDealToStage={moveDealToStage}
+                          moveToStageBusyId={moveToStageBusyId}
+                          viewingRequestMetaByLeadId={viewingRequestMetaByLeadId}
+                          reschedulePendingByLeadId={reschedulePendingByLeadId}
+                          streamUnreadByLeadId={streamUnreadByLeadId}
+                          markNewLeadSeenOnMenuOpen={markNewLeadSeenOnMenuOpen}
+                          markViewingRequestSeen={markViewingRequestSeen}
+                          onOpenMessagesForClient={onOpenMessagesForClient}
+                          onRescheduleAccept={handleRescheduleAccept}
+                          onRescheduleDecline={handleRescheduleDecline}
+                          onOpenCounterReschedule={openCounterRescheduleModal}
+                        />
                       </div>
-                    </div>
-                  ) : null}
-                </DragOverlay>
+                    );
+                  })}
+                </div>
               </div>
-            </DndContext>
+              <PipelinePulseBar stats={pipelinePulseStats} />
+            </div>
+            <DragOverlay dropAnimation={null}>
+              {activeKanbanDealId ? (
+                <div className="w-[220px]">
+                  <div className="rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-2xl">
+                    <div className="font-sans text-[12px] font-semibold text-[#2C2C2C]/60">Moving deal…</div>
+                  </div>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         </div>
       </div>
-      </div>
-        </>
+        </div>
       ) : (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           {archivedLeads.length === 0 ? (

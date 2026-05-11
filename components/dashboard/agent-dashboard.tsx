@@ -223,6 +223,8 @@ type LeadRow = {
   archive_reason?: string | null;
   archive_note?: string | null;
   stage_at_archive?: string | null;
+  /** Agent hid lead from active pipeline (see `archived_by_agent` migration). */
+  archived_by_agent?: boolean | null;
 };
 
 async function fetchViewingRequestMetaByLeadId(
@@ -1159,6 +1161,7 @@ export function AgentDashboard() {
             .select(leadSel)
             .eq("agent_id", supervisorUserId)
             .eq("archived_by_client", false)
+            .eq("archived_by_agent", false)
             .order("created_at", { ascending: false }),
           supabase
             .from("leads")
@@ -1232,6 +1235,7 @@ export function AgentDashboard() {
           .select("id", { count: "exact", head: true })
           .eq("agent_id", supervisorUserId)
           .eq("archived_by_client", false)
+          .eq("archived_by_agent", false)
           .gte("created_at", startYesterdayIso)
           .lt("created_at", startTodayIso);
         setYesterdayNewLeadsCount(yLeadRes.error ? 0 : (yLeadRes.count ?? 0));
@@ -1324,6 +1328,7 @@ export function AgentDashboard() {
           .select(leadSel)
           .eq("agent_id", user.id)
           .eq("archived_by_client", false)
+          .eq("archived_by_agent", false)
           .order("created_at", { ascending: false }),
         supabase
           .from("leads")
@@ -1414,6 +1419,7 @@ export function AgentDashboard() {
         .select("id", { count: "exact", head: true })
         .eq("agent_id", user.id)
         .eq("archived_by_client", false)
+        .eq("archived_by_agent", false)
         .gte("created_at", startYesterdayIso)
         .lt("created_at", startTodayIso);
       setYesterdayNewLeadsCount(yLeadRes.error ? 0 : (yLeadRes.count ?? 0));
@@ -2668,7 +2674,7 @@ export function AgentDashboard() {
             tab === "messages"
               ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
               : tab === "pipeline"
-                ? "px-4 py-3 md:overflow-y-auto md:px-8 md:py-5 md:pb-5"
+                ? "min-h-0 px-4 py-3 md:overflow-y-auto md:px-8 md:py-5 md:pb-5"
                 : "px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 md:pb-10",
           )}
         >
@@ -2679,11 +2685,19 @@ export function AgentDashboard() {
           ) : null}
           {null}
 
-          <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
+          <div
+            className={cn(
+              "flex w-full min-w-0 flex-col",
+              tab === "pipeline" ? "min-h-0" : "min-h-0 flex-1",
+            )}
+          >
             <AnimatePresence mode="wait">
               <motion.div
                 key={tab}
-                className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col"
+                className={cn(
+                  "flex w-full min-w-0 flex-col",
+                  tab === "pipeline" ? "min-h-0" : "h-full min-h-0 flex-1",
+                )}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
