@@ -8,7 +8,12 @@ export type PropertySummary = {
   id: string;
   name: string | null;
   address: string | null;
+  /** Primary list price (sale) when applicable. */
   price: string | null;
+  rent_price: string | null;
+  listing_type: string | null;
+  /** DB `status` (e.g. for_sale / for_rent) for display helpers. */
+  listing_status: string | null;
   beds: number | null;
   baths: number | null;
   sqft: string | null;
@@ -39,7 +44,9 @@ export async function GET(
   const sb = createSupabaseAdmin();
   const { data, error } = await sb
     .from("properties")
-    .select("id, name, location, price, beds, baths, sqft, image_url, deleted_at, is_demo, listed_by")
+    .select(
+      "id, name, location, price, rent_price, listing_type, status, beds, baths, sqft, image_url, deleted_at, is_demo, listed_by",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -50,12 +57,15 @@ export async function GET(
     return fail("NOT_FOUND", "Property not found", 404);
   }
 
-  const row = data as { is_demo?: boolean | null; listed_by?: string | null };
-  if (
-    row.is_demo === true &&
-    !isAdminPanelRole(session.role) &&
-    row.listed_by !== session.userId
-  ) {
+  const row = data as {
+    is_demo?: boolean | null;
+    listed_by?: string | null;
+    price?: string | null;
+    rent_price?: string | null;
+    listing_type?: string | null;
+    status?: string | null;
+  };
+  if (row.is_demo === true && !isAdminPanelRole(session.role) && row.listed_by !== session.userId) {
     return fail("NOT_FOUND", "Property not found", 404);
   }
 
@@ -64,7 +74,10 @@ export async function GET(
     id: data.id as string,
     name: (data.name as string | null) ?? null,
     address: (data.location as string | null) ?? null,
-    price: (data.price as string | null) ?? null,
+    price: row.price ?? null,
+    rent_price: row.rent_price ?? null,
+    listing_type: row.listing_type ?? null,
+    listing_status: row.status ?? null,
     beds: (data.beds as number | null) ?? null,
     baths: (data.baths as number | null) ?? null,
     sqft: (data.sqft as string | null) ?? null,

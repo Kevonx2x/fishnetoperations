@@ -1,7 +1,7 @@
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
 import { Archive, Pin } from "lucide-react";
-import type { Channel as StreamChannel, LocalMessage, OwnUserResponse } from "stream-chat";
+import type { Channel as StreamChannel, LocalMessage } from "stream-chat";
 import { Avatar, useChatContext } from "stream-chat-react";
 import type { ChannelPreviewUIComponentProps } from "stream-chat-react";
 
@@ -55,16 +55,6 @@ export function ConversationPreview(
     } catch {
       unreadBefore = 0;
     }
-    const totalBefore =
-      client.user && typeof (client.user as OwnUserResponse).total_unread_count === "number"
-        ? (client.user as OwnUserResponse).total_unread_count
-        : 0;
-    console.log("[conversation-click]", {
-      channel_cid: channel.cid,
-      unread_before: unreadBefore,
-      total_before: totalBefore,
-      timestamp: new Date().toISOString(),
-    });
     try {
       await channel.watch();
     } catch {
@@ -74,27 +64,11 @@ export function ConversationPreview(
     if (unreadBefore > 0) {
       try {
         await channel.markRead();
-        let unreadAfter = 0;
-        try {
-          unreadAfter = channel.countUnread();
-        } catch {
-          unreadAfter = 0;
-        }
-        const totalAfter =
-          client.user && typeof (client.user as OwnUserResponse).total_unread_count === "number"
-            ? (client.user as OwnUserResponse).total_unread_count
-            : 0;
-        console.log("[markRead-complete]", {
-          channel_cid: channel.cid,
-          unread_after: unreadAfter,
-          total_after: totalAfter,
-          timestamp: new Date().toISOString(),
-        });
       } catch (e) {
         console.error("[markRead-failed]", e);
       }
     }
-  }, [activeChannel?.cid, channel, client, setActiveChannel]);
+  }, [activeChannel?.cid, channel, setActiveChannel]);
 
   const handleRowClick = (e: MouseEvent) => {
     void activateChannel();
@@ -144,7 +118,7 @@ export function ConversationPreview(
       onClick={handleRowClick}
       onKeyDown={handleRowKeyDown}
       className={cn(
-        "group relative flex w-full cursor-pointer items-start gap-3 border-b border-fg/[0.06] px-3 py-3 text-left outline-none transition-colors last:border-b-0 hover:bg-fg/[0.03] focus-visible:ring-2 focus-visible:ring-brand-sage/40",
+        "group relative flex w-full cursor-pointer items-start gap-3 border-b border-fg/[0.06] px-3 py-[9px] text-left outline-none transition-colors last:border-b-0 hover:bg-fg/[0.03] focus-visible:ring-2 focus-visible:ring-brand-sage/40",
         active ? "bg-fg/[0.06]" : "bg-transparent",
       )}
     >

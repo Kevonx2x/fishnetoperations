@@ -5,6 +5,7 @@ import { Attachment, Avatar, MessageText, useChannelStateContext, useMessageCont
 
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
+import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { messageGapForIndex } from "@/features/messaging/lib/message-grouping";
 import type { ChannelPropertyMetadata } from "@/features/messaging/types";
 
@@ -67,6 +68,9 @@ export function CustomMessage() {
     String(channelMeta.property_name ?? "").trim();
   const propertyPrice =
     propertyPriceFromMeta || String(channelMeta.property_price ?? "").trim();
+  const propertyPriceDisplay = propertyPrice
+    ? formatPropertyPriceDisplay(propertyPrice.replace(/^\$/u, "").trim(), undefined)
+    : "";
   const propertyImage =
     propertyImageFromMeta || String(channelMeta.property_image ?? "").trim();
 
@@ -115,7 +119,9 @@ export function CustomMessage() {
               <span className="min-w-0">
                 <span className="block truncate text-xs font-semibold text-fg">{propertyName || "View property"}</span>
                 {propertyPrice ? (
-                  <span className="block truncate text-[11px] font-semibold text-[#D4A843]">{propertyPrice}</span>
+                  <span className="block truncate text-[11px] font-semibold text-[#2C2C2C]/80">
+                    {propertyPriceDisplay}
+                  </span>
                 ) : null}
               </span>
             </Link>

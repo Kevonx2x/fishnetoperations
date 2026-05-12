@@ -3091,6 +3091,7 @@ export function AgentPipelineTab({
         .from("deal_documents")
         .select("lead_id, status, viewed_by_agent_at")
         .in("lead_id", leadIds)
+        .eq("direction", "requested")
         .in("status", ["pending", "uploaded"]);
       if (cancelled) return;
       if (error) {

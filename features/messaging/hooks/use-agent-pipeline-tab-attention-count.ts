@@ -14,6 +14,7 @@ import { useLeadStreamUnreadMap } from "@/features/messaging/hooks/use-lead-stre
 
 export type AgentPipelineAttentionLead = {
   id: number;
+  created_at?: string | null;
   client_id?: string | null;
   new_lead_seen_at?: string | null;
   new_viewing_request_seen_at?: string | null;

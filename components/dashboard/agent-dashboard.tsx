@@ -960,6 +960,8 @@ export function AgentDashboard() {
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [notificationsNavDotSuppressed, setNotificationsNavDotSuppressed] = useState(false);
   const unreadNotifCountPrevRef = useRef<number | null>(null);
+  const [pipelineNavDotSuppressed, setPipelineNavDotSuppressed] = useState(false);
+  const pipelineAttentionCountPrevRef = useRef<number | null>(null);
 
   const pipelineTabAttentionCount = useAgentPipelineTabAttentionCount(
     supabase,
@@ -982,7 +984,25 @@ export function AgentDashboard() {
     }
   }, [tab]);
 
+  useEffect(() => {
+    const prev = pipelineAttentionCountPrevRef.current;
+    pipelineAttentionCountPrevRef.current = pipelineTabAttentionCount;
+    if (prev == null) return;
+    if (pipelineTabAttentionCount > prev) {
+      setPipelineNavDotSuppressed(false);
+    }
+  }, [pipelineTabAttentionCount]);
+
+  useEffect(() => {
+    if (tab === "pipeline") {
+      setPipelineNavDotSuppressed(true);
+    }
+  }, [tab]);
+
   const showNotificationsSidebarDot = unreadNotificationsCount > 0 && !notificationsNavDotSuppressed;
+  /** Hide while on Pipeline; after a visit, stay hidden on other tabs until attention count goes up (new work). */
+  const showPipelineSidebarAttentionDot =
+    pipelineTabAttentionCount > 0 && !pipelineNavDotSuppressed && tab !== "pipeline";
   const [yesterdayNewLeadsCount, setYesterdayNewLeadsCount] = useState(0);
   const [yesterdayPendingDocumentsCount, setYesterdayPendingDocumentsCount] = useState(0);
   const [yesterdayUnreadNotificationsCount, setYesterdayUnreadNotificationsCount] = useState(0);
@@ -2543,6 +2563,12 @@ export function AgentDashboard() {
           )}
         >
           <div className="flex flex-col min-h-0">
+            <div className="mb-4 flex items-center gap-2 px-1 pt-0.5">
+              <House className="h-[18px] w-[18px] shrink-0 text-[#6B9E6E]" aria-hidden />
+              <span className="font-serif text-[15px] font-semibold leading-none tracking-tight text-[#2C2C2C]">
+                BahayGo
+              </span>
+            </div>
             <div className="mb-5 flex items-center gap-2 px-1">
               <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-[#D4A843]/35">
                 {agent.image_url ? (
@@ -2562,7 +2588,7 @@ export function AgentDashboard() {
               {!isTeamMemberView ? (
                 tabs.map((t) => {
                   const showUnreadDot =
-                    (t.id === "pipeline" && pipelineTabAttentionCount > 0) ||
+                    (t.id === "pipeline" && showPipelineSidebarAttentionDot) ||
                     (t.id === "messages" && streamMessagesUnreadTotal > 0) ||
                     (t.id === "notifications" && showNotificationsSidebarDot);
                   return (
@@ -2591,7 +2617,7 @@ export function AgentDashboard() {
               ) : (
                 tabs.map((t) => {
                   const showUnreadDot =
-                    (t.id === "pipeline" && pipelineTabAttentionCount > 0) ||
+                    (t.id === "pipeline" && showPipelineSidebarAttentionDot) ||
                     (t.id === "messages" && streamMessagesUnreadTotal > 0);
                   return (
                     <button
@@ -2848,7 +2874,7 @@ export function AgentDashboard() {
                 active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
               }`}
             >
-              {tid === "pipeline" && pipelineTabAttentionCount > 0 ? (
+              {tid === "pipeline" && showPipelineSidebarAttentionDot ? (
                 <span
                   className="pointer-events-none absolute right-2 top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]/95"
                   aria-hidden

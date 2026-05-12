@@ -11,12 +11,23 @@ export type AgentPipelineReschedulePending = {
 
 let viewingsRescheduleColumnHintLogged = false;
 
+/** Leads older than this with `new_lead_seen_at` still null are treated as acknowledged for badges (stale DB / pre-migration rows). */
+const NEW_LEAD_PULSE_MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000;
+
+function leadCreatedAtMs(deal: { created_at?: string | null }): number | null {
+  const raw = deal.created_at?.trim();
+  if (!raw) return null;
+  const t = new Date(raw).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
 /**
  * Same rules as `KanbanDealCardImpl` in `agent-pipeline-tab.tsx`: a lead “needs attention” when the
  * overflow pulse would show (new lead, viewing/reschedule, unviewed uploaded docs, or DM unread).
  */
 export function leadNeedsPipelineAttention(args: {
   deal: {
+    created_at?: string | null;
     new_lead_seen_at?: string | null;
     new_viewing_request_seen_at?: string | null;
     viewing_request_id?: string | null;
@@ -28,7 +39,10 @@ export function leadNeedsPipelineAttention(args: {
   const hasVr = Boolean(args.deal.viewing_request_id?.trim());
   const showVrMenuDot =
     (hasVr || Boolean(args.reschedulePending)) && !args.deal.new_viewing_request_seen_at;
-  const showLeadMenuDot = !args.deal.new_lead_seen_at;
+  const createdMs = leadCreatedAtMs(args.deal);
+  const leadIsRecentEnoughForNewPulse =
+    createdMs != null && Date.now() - createdMs < NEW_LEAD_PULSE_MAX_AGE_MS;
+  const showLeadMenuDot = !args.deal.new_lead_seen_at && leadIsRecentEnoughForNewPulse;
   const showMsgMenuDot = args.messageUnreadCount > 0;
   return (
     showLeadMenuDot || showVrMenuDot || args.unviewedUploadedDocCount > 0 || showMsgMenuDot
@@ -44,6 +58,7 @@ export async function fetchUnviewedUploadedDocCountsByLeadId(
     .from("deal_documents")
     .select("lead_id, status, viewed_by_agent_at")
     .in("lead_id", leadIds)
+    .eq("direction", "requested")
     .in("status", ["pending", "uploaded"]);
   if (error) {
     console.error("[agent-pipeline-attention] deal_documents badge query failed", {

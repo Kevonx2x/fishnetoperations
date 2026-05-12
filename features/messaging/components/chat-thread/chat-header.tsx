@@ -80,8 +80,9 @@ export function ChatHeader(props: { onBack?: () => void; className?: string }) {
 
   const formattedMobilePropertyPrice = useMemo(() => {
     if (!propertyPrice) return null;
-    // Conversations reference rental properties; keep consistent with property detail formatting.
-    return formatPropertyPriceDisplay(propertyPrice, "for_rent");
+    const cleaned = propertyPrice.replace(/^\$/u, "").trim();
+    if (!cleaned) return null;
+    return formatPropertyPriceDisplay(cleaned, undefined);
   }, [propertyPrice]);
 
   useEffect(() => {
