@@ -51,6 +51,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { dealAttachmentAcceptAttr, validateDealAttachmentFile } from "@/lib/deal-attachment-file";
+import { leadNeedsPipelineAttention } from "@/lib/agent-pipeline-attention";
 import { postFormDataWithUploadProgress } from "@/lib/form-upload-progress";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
@@ -998,8 +999,12 @@ function KanbanDealCardImpl({
     (hasVr || Boolean(reschedulePending)) && !deal.new_viewing_request_seen_at;
   const showLeadMenuDot = !deal.new_lead_seen_at;
   const showMsgMenuDot = messageUnreadCount > 0;
-  const showCornerPulseDot =
-    showLeadMenuDot || showVrMenuDot || unviewedUploadedDocCount > 0 || showMsgMenuDot;
+  const showCornerPulseDot = leadNeedsPipelineAttention({
+    deal,
+    reschedulePending: reschedulePending ?? null,
+    unviewedUploadedDocCount,
+    messageUnreadCount,
+  });
 
   const vrScheduled = viewingRequestMeta?.scheduled_at?.trim() ?? null;
   const vrUpdatedSubtitle =
@@ -1111,8 +1116,8 @@ function KanbanDealCardImpl({
         }}
       >
         <div className="flex min-w-0 flex-col pt-0.5">
-          <div className="flex min-w-0 shrink-0 items-start justify-between gap-2 touch-none">
-            <div className="min-w-0 flex-1 pr-8">
+          <div className="flex min-w-0 shrink-0 items-start gap-1 touch-none">
+            <div className="min-w-0 flex-1">
               <button
                 type="button"
                 className="block w-full cursor-grab rounded-none border-0 bg-transparent text-left active:cursor-grabbing focus-visible:outline-none focus-visible:ring-0"
@@ -1892,8 +1897,12 @@ function SortableDealCard({
     (hasVr || Boolean(reschedulePending)) && !deal.new_viewing_request_seen_at;
   const showLeadMenuDot = !deal.new_lead_seen_at;
   const showMsgMenuDot = messageUnreadCount > 0;
-  const showCornerPulseDot =
-    showLeadMenuDot || showVrMenuDot || unviewedUploadedDocCount > 0 || showMsgMenuDot;
+  const showCornerPulseDot = leadNeedsPipelineAttention({
+    deal,
+    reschedulePending: reschedulePending ?? null,
+    unviewedUploadedDocCount,
+    messageUnreadCount,
+  });
 
   const vrScheduled = viewingRequestMeta?.scheduled_at?.trim() ?? null;
   const vrUpdatedSubtitle =
@@ -2898,10 +2907,11 @@ export function AgentPipelineTab({
       toast.success("Deal archived");
       setDeclineDeal(null);
       await onRefresh();
+      void Promise.resolve(refetchAgentViewings()).catch(() => {});
     } finally {
       setDeclineBusy(false);
     }
-  }, [declineDeal, declineReasonKey, onRefresh]);
+  }, [declineDeal, declineReasonKey, onRefresh, refetchAgentViewings]);
 
   const effectiveDeals = useMemo(() => {
     const stageSet = filterStages && filterStages.length > 0 ? new Set(filterStages) : null;
@@ -3842,7 +3852,9 @@ export function AgentPipelineTab({
             toast.error(json?.error?.message ?? "Could not move deal");
             setKanbanIdsByStage(revert);
             onPatchLead?.(lead.id, prevSnapshot);
+            return;
           }
+          void Promise.resolve(refetchAgentViewings()).catch(() => {});
         })
         .catch(() => {
           toast.error("Could not reach server. Check your connection.");
@@ -3853,7 +3865,7 @@ export function AgentPipelineTab({
           setKanbanBoardMutationDepth((d) => d - 1);
         });
     },
-    [onPatchLead, leadsAgentUserId],
+    [onPatchLead, leadsAgentUserId, refetchAgentViewings],
   );
 
   const archiveLeadFromBoard = useCallback(
@@ -3909,12 +3921,13 @@ export function AgentPipelineTab({
         toast.success("Archived");
         setMoveToStageBusyId(null);
         void Promise.resolve(onRefresh()).catch(() => {});
+        void Promise.resolve(refetchAgentViewings()).catch(() => {});
       } finally {
         setMoveToStageBusyId(null);
         setKanbanBoardMutationDepth((d) => d - 1);
       }
     },
-    [onRefresh],
+    [onRefresh, refetchAgentViewings],
   );
 
   const handleAgentArchiveFromMenu = useCallback(
@@ -5754,6 +5767,7 @@ export function AgentPipelineTab({
                       toast.success("Deal marked closed. Client notified.");
                       setCloseLead(null);
                       await onRefresh();
+                      void Promise.resolve(refetchAgentViewings()).catch(() => {});
                     } finally {
                       setCloseBusy(false);
                     }

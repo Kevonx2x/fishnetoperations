@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Event, OwnUserResponse, StreamChat } from "stream-chat";
+import type { OwnUserResponse, StreamChat } from "stream-chat";
 
 import { useStreamChat } from "@/features/messaging/components/stream-chat-provider";
 
@@ -11,24 +11,18 @@ function totalUnreadFromClient(client: StreamChat | null): number {
   return typeof u.total_unread_count === "number" ? u.total_unread_count : 0;
 }
 
-/** TEMPORARY: broad client events to see which ones correlate with `total_unread_count` changes. Remove after diagnosis. */
-const DIAGNOSTIC_UNREAD_EVENTS = [
+const UNREAD_REFRESH_EVENTS = [
   "notification.mark_read",
   "notification.message_new",
   "notification.added_to_channel",
   "message.new",
   "message.read",
   "user.updated",
-  "user.watching.start",
-  "connection.changed",
 ] as const;
 
 /**
- * Global message unread for sidebar / list chrome: mirrors `client.user.total_unread_count` only.
- * Subscribes to the same events Stream uses to refresh that field after `channel.markRead()` on
- * conversation click (MessageList auto–mark-read can run too late for nav badges).
- *
- * @todo DIAGNOSTIC — remove `console.log` / extra `DIAGNOSTIC_UNREAD_EVENTS` listeners after root cause is fixed.
+ * Global message unread for sidebar / list chrome: mirrors `client.user.total_unread_count`.
+ * Updates when channels are read (e.g. opening a conversation and Stream marks read).
  */
 export function useUnreadMessageCount(): number {
   const client = useStreamChat();
@@ -40,32 +34,22 @@ export function useUnreadMessageCount(): number {
       return;
     }
 
-    const logAndSetCount = (eventType: string) => {
-      const newCount = totalUnreadFromClient(client);
-      console.log("[unread-badge]", {
-        eventType,
-        total_unread_count: newCount,
-        timestamp: new Date().toISOString(),
-      });
-      setCount(newCount);
+    const refresh = () => {
+      setCount(totalUnreadFromClient(client));
     };
 
-    const onStreamEvent = (event: Event) => {
-      logAndSetCount(event.type);
-    };
+    setCount(totalUnreadFromClient(client));
 
-    logAndSetCount("initial-hook");
-
-    for (const evt of DIAGNOSTIC_UNREAD_EVENTS) {
-      client.on(evt, onStreamEvent);
+    for (const evt of UNREAD_REFRESH_EVENTS) {
+      client.on(evt, refresh);
     }
 
     return () => {
-      for (const evt of DIAGNOSTIC_UNREAD_EVENTS) {
-        client.off(evt, onStreamEvent);
+      for (const evt of UNREAD_REFRESH_EVENTS) {
+        client.off(evt, refresh);
       }
     };
-  }, [client?.userID]);
+  }, [client, client?.userID]);
 
   return count;
 }

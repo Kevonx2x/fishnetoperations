@@ -38,20 +38,20 @@ export function AgentViewingsProvider({
   const [viewings, setViewings] = useState<ParsedViewing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  /** Silent refresh: do not toggle `isLoading` (avoids sidebar/calendar collapsing on window focus + refetch). */
   const refetch = useCallback(async () => {
     if (!agentUserId.trim()) {
       setViewings([]);
       setIsLoading(false);
       return;
     }
-    setIsLoading(true);
     try {
       const rows = await fetchAgentViewings(supabase, agentUserId, undefined, undefined, {
         excludeCancelled: true,
       });
       setViewings(rows);
-    } finally {
-      setIsLoading(false);
+    } catch {
+      /* keep prior rows on failure */
     }
   }, [agentUserId, supabase]);
 

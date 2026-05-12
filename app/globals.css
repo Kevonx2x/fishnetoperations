@@ -500,13 +500,14 @@
     flex-shrink: 0;
     /* Lifts the composer off the panel edge; does not affect scroll (input stays flex-shrink: 0). */
     margin-bottom: 24px;
-    margin-left: 32px;
-    margin-right: auto;
+    /* Symmetric inset so the pill does not sit flush against the message list scrollbar. */
+    margin-left: 20px;
+    margin-right: 20px;
     margin-top: 0;
-    max-width: 600px;
-    padding: 0 16px 0 0;
+    max-width: min(520px, calc(100% - 40px));
+    padding: 0;
     padding-bottom: 0;
-    width: 100%;
+    width: auto;
   }
 
   /*

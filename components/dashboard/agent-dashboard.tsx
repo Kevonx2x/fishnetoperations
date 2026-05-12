@@ -20,7 +20,6 @@ import {
   LayoutList,
   Loader2,
   MapPin,
-  ExternalLink,
   MessageSquare,
   MoreHorizontal,
   Pencil,
@@ -45,6 +44,7 @@ import {
 } from "@/components/dashboard/agent-pipeline-tab";
 import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
 import { streamDmChannelId } from "@/features/messaging/lib/stream-dm-channel-id";
+import { useAgentPipelineTabAttentionCount } from "@/features/messaging/hooks/use-agent-pipeline-tab-attention-count";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
@@ -57,13 +57,7 @@ import { AgentTourSidebarHelp } from "@/components/onboarding/agent-tour-trigger
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { normalizeListingLocation } from "@/lib/duplicate-listing";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  manilaCalendarAddDays,
-  manilaDateStringFromInstant,
-  manilaDayOfMonthFromYmd,
-  manilaMonthDayLabelFromInstant,
-  manilaWeekdayShortFromYmd,
-} from "@/lib/manila-datetime";
+import { manilaDateStringFromInstant, manilaMonthDayLabelFromInstant } from "@/lib/manila-datetime";
 import { LicenseExpiryBadge } from "@/components/LicenseExpiryBadge";
 import { formatLicenseDate } from "@/lib/license-expiry";
 import {
@@ -109,7 +103,6 @@ import {
 import { normalizeCity } from "@/lib/normalize-city";
 import { ServiceAreasMultiInput } from "@/components/ui/service-areas-multi-input";
 import {
-  AGENT_PIPELINE_TAB_NOTIFICATION_TYPES,
   NotificationCard,
   resolveNotificationLink,
   type NotificationListItem,
@@ -819,16 +812,23 @@ function AgentDashboardDocumentsTab({
 
 function AgentSidebarCalendarStrip({ setCalendarModalOpen }: { setCalendarModalOpen: (open: boolean) => void }) {
   const { viewings: agentViewings, isLoading: sidebarViewingsLoading } = useAgentViewings();
-  const sidebarViewings = useMemo(() => {
-    const stripTodayKey = manilaDateStringFromInstant(new Date());
-    const endExclusive = manilaCalendarAddDays(stripTodayKey, 5);
-    return agentViewings
-      .filter((v) => v.dateKey >= stripTodayKey && v.dateKey < endExclusive)
-      .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+
+  const { todayMonthDayLabel, upcomingThree } = useMemo(() => {
+    const todayKey = manilaDateStringFromInstant(new Date());
+    const todayNoon = new Date(`${todayKey}T12:00:00+08:00`);
+    const todayMonthDayLabel = manilaMonthDayLabelFromInstant(todayNoon);
+    const startMs = new Date(`${todayKey}T00:00:00+08:00`).getTime();
+    const upcomingThree = agentViewings
+      .filter((v) => v.status !== "completed" && v.scheduledAt.getTime() >= startMs)
+      .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())
+      .slice(0, 3);
+    return { todayMonthDayLabel, upcomingThree };
   }, [agentViewings]);
 
+  const showInitialSkeleton = sidebarViewingsLoading && agentViewings.length === 0;
+
   return (
-    <div className="flex flex-1 min-h-0 items-center justify-center">
+    <div className="flex min-h-0 flex-1 flex-col justify-center">
       <div className="w-full px-1">
         <div
           role="button"
@@ -837,86 +837,43 @@ function AgentSidebarCalendarStrip({ setCalendarModalOpen }: { setCalendarModalO
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") setCalendarModalOpen(true);
           }}
-          className="rounded-xl border border-[#2C2C2C]/8 bg-white/70 p-2 shadow-sm cursor-pointer hover:bg-white"
+          className="cursor-pointer rounded-xl border border-[#2C2C2C]/8 bg-white/70 p-3 text-center shadow-sm hover:bg-white"
           aria-label="Open calendar"
         >
-          <div className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5 text-[#6B9E6E]" aria-hidden />
+          <div className="flex flex-col items-center gap-1">
+            <Calendar className="h-4 w-4 text-[#6B9E6E]" aria-hidden />
             <p className="text-xs font-semibold text-[#2C2C2C]">Calendar</p>
           </div>
 
-          {sidebarViewingsLoading ? (
-            <p className="mt-2 text-[10px] font-semibold text-[#888888]">Loading…</p>
-          ) : sidebarViewings.length === 0 ? (
-            <p className="mt-2 text-[10px] font-semibold text-[#888888]">Nothing scheduled</p>
+          <div className="mt-3 flex flex-col items-center">
+            <p className="text-[11px] font-bold text-[#6B9E6E]">Today</p>
+            <p className="text-[10px] font-semibold leading-tight text-[#6B9E6E]/85">{todayMonthDayLabel}</p>
+          </div>
+
+          {showInitialSkeleton ? (
+            <p className="mt-3 text-[10px] font-semibold text-[#888888]">Loading…</p>
+          ) : upcomingThree.length === 0 ? (
+            <p className="mt-3 text-[10px] font-semibold leading-snug text-[#888888]">No upcoming viewings</p>
           ) : (
-            <div className="mt-2 space-y-1">
-              {(() => {
-                const stripTodayKey = manilaDateStringFromInstant(new Date());
-                return Array.from({ length: 5 }).map((_, i) => {
-                  const cellKey = manilaCalendarAddDays(stripTodayKey, i);
-                  const label =
-                    i === 0 ? "Today" : `${manilaWeekdayShortFromYmd(cellKey)} ${manilaDayOfMonthFromYmd(cellKey)}`;
-                  const items = sidebarViewings.filter((v) => v.dateKey === cellKey);
-                  const isToday = i === 0;
-                  const todaySub =
-                    isToday && manilaMonthDayLabelFromInstant(new Date(`${stripTodayKey}T12:00:00+08:00`));
-                  return (
-                    <div
-                      key={cellKey}
-                      className={cn(
-                        "flex items-start gap-2 rounded-md px-1.5 py-1",
-                        isToday && "border-l-2 border-[#6B9E6E] bg-[#6B9E6E]/6",
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "w-[46px] shrink-0 text-[10px] font-semibold leading-tight text-[#888888]",
-                          isToday && "font-bold text-[#6B9E6E]",
-                        )}
-                      >
-                        <span className="block">{i === 0 ? "Today" : label}</span>
-                        {todaySub ? (
-                          <span className="mt-0.5 block text-[9px] font-semibold text-[#6B9E6E]/80">{todaySub}</span>
-                        ) : null}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        {items.length === 0 ? (
-                          <div className="text-[10px] font-semibold text-[#888888]/70">
-                            {isToday ? "No viewings" : "—"}
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            {items.slice(0, 2).map((event) => (
-                              <button
-                                key={event.id}
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setCalendarModalOpen(true);
-                                }}
-                                className="flex w-full min-w-0 items-center gap-1 rounded-sm px-0.5 py-0.5 text-left hover:bg-[#FAF8F4]"
-                              >
-                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />
-                                <span className="shrink-0 text-[10px] font-semibold text-[#2C2C2C]">
-                                  {event.dayLabel} {event.timeLabel}
-                                </span>
-                                <span className="min-w-0 truncate text-[10px] font-semibold text-[#888888]">
-                                  {event.propertyName}
-                                </span>
-                              </button>
-                            ))}
-                            {items.length > 2 ? (
-                              <div className="text-[10px] font-semibold text-[#888888]">+{items.length - 2} more</div>
-                            ) : null}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
+            <ul className="mt-3 w-full space-y-2">
+              {upcomingThree.map((event) => (
+                <li key={event.id}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCalendarModalOpen(true);
+                    }}
+                    className="flex w-full flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-center transition hover:bg-[#FAF8F4]"
+                  >
+                    <span className="text-[10px] font-semibold text-[#2C2C2C]">
+                      {event.dayLabel} {event.fullDateLabel} · {event.timeLabel}
+                    </span>
+                    <span className="line-clamp-2 w-full text-[9px] font-semibold text-[#888888]">{event.propertyName}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>
@@ -1001,7 +958,31 @@ export function AgentDashboard() {
   const [profileViewsCount, setProfileViewsCount] = useState(0);
   const [pendingDealDocumentsCount, setPendingDealDocumentsCount] = useState(0);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
-  const [pipelineTabUnreadCount, setPipelineTabUnreadCount] = useState(0);
+  const [notificationsNavDotSuppressed, setNotificationsNavDotSuppressed] = useState(false);
+  const unreadNotifCountPrevRef = useRef<number | null>(null);
+
+  const pipelineTabAttentionCount = useAgentPipelineTabAttentionCount(
+    supabase,
+    leads,
+    sessionDashboardKind === "team_member" ? null : user?.id ?? null,
+  );
+
+  useEffect(() => {
+    const prev = unreadNotifCountPrevRef.current;
+    unreadNotifCountPrevRef.current = unreadNotificationsCount;
+    if (prev == null) return;
+    if (unreadNotificationsCount > prev) {
+      setNotificationsNavDotSuppressed(false);
+    }
+  }, [unreadNotificationsCount]);
+
+  useEffect(() => {
+    if (tab === "notifications") {
+      setNotificationsNavDotSuppressed(true);
+    }
+  }, [tab]);
+
+  const showNotificationsSidebarDot = unreadNotificationsCount > 0 && !notificationsNavDotSuppressed;
   const [yesterdayNewLeadsCount, setYesterdayNewLeadsCount] = useState(0);
   const [yesterdayPendingDocumentsCount, setYesterdayPendingDocumentsCount] = useState(0);
   const [yesterdayUnreadNotificationsCount, setYesterdayUnreadNotificationsCount] = useState(0);
@@ -1163,7 +1144,6 @@ export function AgentDashboard() {
         setProfileViewsCount(0);
         setPendingDealDocumentsCount(0);
         setUnreadNotificationsCount(0);
-        setPipelineTabUnreadCount(0);
         setYesterdayNewLeadsCount(0);
         setYesterdayPendingDocumentsCount(0);
         setYesterdayUnreadNotificationsCount(0);
@@ -1192,7 +1172,6 @@ export function AgentDashboard() {
         setProfileViewsCount(0);
         setPendingDealDocumentsCount(0);
         setUnreadNotificationsCount(0);
-        setPipelineTabUnreadCount(0);
         setYesterdayNewLeadsCount(0);
         setYesterdayPendingDocumentsCount(0);
         setYesterdayUnreadNotificationsCount(0);
@@ -1205,7 +1184,7 @@ export function AgentDashboard() {
         const supervisorUserId = (a as AgentRow).user_id;
         const leadSel = AGENT_DASHBOARD_LEAD_SELECT;
         const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
-        const [{ data: ld }, { data: ldArchived }, unreadRes, pipelineUnreadRes] = await Promise.all([
+        const [{ data: ld }, { data: ldArchived }, unreadRes] = await Promise.all([
           supabase
             .from("leads")
             .select(leadSel)
@@ -1224,12 +1203,6 @@ export function AgentDashboard() {
             .select("id", { count: "exact", head: true })
             .eq("user_id", user.id)
             .is("read_at", null),
-          supabase
-            .from("notifications")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", user.id)
-            .is("read_at", null)
-            .in("type", [...AGENT_PIPELINE_TAB_NOTIFICATION_TYPES]),
         ]);
         const leadRows = ((ld ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
         const archivedRows = ((ldArchived ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
@@ -1264,7 +1237,6 @@ export function AgentDashboard() {
         setArchivedLeads(archivedRowsWithAvatar);
         setViewingRequestMetaByLeadId(await fetchViewingRequestMetaByLeadId(supabase, leadRowsWithAvatar));
         setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
-        setPipelineTabUnreadCount(pipelineUnreadRes.error ? 0 : (pipelineUnreadRes.count ?? 0));
         setProperties([]);
         setViewings([]);
         setProfileViewsCount(0);
@@ -1328,7 +1300,6 @@ export function AgentDashboard() {
         setProfileViewsCount(0);
         setPendingDealDocumentsCount(0);
         setUnreadNotificationsCount(0);
-        setPipelineTabUnreadCount(0);
         setYesterdayNewLeadsCount(0);
         setYesterdayPendingDocumentsCount(0);
         setYesterdayUnreadNotificationsCount(0);
@@ -1355,7 +1326,6 @@ export function AgentDashboard() {
       setProfileViewsCount(0);
       setPendingDealDocumentsCount(0);
       setUnreadNotificationsCount(0);
-      setPipelineTabUnreadCount(0);
       setYesterdayNewLeadsCount(0);
       setYesterdayPendingDocumentsCount(0);
       setYesterdayUnreadNotificationsCount(0);
@@ -1366,7 +1336,7 @@ export function AgentDashboard() {
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
       const leadSel = AGENT_DASHBOARD_LEAD_SELECT;
       const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
-      const [{ data: ld }, { data: ldArchived }, { data: owned }, { data: paRows }, vwRes, unreadRes, pipelineUnreadRes] =
+      const [{ data: ld }, { data: ldArchived }, { data: owned }, { data: paRows }, vwRes, unreadRes] =
         await Promise.all([
         supabase
           .from("leads")
@@ -1399,12 +1369,6 @@ export function AgentDashboard() {
           .select("id", { count: "exact", head: true })
           .eq("user_id", user.id)
           .is("read_at", null),
-        supabase
-          .from("notifications")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .is("read_at", null)
-          .in("type", [...AGENT_PIPELINE_TAB_NOTIFICATION_TYPES]),
       ]);
       const leadRows = ((ld ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
       const archivedRows = ((ldArchived ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
@@ -1441,7 +1405,6 @@ export function AgentDashboard() {
       /* activity_log has no agent_id column; client RLS also limits what agents can count here. */
       setProfileViewsCount(0);
       setUnreadNotificationsCount(unreadRes.error ? 0 : (unreadRes.count ?? 0));
-      setPipelineTabUnreadCount(pipelineUnreadRes.error ? 0 : (pipelineUnreadRes.count ?? 0));
 
       const now = new Date();
       const startToday = new Date(now);
@@ -1621,7 +1584,6 @@ export function AgentDashboard() {
       setProfileViewsCount(0);
       setPendingDealDocumentsCount(0);
       setUnreadNotificationsCount(0);
-      setPipelineTabUnreadCount(0);
       setYesterdayNewLeadsCount(0);
       setYesterdayPendingDocumentsCount(0);
       setYesterdayUnreadNotificationsCount(0);
@@ -2598,94 +2560,68 @@ export function AgentDashboard() {
             </div>
             <nav className="flex flex-col gap-1">
               {!isTeamMemberView ? (
-                tabs.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => navigateAgentTab(t.id)}
-                    className={cn(
-                      "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
-                      t.id === "analytics" && "opacity-55 hover:opacity-80",
-                      tab === t.id
-                        ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
-                        : "text-[#2C2C2C]/65 hover:bg-white/80",
-                    )}
-                  >
-                    <span className="relative inline-flex text-[#6B9E6E]">
-                      {t.icon}
-                      {t.id === "pipeline" && pipelineTabUnreadCount > 0 ? (
-                        <span
-                          className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
-                          aria-hidden
-                        />
-                      ) : null}
-                      {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
-                        <span
-                          className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
-                          aria-hidden
-                        />
-                      ) : null}
-                      {t.id === "notifications" && unreadNotificationsCount > 0 ? (
-                        <span
-                          className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
-                          aria-hidden
-                        />
-                      ) : null}
-                    </span>
-                    {t.label}
-                  </button>
-                ))
+                tabs.map((t) => {
+                  const showUnreadDot =
+                    (t.id === "pipeline" && pipelineTabAttentionCount > 0) ||
+                    (t.id === "messages" && streamMessagesUnreadTotal > 0) ||
+                    (t.id === "notifications" && showNotificationsSidebarDot);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => navigateAgentTab(t.id)}
+                      className={cn(
+                        "flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
+                        t.id === "analytics" && "opacity-55 hover:opacity-80",
+                        tab === t.id
+                          ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
+                          : "text-[#2C2C2C]/65 hover:bg-white/80",
+                      )}
+                    >
+                      <span className="shrink-0 text-[#6B9E6E]">{t.icon}</span>
+                      <span className="min-w-0 flex-1 truncate">{t.label}</span>
+                      <span className="flex h-2 w-3 shrink-0 items-center justify-end" aria-hidden>
+                        {showUnreadDot ? (
+                          <span className="h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]" />
+                        ) : null}
+                      </span>
+                    </button>
+                  );
+                })
               ) : (
-                tabs.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => navigateAgentTab(t.id)}
-                    className={cn(
-                      "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
-                      t.id === "analytics" && "opacity-55 hover:opacity-80",
-                      tab === t.id
-                        ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
-                        : "text-[#2C2C2C]/65 hover:bg-white/80",
-                    )}
-                  >
-                    <span className="relative inline-flex text-[#6B9E6E]">
-                      {t.icon}
-                      {t.id === "pipeline" && streamMessagesUnreadTotal > 0 ? (
-                        <span
-                          className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
-                          aria-hidden
-                        />
-                      ) : null}
-                      {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
-                        <span
-                          className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
-                          aria-hidden
-                        />
-                      ) : null}
-                    </span>
-                    {t.label}
-                  </button>
-                ))
+                tabs.map((t) => {
+                  const showUnreadDot =
+                    (t.id === "pipeline" && pipelineTabAttentionCount > 0) ||
+                    (t.id === "messages" && streamMessagesUnreadTotal > 0);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => navigateAgentTab(t.id)}
+                      className={cn(
+                        "flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
+                        t.id === "analytics" && "opacity-55 hover:opacity-80",
+                        tab === t.id
+                          ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
+                          : "text-[#2C2C2C]/65 hover:bg-white/80",
+                      )}
+                    >
+                      <span className="shrink-0 text-[#6B9E6E]">{t.icon}</span>
+                      <span className="min-w-0 flex-1 truncate">{t.label}</span>
+                      <span className="flex h-2 w-3 shrink-0 items-center justify-end" aria-hidden>
+                        {showUnreadDot ? (
+                          <span className="h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]" />
+                        ) : null}
+                      </span>
+                    </button>
+                  );
+                })
               )}
             </nav>
             {identityVerified && !isTeamMemberView ? <AgentTourSidebarHelp /> : null}
           </div>
 
           <AgentSidebarCalendarStrip setCalendarModalOpen={setCalendarModalOpen} />
-          <div className="mt-3 px-2">
-            <Link
-              href={`/agents/${encodeURIComponent(agent.id)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex w-full items-center gap-2 rounded-xl border border-[#2C2C2C]/10 bg-white px-2.5 py-2 text-sm font-semibold text-[#2C2C2C]/70 transition hover:bg-[#FAF8F4]"
-            >
-              <span className="text-[#6B9E6E]">
-                <ExternalLink className="h-[18px] w-[18px]" aria-hidden />
-              </span>
-              View public profile
-            </Link>
-          </div>
           <Link
             href="/"
             className="mt-auto px-2 py-2 text-sm font-semibold text-[#2C2C2C]/55 hover:text-[#2C2C2C]"
@@ -2912,7 +2848,7 @@ export function AgentDashboard() {
                 active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
               }`}
             >
-              {!isTeamMemberView && tid === "pipeline" && pipelineTabUnreadCount > 0 ? (
+              {tid === "pipeline" && pipelineTabAttentionCount > 0 ? (
                 <span
                   className="pointer-events-none absolute right-2 top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]/95"
                   aria-hidden
@@ -2925,15 +2861,7 @@ export function AgentDashboard() {
                 />
               ) : null}
               <span className={active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
-                <span className="relative inline-flex">
-                  <span className="inline-flex [&_svg]:h-5 [&_svg]:w-5">{t.icon}</span>
-                  {isTeamMemberView && tid === "pipeline" && streamMessagesUnreadTotal > 0 ? (
-                    <span
-                      className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]/95"
-                      aria-hidden
-                    />
-                  ) : null}
-                </span>
+                <span className="inline-flex [&_svg]:h-5 [&_svg]:w-5">{t.icon}</span>
               </span>
               <span className="max-w-[4.5rem] truncate">{t.label}</span>
             </button>
@@ -3003,7 +2931,7 @@ export function AgentDashboard() {
                     >
                       <span className={tab === t.id ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>{t.icon}</span>
                       <span className="min-w-0 flex-1 text-left">{t.label}</span>
-                      {tid === "notifications" && unreadNotificationsCount > 0 ? (
+                      {tid === "notifications" && showNotificationsSidebarDot ? (
                         <span className="h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />
                       ) : null}
                     </button>

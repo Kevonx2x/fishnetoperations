@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useDndMonitor, useDroppable } from "@dnd-kit/core";
+import { useDndContext, useDroppable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 
 export const PIPELINE_PULSE_DROP_IDS = {
@@ -97,7 +96,7 @@ function PulseDropSlot({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex min-h-[76px] min-w-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#2C2C2C]/22 bg-white/85 px-2 py-2 text-center shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-[border-color,background-color,box-shadow] duration-150",
+        "flex min-h-[76px] min-w-0 flex-1 flex-col items-center justify-start rounded-xl border border-dashed border-[#2C2C2C]/22 bg-white/85 px-2 py-2 text-center shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-[border-color,background-color,box-shadow] duration-150",
         isOver &&
           (tone === "lost"
             ? "border-red-400/70 bg-red-50/95 shadow-sm"
@@ -107,7 +106,7 @@ function PulseDropSlot({
       )}
       aria-label={`${label}. ${sub}`}
     >
-      <p className={cn("font-sans text-[11px] font-bold uppercase tracking-wide", labelTone)}>{label}</p>
+      <p className={cn("font-sans text-[10px] font-bold uppercase tracking-wider", labelTone)}>{label}</p>
       <p className="mt-0.5 max-w-[160px] font-sans text-[10px] font-medium leading-snug text-[#2C2C2C]/45">
         {sub}
       </p>
@@ -116,14 +115,9 @@ function PulseDropSlot({
 }
 
 export function PipelinePulseBar({ stats }: { stats: PipelinePulseStats }) {
-  const [dragging, setDragging] = useState(false);
-
-  useDndMonitor({
-    onDragStart: () => setDragging(true),
-    onDragEnd: () => setDragging(false),
-    onDragCancel: () => setDragging(false),
-    onDragAbort: () => setDragging(false),
-  });
+  /** Must match dnd-kit store — `useDndMonitor` + local state can miss `onDragEnd` / get out of sync; `active` is source of truth. */
+  const { active } = useDndContext();
+  const dragging = active != null;
 
   return (
     <div
@@ -144,7 +138,7 @@ export function PipelinePulseBar({ stats }: { stats: PipelinePulseStats }) {
         */}
         <div
           className={cn(
-            "flex w-full flex-row flex-wrap items-start justify-around gap-4 transition-opacity duration-150 ease-out sm:flex-nowrap sm:items-center",
+            "relative z-10 flex w-full flex-row flex-wrap items-start justify-around gap-4 transition-opacity duration-150 ease-out sm:flex-nowrap",
             dragging ? "pointer-events-none opacity-0" : "opacity-100",
           )}
           aria-hidden={dragging}
@@ -185,8 +179,9 @@ export function PipelinePulseBar({ stats }: { stats: PipelinePulseStats }) {
 
         <div
           className={cn(
-            "absolute inset-0 flex w-full flex-row items-stretch justify-around gap-3 transition-opacity duration-150 ease-out",
-            dragging ? "opacity-100" : "pointer-events-none opacity-0",
+            /* Top-align with idle row (items-start + same gap); modest pb nudges drop row slightly up from bar bottom. */
+            "absolute inset-0 z-[1] flex w-full -translate-y-1 flex-row items-start justify-around gap-4 pb-8 transition-opacity duration-150 ease-out sm:pb-9",
+            dragging ? "z-[15] opacity-100" : "pointer-events-none opacity-0",
           )}
           aria-hidden={!dragging}
         >
