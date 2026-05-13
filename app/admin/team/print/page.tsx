@@ -71,11 +71,10 @@ export default function AdminTeamPrintPage() {
     } catch {
       nextErr = "Could not read plan data.";
     }
-    const t = window.setTimeout(() => {
+    window.setTimeout(() => {
       setPayload(nextPayload);
       setErr(nextErr);
     }, 0);
-    return () => window.clearTimeout(t);
   }, [canViewPlan, loading]);
 
   useEffect(() => {
