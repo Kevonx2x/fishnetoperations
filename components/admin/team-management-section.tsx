@@ -17,6 +17,7 @@ import {
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { adminTeamPrintPlanStorageKey } from "@/lib/admin-team-print-plan";
 import {
   EMMANUEL_UNLOCK_REWARDS,
   ONBOARDING_WEEK_TITLES,
@@ -427,6 +428,12 @@ function emptyAddForm() {
   };
 }
 
+function createPrintPlanId() {
+  const randomUUID = globalThis.crypto?.randomUUID?.bind(globalThis.crypto);
+  if (randomUUID) return randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 export type TeamManagementSectionProps = {
   /** When false (ops_admin), salary / equity UI and aggregates are hidden; saves keep existing compensation server-side. */
   showCompensation?: boolean;
@@ -802,16 +809,21 @@ export function TeamManagementSection({ showCompensation = true }: TeamManagemen
       status: d.status,
       notes: d.notes,
     }));
+    const printId = createPrintPlanId();
     try {
-      sessionStorage.setItem(
-        "adminTeamPrintPlan",
+      localStorage.setItem(
+        adminTeamPrintPlanStorageKey(printId),
         JSON.stringify({ employeeName: emp.name, items }),
       );
     } catch {
       toast.error("Could not prepare print data.");
       return;
     }
-    window.open("/admin/team/print", "_blank", "noopener,noreferrer");
+    window.open(
+      `/admin/team/print?key=${encodeURIComponent(printId)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   };
 
   const isEmmanuel = (name: string) => /emmanuel/i.test(name.trim());
