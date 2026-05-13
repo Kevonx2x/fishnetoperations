@@ -46,7 +46,6 @@ export default function AdminTeamPrintPage() {
       } catch {
         // Best-effort cleanup only; unauthorized users still cannot render the payload.
       }
-      setPayload(null);
       return;
     }
     try {
