@@ -48,27 +48,34 @@ export default function AdminTeamPrintPage() {
       }
       return;
     }
+    let nextPayload: PrintPayload | null = null;
+    let nextErr: string | null = null;
     try {
       if (!printId) {
-        setErr("No plan data. Close this tab and use Download Plan again.");
-        return;
+        nextErr = "No plan data. Close this tab and use Download Plan again.";
+      } else {
+        const storageKey = adminTeamPrintPlanStorageKey(printId);
+        const raw = localStorage.getItem(storageKey);
+        localStorage.removeItem(storageKey);
+        if (!raw) {
+          nextErr = "No plan data. Close this tab and use Download Plan again.";
+        } else {
+          const parsed = JSON.parse(raw) as PrintPayload;
+          if (!parsed?.employeeName || !Array.isArray(parsed.items)) {
+            nextErr = "Invalid plan data.";
+          } else {
+            nextPayload = parsed;
+          }
+        }
       }
-      const storageKey = adminTeamPrintPlanStorageKey(printId);
-      const raw = localStorage.getItem(storageKey);
-      localStorage.removeItem(storageKey);
-      if (!raw) {
-        setErr("No plan data. Close this tab and use Download Plan again.");
-        return;
-      }
-      const parsed = JSON.parse(raw) as PrintPayload;
-      if (!parsed?.employeeName || !Array.isArray(parsed.items)) {
-        setErr("Invalid plan data.");
-        return;
-      }
-      setPayload(parsed);
     } catch {
-      setErr("Could not read plan data.");
+      nextErr = "Could not read plan data.";
     }
+    const t = window.setTimeout(() => {
+      setPayload(nextPayload);
+      setErr(nextErr);
+    }, 0);
+    return () => window.clearTimeout(t);
   }, [canViewPlan, loading]);
 
   useEffect(() => {
