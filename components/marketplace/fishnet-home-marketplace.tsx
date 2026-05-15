@@ -71,7 +71,8 @@ import { DEFAULT_AGENT_SPECIALTIES_COMMAS } from "@/lib/agent-profile-defaults";
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { roomUrlsFor } from "@/lib/marketplace-property";
 
-const LISTING_IMAGE_SIZES = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" as const;
+/** Display width for listing thumbs (~carousel + grid); keeps `/_next/image` requests small. */
+const LISTING_IMAGE_SIZES = "(max-width: 639px) 100vw, (max-width: 1023px) 45vw, 320px" as const;
 
 function firstBrowseListingThumbKey(
   rows: { key: string; items: DbProperty[] }[],
@@ -83,7 +84,7 @@ function firstBrowseListingThumbKey(
   return undefined;
 }
 
-/** First N listing cards (row order) for `next/image` priority budget (~4–6 above the fold). */
+/** First N listing cards (row order) for `next/image` priority (homepage has many rows). */
 function listingThumbPriorityKeys(
   rows: { key: string; items: DbProperty[] }[],
   max: number,
@@ -3560,6 +3561,7 @@ export function NewlyListedCard({
         ? "Sale & Rent"
         : "For Sale";
   const img = String(roomUrls[roomIdx] ?? roomUrls[0] ?? property.image_url ?? "").trim();
+  const imgIsCloudinaryDelivery = isCloudinaryDeliveryUrl(img);
 
   const { profile } = useAuth();
   const router = useRouter();
@@ -3615,9 +3617,10 @@ export function NewlyListedCard({
             src={img}
             alt={property.name ?? property.location}
             fill
-            // PERF: avoid Next image optimizer bottleneck for large grids.
-            // This preserves the exact source URL (no Cloudinary transform changes) and dimensions/layout.
-            unoptimized
+            // Cloudinary URLs already embed `c_fill,w_*` via `cloudinaryPropertyPhotoDisplayUrl`.
+            // Supabase (and other) URLs run through the Next optimizer so we do not download full-resolution originals for ~240px cards.
+            unoptimized={imgIsCloudinaryDelivery}
+            quality={75}
             className={cn(
               "z-[2] object-cover transition-opacity duration-500",
               listingImgLoaded ? "opacity-100" : "opacity-0",
@@ -4298,7 +4301,7 @@ function PropertyRows({
   }, [rows]);
 
   const eagerListingThumbKey = useMemo(() => firstBrowseListingThumbKey(dedupedRows), [dedupedRows]);
-  const priorityListingThumbKeys = useMemo(() => listingThumbPriorityKeys(dedupedRows, 4), [dedupedRows]);
+  const priorityListingThumbKeys = useMemo(() => listingThumbPriorityKeys(dedupedRows, 10), [dedupedRows]);
   const first = dedupedRows.slice(0, 4);
   const rest = dedupedRows.slice(4);
 
@@ -4625,7 +4628,7 @@ function RowCarousel({
       )}
     >
       <div className="flex w-max flex-nowrap gap-3">
-        {list.map((p) => (
+        {list.map((p, idx) => (
           <NewlyListedCard
             key={`${rowKey}-${p.id}`}
             property={p}
@@ -4651,8 +4654,12 @@ function RowCarousel({
             viewerUserId={viewerUserId}
             compact
             verifiedListingAgent={viewerVerifiedListingAgent}
-            listingImageLoadEager={eagerListingThumbKey === `${rowKey}-${p.id}`}
-            listingImagePriority={priorityListingThumbKeys?.has(`${rowKey}-${p.id}`) ?? false}
+            listingImageLoadEager={
+              eagerListingThumbKey === `${rowKey}-${p.id}` || (featured && idx < 4)
+            }
+            listingImagePriority={
+              (priorityListingThumbKeys?.has(`${rowKey}-${p.id}`) ?? false) || (featured && idx < 6)
+            }
           />
         ))}
         {Array.from({ length: fillerCount }).map((_, i) => (

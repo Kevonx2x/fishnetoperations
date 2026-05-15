@@ -346,7 +346,11 @@ export function ViewingRequestModal({
       }
 
       if (!res.ok) {
-        const j = responseBody as { error?: string | { message?: string } } | null;
+        const j = responseBody as { error?: string | { message?: string }; success?: boolean } | null;
+        if (res.status === 409 && j && typeof j === "object" && j.error === "time_slot_unavailable") {
+          setError("The agent isn't available at this time. Please choose another.");
+          return;
+        }
         const msg =
           typeof j?.error === "string"
             ? j.error

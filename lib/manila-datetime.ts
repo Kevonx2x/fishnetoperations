@@ -69,6 +69,16 @@ export function manilaTimeStringFromInstant(d: Date): string {
   return `${h.padStart(2, "0")}:${m}`;
 }
 
+/** Calendar hour 0–23 in Asia/Manila for an instant (timestamptz-aware). */
+export function manilaHourNumericFromInstant(d: Date): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: MANILA,
+    hour: "numeric",
+    hour12: false,
+  }).formatToParts(d);
+  return Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+}
+
 /** Build timestamptz ISO for storage: user date + time interpreted as Philippines (+08:00). */
 export function manilaLocalDateTimeToOffsetIso(dateYmd: string, timeHm: string): string {
   const t = timeHm.trim();

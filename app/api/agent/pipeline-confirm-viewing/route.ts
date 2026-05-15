@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { fail, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
@@ -7,6 +7,7 @@ import { PROPERTY_ADDRESS_FALLBACK, propertyAddressLabel } from "@/lib/property-
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { leadAccessibleBySession, resolveTeamMemberSupervisorUserId } from "@/lib/team-member-lead-access";
+import { assertViewingSlotAvailable, fetchAgentViewingSlotSettings } from "@/lib/viewing-slot-conflict";
 
 const STAGES = ["lead", "viewing", "offer", "reservation", "closed"] as const;
 
@@ -130,8 +131,40 @@ export async function POST(request: NextRequest) {
 
     const notesTrim = notes?.trim() ? notes.trim().slice(0, 300) : null;
     const nowIso = new Date().toISOString();
+
+    const ownerUserId =
+      String((lead as { agent_id?: string | null }).agent_id ?? "").trim() ||
+      String((lead as { broker_id?: string | null }).broker_id ?? "").trim() ||
+      "";
+    if (!ownerUserId) {
+      return fail("BAD_REQUEST", "Lead has no assigned agent or broker.", 400);
+    }
+    const slotSettings = await fetchAgentViewingSlotSettings(admin, ownerUserId);
+
     const { data: existingViewing } = await admin.from("viewings").select("id").eq("lead_id", leadId).maybeSingle();
     const existingId = (existingViewing as { id?: string } | null)?.id ?? null;
+
+    const slotCheck = await assertViewingSlotAvailable(admin, {
+      ownerUserId,
+      scheduledAtIso: scheduledAt,
+      settings: slotSettings,
+      excludeViewingId: existingId,
+    });
+    if (!slotCheck.ok) {
+      if (slotCheck.reason === "overlap") {
+        return NextResponse.json(
+          {
+            error: "time_slot_unavailable",
+            message: "This time conflicts with another viewing. Please choose a different time.",
+            conflicting_viewing_id: slotCheck.viewingId,
+            conflicting_scheduled_at: slotCheck.scheduledAt,
+          },
+          { status: 409 },
+        );
+      }
+      return fail("BAD_REQUEST", slotCheck.message, slotCheck.status);
+    }
+
     if (existingId) {
       const { error: vu } = await admin
         .from("viewings")

@@ -9,6 +9,7 @@ import { RESEND_FROM } from "@/lib/resend-from";
 import { normalizePhoneE164, sendSmsTo } from "@/lib/twilio-sms";
 import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 import { propertyAcceptsViewingRequests } from "@/lib/property-availability";
+import { assertViewingSlotAvailable, fetchAgentViewingSlotSettings } from "@/lib/viewing-slot-conflict";
 
 /** Client submitted a date/time — card belongs in Viewing, not Lead (see `leads_pipeline_stage_check`). */
 const VIEWING_REQUEST_PIPELINE_STAGE = "viewing" as const;
@@ -395,6 +396,36 @@ export async function POST(req: Request) {
       return fail("BAD_REQUEST", "agent not found", 400);
     }
 
+    const existingLeadId = await findActiveDuplicateLeadIdForViewing(
+      admin,
+      session.userId,
+      agentUserId,
+      propertyId,
+    );
+    const activeViewingForSlot =
+      existingLeadId != null ? await findActiveScheduledViewingForLead(admin, existingLeadId) : null;
+    const slotSettings = await fetchAgentViewingSlotSettings(admin, agentUserId);
+    const slotCheck = await assertViewingSlotAvailable(admin, {
+      ownerUserId: agentUserId,
+      scheduledAtIso: body.scheduled_at,
+      settings: slotSettings,
+      excludeViewingId: activeViewingForSlot?.id ?? null,
+    });
+    if (!slotCheck.ok) {
+      if (slotCheck.reason === "overlap") {
+        return NextResponse.json(
+          {
+            error: "time_slot_unavailable",
+            message: "This time conflicts with another viewing. Please choose a different time.",
+            conflicting_viewing_id: slotCheck.viewingId,
+            conflicting_scheduled_at: slotCheck.scheduledAt,
+          },
+          { status: 409 },
+        );
+      }
+      return fail("BAD_REQUEST", slotCheck.message, slotCheck.status);
+    }
+
     const { data: vrRow, error: vrErr } = await admin
       .from("viewing_requests")
       .insert({
@@ -443,13 +474,6 @@ export async function POST(req: Request) {
       smsSuffix: " Viewing request submitted.",
     };
 
-    const existingLeadId = await findActiveDuplicateLeadIdForViewing(
-      admin,
-      session.userId,
-      agentUserId,
-      propertyId,
-    );
-
     if (existingLeadId != null) {
       const { data: existingLeadRow } = await admin
         .from("leads")
@@ -461,7 +485,7 @@ export async function POST(req: Request) {
       ).toLowerCase();
       const nowIso = new Date().toISOString();
 
-      const activeViewing = await findActiveScheduledViewingForLead(admin, existingLeadId);
+      const activeViewing = activeViewingForSlot;
       if (activeViewing != null) {
         const { error: rsUpd } = await admin
           .from("viewings")

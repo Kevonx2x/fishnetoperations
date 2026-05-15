@@ -1,7 +1,8 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { fail, ok } from "@/lib/api/response";
 import { PROPERTY_ADDRESS_FALLBACK, propertyAddressLabel } from "@/lib/property-address-label";
 import { authorizeViewingRescheduleMutation } from "@/lib/viewing-reschedule-server";
+import { assertViewingSlotAvailable, fetchAgentViewingSlotSettings } from "@/lib/viewing-slot-conflict";
 
 export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -32,6 +33,33 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     const newScheduledAt = String((rvRow as { scheduled_at: string }).scheduled_at ?? "");
     if (!newScheduledAt.trim()) {
       return fail("BAD_REQUEST", "Invalid reschedule time", 400);
+    }
+
+    const ownerUserId =
+      String(lead.agent_id ?? "").trim() || String(lead.broker_id ?? "").trim() || "";
+    if (!ownerUserId) {
+      return fail("BAD_REQUEST", "Lead has no assigned agent or broker.", 400);
+    }
+    const slotSettings = await fetchAgentViewingSlotSettings(admin, ownerUserId);
+    const slotCheck = await assertViewingSlotAvailable(admin, {
+      ownerUserId,
+      scheduledAtIso: newScheduledAt,
+      settings: slotSettings,
+      excludeViewingId: viewing.id,
+    });
+    if (!slotCheck.ok) {
+      if (slotCheck.reason === "overlap") {
+        return NextResponse.json(
+          {
+            error: "time_slot_unavailable",
+            message: "This time conflicts with another viewing. Please choose a different time.",
+            conflicting_viewing_id: slotCheck.viewingId,
+            conflicting_scheduled_at: slotCheck.scheduledAt,
+          },
+          { status: 409 },
+        );
+      }
+      return fail("BAD_REQUEST", slotCheck.message, slotCheck.status);
     }
 
     const { error: vu } = await admin

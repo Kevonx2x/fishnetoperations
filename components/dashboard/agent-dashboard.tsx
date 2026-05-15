@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowUpRight,
@@ -113,6 +114,7 @@ import {
   normalizePropertyAvailabilityState,
   propertyEngagementLooksUnavailable,
 } from "@/lib/property-availability";
+import { coerceViewingSlotAgentSettings } from "@/lib/viewing-slot-conflict";
 import {
   Dialog,
   DialogContent,
@@ -182,6 +184,10 @@ type AgentRow = {
   availability?: string | null;
   updated_at?: string | null;
   verification_status?: "pending" | "verified" | "rejected" | null;
+  viewing_slot_minutes?: number | null;
+  viewing_buffer_minutes?: number | null;
+  viewing_day_start_hour?: number | null;
+  viewing_day_end_hour?: number | null;
 };
 
 type LeadRow = {
@@ -224,6 +230,23 @@ type LeadRow = {
 /** Supabase `leads` select including nested first-property photos (flattened to `property_cover_photo_url`). */
 const AGENT_DASHBOARD_LEAD_SELECT =
   "id, is_demo, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at, properties(property_photos(url, sort_order, created_at))";
+
+type DashboardLoadErrorScope = "agent" | "leads" | "properties" | "viewings";
+
+function labelForDashboardLoadErrorScope(scope: string): string {
+  switch (scope) {
+    case "agent":
+      return "Agent profile";
+    case "leads":
+      return "Pipeline (leads)";
+    case "properties":
+      return "Listings (properties)";
+    case "viewings":
+      return "Calendar (viewings)";
+    default:
+      return scope;
+  }
+}
 
 type LeadQueryPropertiesJoin = {
   /** PostgREST usually returns an object; an array is accepted defensively. */
@@ -881,6 +904,53 @@ function AgentSidebarCalendarStrip({ setCalendarModalOpen }: { setCalendarModalO
   );
 }
 
+function DashboardLoadErrorsBanner(props: {
+  errors: { scope: string; message: string }[];
+  onRetry: () => void | Promise<void>;
+  onDismiss: () => void;
+}) {
+  if (props.errors.length === 0) return null;
+  return (
+    <div
+      role="alert"
+      className="mb-4 flex w-full flex-wrap items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-[#2C2C2C] shadow-sm"
+    >
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold text-[#2C2C2C]">We couldn&apos;t load some of your data.</p>
+        <ul className="mt-2 space-y-1 pl-0.5 text-[13px] font-medium text-[#2C2C2C]/85">
+          {props.errors.map((e, i) => (
+            <li key={`${e.scope}-${i}`} className="flex gap-1">
+              <span className="shrink-0" aria-hidden>
+                •
+              </span>
+              <span className="min-w-0">
+                {labelForDashboardLoadErrorScope(e.scope)}: {e.message}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="flex shrink-0 items-center gap-2 pt-0.5">
+        <button
+          type="button"
+          onClick={() => void props.onRetry()}
+          className="rounded-full bg-[#2C2C2C] px-4 py-1.5 text-xs font-bold text-white hover:bg-[#6B9E6E]"
+        >
+          Retry
+        </button>
+        <button
+          type="button"
+          aria-label="Dismiss error notice"
+          onClick={props.onDismiss}
+          className="rounded-full p-1 text-[#2C2C2C]/55 hover:bg-white/80 hover:text-[#2C2C2C]"
+        >
+          <X className="h-5 w-5" aria-hidden />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AgentDashboard() {
   const router = useRouter();
   const pathname = usePathname();
@@ -909,6 +979,11 @@ export function AgentDashboard() {
   const [paymentBannerTier, setPaymentBannerTier] = useState<string | null>(null);
   /** Set from `?editProperty=` on /dashboard/agent; applied after listings load (see propertiesLoadVersion). */
   const pendingEditPropertyIdRef = useRef<string | null>(null);
+  /** After first visit, keep Stream inbox mounted (hidden off-tab) to avoid remount lag when switching back. */
+  const messagesInboxKeepAliveRef = useRef(false);
+  if (tab === "messages") {
+    messagesInboxKeepAliveRef.current = true;
+  }
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -950,6 +1025,7 @@ export function AgentDashboard() {
   >({});
   const [archivedLeads, setArchivedLeads] = useState<LeadRow[]>([]);
   const [viewings, setViewings] = useState<ViewingRow[]>([]);
+  const [loadErrors, setLoadErrors] = useState<{ scope: string; message: string }[]>([]);
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [selectedLead, setSelectedLead] = useState<LeadRow | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1003,6 +1079,10 @@ export function AgentDashboard() {
     facebook: "",
     linkedin: "",
     website: "",
+    viewingSlotMinutes: 45,
+    viewingBufferMinutes: 60,
+    viewingDayStartHour: 9,
+    viewingDayEndHour: 19,
   });
 
   const [listingOpen, setListingOpen] = useState(false);
@@ -1123,9 +1203,21 @@ export function AgentDashboard() {
   const [removeSampleBusy, setRemoveSampleBusy] = useState(false);
 
   const loadData = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setLoadErrors([]);
+      return;
+    }
+    const errs: { scope: string; message: string }[] = [];
+    setLoadErrors([]);
     setTeamMemberSetupError(null);
 
+    const pushErr = (scope: DashboardLoadErrorScope, fallbackMessage: string, error?: PostgrestError | null) => {
+      const message = error?.message?.trim() ? String(error.message).trim() : fallbackMessage;
+      errs.push({ scope, message });
+      if (error) console.error(`[BahayGo loadData] Failed to load ${scope}:`, error);
+    };
+
+    try {
     const { data: profileRow } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
     const accountRole = ((profileRow as { role?: string | null } | null)?.role ?? "").trim();
     setSessionDashboardKind(accountRole === "team_member" ? "team_member" : "agent");
@@ -1138,6 +1230,11 @@ export function AgentDashboard() {
         .eq("status", "active")
         .maybeSingle();
       if (tmErr || !(tm as { agent_id?: string } | null)?.agent_id) {
+        if (tmErr) {
+          pushErr("agent", "Could not verify team membership.", tmErr);
+        } else {
+          pushErr("agent", "No active team assignment found for this account.");
+        }
         setAgent(null);
         setLeads([]);
         setArchivedLeads([]);
@@ -1157,16 +1254,22 @@ export function AgentDashboard() {
       }
 
       const agentTableId = (tm as { agent_id: string }).agent_id;
-      const { data: a } = await supabase
+      const { data: a, error: supervisorAgentErr } = await supabase
         .from("agents")
         .select(
           "id, user_id, name, email, phone, bio, license_number, license_expiry, image_url, status, verified, broker_id, specialties, service_areas, social_links, age, years_experience, languages_spoken, response_time, closings, score, listing_tier, availability_schedule, availability, updated_at, verification_status",
         )
         .eq("id", agentTableId)
         .maybeSingle();
+      if (supervisorAgentErr) {
+        pushErr("agent", "Could not load supervising agent profile.", supervisorAgentErr);
+      }
       setAgent((a as AgentRow | null) ?? null);
       setLoaded(true);
       if (!a) {
+        if (!supervisorAgentErr) {
+          pushErr("agent", "Supervising agent profile could not be loaded.");
+        }
         setLeads([]);
         setArchivedLeads([]);
         setViewingRequestMetaByLeadId({});
@@ -1187,7 +1290,7 @@ export function AgentDashboard() {
         const supervisorUserId = (a as AgentRow).user_id;
         const leadSel = AGENT_DASHBOARD_LEAD_SELECT;
         const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
-        const [{ data: ld }, { data: ldArchived }, unreadRes] = await Promise.all([
+        const [{ data: ld, error: ldErr }, { data: ldArchived, error: ldArchivedErr }, unreadRes] = await Promise.all([
           supabase
             .from("leads")
             .select(leadSel)
@@ -1207,6 +1310,8 @@ export function AgentDashboard() {
             .eq("user_id", user.id)
             .is("read_at", null),
         ]);
+        if (ldErr) pushErr("leads", "Could not load active leads.", ldErr);
+        if (ldArchivedErr) pushErr("leads", "Could not load archived leads.", ldArchivedErr);
         const leadRows = ((ld ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
         const archivedRows = ((ldArchived ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
 
@@ -1311,13 +1416,18 @@ export function AgentDashboard() {
       return;
     }
 
-    const { data: a } = await supabase
+    const { data: a, error: primaryAgentErr } = await supabase
       .from("agents")
       .select(
-        "id, user_id, name, email, phone, bio, license_number, license_expiry, image_url, status, verified, broker_id, specialties, service_areas, social_links, age, years_experience, languages_spoken, response_time, closings, score, listing_tier, availability_schedule, availability, updated_at, verification_status",
+        "id, user_id, name, email, phone, bio, license_number, license_expiry, image_url, status, verified, broker_id, specialties, service_areas, social_links, age, years_experience, languages_spoken, response_time, closings, score, listing_tier, availability_schedule, availability, updated_at, verification_status, viewing_slot_minutes, viewing_buffer_minutes, viewing_day_start_hour, viewing_day_end_hour",
       )
       .eq("user_id", user.id)
       .maybeSingle();
+    if (primaryAgentErr) {
+      pushErr("agent", "Could not load agent profile.", primaryAgentErr);
+    } else if (!a) {
+      pushErr("agent", "No agent profile found for your account.");
+    }
     setAgent((a as AgentRow | null) ?? null);
     setLoaded(true);
     if (!a) {
@@ -1339,8 +1449,14 @@ export function AgentDashboard() {
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
       const leadSel = AGENT_DASHBOARD_LEAD_SELECT;
       const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
-      const [{ data: ld }, { data: ldArchived }, { data: owned }, { data: paRows }, vwRes, unreadRes] =
-        await Promise.all([
+      const [
+        { data: ld, error: ldErr },
+        { data: ldArchived, error: ldArchivedErr },
+        { data: owned, error: ownedErr },
+        { data: paRows, error: paErr },
+        vwRes,
+        unreadRes,
+      ] = await Promise.all([
         supabase
           .from("leads")
           .select(leadSel)
@@ -1373,6 +1489,11 @@ export function AgentDashboard() {
           .eq("user_id", user.id)
           .is("read_at", null),
       ]);
+      if (ldErr) pushErr("leads", "Could not load active leads.", ldErr);
+      if (ldArchivedErr) pushErr("leads", "Could not load archived leads.", ldArchivedErr);
+      if (ownedErr) pushErr("properties", "Could not load your listings.", ownedErr);
+      if (paErr) pushErr("properties", "Could not load co-list assignments.", paErr);
+      if (vwRes.error) pushErr("viewings", "Could not load viewing requests.", vwRes.error);
       const leadRows = ((ld ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
       const archivedRows = ((ldArchived ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
 
@@ -1516,13 +1637,14 @@ export function AgentDashboard() {
 
       let cohosted: PropertyRow[] = [];
       if (coIds.length > 0) {
-        const { data: co } = await supabase
+        const { data: co, error: coErr } = await supabase
           .from("properties")
           .select(
             "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng, formatted_address, place_id, is_demo, pet_friendly, near_schools, family_friendly",
           )
           .in("id", coIds)
           .order("created_at", { ascending: false });
+        if (coErr) pushErr("properties", "Could not load co-listed properties.", coErr);
         cohosted = ((co ?? []) as Record<string, unknown>[]).map((raw) => {
           const p = raw as Record<string, unknown>;
           return {
@@ -1592,6 +1714,9 @@ export function AgentDashboard() {
       setYesterdayUnreadNotificationsCount(0);
     }
     setPropertiesLoadVersion((v) => v + 1);
+    } finally {
+      setLoadErrors(errs);
+    }
   }, [supabase, user?.id]);
 
   const patchLead = useCallback((leadId: number, patch: Partial<PipelineLeadRow>) => {
@@ -1726,6 +1851,7 @@ export function AgentDashboard() {
     const specEffective = spec.length ? spec : splitCsv(DEFAULT_AGENT_SPECIALTIES_COMMAS);
     const langsEffective = langs.length ? langs : splitCsv(DEFAULT_AGENT_LANGUAGES_COMMAS);
     const areas = splitServiceAreas(agent.service_areas);
+    const appt = coerceViewingSlotAgentSettings(agent);
     setProfileForm({
       name: agent.name,
       roleTitle: roleTitleRaw || "Real Estate Agent",
@@ -1741,6 +1867,10 @@ export function AgentDashboard() {
       facebook: sl.facebook ?? "",
       linkedin: sl.linkedin ?? "",
       website: sl.website ?? "",
+      viewingSlotMinutes: appt.viewing_slot_minutes,
+      viewingBufferMinutes: appt.viewing_buffer_minutes,
+      viewingDayStartHour: appt.viewing_day_start_hour,
+      viewingDayEndHour: appt.viewing_day_end_hour,
     });
   }, [agent, authProfileRole]);
 
@@ -1884,6 +2014,10 @@ export function AgentDashboard() {
         years_experience:
           yexpN != null && Number.isFinite(yexpN) && yexpN >= 0 && yexpN <= 50 ? yexpN : null,
         social_links,
+        viewing_slot_minutes: profileForm.viewingSlotMinutes,
+        viewing_buffer_minutes: profileForm.viewingBufferMinutes,
+        viewing_day_start_hour: profileForm.viewingDayStartHour,
+        viewing_day_end_hour: profileForm.viewingDayEndHour,
       })
       .eq("user_id", user.id);
     setSaving(false);
@@ -2440,6 +2574,11 @@ export function AgentDashboard() {
       return (
         <div className="min-h-screen bg-[#FAF8F4] px-4 py-16 font-sans">
           <div className="mx-auto max-w-lg rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 shadow-sm">
+            <DashboardLoadErrorsBanner
+              errors={loadErrors}
+              onRetry={() => void loadData()}
+              onDismiss={() => setLoadErrors([])}
+            />
             <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">Team dashboard</h1>
             <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/65">{teamMemberSetupError}</p>
             <p className="mt-3 text-sm text-[#2C2C2C]/55">
@@ -2452,6 +2591,11 @@ export function AgentDashboard() {
     return (
       <div className="min-h-screen bg-[#FAF8F4] px-4 py-16">
         <div className="mx-auto max-w-lg rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 shadow-sm">
+          <DashboardLoadErrorsBanner
+            errors={loadErrors}
+            onRetry={() => void loadData()}
+            onDismiss={() => setLoadErrors([])}
+          />
           <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">Agent dashboard</h1>
           <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/55">
             No agent profile is linked to this account yet.
@@ -2652,6 +2796,11 @@ export function AgentDashboard() {
                 : "px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 md:pb-10",
           )}
         >
+          <DashboardLoadErrorsBanner
+            errors={loadErrors}
+            onRetry={() => void loadData()}
+            onDismiss={() => setLoadErrors([])}
+          />
           {isTeamMemberView ? (
             <p className="mb-4 rounded-xl border border-[#6B9E6E]/35 bg-[#6B9E6E]/10 px-4 py-3 font-sans text-sm font-semibold text-[#2C2C2C]">
               You are logged in as a team member of {agent.name}.
@@ -2661,22 +2810,37 @@ export function AgentDashboard() {
 
           <div
             className={cn(
-              "flex w-full min-w-0 flex-col",
+              "relative flex w-full min-w-0 flex-col",
               tab === "pipeline" ? "min-h-0" : "min-h-0 flex-1",
             )}
           >
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={tab}
+            {user && messagesInboxKeepAliveRef.current ? (
+              <div
+                data-tour="messages-panel"
+                aria-hidden={tab !== "messages"}
                 className={cn(
-                  "flex w-full min-w-0 flex-col",
-                  tab === "pipeline" ? "min-h-0" : "h-full min-h-0 flex-1",
+                  "flex min-h-0 min-w-0 flex-col overflow-hidden",
+                  tab === "messages"
+                    ? "relative z-20 flex h-full min-h-0 flex-1"
+                    : "hidden",
                 )}
-                initial={{ opacity: 0, ...(tab === "pipeline" ? {} : { y: 8 }) }}
-                animate={{ opacity: 1, ...(tab === "pipeline" ? {} : { y: 0 }) }}
-                exit={{ opacity: 0, ...(tab === "pipeline" ? {} : { y: -6 }) }}
-                transition={{ duration: 0.2 }}
               >
+                <AgentMessagesInbox initialChannelId={streamChannelId} />
+              </div>
+            ) : null}
+            {tab !== "messages" ? (
+              <AnimatePresence mode="sync">
+                <motion.div
+                  key={tab}
+                  className={cn(
+                    "relative z-10 flex w-full min-w-0 flex-col",
+                    tab === "pipeline" ? "min-h-0" : "h-full min-h-0 flex-1",
+                  )}
+                  initial={{ opacity: 0, ...(tab === "pipeline" ? {} : { y: 8 }) }}
+                  animate={{ opacity: 1, ...(tab === "pipeline" ? {} : { y: 0 }) }}
+                  exit={{ opacity: 0, ...(tab === "pipeline" ? {} : { y: -6 }) }}
+                  transition={{ duration: 0.12 }}
+                >
               {tab === "overview" && (
                 <OverviewTab
                   agent={agent}
@@ -2746,14 +2910,6 @@ export function AgentDashboard() {
                   }}
                 />
               )}
-              {tab === "messages" && user && (
-                <div
-                  data-tour="messages-panel"
-                  className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-                >
-                  <AgentMessagesInbox initialChannelId={streamChannelId} />
-                </div>
-              )}
               {tab === "documents" && isTeamMemberView && (
                 <AgentDashboardDocumentsTab leads={leads} supabase={supabase} />
               )}
@@ -2774,6 +2930,9 @@ export function AgentDashboard() {
                   supabase={supabase}
                   userId={user.id}
                   onAvailabilitySaved={loadData}
+                  onAgentPatch={(patch) => {
+                    setAgent((a) => (a ? { ...a, ...patch } : null));
+                  }}
                   onAvailabilityMessage={(msg) => {
                     if (!msg.trim()) return;
                     toast.success(msg);
@@ -2822,8 +2981,9 @@ export function AgentDashboard() {
                   onDismissPaymentBanner={() => setPaymentBannerTier(null)}
                 />
               )}
-              </motion.div>
-            </AnimatePresence>
+                </motion.div>
+              </AnimatePresence>
+            ) : null}
           </div>
         </main>
       </div>
@@ -5099,6 +5259,10 @@ type ProfileFormState = {
   facebook: string;
   linkedin: string;
   website: string;
+  viewingSlotMinutes: number;
+  viewingBufferMinutes: number;
+  viewingDayStartHour: number;
+  viewingDayEndHour: number;
 };
 
 function toggleProfileMulti(arr: string[], v: string) {
@@ -5118,6 +5282,7 @@ function ProfileTab({
   supabase,
   userId,
   onAvailabilitySaved,
+  onAgentPatch,
   onAvailabilityMessage,
 }: {
   agent: AgentRow;
@@ -5132,11 +5297,14 @@ function ProfileTab({
   supabase: ReturnType<typeof createSupabaseBrowserClient>;
   userId: string;
   onAvailabilitySaved: () => void | Promise<void>;
+  onAgentPatch: (patch: Partial<AgentRow>) => void;
   onAvailabilityMessage: (msg: string) => void;
 }) {
   const [availSaving, setAvailSaving] = useState(false);
   const [followersCount, setFollowersCount] = useState<number | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [appointmentsSaveFlash, setAppointmentsSaveFlash] = useState(false);
+  const appointmentsFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showAvailableNow = isAgentAvailableNow(agent.availability);
 
   useEffect(() => {
@@ -5169,6 +5337,66 @@ function ProfileTab({
     },
     [onSave],
   );
+
+  const flashAppointmentsSaved = useCallback(() => {
+    if (appointmentsFlashTimerRef.current) clearTimeout(appointmentsFlashTimerRef.current);
+    setAppointmentsSaveFlash(true);
+    appointmentsFlashTimerRef.current = setTimeout(() => {
+      setAppointmentsSaveFlash(false);
+      appointmentsFlashTimerRef.current = null;
+    }, 2200);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (appointmentsFlashTimerRef.current) clearTimeout(appointmentsFlashTimerRef.current);
+    };
+  }, []);
+
+  const persistAppointmentFields = useCallback(
+    async (
+      partial: Partial<
+        Pick<
+          ProfileFormState,
+          "viewingSlotMinutes" | "viewingBufferMinutes" | "viewingDayStartHour" | "viewingDayEndHour"
+        >
+      >,
+    ) => {
+      const merged = { ...profileForm, ...partial };
+      const { error } = await supabase
+        .from("agents")
+        .update({
+          viewing_slot_minutes: merged.viewingSlotMinutes,
+          viewing_buffer_minutes: merged.viewingBufferMinutes,
+          viewing_day_start_hour: merged.viewingDayStartHour,
+          viewing_day_end_hour: merged.viewingDayEndHour,
+        })
+        .eq("user_id", userId);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      setProfileForm(merged);
+      onAgentPatch({
+        viewing_slot_minutes: merged.viewingSlotMinutes,
+        viewing_buffer_minutes: merged.viewingBufferMinutes,
+        viewing_day_start_hour: merged.viewingDayStartHour,
+        viewing_day_end_hour: merged.viewingDayEndHour,
+      });
+      flashAppointmentsSaved();
+    },
+    [profileForm, supabase, userId, setProfileForm, onAgentPatch, flashAppointmentsSaved],
+  );
+
+  const formatAppointmentHour = (hour24: number) => {
+    const d = new Date(`2000-01-01T${String(hour24).padStart(2, "0")}:00:00+08:00`);
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Manila",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(d);
+  };
 
   const setAvailableNow = async (on: boolean) => {
     setAvailSaving(true);
@@ -5457,6 +5685,97 @@ function ProfileTab({
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#2C2C2C]/10 bg-[#FAF8F4]/60 p-4">
+            <div className="flex flex-wrap items-baseline gap-2">
+              <h2 className="font-serif text-lg font-bold text-[#2C2C2C]">Appointments</h2>
+              {appointmentsSaveFlash ? (
+                <span className="text-[11px] font-bold uppercase tracking-wide text-[#6B9E6E]">Saved</span>
+              ) : null}
+            </div>
+            <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+              Control how long each viewing takes and how much buffer between them.
+            </p>
+            <div className="mt-4 space-y-4">
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  How long is each viewing?
+                </span>
+                <select
+                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+                  value={profileForm.viewingSlotMinutes}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    void persistAppointmentFields({ viewingSlotMinutes: v });
+                  }}
+                >
+                  <option value={30}>30 minutes</option>
+                  <option value={45}>45 minutes</option>
+                  <option value={60}>60 minutes</option>
+                  <option value={90}>90 minutes</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Buffer between viewings
+                </span>
+                <p className="mt-0.5 text-[11px] font-semibold text-[#2C2C2C]/45">
+                  Travel time and prep between properties
+                </p>
+                <select
+                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+                  value={profileForm.viewingBufferMinutes}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    void persistAppointmentFields({ viewingBufferMinutes: v });
+                  }}
+                >
+                  <option value={0}>No buffer</option>
+                  <option value={30}>30 minutes</option>
+                  <option value={60}>1 hour</option>
+                  <option value={120}>2 hours</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Earliest viewing of the day
+                </span>
+                <select
+                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+                  value={profileForm.viewingDayStartHour}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    void persistAppointmentFields({ viewingDayStartHour: v });
+                  }}
+                >
+                  {[6, 7, 8, 9, 10, 11, 12].map((h) => (
+                    <option key={h} value={h}>
+                      {formatAppointmentHour(h)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                  Latest viewing of the day
+                </span>
+                <select
+                  className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+                  value={profileForm.viewingDayEndHour}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    void persistAppointmentFields({ viewingDayEndHour: v });
+                  }}
+                >
+                  {[16, 17, 18, 19, 20, 21, 22].map((h) => (
+                    <option key={h} value={h}>
+                      {formatAppointmentHour(h)}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           </div>
 

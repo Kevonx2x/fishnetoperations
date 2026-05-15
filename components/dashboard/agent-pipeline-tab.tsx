@@ -4003,13 +4003,23 @@ export function AgentPipelineTab({
         const json = (await res.json().catch(() => ({}))) as {
           success?: boolean;
           data?: { success?: boolean };
-          error?: { message?: string };
+          error?: string | { message?: string };
         };
         const apiOk = res.ok && json.success === true && json.data?.success === true;
         if (!apiOk) {
-          const msg = json?.error?.message ?? "Could not send counter proposal";
+          if (res.status === 409 && (json as { error?: string }).error === "time_slot_unavailable") {
+            setViewingConfirmInlineError("You already have a viewing at this time. Pick another slot.");
+            return;
+          }
+          const msg = json?.error && typeof json.error === "object" && "message" in json.error
+            ? String((json.error as { message?: string }).message)
+            : typeof json?.error === "string"
+              ? json.error
+              : "Could not send counter proposal";
           if (msg.includes("past") || msg.includes("future")) {
             setViewingConfirmInlineError("Pick a future date and time.");
+          } else if (msg.includes("Viewings can’t start")) {
+            setViewingConfirmInlineError(msg);
           } else {
             toast.error(msg);
           }
@@ -4046,15 +4056,26 @@ export function AgentPipelineTab({
       const json = (await res.json().catch(() => ({}))) as {
         success?: boolean;
         data?: { success?: boolean; scheduled_at?: string };
-        error?: { message?: string };
+        error?: string | { message?: string };
       };
       const apiOk = res.ok && json.success === true && json.data?.success === true;
       if (!apiOk) {
-        const msg = json?.error?.message ?? "Could not confirm viewing";
-        if (msg.includes("scheduled_at cannot be in the past") || msg.includes("in the past")) {
-          setViewingConfirmInlineError("Pick a future date and time.");
+        if (res.status === 409 && (json as { error?: string }).error === "time_slot_unavailable") {
+          setViewingConfirmInlineError("You already have a viewing at this time. Pick another slot.");
         } else {
-          toast.error(msg);
+          const msg =
+            json?.error && typeof json.error === "object" && "message" in json.error
+              ? String((json.error as { message?: string }).message)
+              : typeof json?.error === "string"
+                ? json.error
+                : "Could not confirm viewing";
+          if (msg.includes("scheduled_at cannot be in the past") || msg.includes("in the past")) {
+            setViewingConfirmInlineError("Pick a future date and time.");
+          } else if (msg.includes("Viewings can’t start")) {
+            setViewingConfirmInlineError(msg);
+          } else {
+            toast.error(msg);
+          }
         }
         const snap = viewingDragKanbanRevertRef.current;
         if (snap && snap.leadId === confirmingLeadId) {
