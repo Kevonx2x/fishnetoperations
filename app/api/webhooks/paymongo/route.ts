@@ -226,7 +226,7 @@ export async function POST(req: Request) {
   const { agentId, tier } = parsed;
 
   const payFromEvent = extractPaymentResource(body);
-  let paymentId = payFromEvent?.id ?? findPaymentIdInEvent(body);
+  const paymentId = payFromEvent?.id ?? findPaymentIdInEvent(body);
   let amount: number | null =
     typeof payFromEvent?.attributes.amount === "number"
       ? payFromEvent.attributes.amount
