@@ -165,7 +165,9 @@ export async function GET(req: Request) {
       propertyIds.length
         ? admin
             .from("properties")
-            .select("id, name, location, price, image_url, deleted_at, availability_state, property_photos(url, sort_order, created_at)")
+            .select(
+              "id, name, location, city, price, image_url, deleted_at, availability_state, property_type, beds, baths, sqft, property_photos(url, sort_order, created_at)",
+            )
             .in("id", propertyIds)
         : Promise.resolve({ data: [] as unknown[] }),
       agentUserIds.length
@@ -208,10 +210,15 @@ export async function GET(req: Request) {
         id: string;
         name: string | null;
         location: string;
+        city: string | null;
         price: string;
         image_url: string | null;
         deleted_at: string | null;
         availability_state: string | null;
+        property_type: string | null;
+        beds: number | null;
+        baths: number | null;
+        sqft: string | null;
         property_photos: { url: string | null; sort_order?: number | null; created_at?: string | null }[] | null;
       };
       return [row.id, row] as const;
@@ -312,6 +319,12 @@ export async function GET(req: Request) {
             price: priceDisplay,
             hero_image: hero,
             photo_count: photoCount,
+            location: (prop.location && String(prop.location).trim()) || null,
+            city: (prop.city && String(prop.city).trim()) || null,
+            property_type: (prop.property_type && String(prop.property_type).trim()) || null,
+            beds: typeof prop.beds === "number" ? prop.beds : null,
+            baths: typeof prop.baths === "number" ? prop.baths : null,
+            sqft: (prop.sqft && String(prop.sqft).trim()) || null,
             listing_removed: propertyEngagementLooksUnavailable({
               deleted_at: prop.deleted_at,
               availability_state: prop.availability_state,
@@ -323,6 +336,12 @@ export async function GET(req: Request) {
             price: priceDisplay,
             hero_image: "",
             photo_count: photoCount,
+            location: null,
+            city: null,
+            property_type: null,
+            beds: null,
+            baths: null,
+            sqft: null,
             listing_removed: false,
           },
       agent: {

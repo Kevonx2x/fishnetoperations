@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
+import { resolveListingAgentUserId } from "@/lib/resolve-listing-agent-user-id";
+import { useAuth } from "@/contexts/auth-context";
 
 export type DetailProperty = {
   id: string;
@@ -72,6 +74,7 @@ export function PropertyDetailFull({
   const [leadBusy, setLeadBusy] = useState(false);
   const [leadOk, setLeadOk] = useState<string | null>(null);
   const [leadErr, setLeadErr] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!open) return;
@@ -97,6 +100,11 @@ export function PropertyDetailFull({
     }
     setLeadBusy(true);
     try {
+      const agentUserId = await resolveListingAgentUserId(supabase, property.id);
+      if (!agentUserId) {
+        setLeadErr("This listing has no assigned agent. Inquiry cannot be submitted.");
+        return;
+      }
       const { error } = await supabase.from("leads").insert({
         name: leadName.trim(),
         email: leadEmail.trim(),
@@ -105,9 +113,10 @@ export function PropertyDetailFull({
         message: leadMessage.trim() ? leadMessage.trim() : null,
         source: "marketplace",
         stage: "new",
-        agent_id: property.listed_by ?? null,
+        agent_id: agentUserId,
         broker_id: null,
-        client_id: null,
+        client_id: user?.id ?? null,
+        property_id: property.id,
       });
       if (error) throw error;
       setLeadOk("Request sent! An agent will reach out shortly.");

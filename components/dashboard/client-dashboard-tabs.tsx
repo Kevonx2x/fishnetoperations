@@ -106,7 +106,7 @@ function ClientDashboardTabsInner() {
           )}
         >
           <GitBranch className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-          Pipeline
+          My Properties
           {pipelineNotifUnread > 0 ? (
             <span className="ml-1 inline-flex min-w-[1.125rem] items-center justify-center rounded-full bg-[#D4A843]/25 px-1.5 text-[10px] font-bold text-[#8a6d32]">
               {pipelineNotifUnread > 99 ? "99+" : pipelineNotifUnread}
@@ -129,8 +129,8 @@ function ClientDashboardTabsInner() {
               onClick={() => onSelectPanel("pipeline")}
               className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 text-left shadow-sm transition hover:border-[#6B9E6E]/40"
             >
-              <p className="text-xs font-bold uppercase tracking-wider text-[#6B9E6E]">Pipeline</p>
-              <p className="mt-2 font-serif text-lg font-semibold text-[#2C2C2C]">Track your deals</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#6B9E6E]">My Properties</p>
+              <p className="mt-2 font-serif text-lg font-semibold text-[#2C2C2C]">Track your inquiries</p>
               <p className="mt-1 text-sm text-[#888888]">Viewings, documents, and status per property.</p>
             </button>
             <Link
@@ -145,31 +145,13 @@ function ClientDashboardTabsInner() {
         </>
       ) : (
         <>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <h1 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C] md:text-4xl">Pipeline</h1>
-              <p className="mt-2 max-w-2xl font-sans text-sm font-medium leading-relaxed text-[#2C2C2C]/60 md:text-base">
-                Track the progress of your properties and what&apos;s next in your journey.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-[#2C2C2C]/12 bg-white px-4 py-2 font-sans text-sm font-bold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
-              aria-label="Filter pipeline deals"
-            >
-              <svg className="h-4 w-4 shrink-0 text-[#2C2C2C]/50" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path
-                  d="M4 5h16M7 5v.01M6 9h12l-4 5v6l-4 2v-8L6 9z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              Filter
-            </button>
+          <div className="min-w-0">
+            <h1 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C] md:text-4xl">Pipeline</h1>
+            <p className="mt-2 max-w-2xl font-sans text-sm font-normal leading-relaxed text-[#2C2C2C]/50 md:text-[15px]">
+              Track the progress of your properties and what&apos;s next in your journey.
+            </p>
           </div>
-          <div className="mt-8">
+          <div className="mt-6">
             <Suspense
               fallback={
                 <div className="flex min-h-[200px] items-center justify-center text-sm text-[#2C2C2C]/50">

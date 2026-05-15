@@ -41,6 +41,7 @@ import {
   useMarkerRef,
 } from "@vis.gl/react-google-maps";
 import { toast } from "sonner";
+import { resolveListingAgentUserId } from "@/lib/resolve-listing-agent-user-id";
 
 type ListingAgentProfile = {
   id: string;
@@ -550,12 +551,17 @@ export default function PropertyPage() {
     }
     setPresaleBusy(true);
     try {
+      const agentUserId = await resolveListingAgentUserId(supabase, property.id);
+      if (!agentUserId) {
+        setPresaleMsg("This listing has no assigned agent. Interest cannot be submitted.");
+        return;
+      }
       const { error } = await supabase.from("leads").insert({
         name: presaleName.trim(),
         email: presaleEmail.trim(),
         phone: presalePhone.trim() ? presalePhone.trim() : null,
         property_id: property.id,
-        agent_id: property.listed_by,
+        agent_id: agentUserId,
         property_interest: property.name?.trim() || property.location,
         message: `Preferred unit type: ${presaleUnit.trim()}`,
         source: "presale_interest",

@@ -22,6 +22,20 @@ export async function POST(request: NextRequest) {
     });
 
     const row = parsed.data;
+    const admin = createSupabaseAdmin();
+
+    if (row.agent_id) {
+      const { data: agentRow, error: agentErr } = await admin
+        .from("agents")
+        .select("user_id")
+        .eq("user_id", row.agent_id)
+        .maybeSingle();
+      if (agentErr) return fail("DATABASE_ERROR", agentErr.message, 500);
+      if (!agentRow?.user_id) {
+        return fail("BAD_REQUEST", "Invalid agent_id: no matching agent profile", 400);
+      }
+    }
+
     const { data, error } = await supabase
       .from("leads")
       .insert({

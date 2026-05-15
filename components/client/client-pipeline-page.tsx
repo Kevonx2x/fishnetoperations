@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -22,6 +22,8 @@ import {
   ExternalLink,
   FileText,
   Home,
+  LayoutGrid,
+  LayoutList,
   Loader2,
   MoreHorizontal,
   Star,
@@ -52,8 +54,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PipelineDealDetailModal } from "@/components/client/client-pipeline-deal-detail-modal";
 
-type PipelineDeal = {
+export type PipelineDeal = {
   lead_id: number;
   pipeline_stage: string;
   status_label: string;
@@ -68,6 +71,12 @@ type PipelineDeal = {
     price: string;
     hero_image: string;
     photo_count?: number;
+    location?: string | null;
+    city?: string | null;
+    property_type?: string | null;
+    beds?: number | null;
+    baths?: number | null;
+    sqft?: string | null;
     /** True when the underlying listing was soft-deleted. */
     listing_removed?: boolean;
   };
@@ -256,7 +265,18 @@ function formatViewingWhen(iso: string): string {
   }
 }
 
-const CLIENT_PIPELINE_STEPS = ["Inquiry", "Viewing", "Offer", "Reservation", "Closed"] as const;
+const CLIENT_PIPELINE_STEPS = ["Inquiry", "Viewing", "Offer", "Reservation", "Completed"] as const;
+
+const PIPELINE_STAGE_ORDER: Record<string, number> = {
+  lead: 0,
+  viewing: 1,
+  offer: 2,
+  reservation: 3,
+  closed: 4,
+};
+
+type PipelineSortKey = "recent" | "stage" | "name";
+type PipelineViewMode = "list" | "card";
 
 const LG_MIN_PX = 1024;
 
@@ -558,6 +578,159 @@ function formatPipelineCardPrice(price: string): string {
   return formatListingPricePhp(t, "for_sale");
 }
 
+/** Property | stage stepper | next step | row menu */
+const PIPELINE_ROW_GRID =
+  "lg:grid lg:grid-cols-[minmax(0,1.22fr)_minmax(19rem,1.48fr)_minmax(11.5rem,1fr)_2.5rem] lg:items-center lg:gap-x-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(21rem,1.55fr)_minmax(12.5rem,1.05fr)_2.5rem] xl:gap-x-8";
+
+function formatPropertyTypeLabel(raw: string | null | undefined): string | null {
+  const t = (raw ?? "").trim();
+  if (!t) return null;
+  return t.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+type PipelineNextStep = {
+  icon: typeof Calendar;
+  title: string;
+  description: string;
+  dueLabel: string | null;
+};
+
+function derivePipelineNextStep(deal: PipelineDeal, pendingDocCount: number): PipelineNextStep {
+  const stage = String(deal.pipeline_stage ?? "").toLowerCase();
+  const viewingConfirmed = deal.viewing?.status === "confirmed";
+  const latestOffer = deal.offers?.find((o) => String(o.status).toLowerCase() === "pending");
+  const latestReservation = deal.reservations?.find((r) => String(r.status).toLowerCase() === "pending");
+  const pendingDoc = deal.documents.find((d) => d.pending_upload);
+
+  if (deal.property.listing_removed) {
+    return { icon: Home, title: "Listing unavailable", description: "This property is no longer on the market.", dueLabel: null };
+  }
+  if (pendingDocCount > 0 && pendingDoc) {
+    const label = pendingDoc.display_label?.trim() || "documents";
+    return {
+      icon: FileText,
+      title: `Upload ${label}`,
+      description: "Your agent requested this for your inquiry.",
+      dueLabel: "Action needed",
+    };
+  }
+  if (latestReservation) {
+    return {
+      icon: FileText,
+      title: "Sign reservation agreement",
+      description: "Review the agreement from your agent.",
+      dueLabel: latestReservation.created_at ? `Received ${formatShortDate(latestReservation.created_at)}` : null,
+    };
+  }
+  if (latestOffer || stage === "offer") {
+    return {
+      icon: FileText,
+      title: "Review offer letter",
+      description: "Discuss terms with your agent when ready.",
+      dueLabel: latestOffer ? `Received ${formatShortDate(latestOffer.created_at)}` : null,
+    };
+  }
+  if (viewingConfirmed && deal.viewing?.scheduled_at) {
+    const when = formatViewingWhen(deal.viewing.scheduled_at);
+    return {
+      icon: Calendar,
+      title: "Confirm viewing",
+      description: "Your viewing is scheduled.",
+      dueLabel: when ? `Viewing ${when}` : null,
+    };
+  }
+  if (deal.viewing && deal.viewing.status !== "declined") {
+    const ago = formatRelativeTime(deal.viewing.created_at || deal.lead_created_at);
+    return {
+      icon: Clock,
+      title: "Awaiting agent response",
+      description: "Your agent is confirming your viewing request.",
+      dueLabel: ago ? `Awaiting agent — ${ago}` : "Awaiting agent",
+    };
+  }
+  if (stage === "closed") {
+    return { icon: Check, title: "Completed", description: "This property inquiry is complete.", dueLabel: null };
+  }
+  return {
+    icon: Star,
+    title: "Inquiry sent",
+    description: "Your agent will follow up about scheduling a viewing.",
+    dueLabel: `Sent ${formatShortDate(deal.lead_created_at)}`,
+  };
+}
+
+function sortPipelineDeals(deals: PipelineDeal[], sortKey: PipelineSortKey): PipelineDeal[] {
+  const list = [...deals];
+  if (sortKey === "name") {
+    list.sort((a, b) => a.property.title.localeCompare(b.property.title));
+    return list;
+  }
+  if (sortKey === "stage") {
+    list.sort((a, b) => {
+      const sa = PIPELINE_STAGE_ORDER[String(a.pipeline_stage ?? "").toLowerCase()] ?? 0;
+      const sb = PIPELINE_STAGE_ORDER[String(b.pipeline_stage ?? "").toLowerCase()] ?? 0;
+      return sb - sa || +new Date(b.lead_created_at) - +new Date(a.lead_created_at);
+    });
+    return list;
+  }
+  list.sort((a, b) => +new Date(b.lead_created_at) - +new Date(a.lead_created_at));
+  return list;
+}
+
+function propertySpecTags(deal: PipelineDeal): string[] {
+  const tags: string[] = [];
+  const type = formatPropertyTypeLabel(deal.property.property_type);
+  if (type) tags.push(type);
+  const sq = (deal.property.sqft ?? "").trim();
+  if (sq) tags.push(`${sq} sqm`);
+  if (typeof deal.property.beds === "number" && deal.property.beds > 0) tags.push(`${deal.property.beds} BR`);
+  if (typeof deal.property.baths === "number" && deal.property.baths > 0) tags.push(`${deal.property.baths} BA`);
+  const loc = (deal.property.city ?? deal.property.location ?? "").trim();
+  if (loc) tags.push(loc);
+  return tags;
+}
+
+function PipelineNextStepHighlight({ step, hideLabel }: { step: PipelineNextStep; hideLabel?: boolean }) {
+  const StepIcon = step.icon;
+  return (
+    <div className="min-w-0 lg:py-0.5">
+      {!hideLabel ? (
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#2C2C2C]/38 lg:hidden">Next step</p>
+      ) : null}
+      <div className="mt-1.5 flex min-w-0 items-start gap-2.5 lg:mt-0 lg:gap-3">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/10 ring-1 ring-inset ring-[#6B9E6E]/15">
+          <StepIcon className="h-3.5 w-3.5 text-[#6B9E6E]" strokeWidth={2.25} aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold leading-snug tracking-tight text-[#2C2C2C] lg:text-[14px]">
+            {step.title}
+          </p>
+          {step.dueLabel ? (
+            <p className="mt-1 text-xs leading-snug text-[#2C2C2C]/48">{step.dueLabel}</p>
+          ) : (
+            <p className="mt-1 text-xs leading-snug text-[#2C2C2C]/48">{step.description}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PipelineColumnHeaders() {
+  return (
+    <div className={cn("hidden lg:grid", PIPELINE_ROW_GRID)} aria-hidden>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#2C2C2C]/42">Property</span>
+      <span className="min-w-0 truncate text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-[#2C2C2C]/42">
+        Stage progress
+      </span>
+      <span className="min-w-0 truncate border-l border-[#2C2C2C]/[0.06] pl-6 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#2C2C2C]/42">
+        Next step
+      </span>
+      <span className="sr-only">Actions</span>
+    </div>
+  );
+}
+
 function pipelineAgentInitials(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return "?";
@@ -591,7 +764,7 @@ function StatusPill({ label, variant }: { label: string; variant: "sage" | "neut
       className={cn(
         "shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
         variant === "sage" && "border-[#6B9E6E]/25 bg-[#6B9E6E]/10 text-[#2C2C2C]/90",
-        variant === "neutral" && "border-[#2C2C2C]/08 bg-[#FAF8F4] text-[#2C2C2C]/60",
+        variant === "neutral" && "border-stone-200 bg-stone-50 text-[#2C2C2C]/65",
         variant === "gold" && "border-[#D4A843]/30 bg-[#D4A843]/12 text-[#2C2C2C]/90",
       )}
     >
@@ -621,13 +794,13 @@ function DocumentStatusPill({ status }: { status: string | null }) {
 function ClientPipelineStepper({ deal, muted }: { deal: PipelineDeal; muted?: boolean }) {
   const cur = clientPipelineCurrentStepIndex(deal);
   /** Vertical center of circle row (h-7 slot) */
-  const trackTop = "top-[13px]";
+  const trackTop = "top-[10px]";
   return (
-    <div className={cn("w-full min-w-0 shrink-0 font-sans", muted && "grayscale opacity-60")}>
+    <div className={cn("w-full min-w-0 shrink-0 font-sans", muted && "opacity-50 grayscale")}>
       <div className="relative flex w-full min-w-0 items-start">
         {/* Continuous neutral track behind circles */}
         <div
-          className={cn("pointer-events-none absolute right-2 left-2 z-0 h-[2px] rounded-full bg-[#2C2C2C]/[0.12] sm:right-3 sm:left-3", trackTop)}
+          className={cn("pointer-events-none absolute right-2 left-2 z-0 h-px bg-[#2C2C2C]/08", trackTop)}
           aria-hidden
         />
         {CLIENT_PIPELINE_STEPS.map((label, i) => {
@@ -637,36 +810,40 @@ function ClientPipelineStepper({ deal, muted }: { deal: PipelineDeal; muted?: bo
           const segmentAfterGreen = cur === 5 || cur > i;
           return (
             <div key={label} className="relative flex min-w-0 flex-1 flex-col items-center gap-1 px-px">
-              <div className="relative flex h-7 w-full min-w-0 items-center justify-center">
+              <div className="relative flex h-6 w-full min-w-0 items-center justify-center">
                 {i < CLIENT_PIPELINE_STEPS.length - 1 && segmentAfterGreen ? (
                   <div
-                    className={cn(
-                      "absolute left-1/2 z-[1] h-[2px] w-full min-w-0 rounded-full bg-[#6B9E6E]/80",
-                      trackTop,
-                    )}
+                    className={cn("absolute left-1/2 z-[1] h-px w-full min-w-0 bg-[#6B9E6E]/55", trackTop)}
                     aria-hidden
                   />
                 ) : null}
                 {done ? (
-                  <span className="relative z-[2] flex h-6 w-6 items-center justify-center rounded-full border border-[#6B9E6E] bg-[#6B9E6E] text-white ring-2 ring-white">
-                    <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+                  <span className="relative z-[2] flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#6B9E6E] text-white ring-2 ring-[#FAF8F4]">
+                    <Check className="h-2.5 w-2.5" strokeWidth={3} aria-hidden />
                   </span>
                 ) : active ? (
                   <span
                     className={cn(
-                      "relative z-[2] flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-sm ring-2 ring-white",
-                      offerGold ? "border-[#D4A843] bg-[#D4A843]" : "border-[#6B9E6E] bg-[#6B9E6E]",
+                      "relative z-[2] flex h-[18px] w-[18px] items-center justify-center rounded-full text-[10px] font-semibold text-white ring-2 ring-[#FAF8F4]",
+                      offerGold ? "bg-[#D4A843]" : "bg-[#6B9E6E]",
                     )}
                     aria-hidden
-                  />
+                  >
+                    {i + 1}
+                  </span>
                 ) : (
                   <span
-                    className="relative z-[2] flex h-6 w-6 items-center justify-center rounded-full border border-[#D1D5DB] bg-white ring-2 ring-white"
+                    className="relative z-[2] flex h-[18px] w-[18px] items-center justify-center rounded-full border border-[#2C2C2C]/14 bg-white shadow-[inset_0_1px_2px_rgba(44,44,44,0.04)] ring-2 ring-white"
                     aria-hidden
                   />
                 )}
               </div>
-              <span className="w-full min-w-0 hyphens-auto break-words px-0.5 text-center text-[9px] font-normal leading-[1.2] tracking-normal text-[#6B728E] sm:text-[10px] sm:leading-tight">
+              <span
+                className={cn(
+                  "w-full min-w-0 hyphens-auto break-words px-0.5 text-center text-[9px] leading-[1.15]",
+                  active ? "font-medium text-[#2C2C2C]/62" : done ? "text-[#2C2C2C]/42" : "text-[#2C2C2C]/30",
+                )}
+              >
                 {label}
               </span>
             </div>
@@ -721,8 +898,8 @@ function DealStatusBanner({ deal }: { deal: PipelineDeal }) {
 
   if (stage === "lead" && !viewingConfirmed) {
     return (
-      <div className="flex items-start gap-2 font-sans text-sm italic leading-relaxed text-[#6B728E]">
-        <Star className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6B728E]" aria-hidden />
+      <div className="flex items-start gap-2 font-sans text-sm leading-relaxed text-[#2C2C2C]/50">
+        <Star className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#2C2C2C]/35" aria-hidden />
         <span className="min-w-0">We&apos;ve received your inquiry and will get back to you soon.</span>
       </div>
     );
@@ -730,8 +907,8 @@ function DealStatusBanner({ deal }: { deal: PipelineDeal }) {
 
   if (viewingDeclined) {
     return (
-      <div className="flex items-start gap-2 font-sans text-sm italic leading-relaxed text-[#6B728E]">
-        <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6B728E]" aria-hidden />
+      <div className="flex items-start gap-2 font-sans text-sm leading-relaxed text-[#2C2C2C]/50">
+        <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#2C2C2C]/35" aria-hidden />
         <span className="min-w-0">Viewing was declined for this property.</span>
       </div>
     );
@@ -739,7 +916,7 @@ function DealStatusBanner({ deal }: { deal: PipelineDeal }) {
 
   if (deal.viewing && !viewingConfirmed) {
     return (
-      <p className="mt-1 max-w-full font-sans text-xs italic font-normal leading-snug text-[#6B728E]/85">
+      <p className="mt-1 max-w-full font-sans text-xs font-normal leading-snug text-[#2C2C2C]/45">
         Viewing — awaiting confirmation from your agent.
       </p>
     );
@@ -748,28 +925,310 @@ function DealStatusBanner({ deal }: { deal: PipelineDeal }) {
   return null;
 }
 
+function PipelineRowMenu({
+  deal,
+  clientUserId,
+  listingRemovedUi,
+  onToggleDocs,
+  onRequestRemove,
+}: {
+  deal: PipelineDeal;
+  clientUserId: string;
+  listingRemovedUi: boolean;
+  onToggleDocs: () => void;
+  onRequestRemove?: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[#2C2C2C]/32 transition hover:bg-[#2C2C2C]/[0.04] hover:text-[#2C2C2C]/65"
+          aria-label="Property actions"
+        >
+          <MoreHorizontal className="h-4 w-4" aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[188px] border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]">
+        {deal.property.id && !listingRemovedUi ? (
+          <DropdownMenuItem asChild className="font-semibold focus:bg-[#6B9E6E]/12">
+            <Link href={`/properties/${encodeURIComponent(deal.property.id)}`}>View property</Link>
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem className="font-semibold focus:bg-[#6B9E6E]/12" onSelect={() => onToggleDocs()}>
+          View documents
+        </DropdownMenuItem>
+        {deal.agent.user_id && !listingRemovedUi ? (
+          <div className="px-1 py-1">
+            <StartChatButton
+              agentId={deal.agent.user_id}
+              clientId={clientUserId}
+              label="Message agent"
+              showMessageIcon
+              metadata={{
+                property_id: deal.property.id ?? null,
+                property_name: deal.property.title ?? null,
+                property_price: deal.property.price ?? null,
+                property_image: deal.property.hero_image ?? null,
+              }}
+              className="h-8 w-full justify-start rounded-md border-0 bg-transparent px-2 py-1.5 text-sm font-semibold text-[#2C2C2C] shadow-none hover:bg-[#6B9E6E]/12"
+            />
+          </div>
+        ) : null}
+        {onRequestRemove ? (
+          <DropdownMenuItem
+            className="font-semibold text-red-600 focus:bg-red-50 focus:text-red-700"
+            onSelect={(e) => {
+              e.preventDefault();
+              onRequestRemove();
+            }}
+          >
+            Remove from pipeline
+          </DropdownMenuItem>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** Cards view only — fixed vertical slots so rows align across short/long titles. */
+function PipelineDealCardBody({
+  deal,
+  clientUserId,
+  listingRemovedUi,
+  photosBadge,
+  statusPillVariant,
+  specTags,
+  initials,
+  agentAvatarFailed,
+  setAgentAvatarFailed,
+  nextStep,
+  onOpenDetail,
+}: {
+  deal: PipelineDeal;
+  clientUserId: string;
+  listingRemovedUi: boolean;
+  photosBadge: string | null;
+  statusPillVariant: "neutral" | "sage" | "gold";
+  specTags: string[];
+  initials: string;
+  agentAvatarFailed: boolean;
+  setAgentAvatarFailed: (v: boolean) => void;
+  nextStep: PipelineNextStep;
+  onOpenDetail?: () => void;
+}) {
+  return (
+    <div
+      className={cn("flex flex-1 flex-col p-5 font-sans", onOpenDetail && "cursor-pointer")}
+      role={onOpenDetail ? "button" : undefined}
+      tabIndex={onOpenDetail ? 0 : undefined}
+      onClick={
+        onOpenDetail
+          ? (e) => {
+              if ((e.target as HTMLElement).closest("[data-pipeline-card-action]")) return;
+              onOpenDetail();
+            }
+          : undefined
+      }
+      onKeyDown={
+        onOpenDetail
+          ? (e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              if ((e.target as HTMLElement).closest("[data-pipeline-card-action]")) return;
+              e.preventDefault();
+              onOpenDetail();
+            }
+          : undefined
+      }
+    >
+      <div className="relative z-0 mb-4 h-44 w-full shrink-0 overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-inset ring-[#2C2C2C]/[0.06]">
+        {deal.property.hero_image ? (
+          <Image
+            src={deal.property.hero_image}
+            alt=""
+            fill
+            className={cn("object-cover", listingRemovedUi && "grayscale")}
+            sizes="(max-width: 640px) 100vw, 360px"
+            unoptimized
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs font-medium text-[#2C2C2C]/38">
+            No photo
+          </div>
+        )}
+        {listingRemovedUi ? (
+          <div className="pointer-events-none absolute inset-0 z-[8] flex items-center justify-center bg-black/25 px-2">
+            <span className="rounded-full bg-gray-900/85 px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-gray-100">
+              No longer available
+            </span>
+          </div>
+        ) : null}
+        {photosBadge ? (
+          <div className="pointer-events-none absolute bottom-2 left-2 z-10 rounded-full bg-[#2C2C2C]/80 px-2 py-0.5 text-[10px] font-medium text-white">
+            {photosBadge}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mb-3 min-h-[2.75rem] pr-8">
+        <h2 className="line-clamp-2 font-serif text-lg font-semibold leading-snug tracking-tight text-[#2C2C2C]">
+          {deal.property.title}
+        </h2>
+      </div>
+
+      <div className="mb-2 flex h-6 items-end">
+        <p className="text-base font-semibold leading-none tracking-tight text-[#2C2C2C] tabular-nums">
+          {formatPipelineCardPrice(deal.property.price)}
+        </p>
+      </div>
+
+      <div className="mb-2 flex h-7 items-center">
+        {!listingRemovedUi ? (
+          <StatusPill label={deal.status_label} variant={statusPillVariant} />
+        ) : (
+          <span className="inline-flex shrink-0 rounded-full border border-[#B5453A]/30 bg-[#B5453A]/[0.12] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#B5453A]">
+            Unavailable
+          </span>
+        )}
+      </div>
+
+      <div className="mb-2 flex h-7 min-w-0 items-center gap-2">
+        <span className="relative inline-flex h-6 w-6 shrink-0 overflow-hidden rounded-full bg-[#F3F0EA] ring-1 ring-inset ring-[#2C2C2C]/08">
+          {deal.agent.image_url?.trim() && !agentAvatarFailed ? (
+            <Image
+              src={deal.agent.image_url}
+              alt=""
+              fill
+              sizes="24px"
+              className="object-cover"
+              unoptimized
+              onError={() => setAgentAvatarFailed(true)}
+            />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center text-[8px] font-semibold text-[#2C2C2C]/50">
+              {initials}
+            </span>
+          )}
+        </span>
+        <span className="truncate text-xs font-medium text-[#2C2C2C]/55">{deal.agent.name}</span>
+        {deal.agent.verified ? (
+          <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E]" aria-label="Verified agent" />
+        ) : null}
+      </div>
+
+      <div className="mb-3 flex h-7 min-w-0 items-center gap-1.5 overflow-hidden">
+        {specTags.map((tag) => (
+          <span
+            key={tag}
+            className="inline-flex shrink-0 rounded-md border border-[#2C2C2C]/08 bg-[#FAF8F4] px-2 py-0.5 text-[10px] font-medium text-[#2C2C2C]/55"
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
+
+      <div className="mb-3 flex h-14 items-center">
+        <ClientPipelineStepper deal={deal} muted={listingRemovedUi} />
+      </div>
+
+      <div className="mb-4 flex h-[4.25rem] items-stretch">
+        <div className="flex w-full items-center rounded-xl bg-[#FAF8F4]/80 px-3.5 py-2 ring-1 ring-inset ring-[#2C2C2C]/[0.05]">
+          {!listingRemovedUi ? (
+            <div className="min-w-0 [&>div>div]:mt-0">
+              <PipelineNextStepHighlight step={nextStep} hideLabel />
+            </div>
+          ) : (
+            <p className="line-clamp-2 text-xs leading-snug text-[#2C2C2C]/55">
+              This property is no longer available. The agent has closed the inquiry.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex h-11 shrink-0 gap-2.5" data-pipeline-card-action onClick={(e) => e.stopPropagation()}>
+        {deal.agent.user_id && !listingRemovedUi ? (
+          <StartChatButton
+            agentId={deal.agent.user_id}
+            clientId={clientUserId}
+            label="Message Agent"
+            showMessageIcon
+            metadata={{
+              property_id: deal.property.id ?? null,
+              property_name: deal.property.title ?? null,
+              property_price: deal.property.price ?? null,
+              property_image: deal.property.hero_image ?? null,
+            }}
+            className="h-11 min-h-0 flex-1 justify-center rounded-xl border-0 bg-[#2C2C2C] px-3 text-[13px] font-semibold text-white hover:bg-[#6B9E6E]"
+          />
+        ) : (
+          <span className="flex h-11 flex-1 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-[12px] font-semibold text-gray-400">
+            Messaging unavailable
+          </span>
+        )}
+        {deal.property.id && !listingRemovedUi ? (
+          <Link
+            href={`/properties/${encodeURIComponent(deal.property.id)}`}
+            className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border-2 border-[#6B9E6E] bg-white px-3 text-[13px] font-bold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/10"
+          >
+            <Home className="h-4 w-4 shrink-0" aria-hidden />
+            View Property
+          </Link>
+        ) : listingRemovedUi ? (
+          <span className="flex h-11 flex-1 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-[12px] font-semibold text-gray-400">
+            Unavailable
+          </span>
+        ) : null}
+      </div>
+
+      {onOpenDetail ? (
+        <button
+          type="button"
+          className="mt-3 w-full text-center text-xs font-semibold text-[#6B9E6E] hover:underline"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenDetail();
+          }}
+        >
+          View details
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function DealCard({
   deal,
   clientUserId,
+  clientDisplayName,
+  clientAvatarUrl,
   docsOpen,
   onToggleDocs,
   onUploaded,
   highlight,
   isArchived,
   onRequestRemove,
+  onOpenDetail,
+  viewMode = "list",
 }: {
   deal: PipelineDeal;
   clientUserId: string;
+  clientDisplayName?: string | null;
+  clientAvatarUrl?: string | null;
   docsOpen: boolean;
   onToggleDocs: () => void;
   onUploaded: () => void;
   highlight: boolean;
   isArchived?: boolean;
   onRequestRemove?: () => void;
+  onOpenDetail?: () => void;
+  viewMode?: PipelineViewMode;
 }) {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [agentAvatarFailed, setAgentAvatarFailed] = useState(false);
+  const [clientAvatarFailed, setClientAvatarFailed] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(false);
   const [requestedDocsExpanded, setRequestedDocsExpanded] = useState(false);
   const [reviewOfferExpanded, setReviewOfferExpanded] = useState(false);
   const [offerHistoryExpanded, setOfferHistoryExpanded] = useState(false);
@@ -876,7 +1335,13 @@ function DealCard({
   };
 
   const initials = pipelineAgentInitials(deal.agent.name);
+  const clientInitials = pipelineAgentInitials(clientDisplayName ?? "You");
   const listingRemovedUi = Boolean(deal.property.listing_removed);
+  const router = useRouter();
+  const specTags = useMemo(() => propertySpecTags(deal), [deal]);
+  const nextStep = useMemo(() => derivePipelineNextStep(deal, pendingCount), [deal, pendingCount]);
+  const propertyHref = deal.property.id && !listingRemovedUi ? `/properties/${encodeURIComponent(deal.property.id)}` : null;
+  const isCard = viewMode === "card";
 
   if (isArchived) {
     const reasonLabel = labelForClientArchiveReason(deal.archive_reason, deal.archive_note);
@@ -887,7 +1352,7 @@ function DealCard({
       <article
         id={`lead-${deal.lead_id}`}
         className={cn(
-          "relative isolate overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.05] bg-white shadow-[0_2px_20px_rgba(44,44,44,0.05)]",
+          "relative isolate overflow-hidden rounded-xl border border-[#2C2C2C]/[0.06] bg-white shadow-[0_1px_3px_rgba(44,44,44,0.05)]",
           systemUnavailable && "opacity-70",
         )}
       >
@@ -900,13 +1365,13 @@ function DealCard({
             ) : (
               <StatusPill label="Archived" variant="neutral" />
             )}
-            <h2 className="mt-3 break-words text-[0.9375rem] font-bold leading-snug tracking-tight text-[#2C2C2C] sm:text-[1rem]">
+            <h2 className="mt-3 break-words font-serif text-lg font-semibold leading-snug tracking-tight text-[#2C2C2C]">
               {deal.property.title}
             </h2>
-            <p className="mt-0.5 text-[0.8125rem] font-semibold leading-tight text-[#D4A843] sm:text-sm">
+            <p className="mt-1 text-base font-semibold tracking-tight text-[#2C2C2C] tabular-nums">
               {formatPipelineCardPrice(deal.property.price)}
             </p>
-            <p className="mt-3 text-sm text-[#2C2C2C]/70">
+            <p className="mt-3 text-sm text-[#2C2C2C]/55">
               <span className="font-semibold text-[#2C2C2C]/85">Reason:</span> {reasonLabel}
             </p>
             <p className="mt-1 text-xs text-[#2C2C2C]/50">
@@ -931,14 +1396,26 @@ function DealCard({
     <article
       id={`lead-${deal.lead_id}`}
       className={cn(
-        "group relative isolate overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.05] bg-white shadow-[0_2px_20px_rgba(44,44,44,0.05)] transition-all duration-200 ease-out",
-        !listingRemovedUi && "hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(44,44,44,0.09)]",
+        "relative isolate overflow-hidden bg-white transition-[box-shadow,opacity] duration-150",
+        viewMode === "list"
+          ? "max-lg:rounded-xl max-lg:border max-lg:border-[#2C2C2C]/[0.06] max-lg:shadow-[0_1px_2px_rgba(44,44,44,0.04)] max-lg:hover:shadow-[0_2px_10px_rgba(44,44,44,0.06)] lg:border-0 lg:shadow-none"
+          : "flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm ring-1 ring-[#2C2C2C]/[0.04]",
         highlight && "ring-2 ring-[#D4A843]/50",
         listingRemovedUi && "opacity-60",
       )}
     >
-      {onRequestRemove ? (
-        <div className="absolute right-3 top-0 z-20 sm:right-4 sm:top-1">
+      {isCard ? (
+        <div className="absolute right-3 top-3 z-20 sm:right-4" onClick={(e) => e.stopPropagation()}>
+          <PipelineRowMenu
+            deal={deal}
+            clientUserId={clientUserId}
+            listingRemovedUi={listingRemovedUi}
+            onToggleDocs={onToggleDocs}
+            onRequestRemove={onRequestRemove}
+          />
+        </div>
+      ) : onRequestRemove ? (
+        <div className="absolute right-3 top-0 z-20 sm:right-4 sm:top-1 lg:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -964,9 +1441,46 @@ function DealCard({
         </div>
       ) : null}
 
-      <div className="lg:hidden">
-        <div className="space-y-3 px-4 py-3 font-sans">
-          <div className="relative z-0 h-[140px] w-full shrink-0 overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04]">
+      <div className={cn(viewMode === "list" && "lg:hidden", isCard && "flex h-full min-h-0 flex-col")}>
+        {isCard ? (
+          <PipelineDealCardBody
+            deal={deal}
+            clientUserId={clientUserId}
+            listingRemovedUi={listingRemovedUi}
+            photosBadge={photosBadge}
+            statusPillVariant={statusPillVariant}
+            specTags={specTags}
+            initials={initials}
+            agentAvatarFailed={agentAvatarFailed}
+            setAgentAvatarFailed={setAgentAvatarFailed}
+            nextStep={nextStep}
+            onOpenDetail={onOpenDetail}
+          />
+        ) : (
+        <div
+          className={cn("space-y-3 px-4 py-3 font-sans", onOpenDetail && "cursor-pointer")}
+          role={onOpenDetail ? "button" : undefined}
+          tabIndex={onOpenDetail ? 0 : undefined}
+          onClick={
+            onOpenDetail
+              ? (e) => {
+                  if ((e.target as HTMLElement).closest("[data-pipeline-card-action]")) return;
+                  onOpenDetail();
+                }
+              : undefined
+          }
+          onKeyDown={
+            onOpenDetail
+              ? (e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  if ((e.target as HTMLElement).closest("[data-pipeline-card-action]")) return;
+                  e.preventDefault();
+                  onOpenDetail();
+                }
+              : undefined
+          }
+        >
+          <div className="relative z-0 h-[140px] w-full shrink-0 overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.05]">
             {deal.property.hero_image ? (
               <Image
                 src={deal.property.hero_image}
@@ -995,18 +1509,24 @@ function DealCard({
             ) : null}
           </div>
           <div className="min-w-0">
-            <h2 className="break-words text-[0.9375rem] font-bold leading-snug tracking-tight text-[#2C2C2C]">
+            <h2 className="break-words font-serif text-lg font-semibold leading-snug tracking-tight text-[#2C2C2C]">
               {deal.property.title}
             </h2>
-            <p className="mt-0.5 text-[0.8125rem] font-semibold leading-tight text-[#D4A843]">
+            <p className="mt-1 text-base font-semibold tracking-tight text-[#2C2C2C] tabular-nums">
               {formatPipelineCardPrice(deal.property.price)}
             </p>
           </div>
-          <ClientPipelineStepper deal={deal} muted={listingRemovedUi} />
-          <div className="text-xs leading-snug text-[#6B728E]">
-            <DealStatusBanner deal={deal} />
+          <div>
+            <ClientPipelineStepper deal={deal} muted={listingRemovedUi} />
+            <div className="text-xs leading-snug text-[#6B728E]">
+              <DealStatusBanner deal={deal} />
+            </div>
           </div>
-          <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-20 -mx-4 flex gap-2 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-[#FAF8F4]/90">
+          <div
+            className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-20 -mx-4 flex shrink-0 gap-2.5 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-[#FAF8F4]/90"
+            data-pipeline-card-action
+            onClick={(e) => e.stopPropagation()}
+          >
             {deal.agent.user_id && !listingRemovedUi ? (
               <StartChatButton
                 agentId={deal.agent.user_id}
@@ -1019,7 +1539,7 @@ function DealCard({
                   property_price: deal.property.price ?? null,
                   property_image: deal.property.hero_image ?? null,
                 }}
-                className="h-11 min-h-[44px] flex-1 justify-center rounded-xl border-0 bg-[#6B9E6E] px-3 text-[13px] font-bold text-white hover:bg-[#5d8a60]"
+                className="h-11 min-h-[44px] flex-1 justify-center rounded-xl border-0 bg-[#2C2C2C] px-3 text-[13px] font-semibold text-white hover:bg-[#6B9E6E]"
               />
             ) : (
               <span className="flex h-11 min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-[12px] font-semibold text-gray-400">
@@ -1040,51 +1560,59 @@ function DealCard({
               </span>
             ) : null}
           </div>
-          <div className="-mx-1 border-t border-[#2C2C2C]/[0.06] pt-1">
-            <MobileAccordion title="Your next steps">
-              <MobilePipelineNextStepsSummary deal={deal} pendingCount={pendingCount} />
-            </MobileAccordion>
-            <MobileAccordion title={`Documents (${submittedDocCount} submitted)`}>
-              <DealMobileDocumentsList
-                deal={deal}
-                openingId={openingId}
-                uploadingId={uploadingId}
-                onPickFile={onPickFile}
-                openDoc={openDoc}
-              />
-            </MobileAccordion>
-            <MobileAccordion title="Activity">
-              <div className="flex items-start gap-2 rounded-lg bg-[#FAF8F4]/80 px-2 py-2 text-[11px] text-[#2C2C2C]/55">
-                <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
-                <span>Updates from your agent and this listing appear here.</span>
-              </div>
-              <div className="mt-2">
-                <DealMobileActivity deal={deal} clientUserId={clientUserId} />
-              </div>
-            </MobileAccordion>
-          </div>
+          {onOpenDetail ? (
+            <button
+              type="button"
+              className="w-full text-center text-xs font-semibold text-[#6B9E6E] hover:underline"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenDetail();
+              }}
+            >
+              View details
+            </button>
+          ) : null}
         </div>
+        )}
       </div>
 
-      <div className="hidden flex-col gap-5 px-6 py-5 sm:px-8 sm:py-6 lg:flex xl:grid xl:grid-cols-4 xl:items-start xl:gap-x-5 xl:gap-y-0 xl:px-9 xl:py-7 xl:[grid-template-columns:minmax(0,0.94fr)_minmax(0,1.28fr)_minmax(0,0.82fr)_minmax(0,0.92fr)]">
-        {/* Section 1 — title + price (tight), gap, then image */}
-        <div className="flex min-w-0 flex-col font-sans">
-          <div className="shrink-0">
-            <h2 className="break-words font-sans text-[0.9375rem] font-bold leading-snug tracking-tight text-[#2C2C2C] sm:text-[1rem]">
-              {deal.property.title}
-            </h2>
-            <p className="mt-0.5 font-sans text-[0.8125rem] font-semibold leading-tight text-[#D4A843] sm:text-sm">
-              {formatPipelineCardPrice(deal.property.price)}
-            </p>
-          </div>
-          <div className="relative z-0 mx-auto mt-5 h-[184px] w-full max-w-[min(100%,280px)] shrink-0 overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.04] sm:mt-6 sm:h-[204px] xl:mx-0 xl:mt-6 xl:max-w-none">
+      {viewMode === "list" ? (
+      <div
+        className={cn(
+          "hidden lg:grid",
+          PIPELINE_ROW_GRID,
+          "group/row px-6 py-4 sm:px-7 lg:px-8 lg:py-[1.125rem]",
+          onOpenDetail && "cursor-pointer transition-colors hover:bg-[#FAF8F4]/60",
+        )}
+        {...(onOpenDetail
+          ? {
+              role: "button",
+              tabIndex: 0,
+              onClick: (e: React.MouseEvent) => {
+                const target = e.target as HTMLElement;
+                if (target.closest("button, a, input, label, [role=menu]")) return;
+                onOpenDetail();
+              },
+              onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                const target = e.target as HTMLElement;
+                if (target.closest("button, a, input, label")) return;
+                e.preventDefault();
+                onOpenDetail();
+              },
+            }
+          : {})}
+      >
+        {/* Section 1 — property */}
+        <div className="flex min-w-0 items-start gap-3.5 font-sans">
+          <div className="relative z-0 h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-lg bg-[#F3F0EA] shadow-[0_1px_4px_rgba(44,44,44,0.08)] ring-1 ring-[#2C2C2C]/[0.06]">
             {deal.property.hero_image ? (
               <Image
                 src={deal.property.hero_image}
                 alt=""
                 fill
                 className={cn("object-cover", listingRemovedUi && "grayscale")}
-                sizes="280px"
+                sizes="80px"
                 unoptimized
               />
             ) : (
@@ -1100,61 +1628,103 @@ function DealCard({
               </div>
             ) : null}
             {photosBadge ? (
-              <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-10 rounded-full bg-[#2C2C2C]/80 px-2.5 py-1 font-sans text-[11px] font-medium text-white">
+              <div className="pointer-events-none absolute bottom-1 left-1 z-10 rounded-full bg-[#2C2C2C]/80 px-1.5 py-0.5 font-sans text-[9px] font-medium text-white">
                 {photosBadge}
               </div>
             ) : null}
           </div>
-        </div>
-
-        {/* Section 2 — agent, stepper, status as one tight group */}
-        <div className="flex min-h-0 min-w-0 flex-col font-sans xl:h-full xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
-          <div className="flex min-w-0 shrink-0 flex-nowrap items-center gap-2">
-            <span className="relative inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[#FAF8F4] ring-1 ring-inset ring-[#2C2C2C]/10">
-              {deal.agent.image_url?.trim() && !agentAvatarFailed ? (
-                <Image
-                  src={deal.agent.image_url}
-                  alt=""
-                  fill
-                  sizes="28px"
-                  className="object-cover"
-                  unoptimized
-                  onError={() => setAgentAvatarFailed(true)}
-                />
-              ) : (
-                <span className="flex h-full w-full items-center justify-center font-sans text-[9px] font-semibold tracking-tight text-[#2C2C2C]/55">
-                  {initials}
-                </span>
-              )}
-            </span>
-            <span className="min-w-0 truncate font-sans text-sm font-normal text-[#2C2C2C]/50">{deal.agent.name}</span>
-            {deal.agent.verified ? (
-              <span className="inline-flex shrink-0 items-center gap-0.5 text-[#6B9E6E]" title="Verified agent">
-                <BadgeCheck className="h-3 w-3" aria-hidden />
-                <span className="sr-only">Verified</span>
+          <div className="min-w-0 flex-1">
+            <h2 className="line-clamp-1 text-[15px] font-semibold leading-snug tracking-tight text-[#2C2C2C]">
+              {deal.property.title}
+            </h2>
+            <p className="mt-0.5 text-[15px] font-semibold leading-none tracking-tight text-[#2C2C2C] tabular-nums">
+              {formatPipelineCardPrice(deal.property.price)}
+            </p>
+            {!listingRemovedUi ? (
+              <div className="mt-1.5">
+                <StatusPill label={deal.status_label} variant={statusPillVariant} />
+              </div>
+            ) : (
+              <span className="mt-1 inline-flex shrink-0 rounded-full border border-[#B5453A]/30 bg-[#B5453A]/[0.12] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#B5453A]">
+                Unavailable
               </span>
+            )}
+            <div className="mt-1 flex min-w-0 items-center gap-1.5">
+              <span className="relative inline-flex h-5 w-5 shrink-0 overflow-hidden rounded-full bg-[#F3F0EA] ring-1 ring-inset ring-[#2C2C2C]/08">
+                {deal.agent.image_url?.trim() && !agentAvatarFailed ? (
+                  <Image
+                    src={deal.agent.image_url}
+                    alt=""
+                    fill
+                    sizes="20px"
+                    className="object-cover"
+                    unoptimized
+                    onError={() => setAgentAvatarFailed(true)}
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center text-[7px] font-semibold text-[#2C2C2C]/50">
+                    {initials}
+                  </span>
+                )}
+              </span>
+              <span className="truncate text-[11px] font-medium text-[#2C2C2C]/55">{deal.agent.name}</span>
+              {deal.agent.verified ? (
+                <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E]" aria-label="Verified agent" />
+              ) : null}
+            </div>
+            {specTags.length > 0 ? (
+              <div className="mt-1 flex min-w-0 flex-wrap gap-1">
+                {specTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex rounded border border-[#2C2C2C]/08 bg-[#FAF8F4] px-1.5 py-px text-[9px] font-medium text-[#2C2C2C]/55"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
             ) : null}
           </div>
-
-          <div className="flex min-h-0 flex-1 items-center justify-center py-3">
-            <ClientPipelineStepper deal={deal} muted={listingRemovedUi} />
-          </div>
-          <div className="min-h-0 shrink-0">
-            <DealStatusBanner deal={deal} />
+          <div className="shrink-0 self-start" onClick={(e) => e.stopPropagation()}>
+            <PipelineRowMenu
+              deal={deal}
+              clientUserId={clientUserId}
+              listingRemovedUi={listingRemovedUi}
+              onToggleDocs={onToggleDocs}
+              onRequestRemove={onRequestRemove}
+            />
           </div>
         </div>
 
-        {/* Section 3 — checklist */}
-        <section className="min-w-0 font-sans xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:border-l xl:border-[#2C2C2C]/[0.05] xl:pl-5">
-          <p className="flex min-h-[24px] w-full shrink-0 items-start text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38 xl:min-h-[26px]">
-            Your next steps
-          </p>
+        {/* Section 2 — stage progress */}
+        <div className="flex min-w-0 items-center justify-center px-0.5 font-sans">
+          <div className="w-full max-w-[19rem]">
+            <ClientPipelineStepper deal={deal} muted={listingRemovedUi} />
+          </div>
+        </div>
+
+        {/* Section 3 — next step */}
+        <section className="min-w-0 font-sans">
+          {!listingRemovedUi ? <PipelineNextStepHighlight step={nextStep} /> : null}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setChecklistOpen((v) => !v);
+            }}
+            className="mt-1.5 text-[11px] font-medium text-[#2C2C2C]/45 hover:text-[#6B9E6E] lg:hidden"
+          >
+            {checklistOpen ? "Hide full checklist" : "View full checklist"}
+          </button>
+          {checklistOpen ? (
+            <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/38 lg:hidden">All steps</p>
+          ) : null}
           {listingRemovedUi ? (
             <div className="mt-4 rounded-xl border border-[#2C2C2C]/[0.06] bg-[#FAF8F4]/70 px-4 py-3 text-[13px] font-semibold text-[#2C2C2C]/70">
               This property is no longer available. The agent has closed the inquiry.
             </div>
-          ) : (
-          <ul className="mt-4 space-y-3.5 text-sm text-[#2C2C2C]/80 sm:mt-5 sm:space-y-4 xl:min-h-0 xl:flex-1">
+          ) : checklistOpen ? (
+          <ul className="mt-3 space-y-3.5 text-sm text-[#2C2C2C]/80 lg:hidden">
             <li className="flex items-start gap-2.5">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
               <div className="min-w-0">
@@ -1455,62 +2025,28 @@ function DealCard({
               </li>
             )}
           </ul>
-          )}
+          ) : null}
         </section>
 
-        {/* Section 4 — status pill + quick actions (no border vs section 3; grid gap only) */}
-        <div className="flex min-w-0 flex-col items-stretch font-sans">
-          <div className="flex min-h-[24px] w-full shrink-0 items-start justify-end xl:min-h-[26px]">
-            {listingRemovedUi ? (
-              <span className="shrink-0 rounded-full border border-[#B5453A]/30 bg-[#B5453A]/[0.12] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#B5453A]">
-                NO LONGER AVAILABLE
-              </span>
-            ) : (
-              <StatusPill label={deal.status_label} variant={statusPillVariant} />
-            )}
-          </div>
-          <p className="mt-3 w-full shrink-0 text-center text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-[#2C2C2C]/38">
-            Quick actions
-          </p>
-          <div className="mt-6 flex w-full flex-col gap-2.5 sm:mt-7">
-            {deal.agent.user_id && !listingRemovedUi ? (
-              <StartChatButton
-                agentId={deal.agent.user_id}
-                clientId={clientUserId}
-                label="Message Agent"
-                showMessageIcon
-                metadata={{
-                  property_id: deal.property.id ?? null,
-                  property_name: deal.property.title ?? null,
-                  property_price: deal.property.price ?? null,
-                  property_image: deal.property.hero_image ?? null,
-                }}
-                className="h-10 w-full justify-center rounded-full border-0 bg-[#6B9E6E] px-4 py-0 text-[13px] font-semibold text-white hover:bg-[#5d8a60]"
-              />
-            ) : null}
-            {deal.property.id && !listingRemovedUi ? (
-              <Link
-                href={`/properties/${encodeURIComponent(deal.property.id)}`}
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-[#2C2C2C]/12 bg-transparent px-4 text-[13px] font-semibold text-[#2C2C2C]/85 transition hover:border-[#2C2C2C]/18 hover:bg-[#FAF8F4]/80"
-              >
-                <Home className="h-3.5 w-3.5 shrink-0 text-[#2C2C2C]/45" aria-hidden />
-                View Property
-              </Link>
-            ) : null}
-            <button
-              type="button"
-              onClick={onToggleDocs}
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-[#2C2C2C]/12 bg-transparent px-4 text-[13px] font-semibold text-[#2C2C2C]/85 transition hover:border-[#2C2C2C]/18 hover:bg-[#FAF8F4]/80"
-            >
-              <FileText className="h-3.5 w-3.5 shrink-0 text-[#2C2C2C]/45" aria-hidden />
-              View Documents
-            </button>
-          </div>
+        <div className="flex items-start justify-end self-start pt-0.5">
+          <PipelineRowMenu
+            deal={deal}
+            clientUserId={clientUserId}
+            listingRemovedUi={listingRemovedUi}
+            onToggleDocs={onToggleDocs}
+            onRequestRemove={onRequestRemove}
+          />
         </div>
       </div>
+      ) : null}
 
       {docsOpen ? (
-        <div className="hidden border-t border-[#2C2C2C]/[0.06] bg-[#FAF8F4]/80 px-6 py-6 sm:px-10 lg:block">
+        <div
+          className={cn(
+            "border-t border-[#2C2C2C]/[0.06] bg-[#FAF8F4]/80 px-6 py-6 sm:px-10",
+            viewMode === "list" ? "hidden lg:block" : "block",
+          )}
+        >
           <p className="text-[10px] font-bold uppercase tracking-wider text-[#2C2C2C]/45">Documents</p>
           {deal.documents.length === 0 ? (
             <p className="mt-2 font-sans text-sm text-[#2C2C2C]/55">No documents for this deal yet.</p>
@@ -1574,10 +2110,98 @@ function DealCard({
   );
 }
 
+function ClientPipelineToolbar({
+  pipelineListTab,
+  setPipelineListTab,
+  sortKey,
+  setSortKey,
+  viewMode,
+  setViewMode,
+}: {
+  pipelineListTab: "active" | "archived";
+  setPipelineListTab: (tab: "active" | "archived") => void;
+  sortKey: PipelineSortKey;
+  setSortKey: (key: PipelineSortKey) => void;
+  viewMode: PipelineViewMode;
+  setViewMode: (mode: PipelineViewMode) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 border-b border-[#2C2C2C]/[0.06] bg-[#FAF8F4]/35 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setPipelineListTab("active")}
+          className={cn(
+            "rounded-full px-4 py-1.5 text-sm font-medium transition",
+            pipelineListTab === "active"
+              ? "bg-[#2C2C2C] text-white shadow-sm"
+              : "text-[#2C2C2C]/55 hover:text-[#2C2C2C]",
+          )}
+        >
+          Active
+        </button>
+        <button
+          type="button"
+          onClick={() => setPipelineListTab("archived")}
+          className={cn(
+            "rounded-full px-4 py-1.5 text-sm font-medium transition",
+            pipelineListTab === "archived"
+              ? "bg-[#2C2C2C] text-white shadow-sm"
+              : "text-[#2C2C2C]/55 hover:text-[#2C2C2C]",
+          )}
+        >
+          Archived
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="sr-only" htmlFor="pipeline-sort">
+          Sort properties
+        </label>
+        <select
+          id="pipeline-sort"
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as PipelineSortKey)}
+          className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-[#2C2C2C] shadow-sm outline-none focus:border-[#6B9E6E]/40"
+        >
+          <option value="recent">Most recent</option>
+          <option value="stage">Stage</option>
+          <option value="name">Property name</option>
+        </select>
+        <div className="flex rounded-lg border border-stone-200 bg-white p-0.5 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setViewMode("list")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium",
+              viewMode === "list" ? "bg-[#2C2C2C] text-white" : "text-[#2C2C2C]/55",
+            )}
+            aria-label="List view"
+          >
+            <LayoutList className="h-3.5 w-3.5" aria-hidden />
+            List
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("card")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium",
+              viewMode === "card" ? "bg-[#2C2C2C] text-white" : "text-[#2C2C2C]/55",
+            )}
+            aria-label="Card view"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
+            Cards
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Pipeline deals UI; use inside client dashboard layout (or any shell that already authenticates). */
 export function ClientPipelineInner() {
   const searchParams = useSearchParams();
-  const { user, role, loading: authLoading } = useAuth();
+  const { user, role, loading: authLoading, profile } = useAuth();
 
   const [deals, setDeals] = useState<PipelineDeal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1587,6 +2211,10 @@ export function ClientPipelineInner() {
   const [archiveReason, setArchiveReason] = useState<ClientArchiveReasonKey>("not_interested");
   const [archiveNote, setArchiveNote] = useState("");
   const [archiveBusy, setArchiveBusy] = useState(false);
+  const [sortKey, setSortKey] = useState<PipelineSortKey>("recent");
+  const [viewMode, setViewMode] = useState<PipelineViewMode>("list");
+  const [detailDeal, setDetailDeal] = useState<PipelineDeal | null>(null);
+  const isBelowLg = useIsBelowLg();
 
   const highlightLeadId = useMemo(() => {
     const raw = searchParams.get("lead");
@@ -1668,84 +2296,105 @@ export function ClientPipelineInner() {
     );
   }
 
+  const sortedDeals = useMemo(() => sortPipelineDeals(deals, sortKey), [deals, sortKey]);
+
   return (
     <div className="w-full min-w-0 font-sans text-[#2C2C2C]">
-      <div className="mb-6 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            setPipelineListTab("active");
-          }}
-          className={cn(
-            "rounded-full px-4 py-2 text-sm font-bold transition",
-            pipelineListTab === "active"
-              ? "bg-[#6B9E6E] text-white shadow-sm"
-              : "border border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
-          )}
-        >
-          Active
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setPipelineListTab("archived");
-          }}
-          className={cn(
-            "rounded-full px-4 py-2 text-sm font-bold transition",
-            pipelineListTab === "archived"
-              ? "bg-[#6B9E6E] text-white shadow-sm"
-              : "border border-[#2C2C2C]/15 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/35",
-          )}
-        >
-          Archived
-        </button>
+      <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.07] bg-white shadow-[0_2px_16px_rgba(44,44,44,0.06),0_1px_3px_rgba(44,44,44,0.04)]">
+        <ClientPipelineToolbar
+            pipelineListTab={pipelineListTab}
+            setPipelineListTab={setPipelineListTab}
+            sortKey={sortKey}
+            setSortKey={setSortKey}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+        />
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="h-10 w-10 animate-spin text-[#6B9E6E]" aria-hidden />
+          </div>
+        ) : deals.length === 0 ? (
+          <div className="border-t border-dashed border-[#2C2C2C]/10 px-6 py-20 text-center sm:px-10">
+            <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">
+              {pipelineListTab === "archived" ? "No archived properties" : "No properties yet"}
+            </h2>
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#2C2C2C]/50">
+              {pipelineListTab === "archived"
+                ? "Properties you archive will appear here."
+                : "Browse listings to find your next home."}
+            </p>
+            {pipelineListTab === "active" ? (
+              <Link
+                href="/"
+                className="mt-6 inline-flex rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5a8a5d]"
+              >
+                Explore listings
+              </Link>
+            ) : null}
+          </div>
+        ) : (
+          <>
+          {pipelineListTab === "active" && viewMode === "list" ? (
+            <div className="hidden border-b border-[#2C2C2C]/[0.06] bg-gradient-to-b from-[#FAF8F4]/90 to-[#FAF8F4]/50 px-6 py-3 lg:block lg:px-8">
+              <PipelineColumnHeaders />
+            </div>
+          ) : null}
+          <div
+            className={cn(
+              viewMode === "card" &&
+                "grid items-stretch gap-5 p-5 sm:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0",
+              viewMode === "list" && "divide-y divide-[#2C2C2C]/[0.05]",
+            )}
+          >
+            {sortedDeals.map((deal) => (
+              <DealCard
+                key={deal.lead_id}
+                deal={deal}
+                clientUserId={user.id}
+                clientDisplayName={profile?.full_name}
+                clientAvatarUrl={profile?.avatar_url}
+                docsOpen={docsOpen[deal.lead_id] ?? false}
+                onToggleDocs={() => setDocsOpen((s) => ({ ...s, [deal.lead_id]: !s[deal.lead_id] }))}
+                onUploaded={() => void load()}
+                highlight={highlightLeadId === deal.lead_id}
+                isArchived={pipelineListTab === "archived"}
+                viewMode={viewMode}
+                onRequestRemove={
+                  pipelineListTab === "active"
+                    ? () => {
+                        setArchiveReason("not_interested");
+                        setArchiveNote("");
+                        setArchiveModalDeal(deal);
+                      }
+                    : undefined
+                }
+                onOpenDetail={() => setDetailDeal(deal)}
+              />
+            ))}
+          </div>
+          </>
+        )}
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-10 w-10 animate-spin text-[#6B9E6E]" aria-hidden />
-        </div>
-      ) : deals.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white py-16 text-center shadow-sm">
-          <p className="text-sm font-semibold text-[#2C2C2C]/55">
-            {pipelineListTab === "archived"
-              ? "No archived properties. Deals you remove from your pipeline appear here."
-              : "No active deals yet. Request a viewing on a listing to see it here."}
-          </p>
-          {pipelineListTab === "active" ? (
-            <Link
-              href="/"
-              className="mt-4 inline-flex rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#5a8a5d]"
-            >
-              Browse listings
-            </Link>
-          ) : null}
-        </div>
-      ) : (
-        <div className="space-y-10">
-          {deals.map((deal) => (
-            <DealCard
-              key={deal.lead_id}
-              deal={deal}
-              clientUserId={user.id}
-              docsOpen={docsOpen[deal.lead_id] ?? false}
-              onToggleDocs={() => setDocsOpen((s) => ({ ...s, [deal.lead_id]: !s[deal.lead_id] }))}
-              onUploaded={() => void load()}
-              highlight={highlightLeadId === deal.lead_id}
-              isArchived={pipelineListTab === "archived"}
-              onRequestRemove={
-                pipelineListTab === "active"
-                  ? () => {
-                      setArchiveReason("not_interested");
-                      setArchiveNote("");
-                      setArchiveModalDeal(deal);
-                    }
-                  : undefined
+      <PipelineDealDetailModal
+        deal={detailDeal}
+        open={detailDeal != null}
+        onOpenChange={(open) => {
+          if (!open) setDetailDeal(null);
+        }}
+        clientUserId={user.id}
+        isMobile={isBelowLg}
+        onUploaded={() => void load()}
+        onRequestArchive={
+          detailDeal && pipelineListTab === "active"
+            ? () => {
+                setArchiveReason("not_interested");
+                setArchiveNote("");
+                setArchiveModalDeal(detailDeal);
               }
-            />
-          ))}
-        </div>
-      )}
+            : undefined
+        }
+      />
 
       <Dialog
         open={archiveModalDeal != null}

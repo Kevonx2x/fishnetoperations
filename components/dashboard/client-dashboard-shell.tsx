@@ -19,7 +19,7 @@ const SIDEBAR_NAV: {
   Icon: LucideIcon;
 }[] = [
   { href: "/dashboard/client", label: "Dashboard", segment: "dashboard", Icon: LayoutDashboard },
-  { href: "/dashboard/client/pipeline", label: "Pipeline", segment: "pipeline", Icon: GitBranch },
+  { href: "/dashboard/client/pipeline", label: "My Properties", segment: "pipeline", Icon: GitBranch },
   { href: "/dashboard/client/messages", label: "Messages", segment: "messages", Icon: MessageSquare },
   { href: "/dashboard/client/notifications", label: "Notifications", segment: "notifications", Icon: Bell },
   { href: "/dashboard/client/profile", label: "Profile", segment: "profile", Icon: Settings },
@@ -33,7 +33,7 @@ const MOBILE_BOTTOM_NAV: {
   Icon: LucideIcon;
 }[] = [
   { href: "/", label: "Home", segment: "home", Icon: Home },
-  { href: "/dashboard/client/pipeline", label: "Pipeline", segment: "pipeline", Icon: GitBranch },
+  { href: "/dashboard/client/pipeline", label: "My Properties", segment: "pipeline", Icon: GitBranch },
   { href: "/dashboard/client/messages", label: "Messages", segment: "messages", Icon: MessageSquare },
   { href: "/dashboard/client/notifications", label: "Notifications", segment: "notifications", Icon: Bell },
   { href: "/dashboard/client/profile", label: "Profile", segment: "profile", Icon: Settings },
@@ -132,18 +132,20 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
           >
             <aside
               className={cn(
-                "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:flex-col md:overflow-hidden md:px-2 md:py-5",
-                isMessagesRoute ? "w-[208px]" : "w-[180px]",
+                "hidden shrink-0 border-r border-[#2C2C2C]/[0.07] bg-[#F5F2EC] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:flex-col md:overflow-hidden md:px-3 md:py-6",
+                isMessagesRoute ? "w-[220px]" : "w-[196px]",
               )}
             >
-              <div className="mb-5 flex items-center gap-2 px-1">
-                <ClientAvatar name={displayName} avatarUrl={avatarUrl} sizePx={40} textClassName="text-sm" ringClassName="ring-2 ring-[#D4A843]/35" />
+              <p className="mb-5 px-2 font-serif text-lg font-semibold tracking-tight text-[#2C2C2C]">BahayGo</p>
+              <div className="mb-6 flex items-center gap-2.5 border-b border-[#2C2C2C]/[0.06] px-2 pb-5">
+                <ClientAvatar name={displayName} avatarUrl={avatarUrl} sizePx={36} textClassName="text-xs" ringClassName="ring-1 ring-[#2C2C2C]/10" />
                 <div className="min-w-0">
-                  <p className="truncate text-[13px] font-semibold leading-tight text-[#2C2C2C]">{displayName}</p>
-                  <p className="truncate text-[11px] font-medium text-[#888888]">Client</p>
+                  <p className="truncate text-[13px] font-medium leading-tight text-[#2C2C2C]">{displayName}</p>
+                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#2C2C2C]/42">Client account</p>
                 </div>
               </div>
-              <nav className="flex flex-1 flex-col gap-1">
+              <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/38">Workspace</p>
+              <nav className="flex flex-1 flex-col gap-0.5">
                 {SIDEBAR_NAV.map((t) => {
                   const active = isSidebarActivePath(pathname, t.segment);
                   const Icon = t.Icon;
@@ -152,14 +154,17 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                       key={t.href}
                       href={t.href}
                       className={cn(
-                        "flex items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-semibold transition",
+                        "relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition",
                         active
-                          ? "bg-[#6B9E6E]/15 text-[#2C2C2C] ring-1 ring-[#D4A843]/25"
-                          : "text-[#2C2C2C]/65 hover:bg-white/80",
+                          ? "bg-white text-[#2C2C2C] shadow-[0_1px_2px_rgba(44,44,44,0.05)]"
+                          : "text-[#2C2C2C]/58 hover:bg-white/60 hover:text-[#2C2C2C]",
                       )}
                     >
-                      <span className="relative inline-flex text-[#6B9E6E]">
-                        <Icon className="h-[18px] w-[18px]" aria-hidden />
+                      {active ? (
+                        <span className="absolute bottom-2 left-0 top-2 w-0.5 rounded-full bg-[#6B9E6E]" aria-hidden />
+                      ) : null}
+                      <span className={cn("relative inline-flex", active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45")}>
+                        <Icon className="h-[17px] w-[17px]" aria-hidden />
                         {t.segment === "dashboard" && streamMessagesUnreadTotal > 0 ? (
                           <span
                             className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
@@ -182,8 +187,11 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                   );
                 })}
               </nav>
-              <Link href="/" className="mt-auto px-2 py-2 text-sm font-semibold text-[#2C2C2C]/55 hover:text-[#2C2C2C]">
-                ← Back to site
+              <Link
+                href="/"
+                className="mt-auto border-t border-[#2C2C2C]/[0.06] px-2 pt-4 text-[12px] font-medium text-[#2C2C2C]/48 transition hover:text-[#2C2C2C]"
+              >
+                Back to marketplace
               </Link>
             </aside>
 

@@ -6,6 +6,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { RESEND_FROM } from "@/lib/resend-from";
 import { normalizePhoneE164, sendSmsTo } from "@/lib/twilio-sms";
 import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
+import { resolveListingAgentUserId } from "@/lib/resolve-listing-agent-user-id";
 
 const contactSchema = z.object({
   source: z.literal("contact_button"),
@@ -51,13 +52,44 @@ async function findExistingLeadIdForViewingDedupe(
   } else {
     q = q.is("property_id", null);
   }
-  const { data, error } = await q.maybeSingle();
+  const { data, error } = await q.order("id", { ascending: false }).limit(1).maybeSingle();
   if (error) {
     console.warn("[create-lead] viewing_request: could not resolve existing lead id for duplicate", error);
     return null;
   }
   const id = (data as { id?: number } | null)?.id;
   return id != null ? Number(id) : null;
+}
+
+/** Reuse existing lead for contact_button when client+agent+property already has a row. */
+async function findExistingLeadIdForContactDedupe(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  clientId: string,
+  agentUserId: string,
+  propertyId: string | null,
+): Promise<number | null> {
+  return findExistingLeadIdForViewingDedupe(admin, clientId, agentUserId, propertyId);
+}
+
+/** Ensure agent_id is a real agents.user_id; for property context, fall back to listing agent. */
+async function resolveRequiredAgentUserId(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  agentUserId: string,
+  propertyId: string | null,
+): Promise<{ agentUserId: string } | { error: string }> {
+  const trimmed = agentUserId.trim();
+  const { data: direct } = await admin.from("agents").select("user_id").eq("user_id", trimmed).maybeSingle();
+  if (direct?.user_id) return { agentUserId: trimmed };
+
+  if (propertyId) {
+    const resolved = await resolveListingAgentUserId(admin, propertyId);
+    if (resolved) {
+      const { data: resolvedRow } = await admin.from("agents").select("user_id").eq("user_id", resolved).maybeSingle();
+      if (resolvedRow?.user_id) return { agentUserId: resolved };
+    }
+  }
+
+  return { error: "No listing agent is assigned to this property. Inquiry cannot be created." };
 }
 
 export async function POST(req: Request) {
@@ -107,8 +139,12 @@ export async function POST(req: Request) {
         return fail("FORBIDDEN", "Not allowed", 403);
       }
 
-      const agentUserId = vr.agent_user_id;
       const propertyId = vr.property_id;
+      const agentResolved = await resolveRequiredAgentUserId(admin, vr.agent_user_id, propertyId);
+      if ("error" in agentResolved) {
+        return fail("BAD_REQUEST", agentResolved.error, 400);
+      }
+      const agentUserId = agentResolved.agentUserId;
 
       let propertyLabel = "General Inquiry";
       if (propertyId) {
@@ -268,7 +304,13 @@ export async function POST(req: Request) {
       return ok({ created: true, leadId });
     }
 
-    const { agentUserId, propertyId, propertyTitle, channel } = parsed.data;
+    const { propertyId, propertyTitle, channel } = parsed.data;
+    const agentResolved = await resolveRequiredAgentUserId(admin, parsed.data.agentUserId, propertyId ?? null);
+    if ("error" in agentResolved) {
+      return fail("BAD_REQUEST", agentResolved.error, 400);
+    }
+    const agentUserId = agentResolved.agentUserId;
+
     if (propertyId) {
       const { data: propContact, error: pcErr } = await admin
         .from("properties")
@@ -291,6 +333,28 @@ export async function POST(req: Request) {
     const propertyInterest = propertyTitle?.trim() || "General Inquiry";
     const message = `Contact channel: ${channel}`;
 
+    const existingContactLeadId = await findExistingLeadIdForContactDedupe(
+      admin,
+      session.userId,
+      agentUserId,
+      propertyId ?? null,
+    );
+    if (existingContactLeadId != null) {
+      await notifyAgentNewLead(admin, {
+        agentUserId,
+        leadId: existingContactLeadId,
+        clientName,
+        propertyLabel: propertyInterest,
+        clientEmail,
+        clientPhone,
+        sourceLabel: "contact_button",
+        channel,
+        extraEmailHtml: `<p><strong>Channel:</strong> ${esc(channel)}</p>`,
+        smsSuffix: "",
+      });
+      return ok({ created: false, updated: false, duplicate: true, leadId: existingContactLeadId });
+    }
+
     const { data: inserted, error: insErr } = await admin
       .from("leads")
       .insert({
@@ -310,6 +374,15 @@ export async function POST(req: Request) {
 
     if (insErr) {
       if (insErr.code === "23505") {
+        const raceLeadId = await findExistingLeadIdForContactDedupe(
+          admin,
+          session.userId,
+          agentUserId,
+          propertyId ?? null,
+        );
+        if (raceLeadId != null) {
+          return ok({ created: false, updated: false, duplicate: true, leadId: raceLeadId });
+        }
         return ok({ created: false, duplicate: true });
       }
       return fail("DATABASE_ERROR", insErr.message, 500);
