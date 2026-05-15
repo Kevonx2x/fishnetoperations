@@ -5,16 +5,16 @@ import { motion } from "framer-motion";
 import { ImageIcon, Trash2, X } from "lucide-react";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { LeadActivitySection } from "@/components/dashboard/lead-activity-section";
+import type { LeadActivityLeadContext } from "@/lib/lead-activity-timeline";
 
-type LeadRow = {
-  id: number;
+type LeadRow = LeadActivityLeadContext & {
   name: string;
   email: string;
   phone: string | null;
   property_interest: string | null;
   message: string | null;
   stage: string;
-  created_at: string;
   property_cover_photo_url?: string | null;
 };
 
@@ -154,6 +154,8 @@ export function AgentLeadSlideOver({
                 )}
               </div>
             </div>
+
+            <LeadActivitySection lead={lead} />
 
             <div className="px-6 py-4 pb-6">
               <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Notes</p>
