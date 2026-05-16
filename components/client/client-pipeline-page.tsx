@@ -578,9 +578,9 @@ function formatPipelineCardPrice(price: string): string {
   return formatListingPricePhp(t, "for_sale");
 }
 
-/** Property | stage stepper | next step | row menu */
+/** Property | stage stepper | next step | row menu — wider property slot for hero; stage column right-aligned toward next step */
 const PIPELINE_ROW_GRID =
-  "lg:grid lg:grid-cols-[minmax(0,1.22fr)_minmax(19rem,1.48fr)_minmax(11.5rem,1fr)_2.5rem] lg:items-center lg:gap-x-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(21rem,1.55fr)_minmax(12.5rem,1.05fr)_2.5rem] xl:gap-x-8";
+  "lg:grid lg:grid-cols-[minmax(0,1.38fr)_minmax(17rem,1.28fr)_minmax(10.5rem,0.95fr)_2.5rem] lg:items-center lg:gap-x-5 xl:grid-cols-[minmax(0,1.42fr)_minmax(17.5rem,1.22fr)_minmax(11rem,0.92fr)_2.5rem] xl:gap-x-6";
 
 function formatPropertyTypeLabel(raw: string | null | undefined): string | null {
   const t = (raw ?? "").trim();
@@ -593,7 +593,32 @@ type PipelineNextStep = {
   title: string;
   description: string;
   dueLabel: string | null;
+  /** ISO timestamp for compact "Awaiting agent · 4d" list treatment */
+  awaitingSinceIso?: string;
 };
+
+/** Short relative time for list rows: 18m, 2h, 4d, 6w */
+function formatCompactRelativeTime(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "";
+  const diffMs = Math.max(0, Date.now() - t);
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 60) return `${Math.max(1, sec)}m`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hrs = Math.floor(min / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks}w`;
+}
+
+function awaitingWaitDays(iso: string): number {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return 0;
+  return Math.floor(Math.max(0, Date.now() - t) / 86400000);
+}
 
 function derivePipelineNextStep(deal: PipelineDeal, pendingDocCount: number): PipelineNextStep {
   const stage = String(deal.pipeline_stage ?? "").toLowerCase();
@@ -640,12 +665,14 @@ function derivePipelineNextStep(deal: PipelineDeal, pendingDocCount: number): Pi
     };
   }
   if (deal.viewing && deal.viewing.status !== "declined") {
-    const ago = formatRelativeTime(deal.viewing.created_at || deal.lead_created_at);
+    const sinceIso = deal.viewing.created_at || deal.lead_created_at;
+    const ago = formatRelativeTime(sinceIso);
     return {
       icon: Clock,
       title: "Awaiting agent response",
       description: "Your agent is confirming your viewing request.",
       dueLabel: ago ? `Awaiting agent — ${ago}` : "Awaiting agent",
+      awaitingSinceIso: sinceIso,
     };
   }
   if (stage === "closed") {
@@ -690,8 +717,51 @@ function propertySpecTags(deal: PipelineDeal): string[] {
   return tags;
 }
 
-function PipelineNextStepHighlight({ step, hideLabel }: { step: PipelineNextStep; hideLabel?: boolean }) {
+function PipelineNextStepHighlight({
+  step,
+  hideLabel,
+  condenseAwaitingAgent,
+}: {
+  step: PipelineNextStep;
+  hideLabel?: boolean;
+  condenseAwaitingAgent?: boolean;
+}) {
   const StepIcon = step.icon;
+  const showCompactAwaiting =
+    condenseAwaitingAgent &&
+    step.title === "Awaiting agent response" &&
+    Boolean(step.awaitingSinceIso);
+  const compactTime = showCompactAwaiting ? formatCompactRelativeTime(step.awaitingSinceIso!) : "";
+  const waitDays = showCompactAwaiting ? awaitingWaitDays(step.awaitingSinceIso!) : 0;
+
+  if (showCompactAwaiting) {
+    return (
+      <div className="min-w-0 lg:py-0.5">
+        {!hideLabel ? (
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#2C2C2C]/38 lg:hidden">
+            Next step
+          </p>
+        ) : null}
+        <div className="mt-1.5 flex min-w-0 items-center gap-2.5 lg:mt-0 lg:gap-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/10 ring-1 ring-inset ring-[#6B9E6E]/15">
+            <StepIcon className="h-3.5 w-3.5 text-[#6B9E6E]" strokeWidth={2.25} aria-hidden />
+          </span>
+          <p className="min-w-0 text-[15px] font-semibold leading-snug tracking-tight text-[#2C2C2C] lg:text-[14px]">
+            Awaiting agent
+            {compactTime ? (
+              <>
+                <span className="font-medium text-[#2C2C2C]/40"> · </span>
+                <span className={cn("font-semibold tabular-nums", waitDays > 3 && "text-[#D4A843]")}>
+                  {compactTime}
+                </span>
+              </>
+            ) : null}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-w-0 lg:py-0.5">
       {!hideLabel ? (
@@ -718,12 +788,16 @@ function PipelineNextStepHighlight({ step, hideLabel }: { step: PipelineNextStep
 
 function PipelineColumnHeaders() {
   return (
-    <div className={cn("hidden lg:grid", PIPELINE_ROW_GRID)} aria-hidden>
-      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#2C2C2C]/42">Property</span>
-      <span className="min-w-0 truncate text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-[#2C2C2C]/42">
-        Stage progress
-      </span>
-      <span className="min-w-0 truncate border-l border-[#2C2C2C]/[0.06] pl-6 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#2C2C2C]/42">
+    <div className={cn("grid", PIPELINE_ROW_GRID)} aria-hidden>
+      <span className="text-xs font-medium uppercase tracking-wide text-gray-500">Property</span>
+      <div className="flex min-w-0 items-center justify-end px-0.5 font-sans">
+        <div className="ml-auto w-[min(100%,18rem)] min-w-0">
+          <span className="block text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+            Stage progress
+          </span>
+        </div>
+      </div>
+      <span className="min-w-0 truncate text-xs font-medium uppercase tracking-wide text-gray-500">
         Next step
       </span>
       <span className="sr-only">Actions</span>
@@ -931,13 +1005,60 @@ function PipelineRowMenu({
   listingRemovedUi,
   onToggleDocs,
   onRequestRemove,
+  onOpenDetail,
+  menuLayout = "card",
 }: {
   deal: PipelineDeal;
   clientUserId: string;
   listingRemovedUi: boolean;
   onToggleDocs: () => void;
   onRequestRemove?: () => void;
+  /** Opens the same detail modal as row click (list view). */
+  onOpenDetail?: () => void;
+  /** Card grid keeps full actions; list rows use a minimal overflow menu only. */
+  menuLayout?: "card" | "list";
 }) {
+  if (menuLayout === "list") {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[#2C2C2C]/32 transition hover:bg-[#2C2C2C]/[0.04] hover:text-[#2C2C2C]/65"
+            aria-label="Property actions"
+          >
+            <MoreHorizontal className="h-4 w-4" aria-hidden />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-[188px] border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]">
+          {onOpenDetail ? (
+            <DropdownMenuItem
+              className="font-semibold focus:bg-[#6B9E6E]/12"
+              onSelect={(e) => {
+                e.preventDefault();
+                onOpenDetail();
+              }}
+            >
+              View details
+            </DropdownMenuItem>
+          ) : null}
+          {onRequestRemove ? (
+            <DropdownMenuItem
+              className="font-semibold text-red-600 focus:bg-red-50 focus:text-red-700"
+              onSelect={(e) => {
+                e.preventDefault();
+                onRequestRemove();
+              }}
+            >
+              Archive
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -1398,7 +1519,7 @@ function DealCard({
       className={cn(
         "relative isolate overflow-hidden bg-white transition-[box-shadow,opacity] duration-150",
         viewMode === "list"
-          ? "max-lg:rounded-xl max-lg:border max-lg:border-[#2C2C2C]/[0.06] max-lg:shadow-[0_1px_2px_rgba(44,44,44,0.04)] max-lg:hover:shadow-[0_2px_10px_rgba(44,44,44,0.06)] lg:border-0 lg:shadow-none"
+          ? "border-b border-stone-200 last:border-b-0 max-lg:rounded-xl max-lg:border max-lg:border-[#2C2C2C]/[0.06] max-lg:shadow-[0_1px_2px_rgba(44,44,44,0.04)] max-lg:transition-[box-shadow,background-color] max-lg:duration-150 max-lg:hover:bg-stone-50/60 max-lg:hover:shadow-sm lg:border-x-0 lg:border-t-0 lg:shadow-none lg:transition-[box-shadow,background-color,transform] lg:duration-150 lg:hover:-translate-y-px lg:hover:bg-stone-50/60 lg:hover:shadow-sm"
           : "flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm ring-1 ring-[#2C2C2C]/[0.04]",
         highlight && "ring-2 ring-[#D4A843]/50",
         listingRemovedUi && "opacity-60",
@@ -1414,30 +1535,17 @@ function DealCard({
             onRequestRemove={onRequestRemove}
           />
         </div>
-      ) : onRequestRemove ? (
-        <div className="absolute right-3 top-0 z-20 sm:right-4 sm:top-1 lg:hidden">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 items-center justify-center text-[#2C2C2C]/55 transition hover:text-[#2C2C2C]/85"
-                aria-label="More actions"
-              >
-                <MoreHorizontal className="h-4 w-4" aria-hidden />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[160px] border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]">
-              <DropdownMenuItem
-                className="font-semibold text-red-600 focus:bg-red-50 focus:text-red-700"
-                onSelect={(e) => {
-                  e.preventDefault();
-                  onRequestRemove();
-                }}
-              >
-                Remove
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+      ) : viewMode === "list" && (onOpenDetail || onRequestRemove) ? (
+        <div className="absolute right-3 top-0 z-20 sm:right-4 sm:top-1 lg:hidden" onClick={(e) => e.stopPropagation()}>
+          <PipelineRowMenu
+            deal={deal}
+            clientUserId={clientUserId}
+            listingRemovedUi={listingRemovedUi}
+            onToggleDocs={onToggleDocs}
+            onRequestRemove={onRequestRemove}
+            onOpenDetail={onOpenDetail}
+            menuLayout="list"
+          />
         </div>
       ) : null}
 
@@ -1458,7 +1566,10 @@ function DealCard({
           />
         ) : (
         <div
-          className={cn("space-y-3 px-4 py-3 font-sans", onOpenDetail && "cursor-pointer")}
+          className={cn(
+            "space-y-3 px-4 py-4 font-sans transition-colors duration-150",
+            onOpenDetail && "cursor-pointer hover:bg-stone-50/60",
+          )}
           role={onOpenDetail ? "button" : undefined}
           tabIndex={onOpenDetail ? 0 : undefined}
           onClick={
@@ -1480,14 +1591,14 @@ function DealCard({
               : undefined
           }
         >
-          <div className="relative z-0 h-[140px] w-full shrink-0 overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.05]">
+          <div className="relative z-0 h-[100px] w-full shrink-0 overflow-hidden rounded-lg bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.05]">
             {deal.property.hero_image ? (
               <Image
                 src={deal.property.hero_image}
                 alt=""
                 fill
                 className={cn("object-cover", listingRemovedUi && "grayscale")}
-                sizes="(max-width: 1024px) 100vw, 280px"
+                sizes="(max-width: 1024px) 100vw, 120px"
                 unoptimized
               />
             ) : (
@@ -1503,7 +1614,7 @@ function DealCard({
               </div>
             ) : null}
             {photosBadge ? (
-              <div className="pointer-events-none absolute bottom-2 left-2 z-10 rounded-full bg-[#2C2C2C]/80 px-2 py-0.5 font-sans text-[10px] font-medium text-white">
+              <div className="pointer-events-none absolute bottom-1 left-1 z-10 rounded-full bg-[#2C2C2C]/80 px-1.5 py-0.5 font-sans text-[9px] font-medium text-white">
                 {photosBadge}
               </div>
             ) : null}
@@ -1581,8 +1692,9 @@ function DealCard({
         className={cn(
           "hidden lg:grid",
           PIPELINE_ROW_GRID,
-          "group/row px-6 py-4 sm:px-7 lg:px-8 lg:py-[1.125rem]",
-          onOpenDetail && "cursor-pointer transition-colors hover:bg-[#FAF8F4]/60",
+          "group/row items-center px-6 py-4",
+          onOpenDetail &&
+            "cursor-pointer transition-[background-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:bg-stone-50/60 hover:shadow-sm",
         )}
         {...(onOpenDetail
           ? {
@@ -1604,15 +1716,15 @@ function DealCard({
           : {})}
       >
         {/* Section 1 — property */}
-        <div className="flex min-w-0 items-start gap-3.5 font-sans">
-          <div className="relative z-0 h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-lg bg-[#F3F0EA] shadow-[0_1px_4px_rgba(44,44,44,0.08)] ring-1 ring-[#2C2C2C]/[0.06]">
+        <div className="flex min-w-0 items-start gap-4 font-sans xl:gap-5">
+          <div className="relative z-0 h-[116px] w-[140px] shrink-0 overflow-hidden rounded-lg bg-[#F3F0EA] shadow-[0_1px_4px_rgba(44,44,44,0.08)] ring-1 ring-[#2C2C2C]/[0.06]">
             {deal.property.hero_image ? (
               <Image
                 src={deal.property.hero_image}
                 alt=""
                 fill
                 className={cn("object-cover", listingRemovedUi && "grayscale")}
-                sizes="80px"
+                sizes="140px"
                 unoptimized
               />
             ) : (
@@ -1685,27 +1797,20 @@ function DealCard({
               </div>
             ) : null}
           </div>
-          <div className="shrink-0 self-start" onClick={(e) => e.stopPropagation()}>
-            <PipelineRowMenu
-              deal={deal}
-              clientUserId={clientUserId}
-              listingRemovedUi={listingRemovedUi}
-              onToggleDocs={onToggleDocs}
-              onRequestRemove={onRequestRemove}
-            />
-          </div>
         </div>
 
-        {/* Section 2 — stage progress */}
-        <div className="flex min-w-0 items-center justify-center px-0.5 font-sans">
-          <div className="w-full max-w-[19rem]">
+        {/* Section 2 — stage progress (right-aligned toward Next step so property column can use more width for the hero) */}
+        <div className="flex min-w-0 items-center justify-end px-0.5 font-sans">
+          <div className="ml-auto w-[min(100%,18rem)] min-w-0">
             <ClientPipelineStepper deal={deal} muted={listingRemovedUi} />
           </div>
         </div>
 
         {/* Section 3 — next step */}
         <section className="min-w-0 font-sans">
-          {!listingRemovedUi ? <PipelineNextStepHighlight step={nextStep} /> : null}
+          {!listingRemovedUi ? (
+            <PipelineNextStepHighlight step={nextStep} condenseAwaitingAgent />
+          ) : null}
           <button
             type="button"
             onClick={(e) => {
@@ -2028,13 +2133,15 @@ function DealCard({
           ) : null}
         </section>
 
-        <div className="flex items-start justify-end self-start pt-0.5">
+        <div className="flex items-start justify-end self-start pt-0.5" onClick={(e) => e.stopPropagation()}>
           <PipelineRowMenu
             deal={deal}
             clientUserId={clientUserId}
             listingRemovedUi={listingRemovedUi}
             onToggleDocs={onToggleDocs}
             onRequestRemove={onRequestRemove}
+            onOpenDetail={onOpenDetail}
+            menuLayout="list"
           />
         </div>
       </div>
@@ -2333,9 +2440,14 @@ export function ClientPipelineInner() {
             ) : null}
           </div>
         ) : (
-          <>
+          <div
+            className={cn(
+              viewMode === "list" &&
+                "lg:max-h-[min(72vh,calc(100dvh-14rem))] lg:overflow-y-auto lg:overscroll-contain",
+            )}
+          >
           {pipelineListTab === "active" && viewMode === "list" ? (
-            <div className="hidden border-b border-[#2C2C2C]/[0.06] bg-gradient-to-b from-[#FAF8F4]/90 to-[#FAF8F4]/50 px-6 py-3 lg:block lg:px-8">
+            <div className="sticky top-0 z-10 hidden border-b border-stone-200 bg-[#F5F2EC] px-6 py-3 lg:block">
               <PipelineColumnHeaders />
             </div>
           ) : null}
@@ -2343,7 +2455,6 @@ export function ClientPipelineInner() {
             className={cn(
               viewMode === "card" &&
                 "grid items-stretch gap-5 p-5 sm:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0",
-              viewMode === "list" && "divide-y divide-[#2C2C2C]/[0.05]",
             )}
           >
             {sortedDeals.map((deal) => (
@@ -2372,7 +2483,7 @@ export function ClientPipelineInner() {
               />
             ))}
           </div>
-          </>
+          </div>
         )}
       </div>
 
