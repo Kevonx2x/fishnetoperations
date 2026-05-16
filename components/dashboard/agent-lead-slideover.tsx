@@ -113,8 +113,13 @@ export function AgentLeadSlideOver({
                   <h2 className="font-serif text-2xl font-bold text-[#2C2C2C]">{lead.name}</h2>
                   <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{lead.email}</p>
                 </div>
-                <button type="button" onClick={onClose} className="rounded-full p-2 hover:bg-white" aria-label="Close">
-                  <X className="h-5 w-5" />
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-full p-2 text-[#2C2C2C] transition-colors hover:bg-stone-100"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" strokeWidth={2.25} aria-hidden />
                 </button>
               </div>
               <dl className="mt-6 space-y-3 text-sm">

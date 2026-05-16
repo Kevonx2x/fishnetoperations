@@ -50,6 +50,7 @@ import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-mes
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
+import { BahayGoWordmarkHomeLink } from "@/components/marketplace/bahaygo-wordmark";
 import { AgentCalendarModal } from "@/components/dashboard/agent-calendar-modal";
 import { AgentViewingsProvider, useAgentViewings } from "@/lib/agent-viewings-context";
 // Legacy onboarding modal — replaced by agent tour overlay. Kept commented in case we want to revive.
@@ -1725,6 +1726,53 @@ export function AgentDashboard() {
     );
   }, []);
 
+  const onUnarchiveArchivedLead = useCallback(
+    async (row: PipelineLeadRow) => {
+      const full = archivedLeads.find((l) => l.id === row.id);
+      if (!full) return;
+      const stages = new Set(["lead", "viewing", "offer", "reservation", "closed"]);
+      const raw = String(full.stage_at_archive ?? "").trim().toLowerCase();
+      const restoredPipeline = stages.has(raw) ? raw : "lead";
+      const optimistic: LeadRow = {
+        ...full,
+        archived_at: null,
+        archive_reason: null,
+        archive_note: null,
+        stage_at_archive: null,
+        pipeline_stage: restoredPipeline,
+        stage: restoredPipeline,
+        updated_at: new Date().toISOString(),
+      };
+      const snapA = archivedLeads;
+      const snapL = leads;
+      setArchivedLeads((p) => p.filter((l) => l.id !== row.id));
+      setLeads((p) => {
+        const filtered = p.filter((l) => l.id !== row.id);
+        return [optimistic, ...filtered];
+      });
+      toast.success("Moved back to Active pipeline");
+      try {
+        const res = await fetch("/api/agent/unarchive-lead", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ lead_id: row.id }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { error?: string };
+        if (!res.ok) {
+          setArchivedLeads(snapA);
+          setLeads(snapL);
+          toast.error(json.error ?? "Could not unarchive");
+        }
+      } catch (e) {
+        setArchivedLeads(snapA);
+        setLeads(snapL);
+        toast.error(e instanceof Error ? e.message : "Could not unarchive");
+      }
+    },
+    [archivedLeads, leads],
+  );
+
   useEffect(() => {
     if (authLoading || !user?.id || tab !== "pipeline") return;
     const refetch = () => {
@@ -2692,11 +2740,8 @@ export function AgentDashboard() {
           )}
         >
           <div className="flex flex-col min-h-0">
-            <div className="mb-4 flex items-center gap-2 px-1 pt-0.5">
-              <House className="h-[18px] w-[18px] shrink-0 text-[#6B9E6E]" aria-hidden />
-              <span className="font-serif text-[15px] font-semibold leading-none tracking-tight text-[#2C2C2C]">
-                BahayGo
-              </span>
+            <div className="mb-4 px-1 pt-0.5">
+              <BahayGoWordmarkHomeLink size="sidebar" className="max-w-full" />
             </div>
             <div className="mb-5 flex items-center gap-2 px-1">
               <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-[#D4A843]/35">
@@ -2901,6 +2946,7 @@ export function AgentDashboard() {
                     setStreamChannelId(streamDmChannelId(user.id, clientUserId));
                     navigateAgentTab("messages");
                   }}
+                  onUnarchiveArchivedLead={onUnarchiveArchivedLead}
                   onRefresh={loadData}
                   onPatchLead={patchLead}
                   onFullRefresh={loadData}

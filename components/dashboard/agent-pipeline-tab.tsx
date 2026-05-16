@@ -2394,6 +2394,7 @@ export function AgentPipelineTab({
   clientDocsSharedWithUserId,
   viewingRequestMetaByLeadId = {},
   onOpenMessagesForClient,
+  onUnarchiveArchivedLead,
 }: {
   leads: PipelineLeadRow[];
   archivedLeads: PipelineLeadRow[];
@@ -2412,6 +2413,8 @@ export function AgentPipelineTab({
   clientDocsSharedWithUserId?: string;
   viewingRequestMetaByLeadId?: Record<number, ViewingRequestPipelineMeta>;
   onOpenMessagesForClient?: (clientUserId: string) => void;
+  /** Restore an archived lead to the active kanban (optimistic; no refetch on success). */
+  onUnarchiveArchivedLead?: (row: PipelineLeadRow) => void | Promise<void>;
 }) {
   const sortStorageKey = useMemo(() => `bhg:pipeline:sort:${pipelineAgentId}`, [pipelineAgentId]);
   const [sortMode, setSortMode] = useState<PipelineSortMode>("last_activity_desc");
@@ -4741,11 +4744,14 @@ export function AgentPipelineTab({
                   ? formatRelativeTime(row.archived_at)
                   : "—";
                 return (
-                  <li key={row.id}>
+                  <li
+                    key={row.id}
+                    className="flex gap-1 rounded-xl border border-[#2C2C2C]/[0.08] bg-[#FAF8F4]/60 p-1 transition hover:border-[#6B9E6E]/35 hover:bg-white sm:gap-2"
+                  >
                     <button
                       type="button"
                       onClick={() => onOpenLeadDetails(row.id)}
-                      className="w-full rounded-xl border border-[#2C2C2C]/[0.08] bg-[#FAF8F4]/60 px-4 py-3 text-left transition hover:border-[#6B9E6E]/35 hover:bg-white"
+                      className="min-w-0 flex-1 rounded-lg px-3 py-2.5 text-left transition hover:bg-white/80"
                     >
                       <p className="font-sans text-sm font-bold text-[#2C2C2C]">{propTitle}</p>
                       <p className="mt-0.5 font-sans text-xs text-[#2C2C2C]/55">
@@ -4758,6 +4764,58 @@ export function AgentPipelineTab({
                         Stage at archive: {stage} · {archivedWhen}
                       </p>
                     </button>
+                    <div className="flex shrink-0 items-start pt-1 pr-0.5" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="rounded-full p-2 text-[#2C2C2C]/50 transition hover:bg-white hover:text-[#2C2C2C]/85"
+                            aria-label="More actions"
+                          >
+                            <MoreHorizontal className="h-4 w-4" aria-hidden />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="min-w-[200px] border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]"
+                        >
+                          <DropdownMenuItem
+                            className="font-semibold focus:bg-[#6B9E6E]/12"
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              onOpenLeadDetails(row.id);
+                            }}
+                          >
+                            View details
+                          </DropdownMenuItem>
+                          {onOpenMessagesForClient && row.client_id?.trim() ? (
+                            <DropdownMenuItem
+                              className="font-semibold focus:bg-[#6B9E6E]/12"
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                onOpenMessagesForClient(row.client_id!.trim());
+                              }}
+                            >
+                              <span className="inline-flex items-center gap-2">
+                                <MessageSquare className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                                Message client
+                              </span>
+                            </DropdownMenuItem>
+                          ) : null}
+                          {onUnarchiveArchivedLead ? (
+                            <DropdownMenuItem
+                              className="font-semibold focus:bg-[#6B9E6E]/12"
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                void onUnarchiveArchivedLead(row);
+                              }}
+                            >
+                              Unarchive
+                            </DropdownMenuItem>
+                          ) : null}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </li>
                 );
               })}

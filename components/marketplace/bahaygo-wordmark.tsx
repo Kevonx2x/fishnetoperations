@@ -1,14 +1,16 @@
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 type Props = {
   className?: string;
-  /** `nav` = homepage header. `onboarding` / `login` = wordmark always visible; SVG heights match nav geometry. */
-  size?: "nav" | "onboarding" | "login";
+  /** `nav` = homepage header. `sidebar` = dashboard sidebars (same mark, slightly smaller). `onboarding` / `login` = larger hero contexts. */
+  size?: "nav" | "sidebar" | "onboarding" | "login";
 };
 
 /** Geometric gold house + bahay (charcoal) / go (sage) wordmark — inline SVG, same source as homepage nav */
 export function BahayGoWordmark({ className, size = "nav" }: Props) {
   const isNav = size === "nav";
+  const isSidebar = size === "sidebar";
   const isOnboarding = size === "onboarding";
   const isLogin = size === "login";
   return (
@@ -16,6 +18,7 @@ export function BahayGoWordmark({ className, size = "nav" }: Props) {
       className={cn(
         "inline-flex items-center gap-2",
         (isOnboarding || isLogin) && "mx-auto",
+        isSidebar && "gap-1.5",
         className,
       )}
     >
@@ -24,6 +27,7 @@ export function BahayGoWordmark({ className, size = "nav" }: Props) {
         className={cn(
           "w-auto shrink-0",
           isNav && "h-9",
+          isSidebar && "h-7",
           isOnboarding && "h-20",
           isLogin && "h-16",
         )}
@@ -38,11 +42,28 @@ export function BahayGoWordmark({ className, size = "nav" }: Props) {
           isOnboarding && "inline-flex text-xl sm:text-2xl",
           isLogin && "inline-flex text-lg sm:text-xl",
           isNav && "hidden text-[1.35rem] sm:inline-flex",
+          isSidebar && "inline-flex text-[0.95rem] leading-tight sm:text-[1.05rem]",
         )}
       >
         <span className="text-[#2C2C2C]">bahay</span>
         <span className="text-[#6B9E6E]">go</span>
       </span>
     </span>
+  );
+}
+
+/** Homepage-style wordmark wrapped for navigation home (dashboard sidebars, etc.). */
+export function BahayGoWordmarkHomeLink({ className, size = "sidebar" }: Pick<Props, "className" | "size">) {
+  return (
+    <Link
+      href="/"
+      className={cn(
+        "inline-flex shrink-0 items-center leading-none transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FAF8F4]",
+        className,
+      )}
+      aria-label="BahayGo home"
+    >
+      <BahayGoWordmark size={size} />
+    </Link>
   );
 }

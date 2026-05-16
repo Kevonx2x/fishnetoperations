@@ -1006,6 +1006,7 @@ function PipelineRowMenu({
   onToggleDocs,
   onRequestRemove,
   onOpenDetail,
+  onUnarchive,
   menuLayout = "card",
 }: {
   deal: PipelineDeal;
@@ -1015,9 +1016,57 @@ function PipelineRowMenu({
   onRequestRemove?: () => void;
   /** Opens the same detail modal as row click (list view). */
   onOpenDetail?: () => void;
-  /** Card grid keeps full actions; list rows use a minimal overflow menu only. */
-  menuLayout?: "card" | "list";
+  /** Restores an archived-by-client lead to Active (archived tab only). */
+  onUnarchive?: () => void;
+  /** Card grid keeps full actions; list rows use a minimal overflow menu only; archivedClient = details + unarchive. */
+  menuLayout?: "card" | "list" | "archivedClient";
 }) {
+  if (menuLayout === "archivedClient") {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[#2C2C2C]/32 transition hover:bg-[#2C2C2C]/[0.04] hover:text-[#2C2C2C]/65"
+            aria-label="Property actions"
+          >
+            <MoreHorizontal className="h-4 w-4" aria-hidden />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-[188px] border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]">
+          {onOpenDetail ? (
+            <DropdownMenuItem
+              className="font-semibold focus:bg-[#6B9E6E]/12"
+              onSelect={(e) => {
+                e.preventDefault();
+                onOpenDetail();
+              }}
+            >
+              View details
+            </DropdownMenuItem>
+          ) : null}
+          {deal.property.id && !listingRemovedUi ? (
+            <DropdownMenuItem asChild className="font-semibold focus:bg-[#6B9E6E]/12">
+              <Link href={`/properties/${encodeURIComponent(deal.property.id)}`}>View property</Link>
+            </DropdownMenuItem>
+          ) : null}
+          {onUnarchive ? (
+            <DropdownMenuItem
+              className="font-semibold focus:bg-[#6B9E6E]/12"
+              onSelect={(e) => {
+                e.preventDefault();
+                onUnarchive();
+              }}
+            >
+              Unarchive
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
   if (menuLayout === "list") {
     return (
       <DropdownMenu>
@@ -1043,7 +1092,17 @@ function PipelineRowMenu({
               View details
             </DropdownMenuItem>
           ) : null}
-          {onRequestRemove ? (
+          {onUnarchive ? (
+            <DropdownMenuItem
+              className="font-semibold focus:bg-[#6B9E6E]/12"
+              onSelect={(e) => {
+                e.preventDefault();
+                onUnarchive();
+              }}
+            >
+              Unarchive
+            </DropdownMenuItem>
+          ) : onRequestRemove ? (
             <DropdownMenuItem
               className="font-semibold text-red-600 focus:bg-red-50 focus:text-red-700"
               onSelect={(e) => {
@@ -1330,6 +1389,7 @@ function DealCard({
   isArchived,
   onRequestRemove,
   onOpenDetail,
+  onUnarchive,
   viewMode = "list",
 }: {
   deal: PipelineDeal;
@@ -1343,6 +1403,7 @@ function DealCard({
   isArchived?: boolean;
   onRequestRemove?: () => void;
   onOpenDetail?: () => void;
+  onUnarchive?: () => void;
   viewMode?: PipelineViewMode;
 }) {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -1477,6 +1538,17 @@ function DealCard({
           systemUnavailable && "opacity-70",
         )}
       >
+        <div className="absolute right-3 top-3 z-20 sm:right-4" onClick={(e) => e.stopPropagation()}>
+          <PipelineRowMenu
+            deal={deal}
+            clientUserId={clientUserId}
+            listingRemovedUi={listingRemovedUi}
+            onToggleDocs={onToggleDocs}
+            menuLayout="archivedClient"
+            onOpenDetail={onOpenDetail}
+            onUnarchive={onUnarchive}
+          />
+        </div>
         <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-8 sm:py-6">
           <div className="min-w-0 flex-1 font-sans">
             {systemUnavailable ? (
@@ -2348,6 +2420,28 @@ export function ClientPipelineInner() {
     }
   }, [pipelineListTab]);
 
+  const handleUnarchiveDeal = useCallback((deal: PipelineDeal) => {
+    const snapshot = deals;
+    setDeals((prev) => prev.filter((d) => d.lead_id !== deal.lead_id));
+    toast.success("Moved back to Active");
+    void (async () => {
+      try {
+        const res = await fetch(`/api/client/leads/${deal.lead_id}/unarchive`, {
+          method: "POST",
+          credentials: "include",
+        });
+        const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+        if (!res.ok) {
+          setDeals(snapshot);
+          toast.error(json.error?.message ?? "Could not move back to Active");
+        }
+      } catch {
+        setDeals(snapshot);
+        toast.error("Could not move back to Active");
+      }
+    })();
+  }, [deals]);
+
   useEffect(() => {
     if (authLoading) return;
     if (!user?.id || role !== "client") return;
@@ -2480,6 +2574,7 @@ export function ClientPipelineInner() {
                     : undefined
                 }
                 onOpenDetail={() => setDetailDeal(deal)}
+                onUnarchive={pipelineListTab === "archived" ? () => handleUnarchiveDeal(deal) : undefined}
               />
             ))}
           </div>

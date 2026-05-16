@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Bell, GitBranch, Home, LayoutDashboard, Loader2, MessageSquare, Settings } from "lucide-react";
 import { ClientAvatar } from "@/components/client/client-avatar";
+import { BahayGoWordmarkHomeLink } from "@/components/marketplace/bahaygo-wordmark";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -136,7 +137,9 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                 isMessagesRoute ? "w-[220px]" : "w-[196px]",
               )}
             >
-              <p className="mb-5 px-2 font-serif text-lg font-semibold tracking-tight text-[#2C2C2C]">BahayGo</p>
+              <div className="mb-5 px-2">
+                <BahayGoWordmarkHomeLink size="sidebar" className="max-w-full" />
+              </div>
               <div className="mb-6 flex items-center gap-2.5 border-b border-[#2C2C2C]/[0.06] px-2 pb-5">
                 <ClientAvatar name={displayName} avatarUrl={avatarUrl} sizePx={36} textClassName="text-xs" ringClassName="ring-1 ring-[#2C2C2C]/10" />
                 <div className="min-w-0">
