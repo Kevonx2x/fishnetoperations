@@ -218,7 +218,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true, skipped: true, reason: "no_payment_id" });
   }
 
-  if (amount !== null && amount < tierAmountCentavos(tier)) {
+  if (amount === null) {
+    console.warn("[paymongo/webhook] Missing trusted payment amount", { paymentId, tier });
+    return NextResponse.json({ received: true, skipped: true, reason: "no_amount" });
+  }
+
+  if (amount < tierAmountCentavos(tier)) {
     console.warn("[paymongo/webhook] Payment amount below subscription tier", {
       paymentId,
       amount,
