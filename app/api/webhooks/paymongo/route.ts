@@ -1,8 +1,9 @@
+import { createHmac, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { normalizeListingTier, TIER_LABEL } from "@/lib/agent-listing-limits";
 import { RESEND_FROM } from "@/lib/resend-from";
-import { parseSubscriptionRemarks, paymongoBasicAuthHeader } from "@/lib/paymongo";
+import { parseSubscriptionRemarks, paymongoBasicAuthHeader, tierAmountCentavos } from "@/lib/paymongo";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ function extractPaymentResource(body: unknown): { id: string; attributes: Record
   const inner = (body as { data?: { attributes?: { data?: unknown } } })?.data?.attributes?.data;
   if (!inner || typeof inner !== "object") return null;
   const o = inner as { id?: unknown; type?: unknown; attributes?: unknown };
-  if (typeof o.id !== "string" || o.type !== "payment") return null;
+  if (typeof o.id !== "string" || !o.id.startsWith("pay_") || o.type !== "payment") return null;
   const attrs = o.attributes && typeof o.attributes === "object" ? (o.attributes as Record<string, unknown>) : {};
   return { id: o.id, attributes: attrs };
 }
@@ -75,52 +76,51 @@ async function paymongoGet(path: string): Promise<unknown | null> {
   return res.json().catch(() => null);
 }
 
-async function resolveRemarks(body: unknown): Promise<string | null> {
-  const inner = (body as { data?: { attributes?: { data?: unknown } } })?.data?.attributes?.data;
-  if (inner && typeof inner === "object") {
-    const o = inner as { type?: string; attributes?: { remarks?: string } };
-    if (o.type === "link" && typeof o.attributes?.remarks === "string") {
-      if (parseSubscriptionRemarks(o.attributes.remarks)) return o.attributes.remarks;
-    }
-  }
+type ResolvedPaymongoPayment = {
+  paymentId: string;
+  amount: number | null;
+  linkId: string | null;
+  remarks: string | null;
+};
 
-  const direct = findRemarksString(body);
-  if (direct) return direct;
-
+async function resolvePaymentFromPaymongo(body: unknown): Promise<ResolvedPaymongoPayment | null> {
   const payFromEvent = extractPaymentResource(body);
-  if (payFromEvent) {
-    const paymentJson = await paymongoGet(`/payments/${payFromEvent.id}`);
-    if (paymentJson) {
-      const r = findRemarksString(paymentJson);
-      if (r) return r;
-      const linkId = extractLinkIdFromPaymentJson(paymentJson);
-      if (linkId) {
-        const fromLink = await fetchRemarksFromLink(linkId);
-        if (fromLink) return fromLink;
-      }
-    }
-    const piId = payFromEvent.attributes.payment_intent_id;
-    if (typeof piId === "string") {
-      const piJson = await paymongoGet(`/payment_intents/${piId}`);
-      const r = piJson ? findRemarksString(piJson) : null;
-      if (r) return r;
-    }
+  const paymentId = payFromEvent?.id ?? findPaymentIdInEvent(body);
+  if (!paymentId) return null;
+
+  const paymentJson = await paymongoGet(`/payments/${paymentId}`);
+  if (!paymentJson) return null;
+
+  const paymentAttrs = (paymentJson as {
+    data?: { attributes?: { amount?: number | string; payment_intent_id?: string } };
+  })?.data?.attributes;
+  const amountRaw = paymentAttrs?.amount;
+  const amount =
+    typeof amountRaw === "number" ? amountRaw : typeof amountRaw === "string" ? Number(amountRaw) : null;
+  const linkId = extractLinkIdFromPaymentJson(paymentJson);
+
+  let remarks = findRemarksString(paymentJson);
+  if (!remarks && linkId) {
+    remarks = await fetchRemarksFromLink(linkId);
   }
 
-  const payId = findPaymentIdInEvent(body);
-  if (payId) {
-    const paymentJson = await paymongoGet(`/payments/${payId}`);
-    if (paymentJson) {
-      const r = findRemarksString(paymentJson);
-      if (r) return r;
-      const linkId = extractLinkIdFromPaymentJson(paymentJson);
-      if (linkId) {
-        return fetchRemarksFromLink(linkId);
-      }
-    }
+  const piId =
+    typeof paymentAttrs?.payment_intent_id === "string"
+      ? paymentAttrs.payment_intent_id
+      : typeof payFromEvent?.attributes.payment_intent_id === "string"
+        ? payFromEvent.attributes.payment_intent_id
+        : null;
+  if (!remarks && piId) {
+    const piJson = await paymongoGet(`/payment_intents/${piId}`);
+    remarks = piJson ? findRemarksString(piJson) : null;
   }
 
-  return null;
+  return {
+    paymentId,
+    amount: amount !== null && Number.isFinite(amount) ? amount : null,
+    linkId,
+    remarks,
+  };
 }
 
 function extractLinkIdFromPaymentJson(json: unknown): string | null {
@@ -143,10 +143,48 @@ async function fetchRemarksFromLink(linkId: string): Promise<string | null> {
   return findRemarksString(linkJson);
 }
 
+function signatureCandidates(signature: string): string[] {
+  return signature
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .flatMap((part) => {
+      const eq = part.indexOf("=");
+      return eq >= 0 ? [part, part.slice(eq + 1).trim()] : [part];
+    })
+    .map((part) => part.replace(/^sha256=/i, "").trim())
+    .filter(Boolean);
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+function verifyPaymongoSignature(rawBody: string, signature: string | null, secret: string): boolean {
+  if (!signature) return false;
+  const expectedHex = createHmac("sha256", secret).update(rawBody).digest("hex");
+  const expectedBase64 = createHmac("sha256", secret).update(rawBody).digest("base64");
+  return signatureCandidates(signature).some(
+    (candidate) => safeEqual(candidate.toLowerCase(), expectedHex) || safeEqual(candidate, expectedBase64),
+  );
+}
+
 export async function POST(req: Request) {
+  const rawBody = await req.text().catch(() => null);
+  if (rawBody === null) {
+    return NextResponse.json({ received: false, error: "invalid_body" }, { status: 400 });
+  }
+
+  const webhookSecret = process.env.PAYMONGO_WEBHOOK_SECRET?.trim();
+  if (webhookSecret && !verifyPaymongoSignature(rawBody, req.headers.get("paymongo-signature"), webhookSecret)) {
+    return NextResponse.json({ received: false, error: "invalid_signature" }, { status: 401 });
+  }
+
   let body: unknown;
   try {
-    body = await req.json();
+    body = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ received: false, error: "invalid_json" }, { status: 400 });
   }
@@ -156,7 +194,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true, ignored: true, eventType });
   }
 
-  const remarks = await resolveRemarks(body);
+  const resolvedPayment = await resolvePaymentFromPaymongo(body);
+  const remarks = resolvedPayment?.remarks ?? null;
 
   if (!remarks) {
     console.warn("[paymongo/webhook] Could not resolve remarks for event", eventType);
@@ -171,24 +210,21 @@ export async function POST(req: Request) {
 
   const { agentId, tier } = parsed;
 
-  const payFromEvent = extractPaymentResource(body);
-  let paymentId = payFromEvent?.id ?? findPaymentIdInEvent(body);
-  let amount: number | null =
-    typeof payFromEvent?.attributes.amount === "number"
-      ? payFromEvent.attributes.amount
-      : typeof payFromEvent?.attributes.amount === "string"
-        ? Number(payFromEvent.attributes.amount)
-        : null;
+  const paymentId = resolvedPayment?.paymentId ?? null;
+  const amount = resolvedPayment?.amount ?? null;
 
   if (!paymentId) {
     console.warn("[paymongo/webhook] Missing payment id");
     return NextResponse.json({ received: true, skipped: true, reason: "no_payment_id" });
   }
 
-  if (amount === null || Number.isNaN(amount)) {
-    const pj = await paymongoGet(`/payments/${paymentId}`);
-    const a = (pj as { data?: { attributes?: { amount?: number } } })?.data?.attributes?.amount;
-    amount = typeof a === "number" ? a : null;
+  if (amount !== null && amount < tierAmountCentavos(tier)) {
+    console.warn("[paymongo/webhook] Payment amount below subscription tier", {
+      paymentId,
+      amount,
+      tier,
+    });
+    return NextResponse.json({ received: true, skipped: true, reason: "amount_mismatch" });
   }
 
   const admin = createSupabaseAdmin();
@@ -206,11 +242,7 @@ export async function POST(req: Request) {
   const expiresAt = new Date();
   expiresAt.setMonth(expiresAt.getMonth() + 1);
 
-  let linkId: string | null = null;
-  const paymentJson = await paymongoGet(`/payments/${paymentId}`);
-  if (paymentJson) {
-    linkId = extractLinkIdFromPaymentJson(paymentJson);
-  }
+  const linkId = resolvedPayment?.linkId ?? null;
 
   const { error: subErr } = await admin.from("subscriptions").insert({
     agent_id: agentId,
