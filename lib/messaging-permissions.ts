@@ -93,6 +93,9 @@ export async function canAgentMessageAgent(
       .select("property_id, properties!inner(id, name, location, listed_by)")
       .eq("agent_id", a)
       .eq("properties.listed_by", targetUserId)
+      .or("archived_by_client.is.false,archived_by_client.is.null")
+      .is("archived_at", null)
+      .not("pipeline_stage", "in", "(closed,declined)")
       .limit(1);
     if (!q1.error && q1.data && q1.data.length > 0) {
       const p = (q1.data[0] as unknown as { properties?: { id?: string; name?: string | null; location?: string | null } })
@@ -107,6 +110,9 @@ export async function canAgentMessageAgent(
       .select("property_id, properties!inner(id, name, location, listed_by)")
       .eq("agent_id", b)
       .eq("properties.listed_by", viewerUserId)
+      .or("archived_by_client.is.false,archived_by_client.is.null")
+      .is("archived_at", null)
+      .not("pipeline_stage", "in", "(closed,declined)")
       .limit(1);
     if (!q2.error && q2.data && q2.data.length > 0) {
       const p = (q2.data[0] as unknown as { properties?: { id?: string; name?: string | null; location?: string | null } })

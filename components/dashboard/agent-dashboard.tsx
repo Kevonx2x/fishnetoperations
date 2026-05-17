@@ -1731,7 +1731,7 @@ export function AgentDashboard() {
       const full = archivedLeads.find((l) => l.id === row.id);
       if (!full) return;
       const stages = new Set(["lead", "viewing", "offer", "reservation", "closed"]);
-      const raw = String(full.stage_at_archive ?? "").trim().toLowerCase();
+      const raw = String(full.stage_at_archive ?? full.pipeline_stage ?? "").trim().toLowerCase();
       const restoredPipeline = stages.has(raw) ? raw : "lead";
       const optimistic: LeadRow = {
         ...full,
