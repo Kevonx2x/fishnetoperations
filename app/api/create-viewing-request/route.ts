@@ -7,7 +7,6 @@ import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { RESEND_FROM } from "@/lib/resend-from";
 import { normalizePhoneE164, sendSmsTo } from "@/lib/twilio-sms";
-import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 import { propertyAcceptsViewingRequests } from "@/lib/property-availability";
 import { assertViewingSlotAvailable, fetchAgentViewingSlotSettings } from "@/lib/viewing-slot-conflict";
 
