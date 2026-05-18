@@ -38,6 +38,8 @@ export type DbProperty = {
   unit_types?: string[] | null;
   property_photos?: { url: string; sort_order?: number | null; created_at?: string | null }[];
   property_agents?: { agent: unknown }[];
+  /** Admin homepage spotlight (`properties.featured`). */
+  featured?: boolean | null;
   /** Soft delete — listing hidden from public discovery when set. */
   deleted_at?: string | null;
   /** available | reserved | closed | removed — public discovery uses `available` only. */

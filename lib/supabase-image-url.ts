@@ -41,6 +41,7 @@ export function supabaseRenderUrl(originalUrl: string, opts: SupabaseRenderOpts)
       if (opts.height != null) u.searchParams.set("height", String(opts.height));
       u.searchParams.set("resize", opts.resize ?? "cover");
       u.searchParams.set("quality", String(opts.quality ?? 80));
+      if (!u.searchParams.has("format")) u.searchParams.set("format", "webp");
       return u.toString();
     } catch {
       return trimmed;
@@ -57,6 +58,7 @@ export function supabaseRenderUrl(originalUrl: string, opts: SupabaseRenderOpts)
     if (opts.height != null) u.searchParams.set("height", String(opts.height));
     u.searchParams.set("resize", opts.resize ?? "cover");
     u.searchParams.set("quality", String(opts.quality ?? 80));
+    if (!u.searchParams.has("format")) u.searchParams.set("format", "webp");
     return u.toString();
   } catch {
     return trimmed;
@@ -98,4 +100,18 @@ export function supabaseAvatarImageSrc(originalUrl: string): string {
   const trimmed = originalUrl.trim();
   if (!isSupabasePublicStorageUrl(trimmed)) return trimmed;
   return supabaseAvatarRenderUrl(trimmed);
+}
+
+/** Undo render URL → original public object URL (fallback when render API fails). */
+export function supabaseObjectUrlFromRenderUrl(renderUrl: string): string | null {
+  if (!isSupabaseRenderUrl(renderUrl)) return null;
+  try {
+    const u = new URL(renderUrl.trim());
+    if (!u.pathname.startsWith(RENDER_PUBLIC_PREFIX)) return null;
+    u.pathname = OBJECT_PUBLIC_PREFIX + u.pathname.slice(RENDER_PUBLIC_PREFIX.length);
+    u.search = "";
+    return u.toString();
+  } catch {
+    return null;
+  }
 }
