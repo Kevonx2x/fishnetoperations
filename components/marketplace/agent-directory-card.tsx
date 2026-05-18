@@ -43,7 +43,7 @@ export function AgentDirectoryCard({
   /** Homepage marketplace: name + ⭐ score on one row; hide duplicate score chips. */
   scoreBesideName?: boolean;
 }) {
-  const companyLine = agent.company || agent.brokerName;
+  const companyLine = agent.company || agent.agencyName;
   const scoreRight = scoreBesideName ? scoreDecimalOnTen(agent.score) : null;
 
   return (

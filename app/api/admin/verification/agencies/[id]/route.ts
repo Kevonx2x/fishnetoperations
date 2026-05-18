@@ -32,7 +32,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
           };
 
     const { data, error } = await sb
-      .from("brokers")
+      .from("agencies")
       .update(updates)
       .eq("id", id)
       .select()
@@ -42,7 +42,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
       return fail("DATABASE_ERROR", error.message, 500);
     }
     if (!data) {
-      return fail("NOT_FOUND", "Broker not found", 404);
+      return fail("NOT_FOUND", "Agency not found", 404);
     }
     return ok(data);
   } catch (e) {

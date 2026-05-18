@@ -77,15 +77,15 @@ export function ConnectedAgentsBox({
                     </Link>
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-[#2C2C2C]/60">
-                    {a.brokerId ? (
+                    {a.agencyId ? (
                       <Link
-                        href={`/brokers/${encodeURIComponent(a.brokerId)}`}
+                        href={`/agencies/${encodeURIComponent(a.agencyId)}`}
                         className="truncate hover:text-[#2C2C2C] hover:underline hover:decoration-[#D4A843]/60 hover:underline-offset-4"
                       >
-                        {a.company || a.brokerName}
+                        {a.company || a.agencyName}
                       </Link>
                     ) : (
-                      <span className="truncate">{a.company || a.brokerName || "Independent"}</span>
+                      <span className="truncate">{a.company || a.agencyName || "Independent"}</span>
                     )}
                     <VerifiedAgentBadge show />
                   </div>

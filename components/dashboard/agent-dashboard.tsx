@@ -170,7 +170,7 @@ type AgentRow = {
   image_url: string | null;
   status: string;
   verified: boolean;
-  broker_id: string | null;
+  agency_id: string | null;
   specialties: string | null;
   service_areas: string | null;
   social_links: Record<string, string> | null;
@@ -1258,7 +1258,7 @@ export function AgentDashboard() {
       const { data: a, error: supervisorAgentErr } = await supabase
         .from("agents")
         .select(
-          "id, user_id, name, email, phone, bio, license_number, license_expiry, image_url, status, verified, broker_id, specialties, service_areas, social_links, age, years_experience, languages_spoken, response_time, closings, score, listing_tier, availability_schedule, availability, updated_at, verification_status",
+          "id, user_id, name, email, phone, bio, license_number, license_expiry, image_url, status, verified, agency_id, specialties, service_areas, social_links, age, years_experience, languages_spoken, response_time, closings, score, listing_tier, availability_schedule, availability, updated_at, verification_status",
         )
         .eq("id", agentTableId)
         .maybeSingle();
@@ -1420,7 +1420,7 @@ export function AgentDashboard() {
     const { data: a, error: primaryAgentErr } = await supabase
       .from("agents")
       .select(
-        "id, user_id, name, email, phone, bio, license_number, license_expiry, image_url, status, verified, broker_id, specialties, service_areas, social_links, age, years_experience, languages_spoken, response_time, closings, score, listing_tier, availability_schedule, availability, updated_at, verification_status, viewing_slot_minutes, viewing_buffer_minutes, viewing_day_start_hour, viewing_day_end_hour",
+        "id, user_id, name, email, phone, bio, license_number, license_expiry, image_url, status, verified, agency_id, specialties, service_areas, social_links, age, years_experience, languages_spoken, response_time, closings, score, listing_tier, availability_schedule, availability, updated_at, verification_status, viewing_slot_minutes, viewing_buffer_minutes, viewing_day_start_hour, viewing_day_end_hour",
       )
       .eq("user_id", user.id)
       .maybeSingle();

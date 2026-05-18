@@ -1,17 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 
-const AGENT_SELECT = "*, brokers(*), profiles(email, phone)";
+const AGENT_SELECT = "*, agencies(*), profiles(email, phone)";
 
 type AgentRow = Parameters<typeof mapRowToMarketplaceAgent>[0];
 
 /**
- * Up to 3 agents: same broker first (closest score), then fill with approved agents
+ * Up to 3 agents: same agency first (closest score), then fill with approved agents
  * whose score is within 0.5 of the current agent. Always excludes the current agent id.
  */
 export async function fetchSimilarAgents(
   supabase: SupabaseClient,
-  current: { id: string; broker_id: string | null; score: number },
+  current: { id: string; agency_id: string | null; score: number },
 ): Promise<MarketplaceAgent[]> {
   const currentScore = Number(current.score);
   /** 0–5 star-style scores use ±0.5; legacy 0–100 trust scores use ±5 so bands actually match peers. */
@@ -30,11 +30,11 @@ export async function fetchSimilarAgents(
   const byScoreDistance = (a: MarketplaceAgent, b: MarketplaceAgent) =>
     Math.abs(a.score - currentScore) - Math.abs(b.score - currentScore);
 
-  if (current.broker_id) {
+  if (current.agency_id) {
     const { data, error } = await supabase
       .from("agents")
       .select(AGENT_SELECT)
-      .eq("broker_id", current.broker_id)
+      .eq("agency_id", current.agency_id)
       .neq("id", current.id)
       .eq("status", "approved")
       .eq("verified", true)

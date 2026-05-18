@@ -21,7 +21,7 @@ export default function ContactPage() {
             Register as agent →
           </Link>
           <Link
-            href="/register/broker"
+            href="/register/agency"
             className="inline-flex rounded-full border border-black/10 bg-white px-6 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 hover:bg-[#FAF8F4]"
           >
             Register as broker →

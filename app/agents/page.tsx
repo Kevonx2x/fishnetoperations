@@ -137,7 +137,7 @@ function AgentsDirectoryContent() {
       setError(null);
       const { data, error: fetchErr } = await supabase
         .from("agents")
-        .select("*, brokers(*), profiles(email, phone)")
+        .select("*, agencies(*), profiles(email, phone)")
         .eq("status", "approved")
         .order("created_at", { ascending: false });
       if (cancelled) return;

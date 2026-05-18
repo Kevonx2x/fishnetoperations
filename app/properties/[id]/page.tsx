@@ -189,7 +189,7 @@ export default function PropertyPage() {
             agent:agents (
               id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at,
               verified, status,
-              brokers (id, company_name, logo_url),
+              agencies (id, company_name, logo_url),
               profiles(email, phone)
             )
           )
@@ -1003,7 +1003,7 @@ export default function PropertyPage() {
                             <VerifiedAgentBadge show />
                           </div>
                           <p className="mt-0.5 text-xs font-semibold text-[#2C2C2C]/60">
-                            {listingAgent.company || listingAgent.brokerName}
+                            {listingAgent.company || listingAgent.agencyName}
                           </p>
                           <div className="mt-2">
                             <AgentAvailabilityBadge

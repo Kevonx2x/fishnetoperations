@@ -52,7 +52,7 @@ export function MaddenAgentRow({
                 {agent.name}
               </p>
               <p className="truncate text-sm font-medium text-[#2C2C2C]/55">
-                {agent.company || agent.brokerName || "Independent"}
+                {agent.company || agent.agencyName || "Independent"}
               </p>
               {locationLine ? (
                 <p className="mt-1 truncate text-xs font-medium text-[#6B9E6E]">
@@ -66,11 +66,11 @@ export function MaddenAgentRow({
                 <Zap className="h-3.5 w-3.5" />
                 {formatAgentScore(agent.score)}
               </span>
-              {agent.brokerLogo ? (
+              {agent.agencyLogo ? (
                 <div className="relative h-9 w-9 overflow-hidden rounded-xl bg-[#FAF8F4] ring-1 ring-black/10">
                   <SupabasePublicImage
-                    src={agent.brokerLogo}
-                    alt={agent.brokerName || "Broker"}
+                    src={agent.agencyLogo}
+                    alt={agent.agencyName || "Agency"}
                     fill
                     sizes="36px"
                     className="object-contain p-1.5"

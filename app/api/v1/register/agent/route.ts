@@ -36,67 +36,68 @@ export async function POST(request: NextRequest) {
       return fail("CONFLICT", "You already have an agent registration", 409);
     }
 
-    const { data: existingBroker } = await supabase
-      .from("brokers")
+    const { data: existingAgency } = await supabase
+      .from("agencies")
       .select("id")
       .eq("user_id", userData.user.id)
       .maybeSingle();
-    if (existingBroker) {
+    if (existingAgency) {
       return fail(
         "CONFLICT",
-        "This account is already registered as a broker. Use a separate account for an agent profile.",
+        "This account is already registered as an agency. Use a separate account for an agent profile.",
         409,
       );
     }
 
-    const brokersInput = Array.isArray(parsed.data.brokers) ? parsed.data.brokers : null;
-    const legacyBrokerId = parsed.data.broker_id?.trim() || null;
-    const brokers =
-      brokersInput && brokersInput.length
-        ? brokersInput
-        : legacyBrokerId
-          ? [{ broker_id: legacyBrokerId, is_primary: true }]
+    const agenciesInput = Array.isArray(parsed.data.agencies) ? parsed.data.agencies : null;
+    const legacyAgencyId = parsed.data.agency_id?.trim() || null;
+    const agencies =
+      agenciesInput && agenciesInput.length
+        ? agenciesInput
+        : legacyAgencyId
+          ? [{ agency_id: legacyAgencyId, is_primary: true }]
           : [];
 
-    const normalizedBrokers = (() => {
+    const normalizedAgencies = (() => {
       const seen = new Set<string>();
-      const out: { broker_id: string; is_primary: boolean }[] = [];
-      for (const b of brokers) {
-        const id = b.broker_id.trim();
+      const out: { agency_id: string; is_primary: boolean }[] = [];
+      for (const b of agencies) {
+        const id = b.agency_id.trim();
         if (!id || seen.has(id)) continue;
         seen.add(id);
-        out.push({ broker_id: id, is_primary: Boolean(b.is_primary) });
+        out.push({ agency_id: id, is_primary: Boolean(b.is_primary) });
       }
-      // Enforce at most one primary: first true wins, otherwise default to first row.
       let primaryIdx = out.findIndex((x) => x.is_primary);
       if (primaryIdx < 0 && out.length > 0) primaryIdx = 0;
       return out.map((x, idx) => ({ ...x, is_primary: primaryIdx >= 0 ? idx === primaryIdx : false }));
     })();
 
-    if (normalizedBrokers.length) {
-      const ids = normalizedBrokers.map((b) => b.broker_id);
+    if (normalizedAgencies.length) {
+      const ids = normalizedAgencies.map((b) => b.agency_id);
       const { data: rows, error: bErr } = await supabase
-        .from("brokers")
+        .from("agencies")
         .select("id")
         .in("id", ids)
         .eq("status", "approved")
         .eq("verified", true);
       if (bErr) return fail("DATABASE_ERROR", bErr.message, 500);
-      const ok = new Set((rows ?? []).map((r) => String((r as { id?: string }).id ?? "")));
-      const bad = ids.find((id) => !ok.has(id));
+      const okIds = new Set((rows ?? []).map((r) => String((r as { id?: string }).id ?? "")));
+      const bad = ids.find((id) => !okIds.has(id));
       if (bad) {
         return fail(
           "VALIDATION_ERROR",
-          "Selected brokerage is invalid or not yet approved",
+          "Selected agency is invalid or not yet approved",
           422,
           undefined,
-          "broker_id",
+          "agency_id",
         );
       }
     }
 
-    const primaryBrokerId =
-      normalizedBrokers.find((b) => b.is_primary)?.broker_id ?? normalizedBrokers[0]?.broker_id ?? null;
+    const primaryAgencyId =
+      normalizedAgencies.find((b) => b.is_primary)?.agency_id ??
+      normalizedAgencies[0]?.agency_id ??
+      null;
 
     const emailTrim = parsed.data.email.trim();
     const nameTrim = parsed.data.name.trim();
@@ -112,7 +113,6 @@ export async function POST(request: NextRequest) {
     const existingFullName = String((existingProfile as { full_name?: string | null } | null)?.full_name ?? "").trim();
     const existingAvatar = String((existingProfile as { avatar_url?: string | null } | null)?.avatar_url ?? "").trim();
 
-    // If the user already has a client profile with identity fields set, do not overwrite them.
     if (!(existingFullName && existingAvatar)) {
       const { error: profileErr } = await supabase.rpc("ensure_agent_profile", {
         p_id: userData.user.id,
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       bio: parsed.data.bio?.trim() || DEFAULT_AGENT_BIO_TAGLINE,
       languages_spoken: DEFAULT_AGENT_LANGUAGES_COMMAS,
       specialties: DEFAULT_AGENT_SPECIALTIES_COMMAS,
-      broker_id: primaryBrokerId,
+      agency_id: primaryAgencyId,
       prc_document_url: parsed.data.prc_document_url,
       selfie_url: parsed.data.selfie_url,
       verification_status: "pending" as const,
@@ -150,17 +150,16 @@ export async function POST(request: NextRequest) {
       return fail("DATABASE_ERROR", error.message, 500);
     }
 
-    // Sync agent_brokers junction rows (best-effort, but should usually succeed).
-    if (normalizedBrokers.length) {
+    if (normalizedAgencies.length) {
       const agentId = String((data as { id?: string }).id ?? "");
       if (agentId) {
-        await supabase.from("agent_brokers").delete().eq("agent_id", agentId);
-        const payload = normalizedBrokers.map((b) => ({
+        await supabase.from("agent_agencies").delete().eq("agent_id", agentId);
+        const payload = normalizedAgencies.map((b) => ({
           agent_id: agentId,
-          broker_id: b.broker_id,
+          agency_id: b.agency_id,
           is_primary: b.is_primary,
         }));
-        const { error: abErr } = await supabase.from("agent_brokers").insert(payload);
+        const { error: abErr } = await supabase.from("agent_agencies").insert(payload);
         if (abErr) return fail("DATABASE_ERROR", abErr.message, 500);
       }
     }

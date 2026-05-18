@@ -39,7 +39,7 @@ interface Property {
   availability_state?: string | null;
 }
 
-interface PendingBroker {
+interface PendingAgency {
   id: string;
   created_at: string;
   name: string;
@@ -62,7 +62,7 @@ interface PendingAgent {
   phone: string | null;
   email: string;
   bio: string | null;
-  broker_id: string | null;
+  agency_id: string | null;
   status: string;
 }
 
@@ -91,7 +91,7 @@ interface AllAgentRow {
   status: string;
   verified: boolean;
   verification_status?: string | null;
-  broker_id: string | null;
+  agency_id: string | null;
   user_id: string;
   listing_tier?: string | null;
   created_at: string;
@@ -557,12 +557,12 @@ export default function AdminPage() {
   const [propertyAvailabilityPatchingId, setPropertyAvailabilityPatchingId] = useState<string | null>(null);
   const [skipDuplicateCheck, setSkipDuplicateCheck] = useState(false);
 
-  const [pendingBrokers, setPendingBrokers] = useState<PendingBroker[]>([]);
+  const [pendingAgencies, setPendingAgencies] = useState<PendingAgency[]>([]);
   const [pendingAgents, setPendingAgents] = useState<PendingAgent[]>([]);
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [verificationError, setVerificationError] = useState("");
   const [rejectOpen, setRejectOpen] = useState<
-    | { kind: "broker"; id: string }
+    | { kind: "agency"; id: string }
     | { kind: "agent"; id: string }
     | null
   >(null);
@@ -605,7 +605,7 @@ export default function AdminPage() {
     score: "",
     closings: "",
     status: "pending",
-    broker_id: "",
+    agency_id: "",
   });
 
   const [coAgentRequests, setCoAgentRequests] = useState<CoAgentRequestRow[]>([]);
@@ -961,7 +961,7 @@ export default function AdminPage() {
       }
       type VerificationJson = {
         success?: boolean;
-        data?: { brokers: PendingBroker[]; agents: PendingAgent[] };
+        data?: { agencies: PendingAgency[]; agents: PendingAgent[] };
         error?: { code?: string; message?: string; details?: unknown };
       };
       const json = body as VerificationJson;
@@ -975,7 +975,7 @@ export default function AdminPage() {
         setVerificationError(
           formatVerificationErrorDetails(res.status, res.statusText, body),
         );
-        setPendingBrokers([]);
+        setPendingAgencies([]);
         setPendingAgents([]);
         return;
       }
@@ -988,13 +988,13 @@ export default function AdminPage() {
         setVerificationError(
           formatVerificationErrorDetails(res.status, res.statusText, body),
         );
-        setPendingBrokers([]);
+        setPendingAgencies([]);
         setPendingAgents([]);
         return;
       }
       // Ensure any prior error is cleared on success.
       setVerificationError("");
-      setPendingBrokers(json.data.brokers ?? []);
+      setPendingAgencies(json.data.agencies ?? []);
       setPendingAgents(json.data.agents ?? []);
     } catch (e) {
       console.error("[admin verification] fetch threw:", e);
@@ -1003,7 +1003,7 @@ export default function AdminPage() {
           ? `${e.name}: ${e.message}${e.stack ? `\n\n${e.stack}` : ""}`
           : String(e);
       setVerificationError(msg);
-      setPendingBrokers([]);
+      setPendingAgencies([]);
       setPendingAgents([]);
     } finally {
       setVerificationLoading(false);
@@ -1712,7 +1712,7 @@ export default function AdminPage() {
       score: String(a.score ?? 0),
       closings: String(a.closings ?? 0),
       status: a.status,
-      broker_id: a.broker_id ?? "",
+      agency_id: a.agency_id ?? "",
     });
   };
 
@@ -1728,12 +1728,12 @@ export default function AdminPage() {
       setEditError("Closings must be a non-negative integer");
       return;
     }
-    const brokerTrim = editForm.broker_id.trim();
+    const agencyTrim = editForm.agency_id.trim();
     if (
-      brokerTrim &&
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(brokerTrim)
+      agencyTrim &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(agencyTrim)
     ) {
-      setEditError("Broker ID must be a valid UUID or empty");
+      setEditError("Agency ID must be a valid UUID or empty");
       return;
     }
     setEditSaving(true);
@@ -1751,7 +1751,7 @@ export default function AdminPage() {
           score,
           closings,
           status: editForm.status,
-          broker_id: brokerTrim || null,
+          agency_id: agencyTrim || null,
         }),
       });
       const json = (await res.json().catch(() => ({}))) as {
@@ -1771,9 +1771,9 @@ export default function AdminPage() {
     }
   };
 
-  const approveBroker = async (id: string) => {
+  const approveAgency = async (id: string) => {
     setRejectOpen(null);
-    await fetch(`/api/admin/verification/brokers/${id}`, {
+    await fetch(`/api/admin/verification/agencies/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -1793,11 +1793,11 @@ export default function AdminPage() {
     void fetchVerification();
   };
 
-  const submitRejectBroker = async () => {
-    if (!rejectOpen || rejectOpen.kind !== "broker") return;
+  const submitRejectAgency = async () => {
+    if (!rejectOpen || rejectOpen.kind !== "agency") return;
     const reason = rejectReason.trim();
     if (!reason) return;
-    await fetch(`/api/admin/verification/brokers/${rejectOpen.id}`, {
+    await fetch(`/api/admin/verification/agencies/${rejectOpen.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -2446,7 +2446,7 @@ export default function AdminPage() {
           >
             Verification
             <span className="ml-1.5 rounded-full bg-white/25 px-2 py-0.5 text-xs">
-              {pendingBrokers.length + pendingAgents.length}
+              {pendingAgencies.length + pendingAgents.length}
             </span>
           </button>
           ) : null}
@@ -2660,7 +2660,7 @@ export default function AdminPage() {
             >
               <span>Verification</span>
               <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold tabular-nums">
-                {pendingBrokers.length + pendingAgents.length}
+                {pendingAgencies.length + pendingAgents.length}
               </span>
             </button>
             ) : null}
@@ -2937,10 +2937,10 @@ export default function AdminPage() {
                               {u.broker_id && u.broker_status === "pending" && (
                                 <button
                                   type="button"
-                                  onClick={() => void approveBroker(u.broker_id!)}
+                                  onClick={() => void approveAgency(u.broker_id!)}
                                   className="rounded-full bg-[#6B9E6E] px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#6b8a6d]"
                                 >
-                                  Approve broker
+                                  Approve agency
                                 </button>
                               )}
                               <button
@@ -3407,7 +3407,7 @@ export default function AdminPage() {
             )}
             {!verificationLoading &&
               !verificationError &&
-              pendingBrokers.length === 0 &&
+              pendingAgencies.length === 0 &&
               pendingAgents.length === 0 &&
               documentQueueAgents.length === 0 &&
               !allAgentsLoading && (
@@ -3418,16 +3418,16 @@ export default function AdminPage() {
 
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                Pending brokers
+                Pending agencies
                 <span className="ml-2 text-sm font-normal text-gray-500">
-                  ({pendingBrokers.length})
+                  ({pendingAgencies.length})
                 </span>
               </h2>
               <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
                 {verificationLoading ? (
                   <div className="p-8 text-center text-sm text-gray-400">Loading…</div>
-                ) : pendingBrokers.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-gray-400">No pending brokers.</div>
+                ) : pendingAgencies.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-gray-400">No pending agencies.</div>
                 ) : (
                   <table className="w-full">
                     <thead className="border-b border-gray-100 bg-gray-50/80">
@@ -3440,7 +3440,7 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {pendingBrokers.map((b) => (
+                      {pendingAgencies.map((b) => (
                         <Fragment key={b.id}>
                           <tr className="hover:bg-gray-50/80 align-top">
                             <td className="px-4 py-3 text-sm font-medium text-gray-900">
@@ -3466,7 +3466,7 @@ export default function AdminPage() {
                               <div className="flex flex-wrap items-center justify-end gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => void approveBroker(b.id)}
+                                  onClick={() => void approveAgency(b.id)}
                                   className="rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#6b8a6d]"
                                 >
                                   Approve
@@ -3474,7 +3474,7 @@ export default function AdminPage() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setRejectOpen({ kind: "broker", id: b.id });
+                                    setRejectOpen({ kind: "agency", id: b.id });
                                     setRejectReason("");
                                   }}
                                   className="rounded-full border-2 border-red-300 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-800 hover:bg-red-100"
@@ -3484,7 +3484,7 @@ export default function AdminPage() {
                               </div>
                             </td>
                           </tr>
-                          {rejectOpen?.kind === "broker" && rejectOpen.id === b.id && (
+                          {rejectOpen?.kind === "agency" && rejectOpen.id === b.id && (
                             <tr className="bg-amber-50/50">
                               <td colSpan={5} className="px-4 py-3">
                                 <p className="text-xs font-medium text-gray-700 mb-2">
@@ -3500,7 +3500,7 @@ export default function AdminPage() {
                                 <div className="flex gap-2">
                                   <button
                                     type="button"
-                                    onClick={() => void submitRejectBroker()}
+                                    onClick={() => void submitRejectAgency()}
                                     disabled={!rejectReason.trim()}
                                     className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
                                   >
@@ -3544,7 +3544,7 @@ export default function AdminPage() {
                         <th className="px-4 py-3">Name</th>
                         <th className="px-4 py-3">Contact</th>
                         <th className="px-4 py-3">License</th>
-                        <th className="px-4 py-3">Broker id</th>
+                        <th className="px-4 py-3">Agency id</th>
                         <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -3568,7 +3568,7 @@ export default function AdminPage() {
                               )}
                             </td>
                             <td className="px-4 py-3 text-xs text-gray-500 font-mono">
-                              {a.broker_id ?? "—"}
+                              {a.agency_id ?? "—"}
                             </td>
                             <td className="px-4 py-3 text-right whitespace-nowrap">
                               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -6505,10 +6505,10 @@ export default function AdminPage() {
                 (synced from status in the database)
               </p>
               <label className="block text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
-                Broker ID (UUID or empty)
+                Agency ID (UUID or empty)
                 <input
-                  value={editForm.broker_id}
-                  onChange={(e) => setEditForm((f) => ({ ...f, broker_id: e.target.value }))}
+                  value={editForm.agency_id}
+                  onChange={(e) => setEditForm((f) => ({ ...f, agency_id: e.target.value }))}
                   placeholder="00000000-0000-0000-0000-000000000000"
                   className="mt-1 w-full rounded-lg border border-[#2C2C2C]/10 px-3 py-2 font-mono text-xs text-[#2C2C2C]"
                 />

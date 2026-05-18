@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Building2, Home, Map, Search, Sparkles, User } from "lucide-react";
 
-export type BottomTab = "home" | "search" | "map" | "brokers" | "profile";
+export type BottomTab = "home" | "search" | "map" | "agencies" | "profile";
 
 export function BottomNav({
   active,
@@ -16,7 +16,7 @@ export function BottomNav({
     { id: "home", label: "Home", Icon: Home },
     { id: "search", label: "Search", Icon: Search },
     { id: "map", label: "Map", Icon: Map },
-    { id: "brokers", label: "Brokers", Icon: Building2 },
+    { id: "agencies", label: "Agencies", Icon: Building2 },
     { id: "profile", label: "Profile", Icon: User },
   ];
 

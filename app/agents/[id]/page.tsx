@@ -85,14 +85,14 @@ type AgentRow = {
   closings: number;
   response_time: string | null;
   availability: string | null;
-  broker_id: string | null;
+  agency_id: string | null;
   user_id: string;
   verified?: boolean;
   status?: string;
   verification_status?: "pending" | "verified" | "rejected" | "suspended" | null;
   specialties?: string | null;
   service_areas?: string | null;
-  brokers?: { id: string; company_name: string; logo_url: string | null } | null;
+  agencies?: { id: string; company_name: string; logo_url: string | null } | null;
   profiles?: { email?: string | null; phone?: string | null } | null;
   listing_tier?: string | null;
   updated_at?: string | null;
@@ -100,10 +100,10 @@ type AgentRow = {
   social_links?: Record<string, string> | null;
 };
 
-type AgentBrokerChip = {
-  broker_id: string;
+type AgentAgencyChip = {
+  agency_id: string;
   is_primary: boolean;
-  brokers: { id: string; company_name: string; logo_url: string | null } | null;
+  agencies: { id: string; company_name: string; logo_url: string | null } | null;
 };
 
 type ListingRow = {
@@ -383,7 +383,7 @@ export default function AgentProfilePage() {
 
   const [savingOwnerBio, setSavingOwnerBio] = useState(false);
   const [ownerDraftBio, setOwnerDraftBio] = useState("");
-  const [agentBrokers, setAgentBrokers] = useState<AgentBrokerChip[]>([]);
+  const [agentAgencies, setAgentAgencies] = useState<AgentAgencyChip[]>([]);
 
   useEffect(() => {
     if (!agent) return;
@@ -392,23 +392,23 @@ export default function AgentProfilePage() {
 
   useEffect(() => {
     if (!agent?.id) {
-      setAgentBrokers([]);
+      setAgentAgencies([]);
       return;
     }
     let cancelled = false;
     void (async () => {
       const { data, error } = await supabase
-        .from("agent_brokers")
-        .select("broker_id, is_primary, brokers(id, company_name, logo_url)")
+        .from("agent_agencies")
+        .select("agency_id, is_primary, agencies(id, company_name, logo_url)")
         .eq("agent_id", agent.id);
       if (cancelled) return;
       if (error) {
-        setAgentBrokers([]);
+        setAgentAgencies([]);
         return;
       }
-      const rows = (data ?? []) as unknown as AgentBrokerChip[];
+      const rows = (data ?? []) as unknown as AgentAgencyChip[];
       const sorted = [...rows].sort((a, b) => Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary)));
-      setAgentBrokers(sorted);
+      setAgentAgencies(sorted);
     })();
     return () => {
       cancelled = true;
@@ -653,7 +653,7 @@ export default function AgentProfilePage() {
       setError(null);
       const { data, error: fetchErr } = await supabase
         .from("agents")
-        .select("*, brokers(*), profiles(email, phone)")
+        .select("*, agencies(*), profiles(email, phone)")
         .eq("id", id)
         .maybeSingle();
 
@@ -779,7 +779,7 @@ export default function AgentProfilePage() {
       try {
         const list = await fetchSimilarAgents(supabase, {
           id: agent.id,
-          broker_id: agent.broker_id,
+          agency_id: agent.agency_id,
           score: Number(agent.score),
         });
         if (!cancelled) setSimilarAgents(list);
@@ -790,7 +790,7 @@ export default function AgentProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [agent?.id, agent?.broker_id, agent?.score]);
+  }, [agent?.id, agent?.agency_id, agent?.score]);
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
   useEffect(() => {
@@ -1216,21 +1216,21 @@ export default function AgentProfilePage() {
                   </div>
 
                   <div className="mt-3 flex flex-wrap justify-center gap-2">
-                    {agentBrokers.length > 0 ? (
-                      agentBrokers.map((ab) => {
-                        const b = ab.brokers;
+                    {agentAgencies.length > 0 ? (
+                      agentAgencies.map((ab) => {
+                        const b = ab.agencies;
                         if (!b?.id || !b.company_name) return null;
                         return (
                           <Link
-                            key={`${ab.broker_id}-${ab.is_primary ? "p" : "s"}`}
-                            href={`/brokers/${encodeURIComponent(b.id)}`}
+                            key={`${ab.agency_id}-${ab.is_primary ? "p" : "s"}`}
+                            href={`/agencies/${encodeURIComponent(b.id)}`}
                             className={cn(
                               "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-sm",
                               ab.is_primary
                                 ? "border-[#D4A843]/40 bg-[#D4A843]/10 text-[#8a6d32]"
                                 : "border-[#2C2C2C]/10 bg-[#FAF8F4] text-[#2C2C2C]/65 hover:bg-white",
                             )}
-                            title={ab.is_primary ? "Primary brokerage" : "Brokerage"}
+                            title={ab.is_primary ? "Primary agency" : "Agency"}
                           >
                             <span className="truncate">{b.company_name}</span>
                             {ab.is_primary ? <span className="text-[10px] leading-none">★</span> : null}

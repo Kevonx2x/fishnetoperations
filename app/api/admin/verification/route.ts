@@ -9,9 +9,9 @@ export async function GET() {
   }
   try {
     const sb = createSupabaseAdmin();
-    const [brokersRes, agentsRes] = await Promise.all([
+    const [agenciesRes, agentsRes] = await Promise.all([
       sb
-        .from("brokers")
+        .from("agencies")
         .select("*")
         .eq("status", "pending")
         .order("created_at", { ascending: false }),
@@ -21,14 +21,14 @@ export async function GET() {
         .eq("status", "pending")
         .order("created_at", { ascending: false }),
     ]);
-    if (brokersRes.error) {
-      return fail("DATABASE_ERROR", brokersRes.error.message, 500);
+    if (agenciesRes.error) {
+      return fail("DATABASE_ERROR", agenciesRes.error.message, 500);
     }
     if (agentsRes.error) {
       return fail("DATABASE_ERROR", agentsRes.error.message, 500);
     }
     return ok({
-      brokers: brokersRes.data ?? [],
+      agencies: agenciesRes.data ?? [],
       agents: agentsRes.data ?? [],
     });
   } catch (e) {

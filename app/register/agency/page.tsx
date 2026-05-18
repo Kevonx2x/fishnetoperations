@@ -6,7 +6,7 @@ import { createSupabaseBrowser } from "@/lib/supabase-browser";
 
 const supabase = createSupabaseBrowser();
 
-type BrokerFieldKey =
+type AgencyFieldKey =
   | "name"
   | "company_name"
   | "license_number"
@@ -17,9 +17,9 @@ type BrokerFieldKey =
   | "logo_url"
   | "bio";
 
-type BrokerFieldErrors = Partial<Record<BrokerFieldKey, string>>;
+type AgencyFieldErrors = Partial<Record<AgencyFieldKey, string>>;
 
-type RegisterBrokerApiJson = {
+type RegisterAgencyApiJson = {
   success?: boolean;
   error?: {
     code?: string;
@@ -32,20 +32,20 @@ type RegisterBrokerApiJson = {
   };
 };
 
-function applyBrokerApiErrors(
-  json: RegisterBrokerApiJson,
-  setFieldErrors: (e: BrokerFieldErrors) => void,
+function applyAgencyApiErrors(
+  json: RegisterAgencyApiJson,
+  setFieldErrors: (e: AgencyFieldErrors) => void,
   setSubmitError: (s: string) => void,
 ) {
   const err = json.error;
   const fe = err?.details?.fieldErrors;
   const formErrs = err?.details?.formErrors?.filter(Boolean) ?? [];
-  const mapped: BrokerFieldErrors = {};
+  const mapped: AgencyFieldErrors = {};
   const unmapped: string[] = [];
 
   const push = (apiKey: string, message: string) => {
     if (!message) return;
-    const keys: BrokerFieldKey[] = [
+    const keys: AgencyFieldKey[] = [
       "name",
       "company_name",
       "license_number",
@@ -56,8 +56,8 @@ function applyBrokerApiErrors(
       "logo_url",
       "bio",
     ];
-    if (keys.includes(apiKey as BrokerFieldKey)) {
-      mapped[apiKey as BrokerFieldKey] = message;
+    if (keys.includes(apiKey as AgencyFieldKey)) {
+      mapped[apiKey as AgencyFieldKey] = message;
     } else {
       unmapped.push(message);
     }
@@ -84,7 +84,7 @@ function applyBrokerApiErrors(
   }
 }
 
-export default function RegisterBrokerPage() {
+export default function RegisterAgencyPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [accountMode, setAccountMode] = useState<"signin" | "signup">("signup");
@@ -104,7 +104,7 @@ export default function RegisterBrokerPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<BrokerFieldErrors>({});
+  const [fieldErrors, setFieldErrors] = useState<AgencyFieldErrors>({});
   const [done, setDone] = useState(false);
 
   const refreshSession = async () => {
@@ -135,11 +135,7 @@ export default function RegisterBrokerPage() {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: {
-            data: {
-              full_name: companyName.trim() || name.trim(),
-            },
-          },
+          options: { data: { full_name: companyName.trim() || name.trim() } },
         });
         if (error) throw error;
         if (data.user && !data.session) {
@@ -173,12 +169,12 @@ export default function RegisterBrokerPage() {
     if (!logoFile) return null;
     const safe = logoFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `${userId}/${Date.now()}-${safe}`;
-    const { error } = await supabase.storage.from("broker-logos").upload(path, logoFile, {
+    const { error } = await supabase.storage.from("agency-logos").upload(path, logoFile, {
       upsert: true,
       contentType: logoFile.type || undefined,
     });
     if (error) throw error;
-    const { data } = supabase.storage.from("broker-logos").getPublicUrl(path);
+    const { data } = supabase.storage.from("agency-logos").getPublicUrl(path);
     return data.publicUrl;
   };
 
@@ -196,10 +192,8 @@ export default function RegisterBrokerPage() {
     setSubmitBusy(true);
     try {
       let logoUrl: string | null = null;
-      if (logoFile) {
-        logoUrl = await uploadLogoIfNeeded(session.user.id);
-      }
-      const res = await fetch("/api/v1/register/broker", {
+      if (logoFile) logoUrl = await uploadLogoIfNeeded(session.user.id);
+      const res = await fetch("/api/v1/register/agency", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -215,12 +209,11 @@ export default function RegisterBrokerPage() {
           bio: bio.trim() || null,
         }),
       });
-      const json = (await res.json()) as RegisterBrokerApiJson;
+      const json = (await res.json()) as RegisterAgencyApiJson;
       if (!res.ok || !json.success) {
-        const validation =
-          res.status === 422 || json.error?.code === "VALIDATION_ERROR";
+        const validation = res.status === 422 || json.error?.code === "VALIDATION_ERROR";
         if (validation && json.error) {
-          applyBrokerApiErrors(json, setFieldErrors, setSubmitError);
+          applyAgencyApiErrors(json, setFieldErrors, setSubmitError);
           setSubmitBusy(false);
           return;
         }
@@ -241,25 +234,20 @@ export default function RegisterBrokerPage() {
             Home
           </Link>
         </p>
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Broker registration</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Agency registration</h1>
         <p className="text-sm text-gray-600 mb-8">
-          Apply for a verified brokerage profile. An admin will review your license details.
+          Apply for a verified agency profile. An admin will review your license details.
         </p>
 
         {!sessionReady ? (
-          <form
-            onSubmit={handleAuth}
-            className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 mb-8"
-          >
+          <form onSubmit={handleAuth} className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 mb-8">
             <h2 className="text-sm font-semibold text-gray-900">Account</h2>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setAccountMode("signup")}
                 className={`rounded-full px-3 py-1 text-xs font-medium ${
-                  accountMode === "signup"
-                    ? "bg-gray-900 text-white"
-                    : "bg-gray-100 text-gray-600"
+                  accountMode === "signup" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
                 }`}
               >
                 Create account
@@ -268,9 +256,7 @@ export default function RegisterBrokerPage() {
                 type="button"
                 onClick={() => setAccountMode("signin")}
                 className={`rounded-full px-3 py-1 text-xs font-medium ${
-                  accountMode === "signin"
-                    ? "bg-gray-900 text-white"
-                    : "bg-gray-100 text-gray-600"
+                  accountMode === "signin" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
                 }`}
               >
                 Sign in
@@ -283,7 +269,7 @@ export default function RegisterBrokerPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
               />
             </label>
             <label className="block text-xs font-medium text-gray-500">
@@ -294,29 +280,17 @@ export default function RegisterBrokerPage() {
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
               />
             </label>
-            {accountMode === "signup" && (
-              <label className="block text-xs font-medium text-gray-500">
-                Primary contact / display name (optional for profile)
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
-                />
-              </label>
-            )}
-            {authNotice && (
+            {authNotice ? (
               <p className="text-sm text-blue-700 bg-blue-50 rounded-lg px-3 py-2">{authNotice}</p>
-            )}
-            {authError && (
-              <p className="text-sm text-red-600">{authError}</p>
-            )}
+            ) : null}
+            {authError ? <p className="text-sm text-red-600">{authError}</p> : null}
             <button
               type="submit"
               disabled={authBusy}
-              className="w-full rounded-xl bg-gray-900 py-3 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+              className="w-full rounded-xl bg-gray-900 py-3 text-sm font-medium text-white disabled:opacity-50"
             >
               {authBusy ? "Please wait…" : accountMode === "signup" ? "Create & continue" : "Sign in"}
             </button>
@@ -325,8 +299,7 @@ export default function RegisterBrokerPage() {
           <div className="rounded-2xl border border-green-200 bg-green-50 p-6 text-sm text-green-900">
             <p className="font-semibold mb-1">Application submitted</p>
             <p className="mb-4">
-              Your brokerage is pending review. You will receive a notification when an admin has
-              decided.
+              Your agency is pending review. You will receive a notification when an admin has decided.
             </p>
             <Link href="/settings" className="underline font-medium">
               View profile status
@@ -336,26 +309,19 @@ export default function RegisterBrokerPage() {
           <>
             <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3 mb-6">
               <span className="text-sm text-gray-700">Signed in</span>
-              <button
-                type="button"
-                onClick={() => void signOut()}
-                className="text-sm text-gray-600 underline"
-              >
+              <button type="button" onClick={() => void signOut()} className="text-sm text-gray-600 underline">
                 Sign out
               </button>
             </div>
-            <form
-              onSubmit={handleRegister}
-              className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4"
-            >
-              <h2 className="text-sm font-semibold text-gray-900">Brokerage details</h2>
+            <form onSubmit={handleRegister} className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+              <h2 className="text-sm font-semibold text-gray-900">Agency details</h2>
               <label className="block text-xs font-medium text-gray-500">
                 Contact name
                 <input
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
                 {fieldErrors.name ? <p className="mt-1 text-sm text-red-600">{fieldErrors.name}</p> : null}
               </label>
@@ -365,7 +331,7 @@ export default function RegisterBrokerPage() {
                   required
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
                 {fieldErrors.company_name ? (
                   <p className="mt-1 text-sm text-red-600">{fieldErrors.company_name}</p>
@@ -377,7 +343,7 @@ export default function RegisterBrokerPage() {
                   required
                   value={licenseNumber}
                   onChange={(e) => setLicenseNumber(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
                 {fieldErrors.license_number ? (
                   <p className="mt-1 text-sm text-red-600">{fieldErrors.license_number}</p>
@@ -389,20 +355,16 @@ export default function RegisterBrokerPage() {
                   type="date"
                   value={licenseExpiry}
                   onChange={(e) => setLicenseExpiry(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
-                {fieldErrors.license_expiry ? (
-                  <p className="mt-1 text-sm text-red-600">{fieldErrors.license_expiry}</p>
-                ) : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 Phone
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
-                {fieldErrors.phone ? <p className="mt-1 text-sm text-red-600">{fieldErrors.phone}</p> : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 Public email
@@ -411,9 +373,8 @@ export default function RegisterBrokerPage() {
                   required
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
-                {fieldErrors.email ? <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p> : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 Website (optional)
@@ -422,9 +383,8 @@ export default function RegisterBrokerPage() {
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
                   placeholder="https://"
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
-                {fieldErrors.website ? <p className="mt-1 text-sm text-red-600">{fieldErrors.website}</p> : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 Logo upload (optional)
@@ -434,7 +394,6 @@ export default function RegisterBrokerPage() {
                   onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
                   className="mt-1 w-full text-sm text-gray-600"
                 />
-                {fieldErrors.logo_url ? <p className="mt-1 text-sm text-red-600">{fieldErrors.logo_url}</p> : null}
               </label>
               <label className="block text-xs font-medium text-gray-500">
                 Bio (optional)
@@ -442,15 +401,14 @@ export default function RegisterBrokerPage() {
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   rows={4}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
-                {fieldErrors.bio ? <p className="mt-1 text-sm text-red-600">{fieldErrors.bio}</p> : null}
               </label>
-              {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+              {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
               <button
                 type="submit"
                 disabled={submitBusy}
-                className="w-full rounded-xl bg-gray-900 py-3 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+                className="w-full rounded-xl bg-gray-900 py-3 text-sm font-medium text-white disabled:opacity-50"
               >
                 {submitBusy ? "Submitting…" : "Submit for review"}
               </button>

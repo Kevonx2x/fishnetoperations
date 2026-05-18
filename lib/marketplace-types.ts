@@ -10,9 +10,9 @@ export interface MarketplaceAgent {
   availability: string;
   /** From `agents.updated_at` when loaded from DB. */
   updatedAt: string;
-  brokerId: string | null;
-  brokerName: string;
-  brokerLogo: string;
+  agencyId: string | null;
+  agencyName: string;
+  agencyLogo: string;
   /** Present when loaded from full agent row (e.g. property page). */
   email: string;
   phone: string;
@@ -22,7 +22,7 @@ export interface MarketplaceAgent {
   serviceAreasText?: string;
 }
 
-type SupabaseBrokersJoin =
+type SupabaseAgenciesJoin =
   | {
       id?: string | null;
       company_name?: string | null;
@@ -46,7 +46,6 @@ function profileJoinFields(p: ProfileJoinShape | ProfileJoinShape[] | null | und
 type SupabaseAgentsRow = {
   id?: string | null;
   user_id?: string | null;
-  /** Semicolon/comma-separated cities/areas (directory + matching). */
   service_areas?: string | null;
   name?: string | null;
   email?: string | null;
@@ -59,8 +58,7 @@ type SupabaseAgentsRow = {
   updated_at?: string | null;
   verified?: boolean | null;
   status?: string | null;
-  brokers?: SupabaseBrokersJoin;
-  /** From `.select(..., profiles(email, phone, role))` join on agents.user_id → profiles.id */
+  agencies?: SupabaseAgenciesJoin;
   profiles?: ProfileJoinShape | ProfileJoinShape[];
 };
 
@@ -74,25 +72,24 @@ function safeNumber(v: unknown): number {
 }
 
 export function mapRowToMarketplaceAgent(row: SupabaseAgentsRow): MarketplaceAgent {
-  const brokers = (row.brokers ?? null) as SupabaseBrokersJoin;
+  const agencies = (row.agencies ?? null) as SupabaseAgenciesJoin;
   const prof = profileJoinFields(row.profiles);
-  /** Always pass through DB `agents.availability` as-is (null/undefined → ""). Never default to "Available Now". */
   const availabilityFromDb = row.availability;
   return {
     id: safeString(row.id),
     userId: safeString(row.user_id),
     name: safeString(row.name),
     image: safeString(row.image_url),
-    company: safeString(brokers?.company_name),
+    company: safeString(agencies?.company_name),
     score: safeNumber(row.score),
     closings: Math.round(safeNumber(row.closings)),
     responseTime: safeString(row.response_time),
     availability:
       availabilityFromDb == null ? "" : typeof availabilityFromDb === "string" ? availabilityFromDb : String(availabilityFromDb),
     updatedAt: safeString(row.updated_at),
-    brokerId: typeof brokers?.id === "string" ? brokers.id : null,
-    brokerName: safeString(brokers?.company_name),
-    brokerLogo: safeString(brokers?.logo_url),
+    agencyId: typeof agencies?.id === "string" ? agencies.id : null,
+    agencyName: safeString(agencies?.company_name),
+    agencyLogo: safeString(agencies?.logo_url),
     email: safeString(row.email) || safeString(prof?.email),
     phone: safeString(row.phone) || safeString(prof?.phone),
     verified: row.verified === true,
@@ -103,4 +100,3 @@ export function mapRowToMarketplaceAgent(row: SupabaseAgentsRow): MarketplaceAge
         : undefined,
   };
 }
-

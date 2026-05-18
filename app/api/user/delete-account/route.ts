@@ -14,7 +14,7 @@ export async function DELETE(_request: NextRequest) {
     const admin = createSupabaseAdmin();
 
     await admin.from("agents").delete().eq("user_id", uid);
-    await admin.from("brokers").delete().eq("user_id", uid);
+    await admin.from("agencies").delete().eq("user_id", uid);
 
     const { error: authErr } = await admin.auth.admin.deleteUser(uid);
     if (authErr) {

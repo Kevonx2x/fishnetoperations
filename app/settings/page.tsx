@@ -166,7 +166,7 @@ const ROLE_OPTIONS: {
   {
     value: "broker",
     label: "Broker",
-    description: "Oversee your team and brokerage operations.",
+    description: "Oversee your team and agency operations.",
   },
 ];
 
@@ -186,7 +186,7 @@ function visibleTabsForRole(role: ProfileRole): SettingsTabId[] {
   return core;
 }
 
-type BrokerRow = {
+type AgencyRow = {
   id: string;
   company_name: string;
   name: string;
@@ -205,7 +205,7 @@ type AgentRow = {
   license_expiry: string | null;
   license_number: string;
   email: string;
-  broker_id: string | null;
+  agency_id: string | null;
   verification_status?: "pending" | "verified" | "rejected" | "suspended" | null;
   prc_document_url?: string | null;
   selfie_url?: string | null;
@@ -461,9 +461,9 @@ function SettingsPageInner() {
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackBusy, setFeedbackBusy] = useState(false);
 
-  const [broker, setBroker] = useState<BrokerRow | null>(null);
+  const [agency, setAgency] = useState<AgencyRow | null>(null);
   const [agent, setAgent] = useState<AgentRow | null>(null);
-  const [brokerageName, setBrokerageName] = useState<string | null>(null);
+  const [agencyName, setAgencyName] = useState<string | null>(null);
   const [verifyPrcFile, setVerifyPrcFile] = useState<File | null>(null);
   const [verifySelfieFile, setVerifySelfieFile] = useState<File | null>(null);
   const [verifySubmitBusy, setVerifySubmitBusy] = useState(false);
@@ -615,7 +615,7 @@ function SettingsPageInner() {
       setHasSavedProfileOnce(false);
 
       const { data: b } = await supabase
-        .from("brokers")
+        .from("agencies")
         .select(
           "id, company_name, name, status, verified, license_expiry, license_number, email",
         )
@@ -625,25 +625,25 @@ function SettingsPageInner() {
       const { data: a } = await supabase
         .from("agents")
         .select(
-          "id, name, status, verified, license_expiry, license_number, email, broker_id, verification_status, prc_document_url, selfie_url",
+          "id, name, status, verified, license_expiry, license_number, email, agency_id, verification_status, prc_document_url, selfie_url",
         )
         .eq("user_id", uid)
         .maybeSingle();
 
-      setBroker((b as BrokerRow | null) ?? null);
+      setAgency((b as AgencyRow | null) ?? null);
       setAgent((a as AgentRow | null) ?? null);
 
-      if (a?.broker_id) {
+      if (a?.agency_id) {
         const { data: br } = await supabase
-          .from("brokers")
+          .from("agencies")
           .select("company_name")
-          .eq("id", a.broker_id)
+          .eq("id", a.agency_id)
           .maybeSingle();
-        setBrokerageName(
+        setAgencyName(
           (br as { company_name?: string } | null)?.company_name ?? null,
         );
       } else {
-        setBrokerageName(null);
+        setAgencyName(null);
       }
 
       setLoaded(true);
@@ -1641,10 +1641,10 @@ function SettingsPageInner() {
                   {pendingRole === "broker" ? (
                     <div className="mt-4 rounded-xl border border-[#D4A843]/30 bg-[#D4A843]/10 px-4 py-3">
                       <p className="text-xs text-[#2C2C2C]/70">
-                        Register your brokerage to manage agents and listings.
+                        Register your agency to manage agents and listings.
                       </p>
                       <Link
-                        href="/register/broker"
+                        href="/register/agency"
                         className="mt-2 inline-flex rounded-full bg-[#D4A843] px-4 py-2 text-xs font-bold text-[#2C2C2C] shadow-sm hover:brightness-95"
                       >
                         Complete Broker Registration
@@ -1867,34 +1867,34 @@ function SettingsPageInner() {
                 Read-only details from your registration. Contact support to update your license.
               </p>
             </div>
-            {broker ? (
+            {agency ? (
               <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-sm font-semibold text-[#2C2C2C]">Broker</h3>
-                  {broker.verified && broker.status === "approved" ? (
+                  {agency.verified && agency.status === "approved" ? (
                     <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-900">
                       Verified
                     </span>
                   ) : (
                     <span className="rounded-full bg-[#FAF8F4] px-2.5 py-0.5 text-xs font-medium capitalize text-[#2C2C2C]/70">
-                      {broker.status}
+                      {agency.status}
                     </span>
                   )}
-                  <LicenseExpiryBadge licenseExpiry={broker.license_expiry} />
+                  <LicenseExpiryBadge licenseExpiry={agency.license_expiry} />
                 </div>
-                <p className="mt-2 text-sm text-[#2C2C2C]/85">{broker.company_name}</p>
+                <p className="mt-2 text-sm text-[#2C2C2C]/85">{agency.company_name}</p>
                 <p className="text-xs text-[#2C2C2C]/45">
-                  {broker.name} · {broker.email}
+                  {agency.name} · {agency.email}
                 </p>
-                {broker.license_number ? (
+                {agency.license_number ? (
                   <p className="mt-2 text-xs font-medium text-[#2C2C2C]/70">
-                    License no. {broker.license_number}
+                    License no. {agency.license_number}
                   </p>
                 ) : null}
-                {broker.license_expiry ? (
+                {agency.license_expiry ? (
                   <p className="mt-1 text-xs text-[#2C2C2C]/45">
-                    License expires {formatLicenseDate(broker.license_expiry)}
-                    {showExpiryWarn(broker.license_expiry) ? (
+                    License expires {formatLicenseDate(agency.license_expiry)}
+                    {showExpiryWarn(agency.license_expiry) ? (
                       <span className="font-medium text-amber-800"> · renew soon</span>
                     ) : null}
                   </p>
@@ -1902,9 +1902,9 @@ function SettingsPageInner() {
               </div>
             ) : currentRole === "broker" ? (
               <p className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 text-sm text-[#2C2C2C]/60 shadow-sm">
-                No broker registration found yet.{" "}
-                <Link href="/register/broker" className="font-semibold text-[#6B9E6E] underline">
-                  Complete broker registration
+                No agency registration found yet.{" "}
+                <Link href="/register/agency" className="font-semibold text-[#6B9E6E] underline">
+                  Complete agency registration
                 </Link>
               </p>
             ) : null}
@@ -1924,8 +1924,8 @@ function SettingsPageInner() {
                       License no. {agent.license_number}
                     </p>
                   ) : null}
-                  {brokerageName ? (
-                    <p className="mt-1 text-xs text-[#2C2C2C]/45">Brokerage: {brokerageName}</p>
+                  {agencyName ? (
+                    <p className="mt-1 text-xs text-[#2C2C2C]/45">Agency: {agencyName}</p>
                   ) : null}
                   {agent.license_expiry ? (
                     <p className="mt-2 text-xs text-[#2C2C2C]/45">

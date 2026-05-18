@@ -14,7 +14,7 @@ const patchSchema = z.object({
   score: z.number().optional(),
   closings: z.number().int().min(0).optional(),
   status: z.enum(["pending", "approved", "rejected"]).optional(),
-  broker_id: z.union([z.string().uuid(), z.null()]).optional(),
+  agency_id: z.union([z.string().uuid(), z.null()]).optional(),
 });
 
 /** Admin: update agent + matching profiles row (name/email/phone). */
@@ -54,7 +54,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
   if (p.score !== undefined) agentUpdate.score = p.score;
   if (p.closings !== undefined) agentUpdate.closings = p.closings;
   if (p.status !== undefined) agentUpdate.status = p.status;
-  if (p.broker_id !== undefined) agentUpdate.broker_id = p.broker_id;
+  if (p.agency_id !== undefined) agentUpdate.agency_id = p.agency_id;
 
   if (Object.keys(agentUpdate).length > 0) {
     const { error: upErr } = await sb.from("agents").update(agentUpdate).eq("id", id);

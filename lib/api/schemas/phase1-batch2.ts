@@ -15,7 +15,7 @@ function phNationalFromCompact(compact: string): string | null {
   return d.length ? d.slice(0, 10) : null;
 }
 
-export const registerBrokerSchema = z.object({
+export const registerAgencySchema = z.object({
   name: z.string().min(1).max(200),
   company_name: z.string().min(1).max(200),
   license_number: z.string().min(1).max(100),
@@ -72,11 +72,11 @@ export const registerAgentSchema = z.object({
     }),
   email: z.string().email(),
   bio: z.string().max(5000).optional().nullable(),
-  brokers: z
+  agencies: z
     .array(
       z
         .object({
-          broker_id: z.string().uuid(),
+          agency_id: z.string().uuid(),
           is_primary: z.boolean().optional().default(false),
         })
         .strict(),
@@ -84,7 +84,7 @@ export const registerAgentSchema = z.object({
     .max(10)
     .optional()
     .nullable(),
-  broker_id: z.preprocess(
+  agency_id: z.preprocess(
     (v) => {
       if (v === undefined || v === null) return null;
       if (typeof v === "string" && v.trim() === "") return null;
@@ -93,7 +93,7 @@ export const registerAgentSchema = z.object({
     z.union([
       z.null(),
       z.string().uuid(
-        "broker_id must be the UUID of an approved brokerage from the list (not the company name). Omit or use null for an independent agent.",
+        "agency_id must be the UUID of an approved agency from the list (not the company name). Omit or use null for an independent agent.",
       ),
     ]),
   ),

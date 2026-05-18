@@ -56,7 +56,7 @@ export async function GET() {
     : { data: [] as { id: string; user_id: string; status: string; verified: boolean }[] };
 
   const { data: brokers } = ids.length
-    ? await sb.from("brokers").select("id, user_id, status, verified").in("user_id", ids)
+    ? await sb.from("agencies").select("id, user_id, status, verified").in("user_id", ids)
     : { data: [] as { id: string; user_id: string; status: string; verified: boolean }[] };
 
   const agentByUser = new Map<string, { id: string; status: string; verified: boolean }>();

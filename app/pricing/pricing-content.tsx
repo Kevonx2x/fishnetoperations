@@ -58,6 +58,7 @@ const tiers: TierCard[] = [
     ],
   },
   {
+    // TODO: rename display tier from "Broker" to "Agency" (keep id "broker" for billing/subscriptions)
     id: "broker",
     name: "Broker",
     price: "₱4,000/mo",

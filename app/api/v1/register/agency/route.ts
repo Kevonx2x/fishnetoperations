@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { registerBrokerSchema } from "@/lib/api/schemas/phase1-batch2";
+import { registerAgencySchema } from "@/lib/api/schemas/phase1-batch2";
 import { fail, fromZodError, ok } from "@/lib/api/response";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseUserClient } from "@/lib/supabase-route";
@@ -15,20 +15,20 @@ export async function POST(request: NextRequest) {
 
     const { data: userData, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userData.user) {
-      return fail("UNAUTHORIZED", "Sign in to register as a broker", 401);
+      return fail("UNAUTHORIZED", "Sign in to register as an agency", 401);
     }
 
     const body = await request.json();
-    const parsed = registerBrokerSchema.safeParse(body);
+    const parsed = registerAgencySchema.safeParse(body);
     if (!parsed.success) return fromZodError(parsed.error);
 
     const { data: existing } = await supabase
-      .from("brokers")
+      .from("agencies")
       .select("id")
       .eq("user_id", userData.user.id)
       .maybeSingle();
     if (existing) {
-      return fail("CONFLICT", "You already have a broker registration", 409);
+      return fail("CONFLICT", "You already have an agency registration", 409);
     }
 
     const { data: existingAgent } = await supabase
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     if (existingAgent) {
       return fail(
         "CONFLICT",
-        "This account is already registered as an agent. Use a separate account for a brokerage.",
+        "This account is already registered as an agent. Use a separate account for an agency.",
         409,
       );
     }
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     };
 
     const { data, error } = await supabase
-      .from("brokers")
+      .from("agencies")
       .insert(row)
       .select()
       .single();

@@ -92,7 +92,7 @@ function LandmarksContent() {
           id, created_at, name, location, price, sqft, beds, baths, image_url, status, listed_by, description, property_type,
           is_presale, developer_name, turnover_date, unit_types, deleted_at, availability_state,
           property_photos (url, sort_order),
-          property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
+          property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, updated_at, agencies (id, company_name, logo_url), profiles(email, phone)))
         `,
       )
       .or(publicListingExpiryOrFilter())

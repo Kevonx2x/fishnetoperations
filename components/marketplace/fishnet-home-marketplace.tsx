@@ -86,6 +86,7 @@ import {
 } from "@/lib/homepage-marketplace-filters";
 import { HomepageFiltersSheet } from "@/components/marketplace/homepage-filters-sheet";
 import { HomepageExpandSearchCta } from "@/components/marketplace/homepage-results-surface";
+import { HomepageSpotlightListing } from "@/components/marketplace/homepage-spotlight-listing";
 import { TopCondosRow } from "@/components/marketplace/top-condos-row";
 import {
   buildFilteredEmptyMessage,
@@ -785,35 +786,6 @@ function FeaturedLocationStripImage({ src, priority, eager }: { src: string; pri
   );
 }
 
-function FeaturedListingHeroImage({ src, alt }: { src: string; alt: string }) {
-  const [loaded, setLoaded] = useState(false);
-  if (!src) {
-    return <div className="absolute inset-0 z-[1] animate-pulse bg-[#FAF8F4]/60" aria-hidden />;
-  }
-  const skipNextOptimizer = isPreOptimizedPropertyPhotoUrl(src);
-  return (
-    <>
-      <div
-        className={cn(
-          "absolute inset-0 z-[1] animate-pulse bg-[#FAF8F4]/60 transition-opacity duration-500",
-          loaded && "pointer-events-none opacity-0",
-        )}
-        aria-hidden
-      />
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        unoptimized={skipNextOptimizer}
-        className={cn("z-[2] object-cover transition-opacity duration-500", loaded ? "opacity-100" : "opacity-0")}
-        sizes="(max-width: 1024px) 100vw, 672px"
-        loading="lazy"
-        onLoadingComplete={() => setLoaded(true)}
-      />
-    </>
-  );
-}
-
 function HeroFloatingPropertyCards() {
   const configs = [
     {
@@ -1305,7 +1277,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           id, created_at, name, location, region, city, neighborhood, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
           is_presale, developer_name, turnover_date, unit_types, deleted_at, availability_state,
           property_photos (url, sort_order, created_at),
-          property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, listing_tier, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
+          property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, listing_tier, updated_at, agencies (id, company_name, logo_url), profiles(email, phone)))
         `;
     const expiryOr = publicListingExpiryOrFilter();
     const featuredCityRow = neighborhoodFilter
@@ -1366,7 +1338,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const loadAgentsDirectory = useCallback(async () => {
     const { data, error: fetchErr } = await supabase
       .from("agents")
-      .select("*, brokers(*), profiles!inner(email, phone, role)")
+      .select("*, agencies(*), profiles!inner(email, phone, role)")
       .eq("status", "approved")
       .eq("verified", true)
       .eq("profiles.role", "agent")
@@ -1523,7 +1495,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           id, created_at, name, location, region, city, neighborhood, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
           is_presale, developer_name, turnover_date, unit_types, deleted_at, availability_state, featured,
           property_photos (url, sort_order, created_at),
-          property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, listing_tier, updated_at, brokers (id, company_name, logo_url), profiles(email, phone)))
+          property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, listing_tier, updated_at, agencies (id, company_name, logo_url), profiles(email, phone)))
         `;
 
       const fetchRow = async (cfg: RowConfig) => {
@@ -2867,75 +2839,16 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               locationLabel={filters.locationLabel ?? neighborhoodLabelForChips}
             />
 
-            <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10 lg:mt-12" />
-
-            {/* 8. FEATURED PROPERTY */}
             {featuredHomeProperty ? (
-              <section className="mt-6 lg:mt-12">
-                <div className="mx-auto max-w-2xl">
-                  <Link
-                    href={`/properties/${encodeURIComponent(featuredHomeProperty.id)}`}
-                    className="block overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm transition hover:shadow-md"
-                  >
-                    <div className="relative h-48 w-full bg-black/5 lg:h-64">
-                      <FeaturedListingHeroImage
-                        src={featuredHomeHeroSrc}
-                        alt={featuredHomeProperty.name ?? featuredHomeProperty.location}
-                      />
-                      {featuredHomeIsAdminFeatured ? (
-                        <span className="absolute left-3 top-3 z-10 rounded-full bg-[#D4A843] px-3 py-1 text-xs font-medium text-white">
-                          FEATURED
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="p-5 md:p-6">
-                      <h2 className="text-2xl font-semibold tracking-tight text-[#2C2C2C] md:text-3xl">
-                        {featuredHomeProperty.name ?? featuredHomeProperty.location}
-                      </h2>
-                      {featuredHomeProperty.status === "both" ||
-                      featuredHomeProperty.listing_type === "both" ? (
-                        <div className="mt-2 space-y-1">
-                          <p className="text-xl font-semibold text-[#D4A843] md:text-2xl">
-                            Sale {formatPropertyPriceDisplay(featuredHomeProperty.price, "for_sale")}
-                          </p>
-                          <p className="text-lg font-semibold text-[#2C2C2C]/90 md:text-xl">
-                            Rent{" "}
-                            {formatPropertyPriceDisplay(
-                              featuredHomeProperty.rent_price,
-                              "for_rent",
-                            )}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="mt-2 text-xl font-semibold text-[#D4A843] md:text-2xl">
-                          {formatPropertyPriceDisplay(
-                            featuredHomeProperty.price,
-                            featuredHomeProperty.status,
-                          )}
-                        </p>
-                      )}
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80">
-                          {featuredHomeProperty.beds ? `${featuredHomeProperty.beds} beds` : "Studio"}
-                        </span>
-                        <span className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80">
-                          {featuredHomeProperty.baths} baths
-                        </span>
-                        <span className="rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-1 text-xs font-semibold text-[#2C2C2C]/80">
-                          {featuredHomeProperty.sqft} sqft
-                        </span>
-                      </div>
-                      <p className="mt-4 flex items-start gap-2 text-sm font-semibold text-[#2C2C2C]/75">
-                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                        <span>{featuredHomeProperty.location}</span>
-                      </p>
-                      <span className="mt-5 inline-flex rounded-full bg-[#6B9E6E] px-6 py-3 text-sm font-semibold text-white shadow-sm">
-                        Learn More
-                      </span>
-                    </div>
-                  </Link>
-                </div>
-              </section>
+              <HomepageSpotlightListing
+                property={featuredHomeProperty}
+                isAdminFeatured={featuredHomeIsAdminFeatured}
+                locationLabel={filters.locationLabel ?? neighborhoodLabelForChips}
+                connectedAgents={
+                  allConnectedAgentsByPropertyId.get(featuredHomeProperty.id) ??
+                  undefined
+                }
+              />
             ) : null}
 
             {/* 6. TOP VERIFIED AGENTS THIS WEEK (deferred client load) */}
@@ -3106,10 +3019,10 @@ function Trust({ icon, title, body }: { icon: React.ReactNode; title: string; bo
   );
 }
 
-/** Brokerage line on homepage listing cards (uses `brokers` join on agent). */
+/** Agency line on homepage listing cards (uses `agencies` join on agent). */
 function listingCardBrokerageSubtitle(agent: MarketplaceAgent): string {
-  if (agent.brokerId) {
-    const n = (agent.brokerName || agent.company).trim();
+  if (agent.agencyId) {
+    const n = (agent.agencyName || agent.company).trim();
     if (n) return n;
   }
   return "Independent Agent";

@@ -16,7 +16,7 @@ export function pathForRole(role: string | null | undefined): string {
     case "ops_admin":
       return "/admin";
     case "broker":
-      return "/dashboard/broker";
+      return "/dashboard/agency";
     case "agent":
     case "team_member":
       return "/dashboard/agent";

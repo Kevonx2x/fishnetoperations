@@ -11,11 +11,11 @@ const bodySchema = z.object({
   patch: z
     .object({
       bio: z.union([z.string().max(TAGLINE_MAX), z.null()]).optional(),
-      brokers: z
+      agencies: z
         .array(
           z
             .object({
-              broker_id: z.string().uuid(),
+              agency_id: z.string().uuid(),
               is_primary: z.boolean().optional().default(false),
             })
             .strict(),
@@ -62,35 +62,34 @@ export async function POST(req: Request) {
       agentUpdate.bio = nextBio;
     }
 
-    if (Array.isArray(patch.brokers)) {
+    if (Array.isArray(patch.agencies)) {
       const normalized = (() => {
         const seen = new Set<string>();
-        const out: { broker_id: string; is_primary: boolean }[] = [];
-        for (const b of patch.brokers) {
-          const id = b.broker_id.trim();
+        const out: { agency_id: string; is_primary: boolean }[] = [];
+        for (const b of patch.agencies) {
+          const id = b.agency_id.trim();
           if (!id || seen.has(id)) continue;
           seen.add(id);
-          out.push({ broker_id: id, is_primary: Boolean(b.is_primary) });
+          out.push({ agency_id: id, is_primary: Boolean(b.is_primary) });
         }
         let primaryIdx = out.findIndex((x) => x.is_primary);
         if (primaryIdx < 0 && out.length > 0) primaryIdx = 0;
         return out.map((x, idx) => ({ ...x, is_primary: primaryIdx >= 0 ? idx === primaryIdx : false }));
       })();
 
-      const primaryBrokerId =
-        normalized.find((b) => b.is_primary)?.broker_id ?? normalized[0]?.broker_id ?? null;
-      agentUpdate.broker_id = primaryBrokerId;
+      const primaryAgencyId =
+        normalized.find((b) => b.is_primary)?.agency_id ?? normalized[0]?.agency_id ?? null;
+      agentUpdate.agency_id = primaryAgencyId;
 
-      // Replace junction rows.
-      const { error: delErr } = await sb.from("agent_brokers").delete().eq("agent_id", agentId);
+      const { error: delErr } = await sb.from("agent_agencies").delete().eq("agent_id", agentId);
       if (delErr) return fail("DATABASE_ERROR", delErr.message, 500);
       if (normalized.length) {
         const payload = normalized.map((b) => ({
           agent_id: agentId,
-          broker_id: b.broker_id,
+          agency_id: b.agency_id,
           is_primary: b.is_primary,
         }));
-        const { error: insErr } = await sb.from("agent_brokers").insert(payload);
+        const { error: insErr } = await sb.from("agent_agencies").insert(payload);
         if (insErr) return fail("DATABASE_ERROR", insErr.message, 500);
       }
     }

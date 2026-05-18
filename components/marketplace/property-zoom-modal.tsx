@@ -199,8 +199,8 @@ function AgentsList({
                   {formatAgentScore(a.score)}
                 </span>
               </div>
-              {a.brokerName ? (
-                <p className="mt-0.5 truncate text-[11px] font-medium text-[#2C2C2C]/50">{a.brokerName}</p>
+              {a.agencyName ? (
+                <p className="mt-0.5 truncate text-[11px] font-medium text-[#2C2C2C]/50">{a.agencyName}</p>
               ) : null}
               <div className="mt-2 space-y-2">
                 <div>

@@ -17,7 +17,7 @@ import {
   validatePhoneField,
 } from "@/lib/validation/agent-registration";
 import { uploadVerificationImageToCloudinary } from "@/lib/upload-verification-image-cloudinary";
-import { isBrokerUuidString } from "@/lib/validation/broker-id";
+import { isAgencyUuidString } from "@/lib/validation/agency-id";
 
 const supabase = createSupabaseBrowser();
 
@@ -212,73 +212,73 @@ function PrcLicenseInput({
   );
 }
 
-type ApprovedBroker = { id: string; company_name: string };
+type ApprovedAgency = { id: string; company_name: string };
 
-function normalizeApprovedBrokerRows(raw: unknown): ApprovedBroker[] {
+function normalizeApprovedAgencyRows(raw: unknown): ApprovedAgency[] {
   if (!Array.isArray(raw)) return [];
-  const out: ApprovedBroker[] = [];
+  const out: ApprovedAgency[] = [];
   for (const row of raw) {
     if (!row || typeof row !== "object") continue;
     const o = row as Record<string, unknown>;
     const id = o.id;
     const label = o.company_name ?? o.name;
-    if (typeof id !== "string" || !isBrokerUuidString(id)) continue;
+    if (typeof id !== "string" || !isAgencyUuidString(id)) continue;
     if (typeof label !== "string" || !label.trim()) continue;
     out.push({ id: id.trim(), company_name: label.trim() });
   }
   return out;
 }
 
-type SelectedBroker = { broker_id: string; company_name: string; is_primary: boolean };
+type SelectedAgency = { agency_id: string; company_name: string; is_primary: boolean };
 
-function normalizeSelectedBrokers(next: SelectedBroker[]): SelectedBroker[] {
+function normalizeSelectedAgencies(next: SelectedAgency[]): SelectedAgency[] {
   const seen = new Set<string>();
-  const dedup: SelectedBroker[] = [];
+  const dedup: SelectedAgency[] = [];
   for (const b of next) {
-    const id = b.broker_id.trim();
+    const id = b.agency_id.trim();
     if (!id || seen.has(id)) continue;
     seen.add(id);
-    dedup.push({ broker_id: id, company_name: b.company_name.trim(), is_primary: Boolean(b.is_primary) });
+    dedup.push({ agency_id: id, company_name: b.company_name.trim(), is_primary: Boolean(b.is_primary) });
   }
   let primaryIdx = dedup.findIndex((x) => x.is_primary);
   if (primaryIdx < 0 && dedup.length > 0) primaryIdx = 0;
   return dedup.map((b, idx) => ({ ...b, is_primary: primaryIdx >= 0 ? idx === primaryIdx : false }));
 }
 
-function BrokerMultiSelect({
-  brokers,
+function AgencyMultiSelect({
+  agencies,
   value,
   onChange,
   error,
 }: {
-  brokers: ApprovedBroker[];
-  value: SelectedBroker[];
-  onChange: (next: SelectedBroker[]) => void;
+  agencies: ApprovedAgency[];
+  value: SelectedAgency[];
+  onChange: (next: SelectedAgency[]) => void;
   error?: string;
 }) {
   const [q, setQ] = useState("");
   const suggestions = (() => {
     const t = q.trim().toLowerCase();
-    if (!t) return brokers.slice(0, 8);
-    return brokers
+    if (!t) return agencies.slice(0, 8);
+    return agencies
       .filter((b) => b.company_name.toLowerCase().includes(t))
       .slice(0, 8);
   })();
 
-  const selectedIds = new Set(value.map((v) => v.broker_id));
+  const selectedIds = new Set(value.map((v) => v.agency_id));
 
-  const addBroker = (b: ApprovedBroker) => {
+  const addAgency = (b: ApprovedAgency) => {
     if (selectedIds.has(b.id)) return;
-    onChange(normalizeSelectedBrokers([...value, { broker_id: b.id, company_name: b.company_name, is_primary: value.length === 0 }]));
+    onChange(normalizeSelectedAgencies([...value, { agency_id: b.id, company_name: b.company_name, is_primary: value.length === 0 }]));
     setQ("");
   };
 
-  const removeBroker = (broker_id: string) => {
-    onChange(normalizeSelectedBrokers(value.filter((x) => x.broker_id !== broker_id)));
+  const removeAgency = (agency_id: string) => {
+    onChange(normalizeSelectedAgencies(value.filter((x) => x.agency_id !== agency_id)));
   };
 
-  const setPrimary = (broker_id: string) => {
-    onChange(normalizeSelectedBrokers(value.map((x) => ({ ...x, is_primary: x.broker_id === broker_id }))));
+  const setPrimary = (agency_id: string) => {
+    onChange(normalizeSelectedAgencies(value.map((x) => ({ ...x, is_primary: x.agency_id === agency_id }))));
   };
 
   return (
@@ -287,16 +287,16 @@ function BrokerMultiSelect({
         {value.length ? (
           value.map((b) => (
             <span
-              key={b.broker_id}
+              key={b.agency_id}
               className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-[#2C2C2C]"
             >
               <button
                 type="button"
-                onClick={() => setPrimary(b.broker_id)}
+                onClick={() => setPrimary(b.agency_id)}
                 className={`mr-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] ${
                   b.is_primary ? "bg-[#D4A843]/20 text-[#8a6d32]" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                 }`}
-                aria-label={b.is_primary ? "Primary broker" : "Mark as primary broker"}
+                aria-label={b.is_primary ? "Primary agency" : "Mark as primary agency"}
                 title={b.is_primary ? "Primary" : "Mark primary"}
               >
                 ★
@@ -304,7 +304,7 @@ function BrokerMultiSelect({
               <span className="max-w-[16rem] truncate">{b.company_name}</span>
               <button
                 type="button"
-                onClick={() => removeBroker(b.broker_id)}
+                onClick={() => removeAgency(b.agency_id)}
                 className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
                 aria-label={`Remove ${b.company_name}`}
               >
@@ -320,7 +320,7 @@ function BrokerMultiSelect({
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search brokerages…"
+        placeholder="Search agencies…"
         className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400"
       />
       {suggestions.length ? (
@@ -332,7 +332,7 @@ function BrokerMultiSelect({
                 key={b.id}
                 type="button"
                 disabled={disabled}
-                onClick={() => addBroker(b)}
+                onClick={() => addAgency(b)}
                 className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${
                   disabled ? "cursor-not-allowed text-gray-300" : "hover:bg-gray-50"
                 }`}
@@ -363,7 +363,7 @@ type FieldErrors = Partial<
     | "prcUpload"
     | "selfieUpload"
     | "bio"
-    | "brokerId"
+    | "agencyId"
     | "form",
     string
   >
@@ -423,8 +423,8 @@ function applyRegisterAgentApiErrors(
       case "bio":
         detail.bio = message;
         break;
-      case "broker_id":
-        detail.brokerId = message;
+      case "agency_id":
+        detail.agencyId = message;
         break;
       case "prc_document_url":
         detail.prcUpload = message;
@@ -482,8 +482,8 @@ export default function RegisterAgentPage() {
   const [phone, setPhone] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [bio, setBio] = useState("");
-  const [selectedBrokers, setSelectedBrokers] = useState<SelectedBroker[]>([]);
-  const [brokers, setBrokers] = useState<ApprovedBroker[]>([]);
+  const [selectedAgencies, setSelectedAgencies] = useState<SelectedAgency[]>([]);
+  const [agencies, setAgencies] = useState<ApprovedAgency[]>([]);
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [detailErrors, setDetailErrors] = useState<FieldErrors>({});
@@ -538,10 +538,10 @@ export default function RegisterAgentPage() {
 
   useEffect(() => {
     void (async () => {
-      const res = await fetch("/api/v1/brokers");
+      const res = await fetch("/api/v1/agencies");
       const json = (await res.json()) as { success?: boolean; data?: unknown };
       if (json.success && json.data !== undefined) {
-        setBrokers(normalizeApprovedBrokerRows(json.data));
+        setAgencies(normalizeApprovedAgencyRows(json.data));
       }
     })();
   }, []);
@@ -618,7 +618,7 @@ export default function RegisterAgentPage() {
         phone: phone.trim(),
         email: contactEmail.trim(),
         bio: bio.trim() || null,
-        brokers: selectedBrokers.map((b) => ({ broker_id: b.broker_id, is_primary: b.is_primary })),
+        agencies: selectedAgencies.map((b) => ({ agency_id: b.agency_id, is_primary: b.is_primary })),
         ...(prc_document_url !== undefined && selfie_url !== undefined
           ? { prc_document_url, selfie_url }
           : {}),
@@ -748,7 +748,7 @@ export default function RegisterAgentPage() {
         </p>
         <h1 className="mb-1 text-2xl font-bold text-gray-900">Agent registration</h1>
         <p className="mb-8 text-sm text-gray-600">
-          Apply for a verified agent profile. Optionally join an approved brokerage.
+          Apply for a verified agent profile. Optionally join an approved agency.
         </p>
 
         {!sessionReady ? (
@@ -872,12 +872,12 @@ export default function RegisterAgentPage() {
                 {detailErrors.phone ? <p className="mt-1 text-sm text-red-600">{detailErrors.phone}</p> : null}
               </div>
               <label className="block text-xs font-medium text-gray-500">
-                Brokerage (optional)
-                <BrokerMultiSelect
-                  brokers={brokers}
-                  value={selectedBrokers}
-                  onChange={setSelectedBrokers}
-                  error={detailErrors.brokerId}
+                Agency (optional)
+                <AgencyMultiSelect
+                  agencies={agencies}
+                  value={selectedAgencies}
+                  onChange={setSelectedAgencies}
+                  error={detailErrors.agencyId}
                 />
               </label>
               <label className="block text-xs font-medium text-gray-500">
@@ -1044,12 +1044,12 @@ export default function RegisterAgentPage() {
                 {detailErrors.regEmail ? <p className="mt-1 text-sm text-red-600">{detailErrors.regEmail}</p> : null}
               </div>
               <label className="block text-xs font-medium text-gray-500">
-                Brokerage (optional)
-                <BrokerMultiSelect
-                  brokers={brokers}
-                  value={selectedBrokers}
-                  onChange={setSelectedBrokers}
-                  error={detailErrors.brokerId}
+                Agency (optional)
+                <AgencyMultiSelect
+                  agencies={agencies}
+                  value={selectedAgencies}
+                  onChange={setSelectedAgencies}
+                  error={detailErrors.agencyId}
                 />
               </label>
               <label className="block text-xs font-medium text-gray-500">

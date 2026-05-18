@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { fail, ok } from "@/lib/api/response";
 import { getPublicSupabaseEnv } from "@/lib/supabase/public-env";
 
-/** Public approved brokers (for agent registration broker picker). RLS restricts rows. */
+/** Public approved agencies (for agent registration agency picker). RLS restricts rows. */
 export async function GET() {
   let url: string;
   let anon: string;
@@ -18,7 +18,7 @@ export async function GET() {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data, error } = await sb
-      .from("brokers")
+      .from("agencies")
       .select("id, company_name")
       .eq("status", "approved")
       .eq("verified", true)

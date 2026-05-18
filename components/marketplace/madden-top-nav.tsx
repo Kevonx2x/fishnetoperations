@@ -282,7 +282,7 @@ export function MaddenTopNav() {
     availability: string | null;
   } | null>(null);
   const [availToggling, setAvailToggling] = useState(false);
-  const [brokerNav, setBrokerNav] = useState<{ id: string } | null>(null);
+  const [agencyNav, setAgencyNav] = useState<{ id: string } | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -310,7 +310,7 @@ export function MaddenTopNav() {
   useEffect(() => {
     if (!user?.id) {
       setAgentNav(null);
-      setBrokerNav(null);
+      setAgencyNav(null);
       setNotifUnread(0);
       return;
     }
@@ -318,7 +318,7 @@ export function MaddenTopNav() {
     void (async () => {
       const [{ data: a }, { data: b }] = await Promise.all([
         supabase.from("agents").select("id, image_url, availability").eq("user_id", user.id).maybeSingle(),
-        supabase.from("brokers").select("id").eq("user_id", user.id).maybeSingle(),
+        supabase.from("agencies").select("id").eq("user_id", user.id).maybeSingle(),
       ]);
       if (cancelled) return;
       if (a) {
@@ -331,7 +331,7 @@ export function MaddenTopNav() {
       } else {
         setAgentNav(null);
       }
-      setBrokerNav(b ? { id: b.id as string } : null);
+      setAgencyNav(b ? { id: b.id as string } : null);
     })();
     return () => {
       cancelled = true;
@@ -448,34 +448,34 @@ export function MaddenTopNav() {
     return publicAgentsEntries;
   }, [user, role, agentNav, publicAgentsEntries, agentLoggedAgentsEntries, clientAgentsEntries]);
 
-  const publicBrokersEntries: NavDropdownEntry[] = useMemo(
+  const publicAgenciesEntries: NavDropdownEntry[] = useMemo(
     () => [
-      { kind: "link", label: "Find a Broker", href: "/brokers", icon: <Building2 /> },
-      { kind: "link", label: "Top Brokerages", href: "/brokers?sort=top", icon: <Star /> },
-      { kind: "link", label: "Register as Broker →", href: "/contact", icon: <HeartHandshake /> },
+      { kind: "link", label: "Find an Agency", href: "/agencies", icon: <Building2 /> },
+      { kind: "link", label: "Top Agencies", href: "/agencies?sort=top", icon: <Star /> },
+      { kind: "link", label: "Register as Agency →", href: "/contact", icon: <HeartHandshake /> },
       { kind: "link", label: "Verify My License →", href: "/contact", icon: <ShieldCheck /> },
     ],
     [],
   );
 
-  const brokerLoggedBrokersEntries: NavDropdownEntry[] = useMemo(() => {
-    if (!brokerNav) return publicBrokersEntries;
+  const agencyLoggedAgenciesEntries: NavDropdownEntry[] = useMemo(() => {
+    if (!agencyNav) return publicAgenciesEntries;
     return [
-      { kind: "link", label: "My Dashboard", href: "/dashboard/broker", icon: <LayoutDashboard /> },
-      { kind: "link", label: "My Agents", href: "/dashboard/broker?tab=agents", icon: <Users /> },
-      { kind: "link", label: "My Profile", href: `/brokers/${brokerNav.id}`, icon: <Building2 /> },
+      { kind: "link", label: "My Dashboard", href: "/dashboard/agency", icon: <LayoutDashboard /> },
+      { kind: "link", label: "My Agents", href: "/dashboard/agency?tab=agents", icon: <Users /> },
+      { kind: "link", label: "My Profile", href: `/agencies/${agencyNav.id}`, icon: <Building2 /> },
       { kind: "divider", label: "COMING SOON" },
       { kind: "pending", label: "Broker Analytics", icon: <BarChart3 /> },
       { kind: "pending", label: "Lead Distribution", icon: <Share2 /> },
       { kind: "pending", label: "White Label Portal", icon: <LayoutTemplate /> },
     ];
-  }, [brokerNav, publicBrokersEntries]);
+  }, [agencyNav, publicAgenciesEntries]);
 
-  const brokersEntries: NavDropdownEntry[] = useMemo(() => {
-    if (!user) return publicBrokersEntries;
-    if (role === "broker" && brokerNav) return brokerLoggedBrokersEntries;
-    return publicBrokersEntries;
-  }, [user, role, brokerNav, publicBrokersEntries, brokerLoggedBrokersEntries]);
+  const agenciesEntries: NavDropdownEntry[] = useMemo(() => {
+    if (!user) return publicAgenciesEntries;
+    if (role === "broker" && agencyNav) return agencyLoggedAgenciesEntries;
+    return publicAgenciesEntries;
+  }, [user, role, agencyNav, publicAgenciesEntries, agencyLoggedAgenciesEntries]);
 
   const landmarksItems: NavDropdownEntry[] = useMemo(
     () => [
@@ -549,7 +549,7 @@ export function MaddenTopNav() {
 
         <nav className="hidden min-w-0 justify-self-center sm:flex items-center gap-5 text-sm font-semibold text-[#2C2C2C]/70 md:gap-6">
           <NavDropdownMenu label="Agents" entries={agentsEntries} />
-          <NavDropdownMenu label="Brokers" entries={brokersEntries} />
+          <NavDropdownMenu label="Agencies" entries={agenciesEntries} />
           <NavDropdownMenu label="Landmarks" entries={landmarksItems} />
           {isBuyPage ? (
             <NavDropdownMenu label="Rent" entries={rentWhenOnBuyItems} />
@@ -708,8 +708,8 @@ export function MaddenTopNav() {
                             href={
                               role === "agent" && agentNav
                                 ? `/agents/${agentNav.id}`
-                                : role === "broker" && brokerNav
-                                  ? `/brokers/${brokerNav.id}`
+                                : role === "broker" && agencyNav
+                                  ? `/agencies/${agencyNav.id}`
                                   : role === "team_member"
                                     ? "/dashboard/agent"
                                     : "/settings"
@@ -802,7 +802,7 @@ export function MaddenTopNav() {
                         <>
                           <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
                           <Link
-                            href="/dashboard/broker"
+                            href="/dashboard/agency"
                             className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                             onClick={() => setAccountOpen(false)}
                           >
@@ -959,9 +959,9 @@ export function MaddenTopNav() {
                   </Link>
                 </div>
               ) : null}
-              {user && role === "broker" && brokerNav ? (
+              {user && role === "broker" && agencyNav ? (
                 <Link
-                  href={`/brokers/${brokerNav.id}`}
+                  href={`/agencies/${agencyNav.id}`}
                   onClick={closeMobileNav}
                   className="flex items-center gap-2.5 rounded-lg border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 shadow-sm transition hover:bg-white"
                 >
@@ -990,7 +990,7 @@ export function MaddenTopNav() {
                 </>
               ) : null}
               <MobileNavSection title="Agents" entries={agentsEntries} onNavigate={closeMobileNav} />
-              <MobileNavSection title="Brokers" entries={brokersEntries} onNavigate={closeMobileNav} />
+              <MobileNavSection title="Agencies" entries={agenciesEntries} onNavigate={closeMobileNav} />
               <MobileNavSection title="Landmarks" entries={landmarksItems} onNavigate={closeMobileNav} />
               <MobileNavSection
                 title={isBuyPage ? "Rent" : "Buy"}

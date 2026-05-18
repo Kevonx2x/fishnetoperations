@@ -13,7 +13,7 @@ import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { cn } from "@/lib/utils";
 import { propertyEngagementLooksUnavailable } from "@/lib/property-availability";
 
-type BrokerRow = {
+type AgencyRow = {
   id: string;
   name: string;
   company_name: string;
@@ -59,10 +59,10 @@ type PropertyRow = {
   availability_state?: string | null;
 };
 
-export default function BrokerDashboardPage() {
+export default function AgencyDashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const [broker, setBroker] = useState<BrokerRow | null>(null);
+  const [agency, setAgency] = useState<AgencyRow | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [leads, setLeads] = useState<LeadRow[]>([]);
@@ -84,19 +84,19 @@ export default function BrokerDashboardPage() {
     if (!user?.id || authLoading) return;
     void (async () => {
       const { data: b } = await supabase
-        .from("brokers")
+        .from("agencies")
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      setBroker((b as BrokerRow | null) ?? null);
+      setAgency((b as AgencyRow | null) ?? null);
       setLoaded(true);
 
       if (b && b.status === "approved" && b.verified) {
         const { data: ag } = await supabase
           .from("agents")
           .select("id, name, email, status, verified, user_id")
-          .eq("broker_id", b.id);
+          .eq("agency_id", b.id);
         const agentList = (ag as AgentRow[]) ?? [];
         setAgents(agentList);
 
@@ -125,32 +125,31 @@ export default function BrokerDashboardPage() {
     })();
   }, [user?.id, authLoading, supabase]);
 
-  // Derive form defaults from broker (avoid setState in effect body).
-  const brokerFormDefaults = useMemo(() => {
-    if (!broker) return null;
+  const agencyFormDefaults = useMemo(() => {
+    if (!agency) return null;
     return {
-      name: broker.name,
-      company_name: broker.company_name,
-      license_number: broker.license_number,
-      license_expiry: broker.license_expiry ?? "",
-      phone: broker.phone ?? "",
-      email: broker.email,
-      website: broker.website ?? "",
-      bio: broker.bio ?? "",
+      name: agency.name,
+      company_name: agency.company_name,
+      license_number: agency.license_number,
+      license_expiry: agency.license_expiry ?? "",
+      phone: agency.phone ?? "",
+      email: agency.email,
+      website: agency.website ?? "",
+      bio: agency.bio ?? "",
     };
-  }, [broker]);
+  }, [agency]);
 
   useEffect(() => {
-    if (!brokerFormDefaults) return;
-    queueMicrotask(() => setForm(brokerFormDefaults));
-  }, [brokerFormDefaults]);
+    if (!agencyFormDefaults) return;
+    queueMicrotask(() => setForm(agencyFormDefaults));
+  }, [agencyFormDefaults]);
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.id || !broker) return;
+    if (!user?.id || !agency) return;
     setSaveMsg("");
     const { error } = await supabase
-      .from("brokers")
+      .from("agencies")
       .update({
         name: form.name.trim(),
         company_name: form.company_name.trim(),
@@ -167,11 +166,11 @@ export default function BrokerDashboardPage() {
       return;
     }
     const { data: b } = await supabase
-      .from("brokers")
+      .from("agencies")
       .select("*")
       .eq("user_id", user.id)
       .maybeSingle();
-    setBroker((b as BrokerRow | null) ?? null);
+    setAgency((b as AgencyRow | null) ?? null);
     setEditOpen(false);
     setSaveMsg("Saved.");
   };
@@ -189,36 +188,36 @@ export default function BrokerDashboardPage() {
     );
   }
 
-  if (!broker) {
+  if (!agency) {
     return (
       <div className="min-h-screen bg-[#f7f6f3] px-4 py-16">
         <div className="mx-auto max-w-lg rounded-2xl border border-black/8 bg-white p-8">
-          <h1 className="font-serif text-xl text-gray-900">Broker dashboard</h1>
+          <h1 className="font-serif text-xl text-gray-900">Agency dashboard</h1>
           <p className="mt-2 text-sm text-gray-600">
-            No brokerage is linked to this account yet.
+            No agency is linked to this account yet.
           </p>
           <Link
-            href="/register/broker"
+            href="/register/agency"
             className="mt-6 inline-block rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white"
           >
-            Register your brokerage
+            Register your agency
           </Link>
         </div>
       </div>
     );
   }
 
-  const approved = broker.status === "approved" && broker.verified;
-  const pending = broker.status === "pending";
-  const rejected = broker.status === "rejected";
+  const approved = agency.status === "approved" && agency.verified;
+  const pending = agency.status === "pending";
+  const rejected = agency.status === "rejected";
 
   return (
     <div className="min-h-screen bg-[#f7f6f3]">
       <header className="border-b border-black/5 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
           <div>
-            <h1 className="font-serif text-xl text-gray-900">Broker dashboard</h1>
-            <p className="text-xs text-gray-500">{broker.company_name}</p>
+            <h1 className="font-serif text-xl text-gray-900">Agency dashboard</h1>
+            <p className="text-xs text-gray-500">{agency.company_name}</p>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/" className="text-sm text-gray-600 hover:text-gray-900">
@@ -257,7 +256,7 @@ export default function BrokerDashboardPage() {
                 Rejected
               </span>
             )}
-            <LicenseExpiryBadge licenseExpiry={broker.license_expiry} />
+            <LicenseExpiryBadge licenseExpiry={agency.license_expiry} />
           </div>
           {pending && (
             <p className="mt-3 text-sm text-gray-600">
@@ -270,10 +269,10 @@ export default function BrokerDashboardPage() {
               support if you need help.
             </p>
           )}
-          {broker.license_expiry && (
+          {agency.license_expiry && (
             <p className="mt-2 text-xs text-gray-500">
-              License expires {formatLicenseDate(broker.license_expiry)}
-              {isLicenseExpiringWithinDays(broker.license_expiry, 30) && (
+              License expires {formatLicenseDate(agency.license_expiry)}
+              {isLicenseExpiringWithinDays(agency.license_expiry, 30) && (
                 <span className="font-medium text-amber-800"> — renew soon</span>
               )}
             </p>
@@ -378,7 +377,7 @@ export default function BrokerDashboardPage() {
                 Agents ({agents.length})
               </h2>
               {agents.length === 0 ? (
-                <p className="text-sm text-gray-500">No agents linked to your brokerage yet.</p>
+                <p className="text-sm text-gray-500">No agents linked to your agency yet.</p>
               ) : (
                 <ul className="divide-y divide-gray-100">
                   {agents.map((a) => (

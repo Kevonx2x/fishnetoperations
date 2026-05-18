@@ -270,7 +270,7 @@ export default function SignupPage() {
       </p>
       <p className="mt-3 text-center text-xs text-gray-400">
         Brokers and agents: use the registration flows after signing in from{" "}
-        <Link href="/register/broker" className="underline">
+        <Link href="/register/agency" className="underline">
           broker
         </Link>{" "}
         or{" "}
