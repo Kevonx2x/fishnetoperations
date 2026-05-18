@@ -86,9 +86,12 @@ import {
 } from "@/lib/homepage-marketplace-filters";
 import { HomepageFiltersSheet } from "@/components/marketplace/homepage-filters-sheet";
 import { HomepageExpandSearchCta } from "@/components/marketplace/homepage-results-surface";
+import { TopCondosRow } from "@/components/marketplace/top-condos-row";
 import {
   buildFilteredEmptyMessage,
   buildHomepageRowsFromTemplates,
+  HOMEPAGE_INITIAL_CATEGORY_ROWS,
+  HOMEPAGE_MAX_CATEGORY_ROWS,
 } from "@/lib/homepage-row-templates";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
@@ -2860,6 +2863,10 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               </div>
             </section>
 
+            <TopCondosRow
+              locationLabel={filters.locationLabel ?? neighborhoodLabelForChips}
+            />
+
             <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10 lg:mt-12" />
 
             {/* 8. FEATURED PROPERTY */}
@@ -3709,7 +3716,7 @@ function PropertyRows({
   rowTitleSuffix?: string;
   /** When true (active homepage filters), hide empty rows in dedupe only; carousel fillers still render. */
   hideRowPlaceholders?: boolean;
-  /** Default browse: first 4 rows + expand; filtered views show all rows. */
+  /** Default browse: first {@link HOMEPAGE_INITIAL_CATEGORY_ROWS} rows + expand (12 total); filtered views show all rows. */
   enableShowMore?: boolean;
 }) {
   const dedupedRows = useMemo(() => {
@@ -3718,7 +3725,7 @@ function PropertyRows({
     const seen = new Set<string>();
     const out: typeof rows = [];
     const MIN_ITEMS_PER_ROW = 3;
-    const MIN_ITEMS_SPARSE = 2;
+    const MIN_ITEMS_SPARSE = hideRowPlaceholders ? 2 : 1;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
       if (out.length === 0) {
@@ -3745,10 +3752,18 @@ function PropertyRows({
     return out;
   }, [rows, hideRowPlaceholders]);
 
-  const eagerListingThumbKey = useMemo(() => firstBrowseListingThumbKey(dedupedRows), [dedupedRows]);
-  const priorityListingThumbKeys = useMemo(() => listingThumbPriorityKeys(dedupedRows, 4), [dedupedRows]);
-  const first = enableShowMore ? dedupedRows.slice(0, 4) : dedupedRows;
-  const rest = enableShowMore ? dedupedRows.slice(4) : [];
+  const homepageRows = useMemo(
+    () =>
+      enableShowMore ? dedupedRows.slice(0, HOMEPAGE_MAX_CATEGORY_ROWS) : dedupedRows,
+    [dedupedRows, enableShowMore],
+  );
+
+  const eagerListingThumbKey = useMemo(() => firstBrowseListingThumbKey(homepageRows), [homepageRows]);
+  const priorityListingThumbKeys = useMemo(() => listingThumbPriorityKeys(homepageRows, 4), [homepageRows]);
+  const first = enableShowMore
+    ? homepageRows.slice(0, HOMEPAGE_INITIAL_CATEGORY_ROWS)
+    : homepageRows;
+  const rest = enableShowMore ? homepageRows.slice(HOMEPAGE_INITIAL_CATEGORY_ROWS) : [];
 
   const titleWithSuffix = (t: string) => (rowTitleSuffix ? `${t}${rowTitleSuffix}` : t);
 
@@ -3801,9 +3816,9 @@ function PropertyRows({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="overflow-hidden space-y-6"
+            className={cn("space-y-6", showMore ? "overflow-visible" : "overflow-hidden")}
           >
-            {rest.map((r) => (
+            {rest.map((r, idx) => (
               <div key={r.key}>
                 <RowCarousel
                   rowKey={r.key}
@@ -3824,7 +3839,9 @@ function PropertyRows({
                   eagerListingThumbKey={eagerListingThumbKey}
                   priorityListingThumbKeys={priorityListingThumbKeys}
                 />
-                <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
+                {idx < rest.length - 1 ? (
+                  <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
+                ) : null}
               </div>
             ))}
           </motion.div>
@@ -4169,7 +4186,7 @@ function RowCarousel({
             className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pl-2"
             aria-label="Scroll left"
           >
-            <ChevronLeft className="h-4 w-4 text-[#2C2C2C]" />
+            <ChevronLeft className="h-4 w-4 text-[#2C2C2C]" strokeWidth={2.25} aria-hidden />
           </button>
           {scrollTrack}
           <button
@@ -4178,7 +4195,7 @@ function RowCarousel({
             className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pr-2"
             aria-label="Scroll right"
           >
-            <ChevronRight className="h-4 w-4 text-[#2C2C2C]" />
+            <ChevronRight className="h-4 w-4 text-[#2C2C2C]" strokeWidth={2.25} aria-hidden />
           </button>
         </div>
       )}

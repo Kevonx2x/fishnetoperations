@@ -67,6 +67,39 @@ function effectivePrice(p: DbProperty, mode: "buy" | "rent"): number {
   return parsePesoAmount(p.price);
 }
 
+function propertyMarketingText(p: DbProperty): string {
+  return `${p.name ?? ""} ${p.location} ${p.description ?? ""}`;
+}
+
+function parseSqmApprox(raw: string | null | undefined): number | null {
+  if (raw == null || typeof raw !== "string") return null;
+  const m = raw.replace(/,/g, "").match(/(\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function marketingMatches(text: string, re: RegExp): boolean {
+  return re.test(text);
+}
+
+const MARKETING_AMENITY = {
+  parking: /\b(parking|car\s*park|parking\s*slot)\b/i,
+  pool: /\b(pool|swimming)\b/i,
+  gym: /\b(gym|fitness)\b/i,
+} as const;
+
+function isFurnishedListing(p: DbProperty): boolean {
+  const text = propertyMarketingText(p);
+  return /\bf(?:ully)?\s*furnished\b/i.test(text) || /\bfurnished\b/i.test(text);
+}
+
+/** Max category rows on the default homepage (4 visible, 8 behind Show More). */
+export const HOMEPAGE_MAX_CATEGORY_ROWS = 12;
+
+/** Rows shown before expanding Show More on the default homepage. */
+export const HOMEPAGE_INITIAL_CATEGORY_ROWS = 4;
+
 /** Title with optional location + non-conflicting filter context. */
 export function buildTemplateRowTitle(template: HomepageRowTemplate, ctx: HomepageRowTemplateContext): string {
   const { locationLabel, filters } = ctx;
@@ -100,7 +133,7 @@ function templateSubtitle(template: HomepageRowTemplate, ctx: HomepageRowTemplat
 /**
  * Row templates — columns verified on `public.properties`:
  * featured, created_at, sales_status, pet_friendly, family_friendly, near_schools,
- * beds, listing_type, status, price, rent_price, property_type.
+ * beds, baths, listing_type, status, price, rent_price, property_type, sqft, description.
  */
 export const HOMEPAGE_ROW_TEMPLATES: HomepageRowTemplate[] = [
   {
@@ -132,12 +165,41 @@ export const HOMEPAGE_ROW_TEMPLATES: HomepageRowTemplate[] = [
   },
   {
     id: "presale",
-    priority: 40,
+    priority: 200,
     sort: "newest",
     baseTitle: "Pre-selling",
     subtitle: "Pre-construction pricing & early picks",
     matches: (p) =>
       String(p.sales_status ?? "").trim().toLowerCase() === "presale" || Boolean(p.is_presale),
+  },
+  {
+    id: "furnished",
+    priority: 45,
+    sort: "newest",
+    baseTitle: "Furnished",
+    subtitle: "Move-in ready with furniture included",
+    matches: (p) => isFurnishedListing(p),
+  },
+  {
+    id: "with-parking",
+    priority: 155,
+    sort: "newest",
+    baseTitle: "With parking",
+    subtitle: "Dedicated parking or car park access",
+    matches: (p) => marketingMatches(propertyMarketingText(p), MARKETING_AMENITY.parking),
+  },
+  {
+    id: "pool-gym",
+    priority: 52,
+    sort: "newest",
+    baseTitle: "Pool & gym buildings",
+    subtitle: "Lifestyle amenities in the building",
+    matches: (p) => {
+      const text = propertyMarketingText(p);
+      return (
+        marketingMatches(text, MARKETING_AMENITY.pool) || marketingMatches(text, MARKETING_AMENITY.gym)
+      );
+    },
   },
   {
     id: "pet-friendly",
@@ -164,8 +226,43 @@ export const HOMEPAGE_ROW_TEMPLATES: HomepageRowTemplate[] = [
     matches: (p) => p.near_schools === true,
   },
   {
+    id: "spacious",
+    priority: 160,
+    sort: "newest",
+    baseTitle: "Spacious layouts",
+    subtitle: "100 sqm and larger floor plans",
+    matches: (p) => {
+      const sqm = parseSqmApprox(p.sqft);
+      return sqm != null && sqm >= 100;
+    },
+  },
+  {
+    id: "mid-range-rentals",
+    priority: 76,
+    showIf: (ctx) => ctx.mode === "rent",
+    sort: "newest",
+    baseTitle: "Mid-range rentals",
+    subtitle: "₱30,000 – ₱100,000 per month",
+    matches: (p, ctx) => {
+      const n = effectivePrice(p, ctx.mode);
+      return isRentListing(p) && n > 30_000 && n < 100_000;
+    },
+  },
+  {
+    id: "mid-range-homes",
+    priority: 77,
+    showIf: (ctx) => ctx.mode === "buy",
+    sort: "newest",
+    baseTitle: "Mid-range homes",
+    subtitle: "₱5M – ₱20M price band",
+    matches: (p, ctx) => {
+      const n = effectivePrice(p, ctx.mode);
+      return isSaleListing(p) && n > 5_000_000 && n < 20_000_000;
+    },
+  },
+  {
     id: "studio-1br",
-    priority: 80,
+    priority: 38,
     bedroomSpecific: true,
     sort: "newest",
     baseTitle: "Studio & 1BR",
@@ -174,12 +271,29 @@ export const HOMEPAGE_ROW_TEMPLATES: HomepageRowTemplate[] = [
   },
   {
     id: "2-bedroom",
-    priority: 90,
+    priority: 42,
     bedroomSpecific: true,
     sort: "newest",
     baseTitle: "2-Bedroom",
     subtitle: "Balanced space for work and rest",
     matches: (p) => p.beds === 2,
+  },
+  {
+    id: "3-bedroom",
+    priority: 92,
+    bedroomSpecific: true,
+    sort: "newest",
+    baseTitle: "3-Bedroom",
+    subtitle: "The sweet spot for growing households",
+    matches: (p) => p.beds === 3,
+  },
+  {
+    id: "two-plus-baths",
+    priority: 94,
+    sort: "newest",
+    baseTitle: "2+ bathrooms",
+    subtitle: "Extra baths for comfort and guests",
+    matches: (p) => p.baths >= 2,
   },
   {
     id: "family-sized",
@@ -230,8 +344,16 @@ export const HOMEPAGE_ROW_TEMPLATES: HomepageRowTemplate[] = [
     matches: (p, ctx) => isSaleListing(p) && effectivePrice(p, ctx.mode) >= 20_000_000,
   },
   {
+    id: "commercial",
+    priority: 210,
+    sort: "newest",
+    baseTitle: "Commercial & office",
+    subtitle: "Spaces for business and work",
+    matches: (p) => normType(p).includes("commercial") || normType(p).includes("office"),
+  },
+  {
     id: "condos",
-    priority: 150,
+    priority: 56,
     sort: "newest",
     baseTitle: "Condos",
     subtitle: "Tower living across the metro",
@@ -242,7 +364,7 @@ export const HOMEPAGE_ROW_TEMPLATES: HomepageRowTemplate[] = [
   },
   {
     id: "townhouses",
-    priority: 160,
+    priority: 84,
     sort: "newest",
     baseTitle: "Townhouses",
     subtitle: "Townhouse communities & rows",
@@ -250,7 +372,7 @@ export const HOMEPAGE_ROW_TEMPLATES: HomepageRowTemplate[] = [
   },
   {
     id: "houses-lots",
-    priority: 170,
+    priority: 88,
     sort: "newest",
     baseTitle: "Houses & Lots",
     subtitle: "Land and house inventory",
