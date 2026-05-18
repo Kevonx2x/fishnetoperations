@@ -1,6 +1,6 @@
 /** Shared types/helpers for marketplace property cards and modals. */
 
-import { cloudinaryPropertyPhotoDisplayUrl } from "@/lib/cloudinary-property-photo-url";
+import { propertyPhotoDisplayUrl } from "@/lib/cloudinary-property-photo-url";
 
 export type SortMode = "newest" | "price_low" | "price_high" | "most_beds";
 
@@ -59,14 +59,25 @@ export function comparePropertyPhotos(
   return ta - tb;
 }
 
+/** First gallery URL from DB (untransformed). */
+export function firstRawPropertyPhotoUrl(p: DbProperty): string {
+  const fromDb = (p.property_photos ?? [])
+    .slice()
+    .sort(comparePropertyPhotos)
+    .map((x) => String(x.url || "").trim())
+    .filter((u) => u.length > 0);
+  if (fromDb.length) return fromDb[0]!;
+  return String(p.image_url ?? "").trim();
+}
+
 export function roomUrlsFor(p: DbProperty): string[] {
   const fromDb = (p.property_photos ?? [])
     .slice()
     .sort(comparePropertyPhotos)
     .map((x) => String(x.url || "").trim())
     .filter((u) => u.length > 0)
-    .map((u) => cloudinaryPropertyPhotoDisplayUrl(u));
+    .map((u) => propertyPhotoDisplayUrl(u));
   if (fromDb.length) return fromDb;
   const main = String(p.image_url ?? "").trim();
-  return [main ? cloudinaryPropertyPhotoDisplayUrl(main) : main].filter(Boolean);
+  return [main ? propertyPhotoDisplayUrl(main) : main].filter(Boolean);
 }

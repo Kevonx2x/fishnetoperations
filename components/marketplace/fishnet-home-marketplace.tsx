@@ -37,12 +37,14 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { cloudinaryPropertyPhotoHeroUrl } from "@/lib/cloudinary-property-photo-url";
-import { isCloudinaryDeliveryUrl } from "@/lib/cloudinary";
+import {
+  isPreOptimizedPropertyPhotoUrl,
+  propertyPhotoHeroUrl,
+} from "@/lib/cloudinary-property-photo-url";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import type { DbProperty, SortMode } from "@/lib/marketplace-property";
-import { roomUrlsFor } from "@/lib/marketplace-property";
+import { firstRawPropertyPhotoUrl, roomUrlsFor } from "@/lib/marketplace-property";
 import {
   usePropertyEngagementForProperties,
   type PropertyEngagement,
@@ -69,7 +71,7 @@ import { toast } from "sonner";
 import { DEFAULT_AGENT_SPECIALTIES_COMMAS } from "@/lib/agent-profile-defaults";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
-export { roomUrlsFor } from "@/lib/marketplace-property";
+export { firstRawPropertyPhotoUrl, roomUrlsFor } from "@/lib/marketplace-property";
 
 /** Display width for listing thumbs (~carousel + grid); keeps `/_next/image` requests small. */
 const LISTING_IMAGE_SIZES = "(max-width: 639px) 100vw, (max-width: 1023px) 45vw, 320px" as const;
@@ -766,7 +768,7 @@ function FeaturedListingHeroImage({ src, alt }: { src: string; alt: string }) {
   if (!src) {
     return <div className="absolute inset-0 z-[1] animate-pulse bg-[#FAF8F4]/60" aria-hidden />;
   }
-  const cloud = isCloudinaryDeliveryUrl(src);
+  const skipNextOptimizer = isPreOptimizedPropertyPhotoUrl(src);
   return (
     <>
       <div
@@ -780,7 +782,7 @@ function FeaturedListingHeroImage({ src, alt }: { src: string; alt: string }) {
         src={src}
         alt={alt}
         fill
-        unoptimized={cloud}
+        unoptimized={skipNextOptimizer}
         className={cn("z-[2] object-cover transition-opacity duration-500", loaded ? "opacity-100" : "opacity-0")}
         sizes="(max-width: 1024px) 100vw, 672px"
         loading="lazy"
@@ -2067,17 +2069,12 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       .sort((a, b) => b.score - a.score)
       .slice(0, 12);
   }, [agents, cityFilterMeta, mergeLiveAvailability]);
-  const featuredPhotos = useMemo(
-    () => (featuredHomeProperty ? roomUrlsFor(featuredHomeProperty) : []),
-    [featuredHomeProperty],
-  );
-
   const featuredHomeHeroSrc = useMemo(() => {
     if (!featuredHomeProperty) return "";
-    const raw = String(featuredPhotos[0] ?? featuredHomeProperty.image_url ?? "").trim();
+    const raw = firstRawPropertyPhotoUrl(featuredHomeProperty);
     if (!raw) return "";
-    return isCloudinaryDeliveryUrl(raw) ? cloudinaryPropertyPhotoHeroUrl(raw) : raw;
-  }, [featuredHomeProperty, featuredPhotos]);
+    return propertyPhotoHeroUrl(raw);
+  }, [featuredHomeProperty]);
 
   const scrollRow = (ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") => {
     const el = ref.current;
@@ -3561,7 +3558,7 @@ export function NewlyListedCard({
         ? "Sale & Rent"
         : "For Sale";
   const img = String(roomUrls[roomIdx] ?? roomUrls[0] ?? property.image_url ?? "").trim();
-  const imgIsCloudinaryDelivery = isCloudinaryDeliveryUrl(img);
+  const imgSkipNextOptimizer = isPreOptimizedPropertyPhotoUrl(img);
 
   const { profile } = useAuth();
   const router = useRouter();
@@ -3617,9 +3614,8 @@ export function NewlyListedCard({
             src={img}
             alt={property.name ?? property.location}
             fill
-            // Cloudinary URLs already embed `c_fill,w_*` via `cloudinaryPropertyPhotoDisplayUrl`.
-            // Supabase (and other) URLs run through the Next optimizer so we do not download full-resolution originals for ~240px cards.
-            unoptimized={imgIsCloudinaryDelivery}
+            // Cloudinary + Supabase render URLs are pre-sized; skip Next optimizer for ~240px cards.
+            unoptimized={imgSkipNextOptimizer}
             quality={75}
             className={cn(
               "z-[2] object-cover transition-opacity duration-500",

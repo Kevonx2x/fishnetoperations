@@ -1,9 +1,32 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import { isSupabasePublicStorageUrl } from "@/lib/supabase/public-storage-url";
+import { supabaseAvatarImageSrc, warnSupabaseRenderFallback } from "@/lib/supabase-image-url";
 
 /** First letter of first name + first letter of last name (or first two letters of single name). */
+function SupabaseStorageAvatarImage({ originalUrl, sizes }: { originalUrl: string; sizes: string }) {
+  const renderSrc = supabaseAvatarImageSrc(originalUrl);
+  const [src, setSrc] = useState(renderSrc);
+  return (
+    <Image
+      src={src}
+      alt=""
+      fill
+      sizes={sizes}
+      className="object-cover"
+      unoptimized
+      onError={() => {
+        if (src !== originalUrl) {
+          warnSupabaseRenderFallback("agent avatar");
+          setSrc(originalUrl);
+        }
+      }}
+    />
+  );
+}
+
 export function agentAvatarInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
@@ -25,9 +48,7 @@ export function AgentAvatarFill({
   if (imageUrl?.trim()) {
     const trimmed = imageUrl.trim();
     if (isSupabasePublicStorageUrl(trimmed)) {
-      return (
-        <Image src={trimmed} alt="" fill sizes={sizes} className="object-cover" unoptimized />
-      );
+      return <SupabaseStorageAvatarImage originalUrl={trimmed} sizes={sizes} />;
     }
     return <Image src={trimmed} alt="" fill sizes={sizes} className="object-cover" />;
   }

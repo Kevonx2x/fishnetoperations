@@ -81,6 +81,8 @@ export type PipelineDeal = {
     listing_removed?: boolean;
   };
   agent: {
+    /** Public agent profile id (`agents.id`) for `/agents/[id]`. */
+    id: string | null;
     user_id: string;
     name: string;
     verified: boolean;

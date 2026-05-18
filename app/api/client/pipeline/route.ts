@@ -171,7 +171,7 @@ export async function GET(req: Request) {
             .in("id", propertyIds)
         : Promise.resolve({ data: [] as unknown[] }),
       agentUserIds.length
-        ? admin.from("agents").select("user_id, name, verified, image_url").in("user_id", agentUserIds)
+        ? admin.from("agents").select("id, user_id, name, verified, image_url").in("user_id", agentUserIds)
         : Promise.resolve({ data: [] as unknown[] }),
       viewingIds.length
         ? admin.from("viewing_requests").select("id, status, scheduled_at, created_at, updated_at").in("id", viewingIds)
@@ -228,6 +228,7 @@ export async function GET(req: Request) {
   const agentByUserId = new Map(
     (agentsData ?? []).map((r) => {
       const row = r as {
+        id: string;
         user_id: string;
         name: string | null;
         verified: boolean | null;
@@ -345,6 +346,7 @@ export async function GET(req: Request) {
             listing_removed: false,
           },
       agent: {
+        id: agent?.id ? String(agent.id) : null,
         user_id: agentUserId,
         name: (agent?.name && String(agent.name).trim()) || "Your agent",
         verified: Boolean(agent?.verified),

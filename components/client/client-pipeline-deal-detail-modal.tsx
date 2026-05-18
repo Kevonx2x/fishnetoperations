@@ -13,6 +13,7 @@ import {
   FileText,
   Home,
   Loader2,
+  User,
   UserPlus,
   X,
   type LucideIcon,
@@ -554,9 +555,9 @@ export function PipelineDealDetailModal({
       <DialogContent
         showCloseButton={false}
         className={cn(
-          "flex max-h-[min(92dvh,900px)] w-full max-w-[min(800px,calc(100%-1.5rem))] flex-col gap-0 overflow-hidden border border-[#2C2C2C]/10 bg-[#FAF8F4] p-0 font-sans text-[#2C2C2C] shadow-2xl ring-1 ring-[#2C2C2C]/[0.06]",
+          "flex max-h-[min(92dvh,900px)] w-full !max-w-[min(920px,calc(100%-1.5rem))] flex-col gap-0 overflow-hidden border border-[#2C2C2C]/10 bg-[#FAF8F4] p-0 font-sans text-[#2C2C2C] shadow-2xl ring-1 ring-[#2C2C2C]/[0.06] sm:!max-w-[min(920px,calc(100%-2rem))]",
           isMobile &&
-            "fixed inset-x-0 bottom-0 top-auto max-h-[92dvh] w-full max-w-none translate-x-0 translate-y-0 rounded-t-2xl rounded-b-none data-open:slide-in-from-bottom",
+            "fixed inset-x-0 bottom-0 top-auto max-h-[92dvh] w-full !max-w-none translate-x-0 translate-y-0 rounded-t-2xl rounded-b-none data-open:slide-in-from-bottom",
           !isMobile && "rounded-2xl",
         )}
       >
@@ -567,7 +568,7 @@ export function PipelineDealDetailModal({
           <div className="shrink-0 border-b border-[#2C2C2C]/[0.06] bg-white/80 px-5 pb-4 pt-5 sm:px-6">
             <button
               type="button"
-              className="absolute right-4 top-4 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/60 transition hover:bg-[#FAF8F4] hover:text-[#2C2C2C]"
+              className="absolute right-4 top-4 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#2C2C2C]/10 bg-white text-[#2C2C2C] transition-colors hover:bg-stone-100"
               onClick={() => onOpenChange(false)}
               aria-label="Close"
             >
@@ -641,20 +642,14 @@ export function PipelineDealDetailModal({
                     ) : null}
                   </p>
                 </div>
-                {deal.agent.user_id && !listingRemovedUi ? (
-                  <StartChatButton
-                    agentId={deal.agent.user_id}
-                    clientId={clientUserId}
-                    label="Message"
-                    showMessageIcon
-                    metadata={{
-                      property_id: deal.property.id ?? null,
-                      property_name: deal.property.title ?? null,
-                      property_price: deal.property.price ?? null,
-                      property_image: deal.property.hero_image ?? null,
-                    }}
-                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-4 text-[13px] font-semibold text-[#6B9E6E] hover:bg-[#6B9E6E]/10"
-                  />
+                {deal.agent.id && !listingRemovedUi ? (
+                  <Link
+                    href={`/agents/${encodeURIComponent(deal.agent.id)}`}
+                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] bg-white px-4 text-[13px] font-semibold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/10"
+                  >
+                    <User className="h-4 w-4 shrink-0" aria-hidden />
+                    View profile
+                  </Link>
                 ) : null}
               </div>
             </section>
