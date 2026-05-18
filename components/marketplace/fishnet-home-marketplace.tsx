@@ -2823,8 +2823,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   />
                   <Trust
                     icon={<BadgeCheck className="h-5 w-5 text-[#6B9E6E]" />}
-                    title="Licensed Brokers Only"
-                    body="All brokerages are registered and monitored"
+                    title="Licensed Agencies Only"
+                    body="All agencies are registered and monitored"
                   />
                   <Trust
                     icon={<Lock className="h-5 w-5 text-[#6B9E6E]" />}

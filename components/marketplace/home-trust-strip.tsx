@@ -12,7 +12,7 @@ function Trust({ icon, title, body }: { icon: React.ReactNode; title: string; bo
   );
 }
 
-/** Same trust strip as homepage (All Agents Verified, Licensed Brokers Only, Anti-Scam). */
+/** Same trust strip as homepage (All Agents Verified, Licensed Agencies Only, Anti-Scam). */
 export function HomeTrustStrip() {
   return (
     <section className="mt-10">
@@ -25,7 +25,7 @@ export function HomeTrustStrip() {
           />
           <Trust
             icon={<BadgeCheck className="h-5 w-5 text-[#6B9E6E]" />}
-            title="Licensed Brokers Only"
+            title="Licensed Agencies Only"
             body="All agencies are registered and monitored"
           />
           <Trust
