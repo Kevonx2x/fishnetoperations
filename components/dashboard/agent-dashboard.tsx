@@ -968,6 +968,8 @@ export function AgentDashboard() {
   const agentViewingsRefetchRef = useRef<(() => Promise<void>) | null>(null);
 
   const tab = useMemo(() => tabFromSearchParamsString(searchQueryString), [searchQueryString]);
+  const isMobilePipeline = useIsMobile();
+  const showMobilePipelineUi = isMobilePipeline && tab === "pipeline";
 
   const navigateAgentTab = useCallback(
     (next: Tab) => {
@@ -2016,6 +2018,32 @@ export function AgentDashboard() {
     [archivedLeads],
   );
 
+  const mobilePipelineProperties = useMemo(
+    () =>
+      properties.map((p) => ({
+        id: p.id,
+        price: p.price,
+        rent_price: p.rent_price ?? null,
+        listing_type: p.listing_type ?? null,
+        status: p.status,
+        beds: p.beds,
+        baths: p.baths,
+        sqft: p.sqft,
+        property_type: p.property_type ?? null,
+        coverUrl: p.image_url?.trim() || null,
+        city: p.city ?? null,
+        location: p.location,
+      })),
+    [properties],
+  );
+
+  const pipelineAgentScore = useMemo(() => {
+    const score = agent?.score;
+    return typeof score === "number" && Number.isFinite(score)
+      ? Math.max(0, Math.min(10, score))
+      : 5.0;
+  }, [agent?.score]);
+
   const responseRatePct = useMemo(() => {
     const total = leads.length;
     if (total <= 0) return 0;
@@ -2696,32 +2724,6 @@ export function AgentDashboard() {
       : ["listings", "analytics", "billing", "profile"];
 
   const viewingsAgentUserId = isTeamMemberView ? agent.user_id : user.id;
-  const isMobilePipeline = useIsMobile();
-  const showMobilePipelineUi = isMobilePipeline && tab === "pipeline";
-
-  const mobilePipelineProperties = useMemo(
-    () =>
-      properties.map((p) => ({
-        id: p.id,
-        price: p.price,
-        rent_price: p.rent_price ?? null,
-        listing_type: p.listing_type ?? null,
-        status: p.status,
-        beds: p.beds,
-        baths: p.baths,
-        sqft: p.sqft,
-        property_type: p.property_type ?? null,
-        coverUrl: p.image_url?.trim() || null,
-        city: p.city ?? null,
-        location: p.location,
-      })),
-    [properties],
-  );
-
-  const pipelineAgentScore =
-    typeof agent.score === "number" && Number.isFinite(agent.score)
-      ? Math.max(0, Math.min(10, agent.score))
-      : 5.0;
 
   return (
     <div
