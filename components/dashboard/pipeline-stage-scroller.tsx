@@ -1,6 +1,6 @@
 "use client";
 
-import { createElement, Fragment } from "react";
+import { Fragment } from "react";
 import { Bookmark, Eye, FileText, Handshake, Wrench, type LucideIcon } from "lucide-react";
 import { PIPELINE_STAGES, type PipelineStageId } from "@/components/dashboard/agent-pipeline-tab";
 import { cn } from "@/lib/utils";
@@ -20,77 +20,74 @@ type PipelineStageScrollerProps = {
   className?: string;
 };
 
-export function PipelineStageScroller(props: PipelineStageScrollerProps) {
-  return <ScrollerInner {...props} />;
-}
+export function PipelineStageScroller({
+  activeStage,
+  counts,
+  onStageChange,
+  className,
+}: PipelineStageScrollerProps) {
+  return (
+    <div
+      className={cn("-mx-1 overflow-x-auto px-1 pb-0.5 scrollbar-hide", className)}
+      role="tablist"
+      aria-label="Pipeline stages"
+    >
+      <div className="flex min-w-max items-center">
+        {PIPELINE_STAGES.map((stage, index) => {
+          const Icon = STAGE_ICONS[stage.id];
+          const isActive = activeStage === stage.id;
+          const count = counts[stage.id] ?? 0;
 
-function ScrollerInner({ activeStage, counts, onStageChange, className }: PipelineStageScrollerProps) {
-  return createElement(
-    "div",
-    { className: cn("-mx-1 overflow-x-auto px-1 pb-1 scrollbar-hide", className) },
-    createElement(
-      "div",
-      { className: "flex min-w-max items-start gap-0" },
-      PIPELINE_STAGES.map((stage, index) => {
-        const Icon = STAGE_ICONS[stage.id];
-        const isActive = activeStage === stage.id;
-        const count = counts[stage.id] ?? 0;
-        return createElement(
-          Fragment,
-          { key: stage.id },
-          index > 0
-            ? createElement("div", {
-                className: "mt-[22px] h-0 w-6 shrink-0 self-start border-t border-dashed border-[#2C2C2C]/20",
-                "aria-hidden": true,
-              })
-            : null,
-          createElement(
-            "button",
-            {
-              type: "button",
-              onClick: () => onStageChange(stage.id),
-              className: "flex w-[4.25rem] shrink-0 flex-col items-center gap-1.5",
-              "aria-current": isActive ? "step" : undefined,
-            },
-            createElement(
-              "div",
-              { className: "relative" },
-              createElement(
-                "div",
-                {
-                  className: cn(
-                    "flex h-12 w-12 items-center justify-center rounded-full border-2 transition",
+          return (
+            <Fragment key={stage.id}>
+              {index > 0 ? (
+                <div
+                  className="mx-0.5 h-px w-5 shrink-0 border-t border-dashed border-[#2C2C2C]/18"
+                  aria-hidden
+                />
+              ) : null}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-current={isActive ? "step" : undefined}
+                onClick={() => onStageChange(stage.id)}
+                className="flex w-[4.5rem] shrink-0 flex-col items-center gap-1.5 py-0.5"
+              >
+                <span className="relative flex h-11 w-11 items-center justify-center">
+                  {isActive ? (
+                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1F3A2E] text-white shadow-[0_2px_8px_rgba(31,58,46,0.25)]">
+                      <Icon className="h-[18px] w-[18px] stroke-[1.75]" aria-hidden />
+                    </span>
+                  ) : (
+                    <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[#2C2C2C]/14 bg-white text-[#2C2C2C]/38">
+                      <Icon className="h-[18px] w-[18px] stroke-[1.75]" aria-hidden />
+                    </span>
+                  )}
+                  {count > 0 ? (
+                    <span
+                      className="absolute -right-0.5 -top-0.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-[#1F3A2E] px-0.5 text-[9px] font-bold leading-none text-white ring-2 ring-[#FAF8F4]"
+                      aria-hidden
+                    >
+                      {count}
+                    </span>
+                  ) : null}
+                </span>
+                <span
+                  className={cn(
+                    "max-w-full truncate text-center font-sans text-[11px] font-semibold leading-tight",
                     isActive
-                      ? "border-[#6B9E6E] bg-[#1F3A2E] text-white"
-                      : "border-[#6B9E6E]/50 bg-white text-[#2C2C2C]/40",
-                  ),
-                },
-                createElement(Icon, { className: "h-5 w-5", "aria-hidden": true }),
-              ),
-              count > 0
-                ? createElement(
-                    "span",
-                    {
-                      className:
-                        "absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[#1F3A2E] px-1 text-[10px] font-bold text-white",
-                    },
-                    String(count),
-                  )
-                : null,
-            ),
-            createElement(
-              "span",
-              {
-                className: cn(
-                  "text-center font-sans text-[11px] font-semibold",
-                  isActive ? "text-[#1F3A2E] underline decoration-[#6B9E6E] decoration-2 underline-offset-4" : "text-[#2C2C2C]/55",
-                ),
-              },
-              stage.label,
-            ),
-          ),
-        );
-      }),
-    ),
+                      ? "text-[#1F3A2E] underline decoration-[#6B9E6E] decoration-2 underline-offset-[5px]"
+                      : "text-[#2C2C2C]/50",
+                  )}
+                >
+                  {stage.label}
+                </span>
+              </button>
+            </Fragment>
+          );
+        })}
+      </div>
+    </div>
   );
 }
