@@ -3390,30 +3390,19 @@ export function NewlyListedCard({
               >
                 See {moreAgentCount} more agent{moreAgentCount === 1 ? "" : "s"} →
               </button>
-            ) : (
-              canRequestCoList ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCoListError(null);
-                    setCoListOpen(true);
-                  }}
-                  className="mt-1 w-full shrink-0 rounded-full border border-[#2C2C2C]/15 bg-white py-1.5 text-center text-xs font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4]"
-                >
-                  Request to co-list
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  className="mt-1 w-full shrink-0 cursor-default rounded-full border border-gray-100 bg-transparent py-1.5 text-center text-xs text-gray-400 opacity-50 disabled:cursor-default"
-                >
-                  {verifiedListingAgent ? "Request to co-list" : "No other agents on this listing"}
-                </button>
-              )
-            )}
+            ) : canRequestCoList ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCoListError(null);
+                  setCoListOpen(true);
+                }}
+                className="mt-1 w-full shrink-0 rounded-full border border-[#2C2C2C]/15 bg-white py-1.5 text-center text-xs font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4]"
+              >
+                Request to co-list
+              </button>
+            ) : null}
           </div>
         )}
       </div>
