@@ -75,6 +75,11 @@ import { useAgentViewings } from "@/lib/agent-viewings-context";
 import { Button } from "@/components/ui/button";
 import { computePipelinePulseStats, PipelinePulseBar } from "@/components/dashboard/pipeline-pulse-bar";
 import {
+  AgentPipelineMobileShell,
+  AgentPipelineMobileStageNav,
+  type MobilePipelineStageId,
+} from "@/components/dashboard/agent-pipeline-mobile-shell";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -4225,7 +4230,7 @@ export function AgentPipelineTab({
           <>
             <div className="scrollbar-hide flex min-w-0 max-w-full flex-nowrap items-center gap-3 overflow-x-auto">
               <div className="flex shrink-0 flex-nowrap items-center gap-2 rounded-xl border border-[#2C2C2C]/[0.08] bg-white/90 p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-                <div className="flex shrink-0 items-center gap-0.5">
+                <div className="hidden shrink-0 items-center gap-0.5 lg:flex">
                   <button
                     type="button"
                     className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#FAF8F4] text-[#2C2C2C]/75 hover:bg-[#6B9E6E]/10"
@@ -4441,86 +4446,17 @@ export function AgentPipelineTab({
           </span>
         </p>
       ) : null}
-      <div className="flex flex-col gap-2 lg:hidden">
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Pipeline overview</p>
-        <div className="-mx-1 overflow-x-auto pb-1 scrollbar-hide">
-          <div className="relative flex min-w-[min(100%,520px)] items-center justify-between gap-1 px-1 sm:min-w-0 sm:gap-0">
-            <div className="pointer-events-none absolute left-1 right-1 top-[22px] h-0.5 bg-gray-200" aria-hidden />
-            <div
-              className="pointer-events-none absolute left-1 top-[22px] h-0.5 bg-[#6B9E6E]"
-              style={{
-                width: `${
-                  PIPELINE_STAGES.length > 1
-                    ? (STAGE_ORDER.indexOf(filterStage) / (PIPELINE_STAGES.length - 1)) * 100
-                    : 0
-                }%`,
-              }}
-              aria-hidden
-            />
-            {PIPELINE_STAGES.map((s, idx) => {
-              const n = counts[s.id];
-              const hasCount = n > 0;
-              const active = filterStage === s.id;
-              return (
-                <div key={s.id} className="flex min-w-0 flex-1 items-center">
-                  <div className="flex w-full min-w-[56px] flex-col items-center gap-1.5">
-                    <div
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 bg-white text-sm font-bold shadow-sm ${
-                        hasCount ? "border-[#6B9E6E] text-[#6B9E6E]" : "border-gray-300 text-gray-400"
-                      } ${active ? "animate-pulse ring-2 ring-[#6B9E6E] ring-offset-2" : ""}`}
-                    >
-                      {n}
-                    </div>
-                    <span
-                      className={`text-center text-[10px] font-bold sm:text-[11px] ${
-                        hasCount ? "text-[#6B9E6E]" : "text-gray-400"
-                      }`}
-                    >
-                      {s.label}
-                    </span>
-                    {active ? (
-                      <span className="text-[10px] font-medium text-[#6B9E6E]">Current stage</span>
-                    ) : null}
-                  </div>
-                  {idx < PIPELINE_STAGES.length - 1 ? (
-                    <div className="mx-0.5 h-0.5 min-w-[8px] flex-1 bg-gray-200 sm:min-w-[12px]" aria-hidden />
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <p className="mt-2 text-center text-[9px] font-semibold text-gray-500">
-          Inquiry → Viewing → Offer → Reservation → Closed
-        </p>
-      </div>
-
-      <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {PIPELINE_STAGES.map((s) => {
-          const active = filterStage === s.id;
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setFilterStage(s.id)}
-              className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition ${
-                active
-                  ? "bg-[#6B9E6E] text-white shadow-sm"
-                  : "border border-[#2C2C2C]/20 bg-white text-[#2C2C2C]/75 hover:border-[#6B9E6E]/40"
-              }`}
-            >
-              {s.label}
-              <span className={`ml-1.5 tabular-nums ${active ? "text-white/90" : "text-[#2C2C2C]/45"}`}>
-                ({counts[s.id]})
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Mobile / tablet: keep current stacked view */}
-      <div className="touch-pan-y space-y-2 overscroll-contain md:touch-auto">
+      <AgentPipelineMobileShell
+        stageNav={
+          <AgentPipelineMobileStageNav
+            filterStage={filterStage as MobilePipelineStageId}
+            onStageChange={(stage) => setFilterStage(stage)}
+            counts={counts}
+            visibleInStageCount={displayDeals.length}
+            totalDealCount={PIPELINE_STAGES.reduce((sum, s) => sum + (counts[s.id] ?? 0), 0)}
+          />
+        }
+      >
         {displayDeals.length === 0 ? (
           <p className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center text-sm font-semibold text-[#2C2C2C]/45">
             No deals at this stage.
@@ -4583,8 +4519,7 @@ export function AgentPipelineTab({
             </SortableContext>
           </DndContext>
         )}
-      </div>
-      </div>
+      </AgentPipelineMobileShell>
 
       {/* Desktop: grid lanes + fixed pulse bar; avoid overflow-x-hidden here (breaks sticky/fixed + can clip). Horizontal scroll stays on the inner scroller. */}
       <div className="hidden w-full min-w-0 max-w-full lg:block">

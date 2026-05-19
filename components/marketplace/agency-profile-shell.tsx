@@ -158,17 +158,19 @@ export function AgencyProfileShell({
 
   return (
     <div className="pb-16">
-      <section className="relative overflow-hidden rounded-3xl border border-[#2C2C2C]/8 bg-white shadow-sm">
-        <div className="relative h-48 w-full sm:h-56 md:h-64">
+      <section className="relative overflow-hidden rounded-3xl border border-[#2C2C2C]/8 shadow-sm">
+        <div className="relative min-h-[22rem] w-full sm:min-h-[24rem] md:min-h-[26rem]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={cover} alt="" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#2C2C2C]/65 via-[#2C2C2C]/20 to-transparent" />
-        </div>
+          <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#2C2C2C]/85 via-[#2C2C2C]/50 to-transparent" />
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 top-1/2 bg-gradient-to-t from-[#2C2C2C]/90 via-[#2C2C2C]/55 to-transparent"
+            aria-hidden
+          />
 
-        <div className="relative px-5 pb-8 pt-0 sm:px-8 md:px-10">
-          <div className="-mt-14 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="relative flex min-h-[inherit] flex-col justify-end gap-6 px-5 pb-6 pt-24 sm:px-8 md:px-10 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-              <div className="relative mx-auto h-[120px] w-[120px] shrink-0 sm:mx-0">
+              <div className="relative z-10 mx-auto h-[120px] w-[120px] shrink-0 sm:mx-0">
                 <div className="h-full w-full overflow-hidden rounded-2xl bg-[#FAF8F4] shadow-lg ring-4 ring-white">
                   {agency.logo_url ? (
                     <SupabasePublicImage
@@ -186,45 +188,45 @@ export function AgencyProfileShell({
                 </div>
               </div>
 
-              <div className="text-center sm:text-left">
-                <h1 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C] md:text-4xl">
+              <div className="min-w-0 text-center sm:text-left">
+                <h1 className="font-serif text-3xl font-bold tracking-tight text-white drop-shadow-md md:text-4xl">
                   {agency.company_name}
                 </h1>
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                   {agency.verified ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#6B9E6E]/15 px-2.5 py-1 text-[11px] font-bold text-[#2C2C2C]">
-                      <BadgeCheck className="h-3.5 w-3.5 text-[#6B9E6E]" /> Verified Agency
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
+                      <BadgeCheck className="h-3.5 w-3.5 text-[#A8D4AB]" /> Verified Agency
                     </span>
                   ) : null}
-                  <span className="rounded-full bg-[#6B9E6E]/10 px-2.5 py-1 text-[11px] font-bold text-[#2C2C2C]/80">
+                  <span className="rounded-full bg-white/12 px-2.5 py-1 text-[11px] font-bold text-white/95 backdrop-blur-sm">
                     PRC-Licensed
                   </span>
-                  <span className="rounded-full bg-[#D4A843]/20 px-2.5 py-1 text-[11px] font-bold text-[#8a6d32]">
+                  <span className="rounded-full bg-[#D4A843]/35 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
                     BahayGo Partner
                   </span>
                 </div>
-                <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/55">Philippines</p>
-                <p className="mt-3 max-w-xl text-sm font-medium leading-relaxed text-[#2C2C2C]/70">{tagline}</p>
+                <p className="mt-2 text-sm font-semibold text-white/85">Philippines</p>
+                <p className="mt-3 max-w-xl text-sm font-medium leading-relaxed text-white/90">{tagline}</p>
               </div>
             </div>
 
-            <div className="flex flex-col items-stretch gap-3 sm:min-w-[220px]">
+            <div className="flex flex-col items-stretch gap-3 sm:min-w-[220px] lg:pb-1">
               <button
                 type="button"
                 onClick={onContactAgency}
-                className="rounded-xl bg-[#1F3B2C] px-6 py-3 text-sm font-bold text-white shadow-md transition hover:bg-[#2C2C2C]"
+                className="rounded-xl bg-[#6B9E6E] px-6 py-3 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
               >
                 Contact agency
               </button>
               <button
                 type="button"
                 onClick={handleFollowClick}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#2C2C2C]/15 bg-white px-6 py-3 text-sm font-bold text-[#2C2C2C] transition hover:bg-[#FAF8F4]"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-white/35 bg-white/10 px-6 py-3 text-sm font-bold text-white backdrop-blur-sm transition hover:bg-white/20"
               >
                 <Bookmark className="h-4 w-4" /> Follow
               </button>
-              <p className="flex items-center justify-center gap-1.5 text-xs font-semibold text-[#2C2C2C]/50">
-                <Zap className="h-3.5 w-3.5 text-[#6B9E6E]" />
+              <p className="flex items-center justify-center gap-1.5 text-xs font-semibold text-white/75">
+                <Zap className="h-3.5 w-3.5 text-[#A8D4AB]" />
                 Responds within business hours
               </p>
             </div>
