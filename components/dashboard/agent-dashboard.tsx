@@ -234,8 +234,14 @@ type LeadRow = {
 };
 
 /** Supabase `leads` select including nested first-property photos (flattened to `property_cover_photo_url`). */
+const AGENT_DASHBOARD_LEAD_FIELDS =
+  "id, is_demo, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at";
+const AGENT_DASHBOARD_LEAD_PROPERTY_JOIN = "properties(property_photos(url, sort_order, created_at))";
+const AGENT_DASHBOARD_LEAD_SELECT_BASE =
+  `${AGENT_DASHBOARD_LEAD_FIELDS}, ${AGENT_DASHBOARD_LEAD_PROPERTY_JOIN}`;
+const AGENT_DASHBOARD_LEAD_MOBILE_COLUMNS = "follow_up_at, stage_changed_at";
 const AGENT_DASHBOARD_LEAD_SELECT =
-  "id, is_demo, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at, follow_up_at, stage_changed_at, properties(property_photos(url, sort_order, created_at))";
+  `${AGENT_DASHBOARD_LEAD_FIELDS}, ${AGENT_DASHBOARD_LEAD_MOBILE_COLUMNS}, ${AGENT_DASHBOARD_LEAD_PROPERTY_JOIN}`;
 
 type DashboardLoadErrorScope = "agent" | "leads" | "properties" | "viewings";
 
@@ -298,6 +304,68 @@ function leadRowFromQueryRow(
     client_avatar_url: clientAvatarUrl,
     property_cover_photo_url: firstPropertyCoverPhotoUrl(propertyPhotosFromLeadPropertiesJoin(properties)),
   };
+}
+
+type AgentDashboardLeadQueryResult = {
+  data: (LeadRow & LeadQueryPropertiesJoin)[] | null;
+  error: PostgrestError | null;
+};
+
+function isMissingMobileLeadColumnError(error: PostgrestError | null | undefined): boolean {
+  if (!error) return false;
+  const text = [error.code, error.message, error.details, error.hint].filter(Boolean).join(" ").toLowerCase();
+  return (
+    (text.includes("follow_up_at") || text.includes("stage_changed_at")) &&
+    (text.includes("does not exist") || text.includes("could not find") || text.includes("pgrst204") || text.includes("42703"))
+  );
+}
+
+async function fetchAgentDashboardLeadRows(
+  sb: SupabaseClient,
+  agentUserId: string,
+): Promise<{
+  active: AgentDashboardLeadQueryResult;
+  archived: AgentDashboardLeadQueryResult;
+}> {
+  const runQueries = async (selectColumns: string) => {
+    const archivedSelect = `${selectColumns}, archived_at, archive_reason, archive_note, stage_at_archive`;
+    const [active, archived] = await Promise.all([
+      sb
+        .from("leads")
+        .select(selectColumns)
+        .eq("agent_id", agentUserId)
+        .is("archived_at", null)
+        .order("created_at", { ascending: false }),
+      sb
+        .from("leads")
+        .select(archivedSelect)
+        .eq("agent_id", agentUserId)
+        .not("archived_at", "is", null)
+        .order("archived_at", { ascending: false })
+        .limit(150),
+    ]);
+
+    return {
+      active: {
+        data: (active.data as (LeadRow & LeadQueryPropertiesJoin)[] | null) ?? null,
+        error: active.error as PostgrestError | null,
+      },
+      archived: {
+        data: (archived.data as (LeadRow & LeadQueryPropertiesJoin)[] | null) ?? null,
+        error: archived.error as PostgrestError | null,
+      },
+    };
+  };
+
+  const withMobileColumns = await runQueries(AGENT_DASHBOARD_LEAD_SELECT);
+  if (
+    isMissingMobileLeadColumnError(withMobileColumns.active.error) ||
+    isMissingMobileLeadColumnError(withMobileColumns.archived.error)
+  ) {
+    return runQueries(AGENT_DASHBOARD_LEAD_SELECT_BASE);
+  }
+
+  return withMobileColumns;
 }
 
 async function fetchViewingRequestMetaByLeadId(
@@ -1296,32 +1364,18 @@ export function AgentDashboard() {
 
       if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
         const supervisorUserId = (a as AgentRow).user_id;
-        const leadSel = AGENT_DASHBOARD_LEAD_SELECT;
-        const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
-        const [{ data: ld, error: ldErr }, { data: ldArchived, error: ldArchivedErr }, unreadRes] = await Promise.all([
-          supabase
-            .from("leads")
-            .select(leadSel)
-            .eq("agent_id", supervisorUserId)
-            .is("archived_at", null)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("leads")
-            .select(leadSelArchived)
-            .eq("agent_id", supervisorUserId)
-            .not("archived_at", "is", null)
-            .order("archived_at", { ascending: false })
-            .limit(150),
+        const [{ active: activeLeadsRes, archived: archivedLeadsRes }, unreadRes] = await Promise.all([
+          fetchAgentDashboardLeadRows(supabase, supervisorUserId),
           supabase
             .from("notifications")
             .select("id", { count: "exact", head: true })
             .eq("user_id", user.id)
             .is("read_at", null),
         ]);
-        if (ldErr) pushErr("leads", "Could not load active leads.", ldErr);
-        if (ldArchivedErr) pushErr("leads", "Could not load archived leads.", ldArchivedErr);
-        const leadRows = ((ld ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
-        const archivedRows = ((ldArchived ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
+        if (activeLeadsRes.error) pushErr("leads", "Could not load active leads.", activeLeadsRes.error);
+        if (archivedLeadsRes.error) pushErr("leads", "Could not load archived leads.", archivedLeadsRes.error);
+        const leadRows = activeLeadsRes.data ?? [];
+        const archivedRows = archivedLeadsRes.data ?? [];
 
         const clientIds = Array.from(
           new Set(
@@ -1455,29 +1509,14 @@ export function AgentDashboard() {
     }
 
     if (a.status === "approved" && (a as AgentRow).verification_status === "verified") {
-      const leadSel = AGENT_DASHBOARD_LEAD_SELECT;
-      const leadSelArchived = `${leadSel}, archived_at, archive_reason, archive_note, stage_at_archive`;
       const [
-        { data: ld, error: ldErr },
-        { data: ldArchived, error: ldArchivedErr },
+        { active: activeLeadsRes, archived: archivedLeadsRes },
         { data: owned, error: ownedErr },
         { data: paRows, error: paErr },
         vwRes,
         unreadRes,
       ] = await Promise.all([
-        supabase
-          .from("leads")
-          .select(leadSel)
-          .eq("agent_id", user.id)
-          .is("archived_at", null)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("leads")
-          .select(leadSelArchived)
-          .eq("agent_id", user.id)
-          .not("archived_at", "is", null)
-          .order("archived_at", { ascending: false })
-          .limit(150),
+        fetchAgentDashboardLeadRows(supabase, user.id),
         supabase
           .from("properties")
           .select(
@@ -1497,13 +1536,13 @@ export function AgentDashboard() {
           .eq("user_id", user.id)
           .is("read_at", null),
       ]);
-      if (ldErr) pushErr("leads", "Could not load active leads.", ldErr);
-      if (ldArchivedErr) pushErr("leads", "Could not load archived leads.", ldArchivedErr);
+      if (activeLeadsRes.error) pushErr("leads", "Could not load active leads.", activeLeadsRes.error);
+      if (archivedLeadsRes.error) pushErr("leads", "Could not load archived leads.", archivedLeadsRes.error);
       if (ownedErr) pushErr("properties", "Could not load your listings.", ownedErr);
       if (paErr) pushErr("properties", "Could not load co-list assignments.", paErr);
       if (vwRes.error) pushErr("viewings", "Could not load viewing requests.", vwRes.error);
-      const leadRows = ((ld ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
-      const archivedRows = ((ldArchived ?? []) as (LeadRow & LeadQueryPropertiesJoin)[]) ?? [];
+      const leadRows = activeLeadsRes.data ?? [];
+      const archivedRows = archivedLeadsRes.data ?? [];
 
       const clientIds = Array.from(
         new Set(
