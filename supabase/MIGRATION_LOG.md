@@ -8,7 +8,7 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 
 **Migration file:** supabase/migrations/20260519120000_create_agency_inquiries.sql
 **Executed by:** TJ (pending)
-**Status:** pending
+**Status:** Ran successfully  
 **Tables affected:** agency_inquiries
 **Summary:** Adds `agency_inquiries` for marketplace contact form submissions, with RLS for public insert and agency/admin read/update.
 **Rollback notes:** `DROP TABLE IF EXISTS public.agency_inquiries CASCADE;` (see migration file)
@@ -25,3 +25,4 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 **Rollback notes:** see migration file (complex; restore from backup if production data exists)
 
 ---
+

@@ -152,16 +152,14 @@ type AgentPipelineMobileShellProps = {
   searchBanner?: ReactNode;
 };
 
-export function AgentPipelineMobileShell({
-  stageNav,
-  children,
-  searchBanner,
-}: AgentPipelineMobileShellProps) {
+export function AgentPipelineMobileShell({ stageNav, children, searchBanner }: AgentPipelineMobileShellProps) {
+  const Root = "div" as const;
+  const ChildWrap = "div" as const;
   return (
-    <div className="flex w-full min-w-0 flex-col gap-3 lg:hidden">
+    <Root className="flex w-full min-w-0 flex-col gap-3 md:hidden">
       {searchBanner}
       {stageNav}
-      <div className="touch-pan-y space-y-2.5 overscroll-contain pb-2 md:touch-auto">{children}</div>
-    </div>
+      <ChildWrap className="touch-pan-y space-y-2.5 overscroll-contain pb-2 md:touch-auto">{children}</ChildWrap>
+    </Root>
   );
 }

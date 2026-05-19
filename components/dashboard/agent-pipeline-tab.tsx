@@ -164,6 +164,10 @@ export type PipelineLeadRow = {
   closure_confirmed_by_client?: boolean | null;
   new_lead_seen_at?: string | null;
   new_viewing_request_seen_at?: string | null;
+  property_cover_photo_url?: string | null;
+  /** Requires migration `20260519140000_leads_pipeline_mobile_columns.sql` */
+  follow_up_at?: string | null;
+  stage_changed_at?: string | null;
 };
 
 function formatRequestedViewingMenuLine(scheduledAtIso: string): string {

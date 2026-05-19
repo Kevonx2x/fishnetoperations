@@ -37,12 +37,14 @@ import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { AgentBillingTab } from "@/components/dashboard/agent-billing-tab";
 import { AgentAnalyticsTab } from "@/components/dashboard/agent-analytics-tab";
 import { AgentLeadSlideOver } from "@/components/dashboard/agent-lead-slideover";
+import { AgentMobilePipeline } from "@/components/dashboard/agent-mobile-pipeline";
 import {
   AgentPipelineTab,
   type PipelineLeadRow,
   type PipelineStageId,
   type ViewingRequestPipelineMeta,
 } from "@/components/dashboard/agent-pipeline-tab";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
 import { streamDmChannelId } from "@/features/messaging/lib/stream-dm-channel-id";
 import { useAgentPipelineTabAttentionCount } from "@/features/messaging/hooks/use-agent-pipeline-tab-attention-count";
@@ -226,11 +228,14 @@ type LeadRow = {
   stage_at_archive?: string | null;
   /** First listing gallery image for the linked property (from `property_photos`, same query as leads). */
   property_cover_photo_url?: string | null;
+  /** Requires migration `20260519140000_leads_pipeline_mobile_columns.sql` */
+  follow_up_at?: string | null;
+  stage_changed_at?: string | null;
 };
 
 /** Supabase `leads` select including nested first-property photos (flattened to `property_cover_photo_url`). */
 const AGENT_DASHBOARD_LEAD_SELECT =
-  "id, is_demo, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at, properties(property_photos(url, sort_order, created_at))";
+  "id, is_demo, name, email, phone, property_interest, message, stage, pipeline_stage, pipeline_position, pinned, pinned_at, closing_notes, property_id, viewing_request_id, created_at, updated_at, client_id, closed_date, closed_at, closed_by, closure_confirmed_by_client, new_lead_seen_at, new_viewing_request_seen_at, follow_up_at, stage_changed_at, properties(property_photos(url, sort_order, created_at))";
 
 type DashboardLoadErrorScope = "agent" | "leads" | "properties" | "viewings";
 
@@ -2691,11 +2696,38 @@ export function AgentDashboard() {
       : ["listings", "analytics", "billing", "profile"];
 
   const viewingsAgentUserId = isTeamMemberView ? agent.user_id : user.id;
+  const isMobilePipeline = useIsMobile();
+  const showMobilePipelineUi = isMobilePipeline && tab === "pipeline";
+
+  const mobilePipelineProperties = useMemo(
+    () =>
+      properties.map((p) => ({
+        id: p.id,
+        price: p.price,
+        rent_price: p.rent_price ?? null,
+        listing_type: p.listing_type ?? null,
+        status: p.status,
+        beds: p.beds,
+        baths: p.baths,
+        sqft: p.sqft,
+        property_type: p.property_type ?? null,
+        coverUrl: p.image_url?.trim() || null,
+        city: p.city ?? null,
+        location: p.location,
+      })),
+    [properties],
+  );
+
+  const pipelineAgentScore =
+    typeof agent.score === "number" && Number.isFinite(agent.score)
+      ? Math.max(0, Math.min(10, agent.score))
+      : 5.0;
 
   return (
     <div
       className={cn(
         "min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0",
+        showMobilePipelineUi && "pb-0",
         tab === "messages" &&
           "max-md:flex max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:min-h-0 max-md:flex-col max-md:overflow-hidden",
       )}
@@ -2911,51 +2943,121 @@ export function AgentDashboard() {
                   }}
                 />
               )}
-              {tab === "pipeline" && (identityVerified || isTeamMemberView) && (
-                <AgentPipelineTab
-                  leads={leads.map((l) => ({
-                    id: l.id,
-                    name: l.name,
-                    email: l.email,
-                    client_id: l.client_id ?? null,
-                    client_avatar_url: l.client_avatar_url ?? null,
-                    pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,
-                    property_id: l.property_id ?? null,
-                    viewing_request_id: l.viewing_request_id ?? null,
-                    created_at: l.created_at,
-                    updated_at: l.updated_at ?? null,
-                    closed_date: l.closed_date ?? null,
-                    closed_at: l.closed_at ?? null,
-                    closed_by: l.closed_by ?? null,
-                    closure_confirmed_by_client: l.closure_confirmed_by_client ?? null,
-                    pipeline_position: l.pipeline_position ?? null,
-                    closing_notes: l.closing_notes ?? null,
-                    new_lead_seen_at: l.new_lead_seen_at ?? null,
-                    new_viewing_request_seen_at: l.new_viewing_request_seen_at ?? null,
-                  }))}
-                  archivedLeads={pipelineArchivedTabRows}
-                  propertyLabel={pipelinePropertyLabel}
-                  supabase={supabase}
-                  pipelineAgentId={agent.id}
-                  leadsAgentUserId={isTeamMemberView ? agent.user_id : user.id}
-                  messagingAgentUserId={isTeamMemberView ? null : user.id}
-                  clientDocsSharedWithUserId={isTeamMemberView ? agent.user_id : undefined}
-                  viewingRequestMetaByLeadId={viewingRequestMetaByLeadId}
-                  onOpenMessagesForClient={(clientUserId) => {
-                    if (!user?.id) return;
-                    setStreamChannelId(streamDmChannelId(user.id, clientUserId));
-                    navigateAgentTab("messages");
-                  }}
-                  onUnarchiveArchivedLead={onUnarchiveArchivedLead}
-                  onRefresh={loadData}
-                  onPatchLead={patchLead}
-                  onFullRefresh={loadData}
-                  onOpenLeadDetails={(leadId) => {
-                    const row = [...leads, ...archivedLeads].find((x) => x.id === leadId);
-                    if (row) setSelectedLead(row);
-                  }}
-                />
-              )}
+              {tab === "pipeline" && (identityVerified || isTeamMemberView) &&
+                (isMobilePipeline ? (
+                  <AgentMobilePipeline
+                    leads={leads.map((l) => ({
+                      id: l.id,
+                      name: l.name,
+                      email: l.email,
+                      client_id: l.client_id ?? null,
+                      client_avatar_url: l.client_avatar_url ?? null,
+                      pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,
+                      property_id: l.property_id ?? null,
+                      viewing_request_id: l.viewing_request_id ?? null,
+                      created_at: l.created_at,
+                      updated_at: l.updated_at ?? null,
+                      closed_date: l.closed_date ?? null,
+                      closed_at: l.closed_at ?? null,
+                      closed_by: l.closed_by ?? null,
+                      closure_confirmed_by_client: l.closure_confirmed_by_client ?? null,
+                      pipeline_position: l.pipeline_position ?? null,
+                      closing_notes: l.closing_notes ?? null,
+                      new_lead_seen_at: l.new_lead_seen_at ?? null,
+                      new_viewing_request_seen_at: l.new_viewing_request_seen_at ?? null,
+                      property_cover_photo_url: l.property_cover_photo_url ?? null,
+                      follow_up_at: l.follow_up_at ?? null,
+                      stage_changed_at: l.stage_changed_at ?? null,
+                    }))}
+                    archivedLeads={pipelineArchivedTabRows}
+                    propertyLabel={pipelinePropertyLabel}
+                    supabase={supabase}
+                    pipelineAgentId={agent.id}
+                    leadsAgentUserId={isTeamMemberView ? agent.user_id : user.id}
+                    messagingAgentUserId={isTeamMemberView ? null : user.id}
+                    clientDocsSharedWithUserId={isTeamMemberView ? agent.user_id : undefined}
+                    viewingRequestMetaByLeadId={viewingRequestMetaByLeadId}
+                    onOpenMessagesForClient={(clientUserId) => {
+                      if (!user?.id) return;
+                      setStreamChannelId(streamDmChannelId(user.id, clientUserId));
+                      navigateAgentTab("messages");
+                    }}
+                    onUnarchiveArchivedLead={onUnarchiveArchivedLead}
+                    onRefresh={loadData}
+                    onPatchLead={patchLead}
+                    onFullRefresh={loadData}
+                    onOpenLeadDetails={(leadId) => {
+                      const row = [...leads, ...archivedLeads].find((x) => x.id === leadId);
+                      if (row) setSelectedLead(row);
+                    }}
+                    agentScore={pipelineAgentScore}
+                    agentAvatarUrl={agent.image_url ?? null}
+                    agentName={agent.name}
+                    unreadNotifications={unreadNotificationsCount}
+                    messagesUnread={streamMessagesUnreadTotal}
+                    properties={mobilePipelineProperties}
+                    isLoading={authLoading || !loaded}
+                    onOpenMenu={() => setMoreDrawerOpen(true)}
+                    onNavigateTab={(next) => {
+                      if (next === "notifications") navigateAgentTab("overview");
+                      else navigateAgentTab(next);
+                    }}
+                    onViewDocuments={(deal) => {
+                      const row = [...leads, ...archivedLeads].find((x) => x.id === deal.id);
+                      if (row) setSelectedLead(row);
+                    }}
+                    onOpenDealMenu={(deal) => {
+                      const row = [...leads, ...archivedLeads].find((x) => x.id === deal.id);
+                      if (row) setSelectedLead(row);
+                    }}
+                    onMore={() => setMoreDrawerOpen(true)}
+                    onHome={() => router.push("/")}
+                  />
+                ) : (
+                  <AgentPipelineTab
+                    leads={leads.map((l) => ({
+                      id: l.id,
+                      name: l.name,
+                      email: l.email,
+                      client_id: l.client_id ?? null,
+                      client_avatar_url: l.client_avatar_url ?? null,
+                      pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,
+                      property_id: l.property_id ?? null,
+                      viewing_request_id: l.viewing_request_id ?? null,
+                      created_at: l.created_at,
+                      updated_at: l.updated_at ?? null,
+                      closed_date: l.closed_date ?? null,
+                      closed_at: l.closed_at ?? null,
+                      closed_by: l.closed_by ?? null,
+                      closure_confirmed_by_client: l.closure_confirmed_by_client ?? null,
+                      pipeline_position: l.pipeline_position ?? null,
+                      closing_notes: l.closing_notes ?? null,
+                      new_lead_seen_at: l.new_lead_seen_at ?? null,
+                      new_viewing_request_seen_at: l.new_viewing_request_seen_at ?? null,
+                    }))}
+                    archivedLeads={pipelineArchivedTabRows}
+                    propertyLabel={pipelinePropertyLabel}
+                    supabase={supabase}
+                    pipelineAgentId={agent.id}
+                    leadsAgentUserId={isTeamMemberView ? agent.user_id : user.id}
+                    messagingAgentUserId={isTeamMemberView ? null : user.id}
+                    clientDocsSharedWithUserId={isTeamMemberView ? agent.user_id : undefined}
+                    viewingRequestMetaByLeadId={viewingRequestMetaByLeadId}
+                    onOpenMessagesForClient={(clientUserId) => {
+                      if (!user?.id) return;
+                      setStreamChannelId(streamDmChannelId(user.id, clientUserId));
+                      navigateAgentTab("messages");
+                    }}
+                    onUnarchiveArchivedLead={onUnarchiveArchivedLead}
+                    onRefresh={loadData}
+                    onPatchLead={patchLead}
+                    onFullRefresh={loadData}
+                    onOpenLeadDetails={(leadId) => {
+                      const row = [...leads, ...archivedLeads].find((x) => x.id === leadId);
+                      if (row) setSelectedLead(row);
+                    }}
+                  />
+                ))}
               {tab === "documents" && isTeamMemberView && (
                 <AgentDashboardDocumentsTab leads={leads} supabase={supabase} />
               )}
@@ -3034,7 +3136,8 @@ export function AgentDashboard() {
         </main>
       </div>
 
-      {/* Mobile bottom bar — Home, Pipeline/Messages (or team member set), More */}
+      {/* Mobile bottom bar — hidden on mobile pipeline (uses AgentMobileBottomNav) */}
+      {!showMobilePipelineUi ? (
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-1 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
         <button
           type="button"
@@ -3104,6 +3207,7 @@ export function AgentDashboard() {
           <div className="min-w-0 flex-1" aria-hidden />
         )}
       </nav>
+      ) : null}
 
       <AnimatePresence>
         {moreDrawerOpen ? (
