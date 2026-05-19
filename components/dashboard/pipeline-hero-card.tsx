@@ -23,17 +23,24 @@ function ScoreRing({ score, max = 10 }: { score: number; max?: number }) {
   const r = 36;
   const c = 2 * Math.PI * r;
   const dash = c * pct;
+  const gradientId = "pipeline-score-arc-gradient";
   // TODO: dynamic color based on score band (red < 5, yellow 5-7, sage > 7)
 
   return (
     <svg width="92" height="92" viewBox="0 0 92 92" className="shrink-0" aria-hidden>
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#6B9E6E" />
+          <stop offset="100%" stopColor="#5A8A5D" />
+        </linearGradient>
+      </defs>
       <circle cx="46" cy="46" r={r} fill="none" stroke="#E5E0D6" strokeWidth="5" />
       <circle
         cx="46"
         cy="46"
         r={r}
         fill="none"
-        stroke="#6B9E6E"
+        stroke={`url(#${gradientId})`}
         strokeWidth="5"
         strokeLinecap="round"
         strokeDasharray={`${dash} ${c}`}
@@ -56,7 +63,7 @@ export function PipelineHeroCard({
   return (
     <section
       className={cn(
-        "rounded-2xl bg-[#FAF8F4] p-6 shadow-[0_4px_24px_rgba(44,44,44,0.08)]",
+        "rounded-2xl bg-[#FAF8F4] p-6 shadow-lg shadow-[0_8px_24px_-8px_rgba(107,158,110,0.15)]",
         className,
       )}
     >
@@ -73,9 +80,11 @@ export function PipelineHeroCard({
               {stageActiveCount} active
             </span>
           </div>
-          <p className="line-clamp-2 font-sans text-sm leading-snug text-gray-600">
+          <p
+            className="font-sans text-xs leading-snug text-gray-600 [overflow-wrap:break-word] [word-break:normal] sm:text-sm"
+          >
             {/* TODO: compute percentile from agent score distribution once 50+ agents scored */}
-            Performing better than <span className="font-semibold text-[#6B9E6E]">72%</span> of agents
+            Top 28% of agents this month
           </p>
         </div>
 

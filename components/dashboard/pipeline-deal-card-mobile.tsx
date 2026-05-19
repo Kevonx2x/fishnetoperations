@@ -98,7 +98,7 @@ export function PipelineDealCardMobile({
   const thumb = property.coverUrl ?? deal.property_cover_photo_url ?? null;
 
   return (
-    <article className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-3 shadow-[0_2px_12px_rgba(44,44,44,0.06)]">
+    <article className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-3 shadow-[0_2px_12px_rgba(44,44,44,0.06)] transition-shadow duration-200 hover:shadow-md active:scale-[0.98] active:shadow-sm">
       <div className="space-y-3">
         <div className="flex gap-3">
           <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-[#FAF8F4]">
@@ -210,7 +210,7 @@ export function PipelineDealCardMobile({
               type="button"
               disabled={moveBusy || !onMoveToNextStage}
               onClick={() => onMoveToNextStage?.(deal, next)}
-              className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded-xl bg-[#6B9E6E] px-3 py-2.5 text-sm font-bold text-white shadow-sm disabled:opacity-50"
+              className="flex h-10 min-w-0 flex-1 items-center justify-center gap-1 rounded-full bg-gradient-to-b from-[#7AAE7E] to-[#6B9E6E] px-3 py-2 text-sm font-bold text-white shadow-sm transition active:scale-95 disabled:opacity-50"
             >
               <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
               <span className="truncate">Move to {moveLabel}</span>
@@ -220,7 +220,7 @@ export function PipelineDealCardMobile({
             type="button"
             onClick={() => onViewDocuments(deal)}
             className={cn(
-              "flex items-center justify-center gap-1.5 rounded-xl border-2 border-[#6B9E6E] px-3 py-2.5 text-sm font-bold text-[#2C5F32]",
+              "flex h-10 items-center justify-center gap-1.5 rounded-full border-2 border-[#6B9E6E] px-3 py-2 text-sm font-bold text-[#2C5F32] transition active:scale-95",
               deal.pipeline_stage === "closed" ? "w-full" : "min-w-0 flex-1",
             )}
           >
