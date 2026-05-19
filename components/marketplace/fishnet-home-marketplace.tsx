@@ -88,6 +88,7 @@ import { HomepageFiltersSheet } from "@/components/marketplace/homepage-filters-
 import { HomepageExpandSearchCta } from "@/components/marketplace/homepage-results-surface";
 import { HomepageSpotlightListing } from "@/components/marketplace/homepage-spotlight-listing";
 import { TopCondosRow } from "@/components/marketplace/top-condos-row";
+import { HomepageValueSlider } from "@/components/marketplace/homepage-value-slider";
 import {
   buildFilteredEmptyMessage,
   buildHomepageRowsFromTemplates,
@@ -2838,6 +2839,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
             <TopCondosRow
               locationLabel={filters.locationLabel ?? neighborhoodLabelForChips}
             />
+
+            <HomepageValueSlider />
 
             {featuredHomeProperty ? (
               <HomepageSpotlightListing
