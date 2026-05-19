@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { AgencyContactModal } from "@/components/marketplace/agency-contact-modal";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { AgencyProfileListings } from "@/components/marketplace/agency-profile-listings";
 import {
@@ -10,6 +12,7 @@ import {
   type AgencyProfileShellAgency,
   type AgencyProfileShellAgent,
 } from "@/components/marketplace/agency-profile-shell";
+import { agencyCityLabel } from "@/lib/agency-demo-visuals";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
 import type { DbProperty } from "@/lib/marketplace-property";
@@ -32,6 +35,7 @@ export default function AgencyProfilePage() {
   const [totalListings, setTotalListings] = useState(0);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -61,14 +65,41 @@ export default function AgencyProfilePage() {
 
     const { data: agentRows } = await supabase
       .from("agents")
-      .select("id, name, image_url, verified, user_id")
+      .select("id, name, image_url, verified, user_id, score")
       .eq("agency_id", id)
       .eq("status", "approved")
       .order("name", { ascending: true })
       .limit(8);
 
     const agentList = (agentRows ?? []) as (AgencyProfileShellAgent & { user_id: string })[];
-    setAgents(agentList);
+    const areaLabel = agencyCityLabel(id);
+
+    const agentUserIds = agentList.map((a) => a.user_id).filter(Boolean);
+    const listingCountByUser = new Map<string, number>();
+    if (agentUserIds.length > 0) {
+      const { data: listingOwners } = await supabase
+        .from("properties")
+        .select("listed_by")
+        .in("listed_by", agentUserIds)
+        .or(publicListingExpiryOrFilter())
+        .or(hideTutorialDemoPropertiesOrFilter())
+        .is("deleted_at", null)
+        .eq("availability_state", "available");
+
+      for (const row of listingOwners ?? []) {
+        const uid = (row as { listed_by?: string }).listed_by;
+        if (!uid) continue;
+        listingCountByUser.set(uid, (listingCountByUser.get(uid) ?? 0) + 1);
+      }
+    }
+
+    setAgents(
+      agentList.map((a) => ({
+        ...a,
+        areaLabel,
+        listingCount: a.user_id ? listingCountByUser.get(a.user_id) ?? 0 : 0,
+      })),
+    );
 
     const ownerIds = [
       ...new Set([agencyRow.user_id, ...agentList.map((a) => a.user_id).filter(Boolean)]),
@@ -156,6 +187,7 @@ export default function AgencyProfilePage() {
           agency={agency}
           agents={agents}
           stats={{ agentCount: agents.length }}
+          onContactAgency={() => setContactOpen(true)}
           listingsSlot={
             <AgencyProfileListings
               properties={properties}
@@ -163,6 +195,13 @@ export default function AgencyProfilePage() {
               totalCount={totalListings}
             />
           }
+        />
+        <AgencyContactModal
+          open={contactOpen}
+          onOpenChange={setContactOpen}
+          agencyId={agency.id}
+          agencyName={agency.company_name}
+          onSent={() => toast.success("Inquiry sent")}
         />
       </main>
     </div>
