@@ -24,21 +24,20 @@ function ScoreRing({ score, max = 10 }: { score: number; max?: number }) {
   const c = 2 * Math.PI * r;
   const dash = c * pct;
   // TODO: dynamic color based on score band (red < 5, yellow 5-7, sage > 7)
-  const arcColor = "#A8C5A8";
 
   return (
-    <svg width="88" height="88" viewBox="0 0 88 88" className="shrink-0" aria-hidden>
-      <circle cx="44" cy="44" r={r} fill="none" stroke="#163024" strokeWidth="6" />
+    <svg width="92" height="92" viewBox="0 0 92 92" className="shrink-0" aria-hidden>
+      <circle cx="46" cy="46" r={r} fill="none" stroke="#E5E0D6" strokeWidth="5" />
       <circle
-        cx="44"
-        cy="44"
+        cx="46"
+        cy="46"
         r={r}
         fill="none"
-        stroke={arcColor}
-        strokeWidth="6"
+        stroke="#6B9E6E"
+        strokeWidth="5"
         strokeLinecap="round"
         strokeDasharray={`${dash} ${c}`}
-        transform="rotate(-90 44 44)"
+        transform="rotate(-90 46 46)"
       />
     </svg>
   );
@@ -57,45 +56,54 @@ export function PipelineHeroCard({
   return (
     <section
       className={cn(
-        "rounded-2xl bg-[#1F3A2E] p-5 text-white shadow-[0_8px_24px_rgba(31,58,46,0.35)]",
+        "rounded-2xl bg-[#FAF8F4] p-6 shadow-[0_4px_24px_rgba(44,44,44,0.08)]",
         className,
       )}
     >
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">YOUR PIPELINE</p>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <h2 className="font-serif text-xl font-bold leading-tight">{stageLabel}</h2>
-            <span className="rounded-full bg-[#A8C5A8]/25 px-2 py-0.5 text-[10px] font-bold text-[#D4E8D4]">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 sm:gap-6">
+        <div className="min-w-0 space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
+            Your pipeline
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-serif text-xl font-bold leading-tight text-[#2C2C2C] sm:text-2xl">
+              {stageLabel}
+            </h2>
+            <span className="rounded-full border border-[#6B9E6E]/45 bg-white/60 px-2 py-0.5 text-[10px] font-bold text-[#2C5F32]">
               {stageActiveCount} active
             </span>
           </div>
-          <p className="mt-2 text-[11px] font-medium leading-snug text-white/85">
-            Keep it up! You&apos;re performing better than{" "}
+          <p className="line-clamp-2 font-sans text-sm leading-snug text-gray-600">
             {/* TODO: compute percentile from agent score distribution once 50+ agents scored */}
-            <span className="font-bold text-[#A8C5A8]">72%</span> of agents
+            Performing better than <span className="font-semibold text-[#6B9E6E]">72%</span> of agents
           </p>
         </div>
-        <div className="relative flex flex-col items-center justify-center px-1">
+
+        <div className="relative flex shrink-0 flex-col items-center justify-center px-0.5">
           <ScoreRing score={scoreOutOfTen} />
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="font-serif text-2xl font-bold leading-none">{displayScore}</span>
-            <span className="text-[10px] font-semibold text-white/65">/ 10</span>
+            <span className="font-serif text-2xl font-bold leading-none text-[#2C2C2C]">{displayScore}</span>
+            <span className="mt-0.5 font-sans text-[10px] font-semibold text-[#2C2C2C]/45">/ 10</span>
           </div>
         </div>
+
         <div className="min-w-0 text-right">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">PIPELINE VALUE</p>
-          <p className="mt-0.5 font-serif text-xl font-bold text-[#A8C5A8]">{pipelineValueFormatted}</p>
-          <div className="mt-1 flex items-center justify-end gap-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
+            Pipeline value
+          </p>
+          <p className="mt-0.5 font-serif text-3xl font-bold leading-none tracking-tight text-[#2C2C2C] sm:text-4xl">
+            {pipelineValueFormatted}
+          </p>
+          <div className="mt-2 flex items-center justify-end gap-2">
             <Link
               href="/analytics"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[#163024] text-white/90 transition hover:bg-[#0f2219]"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#2C2C2C]/10 bg-white text-[#6B9E6E] shadow-sm transition hover:border-[#6B9E6E]/30 hover:bg-white"
               aria-label="View analytics"
             >
-              <LineChart className="h-3.5 w-3.5" aria-hidden />
+              <LineChart className="h-4 w-4" aria-hidden />
             </Link>
           </div>
-          <p className="mt-1 text-[10px] font-semibold text-[#A8C5A8]">
+          <p className="mt-1.5 font-sans text-xs font-semibold text-[#6B9E6E]">
             {/* TODO: compute from pipeline_history snapshots, requires daily cron + history table */}
             ↑ 18% vs last 30 days
           </p>
