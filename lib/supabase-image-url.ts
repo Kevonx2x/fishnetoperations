@@ -80,6 +80,11 @@ export function supabasePropertyPhotoHeroUrl(url: string): string {
   return supabaseRenderUrl(url, { width: 1280, height: 720, quality: 80, resize: "cover" });
 }
 
+/** Homepage spotlight listing — larger hero for the feature card. */
+export function supabasePropertyPhotoSpotlightUrl(url: string): string {
+  return supabaseRenderUrl(url, { width: 1600, height: 1000, quality: 85, resize: "cover" });
+}
+
 let loggedRenderFallbackWarning = false;
 
 /** Log once when falling back to the original object URL (e.g. render API unavailable). */

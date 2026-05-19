@@ -5,6 +5,8 @@ export type TopCondoPlaceholder = {
   name: string;
   listingCount: number;
   imageUrl: string;
+  /** Short area badge on card image, e.g. BGC, MAKATI */
+  areaLabel: string;
 };
 
 export type TopCondosSectionData = {
@@ -15,31 +17,38 @@ export type TopCondosSectionData = {
 
 const CONDO_IMAGES = {
   towerA:
-    "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=280&fit=crop",
+    "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=560&h=400&fit=crop",
   towerB:
-    "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=400&h=280&fit=crop",
+    "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=560&h=400&fit=crop",
   towerC:
-    "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=400&h=280&fit=crop",
+    "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=560&h=400&fit=crop",
   towerD:
-    "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=400&h=280&fit=crop",
+    "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=560&h=400&fit=crop",
   towerE:
-    "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=280&fit=crop",
+    "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=560&h=400&fit=crop",
 } as const;
 
 const MANILA_METRO_CONDOS: TopCondoPlaceholder[] = [
-  { id: "uptown-ritz", name: "Uptown Ritz", listingCount: 42, imageUrl: CONDO_IMAGES.towerC },
-  { id: "rockwell", name: "Rockwell Center", listingCount: 38, imageUrl: CONDO_IMAGES.towerB },
-  { id: "grand-hyatt-bgc", name: "Grand Hyatt Manila", listingCount: 31, imageUrl: CONDO_IMAGES.towerC },
-  { id: "shang-fort", name: "Shangri-La at the Fort", listingCount: 27, imageUrl: CONDO_IMAGES.towerA },
-  { id: "rise-makati", name: "The Rise Makati", listingCount: 24, imageUrl: CONDO_IMAGES.towerB },
-  { id: "salcedo-place", name: "Shang Salcedo Place", listingCount: 22, imageUrl: CONDO_IMAGES.towerB },
-  { id: "serendra", name: "Serendra", listingCount: 35, imageUrl: CONDO_IMAGES.towerC },
-  { id: "acqua", name: "Acqua Private Residences", listingCount: 19, imageUrl: CONDO_IMAGES.towerE },
-  { id: "azure", name: "Azure Urban Residences", listingCount: 16, imageUrl: CONDO_IMAGES.towerD },
-  { id: "one-shang", name: "One Shangri-La Place", listingCount: 29, imageUrl: CONDO_IMAGES.towerA },
+  { id: "uptown-ritz", name: "Uptown Ritz", listingCount: 42, imageUrl: CONDO_IMAGES.towerC, areaLabel: "BGC" },
+  { id: "rockwell", name: "Rockwell Center", listingCount: 38, imageUrl: CONDO_IMAGES.towerB, areaLabel: "MAKATI" },
+  { id: "grand-hyatt-bgc", name: "Grand Hyatt Manila", listingCount: 31, imageUrl: CONDO_IMAGES.towerA, areaLabel: "BGC" },
+  { id: "shang-fort", name: "Shangri-La at the Fort", listingCount: 27, imageUrl: CONDO_IMAGES.towerC, areaLabel: "BGC" },
+  { id: "rise-makati", name: "The Rise Makati", listingCount: 24, imageUrl: CONDO_IMAGES.towerB, areaLabel: "MAKATI" },
+  { id: "salcedo-place", name: "Shang Salcedo Place", listingCount: 22, imageUrl: CONDO_IMAGES.towerB, areaLabel: "MAKATI" },
+  { id: "serendra", name: "Serendra", listingCount: 35, imageUrl: CONDO_IMAGES.towerC, areaLabel: "BGC" },
+  { id: "acqua", name: "Acqua Private Residences", listingCount: 19, imageUrl: CONDO_IMAGES.towerE, areaLabel: "MANILA" },
+  { id: "azure", name: "Azure Urban Residences", listingCount: 16, imageUrl: CONDO_IMAGES.towerD, areaLabel: "PARAÑAQUE" },
+  { id: "one-shang", name: "One Shangri-La Place", listingCount: 29, imageUrl: CONDO_IMAGES.towerA, areaLabel: "ORTIGAS" },
 ];
 
-const BY_LOCATION: Record<string, TopCondoPlaceholder[]> = {
+type TopCondoInput = Omit<TopCondoPlaceholder, "areaLabel"> & { areaLabel?: string };
+
+function withAreaLabels(condos: TopCondoInput[], fallbackArea: string): TopCondoPlaceholder[] {
+  const label = fallbackArea.toUpperCase();
+  return condos.map((c) => ({ ...c, areaLabel: c.areaLabel ?? label }));
+}
+
+const BY_LOCATION: Record<string, TopCondoInput[]> = {
   BGC: [
     { id: "bgc-uptown", name: "Uptown Ritz", listingCount: 18, imageUrl: CONDO_IMAGES.towerC },
     { id: "bgc-hyatt", name: "Grand Hyatt Manila", listingCount: 14, imageUrl: CONDO_IMAGES.towerC },
@@ -99,7 +108,7 @@ export function getTopCondosSectionData(locationLabel: string | null): TopCondos
     return {
       title: `Top Condos ${locationLabel}`,
       subtitle: `Popular towers and communities in ${locationLabel}`,
-      condos: BY_LOCATION[locationLabel]!,
+      condos: withAreaLabels(BY_LOCATION[locationLabel]!, locationLabel),
     };
   }
 

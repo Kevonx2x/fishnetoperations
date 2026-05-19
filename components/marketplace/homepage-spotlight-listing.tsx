@@ -22,7 +22,7 @@ import { roomUrlsFor } from "@/lib/marketplace-property";
 import {
   isPreOptimizedPropertyPhotoUrl,
   propertyPhotoDisplayUrl,
-  propertyPhotoHeroUrl,
+  propertyPhotoSpotlightUrl,
 } from "@/lib/cloudinary-property-photo-url";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import { propertyCanonicalCity } from "@/lib/normalize-city";
@@ -51,7 +51,7 @@ function SpotlightHeroImage({ src, alt }: { src: string; alt: string }) {
         fill
         unoptimized={skipNextOptimizer}
         className={cn("z-[2] object-cover transition-opacity duration-500", loaded ? "opacity-100" : "opacity-0")}
-        sizes="(max-width: 1024px) 100vw, 58vw"
+        sizes="(max-width: 1024px) 100vw, 720px"
         priority
         onLoadingComplete={() => setLoaded(true)}
       />
@@ -74,6 +74,20 @@ function spotlightCopy(isAdminFeatured: boolean, locationLabel: string | null) {
       ? "Hand-picked by the BahayGo team"
       : "One verified listing worth a closer look",
   };
+}
+
+function formatAreaStat(sqft: string | null | undefined): string | null {
+  const raw = (sqft ?? "").trim();
+  if (!raw) return null;
+  const digits = raw.replace(/[^\d]/g, "");
+  if (digits) {
+    const n = Number.parseInt(digits, 10);
+    if (Number.isFinite(n) && n > 0) {
+      const unit = /sqm|m²/i.test(raw) ? "sqm" : "sqft";
+      return `${n.toLocaleString("en-PH")} ${unit}`;
+    }
+  }
+  return raw;
 }
 
 function isRecentlyListed(createdAtIso: string): boolean {
@@ -103,7 +117,8 @@ export function HomepageSpotlightListing({
   connectedAgents?: MarketplaceAgent[];
 }) {
   const copy = spotlightCopy(isAdminFeatured, locationLabel);
-  const title = property.name ?? property.location;
+  const title = property.name?.trim() || property.location;
+  const areaStat = formatAreaStat(property.sqft);
   const isDual =
     property.status === "both" || property.listing_type === "both";
   const areaLabel = propertyCanonicalCity(property) || property.location;
@@ -111,7 +126,7 @@ export function HomepageSpotlightListing({
 
   const photoUrls = useMemo(() => {
     const raw = roomUrlsFor(property);
-    return raw.map((u) => propertyPhotoHeroUrl(u));
+    return raw.map((u) => propertyPhotoSpotlightUrl(u));
   }, [property]);
 
   const thumbUrls = useMemo(() => {
@@ -166,10 +181,14 @@ export function HomepageSpotlightListing({
         <p className="mt-1 text-sm font-medium text-[#2C2C2C]/55">{copy.subtitle}</p>
       </div>
 
-      <article className="overflow-hidden rounded-3xl border border-[#2C2C2C]/10 bg-white shadow-sm ring-1 ring-black/[0.03]">
-        <div className="lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-stretch">
-          <div className="relative aspect-[16/10] bg-[#FAF8F4] lg:aspect-auto lg:min-h-[320px]">
+      <article className="overflow-hidden rounded-3xl border border-[#2C2C2C]/10 bg-white shadow-md ring-1 ring-black/[0.04]">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1.12fr)_minmax(0,1fr)] lg:items-stretch">
+          <div className="relative aspect-[5/4] bg-[#1a1f1c] sm:aspect-[4/3] lg:aspect-auto lg:min-h-[360px]">
             <SpotlightHeroImage src={activeSrc} alt={title} />
+            <div
+              className="pointer-events-none absolute inset-0 z-[3] bg-gradient-to-t from-black/50 via-black/10 to-black/5"
+              aria-hidden
+            />
 
             <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
               <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
@@ -228,7 +247,7 @@ export function HomepageSpotlightListing({
                         fill
                         unoptimized={isPreOptimizedPropertyPhotoUrl(src)}
                         className="object-cover"
-                        sizes="68px"
+                        sizes="96px"
                       />
                     </button>
                   );
@@ -272,9 +291,6 @@ export function HomepageSpotlightListing({
 
             <h3 className="mt-2 font-serif text-xl font-semibold leading-snug tracking-tight text-[#2C2C2C] sm:text-2xl">
               {title}
-              {property.sqft ? (
-                <span className="font-normal text-[#2C2C2C]/70"> — {property.sqft}</span>
-              ) : null}
             </h3>
 
             {isDual ? (
@@ -308,10 +324,10 @@ export function HomepageSpotlightListing({
                 <Bath className="h-4 w-4 shrink-0 text-[#2C2C2C]/40" aria-hidden />
                 {property.baths} baths
               </li>
-              {property.sqft ? (
+              {areaStat ? (
                 <li className="inline-flex items-center gap-1.5">
                   <Maximize2 className="h-4 w-4 shrink-0 text-[#2C2C2C]/40" aria-hidden />
-                  {property.sqft}
+                  {areaStat}
                 </li>
               ) : null}
             </ul>
@@ -357,7 +373,7 @@ export function HomepageSpotlightListing({
 
             <Link
               href={propertyHref}
-              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-[#6B9E6E] bg-transparent px-6 py-3 text-sm font-semibold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/8 sm:w-auto"
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1F3B2C] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#2C2C2C] sm:w-auto"
             >
               View listing
               <ArrowRight className="h-4 w-4" aria-hidden />
