@@ -3,7 +3,7 @@
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE public.profiles
   ADD CONSTRAINT profiles_role_check
-  CHECK (role IN ('admin', 'broker', 'agent', 'client', 'team_member', 'landlord'));
+  CHECK (role IN ('admin', 'ops_admin', 'broker', 'agent', 'client', 'team_member', 'landlord'));
 
 -- Inquiry workflow columns (table may already exist from create_dormspaces)
 ALTER TABLE public.dormspace_inquiries
@@ -32,20 +32,12 @@ CREATE POLICY dormspace_inquiries_select_landlord ON public.dormspace_inquiries
 
 -- Landlord can update inquiry status on their listings
 DROP POLICY IF EXISTS dormspace_inquiries_update_landlord ON public.dormspace_inquiries;
-CREATE POLICY dormspace_inquiries_update_landlord ON public.dormspace_inquiries
-  FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM public.dormspaces d
-      WHERE d.id = dormspace_id AND d.landlord_user_id = auth.uid()
-    )
-  );
+-- Inquiry mutations go through the landlord API route so status-only changes are enforced server-side.
 
 -- Landlord can manage their own listings (not only while pending)
 DROP POLICY IF EXISTS dormspaces_update_own_pending ON public.dormspaces;
 DROP POLICY IF EXISTS dormspaces_update_own_landlord ON public.dormspaces;
-CREATE POLICY dormspaces_update_own_landlord ON public.dormspaces
-  FOR UPDATE USING (landlord_user_id = auth.uid());
+-- Listing mutations go through the landlord API route to prevent direct moderation status changes.
 
 DROP POLICY IF EXISTS dormspaces_delete_own_landlord ON public.dormspaces;
-CREATE POLICY dormspaces_delete_own_landlord ON public.dormspaces
-  FOR DELETE USING (landlord_user_id = auth.uid());
+-- Listing deletes go through the landlord API route.

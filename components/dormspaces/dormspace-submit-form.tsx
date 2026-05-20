@@ -93,7 +93,7 @@ function FileDrop({
 export function DormspaceSubmitForm() {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
 
   const isLandlordSignedIn = Boolean(user && profile?.role === "landlord");
   const isStaffSignedIn = Boolean(
@@ -192,6 +192,10 @@ export function DormspaceSubmitForm() {
     } else {
       const first = firstName.trim();
       const last = lastName.trim();
+      if (isStaffSignedIn) {
+        setError("Sign out and create a separate landlord account to submit a dormspace listing.");
+        return;
+      }
       if (!first || !last) {
         setError("Please enter your first and last name.");
         return;
@@ -205,6 +209,10 @@ export function DormspaceSubmitForm() {
       }
       if (!phone) {
         setError("Please enter your phone number.");
+        return;
+      }
+      if (user?.email && email !== user.email.trim().toLowerCase()) {
+        setError("Use the email on your signed-in account, or sign out to submit with a different email.");
         return;
       }
     }
@@ -246,9 +254,6 @@ export function DormspaceSubmitForm() {
     if (needsPasswordOnSubmit && password) {
       fd.set("landlord_password", password);
     }
-    if (isStaffSignedIn) {
-      fd.set("landlord_role_conflict", "true");
-    }
 
     setBusy(true);
     try {
@@ -266,6 +271,7 @@ export function DormspaceSubmitForm() {
           return;
         }
       }
+      await refreshProfile();
 
       router.replace("/dormspaces/dashboard?welcome=1");
       router.refresh();
@@ -290,9 +296,7 @@ export function DormspaceSubmitForm() {
       {isStaffSignedIn && profile ? (
         <div className="rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-3.5 text-sm font-medium text-[#484848]">
           You&apos;re signed in as a <span className="font-bold text-[#2C2C2C]">{roleDisplayLabel(profile.role)}</span>.
-          Sign out and create a separate landlord account if you prefer, or continue as{" "}
-          <span className="font-bold text-[#2C2C2C]">{profile.full_name?.trim() || user?.email}</span>. This listing
-          will be linked to your current account — your dashboard may show a role notice.
+          Sign out and create a separate landlord account before submitting a dormspace listing.
         </div>
       ) : null}
 
@@ -508,7 +512,7 @@ export function DormspaceSubmitForm() {
             />
           </label>
         </Section>
-      ) : user && !isLandlordSignedIn ? (
+      ) : user && !isLandlordSignedIn && !isStaffSignedIn ? (
         <p className="rounded-xl border border-[#6B9E6E]/25 bg-[#6B9E6E]/10 px-4 py-3 text-sm font-medium text-[#484848]">
           Signed in as <span className="font-semibold text-[#2C2C2C]">{profile?.full_name ?? user.email}</span>.
           This listing will be linked to your account{profile?.role === "client" ? " and your role will update to landlord" : ""}.
