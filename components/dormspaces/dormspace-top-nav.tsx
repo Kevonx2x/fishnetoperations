@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, HelpCircle, LogOut, Menu, User, X } from "lucide-react";
+import { Bell, HelpCircle, Home, LogOut, Menu, User, X } from "lucide-react";
 
 import { DormspaceWelcomeLogo } from "@/components/dormspaces/dormspace-welcome-logo";
 import { useAuth } from "@/contexts/auth-context";
@@ -199,6 +199,14 @@ export function DormspaceTopNav({ activeTab = "listings", onSignOut, signOutBusy
                     >
                       <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
                       My Profile
+                    </Link>
+                    <Link
+                      href="/"
+                      className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                      onClick={() => setAccountOpen(false)}
+                    >
+                      <Home className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                      Go to BahayGo
                     </Link>
                     <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
                     <button
