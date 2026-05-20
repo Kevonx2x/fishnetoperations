@@ -86,6 +86,7 @@ import {
 } from "@/lib/homepage-marketplace-filters";
 import { HomepageFiltersSheet } from "@/components/marketplace/homepage-filters-sheet";
 import { HomepageExpandSearchCta } from "@/components/marketplace/homepage-results-surface";
+import { HomepageArticlesSection } from "@/components/marketplace/homepage-articles-section";
 import { HomepageSpotlightListing } from "@/components/marketplace/homepage-spotlight-listing";
 import { TopCondosRow } from "@/components/marketplace/top-condos-row";
 import { HomepageValueSlider } from "@/components/marketplace/homepage-value-slider";
@@ -2875,6 +2876,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         setOpenFaqIndex={setOpenFaqIndex}
         className="mt-6"
       />
+
+      <HomepageArticlesSection className="mt-2" />
 
       <AnimatePresence>
         {zoomProperty ? (

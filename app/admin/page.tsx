@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Eye, EyeOff, X } from "lucide-react";
 import { toast } from "sonner";
+import { ArticlesManagementSection } from "@/components/admin/articles-management-section";
 import { TeamManagementSection } from "@/components/admin/team-management-section";
 import { useAuth } from "@/contexts/auth-context";
 import { isAdminPanelRole, isFullAdminRole } from "@/lib/auth-roles";
@@ -517,6 +518,7 @@ export default function AdminPage() {
     | "vaReports"
     | "credentials"
     | "manual"
+    | "articles"
   >("leads");
 
   const [manualSubTab, setManualSubTab] = useState<ManualSubTab>("overview");
@@ -2434,6 +2436,19 @@ export default function AdminPage() {
             </span>
           </button>
           ) : null}
+          {isAdminSectionVisible("articles") ? (
+          <button
+            type="button"
+            onClick={() => setAdminSection("articles")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+              adminSection === "articles"
+                ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+            }`}
+          >
+            Articles
+          </button>
+          ) : null}
           {isAdminSectionVisible("verification") ? (
           <button
             type="button"
@@ -2646,6 +2661,19 @@ export default function AdminPage() {
               <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold tabular-nums">
                 {properties.length}
               </span>
+            </button>
+            ) : null}
+            {isAdminSectionVisible("articles") ? (
+            <button
+              type="button"
+              onClick={() => setAdminSection("articles")}
+              className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                adminSection === "articles"
+                  ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <span>Articles</span>
             </button>
             ) : null}
             {isAdminSectionVisible("verification") ? (
@@ -4522,6 +4550,10 @@ export default function AdminPage() {
               </div>
             ) : null}
           </div>
+        ) : null}
+
+        {adminSection === "articles" && isAdminPanelRole(profile?.role) ? (
+          <ArticlesManagementSection />
         ) : null}
 
         {adminSection === "teamManagement" && isAdminPanelRole(profile?.role) ? (

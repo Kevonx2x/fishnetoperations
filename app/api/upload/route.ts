@@ -1,6 +1,7 @@
 import { Readable } from "node:stream";
 import { v2 as cloudinary } from "cloudinary";
 import { getSessionProfile } from "@/lib/admin-api-auth";
+import { isAdminPanelRole } from "@/lib/auth-roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const ACCEPT = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -22,8 +23,10 @@ export async function POST(req: Request) {
   if (!session?.userId) {
     return Response.json({ error: "Sign in required" }, { status: 401 });
   }
-  if (session.role !== "agent" && session.role !== "broker" && session.role !== "admin") {
-    return Response.json({ error: "Only agents can upload listing images" }, { status: 403 });
+  const isAdmin = isAdminPanelRole(session.role);
+  const isAgentOrBroker = session.role === "agent" || session.role === "broker";
+  if (!isAdmin && !isAgentOrBroker) {
+    return Response.json({ error: "You do not have permission to upload images" }, { status: 403 });
   }
 
   const cfg = configureCloudinary();
@@ -54,16 +57,32 @@ export async function POST(req: Request) {
 
   const purposeRaw = String(formData.get("purpose") ?? "").trim().toLowerCase();
   const folderRaw = String(formData.get("folder") ?? "").trim();
+  const isArticleUpload =
+    purposeRaw === "article" || folderRaw === "bahaygo/articles";
+
   const isVerificationUpload =
     folderRaw === "bahaygo/verification" ||
     purposeRaw === "verification" ||
     purposeRaw === "prc" ||
     purposeRaw === "prc_verification";
 
-  const uploadFolder = isVerificationUpload ? "bahaygo/verification" : "bahaygo/properties";
+  if (isArticleUpload && !isAdmin) {
+    return Response.json({ error: "Only admins can upload article images" }, { status: 403 });
+  }
+
+  const uploadFolder = isArticleUpload
+    ? "bahaygo/articles"
+    : isVerificationUpload
+      ? "bahaygo/verification"
+      : "bahaygo/properties";
 
   const propertyIdRaw = String(formData.get("property_id") ?? "").trim();
-  if (!isVerificationUpload && uploadFolder === "bahaygo/properties" && propertyIdRaw) {
+  if (
+    !isVerificationUpload &&
+    !isArticleUpload &&
+    uploadFolder === "bahaygo/properties" &&
+    propertyIdRaw
+  ) {
     const sb = await createSupabaseServerClient();
     const { data: propRow, error: propErr } = await sb
       .from("properties")

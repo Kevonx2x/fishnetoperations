@@ -4,6 +4,17 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 
 ---
 
+## 2026-05-20 12:00 — Create articles table
+
+**Migration file:** supabase/migrations/20260520120000_create_articles.sql
+**Executed by:** TJ (pending)
+**Status:** Pending
+**Tables affected:** articles
+**Summary:** Articles & guides for `/blog`, homepage featured cards, and Admin → Articles CRUD.
+**Rollback notes:** `DROP TABLE IF EXISTS public.articles CASCADE;`
+
+---
+
 ## 2026-05-19 12:00 — Create agency_inquiries table
 
 **Migration file:** supabase/migrations/20260519120000_create_agency_inquiries.sql
