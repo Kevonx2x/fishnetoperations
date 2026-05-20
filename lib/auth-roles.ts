@@ -51,3 +51,22 @@ export function isProfileRole(r: string): r is ProfileRole {
 export function isLandlordRole(role: string | null | undefined): boolean {
   return role === "landlord";
 }
+
+/** Staff roles that must never be upgraded to landlord via dormspace submit. */
+export const DORMSPACE_SUBMIT_BLOCKED_ROLES: readonly ProfileRole[] = [
+  "agent",
+  "broker",
+  "admin",
+  "team_member",
+  "ops_admin",
+];
+
+export function isDormspaceSubmitBlockedRole(role: string | null | undefined): boolean {
+  if (!role) return false;
+  return (DORMSPACE_SUBMIT_BLOCKED_ROLES as readonly string[]).includes(role);
+}
+
+/** Only clients (or profiles with no role yet) may be promoted to landlord on submit. */
+export function canUpgradeToLandlordOnSubmit(role: string | null | undefined): boolean {
+  return role == null || role === "client";
+}

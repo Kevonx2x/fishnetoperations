@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload } from "lucide-react";
+import { ImagePlus, Upload, X } from "lucide-react";
 
 import { GooglePlacesInput, type GooglePlaceSelectedPayload } from "@/components/forms/google-places-input";
 import { useAuth } from "@/contexts/auth-context";
-import type { ProfileRole } from "@/lib/auth-roles";
+import {
+  isDormspaceSubmitBlockedRole,
+  type ProfileRole,
+} from "@/lib/auth-roles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   DORMSPACE_AMENITIES,
@@ -90,15 +93,160 @@ function FileDrop({
   );
 }
 
+const LISTING_PHOTO_MIN = 3;
+const LISTING_PHOTO_MAX = 10;
+
+function ListingPhotosDrop({
+  photos,
+  onPhotos,
+}: {
+  photos: File[];
+  onPhotos: (files: File[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const previews = useMemo(
+    () => photos.map((file) => ({ file, url: URL.createObjectURL(file) })),
+    [photos],
+  );
+
+  useEffect(() => {
+    return () => {
+      for (const p of previews) URL.revokeObjectURL(p.url);
+    };
+  }, [previews]);
+
+  const mergeFiles = useCallback(
+    (list: FileList | File[]) => {
+      const incoming = Array.from(list).filter((f) => f.type.startsWith("image/"));
+      if (!incoming.length) return;
+      onPhotos([...photos, ...incoming].slice(0, LISTING_PHOTO_MAX));
+    },
+    [onPhotos, photos],
+  );
+
+  const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) mergeFiles(e.target.files);
+    e.target.value = "";
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    if (e.dataTransfer.files?.length) mergeFiles(e.dataTransfer.files);
+  };
+
+  const removeAt = (index: number) => {
+    onPhotos(photos.filter((_, i) => i !== index));
+  };
+
+  const canAdd = photos.length < LISTING_PHOTO_MAX;
+  const countOk = photos.length >= LISTING_PHOTO_MIN;
+
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-[#525252]">
+        Listing photos *
+        <span className="ml-1.5 normal-case font-medium text-[#888888]">
+          ({LISTING_PHOTO_MIN}–{LISTING_PHOTO_MAX} images)
+        </span>
+      </p>
+
+      {previews.length > 0 ? (
+        <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {previews.map((p, i) => (
+            <li
+              key={`${p.file.name}-${p.file.size}-${i}`}
+              className="group relative aspect-square overflow-hidden rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] shadow-sm"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.url} alt="" className="size-full object-cover" />
+              <button
+                type="button"
+                onClick={() => removeAt(i)}
+                className="absolute right-1.5 top-1.5 flex size-7 items-center justify-center rounded-full bg-[#2C2C2C]/75 text-white opacity-0 shadow transition group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                aria-label={`Remove photo ${i + 1}`}
+              >
+                <X className="size-3.5" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {canAdd ? (
+        <label
+          className={`mt-3 flex min-h-[148px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition ${
+            dragOver
+              ? "border-[#6B9E6E] bg-[#6B9E6E]/8 ring-4 ring-[#6B9E6E]/15"
+              : "border-[#2C2C2C]/15 bg-[#FAF8F4] hover:border-[#6B9E6E]/45 hover:bg-[#6B9E6E]/5"
+          }`}
+          onDragEnter={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "copy";
+          }}
+          onDrop={onDrop}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="sr-only"
+            onChange={onPick}
+          />
+          <div className="flex items-center gap-2 text-[#6B9E6E]">
+            <Upload className="size-7" aria-hidden />
+            <ImagePlus className="size-7" aria-hidden />
+          </div>
+          <span className="text-sm font-bold text-[#2C2C2C]">
+            {photos.length === 0 ? "Click or drag photos here" : "Add more photos"}
+          </span>
+          <span className="max-w-xs text-xs font-medium text-[#888888]">
+            JPG, PNG, or WebP · room, bathroom, and common areas
+          </span>
+          <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-[#525252] shadow-sm">
+            {photos.length} / {LISTING_PHOTO_MAX} added
+          </span>
+        </label>
+      ) : (
+        <p className="mt-3 rounded-xl border border-[#DDDDDD] bg-[#FAF8F4] px-4 py-3 text-center text-xs font-medium text-[#525252]">
+          Maximum {LISTING_PHOTO_MAX} photos reached. Remove one to add another.
+        </p>
+      )}
+
+      <p
+        className={`mt-2 text-xs font-medium ${
+          countOk ? "text-[#6B9E6E]" : photos.length > 0 ? "text-amber-700" : "text-[#888888]"
+        }`}
+      >
+        {photos.length === 0
+          ? `Add at least ${LISTING_PHOTO_MIN} clear photos so renters can see your space.`
+          : countOk
+            ? `${photos.length} photos ready — looks good.`
+            : `Add ${LISTING_PHOTO_MIN - photos.length} more photo${LISTING_PHOTO_MIN - photos.length === 1 ? "" : "s"} (minimum ${LISTING_PHOTO_MIN}).`}
+      </p>
+    </div>
+  );
+}
+
 export function DormspaceSubmitForm() {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { user, profile } = useAuth();
 
   const isLandlordSignedIn = Boolean(user && profile?.role === "landlord");
-  const isStaffSignedIn = Boolean(
-    user && profile?.role && STAFF_ROLES.includes(profile.role as ProfileRole),
-  );
+  const isRoleBlocked = Boolean(user && profile?.role && isDormspaceSubmitBlockedRole(profile.role));
   const showPersonalInfo = !isLandlordSignedIn;
   const showAccountSection = !user;
   const needsPasswordOnSubmit = showAccountSection;
@@ -124,6 +272,7 @@ export function DormspaceSubmitForm() {
   const [password, setPassword] = useState("");
   const [emailExists, setEmailExists] = useState<boolean | null>(null);
   const [checkingEmail, setCheckingEmail] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -173,9 +322,27 @@ export function DormspaceSubmitForm() {
     }
   }, []);
 
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    setError("");
+    try {
+      await supabase.auth.signOut();
+      router.replace("/dormspaces/submit");
+      router.refresh();
+    } catch {
+      setError("Could not sign out. Please try again.");
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
+
+    if (isRoleBlocked) {
+      return;
+    }
 
     let email = "";
     let phone = "";
@@ -207,6 +374,15 @@ export function DormspaceSubmitForm() {
         setError("Please enter your phone number.");
         return;
       }
+    }
+
+    if (photos.length < LISTING_PHOTO_MIN) {
+      setError(`Please add at least ${LISTING_PHOTO_MIN} listing photos.`);
+      return;
+    }
+    if (photos.length > LISTING_PHOTO_MAX) {
+      setError(`Maximum ${LISTING_PHOTO_MAX} listing photos.`);
+      return;
     }
 
     if (needsPasswordOnSubmit) {
@@ -246,16 +422,18 @@ export function DormspaceSubmitForm() {
     if (needsPasswordOnSubmit && password) {
       fd.set("landlord_password", password);
     }
-    if (isStaffSignedIn) {
-      fd.set("landlord_role_conflict", "true");
-    }
 
     setBusy(true);
     try {
       const res = await fetch("/api/dormspaces/submit", { method: "POST", body: fd });
-      const json = (await res.json()) as { id?: string; error?: string | { message?: string } };
+      const json = (await res.json()) as {
+        id?: string;
+        error?: string | { code?: string; message?: string };
+        success?: boolean;
+      };
       if (!res.ok) {
-        const msg = typeof json.error === "string" ? json.error : json.error?.message;
+        const err = json.error;
+        const msg = typeof err === "string" ? err : err?.message;
         setError(msg ?? "Submission failed");
         return;
       }
@@ -287,12 +465,24 @@ export function DormspaceSubmitForm() {
         </div>
       ) : null}
 
-      {isStaffSignedIn && profile ? (
-        <div className="rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-3.5 text-sm font-medium text-[#484848]">
-          You&apos;re signed in as a <span className="font-bold text-[#2C2C2C]">{roleDisplayLabel(profile.role)}</span>.
-          Sign out and create a separate landlord account if you prefer, or continue as{" "}
-          <span className="font-bold text-[#2C2C2C]">{profile.full_name?.trim() || user?.email}</span>. This listing
-          will be linked to your current account — your dashboard may show a role notice.
+      {isRoleBlocked && profile ? (
+        <div
+          role="alert"
+          className="rounded-2xl border-2 border-amber-400/80 bg-amber-50 px-4 py-4 text-sm font-medium text-[#484848]"
+        >
+          <p className="text-[#2C2C2C]">
+            You&apos;re signed in as an{" "}
+            <span className="font-bold">{roleDisplayLabel(profile.role)}</span>. To list a dormspace, please sign out
+            and create a separate landlord account using a different email.
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleSignOut()}
+            disabled={signingOut}
+            className="mt-3 rounded-xl border border-[#2C2C2C]/15 bg-white px-4 py-2 text-sm font-bold text-[#2C2C2C] shadow-sm transition hover:bg-[#FAF8F4] disabled:opacity-60"
+          >
+            {signingOut ? "Signing out…" : "Sign out"}
+          </button>
         </div>
       ) : null}
 
@@ -468,19 +658,7 @@ export function DormspaceSubmitForm() {
       </Section>
 
       <Section title={`${sectionNum++}. Photos (3–10)`}>
-        <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-          Listing photos *
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            className="mt-2 block w-full text-sm text-[#484848]"
-            onChange={(e) => setPhotos(Array.from(e.target.files ?? []))}
-          />
-          {photos.length > 0 ? (
-            <p className="mt-2 text-xs font-medium text-[#525252]">{photos.length} file(s) selected</p>
-          ) : null}
-        </label>
+        <ListingPhotosDrop photos={photos} onPhotos={setPhotos} />
       </Section>
 
       {showAccountSection ? (
@@ -519,8 +697,8 @@ export function DormspaceSubmitForm() {
 
       <button
         type="submit"
-        disabled={busy}
-        className="w-full rounded-xl bg-[#6B9E6E] py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] disabled:opacity-60"
+        disabled={busy || isRoleBlocked}
+        className="w-full rounded-xl bg-[#6B9E6E] py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-45"
       >
         {busy
           ? "Submitting…"

@@ -3,7 +3,11 @@ import { Resend } from "resend";
 import { z } from "zod";
 
 import { getSessionProfile } from "@/lib/admin-api-auth";
-import { isLandlordRole } from "@/lib/auth-roles";
+import {
+  canUpgradeToLandlordOnSubmit,
+  isDormspaceSubmitBlockedRole,
+  isLandlordRole,
+} from "@/lib/auth-roles";
 import { fail } from "@/lib/api/response";
 import {
   signedVerificationUrl,
@@ -27,8 +31,17 @@ function parseNum(v: FormDataEntryValue | null): number | null {
 }
 
 export async function POST(req: Request) {
-  const form = await req.formData();
   const session = await getSessionProfile();
+
+  if (session && isDormspaceSubmitBlockedRole(session.role)) {
+    return fail(
+      "role_conflict",
+      "Agents, brokers, and admins cannot create dormspace listings under their existing accounts. Please use a separate landlord account.",
+      403,
+    );
+  }
+
+  const form = await req.formData();
 
   let landlord_name = String(form.get("landlord_name") ?? "").trim();
   let landlord_email = String(form.get("landlord_email") ?? "").trim();
@@ -127,8 +140,12 @@ export async function POST(req: Request) {
     if (existingProfile?.id) {
       if (session && session.userId === existingProfile.id) {
         landlordUserId = session.userId;
-        if (!isLandlordRole(existingProfile.role as string)) {
-          await admin.from("profiles").update({ role: "landlord" }).eq("id", session.userId);
+        if (canUpgradeToLandlordOnSubmit(existingProfile.role as string)) {
+          await admin
+            .from("profiles")
+            .update({ role: "landlord" })
+            .eq("id", session.userId)
+            .or("role.eq.client,role.is.null");
         }
       } else {
         return fail(
@@ -180,8 +197,16 @@ export async function POST(req: Request) {
   } else if (!landlordUserId && session?.userId) {
     landlordUserId = session.userId;
     const sessionEmail = session.email?.trim().toLowerCase();
-    if (sessionEmail && sessionEmail === emailLower && !isLandlordRole(session.role)) {
-      await admin.from("profiles").update({ role: "landlord" }).eq("id", session.userId);
+    if (
+      sessionEmail &&
+      sessionEmail === emailLower &&
+      canUpgradeToLandlordOnSubmit(session.role)
+    ) {
+      await admin
+        .from("profiles")
+        .update({ role: "landlord" })
+        .eq("id", session.userId)
+        .or("role.eq.client,role.is.null");
     }
   }
 
