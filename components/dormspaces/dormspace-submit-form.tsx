@@ -131,7 +131,7 @@ export function DormspaceSubmitForm() {
     setFirstName(first);
     setLastName(last);
     setLandlordPhone(profile.phone?.trim() ?? "");
-  }, [profile?.full_name, profile?.phone, profile?.id]);
+  }, [profile]);
 
   useEffect(() => {
     if (user?.email && showPersonalInfo) {
