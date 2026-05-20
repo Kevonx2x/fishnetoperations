@@ -3,16 +3,17 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   className?: string;
+  href?: string;
 };
 
 /**
  * BahayGo + dormspacers stacked lockup — used only on /dormspaces/* welcome surfaces.
  * Parent wordmark unchanged; sub-brand tag sits beneath "bahaygo", left-aligned.
  */
-export function DormspaceWelcomeLogo({ className }: Props) {
+export function DormspaceWelcomeLogo({ className, href = "/dormspaces" }: Props) {
   return (
     <Link
-      href="/dormspaces"
+      href={href}
       className={cn(
         "inline-flex shrink-0 items-start gap-2 leading-none transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FAF8F4]",
         className,

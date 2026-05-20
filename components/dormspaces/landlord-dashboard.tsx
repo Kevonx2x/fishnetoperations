@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, LogOut, Mail, Plus } from "lucide-react";
+import { Loader2, Mail, Plus } from "lucide-react";
 
+import { DormspaceTopNav } from "@/components/dormspaces/dormspace-top-nav";
 import { useAuth } from "@/contexts/auth-context";
 import {
   dormspaceInquiryStatusLabel,
@@ -86,6 +87,7 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
   const [accountEmail, setAccountEmail] = useState("");
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountSaved, setAccountSaved] = useState(false);
+  const [signOutBusy, setSignOutBusy] = useState(false);
 
   const loadListings = useCallback(async () => {
     setLoadingListings(true);
@@ -151,6 +153,12 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
       /* ignore */
     }
   }, []);
+
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "inquiries" || t === "account") setTab(t);
+    else setTab("listings");
+  }, [searchParams]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -236,9 +244,14 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    router.replace("/dormspaces");
-    router.refresh();
+    setSignOutBusy(true);
+    try {
+      await supabase.auth.signOut();
+      router.replace("/dormspaces");
+      router.refresh();
+    } finally {
+      setSignOutBusy(false);
+    }
   };
 
   if (authLoading || !user || profile?.role !== "landlord") {
@@ -249,39 +262,13 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
     );
   }
 
-  const displayName = profile.full_name?.trim() || user.email?.split("@")[0] || "Landlord";
+  const hasPendingListings = listings.some((l) => l.status === "pending");
 
   return (
     <div className="min-h-screen bg-[#FAF8F4]">
-      <header className="border-b border-[#2C2C2C]/10 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="font-serif text-lg font-bold text-[#2C2C2C]">
-              BahayGo
-            </Link>
-            <span className="hidden text-sm font-semibold text-[#484848] sm:inline">Dormspace Dashboard</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-sm font-semibold text-[#2C2C2C] sm:inline">{displayName}</span>
-            <button
-              type="button"
-              onClick={() => void signOut()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#2C2C2C]/12 px-3 py-1.5 text-xs font-bold text-[#484848] hover:bg-[#FAF8F4]"
-            >
-              <LogOut className="size-3.5" aria-hidden />
-              Log out
-            </button>
-          </div>
-        </div>
-      </header>
+      <DormspaceTopNav activeTab={tab} onSignOut={() => void signOut()} signOutBusy={signOutBusy} />
 
       <div className="mx-auto max-w-5xl px-4 py-6">
-        {welcome ? (
-          <div className="mb-6 rounded-2xl border border-[#6B9E6E]/30 bg-[#6B9E6E]/10 px-4 py-3 text-sm font-medium text-[#2C2C2C]">
-            Welcome to your Dormspace dashboard. Your listing is live with pending verification — manage inquiries here.
-          </div>
-        ) : null}
-
         <nav className="mb-6 flex gap-2 border-b border-[#2C2C2C]/10">
           {(
             [
@@ -310,6 +297,13 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
 
         {tab === "listings" ? (
           <div>
+            {welcome || hasPendingListings ? (
+              <p className="mb-4 rounded-lg border border-[#6B9E6E]/25 bg-[#6B9E6E]/10 px-3 py-2 text-sm font-medium text-[#484848]">
+                {welcome
+                  ? "Welcome! Your listing is submitted — we'll verify your ID and billing proof shortly."
+                  : "Listings marked pending are under review — we'll notify you when they go live."}
+              </p>
+            ) : null}
             <div className="mb-4 flex items-center justify-between gap-3">
               <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">My Listings</h1>
               <Link
