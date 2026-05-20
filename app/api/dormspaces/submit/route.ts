@@ -30,9 +30,15 @@ export async function POST(req: Request) {
   const form = await req.formData();
   const session = await getSessionProfile();
 
-  const landlord_name = String(form.get("landlord_name") ?? "").trim();
-  const landlord_email = String(form.get("landlord_email") ?? "").trim();
-  const landlord_phone = String(form.get("landlord_phone") ?? "").trim();
+  let landlord_name = String(form.get("landlord_name") ?? "").trim();
+  let landlord_email = String(form.get("landlord_email") ?? "").trim();
+  let landlord_phone = String(form.get("landlord_phone") ?? "").trim();
+
+  const firstName = String(form.get("landlord_first_name") ?? "").trim();
+  const lastName = String(form.get("landlord_last_name") ?? "").trim();
+  if (!landlord_name && (firstName || lastName)) {
+    landlord_name = `${firstName} ${lastName}`.trim();
+  }
   const title = String(form.get("title") ?? "").trim();
   const description = String(form.get("description") ?? "").trim() || null;
   const room_type = String(form.get("room_type") ?? "").trim();
@@ -94,10 +100,22 @@ export async function POST(req: Request) {
 
   const admin = createSupabaseAdmin();
   const password = String(form.get("landlord_password") ?? "").trim();
-  const emailLower = landlord_email.trim().toLowerCase();
 
   let landlordUserId: string | null =
     session && isLandlordRole(session.role) ? session.userId : null;
+
+  if (session && isLandlordRole(session.role)) {
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("full_name, email, phone")
+      .eq("id", session.userId)
+      .maybeSingle();
+    if (!landlord_name) landlord_name = prof?.full_name?.trim() ?? "";
+    if (!landlord_email) landlord_email = (prof?.email ?? session.email ?? "").trim();
+    if (!landlord_phone) landlord_phone = prof?.phone?.trim() ?? "";
+  }
+
+  const emailLower = landlord_email.trim().toLowerCase();
 
   if (!landlordUserId && password.length >= 8) {
     const { data: existingProfile } = await admin
