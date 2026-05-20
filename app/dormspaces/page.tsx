@@ -16,7 +16,7 @@ export default async function DormspacesPage() {
   const { data, error } = await supabase
     .from("dormspaces")
     .select("*, dormspace_photos(id, url, display_order, created_at)")
-    .eq("status", "approved")
+    .in("status", ["pending", "approved"])
     .order("created_at", { ascending: false });
 
   const listings = (error ? [] : (data ?? [])) as DormspaceWithPhotos[];

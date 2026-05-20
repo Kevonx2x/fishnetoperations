@@ -95,7 +95,7 @@ ALTER TABLE public.dormspace_photos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.dormspace_inquiries ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY dormspaces_select_public ON public.dormspaces
-  FOR SELECT USING (status = 'approved');
+  FOR SELECT USING (status IN ('pending', 'approved'));
 
 CREATE POLICY dormspaces_select_own ON public.dormspaces
   FOR SELECT USING (landlord_user_id = auth.uid());
@@ -113,7 +113,10 @@ CREATE POLICY dormspaces_update_own_pending ON public.dormspaces
 
 CREATE POLICY dormspace_photos_select_public ON public.dormspace_photos
   FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.dormspaces WHERE id = dormspace_id AND status = 'approved')
+    EXISTS (
+      SELECT 1 FROM public.dormspaces
+      WHERE id = dormspace_id AND status IN ('pending', 'approved')
+    )
   );
 
 CREATE POLICY dormspace_photos_select_own ON public.dormspace_photos

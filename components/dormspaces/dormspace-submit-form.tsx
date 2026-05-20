@@ -73,6 +73,7 @@ export function DormspaceSubmitForm() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [submittedListingId, setSubmittedListingId] = useState<string | null>(null);
 
   const onPlace = useCallback((p: GooglePlaceSelectedPayload) => {
     setAddress(p.location);
@@ -107,12 +108,13 @@ export function DormspaceSubmitForm() {
     setBusy(true);
     try {
       const res = await fetch("/api/dormspaces/submit", { method: "POST", body: fd });
-      const json = (await res.json()) as { error?: string | { message?: string } };
+      const json = (await res.json()) as { id?: string; error?: string | { message?: string } };
       if (!res.ok) {
         const msg = typeof json.error === "string" ? json.error : json.error?.message;
         setError(msg ?? "Submission failed");
         return;
       }
+      setSubmittedListingId(json.id ?? null);
       setSuccess(true);
       form.reset();
       setPhotos([]);
@@ -131,16 +133,26 @@ export function DormspaceSubmitForm() {
         <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-[#6B9E6E]/15">
           <Check className="size-7 text-[#6B9E6E]" />
         </div>
-        <h2 className="mt-4 font-serif text-2xl font-bold text-[#2C2C2C]">Submission received</h2>
-        <p className="mt-2 text-sm font-medium leading-relaxed text-[#484848]">
-          Thanks — your listing is under review. We&apos;ll email you within 48 hours.
+        <h2 className="mt-4 font-serif text-2xl font-bold text-[#2C2C2C]">Your dormspace is now live!</h2>
+        <p className="mt-3 text-sm font-medium leading-relaxed text-[#484848]">
+          Your listing is visible with a &apos;Pending verification&apos; badge. We&apos;ll review your ID and proof
+          of billing within 48 hours and flip your listing to &apos;Verified Landlord&apos; once confirmed.
         </p>
-        <Link
-          href="/dormspaces"
-          className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white"
-        >
-          Back to Dormspaces
-        </Link>
+        {submittedListingId ? (
+          <Link
+            href={`/dormspaces/${submittedListingId}`}
+            className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
+          >
+            View my listing →
+          </Link>
+        ) : (
+          <Link
+            href="/dormspaces"
+            className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white"
+          >
+            Browse dormspaces
+          </Link>
+        )}
       </div>
     );
   }

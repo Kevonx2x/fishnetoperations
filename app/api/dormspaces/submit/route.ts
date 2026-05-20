@@ -4,7 +4,11 @@ import { z } from "zod";
 
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { fail } from "@/lib/api/response";
-import { uploadDormspaceListingPhoto, uploadDormspaceVerificationFile } from "@/lib/dormspace-storage";
+import {
+  signedVerificationUrl,
+  uploadDormspaceListingPhoto,
+  uploadDormspaceVerificationFile,
+} from "@/lib/dormspace-storage";
 import { RESEND_FROM } from "@/lib/resend-from";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -129,9 +133,12 @@ export async function POST(req: Request) {
 
   const dormspaceId = inserted.id as string;
 
+  let landlord_id_url: string;
+  let proof_of_billing_url: string;
+
   try {
-    const landlord_id_url = await uploadDormspaceVerificationFile(admin, dormspaceId, "id", idFile);
-    const proof_of_billing_url = await uploadDormspaceVerificationFile(admin, dormspaceId, "billing", billingFile);
+    landlord_id_url = await uploadDormspaceVerificationFile(admin, dormspaceId, "id", idFile);
+    proof_of_billing_url = await uploadDormspaceVerificationFile(admin, dormspaceId, "billing", billingFile);
 
     await admin.from("dormspaces").update({ landlord_id_url, proof_of_billing_url }).eq("id", dormspaceId);
 
@@ -155,14 +162,28 @@ export async function POST(req: Request) {
   if (process.env.RESEND_API_KEY) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
-      const adminLink = `${process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://bahaygo.com"}/admin`;
+      const siteBase = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://bahaygo.com";
+      const adminLink = `${siteBase}/admin`;
+      const listingLink = `${siteBase}/dormspaces/${dormspaceId}`;
+      const idSigned = await signedVerificationUrl(admin, landlord_id_url);
+      const billingSigned = await signedVerificationUrl(admin, proof_of_billing_url);
+      const esc = (s: string) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
       await resend.emails.send({
         from: RESEND_FROM,
-        to: "support@bahaygo.com",
+        to: "ron.business101@gmail.com",
         subject: `New dormspace submission — ${title}`,
-        html: `<p>A new dormspace listing is pending review.</p>
-          <p><strong>${title}</strong> by ${landlord_name} (${landlord_email})</p>
-          <p><a href="${adminLink}">Open admin</a> → Dormspace Submissions</p>`,
+        html: `<p>A new dormspace listing is live with <strong>Pending verification</strong> status.</p>
+          <p><strong>${esc(title)}</strong></p>
+          <p>Landlord: ${esc(landlord_name)} · ${esc(landlord_email)} · ${esc(landlord_phone)}</p>
+          <p>Monthly: ₱${esc(String(monthly_price))} · Room: ${esc(room_type)}</p>
+          <p>Address: ${esc(address)}</p>
+          <p><a href="${esc(listingLink)}">View public listing</a> · <a href="${esc(adminLink)}">Open admin</a> (Dormspace Submissions)</p>
+          <p><strong>Verification documents</strong> (links expire in 1 hour):</p>
+          <ul>
+            ${idSigned ? `<li><a href="${esc(idSigned)}">Valid ID</a></li>` : "<li>ID link unavailable</li>"}
+            ${billingSigned ? `<li><a href="${esc(billingSigned)}">Proof of billing</a></li>` : "<li>Billing link unavailable</li>"}
+          </ul>`,
       });
     } catch (e) {
       console.warn("[dormspaces/submit] admin email failed", e);

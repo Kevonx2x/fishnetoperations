@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (listErr) return fail("SERVER_ERROR", "Could not load listing", 500);
-  if (!listing || listing.status !== "approved") {
+  if (!listing || (listing.status !== "approved" && listing.status !== "pending")) {
     return fail("NOT_FOUND", "Dormspace not found", 404);
   }
 

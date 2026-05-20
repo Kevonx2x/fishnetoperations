@@ -4,6 +4,17 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 
 ---
 
+## 2026-05-21 14:00 — Dormspaces: show pending listings publicly
+
+**Migration file:** supabase/migrations/20260521140000_dormspaces_allow_pending_visible.sql
+**Executed by:** TJ (pending)
+**Status:** Pending
+**Tables affected:** dormspaces, dormspace_photos (RLS policies only)
+**Summary:** Public browse/detail can read `pending` and `approved` listings; rejected/archived stay hidden. Photos policy updated to match.
+**Rollback notes:** Restore `dormspaces_select_public` to `status = 'approved'` only; restore photos policy likewise (see prior migration).
+
+---
+
 ## 2026-05-21 12:00 — Create dormspaces tables
 
 **Migration file:** supabase/migrations/20260521120000_create_dormspaces.sql

@@ -19,6 +19,7 @@ import {
 import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 
 import { DormspaceContactModal } from "@/components/dormspaces/dormspace-contact-modal";
+import { DormspaceVerificationBadge } from "@/components/dormspaces/dormspace-verification-badge";
 import {
   activeDormspaceAmenities,
   dormspaceGenderLabel,
@@ -114,7 +115,12 @@ export function DormspaceDetailView({ listing }: { listing: DormspaceWithPhotos 
                 {dormspaceGenderLabel(listing.gender_preference)}
               </span>
             </div>
-            <h1 className="mt-3 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">{listing.title}</h1>
+            <div className="mt-3 flex flex-wrap items-start gap-3 gap-y-2">
+              <h1 className="min-w-0 flex-1 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">
+                {listing.title}
+              </h1>
+              <DormspaceVerificationBadge status={listing.status} />
+            </div>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-[#484848]">
               <MapPin className="size-4 shrink-0 text-[#6B9E6E]" aria-hidden />
               {dormspaceLocationLine(listing)}
@@ -169,9 +175,15 @@ export function DormspaceDetailView({ listing }: { listing: DormspaceWithPhotos 
           </div>
 
           <aside className="h-fit rounded-2xl border border-[#DDDDDD] bg-[#FAF8F4] p-5">
-            <div className="flex items-center gap-2 text-sm font-bold text-[#2C2C2C]">
-              <BadgeCheck className="size-5 text-[#D4A843]" aria-hidden />
-              Verified landlord
+            <div className="flex flex-wrap items-center gap-2">
+              {listing.status === "approved" ? (
+                <div className="flex items-center gap-2 text-sm font-bold text-[#2C2C2C]">
+                  <BadgeCheck className="size-5 text-[#D4A843]" aria-hidden />
+                  Verified landlord
+                </div>
+              ) : (
+                <p className="text-sm font-semibold text-[#5c5c5c]">Landlord (verification in progress)</p>
+              )}
             </div>
             <p className="mt-2 text-sm font-medium text-[#484848]">{listing.landlord_name}</p>
             <button

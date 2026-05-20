@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AirVent, Droplets, Shield, UtensilsCrossed, Wifi, WashingMachine, Zap } from "lucide-react";
 
+import { DormspaceVerificationBadge } from "@/components/dormspaces/dormspace-verification-badge";
 import {
   activeDormspaceAmenities,
   dormspaceLocationLine,
@@ -45,7 +46,10 @@ export function DormspaceCard({ listing }: { listing: DormspaceWithPhotos }) {
         </span>
       </div>
       <div className="flex flex-1 flex-col p-4">
-        <p className="text-lg font-bold text-[#D4A843]">{formatDormspacePrice(listing.monthly_price)}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-lg font-bold text-[#D4A843]">{formatDormspacePrice(listing.monthly_price)}</p>
+          <DormspaceVerificationBadge status={listing.status} />
+        </div>
         <h3 className="mt-1 line-clamp-2 font-serif text-base font-semibold leading-snug text-[#2C2C2C]">
           {listing.title}
         </h3>

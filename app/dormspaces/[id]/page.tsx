@@ -8,7 +8,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.from("dormspaces").select("title").eq("id", id).eq("status", "approved").maybeSingle();
+  const { data } = await supabase
+    .from("dormspaces")
+    .select("title")
+    .eq("id", id)
+    .in("status", ["pending", "approved"])
+    .maybeSingle();
   return {
     title: data?.title ? `${data.title} | Dormspaces` : "Dormspace | BahayGo",
   };
@@ -22,7 +27,7 @@ export default async function DormspaceDetailPage({ params }: { params: Promise<
     .from("dormspaces")
     .select("*, dormspace_photos(id, url, display_order, created_at)")
     .eq("id", id)
-    .eq("status", "approved")
+    .in("status", ["pending", "approved"])
     .maybeSingle();
 
   if (error || !data) notFound();
