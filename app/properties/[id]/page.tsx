@@ -636,7 +636,7 @@ export default function PropertyPage() {
                       </div>
                     ) : (
                       <div className="flex min-h-[200px] items-center justify-center rounded-2xl bg-gray-100">
-                        <p className="text-sm font-medium text-gray-500">No photos available</p>
+                        <p className="text-sm font-medium text-fg-muted">No photos available</p>
                       </div>
                     )
                   ) : (

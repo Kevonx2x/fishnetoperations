@@ -118,7 +118,7 @@ function ClientDashboardTabsInner() {
       {panel === "overview" ? (
         <>
           <h1 className="font-serif text-3xl font-semibold tracking-tight text-[#2C2C2C] md:text-4xl">Overview</h1>
-          <p className="mt-2 max-w-2xl text-sm font-medium text-[#888888] md:text-base">
+          <p className="mt-2 max-w-2xl text-sm font-medium text-fg-muted md:text-base">
             Welcome back. Here you&apos;ll soon see recent activity, upcoming viewings, and suggested listings. For
             now, open your pipeline to track deals or browse the marketplace from{" "}
             <span className="font-semibold text-[#2C2C2C]/70">Back to site</span>.
@@ -131,7 +131,7 @@ function ClientDashboardTabsInner() {
             >
               <p className="text-xs font-bold uppercase tracking-wider text-[#6B9E6E]">My Properties</p>
               <p className="mt-2 font-serif text-lg font-semibold text-[#2C2C2C]">Track your inquiries</p>
-              <p className="mt-1 text-sm text-[#888888]">Viewings, documents, and status per property.</p>
+              <p className="mt-1 text-sm text-fg-muted">Viewings, documents, and status per property.</p>
             </button>
             <Link
               href="/"
@@ -139,7 +139,7 @@ function ClientDashboardTabsInner() {
             >
               <p className="text-xs font-bold uppercase tracking-wider text-[#D4A843]">Marketplace</p>
               <p className="mt-2 font-serif text-lg font-semibold text-[#2C2C2C]">Browse listings</p>
-              <p className="mt-1 text-sm text-[#888888]">Return to the main BahayGo site.</p>
+              <p className="mt-1 text-sm text-fg-muted">Return to the main BahayGo site.</p>
             </Link>
           </div>
         </>

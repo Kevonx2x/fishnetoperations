@@ -346,7 +346,7 @@ export function ClientNotificationsPageContent() {
                 if (!list.length) return null;
                 return (
                   <section key={bucket} className="mb-6 last:mb-0">
-                    <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <h2 className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
                       {BUCKET_LABEL[bucket]}
                     </h2>
                     <ul className="mt-3">
@@ -376,7 +376,7 @@ export function ClientNotificationsPageContent() {
                                 ) : null}
                               </div>
                               <div className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-fg-muted">
                                   {formatDashboardRelativeTimeManila(n.created_at)}
                                 </span>
                                 {unread ? (
@@ -395,7 +395,7 @@ export function ClientNotificationsPageContent() {
                 );
               })}
               {hasMoreHint ? (
-                <p className="mt-4 text-center text-xs font-medium text-gray-500">Scroll to see more</p>
+                <p className="mt-4 text-center text-xs font-medium text-fg-muted">Scroll to see more</p>
               ) : null}
             </div>
           )}

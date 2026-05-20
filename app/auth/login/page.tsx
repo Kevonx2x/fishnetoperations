@@ -94,7 +94,7 @@ function LoginForm() {
       <ContinueWithGoogleButton onError={setError} />
       <AuthGoogleDivider />
       <form onSubmit={submit} className="space-y-4">
-        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+        <label className="block text-xs font-medium uppercase tracking-wide text-fg-muted">
           Email
           <input
             type="email"
@@ -105,7 +105,7 @@ function LoginForm() {
             className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
           />
         </label>
-        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+        <label className="block text-xs font-medium uppercase tracking-wide text-fg-muted">
           Password
           <input
             type="password"
@@ -138,7 +138,7 @@ function LoginForm() {
           {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>
-      <p className="mt-3 text-center text-sm text-gray-500">
+      <p className="mt-3 text-center text-sm text-fg-muted">
         No account?{" "}
         <Link href="/auth/signup" className="font-medium text-gray-900 underline">
           Create one

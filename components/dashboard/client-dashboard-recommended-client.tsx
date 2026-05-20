@@ -6,6 +6,7 @@ import { Bath, Bed, ChevronRight, Heart, Maximize2 } from "lucide-react";
 
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { usePinnedPropertyIds } from "@/hooks/use-property-engagement";
+import { BAHAYGO_CARD } from "@/lib/bahaygo-typography";
 import { cn } from "@/lib/utils";
 
 export type RecommendedPropertyCardModel = {
@@ -52,7 +53,7 @@ export function ClientDashboardRecommendedClient(props: { items: RecommendedProp
   if (!props.items.length) return null;
 
   return (
-    <section className="rounded-2xl bg-white p-4 ring-1 ring-[#2C2C2C]/[0.045] md:p-5">
+    <section className={`${BAHAYGO_CARD} p-4 md:p-5`}>
       <div className="flex items-start justify-between gap-3">
         <h2 className="font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] md:text-xl">Recommended for you</h2>
         <Link href="/" className="shrink-0 text-sm font-semibold text-[#6B9E6E] hover:underline">
@@ -89,9 +90,9 @@ export function ClientDashboardRecommendedClient(props: { items: RecommendedProp
                 </div>
                 <Link href={href} className="block p-2.5">
                   <p className="truncate text-sm font-medium text-[#2C2C2C]">{p.name?.trim() || "Property"}</p>
-                  <p className="mt-0.5 truncate text-xs text-gray-600">{cityLine}</p>
+                  <p className="mt-0.5 truncate text-xs text-text-secondary">{cityLine}</p>
                   <p className="mt-1.5 text-sm font-semibold text-[#D4A843]">{priceLabel}</p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
                     <span className="inline-flex items-center gap-1">
                       <Bed className="size-3.5 shrink-0" aria-hidden />
                       {p.beds}
@@ -114,7 +115,7 @@ export function ClientDashboardRecommendedClient(props: { items: RecommendedProp
           type="button"
           aria-label="Scroll recommendations right"
           onClick={() => scrollBy(1)}
-          className="absolute right-0 top-1/2 z-[1] flex size-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 shadow-sm transition hover:bg-[#FAF8F4]"
+          className="absolute right-0 top-1/2 z-[1] flex size-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#2C2C2C]/10 bg-white text-[#404040] shadow-sm transition hover:bg-[#FAF8F4]"
         >
           <ChevronRight className="size-5" aria-hidden />
         </button>

@@ -112,7 +112,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
   return (
     <>
       {gateLoading ? (
-        <div className="flex min-h-screen items-center justify-center bg-[#FAF8F4] text-sm font-semibold text-[#2C2C2C]/60">
+        <div className="flex min-h-screen items-center justify-center bg-[#FAF8F4] text-sm font-medium text-[#484848]">
           <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#6B9E6E]" />
           Loading…
         </div>
@@ -144,10 +144,10 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                 <ClientAvatar name={displayName} avatarUrl={avatarUrl} sizePx={36} textClassName="text-xs" ringClassName="ring-1 ring-[#2C2C2C]/10" />
                 <div className="min-w-0">
                   <p className="truncate text-[13px] font-medium leading-tight text-[#2C2C2C]">{displayName}</p>
-                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#2C2C2C]/42">Client account</p>
+                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#525252]">Client account</p>
                 </div>
               </div>
-              <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/38">Workspace</p>
+              <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#525252]">Workspace</p>
               <nav className="flex flex-1 flex-col gap-0.5">
                 {SIDEBAR_NAV.map((t) => {
                   const active = isSidebarActivePath(pathname, t.segment);
@@ -160,13 +160,13 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                         "relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition",
                         active
                           ? "bg-white text-[#2C2C2C] shadow-[0_1px_2px_rgba(44,44,44,0.05)]"
-                          : "text-[#2C2C2C]/58 hover:bg-white/60 hover:text-[#2C2C2C]",
+                          : "text-[#484848] hover:bg-white/60 hover:text-[#2C2C2C]",
                       )}
                     >
                       {active ? (
                         <span className="absolute bottom-2 left-0 top-2 w-0.5 rounded-full bg-[#6B9E6E]" aria-hidden />
                       ) : null}
-                      <span className={cn("relative inline-flex", active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45")}>
+                      <span className={cn("relative inline-flex", active ? "text-[#6B9E6E]" : "text-[#525252]")}>
                         <Icon className="h-[17px] w-[17px]" aria-hidden />
                         {t.segment === "dashboard" && streamMessagesUnreadTotal > 0 ? (
                           <span
@@ -192,7 +192,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
               </nav>
               <Link
                 href="/"
-                className="mt-auto border-t border-[#2C2C2C]/[0.06] px-2 pt-4 text-[12px] font-medium text-[#2C2C2C]/48 transition hover:text-[#2C2C2C]"
+                className="mt-auto border-t border-[#2C2C2C]/[0.06] px-2 pt-4 text-[12px] font-medium text-[#525252] transition hover:text-[#2C2C2C]"
               >
                 Back to marketplace
               </Link>
@@ -220,7 +220,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                   href={t.href}
                   className={cn(
                     "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[9px] font-bold sm:text-[10px]",
-                    active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45",
+                    active ? "text-[#6B9E6E]" : "text-[#525252]",
                   )}
                 >
                   {t.segment === "messages" && streamMessagesUnreadTotal > 0 ? (
@@ -234,7 +234,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                     </span>
                   ) : null}
                   <span className="relative inline-flex">
-                    <span className={active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
+                    <span className={active ? "text-[#6B9E6E]" : "text-[#525252]"}>
                       <Icon className="h-5 w-5" aria-hidden />
                     </span>
                     {t.segment === "home" && streamMessagesUnreadTotal > 0 ? (

@@ -4939,7 +4939,7 @@ export function AgentPipelineTab({
                 ))}
                 {reqDocSelections.other ? (
                   <div className="mt-2 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-3">
-                    <label className="block text-xs font-bold uppercase tracking-wide text-[#888888]">
+                    <label className="block text-xs font-bold uppercase tracking-wide text-fg-muted">
                       Custom name (required)
                     </label>
                     <input

@@ -179,7 +179,7 @@ export default function SignupPage() {
       <AuthGoogleDivider />
       <form onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+          <label className="block text-xs font-medium uppercase tracking-wide text-fg-muted">
             First name
             <input
               required
@@ -189,7 +189,7 @@ export default function SignupPage() {
               className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
             />
           </label>
-          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+          <label className="block text-xs font-medium uppercase tracking-wide text-fg-muted">
             Last name
             <input
               required
@@ -200,7 +200,7 @@ export default function SignupPage() {
             />
           </label>
         </div>
-        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+        <label className="block text-xs font-medium uppercase tracking-wide text-fg-muted">
           Email
           <input
             type="email"
@@ -211,7 +211,7 @@ export default function SignupPage() {
             className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
           />
         </label>
-        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+        <label className="block text-xs font-medium uppercase tracking-wide text-fg-muted">
           Password
           <input
             type="password"
@@ -262,7 +262,7 @@ export default function SignupPage() {
           {busy ? "Creating…" : "Create account"}
         </button>
       </form>
-      <p className="mt-6 text-center text-sm text-gray-500">
+      <p className="mt-6 text-center text-sm text-fg-muted">
         Already have an account?{" "}
         <Link href="/auth/login" className="font-medium text-gray-900 underline">
           Sign in

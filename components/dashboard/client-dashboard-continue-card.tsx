@@ -2,8 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { GitBranch, Home } from "lucide-react";
 
+import { BAHAYGO_CARD } from "@/lib/bahaygo-typography";
+
 const forest = "#1a3d2c";
-const forestMuted = "#3d5a4a";
 
 /**
  * Featured hero band — strong vertical mass, wide padding, visible illustration rail (placeholder ok).
@@ -11,7 +12,7 @@ const forestMuted = "#3d5a4a";
 export function ClientDashboardContinueCard() {
   return (
     <section
-      className="flex w-full min-h-0 flex-col rounded-2xl bg-[#F6F9F6] shadow-none ring-1 ring-[#2C2C2C]/[0.045]"
+      className={`flex w-full min-h-0 flex-col overflow-hidden ${BAHAYGO_CARD} bg-[#F4F8F4]`}
       aria-labelledby="client-dashboard-continue-heading"
     >
       <div className="grid min-h-0 w-full flex-1 grid-cols-1 gap-6 px-6 py-6 text-left sm:gap-8 sm:px-8 sm:py-7 md:gap-8 lg:grid-cols-[3fr_2fr] lg:items-stretch lg:gap-8 lg:px-10 lg:py-7 xl:px-12">
@@ -25,8 +26,7 @@ export function ClientDashboardContinueCard() {
             Pick up where you left off
           </h1>
           <p
-            className="mt-4 max-w-2xl text-base leading-relaxed sm:text-lg lg:mt-5"
-            style={{ color: forestMuted }}
+            className="mt-4 max-w-2xl text-base font-normal leading-relaxed text-[#2f4a3a] sm:text-lg lg:mt-5"
           >
             Continue your home search, track deals, or check new updates.
           </p>

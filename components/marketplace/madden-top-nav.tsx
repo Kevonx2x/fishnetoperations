@@ -99,7 +99,7 @@ function NavLanguageRow({
             "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none transition",
             uiLanguage === "en"
               ? "bg-[#6B9E6E] text-white"
-              : "bg-transparent text-[#2C2C2C]/60 ring-1 ring-inset ring-[#2C2C2C]/25",
+              : "bg-transparent text-[#484848] ring-1 ring-inset ring-[#2C2C2C]/25",
           )}
         >
           <span aria-hidden>🇺🇸</span>
@@ -112,7 +112,7 @@ function NavLanguageRow({
             "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none transition",
             uiLanguage === "fil"
               ? "bg-[#6B9E6E] text-white"
-              : "bg-transparent text-[#2C2C2C]/60 ring-1 ring-inset ring-[#2C2C2C]/25",
+              : "bg-transparent text-[#484848] ring-1 ring-inset ring-[#2C2C2C]/25",
           )}
         >
           <span aria-hidden>🇵🇭</span>
@@ -197,7 +197,7 @@ function NavDropdownMenu({ label, entries }: { label: string; entries: NavDropdo
     <div className="relative" onMouseEnter={onEnter} onMouseLeave={onLeave}>
       <button
         type="button"
-        className="flex items-center gap-1 rounded-lg px-1 py-0.5 text-sm font-semibold text-[#2C2C2C]/70 transition hover:text-[#2C2C2C]"
+        className="flex items-center gap-1 rounded-lg px-1 py-0.5 text-sm font-semibold text-[#404040] transition hover:text-[#2C2C2C]"
         aria-expanded={open}
       >
         {label}
@@ -547,7 +547,7 @@ export function MaddenTopNav() {
           </Link>
         </div>
 
-        <nav className="hidden min-w-0 justify-self-center sm:flex items-center gap-5 text-sm font-semibold text-[#2C2C2C]/70 md:gap-6">
+        <nav className="hidden min-w-0 justify-self-center sm:flex items-center gap-5 text-sm font-semibold text-[#404040] md:gap-6">
           <NavDropdownMenu label="Agents" entries={agentsEntries} />
           <NavDropdownMenu label="Agencies" entries={agenciesEntries} />
           <NavDropdownMenu label="Landmarks" entries={landmarksItems} />
@@ -650,7 +650,7 @@ export function MaddenTopNav() {
                       role="menu"
                     >
                       <div className="px-3 pb-2 pt-1">
-                        <p className="truncate text-sm font-semibold text-[#2C2C2C]/45">
+                        <p className="truncate text-sm font-semibold text-[#525252]">
                           {profile?.full_name?.trim() || "Member"}
                         </p>
                         <p className="mt-0.5 truncate text-xs text-[#2C2C2C]/40">{user.email ?? ""}</p>
@@ -877,7 +877,7 @@ export function MaddenTopNav() {
             <button
               type="button"
               onClick={closeMobileNav}
-              className="rounded-lg p-2 text-[#2C2C2C]/70 hover:bg-[#FAF8F4]"
+              className="rounded-lg p-2 text-[#404040] hover:bg-[#FAF8F4]"
               aria-label="Close menu"
             >
               <X className="h-5 w-5" />

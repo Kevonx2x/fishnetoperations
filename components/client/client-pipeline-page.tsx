@@ -791,15 +791,15 @@ function PipelineNextStepHighlight({
 function PipelineColumnHeaders() {
   return (
     <div className={cn("grid", PIPELINE_ROW_GRID)} aria-hidden>
-      <span className="text-xs font-medium uppercase tracking-wide text-gray-500">Property</span>
+      <span className="text-xs font-medium uppercase tracking-wide text-fg-muted">Property</span>
       <div className="flex min-w-0 items-center justify-end px-0.5 font-sans">
         <div className="ml-auto w-[min(100%,18rem)] min-w-0">
-          <span className="block text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+          <span className="block text-left text-xs font-medium uppercase tracking-wide text-fg-muted">
             Stage progress
           </span>
         </div>
       </div>
-      <span className="min-w-0 truncate text-xs font-medium uppercase tracking-wide text-gray-500">
+      <span className="min-w-0 truncate text-xs font-medium uppercase tracking-wide text-fg-muted">
         Next step
       </span>
       <span className="sr-only">Actions</span>

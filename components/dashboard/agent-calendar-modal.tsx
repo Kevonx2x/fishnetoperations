@@ -113,7 +113,7 @@ export function AgentCalendarModal(props: { open: boolean; onClose: () => void }
             <button
               type="button"
               onClick={props.onClose}
-              className="absolute right-3 top-3 z-30 rounded-md p-1.5 text-[#888888] transition hover:text-[#2C2C2C] md:right-4 md:top-4"
+              className="absolute right-3 top-3 z-30 rounded-md p-1.5 text-fg-muted transition hover:text-[#2C2C2C] md:right-4 md:top-4"
               aria-label="Close"
             >
               <X className="h-4 w-4" strokeWidth={2} />
@@ -124,7 +124,7 @@ export function AgentCalendarModal(props: { open: boolean; onClose: () => void }
                 <button
                   type="button"
                   onClick={() => setWeekStartYmd((s) => manilaCalendarAddDays(s, -7))}
-                  className="shrink-0 rounded-full p-1.5 text-[#888888] transition hover:bg-gray-50 hover:text-[#2C2C2C]"
+                  className="shrink-0 rounded-full p-1.5 text-fg-muted transition hover:bg-gray-50 hover:text-[#2C2C2C]"
                   aria-label="Previous week"
                 >
                   <ChevronLeft className="h-5 w-5" aria-hidden />
@@ -138,7 +138,7 @@ export function AgentCalendarModal(props: { open: boolean; onClose: () => void }
                 <button
                   type="button"
                   onClick={() => setWeekStartYmd((s) => manilaCalendarAddDays(s, 7))}
-                  className="shrink-0 rounded-full p-1.5 text-[#888888] transition hover:bg-gray-50 hover:text-[#2C2C2C]"
+                  className="shrink-0 rounded-full p-1.5 text-fg-muted transition hover:bg-gray-50 hover:text-[#2C2C2C]"
                   aria-label="Next week"
                 >
                   <ChevronRight className="h-5 w-5" aria-hidden />
@@ -184,7 +184,7 @@ export function AgentCalendarModal(props: { open: boolean; onClose: () => void }
                           )}
                           <div
                             className={cn(
-                              "text-[10px] font-semibold uppercase tracking-widest text-[#888888]/70",
+                              "text-[10px] font-semibold uppercase tracking-widest text-fg-muted/70",
                               isHighlighted && "text-[#2C2C2C]",
                             )}
                           >
@@ -204,7 +204,7 @@ export function AgentCalendarModal(props: { open: boolean; onClose: () => void }
                     {hours.map((h) => (
                       <div
                         key={h}
-                        className="border-t border-gray-100 pr-2 text-right text-[10px] font-medium leading-none text-[#888888]"
+                        className="border-t border-gray-100 pr-2 text-right text-[10px] font-medium leading-none text-fg-muted"
                         style={{ height: HOUR_ROW_PX, paddingTop: 2 }}
                       >
                         {manilaHourTickLabel(h)}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Calendar, Home } from "lucide-react";
 
 import { ClientDashboardUnreadMessagesStatTile } from "@/components/dashboard/client-dashboard-unread-messages-stat-tile";
+import { BAHAYGO_CARD, BAHAYGO_CARD_HOVER, BAHAYGO_TEXT_TERTIARY } from "@/lib/bahaygo-typography";
 import { fetchClientDealStats, fetchClientViewingsTodayManila } from "@/lib/client-dashboard-stats";
 import { manilaTimeLabel12hFromInstant } from "@/lib/manila-datetime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -60,7 +61,7 @@ export default async function ClientDashboardStatTiles() {
           <div className="flex min-w-0 flex-1 flex-col">
             <p className="text-2xl font-semibold leading-tight tracking-tight text-[#2C2C2C]">{dealsBlock.num}</p>
             <p className="mt-0.5 text-sm font-medium text-[#2C2C2C]">Active deals</p>
-            <p className="mt-1 text-xs text-gray-500">{dealsBlock.sub}</p>
+            <p className={`mt-1 text-xs font-normal ${BAHAYGO_TEXT_TERTIARY}`}>{dealsBlock.sub}</p>
           </div>
         </div>
       </Link>
@@ -76,7 +77,7 @@ export default async function ClientDashboardStatTiles() {
           <div className="flex min-w-0 flex-1 flex-col">
             <p className="text-2xl font-semibold leading-tight tracking-tight text-[#2C2C2C]">{viewBlock.num}</p>
             <p className="mt-0.5 text-sm font-medium text-[#2C2C2C]">Viewing today</p>
-            <p className="mt-1 text-xs text-gray-500">{viewBlock.sub}</p>
+            <p className={`mt-1 text-xs font-normal ${BAHAYGO_TEXT_TERTIARY}`}>{viewBlock.sub}</p>
           </div>
         </div>
       </Link>

@@ -35,10 +35,10 @@ function SiteFooter() {
             <div className="font-serif text-xl font-bold tracking-tight text-[#2C2C2C]">
               BahayGo
             </div>
-            <div className="mt-0.5 text-[11px] font-semibold tracking-[0.18em] text-[#2C2C2C]/50">
+            <div className="mt-0.5 text-[11px] font-semibold tracking-[0.18em] text-[#4a4a4a]">
               FIND YOUR HOME
             </div>
-            <p className="mt-3 max-w-sm text-sm font-semibold text-[#2C2C2C]/55">
+            <p className="mt-3 max-w-sm text-sm font-semibold text-[#484848]">
               Verified agents. Licensed brokers. Anti-scam protection.
             </p>
           </div>
@@ -58,7 +58,7 @@ function SiteFooter() {
               <a className="block hover:text-[#2C2C2C]" href="/saved">Saved</a>
             </div>
             <div className="space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#525252]">
                 Support
               </p>
               <a
@@ -70,7 +70,7 @@ function SiteFooter() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-[#2C2C2C]/55">
+          <div className="flex items-center gap-3 text-[#484848]">
             <a className="rounded-full border border-black/10 bg-white p-2 hover:bg-[#FAF8F4]" href="#" aria-label="Website">
               <Globe className="h-4 w-4" />
             </a>
@@ -86,7 +86,7 @@ function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col gap-2 border-t border-[#2C2C2C]/10 pt-6 text-xs font-semibold text-[#2C2C2C]/50 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-10 flex flex-col gap-2 border-t border-[#2C2C2C]/10 pt-6 text-xs font-semibold text-[#4a4a4a] sm:flex-row sm:items-center sm:justify-between">
           <span>© 2026 BahayGo. All rights reserved.</span>
           <span>Safe discovery for luxury homes.</span>
         </div>

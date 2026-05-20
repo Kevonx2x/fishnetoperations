@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import type { NotificationListItem } from "@/components/notifications/notification-list";
+import { BAHAYGO_CARD, BAHAYGO_TEXT_META, BAHAYGO_TEXT_SECONDARY, BAHAYGO_TEXT_TERTIARY } from "@/lib/bahaygo-typography";
 import { viewingRequestNotificationDisplay } from "@/components/notifications/notification-list";
 import { formatDashboardRelativeTimeManila } from "@/lib/dashboard-relative-time-manila";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -44,11 +45,11 @@ function activityDisplayLine(n: NotificationListItem): string {
 
 function BodyWithOptionalBold({ text, actor }: { text: string; actor?: string | null }) {
   const a = actor?.trim();
-  if (!a || !text) return <span className="text-sm leading-snug text-[#2C2C2C]/80">{text}</span>;
+  if (!a || !text) return <span className={`text-sm font-normal leading-snug ${BAHAYGO_TEXT_SECONDARY}`}>{text}</span>;
   const idx = text.indexOf(a);
-  if (idx === -1) return <span className="text-sm leading-snug text-[#2C2C2C]/80">{text}</span>;
+  if (idx === -1) return <span className={`text-sm font-normal leading-snug ${BAHAYGO_TEXT_SECONDARY}`}>{text}</span>;
   return (
-    <span className="text-sm leading-snug text-[#2C2C2C]/80">
+    <span className={`text-sm font-normal leading-snug ${BAHAYGO_TEXT_SECONDARY}`}>
       {text.slice(0, idx)}
       <strong className="font-semibold text-[#2C2C2C]">{a}</strong>
       {text.slice(idx + a.length)}
@@ -69,7 +70,7 @@ export default async function ClientDashboardRecentActivity(props: { userId: str
   const rows = (error ? [] : (data ?? [])) as NotificationListItem[];
 
   return (
-    <section className="rounded-2xl bg-white p-4 ring-1 ring-[#2C2C2C]/[0.045] md:p-5">
+    <section className={`${BAHAYGO_CARD} p-4 md:p-5`}>
       <div className="flex items-start justify-between gap-3">
         <h2 className="font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] md:text-xl">Recent Activity</h2>
         <Link href="/dashboard/client/notifications" className="shrink-0 text-sm font-semibold text-[#6B9E6E] hover:underline">
@@ -78,7 +79,7 @@ export default async function ClientDashboardRecentActivity(props: { userId: str
       </div>
 
       {rows.length === 0 ? (
-        <p className="mt-5 text-center text-sm font-medium leading-relaxed text-[#2C2C2C]/55">
+        <p className={`mt-5 text-center text-sm font-normal leading-relaxed ${BAHAYGO_TEXT_SECONDARY}`}>
           No activity yet. Start by browsing properties or messaging an agent.
         </p>
       ) : (
@@ -98,7 +99,7 @@ export default async function ClientDashboardRecentActivity(props: { userId: str
                   <BodyWithOptionalBold text={line} actor={actor} />
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
-                  <span className="text-xs font-medium tabular-nums text-[#2C2C2C]/45">
+                  <span className={`text-xs font-normal tabular-nums ${BAHAYGO_TEXT_META}`}>
                     {formatDashboardRelativeTimeManila(n.created_at)}
                   </span>
                   {unread ? (

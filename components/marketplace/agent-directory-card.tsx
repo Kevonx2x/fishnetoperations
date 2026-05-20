@@ -79,7 +79,7 @@ export function AgentDirectoryCard({
             <div className="mt-2 flex w-full items-center justify-between gap-2 px-0.5">
               <p className="line-clamp-2 min-w-0 flex-1 text-left text-sm font-semibold text-[#2C2C2C]">{agent.name}</p>
               {scoreRight ? (
-                <span className="flex shrink-0 items-center gap-0.5 text-xs text-gray-500">
+                <span className="flex shrink-0 items-center gap-0.5 text-xs text-fg-muted">
                   ⭐ {scoreRight}
                 </span>
               ) : null}
@@ -93,9 +93,9 @@ export function AgentDirectoryCard({
             </span>
           ) : null}
           {!scoreBesideName ? (
-            <p className="mt-2 text-xs text-center text-gray-500">Score {formatAgentScore(agent.score)}</p>
+            <p className="mt-2 text-xs text-center text-fg-muted">Score {formatAgentScore(agent.score)}</p>
           ) : null}
-          <p className={cn("text-xs text-center text-gray-500", scoreBesideName ? "mt-2" : "mt-0.5")}>
+          <p className={cn("text-xs text-center text-fg-muted", scoreBesideName ? "mt-2" : "mt-0.5")}>
             {agent.closings} closings
           </p>
         </div>
@@ -116,7 +116,7 @@ export function AgentDirectoryCard({
             <BadgeCheck className="h-4 w-4 shrink-0 text-[#D4A843]" aria-label="Verified" />
           ) : null}
           {scoreBesideName && scoreRight ? (
-            <span className="flex shrink-0 items-center gap-0.5 text-xs text-gray-500">
+            <span className="flex shrink-0 items-center gap-0.5 text-xs text-fg-muted">
               ⭐ {scoreRight}
             </span>
           ) : !scoreBesideName ? (
@@ -146,7 +146,7 @@ export function AgentDirectoryCard({
             <div className="flex w-full max-w-full items-center justify-between gap-2 px-1">
               <p className="line-clamp-1 min-w-0 flex-1 text-left text-base font-semibold text-[#2C2C2C]">{agent.name}</p>
               {scoreRight ? (
-                <span className="flex shrink-0 items-center gap-0.5 text-xs text-gray-500">
+                <span className="flex shrink-0 items-center gap-0.5 text-xs text-fg-muted">
                   ⭐ {scoreRight}
                 </span>
               ) : null}

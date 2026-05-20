@@ -11,7 +11,7 @@ export default function ClientDashboardProfilePage() {
       <h1 className="font-serif text-3xl font-semibold tracking-tight text-[#2C2C2C] md:text-4xl">
         Profile
       </h1>
-      <p className="mt-2 max-w-2xl text-sm font-medium text-[#888888] md:text-base">
+      <p className="mt-2 max-w-2xl text-sm font-medium text-fg-muted md:text-base">
         Manage your account, saved properties, and preferences. Your public profile and activity
         feed stay on your BahayGo client page.
       </p>
@@ -22,7 +22,7 @@ export default function ClientDashboardProfilePage() {
             className="block rounded-2xl border border-[#2C2C2C]/10 bg-white px-5 py-4 text-sm font-semibold text-[#2C2C2C] shadow-sm transition hover:border-[#6B9E6E]/40"
           >
             Pipeline →
-            <span className="mt-1 block text-xs font-normal text-[#888888]">
+            <span className="mt-1 block text-xs font-normal text-fg-muted">
               Viewings, documents, and next steps for each property you&apos;re pursuing
             </span>
           </Link>
@@ -33,14 +33,14 @@ export default function ClientDashboardProfilePage() {
             className="block rounded-2xl border border-[#2C2C2C]/10 bg-white px-5 py-4 text-sm font-semibold text-[#2C2C2C] shadow-sm transition hover:border-[#6B9E6E]/40"
           >
             Account &amp; settings →
-            <span className="mt-1 block text-xs font-normal text-[#888888]">
+            <span className="mt-1 block text-xs font-normal text-fg-muted">
               Profile details, notifications, and preferences
             </span>
           </Link>
         </li>
         <li>
           {loading || !user?.id ? (
-            <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-5 py-4 text-sm text-[#888888]">
+            <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white px-5 py-4 text-sm text-fg-muted">
               Loading…
             </div>
           ) : (
@@ -49,7 +49,7 @@ export default function ClientDashboardProfilePage() {
               className="block rounded-2xl border border-[#2C2C2C]/10 bg-white px-5 py-4 text-sm font-semibold text-[#2C2C2C] shadow-sm transition hover:border-[#6B9E6E]/40"
             >
               My profile &amp; saved properties →
-              <span className="mt-1 block text-xs font-normal text-[#888888]">
+              <span className="mt-1 block text-xs font-normal text-fg-muted">
                 Activity feed, wishlist, and likes on your client page
               </span>
             </Link>

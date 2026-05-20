@@ -416,7 +416,7 @@ function verificationColumnClass(v: string | null | undefined): string {
   if (v === "pending") return "text-amber-700";
   if (v === "rejected") return "text-red-700";
   if (v === "suspended") return "text-red-800";
-  return "text-gray-500";
+  return "text-fg-muted";
 }
 
 function docQueueBadgeClass(v: string | null | undefined): string {
@@ -2993,7 +2993,7 @@ export default function AdminPage() {
         {adminSection === "leads" && (
           <>
             <div className="flex items-center justify-between mb-6">
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-fg-muted">
                 {leads.length} total leads
               </span>
               <button
@@ -3036,7 +3036,7 @@ export default function AdminPage() {
                   className={`${stat.color} rounded-2xl border border-gray-200 p-4`}
                 >
                   <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  <p className="text-sm text-gray-500">{stat.label}</p>
+                  <p className="text-sm text-fg-muted">{stat.label}</p>
                 </div>
               ))}
             </div>
@@ -3049,7 +3049,7 @@ export default function AdminPage() {
                   className={`rounded-full px-4 py-1.5 text-sm font-medium capitalize transition-all ${
                     filter === f
                       ? "bg-gray-900 text-white"
-                      : "bg-white text-gray-500 border border-gray-200 hover:border-gray-400"
+                      : "bg-white text-fg-muted border border-gray-200 hover:border-gray-400"
                   }`}
                 >
                   {f}
@@ -3091,7 +3091,7 @@ export default function AdminPage() {
                         <td className="px-6 py-4 text-sm text-gray-600">
                           {lead.property_interest}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                        <td className="px-6 py-4 text-sm text-fg-muted max-w-xs truncate">
                           {lead.message}
                         </td>
                         <td className="px-6 py-4 text-xs text-gray-400">
@@ -3130,7 +3130,7 @@ export default function AdminPage() {
         {adminSection === "properties" && (
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-fg-muted">
                 {propertiesLoading
                   ? "Loading properties..."
                   : `${properties.length} listing${properties.length === 1 ? "" : "s"} in Supabase`}
@@ -3173,7 +3173,7 @@ export default function AdminPage() {
                 {editingId ? "Edit property" : "New property"}
               </h2>
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-fg-muted">
                   Location
                   <input
                     required
@@ -3184,7 +3184,7 @@ export default function AdminPage() {
                     className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400"
                   />
                 </label>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-fg-muted">
                   Price (display)
                   <input
                     required
@@ -3196,7 +3196,7 @@ export default function AdminPage() {
                     className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400"
                   />
                 </label>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-fg-muted">
                   Sqft (display)
                   <input
                     required
@@ -3208,7 +3208,7 @@ export default function AdminPage() {
                     className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400"
                   />
                 </label>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-fg-muted">
                   Image URL
                   <input
                     required
@@ -3219,7 +3219,7 @@ export default function AdminPage() {
                     className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400"
                   />
                 </label>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-fg-muted">
                   Beds
                   <input
                     required
@@ -3232,7 +3232,7 @@ export default function AdminPage() {
                     className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400"
                   />
                 </label>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-fg-muted">
                   Baths
                   <input
                     required
@@ -3246,7 +3246,7 @@ export default function AdminPage() {
                   />
                 </label>
                 {editingId ? (
-                  <label className="block text-xs font-medium text-gray-500 sm:col-span-2">
+                  <label className="block text-xs font-medium text-fg-muted sm:col-span-2">
                     Availability (manual)
                     <select
                       value={propertyForm.availability_state}
@@ -3315,7 +3315,7 @@ export default function AdminPage() {
               ) : (
                 <table className="w-full">
                   <thead className="border-b border-gray-100 bg-gray-50/80">
-                    <tr className="text-left text-xs text-gray-500 uppercase tracking-wide">
+                    <tr className="text-left text-xs text-fg-muted uppercase tracking-wide">
                       <th className="px-4 py-3">Location</th>
                       <th className="px-4 py-3">Price</th>
                       <th className="px-4 py-3">Sqft</th>
@@ -3412,7 +3412,7 @@ export default function AdminPage() {
         {adminSection === "verification" && (
           <div className="space-y-10">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-fg-muted">
                 Approve or reject broker and agent applications. Decisions notify the applicant.
               </p>
               <button
@@ -3447,7 +3447,7 @@ export default function AdminPage() {
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
                 Pending agencies
-                <span className="ml-2 text-sm font-normal text-gray-500">
+                <span className="ml-2 text-sm font-normal text-fg-muted">
                   ({pendingAgencies.length})
                 </span>
               </h2>
@@ -3459,7 +3459,7 @@ export default function AdminPage() {
                 ) : (
                   <table className="w-full">
                     <thead className="border-b border-gray-100 bg-gray-50/80">
-                      <tr className="text-left text-xs text-gray-500 uppercase tracking-wide">
+                      <tr className="text-left text-xs text-fg-muted uppercase tracking-wide">
                         <th className="px-4 py-3">Company</th>
                         <th className="px-4 py-3">Contact</th>
                         <th className="px-4 py-3">License</th>
@@ -3473,21 +3473,21 @@ export default function AdminPage() {
                           <tr className="hover:bg-gray-50/80 align-top">
                             <td className="px-4 py-3 text-sm font-medium text-gray-900">
                               {b.company_name}
-                              <p className="text-xs font-normal text-gray-500">{b.name}</p>
+                              <p className="text-xs font-normal text-fg-muted">{b.name}</p>
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
                               {b.email}
                               {b.phone && (
-                                <p className="text-xs text-gray-500">{b.phone}</p>
+                                <p className="text-xs text-fg-muted">{b.phone}</p>
                               )}
                             </td>
                             <td className="px-4 py-3 text-xs text-gray-600">
                               {b.license_number}
                               {b.license_expiry && (
-                                <p className="text-gray-500">exp {b.license_expiry}</p>
+                                <p className="text-fg-muted">exp {b.license_expiry}</p>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-xs text-gray-500">
+                            <td className="px-4 py-3 text-xs text-fg-muted">
                               {new Date(b.created_at).toLocaleDateString("en-PH")}
                             </td>
                             <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -3556,7 +3556,7 @@ export default function AdminPage() {
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
                 Pending agents
-                <span className="ml-2 text-sm font-normal text-gray-500">
+                <span className="ml-2 text-sm font-normal text-fg-muted">
                   ({pendingAgents.length})
                 </span>
               </h2>
@@ -3568,7 +3568,7 @@ export default function AdminPage() {
                 ) : (
                   <table className="w-full">
                     <thead className="border-b border-gray-100 bg-gray-50/80">
-                      <tr className="text-left text-xs text-gray-500 uppercase tracking-wide">
+                      <tr className="text-left text-xs text-fg-muted uppercase tracking-wide">
                         <th className="px-4 py-3">Name</th>
                         <th className="px-4 py-3">Contact</th>
                         <th className="px-4 py-3">License</th>
@@ -3586,16 +3586,16 @@ export default function AdminPage() {
                             <td className="px-4 py-3 text-sm text-gray-700">
                               {a.email}
                               {a.phone && (
-                                <p className="text-xs text-gray-500">{a.phone}</p>
+                                <p className="text-xs text-fg-muted">{a.phone}</p>
                               )}
                             </td>
                             <td className="px-4 py-3 text-xs text-gray-600">
                               {a.license_number}
                               {a.license_expiry && (
-                                <p className="text-gray-500">exp {a.license_expiry}</p>
+                                <p className="text-fg-muted">exp {a.license_expiry}</p>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-xs text-gray-500 font-mono">
+                            <td className="px-4 py-3 text-xs text-fg-muted font-mono">
                               {a.agency_id ?? "—"}
                             </td>
                             <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -3663,11 +3663,11 @@ export default function AdminPage() {
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
                 Document Verification Queue
-                <span className="ml-2 text-sm font-normal text-gray-500">
+                <span className="ml-2 text-sm font-normal text-fg-muted">
                   ({documentQueueAgents.length})
                 </span>
               </h2>
-              <p className="mb-3 text-sm text-gray-500">
+              <p className="mb-3 text-sm text-fg-muted">
                 Approved agents waiting on PRC / identity document review (verification_status pending or rejected).
               </p>
               <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
@@ -3678,7 +3678,7 @@ export default function AdminPage() {
                 ) : (
                   <table className="w-full">
                     <thead className="border-b border-gray-100 bg-gray-50/80">
-                      <tr className="text-left text-xs text-gray-500 uppercase tracking-wide">
+                      <tr className="text-left text-xs text-fg-muted uppercase tracking-wide">
                         <th className="px-4 py-3">Name</th>
                         <th className="px-4 py-3">Contact</th>
                         <th className="px-4 py-3">PRC (masked)</th>
@@ -3692,7 +3692,7 @@ export default function AdminPage() {
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">{a.name}</td>
                           <td className="px-4 py-3 text-sm text-gray-700">
                             {a.email}
-                            {a.phone ? <p className="text-xs text-gray-500">{a.phone}</p> : null}
+                            {a.phone ? <p className="text-xs text-fg-muted">{a.phone}</p> : null}
                           </td>
                           <td className="px-4 py-3 text-xs font-mono text-gray-600">
                             {maskPrcForAdminQueue(a.license_number)}
@@ -6218,7 +6218,7 @@ export default function AdminPage() {
             </p>
 
             {docReviewLoading ? (
-              <p className="mt-6 text-sm text-gray-500">Loading documents…</p>
+              <p className="mt-6 text-sm text-fg-muted">Loading documents…</p>
             ) : docReviewUrls ? (
               <div className="mt-4 space-y-4">
                 <div>
@@ -6259,7 +6259,7 @@ export default function AdminPage() {
                           />
                         )
                       ) : (
-                        <p className="mt-2 text-sm text-gray-500">Could not load file.</p>
+                        <p className="mt-2 text-sm text-fg-muted">Could not load file.</p>
                       )}
                     </div>
                     <div>
@@ -6274,7 +6274,7 @@ export default function AdminPage() {
                           className="mt-2 max-h-64 w-full rounded-lg border border-gray-200 object-contain"
                         />
                       ) : (
-                        <p className="mt-2 text-sm text-gray-500">Could not load file.</p>
+                        <p className="mt-2 text-sm text-fg-muted">Could not load file.</p>
                       )}
                     </div>
                   </div>

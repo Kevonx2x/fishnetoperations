@@ -91,6 +91,11 @@ import { HomepageSpotlightListing } from "@/components/marketplace/homepage-spot
 import { TopCondosRow } from "@/components/marketplace/top-condos-row";
 import { HomepageValueSlider } from "@/components/marketplace/homepage-value-slider";
 import {
+  recordHomepageRecentSearch,
+  useRecentHomepageSearches,
+} from "@/lib/homepage-recent-searches";
+import { findRentHomepageSpotlightUptownParkSuite } from "@/lib/homepage-spotlight-pin";
+import {
   buildFilteredEmptyMessage,
   buildHomepageRowsFromTemplates,
   HOMEPAGE_INITIAL_CATEGORY_ROWS,
@@ -680,7 +685,7 @@ function HomeTopAgentCard({
             <AgentAvatarFill name={agent.name} imageUrl={agent.image} sizes="80px" textClassName="text-lg" />
           </div>
           <p className="mt-2 line-clamp-1 text-sm font-semibold text-[#2C2C2C]">{agent.name}</p>
-          <div className="mt-1 flex items-center justify-center gap-2 text-xs tabular-nums text-[#2C2C2C]/55">
+          <div className="mt-1 flex items-center justify-center gap-2 text-xs tabular-nums text-[#484848]">
             <span>{scoreRight ? `⭐ ${scoreRight}` : "⭐ —"}</span>
             {agent.verified ? (
               <span className="inline-flex h-5 items-center justify-center rounded-full bg-[#6B9E6E] px-2 text-[10px] font-semibold text-white">
@@ -691,11 +696,11 @@ function HomeTopAgentCard({
         </div>
 
         <div className="mt-3 w-full space-y-1.5 px-1 text-center">
-          <p className="text-[11px] font-semibold text-[#2C2C2C]/55">
+          <p className="text-[11px] font-semibold text-[#484848]">
             {followersN == null ? "— followers" : `${followersN} ${followersN === 1 ? "follower" : "followers"}`}
           </p>
-          <p className="line-clamp-1 text-[11px] font-semibold text-[#2C2C2C]/55">{experienceLine}</p>
-          <p className="line-clamp-2 min-h-[2rem] text-[11px] font-semibold leading-snug text-[#2C2C2C]/55">
+          <p className="line-clamp-1 text-[11px] font-semibold text-[#484848]">{experienceLine}</p>
+          <p className="line-clamp-2 min-h-[2rem] text-[11px] font-semibold leading-snug text-[#484848]">
             {locations.length ? `Specializes in ${locations.join(", ")}` : "Specializes in —"}
           </p>
         </div>
@@ -1064,7 +1069,7 @@ function HomepageFaqSection({
       <h2 id="homepage-faq-heading" className="text-center font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] md:text-3xl">
         Frequently Asked Questions
       </h2>
-      <p className="mt-2 text-center text-sm font-medium text-[#2C2C2C]/70">
+      <p className="mt-2 text-center text-sm font-medium text-[#404040]">
         Common questions for buying and renting in the Philippines.
       </p>
       <div className="mt-8">
@@ -1096,7 +1101,7 @@ function HomepageFaqSection({
                     transition={{ duration: 0.2, ease: "easeInOut" }}
                     className="overflow-hidden"
                   >
-                    <p className="pb-4 text-sm leading-relaxed text-[#2C2C2C]/70">{item.answer}</p>
+                    <p className="pb-4 text-sm leading-relaxed text-[#404040]">{item.answer}</p>
                   </motion.div>
                 ) : null}
               </AnimatePresence>
@@ -1136,7 +1141,7 @@ function HomepageTopVerifiedAgentsSection({
     <section className="mt-12">
       <div>
         <h2 className="font-serif text-3xl font-semibold tracking-tight text-[#2C2C2C]">Top Verified Agents This Week</h2>
-        <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">High scores, fast responses, proven closings</p>
+        <p className="mt-1 text-sm font-semibold text-[#484848]">High scores, fast responses, proven closings</p>
       </div>
       <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-4">
         <div className="flex min-w-0 flex-1 items-stretch gap-1 sm:gap-2">
@@ -1313,7 +1318,26 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     if (cityOrClause) featQuery = featQuery.or(cityOrClause);
     featQuery = featQuery.limit(1);
 
-    const [mainRes, featRes] = await Promise.all([mainQuery, featQuery.maybeSingle()]);
+    let rentSpotlightQuery = supabase
+      .from("properties")
+      .select(selectQ)
+      .eq("listing_type", "rent")
+      .or(expiryOr)
+      .or(hideTutorialDemoPropertiesOrFilter())
+      .is("deleted_at", null)
+      .or("availability_state.eq.available,availability_state.is.null")
+      .or(
+        "name.ilike.%uptown%,location.ilike.%uptown%,city.ilike.%taguig%,neighborhood.ilike.%uptown%,neighborhood.ilike.%bgc%",
+      )
+      .order("created_at", { ascending: false })
+      .limit(24);
+    if (cityOrClause) rentSpotlightQuery = rentSpotlightQuery.or(cityOrClause);
+
+    const [mainRes, featRes, rentSpotlightRes] = await Promise.all([
+      mainQuery,
+      featQuery.maybeSingle(),
+      listingTypeFilter === "rent" ? rentSpotlightQuery : Promise.resolve({ data: [], error: null }),
+    ]);
 
     if (mainRes.error) {
       setError(mainRes.error.message);
@@ -1323,10 +1347,21 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     } else {
       const list = (mainRes.data ?? []) as unknown as DbProperty[];
       setProperties(list);
+      const adminFeatured =
+        !featRes.error && featRes.data ? (featRes.data as unknown as DbProperty) : null;
+      const rentSpotlightCandidates = (rentSpotlightRes.data ?? []) as unknown as DbProperty[];
+      const pinnedRentSpotlight = findRentHomepageSpotlightUptownParkSuite([
+        ...rentSpotlightCandidates,
+        ...list,
+        ...(adminFeatured ? [adminFeatured] : []),
+      ]);
+
       let featured: DbProperty | null = null;
       let isAdminFeatured = false;
-      if (!featRes.error && featRes.data) {
-        featured = featRes.data as unknown as DbProperty;
+      if (pinnedRentSpotlight) {
+        featured = pinnedRentSpotlight;
+      } else if (adminFeatured) {
+        featured = adminFeatured;
         isAdminFeatured = true;
       } else if (list.length > 0) {
         featured = list[0];
@@ -1663,20 +1698,26 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     syncMarketplaceUrl(q);
   }, [neighborhoodFilter, search, syncMarketplaceUrl]);
 
-  const applyLocationSearch = useCallback(() => {
-    const trimmed = search.trim();
-    if (!trimmed) {
-      setNeighborhoodFilter(null);
-      syncMarketplaceUrl("");
-      return;
-    }
-    const nk = resolveFeaturedKeyFromQuery(trimmed);
-    setNeighborhoodFilter(nk);
-    syncMarketplaceUrl(trimmed);
-    requestAnimationFrame(() => {
-      document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }, [search, syncMarketplaceUrl]);
+  const { queries: recentHomepageSearches } = useRecentHomepageSearches();
+
+  const applyLocationSearch = useCallback(
+    (queryOverride?: string) => {
+      const trimmed = (queryOverride ?? search).trim();
+      if (!trimmed) {
+        setNeighborhoodFilter(null);
+        syncMarketplaceUrl("");
+        return;
+      }
+      recordHomepageRecentSearch(trimmed);
+      const nk = resolveFeaturedKeyFromQuery(trimmed);
+      setNeighborhoodFilter(nk);
+      syncMarketplaceUrl(trimmed);
+      requestAnimationFrame(() => {
+        document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    },
+    [search, syncMarketplaceUrl],
+  );
 
   useEffect(() => {
     const type = searchParams.get("type");
@@ -2035,7 +2076,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               <button
                 type="button"
                 onClick={() => router.replace(buildMarketplaceHref(search, "buy"), { scroll: false })}
-                className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
+                className="rounded-full px-5 py-2 text-xs font-semibold text-[#383838] ring-1 ring-black/10 transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
               >
                 Buy
               </button>
@@ -2051,7 +2092,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               <button
                 type="button"
                 onClick={() => router.replace(buildMarketplaceHref(search, "rent"), { scroll: false })}
-                className="rounded-full px-5 py-2 text-xs font-semibold text-[#2C2C2C]/80 ring-1 ring-black/10 transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
+                className="rounded-full px-5 py-2 text-xs font-semibold text-[#383838] ring-1 ring-black/10 transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
               >
                 Rent
               </button>
@@ -2067,7 +2108,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               setNeighborhoodFilter(null);
               setSearch(v);
             }}
-            onSubmitSearch={applyLocationSearch}
+            onSubmitSearch={() => applyLocationSearch()}
+            recentSearches={recentHomepageSearches}
+            onRecentSearchPick={(q) => {
+              setNeighborhoodFilter(null);
+              setSearch(q);
+              applyLocationSearch(q);
+            }}
             placeholder="Search by location or neighborhood"
             aria-label="Search listings by location"
             className="w-full min-w-0 flex-1"
@@ -2083,7 +2130,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           </button>
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-[#2C2C2C]/80 lg:justify-start">
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-[#383838] lg:justify-start">
         <span className="inline-flex items-center gap-1.5">
           <span className="text-[#6B9E6E]">✓</span> PRC Licensed Agents Only
         </span>
@@ -2091,7 +2138,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           <span className="text-[#6B9E6E]">✓</span> 0 Scams Guarantee
         </span>
       </div>
-      <p className="mt-3 text-center text-[11px] font-semibold tracking-wide text-[#2C2C2C]/45 lg:text-left">
+      <p className="mt-3 text-center text-[11px] font-semibold tracking-wide text-[#525252] lg:text-left">
         1,200+ Listings · 847 Verified Agents · 0 Scams
       </p>
     </>
@@ -2129,7 +2176,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
             <button
               type="button"
               onClick={dismissWelcomeBanner}
-              className="rounded-lg p-1 text-[#2C2C2C]/55 hover:bg-[#6B9E6E]/20 hover:text-[#2C2C2C]"
+              className="rounded-lg p-1 text-[#484848] hover:bg-[#6B9E6E]/20 hover:text-[#2C2C2C]"
               aria-label="Dismiss welcome message"
             >
               <X className="h-4 w-4" aria-hidden />
@@ -2149,7 +2196,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 <h1 className="mt-4 font-serif text-2xl font-semibold leading-tight tracking-tight text-[#2C2C2C] sm:text-3xl">
                   FIND YOUR HOME IN THE PHILIPPINES
                 </h1>
-                <p className="mt-3 text-sm font-semibold text-[#2C2C2C]/65">
+                <p className="mt-3 text-sm font-semibold text-[#454545]">
                   Verified Agents, Real Listings, 100% Filipino
                 </p>
               </div>
@@ -2161,7 +2208,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 <h1 className="mt-4 font-serif text-5xl font-semibold leading-[1.08] tracking-tight text-[#2C2C2C]">
                   Find Your Home in the Philippines
                 </h1>
-                <p className="mt-4 text-lg font-medium text-[#2C2C2C]/70">
+                <p className="mt-4 text-lg font-medium text-[#404040]">
                   Browse verified listings across Metro Manila, Cebu, and beyond
                 </p>
               </div>
@@ -2194,7 +2241,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               <h2 className="font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">
                 Featured Locations
               </h2>
-              <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+              <p className="mt-1 text-sm font-semibold text-[#484848]">
                 Tap a city to filter listings
               </p>
             </div>
@@ -2202,7 +2249,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               <button
                 type="button"
                 onClick={clearGeoFilters}
-                className="mx-auto mt-2 inline-flex w-fit items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-neutral-50 sm:mx-0 sm:mt-0"
+                className="mx-auto mt-2 inline-flex w-fit items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#404040] ring-1 ring-black/10 hover:bg-neutral-50 sm:mx-0 sm:mt-0"
               >
                 Clear
               </button>
@@ -2297,14 +2344,14 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 transition={{ duration: 0.2 }}
                 className="mt-5"
               >
-                <p className="text-[13px] font-semibold text-[#2C2C2C]/55">Property type</p>
+                <p className="text-[13px] font-semibold text-[#484848]">Property type</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => setSelectedPropertyType(null)}
                     className={cn(
                       "h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-black/10 transition",
-                      selectedPropertyType == null ? "bg-[#6B9E6E] text-white" : "bg-[#FAF8F4] text-[#2C2C2C]/70",
+                      selectedPropertyType == null ? "bg-[#6B9E6E] text-white" : "bg-[#FAF8F4] text-[#404040]",
                     )}
                   >
                     All
@@ -2318,7 +2365,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         onClick={() => setSelectedPropertyType((cur) => (cur === r.property_type ? null : r.property_type))}
                         className={cn(
                           "h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-black/10 transition",
-                          active ? "bg-[#6B9E6E] text-white" : "bg-[#FAF8F4] text-[#2C2C2C]/70",
+                          active ? "bg-[#6B9E6E] text-white" : "bg-[#FAF8F4] text-[#404040]",
                         )}
                       >
                         {r.property_type} ({r.count})
@@ -2355,7 +2402,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         {!loading && error ? (
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6">
             <p className="font-semibold text-[#2C2C2C]">Couldn’t load listings</p>
-            <p className="mt-1 text-sm text-[#2C2C2C]/60">{error}</p>
+            <p className="mt-1 text-sm text-[#484848]">{error}</p>
           </div>
         ) : null}
 
@@ -2414,7 +2461,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             key={chip.key}
                             type="button"
                             onClick={chip.onRemove}
-                            className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-neutral-50"
+                            className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#404040] ring-1 ring-black/10 hover:bg-neutral-50"
                           >
                             {chip.label}
                             <span className="text-[#2C2C2C]/35" aria-hidden>
@@ -2426,7 +2473,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           <button
                             type="button"
                             onClick={clearFiltersAndBrowse}
-                            className="text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
+                            className="text-xs font-semibold text-[#484848] hover:text-[#2C2C2C]"
                           >
                             Clear all
                           </button>
@@ -2492,11 +2539,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   <h2 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl">
                     Top Agents in {cityFilterMeta.label}
                   </h2>
-                  <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+                  <p className="mt-1 text-sm font-semibold text-[#484848]">
                     Verified agents who serve this area
                   </p>
                   {agentsForCityFilter.length === 0 ? (
-                    <p className="mt-6 text-center text-sm font-semibold text-[#2C2C2C]/45">
+                    <p className="mt-6 text-center text-sm font-semibold text-[#525252]">
                       No agents list this city in their service areas yet.
                     </p>
                   ) : (
@@ -2520,7 +2567,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     <button
                       type="button"
                       onClick={() => clearFiltersAndBrowse()}
-                      className="text-xs font-semibold text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
+                      className="text-xs font-semibold text-[#484848] hover:text-[#2C2C2C]"
                     >
                       Clear All
                     </button>
@@ -2534,7 +2581,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     className={cn(
                       "relative inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold shadow-sm transition hover:bg-neutral-50 sm:w-auto",
                       filtersOpen
-                        ? "border border-black/10 text-[#2C2C2C]/80"
+                        ? "border border-black/10 text-[#383838]"
                         : "border-2 border-[#6B9E6E] text-[#6B9E6E]",
                     )}
                   >
@@ -2548,7 +2595,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   <select
                     value={sortMode}
                     onChange={(e) => setSortMode(e.target.value as SortMode)}
-                    className="w-full rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-neutral-50 focus-visible:outline-none sm:w-auto"
+                    className="w-full rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-[#383838] shadow-sm hover:bg-neutral-50 focus-visible:outline-none sm:w-auto"
                     aria-label="Sort"
                   >
                     <option value="newest">Newest</option>
@@ -2591,7 +2638,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     </div>
 
                     <div className="mt-4">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#525252]">
                         Transaction type
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -2620,7 +2667,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
                     <div className="mt-4 grid gap-2 sm:grid-cols-2 sm:gap-3">
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">Bedrooms</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#525252]">Bedrooms</p>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {(
                             [
@@ -2650,7 +2697,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         </div>
                       </div>
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">Bathrooms</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#525252]">Bathrooms</p>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {(
                             [
@@ -2683,7 +2730,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
                     <div className="mt-4 grid gap-2 md:grid-cols-2 md:gap-3">
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">Furnishing</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#525252]">Furnishing</p>
                         <select
                           value={filters.furnishing}
                           onChange={(e) =>
@@ -2699,7 +2746,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         </select>
                       </div>
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#525252]">
                           Floor area (sqm)
                         </p>
                         <div className="mt-2 flex gap-2">
@@ -2728,7 +2775,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     </div>
 
                     <div className="mt-4">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">Location</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#525252]">Location</p>
                       <select
                         value={filters.locationLabel ?? ""}
                         onChange={(e) => {
@@ -2748,7 +2795,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     </div>
 
                     <div className="mt-4">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2C2C2C]/45">Amenities</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#525252]">Amenities</p>
                       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5">
                         {(
                           [
@@ -2766,7 +2813,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           return (
                             <label
                               key={k}
-                              className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-[#2C2C2C]/75"
+                              className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-[#3a3a3a]"
                             >
                               <input
                                 type="checkbox"
@@ -2800,7 +2847,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       </button>
                       {amenitiesExpanded ? (
                         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5 border-t border-[#2C2C2C]/8 pt-2">
-                          <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-[#2C2C2C]/75">
+                          <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-[#3a3a3a]">
                             <input
                               type="checkbox"
                               className="h-4 w-4 rounded border-black/20 text-[#6B9E6E] focus:ring-[#6B9E6E]"
@@ -2931,7 +2978,7 @@ function CategorySection({
     <>
       <div>
         <h2 className="font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">{title}</h2>
-        <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
+        <p className="mt-1 text-sm font-semibold text-[#484848]">{subtitle}</p>
       </div>
 
       <div className="-mx-4 mt-4 flex items-stretch gap-1 md:gap-2">
@@ -3002,7 +3049,7 @@ function CategorySection({
           <button
             type="button"
             onClick={onToggleExpanded}
-            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#2C2C2C]/70 ring-1 ring-black/10 hover:bg-neutral-50"
+            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#404040] ring-1 ring-black/10 hover:bg-neutral-50"
           >
             {expanded ? "Show less" : "Show more"}
             <ArrowDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
@@ -3020,7 +3067,7 @@ function Trust({ icon, title, body }: { icon: React.ReactNode; title: string; bo
         {icon}
         <p className="font-semibold text-[#2C2C2C]">{title}</p>
       </div>
-      <p className="mt-2 text-sm font-semibold text-[#2C2C2C]/55">{body}</p>
+      <p className="mt-2 text-sm font-semibold text-[#484848]">{body}</p>
     </div>
   );
 }
@@ -3404,7 +3451,7 @@ export function NewlyListedCard({
                   setCoListError(null);
                   setCoListOpen(true);
                 }}
-                className="mt-1 w-full shrink-0 rounded-full border border-[#2C2C2C]/15 bg-white py-1.5 text-center text-xs font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4]"
+                className="mt-1 w-full shrink-0 rounded-full border border-[#2C2C2C]/15 bg-white py-1.5 text-center text-xs font-semibold text-[#383838] shadow-sm hover:bg-[#FAF8F4]"
               >
                 Request to co-list
               </button>
@@ -3709,7 +3756,7 @@ function PropertyRows({
           <button
             type="button"
             onClick={onToggleShowMore}
-            className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-[#2C2C2C]/75 ring-1 ring-black/10 hover:bg-neutral-50"
+            className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-[#3a3a3a] ring-1 ring-black/10 hover:bg-neutral-50"
           >
             {showMore ? "Show Less ↑" : "Show More Categories ↓"}
           </button>
@@ -3794,7 +3841,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
   if (compact) {
     return (
       <div className="w-full rounded-xl border border-[#6B9E6E]/40 bg-[#6B9E6E]/15 p-3 shadow-sm">
-        <p className="text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-[#2C2C2C]/55">
+        <p className="text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-[#484848]">
           Score guide
         </p>
         <div className="mt-2 rounded-xl border border-[#2C2C2C]/10 bg-white p-2.5 shadow-sm">
@@ -3818,7 +3865,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
                   Verified
                 </span>
               </div>
-              <p className="mt-0.5 text-[11px] font-semibold text-[#2C2C2C]/60">
+              <p className="mt-0.5 text-[11px] font-semibold text-[#484848]">
                 Score {formatAgentScore(95)} · 312 closings ·{" "}
                 <span className="text-[#6B9E6E]">Fast response</span>
               </p>
@@ -3847,7 +3894,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
               </span>
             </li>
           </ul>
-          <p className="mt-2 text-[10px] font-semibold leading-snug text-[#2C2C2C]/55">
+          <p className="mt-2 text-[10px] font-semibold leading-snug text-[#484848]">
             Based on closings, response time, reviews
           </p>
         </div>
@@ -3857,7 +3904,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
 
   return (
     <div className="relative flex h-full min-h-[300px] w-full flex-col rounded-2xl border border-[#6B9E6E]/40 bg-[#6B9E6E]/15 p-5 shadow-sm">
-      <p className="text-center text-xs font-semibold uppercase tracking-[0.12em] text-[#2C2C2C]/55">
+      <p className="text-center text-xs font-semibold uppercase tracking-[0.12em] text-[#484848]">
         Score guide
       </p>
       <div className="mt-3 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
@@ -3881,7 +3928,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
                 Verified
               </span>
             </div>
-            <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/60">
+            <p className="mt-1 text-xs font-semibold text-[#484848]">
               Score {formatAgentScore(95)} · 312 closings
             </p>
             <p className="mt-1 text-[11px] font-semibold text-[#6B9E6E]">Fast response</p>
@@ -3910,7 +3957,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
             </span>
           </li>
         </ul>
-        <p className="mt-4 text-xs font-semibold leading-relaxed text-[#2C2C2C]/60">
+        <p className="mt-4 text-xs font-semibold leading-relaxed text-[#484848]">
           Score based on: closings, response time, client reviews
         </p>
       </div>
@@ -4063,7 +4110,7 @@ function RowCarousel({
             </h2>
           )}
         </div>
-        <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">{subtitle}</p>
+        <p className="mt-1 text-sm font-semibold text-[#484848]">{subtitle}</p>
       </div>
 
       {isFeaturedPicksRow ? (

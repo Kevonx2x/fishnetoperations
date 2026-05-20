@@ -19,7 +19,7 @@
   --secondary: #ebe6dc;
   --secondary-foreground: #2c2c2c;
   --muted: #f0ece6;
-  --muted-foreground: #5c5c5c;
+  --muted-foreground: #484848;
   --accent: #d4e0d5;
   --accent-foreground: #2c2c2c;
   --destructive: oklch(0.577 0.245 27.325);
@@ -54,7 +54,9 @@
   --surface-panel: #ffffff;
   --border-subtle: rgba(0, 0, 0, 0.06);
   --text-default: #2c2c2c;
-  --text-muted: #888888;
+  --text-muted: #525252;
+  --text-secondary: #484848;
+  --text-tertiary: #5c5c5c;
   --brand-sage: #6b9e6e;
   --brand-sage-hover: #5d8a60;
   --brand-gold: #d4a843;
@@ -147,6 +149,8 @@
   --color-subtle: var(--border-subtle);
   --color-fg: var(--text-default);
   --color-fg-muted: var(--text-muted);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
   --color-brand-sage: var(--brand-sage);
   --color-brand-gold: var(--brand-gold);
 }
@@ -156,7 +160,18 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-normal antialiased;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  p,
+  li,
+  label,
+  dd,
+  dt,
+  td,
+  th {
+    font-weight: 400;
   }
 }
 

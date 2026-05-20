@@ -5,6 +5,7 @@ import { MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { useStreamChat } from "@/features/messaging/components/stream-chat-provider";
+import { BAHAYGO_CARD, BAHAYGO_CARD_HOVER, BAHAYGO_TEXT_TERTIARY } from "@/lib/bahaygo-typography";
 
 const UNREAD_REFRESH_EVENTS = [
   "notification.mark_read",
@@ -87,7 +88,7 @@ export function ClientDashboardUnreadMessagesStatTile() {
   return (
     <Link
       href="/dashboard/client/messages"
-      className="flex rounded-2xl bg-white p-4 ring-1 ring-[#2C2C2C]/[0.045] transition-colors hover:bg-[#2C2C2C]/[0.02]"
+      className={`flex p-4 ${BAHAYGO_CARD} ${BAHAYGO_CARD_HOVER}`}
     >
       <div className="flex w-full min-w-0 items-start gap-2.5">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/10">
@@ -96,7 +97,7 @@ export function ClientDashboardUnreadMessagesStatTile() {
         <div className="flex min-w-0 flex-1 flex-col">
           <p className="text-2xl font-semibold leading-tight tracking-tight text-[#2C2C2C]">{numLabel}</p>
           <p className="mt-0.5 text-sm font-medium text-[#2C2C2C]">Unread messages</p>
-          <p className="mt-1 text-xs text-gray-500">{subline}</p>
+          <p className={`mt-1 text-xs font-normal ${BAHAYGO_TEXT_TERTIARY}`}>{subline}</p>
         </div>
       </div>
     </Link>

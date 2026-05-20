@@ -24,7 +24,7 @@ export function ClientDashboardGreeting(props: { firstName: string }) {
       <p className="font-sans text-lg font-semibold tracking-tight text-[#2C2C2C] md:text-xl">
         Good {slot}, {name}! 👋
       </p>
-      <p className="max-w-2xl text-sm font-medium leading-snug text-[#2C2C2C]/65">
+      <p className="max-w-2xl text-sm font-normal leading-snug text-[#484848]">
         Here&apos;s what&apos;s happening with your home search.
       </p>
     </header>

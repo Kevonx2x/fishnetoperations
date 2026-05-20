@@ -6,6 +6,7 @@ import { ClientAvatar } from "@/components/client/client-avatar";
 import { manilaLongDateLabelFromInstant } from "@/lib/manila-long-date";
 import { manilaTimeLabel12hFromInstant } from "@/lib/manila-datetime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { BAHAYGO_CARD, BAHAYGO_TEXT_SECONDARY, BAHAYGO_TEXT_TERTIARY } from "@/lib/bahaygo-typography";
 import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
 
 function pickPropertyImageUrl(
@@ -105,7 +106,7 @@ export default async function ClientDashboardNextViewing(props: { userId: string
   const agentAvatar = (agent as { avatar_url: string | null }).avatar_url?.trim() || null;
 
   return (
-    <section className="rounded-2xl bg-white p-4 ring-1 ring-[#2C2C2C]/[0.045] md:p-5">
+    <section className={`${BAHAYGO_CARD} p-4 md:p-5`}>
       <div className="flex items-start justify-between gap-3">
         <h2 className="font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] md:text-xl">Your next viewing</h2>
         <Link href="/dashboard/client/pipeline" className="shrink-0 text-sm font-semibold text-[#6B9E6E] hover:underline">
@@ -123,7 +124,7 @@ export default async function ClientDashboardNextViewing(props: { userId: string
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
           <div className="min-w-0">
             <p className="text-base font-semibold leading-snug text-[#2C2C2C]">{p.name?.trim() || "Property"}</p>
-            <p className="mt-1 text-sm text-gray-600">{locationSubtitle(p.city, p.location)}</p>
+            <p className={`mt-1 text-sm font-normal ${BAHAYGO_TEXT_SECONDARY}`}>{locationSubtitle(p.city, p.location)}</p>
           </div>
           <div className="flex items-start gap-2 sm:justify-end">
             <ClientAvatar name={agentName} avatarUrl={agentAvatar} sizePx={32} textClassName="text-xs" />
@@ -151,9 +152,9 @@ export default async function ClientDashboardNextViewing(props: { userId: string
 
 function NextViewingEmpty() {
   return (
-    <section className="flex flex-col items-center rounded-2xl bg-white p-5 text-center ring-1 ring-[#2C2C2C]/[0.045] md:p-6">
+    <section className={`flex flex-col items-center ${BAHAYGO_CARD} p-5 text-center md:p-6`}>
       <h2 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C]">No upcoming viewings</h2>
-      <p className="mt-2 max-w-sm text-sm font-medium leading-relaxed text-[#2C2C2C]/55">
+      <p className={`mt-2 max-w-sm text-sm font-normal leading-relaxed ${BAHAYGO_TEXT_SECONDARY}`}>
         Browse the marketplace to find your next home
       </p>
       <Link

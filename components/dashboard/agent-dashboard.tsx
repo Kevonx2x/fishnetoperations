@@ -880,9 +880,9 @@ function AgentSidebarCalendarStrip({ setCalendarModalOpen }: { setCalendarModalO
           </div>
 
           {showInitialSkeleton ? (
-            <p className="mt-3 text-[10px] font-semibold text-[#888888]">Loading…</p>
+            <p className="mt-3 text-[10px] font-semibold text-fg-muted">Loading…</p>
           ) : upcomingThree.length === 0 ? (
-            <p className="mt-3 text-[10px] font-semibold leading-snug text-[#888888]">No upcoming viewings</p>
+            <p className="mt-3 text-[10px] font-semibold leading-snug text-fg-muted">No upcoming viewings</p>
           ) : (
             <ul className="mt-3 w-full space-y-2">
               {upcomingThree.map((event) => (
@@ -898,7 +898,7 @@ function AgentSidebarCalendarStrip({ setCalendarModalOpen }: { setCalendarModalO
                     <span className="text-[10px] font-semibold text-[#2C2C2C]">
                       {event.dayLabel} {event.fullDateLabel} · {event.timeLabel}
                     </span>
-                    <span className="line-clamp-2 w-full text-[9px] font-semibold text-[#888888]">{event.propertyName}</span>
+                    <span className="line-clamp-2 w-full text-[9px] font-semibold text-fg-muted">{event.propertyName}</span>
                   </button>
                 </li>
               ))}
@@ -3498,7 +3498,7 @@ export function AgentDashboard() {
                         ? "text-red-600"
                         : editForm.name.length > 50
                           ? "text-orange-500"
-                          : "text-gray-500"
+                          : "text-fg-muted"
                     }`}
                   >
                     {editForm.name.length}/60
@@ -4162,11 +4162,11 @@ function OverviewTab({
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <p className="font-serif text-4xl font-bold text-[#2C2C2C]">{agentScoreOutOfTen.toFixed(1)}</p>
-                <p className="mt-1 text-xs font-semibold text-gray-500">/ 10</p>
+                <p className="mt-1 text-xs font-semibold text-fg-muted">/ 10</p>
               </div>
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">Agent Score</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-fg-muted">Agent Score</p>
             </div>
           </div>
 
@@ -4259,7 +4259,7 @@ function OverviewTab({
         </div>
         {pipelineSnapshot.length === 0 ? (
           <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-            <p className="text-sm font-semibold text-gray-500">No active leads yet.</p>
+            <p className="text-sm font-semibold text-fg-muted">No active leads yet.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -4273,7 +4273,7 @@ function OverviewTab({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-[#2C2C2C]">{l.name}</p>
-                    <p className="mt-0.5 truncate text-xs font-semibold text-gray-500">
+                    <p className="mt-0.5 truncate text-xs font-semibold text-fg-muted">
                       {propertyLabelForLead(l)}
                     </p>
                     {phpPriceLabelForLead(l) ? (
@@ -4748,7 +4748,7 @@ function ListingsTab({
                 {t.label}
               </button>
             ))}
-            <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-500">
+            <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs font-semibold text-fg-muted">
               <input
                 type="checkbox"
                 checked={showRemovedListings}
@@ -5122,7 +5122,7 @@ function ListingsTab({
                         ? "text-red-600"
                         : listingForm.name.length > 50
                           ? "text-orange-500"
-                          : "text-gray-500"
+                          : "text-fg-muted"
                     }`}
                   >
                     {listingForm.name.length}/60
@@ -5590,7 +5590,7 @@ function ProfileTab({
       <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
         <aside className="order-first w-full shrink-0 lg:order-2 lg:sticky lg:top-6 lg:w-[40%] lg:max-w-md lg:self-start">
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
-            <p className="text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-[#888888]">
+            <p className="text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
               Live preview
             </p>
             <div className="relative mx-auto mt-4 h-24 w-24">

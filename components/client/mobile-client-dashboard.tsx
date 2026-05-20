@@ -750,9 +750,9 @@ function PinSaveFeedCardHeader({
             </>
           ) : null}
         </p>
-        <p className="mt-0.5 text-xs text-gray-500">{formatNotificationTimeAgo(createdAt)}</p>
+        <p className="mt-0.5 text-xs text-fg-muted">{formatNotificationTimeAgo(createdAt)}</p>
         {locationLine.trim() ? (
-          <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+          <p className="mt-1 flex items-center gap-1 text-xs text-fg-muted">
             <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
             <span className="min-w-0">{locationLine.trim()}</span>
           </p>
@@ -973,7 +973,7 @@ export function MobileClientDashboard() {
                 onClick={() => setMainTab(id)}
                 className={cn(
                   "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 py-1 transition-colors duration-200",
-                  active ? "text-[#6B9E6E]" : "text-gray-500",
+                  active ? "text-[#6B9E6E]" : "text-fg-muted",
                 )}
               >
                 <Icon
@@ -1015,7 +1015,7 @@ export function MobileClientDashboard() {
               <h2 className="mt-3 font-serif text-xl font-semibold text-[#2C2C2C]">
                 {fullName.trim() || "Member"}
               </h2>
-              <p className="mt-1 text-sm text-[#2C2C2C]/55">
+              <p className="mt-1 text-sm text-[#484848]">
                 Member since{" "}
                 {createdAt
                   ? new Date(createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" })
@@ -1024,7 +1024,7 @@ export function MobileClientDashboard() {
               <p className="mt-3 text-sm font-semibold text-[#2C2C2C]">
                 <span className="text-[#6B9E6E]">{savedRows.length}</span> properties saved
               </p>
-              <p className="mt-1 text-xs text-[#2C2C2C]/45">0 properties viewed · coming soon</p>
+              <p className="mt-1 text-xs text-[#525252]">0 properties viewed · coming soon</p>
             </div>
             {clientPrefs ? (
               <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
@@ -1048,7 +1048,7 @@ export function MobileClientDashboard() {
                       {clientPrefs.visa_type?.trim() ? (
                         <p className="font-semibold text-[#2C2C2C]">Visa: {clientPrefs.visa_type.trim()}</p>
                       ) : (
-                        <p className="text-[#2C2C2C]/55">Visa not specified</p>
+                        <p className="text-[#484848]">Visa not specified</p>
                       )}
                       {clientPrefs.visa_expiry?.trim() ? (
                         <p className="font-medium text-[#D4A843]">{visaExpiryDisplay(clientPrefs.visa_expiry)}</p>
@@ -1058,7 +1058,7 @@ export function MobileClientDashboard() {
                 </div>
                 <dl className="mt-3 space-y-2 text-sm">
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Budget</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#525252]">Budget</dt>
                     <dd className="font-medium text-[#2C2C2C]">
                       {clientPrefs.budget_min != null || clientPrefs.budget_max != null
                         ? formatBudgetRangePhp(clientPrefs.budget_min, clientPrefs.budget_max)
@@ -1066,36 +1066,36 @@ export function MobileClientDashboard() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Looking to</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#525252]">Looking to</dt>
                     <dd className="font-medium text-[#2C2C2C]">{lookingToLabel(clientPrefs.looking_to)}</dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Property type</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#525252]">Property type</dt>
                     <dd className="font-medium text-[#2C2C2C]">{clientPrefs.preferred_property_type?.trim() || "—"}</dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Preferred areas</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#525252]">Preferred areas</dt>
                     <dd className="font-medium text-[#2C2C2C]">{preferredLocationsLabel(clientPrefs.preferred_locations)}</dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Occupants</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#525252]">Occupants</dt>
                     <dd className="font-medium text-[#2C2C2C]">
                       {clientPrefs.occupant_count != null ? String(clientPrefs.occupant_count) : "—"}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Pets</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#525252]">Pets</dt>
                     <dd className="font-medium text-[#2C2C2C]">
                       {clientPrefs.has_pets === true ? "Yes" : clientPrefs.has_pets === false ? "No" : "—"}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">Move-in timeline</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#525252]">Move-in timeline</dt>
                     <dd className="font-medium text-[#2C2C2C]">{clientPrefs.move_in_timeline?.trim() || "—"}</dd>
                   </div>
                   {clientPrefs.agent_notes?.trim() ? (
                     <div>
-                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#2C2C2C]/45">
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#525252]">
                         Notes for agents
                       </dt>
                       <dd className="text-sm font-medium leading-snug text-[#2C2C2C]">{clientPrefs.agent_notes.trim()}</dd>
@@ -1202,7 +1202,7 @@ export function AllFeedTab({
           <LayoutGrid className="h-8 w-8" strokeWidth={1.5} />
         </div>
         <p className="mt-4 text-base font-semibold text-gray-900">Nothing new yet</p>
-        <p className="mt-2 max-w-xs text-sm text-gray-500">
+        <p className="mt-2 max-w-xs text-sm text-fg-muted">
           Save listings, book viewings, and we&apos;ll show updates here.
         </p>
       </div>
@@ -1213,7 +1213,7 @@ export function AllFeedTab({
     <div className="space-y-8">
       {grouped.map(({ label, items }) => (
         <section key={label}>
-          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500">{label}</h3>
+          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-fg-muted">{label}</h3>
           <ul className="flex flex-col gap-3">
             {items.map((item) => (
               <li
@@ -1321,7 +1321,7 @@ function FollowedAgentListingCard({
           >
             {agent.name}
           </Link>
-          <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">New listing</p>
+          <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.12em] text-fg-muted">New listing</p>
         </div>
       </div>
       {img && pid ? (
@@ -1493,11 +1493,11 @@ function ViewingRequestMediumCard({
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-bold leading-snug text-gray-900">{actionText}</p>
-          <p className="mt-0.5 text-sm text-gray-500">{propNameDisplay}</p>
+          <p className="mt-0.5 text-sm text-fg-muted">{propNameDisplay}</p>
           {agentLine ? <p className="mt-1 text-xs font-medium text-[#6B9E6E]">{agentLine}</p> : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <span className="text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
+          <span className="text-xs text-fg-muted">{formatNotificationTimeAgo(n.created_at)}</span>
           <FeedPropertyThumb56 src={thumbSrc} alt="" listingRemoved={listingRemoved} />
         </div>
       </div>
@@ -1526,14 +1526,14 @@ function PriceDropMediumCard({
       <div className="min-w-0 flex-1">
         <p className="font-bold text-gray-900">Price drop</p>
         <p className="mt-0.5 font-semibold text-gray-900">{propertyNameDisplay}</p>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-fg-muted">
           <span className="line-through">{formatPropertyPriceDisplay(item.oldPrice)}</span>
           <span className="mx-1.5">→</span>
           <span className="font-bold text-gray-900">{newPriceDisplay}</span>
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(item.sortAt)}</span>
+        <span className="text-xs text-fg-muted">{formatNotificationTimeAgo(item.sortAt)}</span>
         <CompactFeedPropertyThumb src={photoUrl} alt="" listingRemoved={listingRemoved} />
       </div>
     </>
@@ -1589,10 +1589,10 @@ function ListingEditedActivityCard({
       <div className="min-w-0 flex-1">
         <p className="font-bold text-gray-900">Listing updated</p>
         <p className="mt-0.5 font-semibold text-gray-900">{propertyNameDisplay}</p>
-        <p className="mt-1 text-sm text-gray-500">{item.editedByName} updated details</p>
+        <p className="mt-1 text-sm text-fg-muted">{item.editedByName} updated details</p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(item.sortAt)}</span>
+        <span className="text-xs text-fg-muted">{formatNotificationTimeAgo(item.sortAt)}</span>
         <CompactFeedPropertyThumb src={photoUrl} alt="" listingRemoved={listingRemoved} />
       </div>
     </>
@@ -1664,10 +1664,10 @@ function BadgeMediumCard({
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-bold text-gray-900">{badgeName}</p>
-        <p className="mt-0.5 text-sm text-gray-500">{desc}</p>
+        <p className="mt-0.5 text-sm text-fg-muted">{desc}</p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
+        <span className="text-xs text-fg-muted">{formatNotificationTimeAgo(n.created_at)}</span>
         <button
           type="button"
           onClick={onViewBadges}
@@ -1717,11 +1717,11 @@ function BadgeEarnedFeedCard({
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-bold text-gray-900">{meta.label}</p>
-        <p className="mt-0.5 text-sm text-gray-500">{meta.description}</p>
-        <p className="mt-1 text-xs font-medium text-gray-500">{dateLabel}</p>
+        <p className="mt-0.5 text-sm text-fg-muted">{meta.description}</p>
+        <p className="mt-1 text-xs font-medium text-fg-muted">{dateLabel}</p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(earned_at)}</span>
+        <span className="text-xs text-fg-muted">{formatNotificationTimeAgo(earned_at)}</span>
         <button
           type="button"
           onClick={onViewBadges}
@@ -1744,9 +1744,9 @@ function ViewingConfirmedSmallCard({ n }: { n: FeedNotificationRow }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-bold text-gray-900">{title}</p>
-        {body ? <p className="mt-0.5 text-sm text-gray-500">{body}</p> : null}
+        {body ? <p className="mt-0.5 text-sm text-fg-muted">{body}</p> : null}
       </div>
-      <span className="shrink-0 text-xs text-gray-500">{formatNotificationTimeAgo(n.created_at)}</span>
+      <span className="shrink-0 text-xs text-fg-muted">{formatNotificationTimeAgo(n.created_at)}</span>
     </article>
   );
 }
@@ -1779,11 +1779,11 @@ function ListingLikeSmallCard({
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-gray-900">You liked a listing</p>
-        <p className="text-sm text-gray-500">{titleDisplay}</p>
+        <p className="text-sm text-fg-muted">{titleDisplay}</p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <CompactFeedPropertyThumb src={photoUrl} alt="" />
-        <span className="text-xs text-gray-500">{formatNotificationTimeAgo(createdAt)}</span>
+        <span className="text-xs text-fg-muted">{formatNotificationTimeAgo(createdAt)}</span>
       </div>
     </article>
   );
@@ -1978,14 +1978,14 @@ export function BadgesTab({ badges }: { badges: { badge_slug: BadgeSlug; earned_
                   className="relative flex h-12 w-12 shrink-0 items-center justify-center bg-[#12161f]"
                   style={{ clipPath: HEX_CLIP }}
                 >
-                  <Lock className="h-5 w-5 text-gray-500" strokeWidth={2} aria-hidden />
+                  <Lock className="h-5 w-5 text-fg-muted" strokeWidth={2} aria-hidden />
                 </div>
               </div>
 
-              <p className="mt-3 text-sm font-bold text-gray-500">{meta.label}</p>
-              <p className="mt-1 text-xs leading-snug text-gray-500">{meta.description}</p>
+              <p className="mt-3 text-sm font-bold text-fg-muted">{meta.label}</p>
+              <p className="mt-1 text-xs leading-snug text-fg-muted">{meta.description}</p>
 
-              <p className="mt-auto pt-3 text-xs text-gray-500">{BADGE_UNLOCK_PILL[slug]}</p>
+              <p className="mt-auto pt-3 text-xs text-fg-muted">{BADGE_UNLOCK_PILL[slug]}</p>
             </article>
           );
         })}
