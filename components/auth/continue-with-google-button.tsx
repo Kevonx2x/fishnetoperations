@@ -49,7 +49,16 @@ export function AuthGoogleDivider() {
   );
 }
 
-export function ContinueWithGoogleButton({ onError }: { onError?: (message: string) => void }) {
+type ContinueWithGoogleButtonProps = {
+  onError?: (message: string) => void;
+  /** OAuth return path + query (default `/auth/callback`). */
+  callbackPath?: string;
+};
+
+export function ContinueWithGoogleButton({
+  onError,
+  callbackPath = "/auth/callback",
+}: ContinueWithGoogleButtonProps) {
   const [busy, setBusy] = useState(false);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
@@ -68,7 +77,7 @@ export function ContinueWithGoogleButton({ onError }: { onError?: (message: stri
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${origin}/auth/callback`,
+          redirectTo: `${origin}${callbackPath}`,
         },
       });
       if (error) {

@@ -3,7 +3,13 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType, Session } from "@supabase/supabase-js";
 import { notifyAdminNewClientFromSession } from "@/lib/admin-notify-sms";
-import { pathForRole } from "@/lib/auth-roles";
+import {
+  canUpgradeToLandlordOnSubmit,
+  isDormspaceSubmitBlockedRole,
+  isLandlordRole,
+  pathForRole,
+  roleDisplayLabel,
+} from "@/lib/auth-roles";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 /**
@@ -85,6 +91,67 @@ async function redirectForAuthenticatedUser(
   return NextResponse.redirect(new URL(pathForRole(role ?? "client"), requestUrl));
 }
 
+/** Landlord welcome OAuth — assign role and route without affecting main login behavior. */
+async function finalizeLandlordOAuth(
+  request: NextRequest,
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  session: NonNullable<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>,
+) {
+  const requestUrl = new URL(request.url);
+
+  await supabase.auth.setSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
+
+  await ensureProfileExistsForOAuthUser(session);
+
+  let admin: ReturnType<typeof createSupabaseAdmin>;
+  try {
+    admin = createSupabaseAdmin();
+  } catch {
+    return NextResponse.redirect(
+      new URL("/dormspaces/welcome?oauth_error=server", requestUrl),
+    );
+  }
+
+  const userId = session.user.id;
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const role = profile?.role ?? null;
+
+  if (isDormspaceSubmitBlockedRole(role)) {
+    await supabase.auth.signOut();
+    const welcomeUrl = new URL("/dormspaces/welcome", requestUrl);
+    welcomeUrl.searchParams.set("oauth_error", "role_conflict");
+    welcomeUrl.searchParams.set("role", roleDisplayLabel(role));
+    return NextResponse.redirect(welcomeUrl);
+  }
+
+  if (isLandlordRole(role)) {
+    return NextResponse.redirect(new URL("/dormspaces/dashboard", requestUrl));
+  }
+
+  if (canUpgradeToLandlordOnSubmit(role)) {
+    await admin
+      .from("profiles")
+      .update({ role: "landlord" })
+      .eq("id", userId)
+      .or("role.eq.client,role.is.null");
+    return NextResponse.redirect(new URL("/dormspaces/submit?from=welcome", requestUrl));
+  }
+
+  await supabase.auth.signOut();
+  const welcomeUrl = new URL("/dormspaces/welcome", requestUrl);
+  welcomeUrl.searchParams.set("oauth_error", "role_conflict");
+  welcomeUrl.searchParams.set("role", roleDisplayLabel(role));
+  return NextResponse.redirect(welcomeUrl);
+}
+
 async function finalizeSessionAndRedirect(
   request: NextRequest,
   supabase: Awaited<ReturnType<typeof createServerClient>>,
@@ -155,6 +222,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!error && session) {
+      const context = requestUrl.searchParams.get("context");
+      if (context === "landlord") {
+        return finalizeLandlordOAuth(request, supabase, session);
+      }
       return finalizeSessionAndRedirect(request, supabase, session);
     }
   }
@@ -166,6 +237,10 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && session) {
+      const context = requestUrl.searchParams.get("context");
+      if (context === "landlord") {
+        return finalizeLandlordOAuth(request, supabase, session);
+      }
       return finalizeSessionAndRedirect(request, supabase, session);
     }
     return NextResponse.redirect(new URL("/auth/login?error=oauth_failed", request.url));

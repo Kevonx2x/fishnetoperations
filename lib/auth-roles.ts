@@ -70,3 +70,19 @@ export function isDormspaceSubmitBlockedRole(role: string | null | undefined): b
 export function canUpgradeToLandlordOnSubmit(role: string | null | undefined): boolean {
   return role == null || role === "client";
 }
+
+/** Human-readable role label for auth and onboarding copy. */
+export function roleDisplayLabel(role: string | null | undefined): string {
+  switch (role) {
+    case "ops_admin":
+      return "operations admin";
+    case "team_member":
+      return "team member";
+    case "broker":
+      return "broker";
+    case "landlord":
+      return "landlord";
+    default:
+      return role?.trim() || "user";
+  }
+}

@@ -1,14 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { BadgeCheck, MapPin, Sparkles, Wifi } from "lucide-react";
+import { toast } from "sonner";
 
+import {
+  AuthGoogleDivider,
+  ContinueWithGoogleButton,
+} from "@/components/auth/continue-with-google-button";
 import { DormspaceWelcomeLogo } from "@/components/dormspaces/dormspace-welcome-logo";
-import { isDormspaceSubmitBlockedRole, isLandlordRole } from "@/lib/auth-roles";
+import {
+  isDormspaceSubmitBlockedRole,
+  isLandlordRole,
+  roleDisplayLabel,
+} from "@/lib/auth-roles";
 import { DORMSPACE_HERO_IMAGE } from "@/lib/dormspaces";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -71,6 +80,24 @@ export function DormspaceWelcome() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const oauthError = params.get("oauth_error");
+    if (!oauthError) return;
+
+    if (oauthError === "role_conflict") {
+      const role = params.get("role") ?? "user";
+      toast.error(
+        `This Google account is signed up as an ${role} on BahayGo. To list dormspaces, please use a different Google account or create a separate landlord account with email/password.`,
+      );
+    } else if (oauthError === "server") {
+      toast.error("Something went wrong during sign-in. Please try again.");
+    }
+
+    window.history.replaceState({}, "", "/dormspaces/welcome");
+  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,13 +175,12 @@ export function DormspaceWelcome() {
       const role = profile?.role ?? null;
       if (!isLandlordRole(role)) {
         await supabase.auth.signOut();
+        setError(
+          `This account isn't a landlord account. To list dormspaces, please create a separate landlord account.`,
+        );
         if (isDormspaceSubmitBlockedRole(role)) {
-          setError(
-            "This account isn't a landlord account. To list dormspaces, please create a separate landlord account.",
-          );
-        } else {
-          setError(
-            "This account isn't a landlord account. To list dormspaces, please create a separate landlord account.",
+          toast.error(
+            `This Google account is signed up as an ${roleDisplayLabel(role)} on BahayGo. To list dormspaces, please use a different Google account or create a separate landlord account with email/password.`,
           );
         }
         return;
@@ -341,8 +367,16 @@ export function DormspaceWelcome() {
               </button>
             </div>
 
+            <div className="mt-6">
+              <ContinueWithGoogleButton
+                onError={setError}
+                callbackPath="/auth/callback?context=landlord"
+              />
+              <AuthGoogleDivider />
+            </div>
+
             {tab === "create" ? (
-              <form onSubmit={(e) => void handleCreate(e)} className="mt-6 space-y-4">
+              <form onSubmit={(e) => void handleCreate(e)} className="space-y-4">
                 <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
                   Email
                   <input
@@ -380,7 +414,7 @@ export function DormspaceWelcome() {
                 </p>
               </form>
             ) : (
-              <form onSubmit={(e) => void handleSignIn(e)} className="mt-6 space-y-4">
+              <form onSubmit={(e) => void handleSignIn(e)} className="space-y-4">
                 <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
                   Email
                   <input
