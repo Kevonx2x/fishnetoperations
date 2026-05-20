@@ -4,6 +4,17 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 
 ---
 
+## 2026-05-21 12:00 — Create dormspaces tables
+
+**Migration file:** supabase/migrations/20260521120000_create_dormspaces.sql
+**Executed by:** TJ (pending)
+**Status:** Pending
+**Tables affected:** dormspaces, dormspace_photos, dormspace_inquiries; storage buckets `dormspace-photos`, `dormspace-verification`
+**Summary:** Bedspace/coliving MVP — landlord submissions, moderation workflow, public browse, inquiries, Supabase Storage for listing photos and verification docs.
+**Rollback notes:** `DROP TABLE IF EXISTS public.dormspace_inquiries CASCADE; DROP TABLE IF EXISTS public.dormspace_photos CASCADE; DROP TABLE IF EXISTS public.dormspaces CASCADE;` (see migration for storage policies)
+
+---
+
 ## 2026-05-20 12:00 — Create articles table
 
 **Migration file:** supabase/migrations/20260520120000_create_articles.sql

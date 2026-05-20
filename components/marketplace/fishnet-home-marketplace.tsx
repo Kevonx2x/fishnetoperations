@@ -2110,7 +2110,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
             }}
             onSubmitSearch={() => applyLocationSearch()}
             recentSearches={recentHomepageSearches}
-            onRecentSearchPick={(q) => {
+            onRecentSearchPick={(q: string) => {
               setNeighborhoodFilter(null);
               setSearch(q);
               applyLocationSearch(q);

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronDown, Eye, EyeOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { ArticlesManagementSection } from "@/components/admin/articles-management-section";
+import { DormspaceAdminSection } from "@/components/admin/dormspace-admin-section";
 import { TeamManagementSection } from "@/components/admin/team-management-section";
 import { useAuth } from "@/contexts/auth-context";
 import { isAdminPanelRole, isFullAdminRole } from "@/lib/auth-roles";
@@ -519,6 +520,7 @@ export default function AdminPage() {
     | "credentials"
     | "manual"
     | "articles"
+    | "dormspaces"
   >("leads");
 
   const [manualSubTab, setManualSubTab] = useState<ManualSubTab>("overview");
@@ -2676,6 +2678,19 @@ export default function AdminPage() {
               <span>Articles</span>
             </button>
             ) : null}
+            {isAdminSectionVisible("dormspaces") ? (
+            <button
+              type="button"
+              onClick={() => setAdminSection("dormspaces")}
+              className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                adminSection === "dormspaces"
+                  ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <span>Dormspaces</span>
+            </button>
+            ) : null}
             {isAdminSectionVisible("verification") ? (
             <button
               type="button"
@@ -4554,6 +4569,10 @@ export default function AdminPage() {
 
         {adminSection === "articles" && isAdminPanelRole(profile?.role) ? (
           <ArticlesManagementSection />
+        ) : null}
+
+        {adminSection === "dormspaces" && isAdminPanelRole(profile?.role) ? (
+          <DormspaceAdminSection />
         ) : null}
 
         {adminSection === "teamManagement" && isAdminPanelRole(profile?.role) ? (
