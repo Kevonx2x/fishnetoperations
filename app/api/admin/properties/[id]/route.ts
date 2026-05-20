@@ -18,7 +18,10 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
 
     if (rest.featured === true) {
       const supabase = createSupabaseAdmin();
-      const { error: clearErr } = await supabase.from("properties").update({ featured: false });
+      const { error: clearErr } = await supabase
+        .from("properties")
+        .update({ featured: false })
+        .eq("featured", true);
       if (clearErr) {
         return NextResponse.json({ error: clearErr.message }, { status: 500 });
       }
