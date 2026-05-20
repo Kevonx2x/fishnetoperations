@@ -1,7 +1,5 @@
-import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
-import { DormspaceBrowse } from "@/components/dormspaces/dormspace-browse";
-import { DormspaceHero } from "@/components/dormspaces/dormspace-hero";
-import { DormspaceTrustStrip } from "@/components/dormspaces/dormspace-trust-strip";
+import { DormspacePublicHome } from "@/components/dormspaces/dormspace-public-home";
+import { DormspacesPublicTopNav } from "@/components/dormspaces/dormspaces-public-top-nav";
 import type { DormspaceWithPhotos } from "@/lib/dormspaces";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -23,11 +21,9 @@ export default async function DormspacesPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF8F4]">
-      <MaddenTopNav />
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
-        <DormspaceHero />
-        <DormspaceTrustStrip />
-        <DormspaceBrowse listings={listings} />
+      <DormspacesPublicTopNav />
+      <main>
+        <DormspacePublicHome listings={listings} />
       </main>
     </div>
   );

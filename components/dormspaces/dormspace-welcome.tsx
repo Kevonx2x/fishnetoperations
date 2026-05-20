@@ -101,6 +101,14 @@ export function DormspaceWelcome() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab");
+    if (tabParam === "signin") setTab("signin");
+    else if (tabParam === "signup" || tabParam === "create") setTab("create");
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
     const oauthError = params.get("oauth_error");
     if (!oauthError) return;
 

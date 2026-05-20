@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { DormspaceRowCarousel } from "@/components/dormspaces/dormspace-row-carousel";
@@ -21,17 +21,67 @@ import {
 const FIELD =
   "rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2 text-sm font-medium text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25";
 
-export function DormspaceBrowse({ listings }: { listings: DormspaceWithPhotos[] }) {
+export type DormspaceBrowseFilters = {
+  city: string;
+  roomType: "" | DormspaceRoomType;
+  gender: "" | DormspaceGenderPreference;
+  minPrice: string;
+  maxPrice: string;
+};
+
+type Props = {
+  listings: DormspaceWithPhotos[];
+  filters?: DormspaceBrowseFilters;
+  onFiltersChange?: (filters: DormspaceBrowseFilters) => void;
+  syncLocationToHero?: (location: string) => void;
+};
+
+export function DormspaceBrowse({
+  listings,
+  filters: controlledFilters,
+  onFiltersChange,
+  syncLocationToHero,
+}: Props) {
   const [city, setCity] = useState("");
   const [roomType, setRoomType] = useState<"" | DormspaceRoomType>("");
   const [gender, setGender] = useState<"" | DormspaceGenderPreference>("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
 
+  const isControlled = controlledFilters != null && onFiltersChange != null;
+
+  useEffect(() => {
+    if (!controlledFilters) return;
+    setCity(controlledFilters.city);
+    setRoomType(controlledFilters.roomType);
+    setGender(controlledFilters.gender);
+    setMinPrice(controlledFilters.minPrice);
+    setMaxPrice(controlledFilters.maxPrice);
+  }, [controlledFilters]);
+
   const filters = useMemo(
-    () => ({ city, roomType, gender, minPrice, maxPrice }),
-    [city, roomType, gender, minPrice, maxPrice],
+    () =>
+      isControlled && controlledFilters
+        ? controlledFilters
+        : { city, roomType, gender, minPrice, maxPrice },
+    [isControlled, controlledFilters, city, roomType, gender, minPrice, maxPrice],
   );
+
+  const updateFilters = (next: Partial<DormspaceBrowseFilters>) => {
+    const merged = { ...filters, ...next };
+    if (onFiltersChange) {
+      onFiltersChange(merged);
+      if (syncLocationToHero && "city" in next) {
+        syncLocationToHero(next.city ?? merged.city);
+      }
+    } else {
+      if (next.city !== undefined) setCity(next.city);
+      if (next.roomType !== undefined) setRoomType(next.roomType);
+      if (next.gender !== undefined) setGender(next.gender);
+      if (next.minPrice !== undefined) setMinPrice(next.minPrice);
+      if (next.maxPrice !== undefined) setMaxPrice(next.maxPrice);
+    }
+  };
 
   const filtersActive = hasActiveDormspaceFilters(filters);
 
@@ -59,15 +109,27 @@ export function DormspaceBrowse({ listings }: { listings: DormspaceWithPhotos[] 
   }, [listings, filtered, filtersActive, filters.city]);
 
   const clearFilters = () => {
-    setCity("");
-    setRoomType("");
-    setGender("");
-    setMinPrice("");
-    setMaxPrice("");
+    const empty: DormspaceBrowseFilters = {
+      city: "",
+      roomType: "",
+      gender: "",
+      minPrice: "",
+      maxPrice: "",
+    };
+    if (onFiltersChange) {
+      onFiltersChange(empty);
+      syncLocationToHero?.("");
+    } else {
+      setCity("");
+      setRoomType("");
+      setGender("");
+      setMinPrice("");
+      setMaxPrice("");
+    }
   };
 
   return (
-    <section className="mt-12">
+    <section id="listings" className="mx-auto mt-4 max-w-6xl scroll-mt-24 px-4 pb-12 sm:px-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
@@ -91,7 +153,11 @@ export function DormspaceBrowse({ listings }: { listings: DormspaceWithPhotos[] 
       <div className="mt-5 flex flex-wrap gap-3 rounded-2xl border border-[#DDDDDD] bg-white p-4 shadow-sm">
         <label className="flex min-w-[140px] flex-1 flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-[#525252]">
           City
-          <select className={FIELD} value={city} onChange={(e) => setCity(e.target.value)}>
+          <select
+            className={FIELD}
+            value={filters.city}
+            onChange={(e) => updateFilters({ city: e.target.value })}
+          >
             <option value="">All cities</option>
             {METRO_MANILA_CITIES.map((c) => (
               <option key={c} value={c}>
@@ -104,8 +170,8 @@ export function DormspaceBrowse({ listings }: { listings: DormspaceWithPhotos[] 
           Room type
           <select
             className={FIELD}
-            value={roomType}
-            onChange={(e) => setRoomType(e.target.value as "" | DormspaceRoomType)}
+            value={filters.roomType}
+            onChange={(e) => updateFilters({ roomType: e.target.value as "" | DormspaceRoomType })}
           >
             <option value="">All types</option>
             {DORMSPACE_ROOM_TYPE_OPTIONS.map((o) => (
@@ -117,18 +183,30 @@ export function DormspaceBrowse({ listings }: { listings: DormspaceWithPhotos[] 
         </label>
         <label className="flex min-w-[120px] flex-1 flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-[#525252]">
           Min ₱/mo
-          <input className={FIELD} type="number" min={0} value={minPrice} onChange={(e) => setMinPrice(e.target.value)} />
+          <input
+            className={FIELD}
+            type="number"
+            min={0}
+            value={filters.minPrice}
+            onChange={(e) => updateFilters({ minPrice: e.target.value })}
+          />
         </label>
         <label className="flex min-w-[120px] flex-1 flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-[#525252]">
           Max ₱/mo
-          <input className={FIELD} type="number" min={0} value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
+          <input
+            className={FIELD}
+            type="number"
+            min={0}
+            value={filters.maxPrice}
+            onChange={(e) => updateFilters({ maxPrice: e.target.value })}
+          />
         </label>
         <label className="flex min-w-[140px] flex-1 flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-[#525252]">
           Gender
           <select
             className={FIELD}
-            value={gender}
-            onChange={(e) => setGender(e.target.value as "" | DormspaceGenderPreference)}
+            value={filters.gender}
+            onChange={(e) => updateFilters({ gender: e.target.value as "" | DormspaceGenderPreference })}
           >
             <option value="">Any</option>
             {DORMSPACE_GENDER_OPTIONS.filter((o) => o.value !== "any").map((o) => (
@@ -177,7 +255,7 @@ export function DormspaceBrowse({ listings }: { listings: DormspaceWithPhotos[] 
             Be the first landlord on BahayGo Dormspaces — listings you add appear in these rows instantly.
           </p>
           <Link
-            href="/dormspaces/submit"
+            href="/dormspaces/welcome"
             className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white"
           >
             List your dormspace
