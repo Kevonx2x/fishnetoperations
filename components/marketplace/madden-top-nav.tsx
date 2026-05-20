@@ -551,17 +551,17 @@ export function MaddenTopNav() {
           <NavDropdownMenu label="Agents" entries={agentsEntries} />
           <NavDropdownMenu label="Agencies" entries={agenciesEntries} />
           <NavDropdownMenu label="Landmarks" entries={landmarksItems} />
-          <Link
-            href="/dormspaces"
-            className="shrink-0 transition hover:text-[#2C2C2C]"
-          >
-            Dormspaces
-          </Link>
           {isBuyPage ? (
             <NavDropdownMenu label="Rent" entries={rentWhenOnBuyItems} />
           ) : (
             <NavDropdownMenu label="Buy" entries={buyWhenOnRentItems} />
           )}
+          <Link
+            href="/dormspaces"
+            className="shrink-0 text-[#6B9E6E] transition hover:text-[#5d8a60]"
+          >
+            Dormspacers
+          </Link>
         </nav>
 
         <div className="justify-self-end flex items-center gap-2">
@@ -998,18 +998,18 @@ export function MaddenTopNav() {
               <MobileNavSection title="Agents" entries={agentsEntries} onNavigate={closeMobileNav} />
               <MobileNavSection title="Agencies" entries={agenciesEntries} onNavigate={closeMobileNav} />
               <MobileNavSection title="Landmarks" entries={landmarksItems} onNavigate={closeMobileNav} />
-              <Link
-                href="/dormspaces"
-                onClick={closeMobileNav}
-                className="flex items-center rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040] transition hover:bg-white"
-              >
-                Dormspaces
-              </Link>
               <MobileNavSection
                 title={isBuyPage ? "Rent" : "Buy"}
                 entries={isBuyPage ? rentWhenOnBuyItems : buyWhenOnRentItems}
                 onNavigate={closeMobileNav}
               />
+              <Link
+                href="/dormspaces"
+                onClick={closeMobileNav}
+                className="flex items-center rounded-lg px-3 py-2.5 text-sm font-semibold text-[#6B9E6E] transition hover:bg-white hover:text-[#5d8a60]"
+              >
+                Dormspacers
+              </Link>
             </div>
           </div>
         </div>
