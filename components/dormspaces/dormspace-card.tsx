@@ -33,7 +33,7 @@ export function DormspaceCard({ listing }: { listing: DormspaceWithPhotos }) {
   return (
     <Link
       href={href}
-      className="flex min-h-[380px] flex-col overflow-hidden rounded-2xl border border-[#DDDDDD] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.08)] transition hover:border-[#C4C4C4] hover:shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
+      className="flex h-full min-h-[380px] w-full flex-col overflow-hidden rounded-2xl border border-[#DDDDDD] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.08)] transition hover:border-[#C4C4C4] hover:shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
     >
       <div className="relative h-44 w-full shrink-0 bg-[#F3F0EA] lg:h-48">
         {img ? (

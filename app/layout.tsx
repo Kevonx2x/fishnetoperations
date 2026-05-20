@@ -88,7 +88,15 @@ function SiteFooter() {
 
         <div className="mt-10 flex flex-col gap-2 border-t border-[#2C2C2C]/10 pt-6 text-xs font-semibold text-[#4a4a4a] sm:flex-row sm:items-center sm:justify-between">
           <span>© 2026 BahayGo. All rights reserved.</span>
-          <span>Safe discovery for luxury homes.</span>
+          <div className="flex flex-col gap-1 sm:items-end">
+            <span>Safe discovery for luxury homes.</span>
+            <a
+              href="/auth/login?next=/dormspaces/dashboard"
+              className="text-[#888888] hover:text-[#484848]"
+            >
+              Landlord login
+            </a>
+          </div>
         </div>
       </div>
     </footer>

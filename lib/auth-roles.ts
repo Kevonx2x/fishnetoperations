@@ -1,4 +1,11 @@
-export type ProfileRole = "admin" | "ops_admin" | "broker" | "agent" | "client" | "team_member";
+export type ProfileRole =
+  | "admin"
+  | "ops_admin"
+  | "broker"
+  | "agent"
+  | "client"
+  | "team_member"
+  | "landlord";
 
 /** Full admin dashboard (same surface as admin, minus ops-only restrictions in UI). */
 export function isAdminPanelRole(role: string | null | undefined): boolean {
@@ -22,6 +29,8 @@ export function pathForRole(role: string | null | undefined): string {
       return "/dashboard/agent";
     case "client":
       return "/dashboard/client";
+    case "landlord":
+      return "/dormspaces/dashboard";
     default:
       return "/";
   }
@@ -34,6 +43,11 @@ export function isProfileRole(r: string): r is ProfileRole {
     r === "broker" ||
     r === "agent" ||
     r === "client" ||
-    r === "team_member"
+    r === "team_member" ||
+    r === "landlord"
   );
+}
+
+export function isLandlordRole(role: string | null | undefined): boolean {
+  return role === "landlord";
 }

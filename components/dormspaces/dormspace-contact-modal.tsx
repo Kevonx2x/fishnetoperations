@@ -61,7 +61,9 @@ export function DormspaceContactModal({
       setName(profile?.full_name?.trim() ?? "");
       setPhone(profile?.phone?.trim() ?? "");
     }
-    setMessage(`Hi, I'm interested in "${dormspaceTitle}".`);
+    setMessage(
+      `Hi, I'm interested in this dormspace. When would be a good time to visit?`,
+    );
   }, [open, user, profile, dormspaceTitle]);
 
   useEffect(() => {
@@ -98,13 +100,10 @@ export function DormspaceContactModal({
     }
     setBusy(true);
     try {
-      const res = await fetch("/api/dormspaces/inquiry", {
+      const res = await fetch(`/api/dormspaces/${dormspaceId}/inquiry`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dormspace_id: dormspaceId,
-          ...parsed.data,
-        }),
+        body: JSON.stringify(parsed.data),
       });
       const json = (await res.json()) as { error?: string | { message?: string } };
       if (!res.ok) {
@@ -150,7 +149,9 @@ export function DormspaceContactModal({
               <Check className="size-6 text-[#6B9E6E]" />
             </div>
             <p className="font-serif text-lg font-semibold text-[#2C2C2C]">Message sent</p>
-            <p className="text-sm font-medium text-[#484848]">The landlord will reach out using your contact details.</p>
+            <p className="text-sm font-medium text-[#484848]">
+              Message sent — the landlord will respond directly via email.
+            </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-y-auto px-5 py-4">
@@ -184,6 +185,7 @@ export function DormspaceContactModal({
                   className={cn(inputCls, "mt-1 min-h-[100px] resize-y")}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Hi, I'm interested in this dormspace. When would be a good time to visit?"
                   required
                 />
                 {fieldErrors.message ? (

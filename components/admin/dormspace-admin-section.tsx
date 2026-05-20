@@ -5,11 +5,15 @@ import Image from "next/image";
 import { Loader2 } from "lucide-react";
 
 import {
+  dormspaceInquiryStatusLabel,
   dormspaceRoomTypeLabel,
   formatDormspacePrice,
+  type DormspaceInquiryRow,
+  type DormspaceInquiryStatus,
   type DormspacePhotoRow,
   type DormspaceRow,
 } from "@/lib/dormspaces";
+import { cn } from "@/lib/utils";
 
 type PendingRow = Pick<
   DormspaceRow,
@@ -25,7 +29,108 @@ type DetailRow = DormspaceRow & {
 const FIELD =
   "mt-1 w-full rounded-lg border border-[#2C2C2C]/12 bg-white px-3 py-2 text-sm text-[#2C2C2C]";
 
-export function DormspaceAdminSection() {
+type AdminInquiryRow = DormspaceInquiryRow & {
+  dormspaces?: {
+    title?: string;
+    landlord_name?: string;
+    landlord_email?: string;
+    status?: string;
+  } | null;
+};
+
+function DormspaceAdminInquiriesPanel() {
+  const [items, setItems] = useState<AdminInquiryRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/dormspace-inquiries", { credentials: "include" });
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { items?: AdminInquiryRow[] };
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        setError(json.error?.message ?? "Could not load inquiries");
+        setItems([]);
+        return;
+      }
+      setItems(json.data?.items ?? []);
+    } catch {
+      setError("Network error");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm font-medium text-[#484848]">
+        Read-only view of tenant inquiries across all landlords (for dispute investigation).
+      </p>
+      {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
+      {loading ? (
+        <p className="flex items-center gap-2 text-sm text-[#484848]">
+          <Loader2 className="size-4 animate-spin" /> Loading inquiries…
+        </p>
+      ) : items.length === 0 ? (
+        <p className="text-sm font-medium text-[#484848]">No inquiries yet.</p>
+      ) : (
+        <ul className="divide-y divide-[#2C2C2C]/8 rounded-2xl border border-[#2C2C2C]/10 bg-white">
+          {items.map((row) => {
+            const expanded = expandedId === row.id;
+            const listing = row.dormspaces;
+            return (
+              <li key={row.id}>
+                <button
+                  type="button"
+                  className="w-full px-4 py-3 text-left hover:bg-[#FAF8F4]"
+                  onClick={() => setExpandedId(expanded ? null : row.id)}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-[#2C2C2C]">{row.name}</p>
+                      <p className="text-xs text-[#484848]">{row.email}</p>
+                    </div>
+                    <span className="rounded-full bg-[#2C2C2C]/8 px-2 py-0.5 text-[10px] font-bold uppercase">
+                      {dormspaceInquiryStatusLabel(row.status)}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs font-medium text-[#525252]">
+                    {listing?.title ?? "Listing"} · {listing?.landlord_name ?? "—"} ·{" "}
+                    {new Date(row.created_at).toLocaleString()}
+                  </p>
+                  {!expanded ? (
+                    <p className="mt-1 line-clamp-2 text-sm text-[#484848]">{row.message}</p>
+                  ) : null}
+                </button>
+                {expanded ? (
+                  <div className="border-t border-[#2C2C2C]/8 px-4 pb-4">
+                    <p className="whitespace-pre-wrap pt-3 text-sm text-[#484848]">{row.message}</p>
+                    <p className="mt-2 text-xs text-[#525252]">
+                      Landlord: {listing?.landlord_email ?? "—"} · Listing status: {listing?.status ?? "—"}
+                    </p>
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function DormspaceAdminSubmissionsPanel() {
   const [items, setItems] = useState<PendingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -114,10 +219,7 @@ export function DormspaceAdminSection() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Dormspace Submissions</h2>
-        <p className="mt-1 text-sm font-medium text-[#484848]">Review pending landlord listings before they go live.</p>
-      </div>
+      <p className="text-sm font-medium text-[#484848]">Review pending landlord listings before they go live.</p>
 
       {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
 
@@ -238,6 +340,45 @@ export function DormspaceAdminSection() {
           ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+export function DormspaceAdminSection() {
+  const [subTab, setSubTab] = useState<"submissions" | "inquiries">("submissions");
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Dormspaces</h2>
+        <nav className="mt-3 flex gap-2 border-b border-[#2C2C2C]/10">
+          <button
+            type="button"
+            onClick={() => setSubTab("submissions")}
+            className={cn(
+              "border-b-2 px-3 py-2 text-sm font-bold",
+              subTab === "submissions"
+                ? "border-[#6B9E6E] text-[#2C2C2C]"
+                : "border-transparent text-[#484848]",
+            )}
+          >
+            Submissions
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab("inquiries")}
+            className={cn(
+              "border-b-2 px-3 py-2 text-sm font-bold",
+              subTab === "inquiries"
+                ? "border-[#6B9E6E] text-[#2C2C2C]"
+                : "border-transparent text-[#484848]",
+            )}
+          >
+            Dormspace Inquiries
+          </button>
+        </nav>
+      </div>
+      {subTab === "submissions" ? <DormspaceAdminSubmissionsPanel /> : <DormspaceAdminInquiriesPanel />}
     </div>
   );
 }

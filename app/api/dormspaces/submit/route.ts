@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { z } from "zod";
 
 import { getSessionProfile } from "@/lib/admin-api-auth";
+import { isLandlordRole } from "@/lib/auth-roles";
 import { fail } from "@/lib/api/response";
 import {
   signedVerificationUrl,
@@ -92,11 +93,84 @@ export async function POST(req: Request) {
   }
 
   const admin = createSupabaseAdmin();
+  const password = String(form.get("landlord_password") ?? "").trim();
+  const emailLower = landlord_email.trim().toLowerCase();
+
+  let landlordUserId: string | null =
+    session && isLandlordRole(session.role) ? session.userId : null;
+
+  if (!landlordUserId && password.length >= 8) {
+    const { data: existingProfile } = await admin
+      .from("profiles")
+      .select("id, role")
+      .eq("email", emailLower)
+      .maybeSingle();
+
+    if (existingProfile?.id) {
+      if (session && session.userId === existingProfile.id) {
+        landlordUserId = session.userId;
+        if (!isLandlordRole(existingProfile.role as string)) {
+          await admin.from("profiles").update({ role: "landlord" }).eq("id", session.userId);
+        }
+      } else {
+        return fail(
+          "EMAIL_EXISTS",
+          "An account with this email already exists. Sign in to submit your listing.",
+          409,
+        );
+      }
+    }
+
+    if (!landlordUserId) {
+      const { data: created, error: createErr } = await admin.auth.admin.createUser({
+        email: emailLower,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: landlord_name, role: "landlord" },
+      });
+
+      if (createErr || !created.user?.id) {
+        const msg = createErr?.message ?? "Could not create account";
+        if (msg.toLowerCase().includes("already") || msg.toLowerCase().includes("registered")) {
+          return fail(
+            "EMAIL_EXISTS",
+            "An account with this email already exists. Sign in to submit your listing.",
+            409,
+          );
+        }
+        return fail("AUTH_ERROR", msg, 400);
+      }
+
+      landlordUserId = created.user.id;
+      const { error: profErr } = await admin.from("profiles").upsert(
+        {
+          id: landlordUserId,
+          full_name: landlord_name,
+          email: emailLower,
+          phone: landlord_phone,
+          role: "landlord",
+        },
+        { onConflict: "id" },
+      );
+
+      if (profErr) {
+        console.error("[dormspaces/submit] profile upsert failed", profErr);
+        await admin.auth.admin.deleteUser(landlordUserId);
+        return fail("SERVER_ERROR", "Could not create landlord profile", 500);
+      }
+    }
+  } else if (!landlordUserId && session?.userId) {
+    landlordUserId = session.userId;
+    const sessionEmail = session.email?.trim().toLowerCase();
+    if (sessionEmail && sessionEmail === emailLower && !isLandlordRole(session.role)) {
+      await admin.from("profiles").update({ role: "landlord" }).eq("id", session.userId);
+    }
+  }
 
   const { data: inserted, error: insertErr } = await admin
     .from("dormspaces")
     .insert({
-      landlord_user_id: session?.userId ?? null,
+      landlord_user_id: landlordUserId,
       landlord_name,
       landlord_email,
       landlord_phone,
@@ -190,5 +264,10 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, id: dormspaceId });
+  return NextResponse.json({
+    ok: true,
+    id: dormspaceId,
+    landlord_user_id: landlordUserId,
+    created_account: Boolean(landlordUserId && password.length >= 8),
+  });
 }

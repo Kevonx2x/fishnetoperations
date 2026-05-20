@@ -28,7 +28,8 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
     raw === "broker" ||
     raw === "agent" ||
     raw === "client" ||
-    raw === "team_member"
+    raw === "team_member" ||
+    raw === "landlord"
       ? raw
       : "client";
 

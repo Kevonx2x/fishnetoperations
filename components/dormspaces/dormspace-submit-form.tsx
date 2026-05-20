@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import Link from "next/link";
-import { Check, Upload } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Upload } from "lucide-react";
 
 import { GooglePlacesInput, type GooglePlaceSelectedPayload } from "@/components/forms/google-places-input";
+import { useAuth } from "@/contexts/auth-context";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   DORMSPACE_AMENITIES,
   DORMSPACE_GENDER_OPTIONS,
@@ -61,6 +63,11 @@ function FileDrop({
 }
 
 export function DormspaceSubmitForm() {
+  const router = useRouter();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const { user, profile } = useAuth();
+  const isLandlordSignedIn = user && profile?.role === "landlord";
+
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
@@ -72,8 +79,10 @@ export function DormspaceSubmitForm() {
   const [amenities, setAmenities] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [submittedListingId, setSubmittedListingId] = useState<string | null>(null);
+  const [landlordEmail, setLandlordEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [emailExists, setEmailExists] = useState<boolean | null>(null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
 
   const onPlace = useCallback((p: GooglePlaceSelectedPayload) => {
     setAddress(p.location);
@@ -87,10 +96,50 @@ export function DormspaceSubmitForm() {
     setAmenities((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const checkEmail = useCallback(async (email: string) => {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes("@")) {
+      setEmailExists(null);
+      return;
+    }
+    setCheckingEmail(true);
+    try {
+      const res = await fetch("/api/dormspaces/check-landlord-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      const json = (await res.json()) as { success?: boolean; data?: { exists?: boolean } };
+      setEmailExists(Boolean(json.data?.exists));
+    } catch {
+      setEmailExists(null);
+    } finally {
+      setCheckingEmail(false);
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     const form = e.currentTarget;
+    const email = String(new FormData(form).get("landlord_email") ?? "")
+      .trim()
+      .toLowerCase();
+
+    if (!isLandlordSignedIn) {
+      if (password.length < 8) {
+        setError("Choose a password with at least 8 characters.");
+        return;
+      }
+      if (emailExists) {
+        const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInErr) {
+          setError("Could not sign in. Check your password and try again.");
+          return;
+        }
+      }
+    }
+
     const fd = new FormData(form);
     if (idFile) fd.set("landlord_id", idFile);
     if (billingFile) fd.set("proof_of_billing", billingFile);
@@ -104,6 +153,9 @@ export function DormspaceSubmitForm() {
     for (const [k, v] of Object.entries(amenities)) {
       if (v) fd.set(k, "true");
     }
+    if (!isLandlordSignedIn && password) {
+      fd.set("landlord_password", password);
+    }
 
     setBusy(true);
     try {
@@ -114,48 +166,22 @@ export function DormspaceSubmitForm() {
         setError(msg ?? "Submission failed");
         return;
       }
-      setSubmittedListingId(json.id ?? null);
-      setSuccess(true);
-      form.reset();
-      setPhotos([]);
-      setIdFile(null);
-      setBillingFile(null);
+      if (!isLandlordSignedIn && password && email) {
+        const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password });
+        if (loginErr) {
+          setError("Listing saved but sign-in failed. Use Landlord login in the site footer.");
+          return;
+        }
+      }
+
+      router.replace("/dormspaces/dashboard?welcome=1");
+      router.refresh();
     } catch {
       setError("Network error. Please try again.");
     } finally {
       setBusy(false);
     }
   };
-
-  if (success) {
-    return (
-      <div className="mx-auto max-w-lg rounded-2xl border border-[#6B9E6E]/30 bg-white p-8 text-center shadow-md">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-[#6B9E6E]/15">
-          <Check className="size-7 text-[#6B9E6E]" />
-        </div>
-        <h2 className="mt-4 font-serif text-2xl font-bold text-[#2C2C2C]">Your dormspace is now live!</h2>
-        <p className="mt-3 text-sm font-medium leading-relaxed text-[#484848]">
-          Your listing is visible with a &apos;Pending verification&apos; badge. We&apos;ll review your ID and proof
-          of billing within 48 hours and flip your listing to &apos;Verified Landlord&apos; once confirmed.
-        </p>
-        {submittedListingId ? (
-          <Link
-            href={`/dormspaces/${submittedListingId}`}
-            className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
-          >
-            View my listing →
-          </Link>
-        ) : (
-          <Link
-            href="/dormspaces"
-            className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white"
-          >
-            Browse dormspaces
-          </Link>
-        )}
-      </div>
-    );
-  }
 
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6 pb-16">
@@ -166,7 +192,21 @@ export function DormspaceSubmitForm() {
         </label>
         <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
           Email *
-          <input name="landlord_email" type="email" className={FIELD} required />
+          <input
+            name="landlord_email"
+            type="email"
+            className={FIELD}
+            required
+            value={landlordEmail}
+            onChange={(e) => {
+              setLandlordEmail(e.target.value);
+              setEmailExists(null);
+            }}
+            onBlur={() => void checkEmail(landlordEmail)}
+          />
+          {checkingEmail ? (
+            <span className="mt-1 block text-xs text-[#888888]">Checking email…</span>
+          ) : null}
         </label>
         <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
           Phone (PH) *
@@ -300,6 +340,38 @@ export function DormspaceSubmitForm() {
         </label>
       </Section>
 
+      {!isLandlordSignedIn ? (
+        <Section title="7. Save your account to manage this listing">
+          <p className="text-sm font-medium text-[#484848]">
+            {emailExists
+              ? "Welcome back — sign in with your password to link this listing to your account."
+              : "Create a landlord account to manage listings and inquiries from your dashboard."}
+          </p>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
+            Email
+            <input type="email" className={FIELD} value={landlordEmail} readOnly tabIndex={-1} aria-hidden />
+          </label>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
+            Password *
+            <input
+              type="password"
+              name="landlord_password_display"
+              autoComplete={emailExists ? "current-password" : "new-password"}
+              className={FIELD}
+              minLength={8}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+        </Section>
+      ) : (
+        <p className="rounded-xl border border-[#6B9E6E]/25 bg-[#6B9E6E]/10 px-4 py-3 text-sm font-medium text-[#484848]">
+          Signed in as <span className="font-semibold text-[#2C2C2C]">{profile?.full_name ?? user?.email}</span>.
+          This listing will appear in your dashboard.
+        </p>
+      )}
+
       {error ? <p className="text-center text-sm font-medium text-red-600">{error}</p> : null}
 
       <button
@@ -307,7 +379,13 @@ export function DormspaceSubmitForm() {
         disabled={busy}
         className="w-full rounded-xl bg-[#6B9E6E] py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] disabled:opacity-60"
       >
-        {busy ? "Submitting…" : "Submit for review"}
+        {busy
+          ? "Submitting…"
+          : emailExists && !isLandlordSignedIn
+            ? "Sign in & submit"
+            : isLandlordSignedIn
+              ? "Submit listing"
+              : "Create account & submit"}
       </button>
     </form>
   );

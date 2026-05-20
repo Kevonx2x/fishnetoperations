@@ -44,7 +44,8 @@ function normalizeRole(r: string | null | undefined): ProfileRole {
     r === "broker" ||
     r === "agent" ||
     r === "client" ||
-    r === "team_member"
+    r === "team_member" ||
+    r === "landlord"
   ) {
     return r;
   }

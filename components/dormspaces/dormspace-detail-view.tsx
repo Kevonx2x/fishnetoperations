@@ -105,6 +105,25 @@ export function DormspaceDetailView({ listing }: { listing: DormspaceWithPhotos 
           ) : null}
         </div>
 
+        {urls.length > 1 ? (
+          <div className="flex gap-2 overflow-x-auto border-t border-[#2C2C2C]/8 bg-white px-3 py-3 scrollbar-hide">
+            {urls.map((url, i) => (
+              <button
+                key={`${url}-${i}`}
+                type="button"
+                onClick={() => setIdx(i)}
+                className={`relative h-14 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition ${
+                  i === idx ? "border-[#6B9E6E] ring-2 ring-[#6B9E6E]/25" : "border-transparent opacity-80 hover:opacity-100"
+                }`}
+                aria-label={`View photo ${i + 1}`}
+                aria-current={i === idx ? "true" : undefined}
+              >
+                <Image src={url} alt="" fill sizes="80px" className="object-cover" />
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         <div className="grid gap-8 p-5 md:grid-cols-[1fr_280px] md:p-8">
           <div>
             <div className="flex flex-wrap gap-2">

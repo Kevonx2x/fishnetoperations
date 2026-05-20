@@ -24,7 +24,7 @@ export default async function DormspacesPage() {
   return (
     <div className="min-h-screen bg-[#FAF8F4]">
       <MaddenTopNav />
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:py-8">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
         <DormspaceHero />
         <DormspaceTrustStrip />
         <DormspaceBrowse listings={listings} />

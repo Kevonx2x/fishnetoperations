@@ -4,15 +4,17 @@ import { fail, fromZodError } from "@/lib/api/response";
 import { handleDormspaceInquiry } from "@/lib/dormspace-inquiry-handler";
 
 const bodySchema = z.object({
-  dormspace_id: z.string().uuid(),
   name: z.string().min(1).max(500),
   email: z.string().email().max(320),
   phone: z.string().max(200).optional().nullable(),
   message: z.string().min(1).max(10000),
 });
 
-/** @deprecated Prefer POST /api/dormspaces/[id]/inquiry */
-export async function POST(req: Request) {
+type RouteContext = { params: Promise<{ id: string }> };
+
+export async function POST(req: Request, context: RouteContext) {
+  const { id: dormspace_id } = await context.params;
+
   let json: unknown;
   try {
     json = await req.json();
@@ -23,6 +25,5 @@ export async function POST(req: Request) {
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) return fromZodError(parsed.error);
 
-  const { dormspace_id, ...payload } = parsed.data;
-  return handleDormspaceInquiry(dormspace_id, payload);
+  return handleDormspaceInquiry(dormspace_id, parsed.data);
 }

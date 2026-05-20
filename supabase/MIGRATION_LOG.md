@@ -4,6 +4,17 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 
 ---
 
+## 2026-05-21 16:00 — Dormspaces: landlord role + inquiry CRM
+
+**Migration file:** supabase/migrations/20260521160000_dormspaces_landlord_crm.sql
+**Executed by:** TJ (pending)
+**Status:** Pending
+**Tables affected:** profiles (role check), dormspace_inquiries (status constraint, responded_at), dormspaces (RLS)
+**Summary:** Adds `landlord` profile role; inquiry status workflow; landlord SELECT/UPDATE on inquiries for owned listings; landlord UPDATE/DELETE on own dormspaces.
+**Rollback notes:** Restore prior `profiles_role_check`; drop new inquiry/dormspace policies; restore `dormspaces_update_own_pending` if needed.
+
+---
+
 ## 2026-05-21 14:00 — Dormspaces: show pending listings publicly
 
 **Migration file:** supabase/migrations/20260521140000_dormspaces_allow_pending_visible.sql

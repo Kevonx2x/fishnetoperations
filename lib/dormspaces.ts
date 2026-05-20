@@ -53,6 +53,57 @@ export type DormspaceWithPhotos = DormspaceRow & {
   dormspace_photos?: DormspacePhotoRow[] | null;
 };
 
+export type DormspaceInquiryStatus = "new" | "responded" | "archived";
+
+/** Matches `public.dormspace_inquiries` columns (name/email/phone, not sender_*). */
+export type DormspaceInquiryRow = {
+  id: string;
+  dormspace_id: string;
+  sender_user_id: string | null;
+  name: string;
+  email: string;
+  phone: string | null;
+  message: string;
+  status: DormspaceInquiryStatus;
+  created_at: string;
+  read_at: string | null;
+  responded_at: string | null;
+};
+
+export type DormspaceInquiryWithListing = DormspaceInquiryRow & {
+  dormspace?: Pick<DormspaceRow, "id" | "title" | "landlord_user_id"> & {
+    dormspace_photos?: DormspacePhotoRow[] | null;
+  };
+};
+
+export function dormspaceStatusLabel(status: DormspaceStatus): string {
+  switch (status) {
+    case "pending":
+      return "Pending verification";
+    case "approved":
+      return "Verified";
+    case "rejected":
+      return "Rejected";
+    case "archived":
+      return "Archived";
+    default:
+      return status;
+  }
+}
+
+export function dormspaceInquiryStatusLabel(status: DormspaceInquiryStatus): string {
+  switch (status) {
+    case "new":
+      return "New";
+    case "responded":
+      return "Responded";
+    case "archived":
+      return "Archived";
+    default:
+      return status;
+  }
+}
+
 export const DORMSPACE_ROOM_TYPE_OPTIONS: { value: DormspaceRoomType; label: string }[] = [
   { value: "private", label: "Private room" },
   { value: "shared_2", label: "Shared (2 beds)" },
