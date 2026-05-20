@@ -14,7 +14,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next");
+  const next = searchParams.get("next") ?? searchParams.get("redirect");
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [email, setEmail] = useState("");

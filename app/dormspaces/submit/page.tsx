@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { DormspaceSubmitForm } from "@/components/dormspaces/dormspace-submit-form";
+import { DormspaceSubmitGate } from "@/components/dormspaces/dormspace-submit-gate";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 
 export const metadata = {
@@ -24,7 +26,17 @@ export default function DormspaceSubmitPage() {
             Free to list. We verify every landlord with ID and proof of billing before your listing goes live.
           </p>
         </div>
-        <DormspaceSubmitForm />
+        <Suspense
+          fallback={
+            <div className="flex min-h-[240px] items-center justify-center">
+              <p className="text-sm font-medium text-[#484848]">Loading…</p>
+            </div>
+          }
+        >
+          <DormspaceSubmitGate>
+            <DormspaceSubmitForm />
+          </DormspaceSubmitGate>
+        </Suspense>
       </main>
     </div>
   );

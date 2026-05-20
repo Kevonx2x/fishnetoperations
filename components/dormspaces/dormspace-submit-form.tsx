@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ImagePlus, Upload, X } from "lucide-react";
 
@@ -8,6 +9,7 @@ import { GooglePlacesInput, type GooglePlaceSelectedPayload } from "@/components
 import { useAuth } from "@/contexts/auth-context";
 import {
   isDormspaceSubmitBlockedRole,
+  pathForRole,
   type ProfileRole,
 } from "@/lib/auth-roles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -19,8 +21,6 @@ import {
 
 const FIELD =
   "mt-1 w-full rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25";
-
-const STAFF_ROLES: ProfileRole[] = ["admin", "ops_admin", "broker", "agent", "team_member"];
 
 function splitFullName(full: string | null | undefined): { first: string; last: string } {
   const t = full?.trim() ?? "";
@@ -247,7 +247,7 @@ export function DormspaceSubmitForm() {
 
   const isLandlordSignedIn = Boolean(user && profile?.role === "landlord");
   const isRoleBlocked = Boolean(user && profile?.role && isDormspaceSubmitBlockedRole(profile.role));
-  const showPersonalInfo = !isLandlordSignedIn;
+  const showPersonalInfo = !isLandlordSignedIn && !isRoleBlocked;
   const showAccountSection = !user;
   const needsPasswordOnSubmit = showAccountSection;
 
@@ -327,7 +327,7 @@ export function DormspaceSubmitForm() {
     setError("");
     try {
       await supabase.auth.signOut();
-      router.replace("/dormspaces/submit");
+      router.replace("/dormspaces/welcome");
       router.refresh();
     } catch {
       setError("Could not sign out. Please try again.");
@@ -456,33 +456,50 @@ export function DormspaceSubmitForm() {
 
   let sectionNum = 1;
 
+  if (isRoleBlocked && profile) {
+    const dashboardHref = pathForRole(profile.role);
+    return (
+      <div className="mx-auto max-w-lg pb-16">
+        <div
+          role="alert"
+          className="rounded-2xl border border-[#DDDDDD] bg-white px-6 py-8 text-center shadow-sm md:px-8 md:py-10"
+        >
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
+            Continue as a landlord?
+          </h2>
+          <p className="mx-auto mt-4 max-w-md text-sm font-medium leading-relaxed text-[#484848]">
+            You&apos;re signed in to your BahayGo{" "}
+            <span className="font-semibold text-[#2C2C2C]">{roleDisplayLabel(profile.role)}</span> account.
+            Dormspaces are managed under a separate landlord account. Sign out to continue listing your dormspace.
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleSignOut()}
+            disabled={signingOut}
+            className="mt-6 w-full rounded-xl bg-[#6B9E6E] px-6 py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {signingOut ? "Signing out…" : "Sign out and continue"}
+          </button>
+          <p className="mt-4">
+            <Link
+              href={dashboardHref}
+              className="text-sm font-semibold text-[#6B9E6E] hover:underline"
+            >
+              Cancel and go back to my dashboard
+            </Link>
+          </p>
+          {error ? <p className="mt-4 text-sm font-medium text-red-600">{error}</p> : null}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6 pb-16">
       {isLandlordSignedIn ? (
         <div className="rounded-2xl border border-[#6B9E6E]/30 bg-[#6B9E6E]/10 px-4 py-3.5 text-sm font-medium text-[#2C2C2C]">
           Welcome back, <span className="font-bold">{landlordFirstName || "landlord"}</span>. Continuing your
           listing submission.
-        </div>
-      ) : null}
-
-      {isRoleBlocked && profile ? (
-        <div
-          role="alert"
-          className="rounded-2xl border-2 border-amber-400/80 bg-amber-50 px-4 py-4 text-sm font-medium text-[#484848]"
-        >
-          <p className="text-[#2C2C2C]">
-            You&apos;re signed in as an{" "}
-            <span className="font-bold">{roleDisplayLabel(profile.role)}</span>. To list a dormspace, please sign out
-            and create a separate landlord account using a different email.
-          </p>
-          <button
-            type="button"
-            onClick={() => void handleSignOut()}
-            disabled={signingOut}
-            className="mt-3 rounded-xl border border-[#2C2C2C]/15 bg-white px-4 py-2 text-sm font-bold text-[#2C2C2C] shadow-sm transition hover:bg-[#FAF8F4] disabled:opacity-60"
-          >
-            {signingOut ? "Signing out…" : "Sign out"}
-          </button>
         </div>
       ) : null}
 
