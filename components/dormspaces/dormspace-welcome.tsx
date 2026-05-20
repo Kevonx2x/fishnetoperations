@@ -460,6 +460,25 @@ export function DormspaceWelcome() {
             )}
           </div>
 
+          <div className="mt-5">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center" aria-hidden>
+                <div className="w-full border-t border-[#2C2C2C]/10" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-[#FAF8F4] px-2 font-medium text-[#888888]">or</span>
+              </div>
+            </div>
+            <p className="mt-4 text-center">
+              <Link
+                href="/dormspaces"
+                className="text-sm font-semibold text-[#6B9E6E] transition hover:text-[#5d8a60] hover:underline"
+              >
+                Just looking? Browse dormspaces →
+              </Link>
+            </p>
+          </div>
+
           <p className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-[#888888]">
             <Wifi className="size-3.5 text-[#6B9E6E]/70" aria-hidden />
             Secure sign-in · Your listing stays private until verified

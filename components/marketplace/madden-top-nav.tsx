@@ -45,7 +45,7 @@ import {
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
-import { isAdminPanelRole } from "@/lib/auth-roles";
+import { isAdminPanelRole, pathForDormspacesNav } from "@/lib/auth-roles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
@@ -513,6 +513,11 @@ export function MaddenTopNav() {
 
   const closeMobileNav = () => setMobileMenuOpen(false);
 
+  const dormspacesNavHref = useMemo(
+    () => pathForDormspacesNav(Boolean(user), role),
+    [user, role],
+  );
+
   return (
     <Fragment>
     <header className="sticky top-0 z-50 w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4]/95 backdrop-blur-sm">
@@ -557,7 +562,7 @@ export function MaddenTopNav() {
             <NavDropdownMenu label="Buy" entries={buyWhenOnRentItems} />
           )}
           <Link
-            href="/dormspaces"
+            href={dormspacesNavHref}
             className="shrink-0 text-[#6B9E6E] transition hover:text-[#5d8a60]"
           >
             Dormspacers
@@ -1004,7 +1009,7 @@ export function MaddenTopNav() {
                 onNavigate={closeMobileNav}
               />
               <Link
-                href="/dormspaces"
+                href={dormspacesNavHref}
                 onClick={closeMobileNav}
                 className="flex items-center rounded-lg px-3 py-2.5 text-sm font-semibold text-[#6B9E6E] transition hover:bg-white hover:text-[#5d8a60]"
               >

@@ -17,6 +17,18 @@ export function isFullAdminRole(role: string | null | undefined): boolean {
   return role === "admin";
 }
 
+/** Main nav "Dormspacers" destination by session role. */
+export function pathForDormspacesNav(
+  signedIn: boolean,
+  role: string | null | undefined,
+): string {
+  if (!signedIn) return "/dormspaces/welcome";
+  if (role === "landlord") return "/dormspaces/dashboard";
+  if (role === "client") return "/dormspaces/welcome";
+  if (isDormspaceSubmitBlockedRole(role)) return "/dormspaces";
+  return "/dormspaces/welcome";
+}
+
 export function pathForRole(role: string | null | undefined): string {
   switch (role) {
     case "admin":
