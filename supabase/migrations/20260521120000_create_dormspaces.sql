@@ -100,8 +100,7 @@ CREATE POLICY dormspaces_select_public ON public.dormspaces
 CREATE POLICY dormspaces_select_own ON public.dormspaces
   FOR SELECT USING (landlord_user_id = auth.uid());
 
-CREATE POLICY dormspaces_insert_any ON public.dormspaces
-  FOR INSERT WITH CHECK (true);
+-- Listing creation goes through validated server API routes using the service role.
 
 CREATE POLICY dormspaces_update_admin ON public.dormspaces
   FOR UPDATE USING (
@@ -127,11 +126,7 @@ CREATE POLICY dormspace_photos_select_own ON public.dormspace_photos
     )
   );
 
-CREATE POLICY dormspace_photos_insert_any ON public.dormspace_photos
-  FOR INSERT WITH CHECK (true);
-
-CREATE POLICY dormspace_inquiries_insert_any ON public.dormspace_inquiries
-  FOR INSERT WITH CHECK (true);
+-- Photo and inquiry writes go through validated server API routes using the service role.
 
 CREATE POLICY dormspace_inquiries_select_admin ON public.dormspace_inquiries
   FOR SELECT USING (
@@ -152,8 +147,7 @@ CREATE POLICY dormspace_photos_public_read ON storage.objects
   FOR SELECT USING (bucket_id = 'dormspace-photos');
 
 DROP POLICY IF EXISTS dormspace_photos_insert ON storage.objects;
-CREATE POLICY dormspace_photos_insert ON storage.objects
-  FOR INSERT WITH CHECK (bucket_id = 'dormspace-photos');
+-- Storage uploads go through validated server API routes using the service role.
 
 DROP POLICY IF EXISTS dormspace_verification_admin_read ON storage.objects;
 CREATE POLICY dormspace_verification_admin_read ON storage.objects
@@ -163,5 +157,4 @@ CREATE POLICY dormspace_verification_admin_read ON storage.objects
   );
 
 DROP POLICY IF EXISTS dormspace_verification_insert ON storage.objects;
-CREATE POLICY dormspace_verification_insert ON storage.objects
-  FOR INSERT WITH CHECK (bucket_id = 'dormspace-verification');
+-- Verification uploads go through validated server API routes using the service role.

@@ -15,6 +15,11 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const roomTypes = ["private", "shared_2", "shared_4", "shared_6_plus"] as const;
 const genders = ["any", "male", "female"] as const;
+const STAFF_ROLES = new Set(["admin", "ops_admin", "broker", "agent", "team_member"]);
+
+function isStaffRole(role: string | null | undefined): boolean {
+  return Boolean(role && STAFF_ROLES.has(role));
+}
 
 function parseBool(v: FormDataEntryValue | null): boolean {
   return v === "true" || v === "on" || v === "1";
@@ -59,6 +64,20 @@ export async function POST(req: Request) {
   const billingFile = form.get("proof_of_billing");
   const photoFiles = form.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
 
+  const admin = createSupabaseAdmin();
+  const password = String(form.get("landlord_password") ?? "").trim();
+
+  if (session && isLandlordRole(session.role)) {
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("full_name, email, phone")
+      .eq("id", session.userId)
+      .maybeSingle();
+    if (!landlord_name) landlord_name = prof?.full_name?.trim() ?? "";
+    if (!landlord_email) landlord_email = (prof?.email ?? session.email ?? "").trim();
+    if (!landlord_phone) landlord_phone = prof?.phone?.trim() ?? "";
+  }
+
   const baseSchema = z.object({
     landlord_name: z.string().min(1).max(200),
     landlord_email: z.string().email().max(320),
@@ -98,37 +117,39 @@ export async function POST(req: Request) {
     return fail("BAD_REQUEST", "Maximum 10 listing photos", 400);
   }
 
-  const admin = createSupabaseAdmin();
-  const password = String(form.get("landlord_password") ?? "").trim();
-
   let landlordUserId: string | null =
     session && isLandlordRole(session.role) ? session.userId : null;
-
-  if (session && isLandlordRole(session.role)) {
-    const { data: prof } = await admin
-      .from("profiles")
-      .select("full_name, email, phone")
-      .eq("id", session.userId)
-      .maybeSingle();
-    if (!landlord_name) landlord_name = prof?.full_name?.trim() ?? "";
-    if (!landlord_email) landlord_email = (prof?.email ?? session.email ?? "").trim();
-    if (!landlord_phone) landlord_phone = prof?.phone?.trim() ?? "";
-  }
-
   const emailLower = landlord_email.trim().toLowerCase();
+  const sessionEmail = session?.email?.trim().toLowerCase() ?? null;
+  let shouldPromoteSessionToLandlord = false;
+  let createdLandlordUserId: string | null = null;
 
   if (!landlordUserId && password.length >= 8) {
     const { data: existingProfile } = await admin
       .from("profiles")
-      .select("id, role")
+      .select("id")
       .eq("email", emailLower)
       .maybeSingle();
 
     if (existingProfile?.id) {
       if (session && session.userId === existingProfile.id) {
+        if (!sessionEmail || sessionEmail !== emailLower) {
+          return fail(
+            "EMAIL_MISMATCH",
+            "Use the email on your signed-in account, or sign out to submit with a different email.",
+            400,
+          );
+        }
+        if (isStaffRole(session.role)) {
+          return fail(
+            "ROLE_CONFLICT",
+            "Sign out and create a separate landlord account to submit a dormspace listing.",
+            403,
+          );
+        }
         landlordUserId = session.userId;
-        if (!isLandlordRole(existingProfile.role as string)) {
-          await admin.from("profiles").update({ role: "landlord" }).eq("id", session.userId);
+        if (session.role === "client") {
+          shouldPromoteSessionToLandlord = true;
         }
       } else {
         return fail(
@@ -160,6 +181,7 @@ export async function POST(req: Request) {
       }
 
       landlordUserId = created.user.id;
+      createdLandlordUserId = landlordUserId;
       const { error: profErr } = await admin.from("profiles").upsert(
         {
           id: landlordUserId,
@@ -178,10 +200,23 @@ export async function POST(req: Request) {
       }
     }
   } else if (!landlordUserId && session?.userId) {
+    if (!sessionEmail || sessionEmail !== emailLower) {
+      return fail(
+        "EMAIL_MISMATCH",
+        "Use the email on your signed-in account, or sign out to submit with a different email.",
+        400,
+      );
+    }
+    if (isStaffRole(session.role)) {
+      return fail(
+        "ROLE_CONFLICT",
+        "Sign out and create a separate landlord account to submit a dormspace listing.",
+        403,
+      );
+    }
     landlordUserId = session.userId;
-    const sessionEmail = session.email?.trim().toLowerCase();
-    if (sessionEmail && sessionEmail === emailLower && !isLandlordRole(session.role)) {
-      await admin.from("profiles").update({ role: "landlord" }).eq("id", session.userId);
+    if (session.role === "client") {
+      shouldPromoteSessionToLandlord = true;
     }
   }
 
@@ -220,6 +255,10 @@ export async function POST(req: Request) {
 
   if (insertErr || !inserted?.id) {
     console.error("[dormspaces/submit] insert failed", insertErr);
+    if (createdLandlordUserId) {
+      await admin.from("profiles").delete().eq("id", createdLandlordUserId);
+      await admin.auth.admin.deleteUser(createdLandlordUserId);
+    }
     return fail("SERVER_ERROR", "Could not save submission", 500);
   }
 
@@ -244,11 +283,31 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error("[dormspaces/submit] storage failed", e);
     await admin.from("dormspaces").delete().eq("id", dormspaceId);
+    if (createdLandlordUserId) {
+      await admin.from("profiles").delete().eq("id", createdLandlordUserId);
+      await admin.auth.admin.deleteUser(createdLandlordUserId);
+    }
     return fail(
       "SERVER_ERROR",
       "Could not upload files. Ensure dormspace storage buckets exist (run migration).",
       500,
     );
+  }
+
+  if (shouldPromoteSessionToLandlord && session?.userId) {
+    const { data: promoted, error: promoteErr } = await admin
+      .from("profiles")
+      .update({ role: "landlord" })
+      .eq("id", session.userId)
+      .eq("role", "client")
+      .select("id")
+      .maybeSingle();
+
+    if (promoteErr || !promoted?.id) {
+      console.error("[dormspaces/submit] role promotion failed", promoteErr);
+      await admin.from("dormspaces").delete().eq("id", dormspaceId);
+      return fail("SERVER_ERROR", "Could not update landlord account", 500);
+    }
   }
 
   if (process.env.RESEND_API_KEY) {
@@ -286,6 +345,6 @@ export async function POST(req: Request) {
     ok: true,
     id: dormspaceId,
     landlord_user_id: landlordUserId,
-    created_account: Boolean(landlordUserId && password.length >= 8),
+    created_account: Boolean(createdLandlordUserId),
   });
 }
