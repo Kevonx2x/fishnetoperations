@@ -17,15 +17,11 @@ export function isFullAdminRole(role: string | null | undefined): boolean {
   return role === "admin";
 }
 
-/** Main nav "Dormspacers" destination by session role. */
+/** Main nav "Dormspacers" destination — universal dormspaces entry point. */
 export function pathForDormspacesNav(
-  signedIn: boolean,
-  role: string | null | undefined,
+  _signedIn?: boolean,
+  _role?: string | null | undefined,
 ): string {
-  if (!signedIn) return "/dormspaces/welcome";
-  if (role === "landlord") return "/dormspaces/dashboard";
-  if (role === "client") return "/dormspaces/welcome";
-  if (isDormspaceSubmitBlockedRole(role)) return "/dormspaces";
   return "/dormspaces/welcome";
 }
 

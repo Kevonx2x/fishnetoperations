@@ -13,6 +13,7 @@ import {
   ContinueWithGoogleButton,
 } from "@/components/auth/continue-with-google-button";
 import { DormspaceWelcomeLogo } from "@/components/dormspaces/dormspace-welcome-logo";
+import { useAuth } from "@/contexts/auth-context";
 import {
   isDormspaceSubmitBlockedRole,
   isLandlordRole,
@@ -71,10 +72,26 @@ function isDuplicateSignupError(err: unknown): boolean {
   );
 }
 
+function landlordFirstName(fullName: string | null | undefined, email: string | undefined): string {
+  const t = fullName?.trim() ?? "";
+  if (t) {
+    const space = t.indexOf(" ");
+    return space === -1 ? t : t.slice(0, space);
+  }
+  return email?.split("@")[0] ?? "there";
+}
+
 export function DormspaceWelcome() {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const { user, profile, loading: authLoading } = useAuth();
 
+  const isLandlordSignedIn = Boolean(user && isLandlordRole(profile?.role));
+  const isStaffSignedIn = Boolean(
+    user && profile?.role && isDormspaceSubmitBlockedRole(profile.role),
+  );
+
+  const [listingCount, setListingCount] = useState<number | null>(null);
   const [tab, setTab] = useState<AuthTab>("create");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -98,6 +115,33 @@ export function DormspaceWelcome() {
 
     window.history.replaceState({}, "", "/dormspaces/welcome");
   }, []);
+
+  useEffect(() => {
+    if (!isLandlordSignedIn || !user) {
+      setListingCount(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/dormspaces/landlord/listings", { credentials: "include" });
+        const json = (await res.json()) as {
+          success?: boolean;
+          data?: { items?: unknown[] };
+        };
+        if (!cancelled && res.ok) {
+          setListingCount(json.data?.items?.length ?? 0);
+        } else if (!cancelled) {
+          setListingCount(0);
+        }
+      } catch {
+        if (!cancelled) setListingCount(0);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLandlordSignedIn, user]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -327,7 +371,45 @@ export function DormspaceWelcome() {
           transition={{ delay: 0.15, duration: 0.45 }}
           className="lg:sticky lg:top-8"
         >
-          <div className="rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_4px_24px_rgba(44,44,44,0.06)] sm:p-8">
+          {authLoading ? (
+            <div className="rounded-2xl border border-[#DDDDDD] bg-white p-8 shadow-[0_4px_24px_rgba(44,44,44,0.06)]">
+              <p className="text-center text-sm font-medium text-[#484848]">Loading…</p>
+            </div>
+          ) : isLandlordSignedIn ? (
+            <div className="rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_4px_24px_rgba(44,44,44,0.06)] sm:p-8">
+              <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">
+                Welcome back, {landlordFirstName(profile?.full_name, user?.email)}
+              </h2>
+              <p className="mt-2 text-sm font-medium text-[#484848]">
+                {listingCount === null
+                  ? "Loading your listings…"
+                  : `You have ${listingCount} listing${listingCount === 1 ? "" : "s"} in your dashboard.`}
+              </p>
+              <div className="mt-6 flex flex-col gap-3">
+                <Link
+                  href="/dormspaces/dashboard"
+                  className="inline-flex h-12 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
+                >
+                  Go to my landlord dashboard
+                </Link>
+                <Link
+                  href="/dormspaces"
+                  className="inline-flex h-12 items-center justify-center rounded-xl border-2 border-[#2C2C2C]/15 bg-white px-6 text-sm font-bold text-[#2C2C2C] shadow-sm transition hover:border-[#6B9E6E]/40 hover:bg-[#FAF8F4]"
+                >
+                  Browse dormspaces
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <>
+              {isStaffSignedIn && profile ? (
+                <p className="mb-4 rounded-xl border border-amber-400/50 bg-amber-50 px-4 py-3 text-sm font-medium text-[#484848]">
+                  You&apos;re signed in as a{" "}
+                  <span className="font-semibold text-[#2C2C2C]">{roleDisplayLabel(profile.role)}</span>.
+                  To list a dormspace, sign out and create a separate landlord account.
+                </p>
+              ) : null}
+              <div className="rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_4px_24px_rgba(44,44,44,0.06)] sm:p-8">
             <div
               className="flex rounded-xl border border-[#2C2C2C]/8 bg-[#FAF8F4] p-1"
               role="tablist"
@@ -458,7 +540,9 @@ export function DormspaceWelcome() {
                 </p>
               </form>
             )}
-          </div>
+              </div>
+            </>
+          )}
 
           <div className="mt-5">
             <div className="relative">
@@ -479,10 +563,12 @@ export function DormspaceWelcome() {
             </p>
           </div>
 
-          <p className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-[#888888]">
-            <Wifi className="size-3.5 text-[#6B9E6E]/70" aria-hidden />
-            Secure sign-in · Your listing stays private until verified
-          </p>
+          {!isLandlordSignedIn && !authLoading ? (
+            <p className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-[#888888]">
+              <Wifi className="size-3.5 text-[#6B9E6E]/70" aria-hidden />
+              Secure sign-in · Your listing stays private until verified
+            </p>
+          ) : null}
         </motion.div>
       </main>
 
