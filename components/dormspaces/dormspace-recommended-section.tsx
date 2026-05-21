@@ -7,6 +7,13 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DormspaceListingCardCompact } from "@/components/dormspaces/dormspace-listing-card-compact";
 import type { DormspaceWithPhotos } from "@/lib/dormspaces";
 
+function scrollRow(ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") {
+  const el = ref.current;
+  if (!el) return;
+  const step = Math.min(560, el.clientWidth * 0.9);
+  el.scrollBy({ left: dir === "next" ? step : -step, behavior: "smooth" });
+}
+
 export function DormspaceRecommendedSection({ listings }: { listings: DormspaceWithPhotos[] }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -17,20 +24,16 @@ export function DormspaceRecommendedSection({ listings }: { listings: DormspaceW
   }, [listings]);
 
   const scroll = useCallback((dir: "prev" | "next") => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollBy({ left: dir === "next" ? 220 : -220, behavior: "smooth" });
+    scrollRow(scrollRef, dir);
   }, []);
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <div className="flex items-end justify-between gap-4">
-        <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
+    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-5">
+      <div className="min-w-0">
+        <h2 className="font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">
           Recommended for you
         </h2>
-        <Link href="#listings" className="shrink-0 text-sm font-bold text-[#6B9E6E] hover:underline">
-          See all listings →
-        </Link>
+        <p className="mt-1 text-sm font-semibold text-[#484848]">New dormspaces across Metro Manila</p>
       </div>
 
       {recommended.length === 0 ? (
@@ -47,16 +50,16 @@ export function DormspaceRecommendedSection({ listings }: { listings: DormspaceW
           </Link>
         </div>
       ) : (
-        <div className="relative mt-6 flex items-stretch gap-2">
+        <div className="-mx-4 mt-4 flex items-stretch gap-1 md:gap-2">
           <button
             type="button"
             onClick={() => scroll("prev")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] md:flex"
+            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pl-2"
             aria-label="Scroll left"
           >
             <ChevronLeft className="h-4 w-4 text-[#2C2C2C]" />
           </button>
-          <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide">
+          <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto px-1 pb-2 scrollbar-hide">
             <div className="flex w-max flex-nowrap gap-3">
               {recommended.map((listing) => (
                 <DormspaceListingCardCompact key={listing.id} listing={listing} />
@@ -66,7 +69,7 @@ export function DormspaceRecommendedSection({ listings }: { listings: DormspaceW
           <button
             type="button"
             onClick={() => scroll("next")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-[#FAF8F4] md:flex"
+            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 pr-2 shadow-sm hover:bg-neutral-50 md:flex md:pr-2"
             aria-label="Scroll right"
           >
             <ChevronRight className="h-4 w-4 text-[#2C2C2C]" />

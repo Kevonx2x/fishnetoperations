@@ -2,7 +2,7 @@
 
 import { Heart } from "lucide-react";
 
-import { useDormspaceLikes } from "@/hooks/use-dormspace-likes";
+import { useDormspaceEngagement } from "@/hooks/use-dormspace-engagement";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -21,9 +21,9 @@ export function DormspaceLikeButton({
   className,
   hideWhenBlocked = true,
 }: Props) {
-  const { mayLike, isLiked, toggleLike } = useDormspaceLikes();
+  const { mayEngage, isLiked, toggleLike } = useDormspaceEngagement();
 
-  if (hideWhenBlocked && !mayLike) return null;
+  if (hideWhenBlocked && !mayEngage) return null;
 
   const liked = isLiked(dormspaceId);
   const iconSize = size === "md" ? "size-5" : "size-4";

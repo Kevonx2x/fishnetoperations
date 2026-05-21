@@ -1,5 +1,4 @@
 import { isLandlordCapable, type LandlordCapableProfile } from "@/lib/auth-roles";
-import { canLikeDormspaces } from "@/lib/dormspace-engagement";
 
 export type DormspacePortalNavVariant = "browse" | "landlord";
 
@@ -19,34 +18,22 @@ export function resolveDormspaceNavVariant(
   return isLandlordCapable(profile) ? "landlord" : "browse";
 }
 
-/** Center nav links — kept minimal per portal area. */
+/** Center nav links — minimal for public browse; landlord dashboard links when managing. */
 export function dormspaceCenterNavItems(
   variant: DormspacePortalNavVariant,
-  role: string | null | undefined,
-  pathname: string,
+  _role: string | null | undefined,
+  _pathname: string,
 ): DormspaceNavLinkItem[] {
   if (variant === "landlord") {
     return [
       { key: "listings", label: "My Listings", href: "/dormspaces/dashboard" },
       { key: "inquiries", label: "Inquiries", href: "/dormspaces/dashboard?tab=inquiries" },
+      { key: "profile", label: "My Profile", href: "/dormspaces/dashboard?tab=profile" },
       { key: "browse", label: "Browse", href: "/dormspaces" },
     ];
   }
 
-  const items: DormspaceNavLinkItem[] = [
-    {
-      key: "browse",
-      label: "Browse",
-      href: "/dormspaces",
-      scrollToListings: pathname === "/dormspaces",
-    },
-  ];
-
-  if (canLikeDormspaces(role)) {
-    items.push({ key: "liked", label: "Liked", href: "/dormspaces/liked" });
-  }
-
-  return items;
+  return [{ key: "list", label: "List your space", href: "/dormspaces/welcome" }];
 }
 
 export function isDormspaceNavLinkActive(
@@ -56,11 +43,13 @@ export function isDormspaceNavLinkActive(
   if (item.key === "listings") {
     return pathname === "/dormspaces/dashboard";
   }
-  if (item.key === "inquiries") {
+  if (item.key === "inquiries" || item.key === "profile") {
     return false;
   }
   if (item.key === "browse" && pathname === "/dormspaces") return true;
-  if (item.key === "liked") return pathname === "/dormspaces/liked";
+  if (item.key === "list") {
+    return pathname === "/dormspaces/welcome" || pathname.startsWith("/dormspaces/submit");
+  }
   if (item.href && !item.scrollToListings) {
     const base = item.href.split("?")[0];
     return pathname === base;

@@ -9,7 +9,7 @@ import type { DormspacePortalNavVariant } from "@/lib/dormspace-portal-nav";
 type Props = {
   children: ReactNode;
   variant?: DormspacePortalNavVariant;
-  activeLandlordTab?: "listings" | "inquiries" | "account";
+  activeLandlordTab?: "listings" | "inquiries" | "profile" | "account";
   minimalNav?: boolean;
   className?: string;
 };

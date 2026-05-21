@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Mail, Plus } from "lucide-react";
 
+import { DormspaceLandlordProfileTab } from "@/components/dormspaces/dormspace-landlord-profile-tab";
+import { DormspaceListingEngagementStats } from "@/components/dormspaces/dormspace-listing-engagement-stats";
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
 import { useAuth } from "@/contexts/auth-context";
 import { isLandlordCapable } from "@/lib/auth-roles";
@@ -24,12 +26,14 @@ import {
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
-type TabId = "listings" | "inquiries" | "account";
+type TabId = "listings" | "inquiries" | "profile" | "account";
 
 type ListingItem = DormspaceRow & {
   dormspace_photos?: DormspacePhotoRow[] | null;
   thumbnail_url?: string | null;
   inquiry_count: number;
+  like_count: number;
+  save_count: number;
 };
 
 type InquiryItem = DormspaceInquiryRow & {
@@ -72,7 +76,9 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
 
   const initialTab = (searchParams.get("tab") as TabId | null) ?? "listings";
   const [tab, setTab] = useState<TabId>(
-    initialTab === "inquiries" || initialTab === "account" ? initialTab : "listings",
+    initialTab === "inquiries" || initialTab === "profile" || initialTab === "account"
+      ? initialTab
+      : "listings",
   );
 
   const [listings, setListings] = useState<ListingItem[]>([]);
@@ -156,7 +162,7 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
 
   useEffect(() => {
     const t = searchParams.get("tab");
-    if (t === "inquiries" || t === "account") setTab(t);
+    if (t === "inquiries" || t === "profile" || t === "account") setTab(t);
     else setTab("listings");
   }, [searchParams]);
 
@@ -267,13 +273,18 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
             [
               ["listings", "My Listings"],
               ["inquiries", "Inquiries"],
+              ["profile", "My Profile"],
               ["account", "Account"],
             ] as const
           ).map(([id, label]) => (
             <button
               key={id}
               type="button"
-              onClick={() => setTab(id)}
+              onClick={() => {
+                setTab(id);
+                const q = id === "listings" ? "" : `?tab=${id}`;
+                router.replace(`/dormspaces/dashboard${q}`);
+              }}
               className={cn(
                 "border-b-2 px-4 py-2 text-sm font-bold transition",
                 tab === id
@@ -353,6 +364,10 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
                           >
                             {dormspaceStatusLabel(row.status)}
                           </span>
+                          <DormspaceListingEngagementStats
+                            likeCount={row.like_count ?? 0}
+                            saveCount={row.save_count ?? 0}
+                          />
                           <span className="text-xs font-medium text-[#484848]">Views: —</span>
                           <span className="text-xs font-medium text-[#484848]">
                             {row.inquiry_count} {row.inquiry_count === 1 ? "inquiry" : "inquiries"}
@@ -533,6 +548,13 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
               </ul>
             )}
           </div>
+        ) : null}
+
+        {tab === "profile" ? (
+          <DormspaceLandlordProfileTab
+            onError={setError}
+            onSaved={() => void refreshProfile()}
+          />
         ) : null}
 
         {tab === "account" ? (

@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bell,
-  BookOpen,
   Heart,
   HelpCircle,
   Home,
@@ -37,7 +36,7 @@ const NAV_LINK =
 type Props = {
   variant?: DormspacePortalNavVariant;
   /** Landlord dashboard tab highlight */
-  activeLandlordTab?: "listings" | "inquiries" | "account";
+  activeLandlordTab?: "listings" | "inquiries" | "profile" | "account";
   /** Minimal header on welcome (logo + browse only) */
   minimal?: boolean;
 };
@@ -46,10 +45,7 @@ function ResourcesMenu({ onNavigate }: { onNavigate?: () => void }) {
   const [open, setOpen] = useState(false);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const items = [
-    { label: "Help & FAQ", href: "/faq", icon: HelpCircle },
-    { label: "List your dormspace", href: "/dormspaces/welcome", icon: BookOpen },
-  ];
+  const items = [{ label: "Help & FAQ", href: "/faq", icon: HelpCircle }];
 
   return (
     <div
@@ -167,6 +163,7 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
     if (variant === "landlord" && activeLandlordTab) {
       if (key === "listings") return activeLandlordTab === "listings";
       if (key === "inquiries") return activeLandlordTab === "inquiries";
+      if (key === "profile") return activeLandlordTab === "profile";
     }
     const item = centerItems.find((i) => i.key === key);
     return item ? isDormspaceNavLinkActive(item, pathname) : false;
@@ -305,7 +302,7 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
                               My Listings
                             </Link>
                             <Link
-                              href="/dormspaces/dashboard?tab=account"
+                              href="/dormspaces/dashboard?tab=profile"
                               className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                               onClick={() => setAccountOpen(false)}
                             >
@@ -348,12 +345,6 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
               </>
             ) : (
               <>
-                <Link
-                  href="/dormspaces/welcome"
-                  className="hidden h-9 items-center justify-center rounded-xl border-2 border-[#2C2C2C]/15 bg-white px-3 text-sm font-bold text-[#2C2C2C] transition hover:border-[#6B9E6E]/40 sm:inline-flex"
-                >
-                  List Your Space
-                </Link>
                 <Link
                   href={signInHref}
                   className="hidden text-sm font-semibold text-[#404040] transition hover:text-[#2C2C2C] sm:inline"
@@ -435,14 +426,9 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
                   </Link>
                 )}
               {!minimal ? (
-                <>
-                  <Link href="/faq" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040] hover:bg-[#FAF8F4]">
-                    Help &amp; FAQ
-                  </Link>
-                  <Link href="/dormspaces/welcome" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040] hover:bg-[#FAF8F4]">
-                    List your dormspace
-                  </Link>
-                </>
+                <Link href="/faq" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040] hover:bg-[#FAF8F4]">
+                  Help &amp; FAQ
+                </Link>
               ) : null}
               <div className="my-2 h-px bg-[#2C2C2C]/10" />
               {user ? (
@@ -477,9 +463,6 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
                 </>
               ) : (
                 <>
-                  <Link href="/dormspaces/welcome" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040]">
-                    List Your Space
-                  </Link>
                   <Link href={signInHref} onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040]">
                     Sign In
                   </Link>

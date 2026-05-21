@@ -19,8 +19,10 @@ import {
 import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 
 import { DormspaceContactModal } from "@/components/dormspaces/dormspace-contact-modal";
-import { DormspaceLikeButton } from "@/components/dormspaces/dormspace-like-button";
+import { DormspaceEngagementButtons } from "@/components/dormspaces/dormspace-engagement-buttons";
+import { DormspaceLandlordPublicCard } from "@/components/dormspaces/dormspace-landlord-public-card";
 import { DormspaceVerificationBadge } from "@/components/dormspaces/dormspace-verification-badge";
+import type { LandlordProfileTrust, LandlordPublicProfile } from "@/lib/dormspace-landlord-profile";
 import {
   activeDormspaceAmenities,
   dormspaceGenderLabel,
@@ -44,7 +46,15 @@ function AmenityIcon({ label }: { label: string }) {
   return null;
 }
 
-export function DormspaceDetailView({ listing }: { listing: DormspaceWithPhotos }) {
+export function DormspaceDetailView({
+  listing,
+  landlord,
+  landlordTrust,
+}: {
+  listing: DormspaceWithPhotos;
+  landlord?: LandlordPublicProfile | null;
+  landlordTrust?: LandlordProfileTrust | null;
+}) {
   const photos = sortedDormspacePhotos(listing.dormspace_photos ?? null);
   const urls = photos.map((p) => p.url).filter(Boolean);
   const [idx, setIdx] = useState(0);
@@ -139,7 +149,7 @@ export function DormspaceDetailView({ listing }: { listing: DormspaceWithPhotos 
               <h1 className="min-w-0 flex-1 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">
                 {listing.title}
               </h1>
-              <DormspaceLikeButton
+              <DormspaceEngagementButtons
                 dormspaceId={listing.id}
                 signInNext={`/dormspaces/${listing.id}`}
                 size="md"
@@ -200,26 +210,40 @@ export function DormspaceDetailView({ listing }: { listing: DormspaceWithPhotos 
             ) : null}
           </div>
 
-          <aside className="h-fit rounded-2xl border border-[#DDDDDD] bg-[#FAF8F4] p-5">
-            <div className="flex flex-wrap items-center gap-2">
-              {listing.status === "approved" ? (
-                <div className="flex items-center gap-2 text-sm font-bold text-[#2C2C2C]">
-                  <BadgeCheck className="size-5 text-[#D4A843]" aria-hidden />
-                  Verified landlord
-                </div>
-              ) : (
-                <p className="text-sm font-semibold text-[#5c5c5c]">Landlord (verification in progress)</p>
-              )}
-            </div>
-            <p className="mt-2 text-sm font-medium text-[#484848]">{listing.landlord_name}</p>
-            <button
-              type="button"
-              onClick={() => setContactOpen(true)}
-              className="mt-5 w-full rounded-xl bg-[#6B9E6E] py-3 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
-            >
-              Contact landlord
-            </button>
-          </aside>
+          {landlord ? (
+            <DormspaceLandlordPublicCard
+              landlord={landlord}
+              trust={
+                landlordTrust ?? {
+                  verified_landlord: listing.status === "approved",
+                  free_listings: true,
+                  member_since: landlord.created_at,
+                }
+              }
+              onContact={() => setContactOpen(true)}
+            />
+          ) : (
+            <aside className="h-fit rounded-2xl border border-[#DDDDDD] bg-[#FAF8F4] p-5">
+              <div className="flex flex-wrap items-center gap-2">
+                {listing.status === "approved" ? (
+                  <div className="flex items-center gap-2 text-sm font-bold text-[#2C2C2C]">
+                    <BadgeCheck className="size-5 text-[#D4A843]" aria-hidden />
+                    Verified landlord
+                  </div>
+                ) : (
+                  <p className="text-sm font-semibold text-[#5c5c5c]">Landlord (verification in progress)</p>
+                )}
+              </div>
+              <p className="mt-2 text-sm font-medium text-[#484848]">{listing.landlord_name}</p>
+              <button
+                type="button"
+                onClick={() => setContactOpen(true)}
+                className="mt-5 w-full rounded-xl bg-[#6B9E6E] py-3 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
+              >
+                Contact landlord
+              </button>
+            </aside>
+          )}
         </div>
       </div>
 
