@@ -15,12 +15,18 @@ CREATE OR REPLACE FUNCTION public.auth_user_is_landlord()
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = public
 AS $$
   SELECT EXISTS (
-    SELECT 1 FROM public.profiles
-    WHERE id = auth.uid() AND is_landlord = TRUE
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND is_landlord = TRUE
+      AND (
+        role IS NULL
+        OR role NOT IN ('admin', 'ops_admin', 'broker', 'agent', 'team_member')
+      )
   );
 $$;
 

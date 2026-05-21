@@ -27,7 +27,7 @@ export default async function DormspaceDetailPage({ params }: { params: Promise<
     .from("dormspaces")
     .select("*, dormspace_photos(id, url, display_order, created_at)")
     .eq("id", id)
-    .eq("status", "approved")
+    .in("status", ["pending", "approved"])
     .maybeSingle();
 
   if (error || !data) notFound();
