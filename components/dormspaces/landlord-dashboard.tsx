@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Mail, Plus } from "lucide-react";
 
-import { DormspaceTopNav } from "@/components/dormspaces/dormspace-top-nav";
+import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
 import { useAuth } from "@/contexts/auth-context";
 import {
   dormspaceInquiryStatusLabel,
@@ -87,7 +87,6 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
   const [accountEmail, setAccountEmail] = useState("");
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountSaved, setAccountSaved] = useState(false);
-  const [signOutBusy, setSignOutBusy] = useState(false);
 
   const loadListings = useCallback(async () => {
     setLoadingListings(true);
@@ -244,14 +243,9 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
   };
 
   const signOut = async () => {
-    setSignOutBusy(true);
-    try {
-      await supabase.auth.signOut();
-      router.replace("/dormspaces");
-      router.refresh();
-    } finally {
-      setSignOutBusy(false);
-    }
+    await supabase.auth.signOut();
+    router.replace("/dormspaces");
+    router.refresh();
   };
 
   if (authLoading || !user || profile?.role !== "landlord") {
@@ -265,9 +259,7 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
   const hasPendingListings = listings.some((l) => l.status === "pending");
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4]">
-      <DormspaceTopNav activeTab={tab} onSignOut={() => void signOut()} signOutBusy={signOutBusy} />
-
+    <DormspacePortalShell variant="landlord" activeLandlordTab={tab}>
       <div className="mx-auto max-w-5xl px-4 py-6">
         <nav className="mb-6 flex gap-2 border-b border-[#2C2C2C]/10">
           {(
@@ -593,6 +585,6 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
           </div>
         ) : null}
       </div>
-    </div>
+    </DormspacePortalShell>
   );
 }

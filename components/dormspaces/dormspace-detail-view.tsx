@@ -19,6 +19,7 @@ import {
 import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 
 import { DormspaceContactModal } from "@/components/dormspaces/dormspace-contact-modal";
+import { DormspaceLikeButton } from "@/components/dormspaces/dormspace-like-button";
 import { DormspaceVerificationBadge } from "@/components/dormspaces/dormspace-verification-badge";
 import {
   activeDormspaceAmenities,
@@ -138,6 +139,12 @@ export function DormspaceDetailView({ listing }: { listing: DormspaceWithPhotos 
               <h1 className="min-w-0 flex-1 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">
                 {listing.title}
               </h1>
+              <DormspaceLikeButton
+                dormspaceId={listing.id}
+                signInNext={`/dormspaces/${listing.id}`}
+                size="md"
+                className="rounded-full"
+              />
               <DormspaceVerificationBadge status={listing.status} />
             </div>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-[#484848]">

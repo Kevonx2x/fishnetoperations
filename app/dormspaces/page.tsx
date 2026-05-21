@@ -1,5 +1,5 @@
 import { DormspacePublicHome } from "@/components/dormspaces/dormspace-public-home";
-import { DormspacesPublicTopNav } from "@/components/dormspaces/dormspaces-public-top-nav";
+import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
 import type { DormspaceWithPhotos } from "@/lib/dormspaces";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -20,11 +20,10 @@ export default async function DormspacesPage() {
   const listings = (error ? [] : (data ?? [])) as DormspaceWithPhotos[];
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4]">
-      <DormspacesPublicTopNav />
+    <DormspacePortalShell variant="browse">
       <main>
         <DormspacePublicHome listings={listings} />
       </main>
-    </div>
+    </DormspacePortalShell>
   );
 }

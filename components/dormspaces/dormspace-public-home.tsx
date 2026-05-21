@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { ChevronDown, Heart, MessageCircle, Shield, Sparkles } from "lucide-react";
+import { ChevronDown, Heart, MessageCircle, Shield } from "lucide-react";
 
 import { DormspaceBrowse, type DormspaceBrowseFilters } from "@/components/dormspaces/dormspace-browse";
-import { DormspaceCard } from "@/components/dormspaces/dormspace-card";
+import { DormspaceLandlordCtaBanner } from "@/components/dormspaces/dormspace-landlord-cta-banner";
+import { DormspacePopularAreasSection } from "@/components/dormspaces/dormspace-popular-areas-section";
+import { DormspaceRecommendedSection } from "@/components/dormspaces/dormspace-recommended-section";
+import { DormspaceTestimonialsSection } from "@/components/dormspaces/dormspace-testimonials-section";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import {
   DORMSPACE_HERO_IMAGE,
@@ -16,7 +18,7 @@ import {
 } from "@/lib/dormspaces";
 
 const FIELD =
-  "rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25";
+  "rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25";
 
 function parseCityFromLocation(value: string): string {
   const t = value.trim();
@@ -25,15 +27,14 @@ function parseCityFromLocation(value: string): string {
   return parts.length > 1 ? (parts[parts.length - 1] ?? "") : t;
 }
 
-function listingBadge(listing: DormspaceWithPhotos): string | null {
-  if (listing.near_school?.trim()) return "Near Campus";
-  const created = new Date(listing.created_at).getTime();
-  if (Date.now() - created < 7 * 24 * 60 * 60 * 1000) return "New";
-  if (listing.status === "approved") return "Verified";
-  return null;
-}
-
 export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhotos[] }) {
+  useEffect(() => {
+    if (typeof window === "undefined" || window.location.hash !== "#listings") return;
+    requestAnimationFrame(() => {
+      document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
+
   const [locationQuery, setLocationQuery] = useState("");
   const [roomType, setRoomType] = useState<"" | DormspaceRoomType>("");
   const [showMoreFilters, setShowMoreFilters] = useState(false);
@@ -47,12 +48,6 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
     minPrice: "",
     maxPrice: "",
   });
-
-  const featuredListings = useMemo(() => {
-    const approved = listings.filter((l) => l.status === "approved");
-    const source = approved.length > 0 ? approved : listings;
-    return source.slice(0, 4);
-  }, [listings]);
 
   const applySearch = () => {
     const city = parseCityFromLocation(locationQuery);
@@ -94,7 +89,7 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
                   />
                 </div>
                 <select
-                  className={cnSelect()}
+                  className={`${FIELD} min-w-[140px] lg:max-w-[180px]`}
                   value={roomType}
                   onChange={(e) => setRoomType(e.target.value as "" | DormspaceRoomType)}
                   aria-label="Room type"
@@ -175,9 +170,7 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
           <div className="relative order-1 min-h-[240px] lg:order-2 lg:min-h-[420px]">
             <div
               className="relative h-full min-h-[240px] overflow-hidden shadow-[8px_0_24px_rgba(44,44,44,0.12)] lg:min-h-[420px]"
-              style={{
-                clipPath: "polygon(12% 0, 100% 0, 100% 100%, 0 100%)",
-              }}
+              style={{ clipPath: "polygon(12% 0, 100% 0, 100% 100%, 0 100%)" }}
             >
               <Image
                 src={DORMSPACE_HERO_IMAGE}
@@ -187,59 +180,26 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
                 className="object-cover"
                 sizes="(max-width: 1024px) 100vw, 45vw"
               />
-              <div
-                className="absolute inset-y-0 right-0 w-2 bg-[#D4A843]/80"
-                aria-hidden
-              />
+              <div className="absolute inset-y-0 right-0 w-2 bg-[#D4A843]/80" aria-hidden />
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        <div className="flex items-end justify-between gap-4">
-          <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
-            Available dormspaces
-          </h2>
-          <a
-            href="#listings"
-            className="shrink-0 text-sm font-bold text-[#6B9E6E] hover:underline"
-          >
-            See all →
-          </a>
-        </div>
+      <DormspacePopularAreasSection
+        listings={listings}
+        activeCity={filters.city}
+        onSelectArea={(partial) => setFilters((f) => ({ ...f, ...partial }))}
+        onClearArea={() =>
+          setFilters({ city: "", roomType: "", gender: "", minPrice: "", maxPrice: "" })
+        }
+      />
 
-        {featuredListings.length === 0 ? (
-          <div className="mt-8 rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white px-6 py-12 text-center">
-            <p className="font-serif text-xl font-semibold text-[#2C2C2C]">Be the first to list a dormspace</p>
-            <p className="mt-2 text-sm font-medium text-[#484848]">
-              Landlords across Metro Manila are joining BahayGo Dormspacers.
-            </p>
-            <Link
-              href="/dormspaces/welcome"
-              className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white"
-            >
-              List your dormspace
-            </Link>
-          </div>
-        ) : (
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {featuredListings.map((listing) => {
-              const badge = listingBadge(listing);
-              return (
-                <div key={listing.id} className="relative">
-                  {badge ? (
-                    <span className="absolute right-3 top-3 z-10 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#2C2C2C] shadow-sm">
-                      {badge}
-                    </span>
-                  ) : null}
-                  <DormspaceCard listing={listing} />
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+      <DormspaceRecommendedSection listings={listings} />
+
+      <DormspaceLandlordCtaBanner />
+
+      <DormspaceTestimonialsSection />
 
       <DormspaceBrowse
         listings={listings}
@@ -247,36 +207,8 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
         onFiltersChange={setFilters}
         syncLocationToHero={setLocationQuery}
       />
-
-      <section className="bg-[#4A7A4D] text-white">
-        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-center lg:py-14">
-          <div>
-            <h2 className="font-serif text-3xl font-bold tracking-tight md:text-4xl">
-              List your dorm. Find your match.
-            </h2>
-            <p className="mt-3 max-w-lg text-sm font-medium leading-relaxed text-white/90 md:text-base">
-              Join landlords and students on BahayGo Dormspacers
-            </p>
-            <div className="mt-8 grid gap-6 sm:grid-cols-3">
-              <CtaPillar icon={<Sparkles className="size-5" />} title="Easy Listing" text="Submit once, we verify, you go live" />
-              <CtaPillar icon={<Shield className="size-5" />} title="Verified Trust" text="ID + billing checks on every landlord" />
-              <CtaPillar icon={<Heart className="size-5" />} title="Free Forever" text="No listing fees for landlords or tenants" />
-            </div>
-          </div>
-          <Link
-            href="/dormspaces/welcome"
-            className="inline-flex h-12 shrink-0 items-center justify-center self-start rounded-xl bg-[#D4A843] px-8 text-sm font-bold text-[#2C2C2C] shadow-lg transition hover:bg-[#c49a3d] lg:self-center"
-          >
-            Get Started
-          </Link>
-        </div>
-      </section>
     </>
   );
-}
-
-function cnSelect() {
-  return `${FIELD} min-w-[140px] lg:max-w-[180px]`;
 }
 
 function TrustInline({
@@ -295,16 +227,6 @@ function TrustInline({
         <p className="text-sm font-bold text-[#2C2C2C]">{title}</p>
         <p className="mt-0.5 text-xs font-medium text-[#888888]">{subtitle}</p>
       </div>
-    </div>
-  );
-}
-
-function CtaPillar({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
-  return (
-    <div>
-      <div className="text-[#D4A843]">{icon}</div>
-      <p className="mt-2 text-sm font-bold">{title}</p>
-      <p className="mt-1 text-xs font-medium text-white/80">{text}</p>
     </div>
   );
 }

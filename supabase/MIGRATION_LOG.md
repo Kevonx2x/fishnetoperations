@@ -4,6 +4,17 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 
 ---
 
+## 2026-05-20 12:00 — Dormspace likes (hearts)
+
+**Migration file:** supabase/migrations/20260520120000_dormspace_likes.sql
+**Executed by:** (pending)
+**Status:** Pending
+**Tables affected:** dormspace_likes (new)
+**Summary:** User hearts on approved dorm listings; RLS scoped to own rows for select/insert/delete.
+**Rollback notes:** `drop table if exists public.dormspace_likes cascade;`
+
+---
+
 ## 2026-05-21 16:00 — Dormspaces: landlord role + inquiry CRM
 
 **Migration file:** supabase/migrations/20260521160000_dormspaces_landlord_crm.sql

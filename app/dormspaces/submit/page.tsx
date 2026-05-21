@@ -3,7 +3,7 @@ import { Suspense } from "react";
 
 import { DormspaceSubmitForm } from "@/components/dormspaces/dormspace-submit-form";
 import { DormspaceSubmitGate } from "@/components/dormspaces/dormspace-submit-gate";
-import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
+import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
 
 export const metadata = {
   title: "List your dormspace | BahayGo",
@@ -12,8 +12,7 @@ export const metadata = {
 
 export default function DormspaceSubmitPage() {
   return (
-    <div className="min-h-screen bg-[#FAF8F4]">
-      <MaddenTopNav />
+    <DormspacePortalShell variant="landlord">
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:py-8">
         <div className="mb-8 text-center md:mb-10">
           <Link href="/dormspaces" className="text-sm font-semibold text-[#6B9E6E] hover:underline">
@@ -38,6 +37,6 @@ export default function DormspaceSubmitPage() {
           </DormspaceSubmitGate>
         </Suspense>
       </main>
-    </div>
+    </DormspacePortalShell>
   );
 }

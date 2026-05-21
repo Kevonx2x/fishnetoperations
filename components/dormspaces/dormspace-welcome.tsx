@@ -12,6 +12,7 @@ import {
   AuthGoogleDivider,
   ContinueWithGoogleButton,
 } from "@/components/auth/continue-with-google-button";
+import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
 import { DormspaceWelcomeLogo } from "@/components/dormspaces/dormspace-welcome-logo";
 import { useAuth } from "@/contexts/auth-context";
 import {
@@ -248,7 +249,7 @@ export function DormspaceWelcome() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#FAF8F4]">
+    <DormspacePortalShell minimalNav>
       <main className="mx-auto grid w-full max-w-6xl flex-1 gap-10 px-4 py-8 sm:px-6 lg:grid-cols-2 lg:items-start lg:gap-14 lg:py-12">
         <motion.div
           className="flex flex-col"
@@ -587,6 +588,6 @@ export function DormspaceWelcome() {
           </Link>
         </div>
       </footer>
-    </div>
+    </DormspacePortalShell>
   );
 }
