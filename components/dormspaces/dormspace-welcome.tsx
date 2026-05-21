@@ -5,15 +5,19 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { BadgeCheck, MapPin, Sparkles, Wifi } from "lucide-react";
+import { BadgeCheck, MapPin, Plus, Sparkles, Wifi } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   AuthGoogleDivider,
   ContinueWithGoogleButton,
 } from "@/components/auth/continue-with-google-button";
+import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
-import { DormspaceWelcomeLogo } from "@/components/dormspaces/dormspace-welcome-logo";
+import {
+  isVerifiedLandlordProfile,
+  normalizeLandlordVerificationStatus,
+} from "@/lib/landlord-verification";
 import { useAuth } from "@/contexts/auth-context";
 import {
   isDormspaceSubmitBlockedRole,
@@ -70,6 +74,95 @@ function isDuplicateSignupError(err: unknown): boolean {
     lower.includes("already registered") ||
     lower.includes("already exists") ||
     lower.includes("email address is already")
+  );
+}
+
+function LandlordWelcomeCard({
+  firstName,
+  listingCount,
+  verificationStatus,
+  rejectionReason,
+}: {
+  firstName: string;
+  listingCount: number | null;
+  verificationStatus: ReturnType<typeof normalizeLandlordVerificationStatus>;
+  rejectionReason?: string | null;
+}) {
+  const hasListings = listingCount != null && listingCount > 0;
+  const verified = isVerifiedLandlordProfile(verificationStatus);
+
+  return (
+    <div className="rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_8px_32px_rgba(44,44,44,0.08)] sm:p-8">
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#6B9E6E]">Landlord account</p>
+      <h2 className="mt-2 font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-[1.65rem]">
+        Welcome back, {firstName}
+      </h2>
+      <p className="mt-2 text-sm font-medium leading-relaxed text-[#484848]">
+        {listingCount === null
+          ? "Loading your listings…"
+          : hasListings
+            ? `You have ${listingCount} listing${listingCount === 1 ? "" : "s"} in your dashboard.`
+            : "You don't have any listings yet. Add your first dormspace to reach students and young professionals."}
+      </p>
+
+      {verificationStatus !== "approved" ? (
+        <DormspaceLandlordVerificationBanner
+          status={verificationStatus}
+          rejectionReason={rejectionReason}
+          variant="submit"
+          className="mt-4"
+        />
+      ) : null}
+
+      <div className="mt-6 flex flex-col gap-3">
+        {hasListings ? (
+          <>
+            <Link
+              href="/dormspaces/dashboard"
+              className="inline-flex h-12 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
+            >
+              Go to my landlord dashboard
+            </Link>
+            <Link
+              href="/dormspaces/submit?from=welcome"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-[#2C2C2C]/12 bg-white px-6 text-sm font-bold text-[#2C2C2C] transition hover:border-[#6B9E6E]/35 hover:bg-[#FAF8F4]"
+            >
+              <Plus className="size-4 text-[#6B9E6E]" aria-hidden />
+              Add another dormspace
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link
+              href="/dormspaces/submit?from=welcome"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
+            >
+              <Plus className="size-4" aria-hidden />
+              Add your first dormspace
+            </Link>
+            <Link
+              href="/dormspaces/dashboard"
+              className="inline-flex h-12 items-center justify-center rounded-xl border border-[#2C2C2C]/12 bg-white px-6 text-sm font-bold text-[#2C2C2C] transition hover:border-[#6B9E6E]/35 hover:bg-[#FAF8F4]"
+            >
+              Go to my landlord dashboard
+            </Link>
+          </>
+        )}
+        <Link
+          href="/dormspaces"
+          className="inline-flex h-10 items-center justify-center text-sm font-semibold text-[#6B9E6E] hover:underline"
+        >
+          Browse dormspaces as a tenant
+        </Link>
+      </div>
+
+      {verified ? (
+        <p className="mt-4 flex items-center gap-1.5 text-xs font-medium text-[#4a7a4d]">
+          <BadgeCheck className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
+          Verified landlord — ID checked once, not per listing
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -251,27 +344,23 @@ export function DormspaceWelcome() {
 
   return (
     <DormspacePortalShell minimalNav>
-      <main className="mx-auto grid w-full max-w-6xl flex-1 gap-10 px-4 py-8 sm:px-6 lg:grid-cols-2 lg:items-start lg:gap-14 lg:py-12">
+      <main className="mx-auto grid w-full max-w-6xl flex-1 gap-10 px-4 py-8 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-12 lg:py-10 xl:gap-16">
         <motion.div
           className="flex flex-col"
           initial="hidden"
           animate="show"
           variants={{ show: { transition: { staggerChildren: 0.06 } } }}
         >
-          <motion.div custom={0} variants={fadeUp}>
-            <DormspaceWelcomeLogo />
-          </motion.div>
-
           <motion.h1
-            custom={1}
+            custom={0}
             variants={fadeUp}
-            className="mt-8 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C] md:text-4xl lg:text-[2.35rem]"
+            className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C] md:text-4xl lg:text-[2.35rem]"
           >
             List your dormspace on BahayGo
           </motion.h1>
 
           <motion.p
-            custom={2}
+            custom={1}
             variants={fadeUp}
             className="mt-4 max-w-lg text-base font-medium leading-relaxed text-[#484848]"
           >
@@ -280,7 +369,7 @@ export function DormspaceWelcome() {
           </motion.p>
 
           <motion.div
-            custom={3}
+            custom={2}
             variants={fadeUp}
             className="mt-8 grid grid-cols-3 gap-2 sm:gap-3"
           >
@@ -301,7 +390,7 @@ export function DormspaceWelcome() {
             ))}
           </motion.div>
 
-          <motion.div custom={4} variants={fadeUp} className="relative mt-8">
+          <motion.div custom={3} variants={fadeUp} className="relative mt-8">
             <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/8 shadow-[0_8px_30px_rgba(44,44,44,0.08)]">
               <div className="relative aspect-[16/10] w-full">
                 <Image
@@ -335,12 +424,15 @@ export function DormspaceWelcome() {
                   whileHover={{ y: -2, transition: { duration: 0.2 } }}
                   className="flex items-center justify-between gap-3 rounded-xl border border-[#DDDDDD] bg-white px-4 py-3 shadow-sm"
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-[#2C2C2C]">{listing.title}</p>
                     <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-[#888888]">
                       <MapPin className="size-3 shrink-0 text-[#6B9E6E]" aria-hidden />
                       {listing.area}
                     </p>
+                    <span className="mt-1.5 inline-block rounded-full bg-[#6B9E6E]/10 px-2 py-0.5 text-[10px] font-semibold text-[#4a7a4d]">
+                      {listing.tag}
+                    </span>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-bold text-[#6B9E6E]">{listing.price}</p>
@@ -352,7 +444,7 @@ export function DormspaceWelcome() {
           </motion.div>
 
           <motion.blockquote
-            custom={5}
+            custom={4}
             variants={fadeUp}
             className="mt-8 border-l-4 border-[#D4A843] bg-white/60 py-1 pl-4 pr-2"
           >
@@ -361,12 +453,12 @@ export function DormspaceWelcome() {
               never charged a peso.&rdquo;
             </p>
             <footer className="mt-2 text-xs font-semibold text-[#6B9E6E]">
-              — Maria R., landlord · Makati
+              — Marla R., landlord · Makati
             </footer>
           </motion.blockquote>
 
           <motion.p
-            custom={6}
+            custom={5}
             variants={fadeUp}
             className="mt-6 inline-flex items-center gap-1.5 text-xs font-semibold text-[#525252]"
           >
@@ -379,37 +471,21 @@ export function DormspaceWelcome() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.45 }}
-          className="lg:sticky lg:top-8"
+          className="w-full lg:sticky lg:top-24 lg:max-w-md lg:justify-self-end"
         >
           {authLoading ? (
             <div className="rounded-2xl border border-[#DDDDDD] bg-white p-8 shadow-[0_4px_24px_rgba(44,44,44,0.06)]">
               <p className="text-center text-sm font-medium text-[#484848]">Loading…</p>
             </div>
           ) : isLandlordSignedIn ? (
-            <div className="rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_4px_24px_rgba(44,44,44,0.06)] sm:p-8">
-              <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">
-                Welcome back, {landlordFirstName(profile?.full_name, user?.email)}
-              </h2>
-              <p className="mt-2 text-sm font-medium text-[#484848]">
-                {listingCount === null
-                  ? "Loading your listings…"
-                  : `You have ${listingCount} listing${listingCount === 1 ? "" : "s"} in your dashboard.`}
-              </p>
-              <div className="mt-6 flex flex-col gap-3">
-                <Link
-                  href="/dormspaces/dashboard"
-                  className="inline-flex h-12 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
-                >
-                  Go to my landlord dashboard
-                </Link>
-                <Link
-                  href="/dormspaces"
-                  className="inline-flex h-12 items-center justify-center rounded-xl border-2 border-[#2C2C2C]/15 bg-white px-6 text-sm font-bold text-[#2C2C2C] shadow-sm transition hover:border-[#6B9E6E]/40 hover:bg-[#FAF8F4]"
-                >
-                  Browse dormspaces
-                </Link>
-              </div>
-            </div>
+            <LandlordWelcomeCard
+              firstName={landlordFirstName(profile?.full_name, user?.email)}
+              listingCount={listingCount}
+              verificationStatus={normalizeLandlordVerificationStatus(
+                profile?.landlord_verification_status,
+              )}
+              rejectionReason={profile?.landlord_verification_rejection_reason}
+            />
           ) : (
             <>
               {isStaffSignedIn && profile ? (
@@ -554,16 +630,27 @@ export function DormspaceWelcome() {
             </>
           )}
 
-          <div className="mt-5">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center" aria-hidden>
-                <div className="w-full border-t border-[#2C2C2C]/10" />
+          {!isLandlordSignedIn ? (
+            <div className="mt-5">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center" aria-hidden>
+                  <div className="w-full border-t border-[#2C2C2C]/10" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-[#FAF8F4] px-2 font-medium text-[#888888]">or</span>
+                </div>
               </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-[#FAF8F4] px-2 font-medium text-[#888888]">or</span>
-              </div>
+              <p className="mt-4 text-center">
+                <Link
+                  href="/dormspaces"
+                  className="text-sm font-semibold text-[#6B9E6E] transition hover:text-[#5d8a60] hover:underline"
+                >
+                  Just looking? Browse dormspaces →
+                </Link>
+              </p>
             </div>
-            <p className="mt-4 text-center">
+          ) : (
+            <p className="mt-5 text-center">
               <Link
                 href="/dormspaces"
                 className="text-sm font-semibold text-[#6B9E6E] transition hover:text-[#5d8a60] hover:underline"
@@ -571,7 +658,7 @@ export function DormspaceWelcome() {
                 Just looking? Browse dormspaces →
               </Link>
             </p>
-          </div>
+          )}
 
           {!isLandlordSignedIn && !authLoading ? (
             <p className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-[#888888]">
