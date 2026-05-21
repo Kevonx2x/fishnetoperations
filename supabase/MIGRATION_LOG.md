@@ -4,6 +4,28 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 
 ---
 
+## 2026-05-22 12:00 — Landlord verification per profile
+
+**Migration file:** supabase/migrations/20260522120000_landlord_verification_per_profile.sql
+**Executed by:** TJ (pending)
+**Status:** Pending
+**Tables affected:** profiles (landlord_id_url, landlord_proof_of_billing_url, landlord_verification_*)
+**Summary:** One-time landlord ID + billing verification on profiles; backfill from dormspaces; submit/admin/dashboard use profile status.
+**Rollback notes:** Drop new profile columns; restore per-listing verification upload in app if needed.
+
+---
+
+## 2026-05-21 20:00 — Prevent dormspace self-likes / self-saves
+
+**Migration file:** supabase/migrations/20260521200000_prevent_dormspace_self_likes.sql
+**Executed by:** TJ (pending)
+**Status:** Pending
+**Tables affected:** dormspace_likes, dormspace_saves (data cleanup + insert triggers)
+**Summary:** Deletes existing self-like/self-save rows; `prevent_dormspace_self_like()` trigger blocks landlords from liking or saving their own listings.
+**Rollback notes:** `DROP TRIGGER IF EXISTS prevent_dormspace_likes_self ON public.dormspace_likes; DROP TRIGGER IF EXISTS prevent_dormspace_saves_self ON public.dormspace_saves; DROP FUNCTION IF EXISTS public.prevent_dormspace_self_like();`
+
+---
+
 ## 2026-05-21 18:00 — Dormspace engagement + landlord profile fields
 
 **Migration file:** supabase/migrations/20260521180000_dormspace_engagement.sql

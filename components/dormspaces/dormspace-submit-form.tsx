@@ -14,11 +14,16 @@ import {
   type ProfileRole,
 } from "@/lib/auth-roles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
 import {
   DORMSPACE_AMENITIES,
   DORMSPACE_GENDER_OPTIONS,
   DORMSPACE_ROOM_TYPE_OPTIONS,
 } from "@/lib/dormspaces";
+import {
+  needsLandlordVerificationUpload,
+  normalizeLandlordVerificationStatus,
+} from "@/lib/landlord-verification";
 
 const FIELD =
   "mt-1 w-full rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25";
@@ -247,6 +252,10 @@ export function DormspaceSubmitForm() {
   const { user, profile } = useAuth();
 
   const isLandlordSignedIn = Boolean(user && profile && isLandlordCapable(profile));
+  const verificationStatus = normalizeLandlordVerificationStatus(
+    isLandlordSignedIn ? profile?.landlord_verification_status : "unverified",
+  );
+  const showVerificationUpload = needsLandlordVerificationUpload(verificationStatus);
   const isRoleBlocked = Boolean(user && profile?.role && isDormspaceSubmitBlockedRole(profile.role));
   const showPersonalInfo = !isLandlordSignedIn && !isRoleBlocked;
   const showAccountSection = !user;
@@ -504,6 +513,14 @@ export function DormspaceSubmitForm() {
         </div>
       ) : null}
 
+      {isLandlordSignedIn ? (
+        <DormspaceLandlordVerificationBanner
+          status={verificationStatus}
+          rejectionReason={profile?.landlord_verification_rejection_reason}
+          variant="submit"
+        />
+      ) : null}
+
       {showPersonalInfo ? (
         <Section title={`${sectionNum++}. Landlord info`}>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -565,24 +582,29 @@ export function DormspaceSubmitForm() {
         </Section>
       ) : null}
 
-      <Section title={`${sectionNum++}. Verification`}>
-        <FileDrop
-          label="Valid ID"
-          name="landlord_id"
-          accept="image/*,application/pdf"
-          file={idFile}
-          onFile={setIdFile}
-          required
-        />
-        <FileDrop
-          label="Proof of billing"
-          name="proof_of_billing"
-          accept="image/*,application/pdf"
-          file={billingFile}
-          onFile={setBillingFile}
-          required
-        />
-      </Section>
+      {showVerificationUpload ? (
+        <Section title={`${sectionNum++}. Verification`}>
+          <p className="text-sm font-medium text-[#484848]">
+            Upload once — we verify your landlord account, not each listing.
+          </p>
+          <FileDrop
+            label="Valid ID"
+            name="landlord_id"
+            accept="image/*,application/pdf"
+            file={idFile}
+            onFile={setIdFile}
+            required
+          />
+          <FileDrop
+            label="Proof of billing"
+            name="proof_of_billing"
+            accept="image/*,application/pdf"
+            file={billingFile}
+            onFile={setBillingFile}
+            required
+          />
+        </Section>
+      ) : null}
 
       <Section title={`${sectionNum++}. Listing details`}>
         <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">

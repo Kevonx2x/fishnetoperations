@@ -151,6 +151,7 @@ export function DormspaceDetailView({
               </h1>
               <DormspaceEngagementButtons
                 dormspaceId={listing.id}
+                landlordUserId={listing.landlord_user_id}
                 signInNext={`/dormspaces/${listing.id}`}
                 size="md"
                 className="rounded-full"

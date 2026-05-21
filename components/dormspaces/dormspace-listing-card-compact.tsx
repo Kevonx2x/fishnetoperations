@@ -5,8 +5,11 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, ChevronLeft, ChevronRight, Heart, MapPin } from "lucide-react";
 
-import { useDormspaceLikes } from "@/hooks/use-dormspace-likes";
+import { useAuth } from "@/contexts/auth-context";
+import { useDormspaceEngagement } from "@/hooks/use-dormspace-engagement";
+import { isOwnDormspaceListing } from "@/lib/dormspace-engagement";
 import { listingListedLabel } from "@/lib/listing-listed-time";
+import { DORMSPACE_LISTING_CARD_WIDTH } from "@/lib/dormspace-browse-rows";
 import {
   dormspaceGenderLabel,
   dormspaceLocationLine,
@@ -17,12 +20,12 @@ import {
 } from "@/lib/dormspaces";
 import { cn } from "@/lib/utils";
 
-const CARD_WIDTH = "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]";
-
 /** Matches homepage `NewlyListedCard` compact layout — dorm engagement (like only, no pipeline). */
 export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWithPhotos }) {
   const router = useRouter();
-  const { mayLike, isLiked, toggleLike } = useDormspaceLikes();
+  const { user } = useAuth();
+  const { mayEngage, isLiked, toggleLike } = useDormspaceEngagement();
+  const hideHeart = isOwnDormspaceListing(user?.id, listing.landlord_user_id);
   const href = `/dormspaces/${listing.id}`;
 
   const photos = sortedDormspacePhotos(listing.dormspace_photos ?? null);
@@ -38,7 +41,7 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
     <div
       className={cn(
         "flex min-h-[412px] flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md lg:min-h-[448px]",
-        CARD_WIDTH,
+        DORMSPACE_LISTING_CARD_WIDTH,
       )}
     >
       <div className="relative h-44 w-full shrink-0 overflow-hidden bg-[#F3F0EA] lg:h-52">
@@ -90,13 +93,16 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
           </span>
         </div>
 
-        {mayLike ? (
+        {mayEngage && !hideHeart ? (
           <div className="absolute right-3 top-3 z-20 flex items-center gap-1">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                void toggleLike(listing.id, { signInNext: href });
+                void toggleLike(listing.id, {
+                  signInNext: href,
+                  landlordUserId: listing.landlord_user_id,
+                });
               }}
               className={cn(
                 "inline-flex flex-row items-center gap-1 rounded-full border bg-white/80 p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",

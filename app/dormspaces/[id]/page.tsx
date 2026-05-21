@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 import { DormspaceDetailView } from "@/components/dormspaces/dormspace-detail-view";
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
 import type { LandlordProfileTrust, LandlordPublicProfile } from "@/lib/dormspace-landlord-profile";
+import {
+  isVerifiedLandlordProfile,
+  normalizeLandlordVerificationStatus,
+} from "@/lib/landlord-verification";
 import type { DormspaceWithPhotos } from "@/lib/dormspaces";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -41,23 +45,18 @@ export default async function DormspaceDetailPage({ params }: { params: Promise<
     const { data: profile } = await supabase
       .from("profiles")
       .select(
-        "id, full_name, avatar_url, phone, landlord_bio, landlord_languages, landlord_preferred_contact, landlord_years_renting, created_at",
+        "id, full_name, avatar_url, phone, landlord_bio, landlord_languages, landlord_preferred_contact, landlord_years_renting, created_at, landlord_verification_status",
       )
       .eq("id", listing.landlord_user_id)
       .maybeSingle();
 
     if (profile) {
       landlord = profile as LandlordPublicProfile;
-      const { data: landlordListings } = await supabase
-        .from("dormspaces")
-        .select("status, landlord_id_url")
-        .eq("landlord_user_id", listing.landlord_user_id);
-
-      const rows = landlordListings ?? [];
+      const verStatus = normalizeLandlordVerificationStatus(
+        profile.landlord_verification_status as string | null | undefined,
+      );
       landlordTrust = {
-        verified_landlord:
-          rows.some((r) => r.status === "approved") ||
-          rows.some((r) => Boolean((r.landlord_id_url as string | null)?.trim())),
+        verified_landlord: isVerifiedLandlordProfile(verStatus),
         free_listings: true,
         member_since: profile.created_at as string | null,
       };

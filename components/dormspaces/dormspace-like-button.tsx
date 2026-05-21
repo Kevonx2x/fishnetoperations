@@ -2,11 +2,14 @@
 
 import { Heart } from "lucide-react";
 
+import { useAuth } from "@/contexts/auth-context";
 import { useDormspaceEngagement } from "@/hooks/use-dormspace-engagement";
+import { isOwnDormspaceListing } from "@/lib/dormspace-engagement";
 import { cn } from "@/lib/utils";
 
 type Props = {
   dormspaceId: string;
+  landlordUserId?: string | null;
   signInNext?: string;
   size?: "sm" | "md";
   className?: string;
@@ -16,13 +19,16 @@ type Props = {
 
 export function DormspaceLikeButton({
   dormspaceId,
+  landlordUserId,
   signInNext,
   size = "sm",
   className,
   hideWhenBlocked = true,
 }: Props) {
+  const { user } = useAuth();
   const { mayEngage, isLiked, toggleLike } = useDormspaceEngagement();
 
+  if (isOwnDormspaceListing(user?.id, landlordUserId)) return null;
   if (hideWhenBlocked && !mayEngage) return null;
 
   const liked = isLiked(dormspaceId);
@@ -43,7 +49,7 @@ export function DormspaceLikeButton({
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        void toggleLike(dormspaceId, { signInNext });
+        void toggleLike(dormspaceId, { signInNext, landlordUserId });
       }}
     >
       <Heart

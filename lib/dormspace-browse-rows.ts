@@ -13,9 +13,14 @@ export type DormspaceBrowseRow = {
   featured?: boolean;
 };
 
-export const DORMSPACE_BROWSE_MIN_ROWS = 10;
+/** Homepage browse: featured + two category rows (matches BahayGo recommended density). */
+export const DORMSPACE_BROWSE_MAX_ROWS = 3;
 export const DORMSPACE_ROW_ITEM_LIMIT = 12;
 export const DORMSPACE_ROW_MIN_CARDS = 5;
+
+/** Matches `NewlyListedCard` compact / `DormspaceListingCardCompact` widths. */
+export const DORMSPACE_LISTING_CARD_WIDTH =
+  "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]";
 
 type RowTemplate = {
   id: string;
@@ -158,16 +163,16 @@ function assignRowItems(
   return items;
 }
 
-/** Build homepage-style category rows; always returns at least {@link DORMSPACE_BROWSE_MIN_ROWS} rows. */
+/** Build browse carousels: featured, newly listed, and one more category row. */
 export function buildDormspaceBrowseRows(pool: DormspaceWithPhotos[]): DormspaceBrowseRow[] {
   const sortedPool = [...pool].sort(sortNewest);
   const seen = new Set<string>();
-  const rows: DormspaceBrowseRow[] = [];
   const allowOverlap = sortedPool.length < 8;
+  const rowsByKey = new Map<string, DormspaceBrowseRow>();
 
   for (const template of ALL_TEMPLATES) {
     const items = assignRowItems(sortedPool, template, seen, allowOverlap);
-    rows.push({
+    rowsByKey.set(template.id, {
       key: template.id,
       title: template.title,
       subtitle: template.subtitle,
@@ -176,11 +181,29 @@ export function buildDormspaceBrowseRows(pool: DormspaceWithPhotos[]): Dormspace
     });
   }
 
-  if (rows.length >= DORMSPACE_BROWSE_MIN_ROWS) {
-    return rows.slice(0, Math.max(DORMSPACE_BROWSE_MIN_ROWS, rows.length));
+  const featured = rowsByKey.get("featured");
+  const newlyListed = rowsByKey.get("newly-listed");
+  let third: DormspaceBrowseRow | undefined;
+  for (const template of ALL_TEMPLATES) {
+    if (template.id === "featured" || template.id === "newly-listed") continue;
+    const row = rowsByKey.get(template.id);
+    if (row && row.items.length > 0) {
+      third = row;
+      break;
+    }
+  }
+  if (!third) {
+    for (const template of ALL_TEMPLATES) {
+      if (template.id === "featured" || template.id === "newly-listed") continue;
+      const row = rowsByKey.get(template.id);
+      if (row) {
+        third = row;
+        break;
+      }
+    }
   }
 
-  return rows;
+  return [featured, newlyListed, third].filter((r): r is DormspaceBrowseRow => r != null);
 }
 
 export function dormspaceMatchesFilters(

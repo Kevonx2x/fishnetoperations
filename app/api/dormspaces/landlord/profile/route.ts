@@ -5,24 +5,28 @@ import {
   DORMSPACE_LANDLORD_LANGUAGE_OPTIONS,
   type LandlordProfileTrust,
 } from "@/lib/dormspace-landlord-profile";
+import {
+  isVerifiedLandlordProfile,
+  normalizeLandlordVerificationStatus,
+} from "@/lib/landlord-verification";
 import { requireLandlordSession } from "@/lib/landlord-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const languageSet = new Set<string>(DORMSPACE_LANDLORD_LANGUAGE_OPTIONS);
 
 async function loadLandlordTrust(admin: ReturnType<typeof createSupabaseAdmin>, userId: string): Promise<LandlordProfileTrust> {
-  const [{ data: profile }, { data: listings }] = await Promise.all([
-    admin.from("profiles").select("created_at").eq("id", userId).maybeSingle(),
-    admin.from("dormspaces").select("status, landlord_id_url").eq("landlord_user_id", userId),
-  ]);
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("created_at, landlord_verification_status")
+    .eq("id", userId)
+    .maybeSingle();
 
-  const rows = listings ?? [];
-  const verified_landlord =
-    rows.some((r) => r.status === "approved") ||
-    rows.some((r) => Boolean((r.landlord_id_url as string | null)?.trim()));
+  const status = normalizeLandlordVerificationStatus(
+    profile?.landlord_verification_status as string | null | undefined,
+  );
 
   return {
-    verified_landlord,
+    verified_landlord: isVerifiedLandlordProfile(status),
     free_listings: true,
     member_since: (profile?.created_at as string | null) ?? null,
   };
@@ -36,7 +40,7 @@ export async function GET() {
   const { data: profile, error } = await admin
     .from("profiles")
     .select(
-      "id, full_name, email, phone, avatar_url, role, created_at, landlord_bio, landlord_languages, landlord_preferred_contact, landlord_years_renting",
+      "id, full_name, email, phone, avatar_url, role, created_at, landlord_bio, landlord_languages, landlord_preferred_contact, landlord_years_renting, landlord_verification_status, landlord_verification_rejection_reason",
     )
     .eq("id", session.userId)
     .maybeSingle();

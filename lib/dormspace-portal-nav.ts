@@ -25,12 +25,7 @@ export function dormspaceCenterNavItems(
   _pathname: string,
 ): DormspaceNavLinkItem[] {
   if (variant === "landlord") {
-    return [
-      { key: "listings", label: "My Listings", href: "/dormspaces/dashboard" },
-      { key: "inquiries", label: "Inquiries", href: "/dormspaces/dashboard?tab=inquiries" },
-      { key: "profile", label: "My Profile", href: "/dormspaces/dashboard?tab=profile" },
-      { key: "browse", label: "Browse", href: "/dormspaces" },
-    ];
+    return [{ key: "listings", label: "My Listings", href: "/dormspaces/dashboard" }];
   }
 
   return [{ key: "list", label: "List your space", href: "/dormspaces/welcome" }];
@@ -43,7 +38,7 @@ export function isDormspaceNavLinkActive(
   if (item.key === "listings") {
     return pathname === "/dormspaces/dashboard";
   }
-  if (item.key === "inquiries" || item.key === "profile") {
+  if (item.key === "inquiries" || item.key === "profile" || item.key === "browse") {
     return false;
   }
   if (item.key === "browse" && pathname === "/dormspaces") return true;

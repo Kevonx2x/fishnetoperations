@@ -11,6 +11,7 @@ import {
   Home,
   LogOut,
   Menu,
+  Settings,
   User,
   X,
 } from "lucide-react";
@@ -105,7 +106,7 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
 
   const isLandlord = isLandlordCapable(profile);
   const variant = resolveDormspaceNavVariant(profile, variantProp);
-  const logoHref = dormspaceLogoHref(profile, variant);
+  const logoHref = dormspaceLogoHref();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -162,8 +163,6 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
   const navLinkActive = (key: string) => {
     if (variant === "landlord" && activeLandlordTab) {
       if (key === "listings") return activeLandlordTab === "listings";
-      if (key === "inquiries") return activeLandlordTab === "inquiries";
-      if (key === "profile") return activeLandlordTab === "profile";
     }
     const item = centerItems.find((i) => i.key === key);
     return item ? isDormspaceNavLinkActive(item, pathname) : false;
@@ -294,20 +293,20 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
                         {isLandlord ? (
                           <>
                             <Link
-                              href="/dormspaces/dashboard"
-                              className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                              onClick={() => setAccountOpen(false)}
-                            >
-                              <Home className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                              My Listings
-                            </Link>
-                            <Link
                               href="/dormspaces/dashboard?tab=profile"
                               className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
                               onClick={() => setAccountOpen(false)}
                             >
                               <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                              My Profile
+                              Profile settings
+                            </Link>
+                            <Link
+                              href="/dormspaces/dashboard?tab=account"
+                              className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
+                              onClick={() => setAccountOpen(false)}
+                            >
+                              <Settings className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                              Account settings
                             </Link>
                           </>
                         ) : mayLike ? (
@@ -435,11 +434,17 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
                 <>
                   {isLandlord ? (
                     <>
+                      <Link href="/dormspaces/dashboard" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040]">
+                        My Listings
+                      </Link>
                       <Link href="/dormspaces/submit?from=welcome" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-bold text-[#6B9E6E]">
                         List Your Space
                       </Link>
-                      <Link href="/dormspaces/dashboard" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040]">
-                        My Listings
+                      <Link href="/dormspaces/dashboard?tab=profile" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040]">
+                        Profile settings
+                      </Link>
+                      <Link href="/dormspaces/dashboard?tab=account" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040]">
+                        Account settings
                       </Link>
                     </>
                   ) : mayLike ? (

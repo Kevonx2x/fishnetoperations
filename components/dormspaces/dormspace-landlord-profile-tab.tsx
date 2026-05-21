@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BadgeCheck, Loader2, Shield } from "lucide-react";
 
+import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
+import { normalizeLandlordVerificationStatus } from "@/lib/landlord-verification";
 import {
   DORMSPACE_LANDLORD_LANGUAGE_OPTIONS,
   formatLandlordMemberSince,
@@ -21,6 +23,8 @@ type ProfilePayload = {
   landlord_preferred_contact: DormspaceLandlordPreferredContact | null;
   landlord_years_renting: number | null;
   created_at: string | null;
+  landlord_verification_status?: string | null;
+  landlord_verification_rejection_reason?: string | null;
 };
 
 type Props = {
@@ -61,6 +65,10 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
   });
   const [form, setForm] = useState(emptyForm);
   const [initial, setInitial] = useState(emptyForm);
+  const [verificationStatus, setVerificationStatus] = useState(
+    normalizeLandlordVerificationStatus("unverified"),
+  );
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -168,6 +176,12 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
       <p className="mb-6 text-sm font-medium text-[#484848]">
         This is what tenants see on your listing pages.
       </p>
+
+      <DormspaceLandlordVerificationBanner
+        status={verificationStatus}
+        rejectionReason={rejectionReason}
+        className="mb-4"
+      />
 
       <ul className="mb-6 flex flex-wrap gap-2">
         {trust.verified_landlord ? (

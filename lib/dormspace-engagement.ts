@@ -1,4 +1,3 @@
-import { isLandlordCapable, type LandlordCapableProfile } from "@/lib/auth-roles";
 
 /** Staff and landlord accounts browse/manage — they must not like dorm listings. */
 const DORMSPACE_LIKE_BLOCKED_ROLES = new Set([
@@ -26,11 +25,18 @@ export function dormspaceLikeSignInPath(nextPath: string): string {
   return `/auth/login?next=${encodeURIComponent(nextPath)}`;
 }
 
-/** Logo home target by portal area. */
-export function dormspaceLogoHref(
-  profile: LandlordCapableProfile | null | undefined,
-  variant: "browse" | "landlord",
-): string {
-  if (variant === "landlord" || isLandlordCapable(profile)) return "/dormspaces/dashboard";
+/** Dormspacers logo/watermark home — public listing browse page. */
+export function dormspaceLogoHref(): string {
   return "/dormspaces";
 }
+
+/** True when the signed-in user owns this dormspace listing. */
+export function isOwnDormspaceListing(
+  viewerUserId: string | null | undefined,
+  landlordUserId: string | null | undefined,
+): boolean {
+  return Boolean(viewerUserId && landlordUserId && viewerUserId === landlordUserId);
+}
+
+export const CANNOT_LIKE_OWN_DORMSPACE = "Cannot like your own listing";
+export const CANNOT_SAVE_OWN_DORMSPACE = "Cannot save your own listing";

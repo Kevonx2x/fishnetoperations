@@ -7,6 +7,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Mail, Plus } from "lucide-react";
 
 import { DormspaceLandlordProfileTab } from "@/components/dormspaces/dormspace-landlord-profile-tab";
+import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
+import { normalizeLandlordVerificationStatus } from "@/lib/landlord-verification";
 import { DormspaceListingEngagementStats } from "@/components/dormspaces/dormspace-listing-engagement-stats";
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
 import { useAuth } from "@/contexts/auth-context";
@@ -296,6 +298,14 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
             </button>
           ))}
         </nav>
+
+        {profile ? (
+          <DormspaceLandlordVerificationBanner
+            status={normalizeLandlordVerificationStatus(profile.landlord_verification_status)}
+            rejectionReason={profile.landlord_verification_rejection_reason}
+            className="mb-6"
+          />
+        ) : null}
 
         {error ? <p className="mb-4 text-sm font-medium text-red-600">{error}</p> : null}
 

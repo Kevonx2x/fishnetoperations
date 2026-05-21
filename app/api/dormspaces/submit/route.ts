@@ -10,9 +10,14 @@ import {
 } from "@/lib/auth-roles";
 import { fail } from "@/lib/api/response";
 import {
+  isVerifiedLandlordProfile,
+  needsLandlordVerificationUpload,
+  normalizeLandlordVerificationStatus,
+} from "@/lib/landlord-verification";
+import {
   signedVerificationUrl,
   uploadDormspaceListingPhoto,
-  uploadDormspaceVerificationFile,
+  uploadLandlordProfileVerificationFile,
 } from "@/lib/dormspace-storage";
 import { RESEND_FROM } from "@/lib/resend-from";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
@@ -28,6 +33,25 @@ function parseNum(v: FormDataEntryValue | null): number | null {
   if (v == null) return null;
   const n = Number(String(v));
   return Number.isFinite(n) ? n : null;
+}
+
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function sendAdminEmail(html: string, subject: string) {
+  if (!process.env.RESEND_API_KEY) return;
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: RESEND_FROM,
+      to: "ron.business101@gmail.com",
+      subject,
+      html,
+    });
+  } catch (e) {
+    console.warn("[dormspaces/submit] admin email failed", e);
+  }
 }
 
 export async function POST(req: Request) {
@@ -98,12 +122,6 @@ export async function POST(req: Request) {
     return fail("BAD_REQUEST", parsed.error.issues[0]?.message ?? "Invalid form data", 400);
   }
 
-  if (!(idFile instanceof File) || idFile.size === 0) {
-    return fail("BAD_REQUEST", "Valid ID upload is required", 400);
-  }
-  if (!(billingFile instanceof File) || billingFile.size === 0) {
-    return fail("BAD_REQUEST", "Proof of billing upload is required", 400);
-  }
   if (photoFiles.length < 3) {
     return fail("BAD_REQUEST", "Upload at least 3 listing photos", 400);
   }
@@ -181,6 +199,7 @@ export async function POST(req: Request) {
           phone: landlord_phone,
           role: "landlord",
           is_landlord: true,
+          landlord_verification_status: "unverified",
         },
         { onConflict: "id" },
       );
@@ -198,6 +217,32 @@ export async function POST(req: Request) {
       await admin.from("profiles").update({ is_landlord: true }).eq("id", session.userId);
     }
   }
+
+  let verificationStatus = normalizeLandlordVerificationStatus("unverified");
+  if (landlordUserId) {
+    const { data: landlordProfile } = await admin
+      .from("profiles")
+      .select("landlord_verification_status")
+      .eq("id", landlordUserId)
+      .maybeSingle();
+    verificationStatus = normalizeLandlordVerificationStatus(
+      landlordProfile?.landlord_verification_status as string | null | undefined,
+    );
+  }
+
+  const requiresVerificationUpload = needsLandlordVerificationUpload(verificationStatus);
+
+  if (requiresVerificationUpload) {
+    if (!(idFile instanceof File) || idFile.size === 0) {
+      return fail("BAD_REQUEST", "Valid ID upload is required", 400);
+    }
+    if (!(billingFile instanceof File) || billingFile.size === 0) {
+      return fail("BAD_REQUEST", "Proof of billing upload is required", 400);
+    }
+  }
+
+  const listingApproved = isVerifiedLandlordProfile(verificationStatus);
+  const nowIso = new Date().toISOString();
 
   const { data: inserted, error: insertErr } = await admin
     .from("dormspaces")
@@ -227,7 +272,10 @@ export async function POST(req: Request) {
       has_security: parseBool(form.get("has_security")),
       curfew,
       rules_notes,
-      status: "pending",
+      status: listingApproved ? "approved" : "pending",
+      ...(listingApproved
+        ? { approved_at: nowIso, approved_by: null, rejection_reason: null }
+        : {}),
     })
     .select("id")
     .single();
@@ -239,15 +287,7 @@ export async function POST(req: Request) {
 
   const dormspaceId = inserted.id as string;
 
-  let landlord_id_url: string;
-  let proof_of_billing_url: string;
-
   try {
-    landlord_id_url = await uploadDormspaceVerificationFile(admin, dormspaceId, "id", idFile);
-    proof_of_billing_url = await uploadDormspaceVerificationFile(admin, dormspaceId, "billing", billingFile);
-
-    await admin.from("dormspaces").update({ landlord_id_url, proof_of_billing_url }).eq("id", dormspaceId);
-
     const photoRows: { dormspace_id: string; url: string; display_order: number }[] = [];
     for (let i = 0; i < photoFiles.length; i++) {
       const url = await uploadDormspaceListingPhoto(admin, dormspaceId, photoFiles[i]!, i);
@@ -255,6 +295,50 @@ export async function POST(req: Request) {
     }
     const { error: photosErr } = await admin.from("dormspace_photos").insert(photoRows);
     if (photosErr) throw new Error(photosErr.message);
+
+    if (requiresVerificationUpload && landlordUserId) {
+      const landlord_id_url = await uploadLandlordProfileVerificationFile(
+        admin,
+        landlordUserId,
+        "id",
+        idFile as File,
+      );
+      const proof_of_billing_url = await uploadLandlordProfileVerificationFile(
+        admin,
+        landlordUserId,
+        "billing",
+        billingFile as File,
+      );
+
+      const { error: profileErr } = await admin
+        .from("profiles")
+        .update({
+          landlord_id_url,
+          landlord_proof_of_billing_url: proof_of_billing_url,
+          landlord_verification_status: "pending",
+          landlord_verification_submitted_at: nowIso,
+          landlord_verification_rejection_reason: null,
+          landlord_verification_approved_at: null,
+          landlord_verification_approved_by: null,
+        })
+        .eq("id", landlordUserId);
+
+      if (profileErr) throw new Error(profileErr.message);
+
+      const idSigned = await signedVerificationUrl(admin, landlord_id_url);
+      const billingSigned = await signedVerificationUrl(admin, proof_of_billing_url);
+      const siteBase = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://bahaygo.com";
+      await sendAdminEmail(
+        `<p><strong>New landlord verification</strong> — ${esc(landlord_name)} (${esc(landlord_email)})</p>
+          <p>Submitted with listing <strong>${esc(title)}</strong>.</p>
+          <p><a href="${esc(`${siteBase}/admin`)}">Open admin</a> → Dormspaces → Landlord Verification</p>
+          <ul>
+            ${idSigned ? `<li><a href="${esc(idSigned)}">Valid ID</a></li>` : "<li>ID link unavailable</li>"}
+            ${billingSigned ? `<li><a href="${esc(billingSigned)}">Proof of billing</a></li>` : "<li>Billing link unavailable</li>"}
+          </ul>`,
+        `Landlord verification — ${landlord_name}`,
+      );
+    }
   } catch (e) {
     console.error("[dormspaces/submit] storage failed", e);
     await admin.from("dormspaces").delete().eq("id", dormspaceId);
@@ -265,35 +349,17 @@ export async function POST(req: Request) {
     );
   }
 
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const siteBase = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://bahaygo.com";
-      const adminLink = `${siteBase}/admin`;
-      const listingLink = `${siteBase}/dormspaces/${dormspaceId}`;
-      const idSigned = await signedVerificationUrl(admin, landlord_id_url);
-      const billingSigned = await signedVerificationUrl(admin, proof_of_billing_url);
-      const esc = (s: string) =>
-        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-      await resend.emails.send({
-        from: RESEND_FROM,
-        to: "ron.business101@gmail.com",
-        subject: `New dormspace submission — ${title}`,
-        html: `<p>A new dormspace listing is live with <strong>Pending verification</strong> status.</p>
-          <p><strong>${esc(title)}</strong></p>
-          <p>Landlord: ${esc(landlord_name)} · ${esc(landlord_email)} · ${esc(landlord_phone)}</p>
-          <p>Monthly: ₱${esc(String(monthly_price))} · Room: ${esc(room_type)}</p>
-          <p>Address: ${esc(address)}</p>
-          <p><a href="${esc(listingLink)}">View public listing</a> · <a href="${esc(adminLink)}">Open admin</a> (Dormspace Submissions)</p>
-          <p><strong>Verification documents</strong> (links expire in 1 hour):</p>
-          <ul>
-            ${idSigned ? `<li><a href="${esc(idSigned)}">Valid ID</a></li>` : "<li>ID link unavailable</li>"}
-            ${billingSigned ? `<li><a href="${esc(billingSigned)}">Proof of billing</a></li>` : "<li>Billing link unavailable</li>"}
-          </ul>`,
-      });
-    } catch (e) {
-      console.warn("[dormspaces/submit] admin email failed", e);
-    }
+  if (!listingApproved) {
+    const siteBase = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://bahaygo.com";
+    const listingLink = `${siteBase}/dormspaces/${dormspaceId}`;
+    await sendAdminEmail(
+      `<p>New dormspace listing pending review.</p>
+        <p><strong>${esc(title)}</strong></p>
+        <p>Landlord: ${esc(landlord_name)} · ${esc(landlord_email)} · ${esc(landlord_phone)}</p>
+        <p>Monthly: ₱${esc(String(monthly_price))} · Room: ${esc(room_type)}</p>
+        <p><a href="${esc(listingLink)}">Preview listing</a> · <a href="${esc(`${siteBase}/admin`)}">Admin — Listings queue</a></p>`,
+      `New dormspace listing — ${title}`,
+    );
   }
 
   return NextResponse.json({
@@ -301,5 +367,6 @@ export async function POST(req: Request) {
     id: dormspaceId,
     landlord_user_id: landlordUserId,
     created_account: Boolean(landlordUserId && password.length >= 8),
+    listing_status: listingApproved ? "approved" : "pending",
   });
 }

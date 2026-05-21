@@ -10,6 +10,10 @@ import {
 } from "react";
 import type { User } from "@supabase/supabase-js";
 import type { ProfileRole } from "@/lib/auth-roles";
+import {
+  normalizeLandlordVerificationStatus,
+  type LandlordVerificationStatus,
+} from "@/lib/landlord-verification";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export type Profile = {
@@ -26,6 +30,8 @@ export type Profile = {
   tutorial_dismissed_at?: string | null;
   /** Changelog version acknowledged in post-login modal (e.g. v1.0). */
   last_seen_changelog?: string | null;
+  landlord_verification_status: LandlordVerificationStatus;
+  landlord_verification_rejection_reason: string | null;
 };
 
 type AuthContextValue = {
@@ -110,6 +116,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         tutorial_completed: row.tutorial_completed ?? null,
         tutorial_dismissed_at: row.tutorial_dismissed_at ?? null,
         last_seen_changelog: row.last_seen_changelog ?? null,
+        landlord_verification_status: normalizeLandlordVerificationStatus(
+          (p as { landlord_verification_status?: string | null }).landlord_verification_status,
+        ),
+        landlord_verification_rejection_reason:
+          (p as { landlord_verification_rejection_reason?: string | null })
+            .landlord_verification_rejection_reason ?? null,
       });
     } else {
       setProfile(null);

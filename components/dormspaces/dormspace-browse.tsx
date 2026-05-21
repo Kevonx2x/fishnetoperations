@@ -102,7 +102,7 @@ export function DormspaceBrowse({
           items: filtered,
           featured: true,
         },
-        ...categoryRows,
+        ...categoryRows.slice(0, 2),
       ];
     }
     return buildDormspaceBrowseRows(listings);
@@ -129,7 +129,7 @@ export function DormspaceBrowse({
   };
 
   return (
-    <section id="listings" className="mx-auto mt-4 max-w-6xl scroll-mt-24 px-4 pb-12 sm:px-6">
+    <section id="listings" className="mx-auto mt-4 max-w-7xl scroll-mt-24 px-4 pb-12 sm:px-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">

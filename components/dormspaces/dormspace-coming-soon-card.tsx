@@ -16,7 +16,7 @@ export function DormspaceComingSoonCard({ cardWidthClass }: { cardWidthClass: st
       <Link
         href="/dormspaces/submit"
         className={cn(
-          "flex min-h-[380px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-4 py-8 text-center shadow-sm transition hover:bg-[#F4F1EA]",
+          "flex min-h-[412px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-4 py-8 text-center shadow-sm transition hover:bg-[#F4F1EA] lg:min-h-[448px]",
           cardWidthClass,
         )}
       >

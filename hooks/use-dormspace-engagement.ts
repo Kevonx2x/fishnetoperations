@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/auth-context";
+import { excludeOwnDormspaceEngagementIds } from "@/lib/dormspace-engagement-filter";
 import {
   canLikeDormspaces,
+  CANNOT_SAVE_OWN_DORMSPACE,
   dormspaceLikeSignInPath,
+  isOwnDormspaceListing,
   ONLY_SEEKERS_CAN_LIKE_DORMS,
 } from "@/lib/dormspace-engagement";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -35,8 +38,15 @@ export function useDormspaceEngagement() {
         supabase.from("dormspace_saves").select("dormspace_id").eq("user_id", user.id),
       ]);
       if (cancelled) return;
-      setLikedIds((likesRes.data ?? []).map((r: { dormspace_id: string }) => r.dormspace_id));
-      setSavedIds((savesRes.data ?? []).map((r: { dormspace_id: string }) => r.dormspace_id));
+      const rawLikes = (likesRes.data ?? []).map((r: { dormspace_id: string }) => r.dormspace_id);
+      const rawSaves = (savesRes.data ?? []).map((r: { dormspace_id: string }) => r.dormspace_id);
+      const [filteredLikes, filteredSaves] = await Promise.all([
+        excludeOwnDormspaceEngagementIds(supabase, user.id, rawLikes),
+        excludeOwnDormspaceEngagementIds(supabase, user.id, rawSaves),
+      ]);
+      if (cancelled) return;
+      setLikedIds(filteredLikes);
+      setSavedIds(filteredSaves);
     })();
     return () => {
       cancelled = true;
@@ -74,12 +84,18 @@ export function useDormspaceEngagement() {
   );
 
   const toggleLike = useCallback(
-    async (dormspaceId: string, options?: { signInNext?: string }) => {
+    async (
+      dormspaceId: string,
+      options?: { signInNext?: string; landlordUserId?: string | null },
+    ) => {
       if (pendingRef.current.has(`like:${dormspaceId}`)) return false;
       pendingRef.current.add(`like:${dormspaceId}`);
       try {
         if (!requireSignedIn(options?.signInNext)) return false;
         if (!guardEngage()) return false;
+        if (isOwnDormspaceListing(user?.id, options?.landlordUserId)) {
+          return false;
+        }
 
         if (likedIds.includes(dormspaceId)) {
           const { error } = await supabase
@@ -95,15 +111,21 @@ export function useDormspaceEngagement() {
           return true;
         }
 
-        const { error } = await supabase.from("dormspace_likes").insert({
-          user_id: user!.id,
-          dormspace_id: dormspaceId,
+        const res = await fetch("/api/dormspaces/likes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ dormspace_id: dormspaceId }),
         });
-        if (error) {
-          toast.error("Could not save like");
+        const json = (await res.json()) as {
+          success?: boolean;
+          error?: { message?: string };
+        };
+        if (!res.ok) {
+          toast.error(json.error?.message ?? "Could not save like");
           return false;
         }
-        setLikedIds((prev) => [...prev, dormspaceId]);
+        setLikedIds((prev) => (prev.includes(dormspaceId) ? prev : [...prev, dormspaceId]));
         return true;
       } finally {
         pendingRef.current.delete(`like:${dormspaceId}`);
@@ -113,12 +135,18 @@ export function useDormspaceEngagement() {
   );
 
   const toggleSave = useCallback(
-    async (dormspaceId: string, options?: { signInNext?: string }) => {
+    async (
+      dormspaceId: string,
+      options?: { signInNext?: string; landlordUserId?: string | null },
+    ) => {
       if (pendingRef.current.has(`save:${dormspaceId}`)) return false;
       pendingRef.current.add(`save:${dormspaceId}`);
       try {
         if (!requireSignedIn(options?.signInNext)) return false;
         if (!guardEngage()) return false;
+        if (isOwnDormspaceListing(user?.id, options?.landlordUserId)) {
+          return false;
+        }
 
         if (savedIds.includes(dormspaceId)) {
           const { error } = await supabase
@@ -134,15 +162,22 @@ export function useDormspaceEngagement() {
           return true;
         }
 
-        const { error } = await supabase.from("dormspace_saves").insert({
-          user_id: user!.id,
-          dormspace_id: dormspaceId,
+        const res = await fetch("/api/dormspaces/saves", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ dormspace_id: dormspaceId }),
         });
-        if (error) {
-          toast.error("Could not save listing");
+        const json = (await res.json()) as {
+          success?: boolean;
+          error?: { message?: string };
+        };
+        if (!res.ok) {
+          const msg = json.error?.message ?? "Could not save listing";
+          if (msg !== CANNOT_SAVE_OWN_DORMSPACE) toast.error(msg);
           return false;
         }
-        setSavedIds((prev) => [...prev, dormspaceId]);
+        setSavedIds((prev) => (prev.includes(dormspaceId) ? prev : [...prev, dormspaceId]));
         return true;
       } finally {
         pendingRef.current.delete(`save:${dormspaceId}`);
@@ -157,6 +192,8 @@ export function useDormspaceEngagement() {
     savedIds,
     isLiked,
     isSaved,
+    isOwnListing: (landlordUserId: string | null | undefined) =>
+      isOwnDormspaceListing(user?.id, landlordUserId),
     toggleLike,
     toggleSave,
     loading: authLoading,

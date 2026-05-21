@@ -14,6 +14,24 @@ function extFromFile(file: File): string {
   return "jpg";
 }
 
+/** One-time landlord verification docs (stored on profiles). */
+export async function uploadLandlordProfileVerificationFile(
+  admin: SupabaseClient,
+  landlordUserId: string,
+  kind: "id" | "billing",
+  file: File,
+): Promise<string> {
+  const buf = Buffer.from(await file.arrayBuffer());
+  const path = `landlords/${landlordUserId}/${kind}-${randomUUID()}.${extFromFile(file)}`;
+  const { error } = await admin.storage.from(VERIFY_BUCKET).upload(path, buf, {
+    contentType: file.type || "application/octet-stream",
+    upsert: false,
+  });
+  if (error) throw new Error(error.message);
+  return path;
+}
+
+/** @deprecated Per-listing verification — use uploadLandlordProfileVerificationFile */
 export async function uploadDormspaceVerificationFile(
   admin: SupabaseClient,
   dormspaceId: string,

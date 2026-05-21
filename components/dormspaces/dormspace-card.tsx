@@ -72,7 +72,12 @@ export function DormspaceCard({ listing }: { listing: DormspaceWithPhotos }) {
         </div>
       </Link>
       <div className="absolute right-3 top-3 z-10">
-        <DormspaceLikeButton dormspaceId={listing.id} signInNext={href} className="rounded-full shadow-sm" />
+        <DormspaceLikeButton
+          dormspaceId={listing.id}
+          landlordUserId={listing.landlord_user_id}
+          signInNext={href}
+          className="rounded-full shadow-sm"
+        />
       </div>
     </div>
   );

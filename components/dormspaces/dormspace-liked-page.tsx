@@ -143,7 +143,11 @@ export function DormspaceLikedPage() {
                       >
                         View details
                       </Link>
-                      <DormspaceLikeButton dormspaceId={listing.id} signInNext="/dormspaces/liked" />
+                      <DormspaceLikeButton
+                        dormspaceId={listing.id}
+                        landlordUserId={listing.landlord_user_id}
+                        signInNext="/dormspaces/liked"
+                      />
                     </div>
                   </div>
                 </div>
