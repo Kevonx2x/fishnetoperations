@@ -8,6 +8,7 @@ import { Loader2, Mail, Plus } from "lucide-react";
 
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
 import { useAuth } from "@/contexts/auth-context";
+import { isLandlordCapable } from "@/lib/auth-roles";
 import {
   dormspaceInquiryStatusLabel,
   dormspaceLocationLine,
@@ -161,7 +162,7 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user || profile?.role !== "landlord") {
+    if (!user || !isLandlordCapable(profile)) {
       router.replace("/auth/login?next=/dormspaces/dashboard");
       return;
     }
@@ -170,7 +171,7 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
   }, [authLoading, user, profile?.role, router, loadListings, loadProfile]);
 
   useEffect(() => {
-    if (tab === "inquiries" && user && profile?.role === "landlord") {
+    if (tab === "inquiries" && user && isLandlordCapable(profile)) {
       void loadInquiries();
     }
   }, [tab, user, profile?.role, loadInquiries]);
@@ -248,7 +249,7 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
     router.refresh();
   };
 
-  if (authLoading || !user || profile?.role !== "landlord") {
+  if (authLoading || !user || !isLandlordCapable(profile)) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <Loader2 className="size-8 animate-spin text-[#6B9E6E]" aria-label="Loading" />

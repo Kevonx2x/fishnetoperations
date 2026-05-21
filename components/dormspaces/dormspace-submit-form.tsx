@@ -9,6 +9,7 @@ import { GooglePlacesInput, type GooglePlaceSelectedPayload } from "@/components
 import { useAuth } from "@/contexts/auth-context";
 import {
   isDormspaceSubmitBlockedRole,
+  isLandlordCapable,
   pathForRole,
   type ProfileRole,
 } from "@/lib/auth-roles";
@@ -245,7 +246,7 @@ export function DormspaceSubmitForm() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { user, profile } = useAuth();
 
-  const isLandlordSignedIn = Boolean(user && profile?.role === "landlord");
+  const isLandlordSignedIn = Boolean(user && profile && isLandlordCapable(profile));
   const isRoleBlocked = Boolean(user && profile?.role && isDormspaceSubmitBlockedRole(profile.role));
   const showPersonalInfo = !isLandlordSignedIn && !isRoleBlocked;
   const showAccountSection = !user;
@@ -706,7 +707,10 @@ export function DormspaceSubmitForm() {
       ) : user && !isLandlordSignedIn ? (
         <p className="rounded-xl border border-[#6B9E6E]/25 bg-[#6B9E6E]/10 px-4 py-3 text-sm font-medium text-[#484848]">
           Signed in as <span className="font-semibold text-[#2C2C2C]">{profile?.full_name ?? user.email}</span>.
-          This listing will be linked to your account{profile?.role === "client" ? " and your role will update to landlord" : ""}.
+          This listing will be linked to your account
+          {profile?.role === "client"
+            ? " and you’ll be able to manage it from the landlord dashboard."
+            : "."}
         </p>
       ) : null}
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { fail, fromZodError, ok } from "@/lib/api/response";
 import {
   isDormspaceSubmitBlockedRole,
-  isLandlordRole,
+  isLandlordCapable,
 } from "@/lib/auth-roles";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -35,13 +35,13 @@ export async function POST(req: Request) {
 
   const { data: existingProfile } = await admin
     .from("profiles")
-    .select("id, role")
+    .select("id, role, is_landlord")
     .eq("email", emailLower)
     .maybeSingle();
 
   if (existingProfile?.id) {
     const role = String(existingProfile.role ?? "");
-    if (isLandlordRole(role)) {
+    if (isLandlordCapable({ role, is_landlord: existingProfile.is_landlord === true })) {
       return fail(
         "EMAIL_EXISTS",
         "An account with this email already exists. Sign in to continue.",
@@ -88,6 +88,7 @@ export async function POST(req: Request) {
       email: emailLower,
       full_name: "",
       role: "landlord",
+      is_landlord: true,
     },
     { onConflict: "id" },
   );

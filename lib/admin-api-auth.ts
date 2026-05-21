@@ -5,6 +5,7 @@ export type SessionProfile = {
   userId: string;
   email: string | null;
   role: ProfileRole;
+  is_landlord: boolean;
 };
 
 /** Current session user + profile role from DB (cookie auth). */
@@ -17,7 +18,7 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, is_landlord")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -37,6 +38,7 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
     userId: user.id,
     email: user.email ?? null,
     role,
+    is_landlord: profile?.is_landlord === true,
   };
 }
 

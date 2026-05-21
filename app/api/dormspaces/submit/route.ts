@@ -4,9 +4,9 @@ import { z } from "zod";
 
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import {
-  canUpgradeToLandlordOnSubmit,
+  canSetLandlordFlagOnSubmit,
   isDormspaceSubmitBlockedRole,
-  isLandlordRole,
+  isLandlordCapable,
 } from "@/lib/auth-roles";
 import { fail } from "@/lib/api/response";
 import {
@@ -115,9 +115,9 @@ export async function POST(req: Request) {
   const password = String(form.get("landlord_password") ?? "").trim();
 
   let landlordUserId: string | null =
-    session && isLandlordRole(session.role) ? session.userId : null;
+    session && isLandlordCapable(session) ? session.userId : null;
 
-  if (session && isLandlordRole(session.role)) {
+  if (session && isLandlordCapable(session)) {
     const { data: prof } = await admin
       .from("profiles")
       .select("full_name, email, phone")
@@ -140,12 +140,8 @@ export async function POST(req: Request) {
     if (existingProfile?.id) {
       if (session && session.userId === existingProfile.id) {
         landlordUserId = session.userId;
-        if (canUpgradeToLandlordOnSubmit(existingProfile.role as string)) {
-          await admin
-            .from("profiles")
-            .update({ role: "landlord" })
-            .eq("id", session.userId)
-            .or("role.eq.client,role.is.null");
+        if (canSetLandlordFlagOnSubmit(existingProfile.role as string)) {
+          await admin.from("profiles").update({ is_landlord: true }).eq("id", session.userId);
         }
       } else {
         return fail(
@@ -184,6 +180,7 @@ export async function POST(req: Request) {
           email: emailLower,
           phone: landlord_phone,
           role: "landlord",
+          is_landlord: true,
         },
         { onConflict: "id" },
       );
@@ -197,16 +194,8 @@ export async function POST(req: Request) {
   } else if (!landlordUserId && session?.userId) {
     landlordUserId = session.userId;
     const sessionEmail = session.email?.trim().toLowerCase();
-    if (
-      sessionEmail &&
-      sessionEmail === emailLower &&
-      canUpgradeToLandlordOnSubmit(session.role)
-    ) {
-      await admin
-        .from("profiles")
-        .update({ role: "landlord" })
-        .eq("id", session.userId)
-        .or("role.eq.client,role.is.null");
+    if (sessionEmail && sessionEmail === emailLower && canSetLandlordFlagOnSubmit(session.role)) {
+      await admin.from("profiles").update({ is_landlord: true }).eq("id", session.userId);
     }
   }
 

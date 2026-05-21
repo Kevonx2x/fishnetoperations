@@ -19,7 +19,7 @@ import {
 import { DormspaceWelcomeLogo } from "@/components/dormspaces/dormspace-welcome-logo";
 import { useAuth } from "@/contexts/auth-context";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
-import { isLandlordRole } from "@/lib/auth-roles";
+import { isLandlordCapable } from "@/lib/auth-roles";
 import { canLikeDormspaces, dormspaceLogoHref } from "@/lib/dormspace-engagement";
 import {
   dormspaceCenterNavItems,
@@ -107,9 +107,9 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
   const { user, profile, loading } = useAuth();
   const { dbIds, mayLike } = useDormspaceLikes();
 
-  const isLandlord = isLandlordRole(profile?.role);
-  const variant = resolveDormspaceNavVariant(profile?.role, variantProp);
-  const logoHref = dormspaceLogoHref(profile?.role, variant);
+  const isLandlord = isLandlordCapable(profile);
+  const variant = resolveDormspaceNavVariant(profile, variantProp);
+  const logoHref = dormspaceLogoHref(profile, variant);
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);

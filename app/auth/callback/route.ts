@@ -4,9 +4,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType, Session } from "@supabase/supabase-js";
 import { notifyAdminNewClientFromSession } from "@/lib/admin-notify-sms";
 import {
-  canUpgradeToLandlordOnSubmit,
+  canSetLandlordFlagOnSubmit,
   isDormspaceSubmitBlockedRole,
-  isLandlordRole,
+  isLandlordCapable,
   pathForRole,
   roleDisplayLabel,
 } from "@/lib/auth-roles";
@@ -118,11 +118,12 @@ async function finalizeLandlordOAuth(
   const userId = session.user.id;
   const { data: profile } = await admin
     .from("profiles")
-    .select("role")
+    .select("role, is_landlord")
     .eq("id", userId)
     .maybeSingle();
 
   const role = profile?.role ?? null;
+  const is_landlord = profile?.is_landlord === true;
 
   if (isDormspaceSubmitBlockedRole(role)) {
     await supabase.auth.signOut();
@@ -132,16 +133,12 @@ async function finalizeLandlordOAuth(
     return NextResponse.redirect(welcomeUrl);
   }
 
-  if (isLandlordRole(role)) {
+  if (isLandlordCapable({ role, is_landlord })) {
     return NextResponse.redirect(new URL("/dormspaces/dashboard", requestUrl));
   }
 
-  if (canUpgradeToLandlordOnSubmit(role)) {
-    await admin
-      .from("profiles")
-      .update({ role: "landlord" })
-      .eq("id", userId)
-      .or("role.eq.client,role.is.null");
+  if (canSetLandlordFlagOnSubmit(role)) {
+    await admin.from("profiles").update({ is_landlord: true }).eq("id", userId);
     return NextResponse.redirect(new URL("/dormspaces/submit?from=welcome", requestUrl));
   }
 

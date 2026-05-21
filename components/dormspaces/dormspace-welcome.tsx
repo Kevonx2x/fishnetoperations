@@ -17,7 +17,7 @@ import { DormspaceWelcomeLogo } from "@/components/dormspaces/dormspace-welcome-
 import { useAuth } from "@/contexts/auth-context";
 import {
   isDormspaceSubmitBlockedRole,
-  isLandlordRole,
+  isLandlordCapable,
   roleDisplayLabel,
 } from "@/lib/auth-roles";
 import { DORMSPACE_HERO_IMAGE } from "@/lib/dormspaces";
@@ -87,7 +87,7 @@ export function DormspaceWelcome() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { user, profile, loading: authLoading } = useAuth();
 
-  const isLandlordSignedIn = Boolean(user && isLandlordRole(profile?.role));
+  const isLandlordSignedIn = Boolean(user && profile && isLandlordCapable(profile));
   const isStaffSignedIn = Boolean(
     user && profile?.role && isDormspaceSubmitBlockedRole(profile.role),
   );
@@ -219,17 +219,18 @@ export function DormspaceWelcome() {
         return;
       }
 
-      const { data: profile } = await supabase
+      const { data: prof } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, is_landlord")
         .eq("id", authData.user.id)
         .maybeSingle();
 
-      const role = profile?.role ?? null;
-      if (!isLandlordRole(role)) {
+      const role = prof?.role ?? null;
+      const is_landlord = prof?.is_landlord === true;
+      if (!isLandlordCapable({ role, is_landlord })) {
         await supabase.auth.signOut();
         setError(
-          `This account isn't a landlord account. To list dormspaces, please create a separate landlord account.`,
+          `This account isn't set up for dormspace listings. Create a landlord account or sign in with an account that has listed before.`,
         );
         if (isDormspaceSubmitBlockedRole(role)) {
           toast.error(

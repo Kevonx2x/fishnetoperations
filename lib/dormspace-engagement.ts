@@ -1,4 +1,4 @@
-import { isLandlordRole } from "@/lib/auth-roles";
+import { isLandlordCapable, type LandlordCapableProfile } from "@/lib/auth-roles";
 
 /** Staff and landlord accounts browse/manage — they must not like dorm listings. */
 const DORMSPACE_LIKE_BLOCKED_ROLES = new Set([
@@ -28,9 +28,9 @@ export function dormspaceLikeSignInPath(nextPath: string): string {
 
 /** Logo home target by portal area. */
 export function dormspaceLogoHref(
-  role: string | null | undefined,
+  profile: LandlordCapableProfile | null | undefined,
   variant: "browse" | "landlord",
 ): string {
-  if (variant === "landlord" || isLandlordRole(role)) return "/dormspaces/dashboard";
+  if (variant === "landlord" || isLandlordCapable(profile)) return "/dormspaces/dashboard";
   return "/dormspaces";
 }

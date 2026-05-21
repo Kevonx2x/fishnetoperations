@@ -7,6 +7,12 @@ export type ProfileRole =
   | "team_member"
   | "landlord";
 
+/** Profile fields used for dormspace landlord capability. */
+export type LandlordCapableProfile = {
+  role?: string | null;
+  is_landlord?: boolean | null;
+};
+
 /** Full admin dashboard (same surface as admin, minus ops-only restrictions in UI). */
 export function isAdminPanelRole(role: string | null | undefined): boolean {
   return role === "admin" || role === "ops_admin";
@@ -56,11 +62,19 @@ export function isProfileRole(r: string): r is ProfileRole {
   );
 }
 
+/** Primary-role landlord accounts (legacy / welcome email signup). */
 export function isLandlordRole(role: string | null | undefined): boolean {
   return role === "landlord";
 }
 
-/** Staff roles that must never be upgraded to landlord via dormspace submit. */
+/** Can manage dormspaces (dashboard, submit as returning landlord, landlord APIs). */
+export function isLandlordCapable(profile: LandlordCapableProfile | null | undefined): boolean {
+  if (!profile) return false;
+  if (profile.is_landlord === true) return true;
+  return isLandlordRole(profile.role);
+}
+
+/** Staff roles that must never submit dormspaces or receive is_landlord via submit. */
 export const DORMSPACE_SUBMIT_BLOCKED_ROLES: readonly ProfileRole[] = [
   "agent",
   "broker",
@@ -74,9 +88,14 @@ export function isDormspaceSubmitBlockedRole(role: string | null | undefined): b
   return (DORMSPACE_SUBMIT_BLOCKED_ROLES as readonly string[]).includes(role);
 }
 
-/** Only clients (or profiles with no role yet) may be promoted to landlord on submit. */
-export function canUpgradeToLandlordOnSubmit(role: string | null | undefined): boolean {
+/** Logged-in clients (or no role yet) may gain is_landlord on first dormspace submit. */
+export function canSetLandlordFlagOnSubmit(role: string | null | undefined): boolean {
   return role == null || role === "client";
+}
+
+/** @deprecated Use canSetLandlordFlagOnSubmit */
+export function canUpgradeToLandlordOnSubmit(role: string | null | undefined): boolean {
+  return canSetLandlordFlagOnSubmit(role);
 }
 
 /** Human-readable role label for auth and onboarding copy. */

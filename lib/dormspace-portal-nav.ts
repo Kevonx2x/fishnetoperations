@@ -1,4 +1,4 @@
-import { isLandlordRole } from "@/lib/auth-roles";
+import { isLandlordCapable, type LandlordCapableProfile } from "@/lib/auth-roles";
 import { canLikeDormspaces } from "@/lib/dormspace-engagement";
 
 export type DormspacePortalNavVariant = "browse" | "landlord";
@@ -12,11 +12,11 @@ export type DormspaceNavLinkItem = {
 };
 
 export function resolveDormspaceNavVariant(
-  role: string | null | undefined,
+  profile: LandlordCapableProfile | null | undefined,
   explicit?: DormspacePortalNavVariant,
 ): DormspacePortalNavVariant {
   if (explicit) return explicit;
-  return isLandlordRole(role) ? "landlord" : "browse";
+  return isLandlordCapable(profile) ? "landlord" : "browse";
 }
 
 /** Center nav links — kept minimal per portal area. */

@@ -4,6 +4,17 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 
 ---
 
+## 2026-05-20 13:00 — Landlord capability: is_landlord flag
+
+**Migration file:** supabase/migrations/20260520130000_use_is_landlord_flag.sql
+**Executed by:** (pending)
+**Status:** Pending
+**Tables affected:** profiles (is_landlord), dormspaces / dormspace_inquiries / dormspace_photos (RLS)
+**Summary:** Adds `profiles.is_landlord`, backfills from `role='landlord'`, and gates landlord RLS on `auth_user_is_landlord()` plus listing ownership.
+**Rollback notes:** Restore prior dormspace/dormspace_inquiry/dormspace_photo policies without `auth_user_is_landlord()`; optional `ALTER TABLE profiles DROP COLUMN is_landlord`.
+
+---
+
 ## 2026-05-20 12:00 — Dormspace likes (hearts)
 
 **Migration file:** supabase/migrations/20260520120000_dormspace_likes.sql

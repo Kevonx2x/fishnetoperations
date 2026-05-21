@@ -19,6 +19,7 @@ export type Profile = {
   phone: string | null;
   bio: string | null;
   role: ProfileRole;
+  is_landlord: boolean;
   onboarding_completed: boolean;
   created_at?: string | null;
   tutorial_completed?: boolean | null;
@@ -85,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: p } = await supabase
       .from("profiles")
       .select(
-        "id, full_name, avatar_url, phone, bio, role, onboarding_completed, created_at, tutorial_completed, tutorial_dismissed_at, last_seen_changelog",
+        "id, full_name, avatar_url, phone, bio, role, is_landlord, onboarding_completed, created_at, tutorial_completed, tutorial_dismissed_at, last_seen_changelog",
       )
       .eq("id", u.id)
       .maybeSingle();
@@ -103,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         phone: (p as { phone?: string | null }).phone ?? null,
         bio: (p as { bio?: string | null }).bio ?? null,
         role: normalizeRole(p.role),
+        is_landlord: (p as { is_landlord?: boolean | null }).is_landlord === true,
         onboarding_completed: Boolean((p as { onboarding_completed?: unknown }).onboarding_completed),
         created_at: row.created_at ?? null,
         tutorial_completed: row.tutorial_completed ?? null,
