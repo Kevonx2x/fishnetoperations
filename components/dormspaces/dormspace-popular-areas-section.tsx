@@ -52,7 +52,7 @@ export function DormspacePopularAreasSection({
   const scroll = useCallback((dir: "prev" | "next") => {
     const el = scrollRef.current;
     if (!el) return;
-    const step = 176;
+    const step = 172;
     el.scrollBy({ left: dir === "next" ? step : -step, behavior: "smooth" });
   }, []);
 
@@ -120,7 +120,11 @@ export function DormspacePopularAreasSection({
               const count = counts[area.label] ?? 0;
               const active =
                 activeLabel === area.label ||
-                (activeCity && area.city && activeCity.toLowerCase() === area.city.toLowerCase());
+                Boolean(
+                  activeCity &&
+                    (area.city?.toLowerCase() === activeCity.toLowerCase() ||
+                      area.label.toLowerCase() === activeCity.toLowerCase()),
+                );
               return (
                 <button
                   key={area.label}

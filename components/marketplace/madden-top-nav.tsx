@@ -489,17 +489,6 @@ export function MaddenTopNav() {
     [],
   );
 
-  const buyWhenOnRentItems: NavDropdownEntry[] = useMemo(
-    () => [
-      { kind: "link", label: "New Listings for Sale", href: "/buy#listings", icon: <Sparkles /> },
-      { kind: "link", label: "Luxury Homes ₱50M+", href: "/buy?focus=luxury#listings", icon: <Star /> },
-      { kind: "link", label: "Foreclosures & Deals", href: "/buy?focus=deals#listings", icon: <TrendingUp /> },
-      { kind: "link", label: "Open House This Weekend", href: "/buy?focus=open#listings", icon: <Landmark /> },
-      { kind: "link", label: "Browse by Location", href: "/buy#featured-locations", icon: <MapPin /> },
-    ],
-    [],
-  );
-
   const rentWhenOnBuyItems: NavDropdownEntry[] = useMemo(
     () => [
       { kind: "link", label: "New Rentals", href: "/#listings", icon: <Sparkles /> },
@@ -556,11 +545,7 @@ export function MaddenTopNav() {
           <NavDropdownMenu label="Agents" entries={agentsEntries} />
           <NavDropdownMenu label="Agencies" entries={agenciesEntries} />
           <NavDropdownMenu label="Landmarks" entries={landmarksItems} />
-          {isBuyPage ? (
-            <NavDropdownMenu label="Rent" entries={rentWhenOnBuyItems} />
-          ) : (
-            <NavDropdownMenu label="Buy" entries={buyWhenOnRentItems} />
-          )}
+          {isBuyPage ? <NavDropdownMenu label="Rent" entries={rentWhenOnBuyItems} /> : null}
           <Link
             href={dormspacesNavHref}
             className="shrink-0 text-[#6B9E6E] transition hover:text-[#5d8a60]"
@@ -1003,11 +988,13 @@ export function MaddenTopNav() {
               <MobileNavSection title="Agents" entries={agentsEntries} onNavigate={closeMobileNav} />
               <MobileNavSection title="Agencies" entries={agenciesEntries} onNavigate={closeMobileNav} />
               <MobileNavSection title="Landmarks" entries={landmarksItems} onNavigate={closeMobileNav} />
-              <MobileNavSection
-                title={isBuyPage ? "Rent" : "Buy"}
-                entries={isBuyPage ? rentWhenOnBuyItems : buyWhenOnRentItems}
-                onNavigate={closeMobileNav}
-              />
+              {isBuyPage ? (
+                <MobileNavSection
+                  title="Rent"
+                  entries={rentWhenOnBuyItems}
+                  onNavigate={closeMobileNav}
+                />
+              ) : null}
               <Link
                 href={dormspacesNavHref}
                 onClick={closeMobileNav}
