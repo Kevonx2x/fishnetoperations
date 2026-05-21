@@ -116,6 +116,7 @@ export async function POST(req: Request) {
 
   let landlordUserId: string | null =
     session && isLandlordCapable(session) ? session.userId : null;
+  let createdAccount = false;
 
   if (session && isLandlordCapable(session)) {
     const { data: prof } = await admin
@@ -129,6 +130,15 @@ export async function POST(req: Request) {
   }
 
   const emailLower = landlord_email.trim().toLowerCase();
+  const sessionEmail = session?.email?.trim().toLowerCase() || null;
+
+  if (session && !landlordUserId && sessionEmail !== emailLower) {
+    return fail(
+      "EMAIL_MISMATCH",
+      "Use the email address on your signed-in account, or sign out to create a separate landlord account.",
+      409,
+    );
+  }
 
   if (!landlordUserId && password.length >= 8) {
     const { data: existingProfile } = await admin
@@ -141,7 +151,14 @@ export async function POST(req: Request) {
       if (session && session.userId === existingProfile.id) {
         landlordUserId = session.userId;
         if (canSetLandlordFlagOnSubmit(existingProfile.role as string)) {
-          await admin.from("profiles").update({ is_landlord: true }).eq("id", session.userId);
+          const { error: flagErr } = await admin
+            .from("profiles")
+            .update({ is_landlord: true })
+            .eq("id", session.userId);
+          if (flagErr) {
+            console.error("[dormspaces/submit] landlord flag update failed", flagErr);
+            return fail("SERVER_ERROR", "Could not enable landlord access", 500);
+          }
         }
       } else {
         return fail(
@@ -173,6 +190,7 @@ export async function POST(req: Request) {
       }
 
       landlordUserId = created.user.id;
+      createdAccount = true;
       const { error: profErr } = await admin.from("profiles").upsert(
         {
           id: landlordUserId,
@@ -192,11 +210,21 @@ export async function POST(req: Request) {
       }
     }
   } else if (!landlordUserId && session?.userId) {
-    landlordUserId = session.userId;
-    const sessionEmail = session.email?.trim().toLowerCase();
-    if (sessionEmail && sessionEmail === emailLower && canSetLandlordFlagOnSubmit(session.role)) {
-      await admin.from("profiles").update({ is_landlord: true }).eq("id", session.userId);
+    if (canSetLandlordFlagOnSubmit(session.role)) {
+      const { error: flagErr } = await admin
+        .from("profiles")
+        .update({ is_landlord: true })
+        .eq("id", session.userId);
+      if (flagErr) {
+        console.error("[dormspaces/submit] landlord flag update failed", flagErr);
+        return fail("SERVER_ERROR", "Could not enable landlord access", 500);
+      }
+      landlordUserId = session.userId;
     }
+  }
+
+  if (!landlordUserId) {
+    return fail("ACCOUNT_REQUIRED", "Create or sign in to a landlord account before submitting a listing.", 400);
   }
 
   const { data: inserted, error: insertErr } = await admin
@@ -300,6 +328,6 @@ export async function POST(req: Request) {
     ok: true,
     id: dormspaceId,
     landlord_user_id: landlordUserId,
-    created_account: Boolean(landlordUserId && password.length >= 8),
+    created_account: createdAccount,
   });
 }

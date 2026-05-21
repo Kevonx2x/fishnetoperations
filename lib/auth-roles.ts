@@ -70,6 +70,7 @@ export function isLandlordRole(role: string | null | undefined): boolean {
 /** Can manage dormspaces (dashboard, submit as returning landlord, landlord APIs). */
 export function isLandlordCapable(profile: LandlordCapableProfile | null | undefined): boolean {
   if (!profile) return false;
+  if (isDormspaceSubmitBlockedRole(profile.role)) return false;
   if (profile.is_landlord === true) return true;
   return isLandlordRole(profile.role);
 }

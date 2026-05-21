@@ -4,9 +4,20 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 
 ---
 
-## 2026-05-20 13:00 — Landlord capability: is_landlord flag
+## 2026-05-21 17:00 — Harden Dormspaces RLS and landlord capability
 
-**Migration file:** supabase/migrations/20260520130000_use_is_landlord_flag.sql
+**Migration file:** supabase/migrations/20260521170000_harden_dormspaces_rls.sql
+**Executed by:** (pending)
+**Status:** Pending
+**Tables affected:** profiles (role check, privilege-change trigger), dormspaces / dormspace_photos (RLS)
+**Summary:** Blocks direct public Dormspaces inserts/photo inserts, removes direct landlord listing updates that could bypass moderation, prevents self-service role/is_landlord changes, and excludes staff roles from landlord capability.
+**Rollback notes:** Drop `profiles_prevent_self_privilege_escalation`; restore prior dormspaces/dormspace_photos insert/update policies if direct client writes are intentionally reintroduced.
+
+---
+
+## 2026-05-21 15:00 — Landlord capability: is_landlord flag
+
+**Migration file:** supabase/migrations/20260521150000_use_is_landlord_flag.sql
 **Executed by:** (pending)
 **Status:** Pending
 **Tables affected:** profiles (is_landlord), dormspaces / dormspace_inquiries / dormspace_photos (RLS)
@@ -15,9 +26,9 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 
 ---
 
-## 2026-05-20 12:00 — Dormspace likes (hearts)
+## 2026-05-21 13:00 — Dormspace likes (hearts)
 
-**Migration file:** supabase/migrations/20260520120000_dormspace_likes.sql
+**Migration file:** supabase/migrations/20260521130000_dormspace_likes.sql
 **Executed by:** (pending)
 **Status:** Pending
 **Tables affected:** dormspace_likes (new)

@@ -3,7 +3,7 @@
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE public.profiles
   ADD CONSTRAINT profiles_role_check
-  CHECK (role IN ('admin', 'broker', 'agent', 'client', 'team_member', 'landlord'));
+  CHECK (role IN ('admin', 'ops_admin', 'broker', 'agent', 'client', 'team_member', 'landlord'));
 
 -- Inquiry workflow columns (table may already exist from create_dormspaces)
 ALTER TABLE public.dormspace_inquiries

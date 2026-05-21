@@ -28,7 +28,7 @@ export async function PATCH(req: Request, context: RouteContext) {
   const admin = createSupabaseAdmin();
   const { data: listing, error: loadErr } = await admin
     .from("dormspaces")
-    .select("id, landlord_user_id, status")
+    .select("id, landlord_user_id, status, approved_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -48,7 +48,7 @@ export async function PATCH(req: Request, context: RouteContext) {
     return ok({ deleted: true });
   }
 
-  const nextStatus = action === "archive" ? "archived" : "pending";
+  const nextStatus = action === "archive" ? "archived" : listing.approved_at ? "approved" : "pending";
   const { error: updateErr } = await admin.from("dormspaces").update({ status: nextStatus }).eq("id", id);
 
   if (updateErr) {
