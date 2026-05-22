@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useDormspaceEngagement } from "@/hooks/use-dormspace-engagement";
 import { isOwnDormspaceListing } from "@/lib/dormspace-engagement";
 import { listingListedLabel } from "@/lib/listing-listed-time";
+import { DormspaceBedAvailability } from "@/components/dormspaces/dormspace-bed-availability";
 import { DORMSPACE_LISTING_CARD_WIDTH } from "@/lib/dormspace-browse-rows";
 import {
   dormspaceGenderLabel,
@@ -142,10 +143,11 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
             {listing.title}
           </button>
         </div>
-        <div className="h-[24px] shrink-0 overflow-hidden">
+        <div className="min-h-[24px] shrink-0 overflow-hidden">
           <p className="truncate text-[11px] text-[#6B6B6B]">
             {dormspaceRoomTypeLabel(listing.room_type)} · {dormspaceGenderLabel(listing.gender_preference)}
           </p>
+          <DormspaceBedAvailability listing={listing} variant="inline" className="mt-0.5 block truncate" />
         </div>
         <div className="h-[24px] shrink-0 overflow-hidden">
           <p className="flex items-start gap-1 text-[11px] text-[#6B6B6B]">

@@ -4,10 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Mail, Plus } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 
+import { DormspaceAddListingSplitButton } from "@/components/dormspaces/dormspace-add-listing-split-button";
+import { DormspaceBedAvailability } from "@/components/dormspaces/dormspace-bed-availability";
 import { DormspaceLandlordProfileTab } from "@/components/dormspaces/dormspace-landlord-profile-tab";
 import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
+import {
+  UpdateVacancyModal,
+  type VacancyModalListing,
+} from "@/components/dormspaces/update-vacancy-modal";
 import { normalizeLandlordVerificationStatus } from "@/lib/landlord-verification";
 import { DormspaceListingEngagementStats } from "@/components/dormspaces/dormspace-listing-engagement-stats";
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
@@ -96,6 +102,8 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
   const [accountEmail, setAccountEmail] = useState("");
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountSaved, setAccountSaved] = useState(false);
+  const [vacancyListing, setVacancyListing] = useState<VacancyModalListing | null>(null);
+  const [vacancyModalOpen, setVacancyModalOpen] = useState(false);
 
   const loadListings = useCallback(async () => {
     setLoadingListings(true);
@@ -320,13 +328,13 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
             ) : null}
             <div className="mb-4 flex items-center justify-between gap-3">
               <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">My Listings</h1>
-              <Link
-                href="/dormspaces/submit"
-                className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#6B9E6E] px-4 text-sm font-bold text-white hover:bg-[#5d8a60]"
-              >
-                <Plus className="size-4" aria-hidden />
-                Add new dormspace
-              </Link>
+              <DormspaceAddListingSplitButton
+                listings={listings}
+                onUpdateVacancy={(listing) => {
+                  setVacancyListing(listing);
+                  setVacancyModalOpen(true);
+                }}
+              />
             </div>
 
             {loadingListings ? (
@@ -364,6 +372,9 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
                         <p className="text-sm font-medium text-[#484848]">
                           {formatDormspacePrice(row.monthly_price)} · {dormspaceLocationLine(row)}
                         </p>
+                        <div className="mt-1">
+                          <DormspaceBedAvailability listing={row} variant="inline" />
+                        </div>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <span
                             className={cn(
@@ -618,6 +629,13 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
           </div>
         ) : null}
       </div>
+
+      <UpdateVacancyModal
+        open={vacancyModalOpen}
+        onOpenChange={setVacancyModalOpen}
+        listing={vacancyListing}
+        onSaved={() => void loadListings()}
+      />
     </DormspacePortalShell>
   );
 }

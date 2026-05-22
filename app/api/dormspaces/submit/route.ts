@@ -20,6 +20,7 @@ import {
   uploadLandlordProfileVerificationFile,
 } from "@/lib/dormspace-storage";
 import { RESEND_FROM } from "@/lib/resend-from";
+import { defaultTotalBedsFromRoomType } from "@/lib/dormspaces";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const roomTypes = ["private", "shared_2", "shared_4", "shared_6_plus"] as const;
@@ -89,6 +90,7 @@ export async function POST(req: Request) {
 
   const monthly_price = parseNum(form.get("monthly_price"));
   const deposit_months = parseNum(form.get("deposit_months")) ?? 1;
+  const total_beds_raw = parseNum(form.get("total_beds"));
   const latitude = parseNum(form.get("latitude"));
   const longitude = parseNum(form.get("longitude"));
 
@@ -244,6 +246,12 @@ export async function POST(req: Request) {
   const listingApproved = isVerifiedLandlordProfile(verificationStatus);
   const nowIso = new Date().toISOString();
 
+  const roomTypeParsed = room_type as (typeof roomTypes)[number];
+  let total_beds =
+    total_beds_raw != null && total_beds_raw >= 1
+      ? Math.min(50, Math.round(total_beds_raw))
+      : defaultTotalBedsFromRoomType(roomTypeParsed);
+
   const { data: inserted, error: insertErr } = await admin
     .from("dormspaces")
     .insert({
@@ -272,6 +280,8 @@ export async function POST(req: Request) {
       has_security: parseBool(form.get("has_security")),
       curfew,
       rules_notes,
+      total_beds,
+      available_beds: total_beds,
       status: listingApproved ? "approved" : "pending",
       ...(listingApproved
         ? { approved_at: nowIso, approved_by: null, rejection_reason: null }

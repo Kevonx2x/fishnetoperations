@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/contexts/auth-context";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 
+import { DormspaceBedAvailability } from "@/components/dormspaces/dormspace-bed-availability";
 import { DormspaceContactModal } from "@/components/dormspaces/dormspace-contact-modal";
 import { DormspaceEngagementButtons } from "@/components/dormspaces/dormspace-engagement-buttons";
 import { DormspaceLandlordPublicCard } from "@/components/dormspaces/dormspace-landlord-public-card";
@@ -25,6 +27,7 @@ import { DormspaceVerificationBadge } from "@/components/dormspaces/dormspace-ve
 import type { LandlordProfileTrust, LandlordPublicProfile } from "@/lib/dormspace-landlord-profile";
 import {
   activeDormspaceAmenities,
+  dormspaceBedAvailability,
   dormspaceGenderLabel,
   dormspaceLocationLine,
   dormspaceRoomTypeLabel,
@@ -57,8 +60,13 @@ export function DormspaceDetailView({
 }) {
   const photos = sortedDormspacePhotos(listing.dormspace_photos ?? null);
   const urls = photos.map((p) => p.url).filter(Boolean);
+  const { user } = useAuth();
   const [idx, setIdx] = useState(0);
   const [contactOpen, setContactOpen] = useState(false);
+  const [notifyWhenAvailable, setNotifyWhenAvailable] = useState(false);
+  const bedInfo = dormspaceBedAvailability(listing);
+  const isOwnListing =
+    !!user?.id && !!listing.landlord_user_id && user.id === listing.landlord_user_id;
 
   const lat = listing.latitude != null ? Number(listing.latitude) : null;
   const lng = listing.longitude != null ? Number(listing.longitude) : null;
@@ -167,6 +175,22 @@ export function DormspaceDetailView({
             ) : null}
             <p className="mt-4 text-2xl font-bold text-[#D4A843]">{formatDormspacePrice(listing.monthly_price)}</p>
             {deposit ? <p className="text-sm font-medium text-[#484848]">{deposit}</p> : null}
+            <DormspaceBedAvailability listing={listing} variant="detail" />
+            {listing.vacancy_notes?.trim() ? (
+              <p className="mt-2 text-sm font-medium text-[#525252]">{listing.vacancy_notes.trim()}</p>
+            ) : null}
+            {bedInfo.status === "full" && !isOwnListing ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setNotifyWhenAvailable(true);
+                  setContactOpen(true);
+                }}
+                className="mt-4 rounded-full border border-[#6B9E6E]/40 bg-[#6B9E6E]/10 px-4 py-2 text-sm font-bold text-[#4a7a4d] hover:bg-[#6B9E6E]/15"
+              >
+                Notify me when available
+              </button>
+            ) : null}
 
             {listing.description?.trim() ? (
               <section className="mt-8">
@@ -214,11 +238,15 @@ export function DormspaceDetailView({
           {landlord ? (
             <DormspaceLandlordPublicCard
               landlord={landlord}
+              listingId={listing.id}
+              isOwnListing={isOwnListing}
               trust={
                 landlordTrust ?? {
-                  verified_landlord: listing.status === "approved",
+                  verified_landlord: false,
+                  verification_pending: false,
                   free_listings: true,
                   member_since: landlord.created_at,
+                  active_listing_count: 1,
                 }
               }
               onContact={() => setContactOpen(true)}
@@ -271,9 +299,17 @@ export function DormspaceDetailView({
 
       <DormspaceContactModal
         open={contactOpen}
-        onOpenChange={setContactOpen}
+        onOpenChange={(open) => {
+          setContactOpen(open);
+          if (!open) setNotifyWhenAvailable(false);
+        }}
         dormspaceId={listing.id}
         dormspaceTitle={listing.title}
+        defaultMessage={
+          notifyWhenAvailable
+            ? `Hi, this dormspace is currently full. Please notify me when a bed becomes available.`
+            : undefined
+        }
       />
     </div>
   );

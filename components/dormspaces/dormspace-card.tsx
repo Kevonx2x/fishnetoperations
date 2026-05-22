@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AirVent, Droplets, Shield, UtensilsCrossed, Wifi, WashingMachine, Zap } from "lucide-react";
 
+import { DormspaceBedAvailability } from "@/components/dormspaces/dormspace-bed-availability";
 import { DormspaceLikeButton } from "@/components/dormspaces/dormspace-like-button";
 import { DormspaceVerificationBadge } from "@/components/dormspaces/dormspace-verification-badge";
 import {
@@ -42,7 +43,7 @@ export function DormspaceCard({ listing }: { listing: DormspaceWithPhotos }) {
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-[#E8F0E9] to-[#FAF8F4]" aria-hidden />
           )}
-          <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-sm">
+          <span className="absolute left-3 top-3 max-w-[calc(100%-4rem)] rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-sm">
             {dormspaceRoomTypeLabel(listing.room_type)}
           </span>
         </div>
@@ -55,6 +56,9 @@ export function DormspaceCard({ listing }: { listing: DormspaceWithPhotos }) {
             {listing.title}
           </h3>
           <p className="mt-1 text-sm font-medium text-[#484848]">{dormspaceLocationLine(listing)}</p>
+          <div className="mt-1">
+            <DormspaceBedAvailability listing={listing} variant="inline" />
+          </div>
           {amenities.length > 0 ? (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {amenities.map((a) => (

@@ -4,6 +4,28 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 
 ---
 
+## 2026-05-22 16:00 — Dormspace bed capacity
+
+**Migration file:** supabase/migrations/20260522160000_dormspace_bed_capacity.sql
+**Executed by:** TJ (pending)
+**Status:** Pending
+**Tables affected:** dormspaces (total_beds, available_beds, vacancy_notes)
+**Summary:** Track total vs available beds per listing; backfill from room_type; vacancy notes for tenants.
+**Rollback notes:** Drop columns and check constraints on dormspaces.
+
+---
+
+## 2026-05-22 14:00 — Enriched landlord profile fields
+
+**Migration file:** supabase/migrations/20260522140000_landlord_profile_enriched.sql
+**Executed by:** TJ (pending)
+**Status:** Pending
+**Tables affected:** profiles (landlord_cover_url, landlord_specialties, landlord_operating_areas, landlord_facebook_url, landlord_instagram_url, landlord_about_properties)
+**Summary:** Optional cover, specialties, operating areas, social URLs, and “about my properties” for tenant-facing landlord trust on dormspace detail.
+**Rollback notes:** Drop new profile columns listed above.
+
+---
+
 ## 2026-05-22 12:00 — Landlord verification per profile
 
 **Migration file:** supabase/migrations/20260522120000_landlord_verification_per_profile.sql

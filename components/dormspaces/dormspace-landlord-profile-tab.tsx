@@ -5,9 +5,11 @@ import { BadgeCheck, Loader2, Shield } from "lucide-react";
 
 import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
 import { CloudinaryUpload } from "@/components/ui/cloudinary-upload";
+import { ServiceAreasMultiInput } from "@/components/ui/service-areas-multi-input";
 import { normalizeLandlordVerificationStatus } from "@/lib/landlord-verification";
 import {
   DORMSPACE_LANDLORD_LANGUAGE_OPTIONS,
+  DORMSPACE_LANDLORD_SPECIALTY_OPTIONS,
   formatLandlordMemberSince,
   type DormspaceLandlordPreferredContact,
   type LandlordProfileTrust,
@@ -25,6 +27,12 @@ type ProfilePayload = {
   created_at: string | null;
   landlord_verification_status?: string | null;
   landlord_verification_rejection_reason?: string | null;
+  landlord_cover_url?: string | null;
+  landlord_specialties?: string[] | null;
+  landlord_operating_areas?: string[] | null;
+  landlord_facebook_url?: string | null;
+  landlord_instagram_url?: string | null;
+  landlord_about_properties?: string | null;
 };
 
 type Props = {
@@ -32,27 +40,65 @@ type Props = {
   onSaved?: () => void;
 };
 
-function toggleLang(arr: string[], v: string) {
+function toggleMulti(arr: string[], v: string) {
   return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
 }
 
-const emptyForm = (): {
+type FormState = {
   displayName: string;
   phone: string;
   avatarUrl: string;
+  coverUrl: string;
   bio: string;
+  aboutProperties: string;
   languages: string[];
+  specialties: string[];
+  operatingAreas: string[];
+  operatingAreaDraft: string;
   preferredContact: DormspaceLandlordPreferredContact | "";
   yearsRenting: string;
-} => ({
+  facebookUrl: string;
+  instagramUrl: string;
+};
+
+const emptyForm = (): FormState => ({
   displayName: "",
   phone: "",
   avatarUrl: "",
+  coverUrl: "",
   bio: "",
+  aboutProperties: "",
   languages: [],
+  specialties: [],
+  operatingAreas: [],
+  operatingAreaDraft: "",
   preferredContact: "",
   yearsRenting: "",
+  facebookUrl: "",
+  instagramUrl: "",
 });
+
+function profileToForm(p: ProfilePayload): FormState {
+  return {
+    displayName: p.full_name?.trim() ?? "",
+    phone: p.phone?.trim() ?? "",
+    avatarUrl: p.avatar_url?.trim() ?? "",
+    coverUrl: p.landlord_cover_url?.trim() ?? "",
+    bio: p.landlord_bio?.trim() ?? "",
+    aboutProperties: p.landlord_about_properties?.trim() ?? "",
+    languages: p.landlord_languages ?? [],
+    specialties: p.landlord_specialties ?? [],
+    operatingAreas: p.landlord_operating_areas ?? [],
+    operatingAreaDraft: "",
+    preferredContact: (p.landlord_preferred_contact ?? "") as DormspaceLandlordPreferredContact | "",
+    yearsRenting:
+      p.landlord_years_renting != null && p.landlord_years_renting >= 0
+        ? String(p.landlord_years_renting)
+        : "",
+    facebookUrl: p.landlord_facebook_url?.trim() ?? "",
+    instagramUrl: p.landlord_instagram_url?.trim() ?? "",
+  };
+}
 
 export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
   const [loading, setLoading] = useState(true);
@@ -60,8 +106,10 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
   const [savedFlash, setSavedFlash] = useState(false);
   const [trust, setTrust] = useState<LandlordProfileTrust>({
     verified_landlord: false,
+    verification_pending: false,
     free_listings: true,
     member_since: null,
+    active_listing_count: 0,
   });
   const [form, setForm] = useState(emptyForm);
   const [initial, setInitial] = useState(emptyForm);
@@ -69,6 +117,7 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
     normalizeLandlordVerificationStatus("unverified"),
   );
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  const [suggestedAreas, setSuggestedAreas] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +129,7 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
         data?: {
           profile?: ProfilePayload;
           trust?: LandlordProfileTrust;
+          suggested_operating_areas?: string[];
         };
         error?: { message?: string };
       };
@@ -88,21 +138,15 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
         return;
       }
       const p = json.data.profile;
-      const next = {
-        displayName: p.full_name?.trim() ?? "",
-        phone: p.phone?.trim() ?? "",
-        avatarUrl: p.avatar_url?.trim() ?? "",
-        bio: p.landlord_bio?.trim() ?? "",
-        languages: p.landlord_languages ?? [],
-        preferredContact: (p.landlord_preferred_contact ?? "") as DormspaceLandlordPreferredContact | "",
-        yearsRenting:
-          p.landlord_years_renting != null && p.landlord_years_renting >= 0
-            ? String(p.landlord_years_renting)
-            : "",
-      };
+      const next = profileToForm(p);
       setForm(next);
       setInitial(next);
       if (json.data.trust) setTrust(json.data.trust);
+      setSuggestedAreas(json.data.suggested_operating_areas ?? []);
+      setVerificationStatus(
+        normalizeLandlordVerificationStatus(p.landlord_verification_status),
+      );
+      setRejectionReason(p.landlord_verification_rejection_reason ?? null);
     } catch {
       onError("Could not load profile");
     } finally {
@@ -118,6 +162,16 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
     () => formatLandlordMemberSince(trust.member_since),
     [trust.member_since],
   );
+
+  const mergeSuggestedAreas = () => {
+    const merged = [...form.operatingAreas];
+    for (const tag of suggestedAreas) {
+      if (!merged.includes(tag)) merged.push(tag);
+    }
+    if (merged.length !== form.operatingAreas.length) {
+      setForm((f) => ({ ...f, operatingAreas: merged }));
+    }
+  };
 
   const resetForm = () => setForm(initial);
 
@@ -140,10 +194,16 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
           full_name: form.displayName.trim(),
           phone: form.phone.trim() || null,
           avatar_url: form.avatarUrl.trim() || null,
+          landlord_cover_url: form.coverUrl.trim() || null,
           landlord_bio: form.bio.trim() || null,
+          landlord_about_properties: form.aboutProperties.trim() || null,
           landlord_languages: form.languages,
+          landlord_specialties: form.specialties,
+          landlord_operating_areas: form.operatingAreas,
           landlord_preferred_contact: form.preferredContact || null,
           landlord_years_renting: years,
+          landlord_facebook_url: form.facebookUrl.trim() || null,
+          landlord_instagram_url: form.instagramUrl.trim() || null,
         }),
       });
       const json = (await res.json()) as { error?: { message?: string } };
@@ -154,6 +214,7 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
       setInitial(form);
       setSavedFlash(true);
       onSaved?.();
+      void load();
     } catch {
       onError("Could not update profile");
     } finally {
@@ -171,11 +232,13 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
   }
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="mb-2 font-serif text-2xl font-bold text-[#2C2C2C]">My Profile</h1>
-      <p className="mb-6 text-sm font-medium text-[#484848]">
-        This is what tenants see on your listing pages.
-      </p>
+    <div className="max-w-3xl">
+      <div className="mb-6">
+        <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">My Profile</h1>
+        <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+          How tenants see you on dormspace listing pages. Save when you are done editing.
+        </p>
+      </div>
 
       <DormspaceLandlordVerificationBanner
         status={verificationStatus}
@@ -189,9 +252,13 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
             <BadgeCheck className="size-4" aria-hidden />
             Verified Landlord
           </li>
+        ) : trust.verification_pending ? (
+          <li className="rounded-full bg-[#2C2C2C]/8 px-3 py-1.5 text-xs font-semibold text-[#888888]">
+            Pending verification
+          </li>
         ) : (
           <li className="rounded-full bg-[#2C2C2C]/6 px-3 py-1.5 text-xs font-semibold text-[#888888]">
-            Verified Landlord — pending approval
+            Verified Landlord — not yet approved
           </li>
         )}
         <li className="inline-flex items-center gap-1.5 rounded-full bg-[#6B9E6E]/12 px-3 py-1.5 text-xs font-bold text-[#4a7a4d]">
@@ -203,138 +270,267 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
             Member since {memberSinceLabel}
           </li>
         ) : null}
+        {trust.active_listing_count > 0 ? (
+          <li className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#484848] ring-1 ring-[#2C2C2C]/10">
+            {trust.active_listing_count} active listing{trust.active_listing_count === 1 ? "" : "s"}
+          </li>
+        ) : null}
       </ul>
 
-      <form onSubmit={(e) => void save(e)} className="space-y-5 rounded-2xl border border-[#DDDDDD] bg-white p-5 shadow-sm">
-        <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-          Display name
-          <input
-            className="mt-1 w-full rounded-xl border border-[#2C2C2C]/12 px-3 py-2.5 text-sm font-medium"
-            value={form.displayName}
-            onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
-            required
-            maxLength={200}
-          />
-        </label>
-
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#525252]">Profile photo</p>
-          <div className="mt-2 max-w-md">
+      <form onSubmit={(e) => void save(e)} className="space-y-5">
+        <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+          <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+            Cover photo (optional)
+          </p>
+          <p className="mt-0.5 text-[11px] font-semibold text-[#2C2C2C]/45">
+            A small banner tenants may see on your listings — not required.
+          </p>
+          <div className="mt-3 max-w-lg">
             <CloudinaryUpload
-              value={form.avatarUrl ? [form.avatarUrl] : []}
-              onUpload={(urls) => setForm((f) => ({ ...f, avatarUrl: urls[0] ?? "" }))}
+              value={form.coverUrl ? [form.coverUrl] : []}
+              onUpload={(urls) => setForm((f) => ({ ...f, coverUrl: urls[0] ?? "" }))}
               maxFiles={1}
               disabled={saving}
             />
           </div>
         </div>
 
-        <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-          Bio
-          <textarea
-            className="mt-1 w-full rounded-xl border border-[#2C2C2C]/12 px-3 py-2.5 text-sm font-medium"
-            rows={4}
-            maxLength={500}
-            placeholder="Tell tenants about yourself as a landlord..."
-            value={form.bio}
-            onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
-          />
-          <span className="mt-1 block text-right text-[11px] font-medium text-[#888888]">
-            {form.bio.length}/500
-          </span>
-        </label>
+        <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+          <label className="block">
+            <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+              Display name
+            </span>
+            <input
+              className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+              value={form.displayName}
+              onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
+              required
+              maxLength={200}
+            />
+          </label>
 
-        <fieldset>
-          <legend className="text-xs font-semibold uppercase tracking-wide text-[#525252]">
-            Languages spoken
-          </legend>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {DORMSPACE_LANDLORD_LANGUAGE_OPTIONS.map((lang) => {
-              const on = form.languages.includes(lang);
-              return (
+          <div className="mt-5">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Profile photo</p>
+            <div className="mt-2 max-w-md">
+              <CloudinaryUpload
+                value={form.avatarUrl ? [form.avatarUrl] : []}
+                onUpload={(urls) => setForm((f) => ({ ...f, avatarUrl: urls[0] ?? "" }))}
+                maxFiles={1}
+                disabled={saving}
+              />
+            </div>
+          </div>
+
+          <label className="mt-5 block">
+            <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">About you</span>
+            <textarea
+              className="mt-1.5 w-full resize-none rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C]/85 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+              rows={5}
+              maxLength={500}
+              placeholder="Tell tenants about yourself as a landlord…"
+              value={form.bio}
+              onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
+            />
+            <p className="mt-1 text-right text-[11px] font-semibold text-[#2C2C2C]/45">{form.bio.length}/500</p>
+          </label>
+
+          <label className="mt-5 block">
+            <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+              About my properties
+            </span>
+            <textarea
+              className="mt-1.5 w-full resize-none rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C]/85 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+              rows={3}
+              maxLength={300}
+              placeholder="What are your spaces like in general? (optional)"
+              value={form.aboutProperties}
+              onChange={(e) => setForm((f) => ({ ...f, aboutProperties: e.target.value }))}
+            />
+            <p className="mt-1 text-right text-[11px] font-semibold text-[#2C2C2C]/45">
+              {form.aboutProperties.length}/300
+            </p>
+          </label>
+        </div>
+
+        <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+              Specialties / focus
+            </span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {DORMSPACE_LANDLORD_SPECIALTY_OPTIONS.map((spec) => {
+                const on = form.specialties.includes(spec);
+                return (
+                  <button
+                    key={spec}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, specialties: toggleMulti(f.specialties, spec) }))}
+                    className={cn(
+                      "rounded-full px-3 py-1.5 text-xs font-bold transition",
+                      on
+                        ? "bg-[#D4A843] text-[#2C2C2C]"
+                        : "border border-[#2C2C2C]/15 bg-[#FAF8F4] text-[#2C2C2C]/75 hover:bg-white",
+                    )}
+                  >
+                    {spec}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Operating areas
+              </span>
+              {suggestedAreas.length > 0 && form.operatingAreas.length < suggestedAreas.length ? (
                 <button
-                  key={lang}
                   type="button"
-                  onClick={() => setForm((f) => ({ ...f, languages: toggleLang(f.languages, lang) }))}
-                  className={cn(
-                    "rounded-full px-3 py-1.5 text-xs font-bold transition",
-                    on ? "bg-[#6B9E6E] text-white" : "bg-[#FAF8F4] text-[#484848] ring-1 ring-[#2C2C2C]/12",
-                  )}
+                  onClick={mergeSuggestedAreas}
+                  className="text-[11px] font-bold text-[#6B9E6E] hover:underline"
                 >
-                  {lang}
+                  Add from my listings
                 </button>
-              );
-            })}
+              ) : null}
+            </div>
+            <div className="mt-1.5">
+              <ServiceAreasMultiInput
+                id="landlord-operating-areas"
+                values={form.operatingAreas}
+                onChange={(values) => setForm((f) => ({ ...f, operatingAreas: values }))}
+                draft={form.operatingAreaDraft}
+                onDraftChange={(v) => setForm((f) => ({ ...f, operatingAreaDraft: v }))}
+              />
+            </div>
           </div>
-        </fieldset>
 
-        <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-          Phone (PH)
-          <input
-            className="mt-1 w-full rounded-xl border border-[#2C2C2C]/12 px-3 py-2.5 text-sm font-medium"
-            value={form.phone}
-            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            placeholder="+63 9XX XXX XXXX"
-            maxLength={40}
-          />
-        </label>
-
-        <fieldset>
-          <legend className="text-xs font-semibold uppercase tracking-wide text-[#525252]">
-            Preferred contact method
-          </legend>
-          <div className="mt-2 flex flex-wrap gap-4">
-            {(
-              [
-                ["email", "Email"],
-                ["phone", "Phone"],
-                ["either", "Either"],
-              ] as const
-            ).map(([value, label]) => (
-              <label key={value} className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-[#2C2C2C]">
-                <input
-                  type="radio"
-                  name="landlord_preferred_contact"
-                  checked={form.preferredContact === value}
-                  onChange={() => setForm((f) => ({ ...f, preferredContact: value }))}
-                  className="accent-[#6B9E6E]"
-                />
-                {label}
-              </label>
-            ))}
+          <div className="mt-5">
+            <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Languages</span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {DORMSPACE_LANDLORD_LANGUAGE_OPTIONS.map((lang) => {
+                const on = form.languages.includes(lang);
+                return (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, languages: toggleMulti(f.languages, lang) }))}
+                    className={cn(
+                      "rounded-full px-3 py-1.5 text-xs font-bold transition",
+                      on
+                        ? "bg-[#6B9E6E] text-white"
+                        : "border border-[#2C2C2C]/15 bg-[#FAF8F4] text-[#2C2C2C]/75 hover:bg-white",
+                    )}
+                  >
+                    {lang}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </fieldset>
+        </div>
 
-        <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-          Years renting out properties
-          <input
-            type="number"
-            min={0}
-            max={80}
-            className="mt-1 w-full max-w-[12rem] rounded-xl border border-[#2C2C2C]/12 px-3 py-2.5 text-sm font-medium"
-            value={form.yearsRenting}
-            onChange={(e) => setForm((f) => ({ ...f, yearsRenting: e.target.value }))}
-            placeholder="Optional"
-          />
-        </label>
+        <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+          <label className="block">
+            <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Phone (PH)</span>
+            <input
+              className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              placeholder="+63 9XX XXX XXXX"
+              maxLength={40}
+            />
+          </label>
+
+          <fieldset className="mt-5">
+            <legend className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+              Preferred contact method
+            </legend>
+            <div className="mt-2 flex flex-wrap gap-4">
+              {(
+                [
+                  ["email", "Email"],
+                  ["phone", "Phone"],
+                  ["either", "Either"],
+                ] as const
+              ).map(([value, label]) => (
+                <label
+                  key={value}
+                  className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-[#2C2C2C]"
+                >
+                  <input
+                    type="radio"
+                    name="landlord_preferred_contact"
+                    checked={form.preferredContact === value}
+                    onChange={() => setForm((f) => ({ ...f, preferredContact: value }))}
+                    className="accent-[#6B9E6E]"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <label className="mt-5 block">
+            <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+              Years renting out properties
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={80}
+              className="mt-1.5 w-full max-w-[12rem] rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+              value={form.yearsRenting}
+              onChange={(e) => setForm((f) => ({ ...f, yearsRenting: e.target.value }))}
+              placeholder="Optional"
+            />
+          </label>
+        </div>
+
+        <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+          <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Social links</span>
+          <p className="mt-0.5 text-[11px] font-semibold text-[#2C2C2C]/45">
+            Optional — helps tenants verify you on social media.
+          </p>
+          <div className="mt-3 space-y-3">
+            <label className="block">
+              <span className="text-xs font-semibold text-[#2C2C2C]/60">Facebook</span>
+              <input
+                value={form.facebookUrl}
+                onChange={(e) => setForm((f) => ({ ...f, facebookUrl: e.target.value }))}
+                placeholder="https://facebook.com/…"
+                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80 placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold text-[#2C2C2C]/60">Instagram</span>
+              <input
+                value={form.instagramUrl}
+                onChange={(e) => setForm((f) => ({ ...f, instagramUrl: e.target.value }))}
+                placeholder="https://instagram.com/…"
+                className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80 placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+              />
+            </label>
+          </div>
+        </div>
 
         {savedFlash ? (
           <p className="text-sm font-medium text-[#6B9E6E]">Profile updated.</p>
         ) : null}
 
-        <div className="flex flex-wrap gap-3 pt-2">
+        <div className="flex flex-wrap gap-3 pb-4">
           <button
             type="submit"
             disabled={saving}
-            className="h-10 rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white disabled:opacity-60"
+            className="h-10 rounded-full bg-[#6B9E6E] px-6 text-sm font-bold text-white disabled:opacity-60"
           >
-            {saving ? "Saving…" : "Update profile"}
+            {saving ? "Saving…" : "Save"}
           </button>
           <button
             type="button"
             disabled={saving}
             onClick={resetForm}
-            className="h-10 rounded-xl border border-[#2C2C2C]/15 px-6 text-sm font-bold text-[#484848]"
+            className="h-10 rounded-full border border-[#2C2C2C]/15 px-6 text-sm font-bold text-[#484848]"
           >
             Cancel
           </button>

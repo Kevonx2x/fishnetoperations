@@ -16,9 +16,11 @@ import {
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
 import {
+  defaultTotalBedsFromRoomType,
   DORMSPACE_AMENITIES,
   DORMSPACE_GENDER_OPTIONS,
   DORMSPACE_ROOM_TYPE_OPTIONS,
+  type DormspaceRoomType,
 } from "@/lib/dormspaces";
 import {
   needsLandlordVerificationUpload,
@@ -283,6 +285,14 @@ export function DormspaceSubmitForm() {
   const [emailExists, setEmailExists] = useState<boolean | null>(null);
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [roomType, setRoomType] = useState<DormspaceRoomType | "">("");
+  const [totalBeds, setTotalBeds] = useState(1);
+  const [totalBedsTouched, setTotalBedsTouched] = useState(false);
+
+  useEffect(() => {
+    if (!roomType || totalBedsTouched) return;
+    setTotalBeds(defaultTotalBedsFromRoomType(roomType));
+  }, [roomType, totalBedsTouched]);
 
   useEffect(() => {
     if (!profile) return;
@@ -628,7 +638,19 @@ export function DormspaceSubmitForm() {
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
             Room type *
-            <select name="room_type" className={FIELD} required defaultValue="">
+            <select
+              name="room_type"
+              className={FIELD}
+              required
+              value={roomType}
+              onChange={(e) => {
+                const v = e.target.value as DormspaceRoomType | "";
+                setRoomType(v);
+                if (v && !totalBedsTouched) {
+                  setTotalBeds(defaultTotalBedsFromRoomType(v));
+                }
+              }}
+            >
               <option value="" disabled>
                 Select…
               </option>
@@ -638,6 +660,26 @@ export function DormspaceSubmitForm() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
+            Total beds *
+            <input
+              name="total_beds"
+              type="number"
+              min={1}
+              max={50}
+              className={FIELD}
+              required
+              value={totalBeds}
+              onChange={(e) => {
+                setTotalBedsTouched(true);
+                const n = parseInt(e.target.value, 10);
+                setTotalBeds(Number.isFinite(n) ? Math.min(50, Math.max(1, n)) : 1);
+              }}
+            />
+            <span className="mt-1 block text-[11px] font-medium text-[#888888]">
+              Defaults from room type; adjust if your space has a different capacity.
+            </span>
           </label>
           <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
             Gender preference

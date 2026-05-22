@@ -19,6 +19,7 @@ type DormspaceContactModalProps = {
   onOpenChange: (open: boolean) => void;
   dormspaceId: string;
   dormspaceTitle: string;
+  defaultMessage?: string;
   onSent?: () => void;
 };
 
@@ -27,6 +28,7 @@ export function DormspaceContactModal({
   onOpenChange,
   dormspaceId,
   dormspaceTitle,
+  defaultMessage,
   onSent,
 }: DormspaceContactModalProps) {
   const titleId = useId();
@@ -62,9 +64,10 @@ export function DormspaceContactModal({
       setPhone(profile?.phone?.trim() ?? "");
     }
     setMessage(
-      `Hi, I'm interested in this dormspace. When would be a good time to visit?`,
+      defaultMessage?.trim() ||
+        `Hi, I'm interested in this dormspace. When would be a good time to visit?`,
     );
-  }, [open, user, profile, dormspaceTitle]);
+  }, [open, user, profile, dormspaceTitle, defaultMessage]);
 
   useEffect(() => {
     if (!open) return;

@@ -39,6 +39,9 @@ export type DormspaceRow = {
   rejection_reason: string | null;
   approved_at: string | null;
   approved_by: string | null;
+  total_beds: number | null;
+  available_beds: number | null;
+  vacancy_notes: string | null;
 };
 
 export type DormspacePhotoRow = {
@@ -135,6 +138,97 @@ export const METRO_MANILA_CITIES = [
 
 export function dormspaceRoomTypeLabel(roomType: DormspaceRoomType): string {
   return DORMSPACE_ROOM_TYPE_OPTIONS.find((o) => o.value === roomType)?.label ?? roomType;
+}
+
+/** Default bed count when room type changes (submit form / backfill). */
+export function defaultTotalBedsFromRoomType(roomType: DormspaceRoomType): number {
+  switch (roomType) {
+    case "private":
+      return 1;
+    case "shared_2":
+      return 2;
+    case "shared_4":
+      return 4;
+    case "shared_6_plus":
+      return 6;
+    default:
+      return 1;
+  }
+}
+
+export function resolveDormspaceBedCounts(
+  row: Pick<DormspaceRow, "room_type" | "total_beds" | "available_beds">,
+): { total: number; available: number } {
+  const totalRaw = row.total_beds;
+  const total =
+    totalRaw != null && Number.isFinite(Number(totalRaw)) && Number(totalRaw) >= 1
+      ? Math.min(50, Math.max(1, Math.round(Number(totalRaw))))
+      : defaultTotalBedsFromRoomType(row.room_type);
+  const availRaw = row.available_beds;
+  const available =
+    availRaw != null && Number.isFinite(Number(availRaw))
+      ? Math.max(0, Math.min(total, Math.round(Number(availRaw))))
+      : total;
+  return { total, available };
+}
+
+/** e.g. "Shared (4 beds)" using actual total_beds. */
+export function dormspaceRoomCapacityLabel(
+  roomType: DormspaceRoomType,
+  totalBeds?: number | null,
+): string {
+  const total = totalBeds != null && totalBeds >= 1 ? totalBeds : defaultTotalBedsFromRoomType(roomType);
+  const bedWord = total === 1 ? "bed" : "beds";
+  switch (roomType) {
+    case "private":
+      return `Private (${total} ${bedWord})`;
+    case "shared_2":
+      return `Shared (${total} ${bedWord})`;
+    case "shared_4":
+      return `Shared (${total} ${bedWord})`;
+    case "shared_6_plus":
+      return `Shared (${total}+ ${bedWord})`;
+    default:
+      return `${total} ${bedWord}`;
+  }
+}
+
+export type DormspaceBedAvailabilityDisplay = {
+  roomLine: string;
+  detailLine: string;
+  shortLine: string;
+  status: "full" | "all" | "partial";
+};
+
+export function dormspaceBedAvailability(
+  row: Pick<DormspaceRow, "room_type" | "total_beds" | "available_beds">,
+): DormspaceBedAvailabilityDisplay {
+  const { total, available } = resolveDormspaceBedCounts(row);
+  const roomLine = dormspaceRoomCapacityLabel(row.room_type, total);
+
+  if (available <= 0) {
+    return {
+      roomLine,
+      detailLine: `${roomLine} · Currently full`,
+      shortLine: "Currently full",
+      status: "full",
+    };
+  }
+  if (available >= total) {
+    return {
+      roomLine,
+      detailLine: `${roomLine} · All beds available`,
+      shortLine: "All beds available",
+      status: "all",
+    };
+  }
+  const ofY = `${available} of ${total} beds available`;
+  return {
+    roomLine,
+    detailLine: `${roomLine} · ${available} available`,
+    shortLine: ofY,
+    status: "partial",
+  };
 }
 
 export function dormspaceGenderLabel(g: DormspaceGenderPreference | null | undefined): string {
