@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { ArrowRight, ChevronLeft, Loader2 } from "lucide-react";
 import {
   AuthGoogleDivider,
   ContinueWithGoogleButton,
@@ -11,7 +11,6 @@ import {
 import {
   isDormspaceSubmitBlockedRole,
   isLandlordCapable,
-  pathForRole,
   roleDisplayLabel,
 } from "@/lib/auth-roles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -73,36 +72,58 @@ export function StaffRoleNoticeCard({
   onSignOut: () => void;
   signingOut: boolean;
 }) {
-  const dashboardHref = pathForRole(role);
   const label = roleDisplayLabel(role);
 
   return (
-    <div className="rounded-2xl border border-amber-400/40 bg-white p-6 shadow-[0_4px_24px_rgba(44,44,44,0.06)] sm:p-8">
-      <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8a6d32]">
-        {"You're signed in as "}
-        {label}
-      </p>
-      <p className="mt-3 text-sm font-medium leading-relaxed text-[#484848]">
-        {"Agents and brokers can't list dormspaces under their existing BahayGo account. To list a "}
-        {"dormspace, please sign out and create a separate landlord account using a different email."}
-      </p>
-      <button
-        type="button"
-        onClick={onSignOut}
-        disabled={signingOut}
-        className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] disabled:opacity-60"
-      >
-        {signingOut ? "Signing out\u2026" : "Sign out and continue"}
-      </button>
-      <p className="mt-4 text-center">
-        <Link
-          href={dashboardHref}
-          className="text-sm font-semibold text-[#6B9E6E] hover:underline"
+    <>
+      <div className="rounded-2xl border border-amber-400/40 bg-white p-6 shadow-[0_4px_24px_rgba(44,44,44,0.06)] sm:p-8">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8a6d32]">
+          {"You're signed in as "}
+          {label}
+        </p>
+        <p className="mt-3 text-sm font-medium leading-relaxed text-[#484848]">
+          {"Agents and brokers can't list dormspaces under their existing BahayGo account. To list a "}
+          {"dormspace, please sign out and create a separate landlord account using a different email."}
+        </p>
+        <button
+          type="button"
+          onClick={onSignOut}
+          disabled={signingOut}
+          className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] disabled:opacity-60"
         >
-          Go to my {label} dashboard
-        </Link>
-      </p>
-    </div>
+          {signingOut ? "Signing out\u2026" : "Sign out and continue"}
+        </button>
+        <p className="mt-4 text-center">
+          <Link
+            href="/dormspaces"
+            className="inline-flex items-center justify-center gap-1 text-sm font-semibold text-[#6B9E6E] hover:underline"
+          >
+            Just looking? Browse
+            <ArrowRight className="size-4" aria-hidden />
+          </Link>
+        </p>
+      </div>
+
+      <div className="mt-5">
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center" aria-hidden>
+            <div className="w-full border-t border-[#2C2C2C]/10" />
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="bg-[#FAF8F4] px-2 font-medium text-[#888888]">or</span>
+          </div>
+        </div>
+        <p className="mt-4 text-center">
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center gap-1 text-sm font-semibold text-[#6B9E6E] hover:underline"
+          >
+            <ChevronLeft className="size-4" aria-hidden />
+            Back to BahayGo
+          </Link>
+        </p>
+      </div>
+    </>
   );
 }
 

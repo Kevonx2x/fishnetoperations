@@ -419,7 +419,7 @@ export function DormspaceWelcome() {
             <EmailFirstAuthCard />
           )}
 
-          {!isLandlordSignedIn ? (
+          {!isLandlordSignedIn && !isStaffSignedIn ? (
             <div className="mt-5">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center" aria-hidden>
@@ -438,7 +438,7 @@ export function DormspaceWelcome() {
                 </Link>
               </p>
             </div>
-          ) : (
+          ) : !isLandlordSignedIn && isStaffSignedIn ? null : (
             <p className="mt-5 text-center">
               <Link
                 href="/dormspaces"
