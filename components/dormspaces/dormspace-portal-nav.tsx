@@ -9,9 +9,9 @@ import {
   Heart,
   HelpCircle,
   Home,
+  Inbox,
   LogOut,
   Menu,
-  Settings,
   User,
   X,
 } from "lucide-react";
@@ -33,6 +33,95 @@ import { cn } from "@/lib/utils";
 
 const NAV_LINK =
   "rounded-lg px-1 py-0.5 text-sm font-semibold text-[#404040] transition hover:text-[#2C2C2C]";
+
+const DROPDOWN_ITEM =
+  "flex w-full items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 transition hover:bg-[#FAF8F4]";
+
+const DROPDOWN_DIVIDER = "my-1.5 h-px bg-[#2C2C2C]/10";
+
+type AccountMenuProps = {
+  isLandlord: boolean;
+  inquiryCount: number;
+  onNavigate: () => void;
+  onSignOut: () => void;
+  signOutBusy: boolean;
+};
+
+function AccountDropdownMenu({
+  isLandlord,
+  inquiryCount,
+  onNavigate,
+  onSignOut,
+  signOutBusy,
+}: AccountMenuProps) {
+  const profileSettingsHref = isLandlord
+    ? "/dormspaces/dashboard?tab=profile"
+    : "/settings";
+
+  return (
+    <>
+      {isLandlord ? (
+        <>
+          <Link
+            href="/dormspaces/dashboard?tab=listings"
+            className={DROPDOWN_ITEM}
+            onClick={onNavigate}
+            role="menuitem"
+          >
+            <Home className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+            My Listings
+          </Link>
+          {inquiryCount > 0 ? (
+            <Link
+              href="/dormspaces/dashboard?tab=inquiries"
+              className={DROPDOWN_ITEM}
+              onClick={onNavigate}
+              role="menuitem"
+            >
+              <Inbox className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+              Inquiries
+            </Link>
+          ) : null}
+          <Link
+            href={profileSettingsHref}
+            className={DROPDOWN_ITEM}
+            onClick={onNavigate}
+            role="menuitem"
+          >
+            <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+            Profile settings
+          </Link>
+        </>
+      ) : (
+        <Link
+          href={profileSettingsHref}
+          className={DROPDOWN_ITEM}
+          onClick={onNavigate}
+          role="menuitem"
+        >
+          <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+          Profile settings
+        </Link>
+      )}
+      <div className={DROPDOWN_DIVIDER} role="separator" />
+      <Link href="/" className={DROPDOWN_ITEM} onClick={onNavigate} role="menuitem">
+        <Home className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+        Go to BahayGo
+      </Link>
+      <div className={DROPDOWN_DIVIDER} role="separator" />
+      <button
+        type="button"
+        onClick={onSignOut}
+        disabled={signOutBusy}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+        role="menuitem"
+      >
+        <LogOut className="h-4 w-4 shrink-0 text-red-600" aria-hidden />
+        {signOutBusy ? "…" : "Log out"}
+      </button>
+    </>
+  );
+}
 
 type Props = {
   variant?: DormspacePortalNavVariant;
@@ -111,6 +200,7 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [signOutBusy, setSignOutBusy] = useState(false);
+  const [inquiryCount, setInquiryCount] = useState(0);
   const accountRef = useRef<HTMLDivElement | null>(null);
 
   const displayName = profile?.full_name?.trim() || user?.email?.split("@")[0] || "Member";
@@ -128,6 +218,28 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [accountOpen]);
+
+  useEffect(() => {
+    if (!user || !isLandlord) {
+      setInquiryCount(0);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/dormspaces/landlord/inquiries", { credentials: "include" });
+        const json = (await res.json()) as { success?: boolean; data?: { items?: unknown[] } };
+        if (!cancelled && res.ok) {
+          setInquiryCount(json.data?.items?.length ?? 0);
+        }
+      } catch {
+        if (!cancelled) setInquiryCount(0);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isLandlord]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -289,54 +401,14 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
                           <p className="truncate text-sm font-semibold text-[#525252]">{displayName}</p>
                           <p className="mt-0.5 truncate text-xs text-[#2C2C2C]/40">{email}</p>
                         </div>
-                        <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
-                        {isLandlord ? (
-                          <>
-                            <Link
-                              href="/dormspaces/dashboard?tab=profile"
-                              className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                              onClick={() => setAccountOpen(false)}
-                            >
-                              <User className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                              Profile settings
-                            </Link>
-                            <Link
-                              href="/dormspaces/dashboard?tab=account"
-                              className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                              onClick={() => setAccountOpen(false)}
-                            >
-                              <Settings className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                              Account settings
-                            </Link>
-                          </>
-                        ) : mayLike ? (
-                          <Link
-                            href="/dormspaces/liked"
-                            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                            onClick={() => setAccountOpen(false)}
-                          >
-                            <Heart className="h-4 w-4 shrink-0 text-red-500" aria-hidden />
-                            Liked dormspaces
-                          </Link>
-                        ) : null}
-                        <Link
-                          href="/"
-                          className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/85 hover:bg-[#FAF8F4]"
-                          onClick={() => setAccountOpen(false)}
-                        >
-                          <Home className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-                          Go to BahayGo
-                        </Link>
-                        <div className="my-1.5 h-px bg-[#2C2C2C]/10" />
-                        <button
-                          type="button"
-                          onClick={() => void signOut()}
-                          disabled={signOutBusy}
-                          className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
-                        >
-                          <LogOut className="h-4 w-4 shrink-0 text-red-600" aria-hidden />
-                          {signOutBusy ? "…" : "Log out"}
-                        </button>
+                        <div className={DROPDOWN_DIVIDER} />
+                        <AccountDropdownMenu
+                          isLandlord={isLandlord}
+                          inquiryCount={inquiryCount}
+                          onNavigate={() => setAccountOpen(false)}
+                          onSignOut={() => void signOut()}
+                          signOutBusy={signOutBusy}
+                        />
                       </motion.div>
                     ) : null}
                   </AnimatePresence>
@@ -431,41 +503,18 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
               ) : null}
               <div className="my-2 h-px bg-[#2C2C2C]/10" />
               {user ? (
-                <>
-                  {isLandlord ? (
-                    <>
-                      <Link href="/dormspaces/dashboard" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040]">
-                        My Listings
-                      </Link>
-                      <Link href="/dormspaces/submit?from=welcome" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-bold text-[#6B9E6E]">
-                        List Your Space
-                      </Link>
-                      <Link href="/dormspaces/dashboard?tab=profile" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040]">
-                        Profile settings
-                      </Link>
-                      <Link href="/dormspaces/dashboard?tab=account" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040]">
-                        Account settings
-                      </Link>
-                    </>
-                  ) : mayLike ? (
-                    <Link href="/dormspaces/liked" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040]">
-                      Liked
-                    </Link>
-                  ) : null}
-                  <Link href="/" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040]">
-                    Go to BahayGo
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => {
+                <div className="px-0 py-1">
+                  <AccountDropdownMenu
+                    isLandlord={isLandlord}
+                    inquiryCount={inquiryCount}
+                    onNavigate={closeMobile}
+                    onSignOut={() => {
                       closeMobile();
                       void signOut();
                     }}
-                    className="rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-red-600"
-                  >
-                    Log out
-                  </button>
-                </>
+                    signOutBusy={signOutBusy}
+                  />
+                </div>
               ) : (
                 <>
                   <Link href={signInHref} onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040]">
