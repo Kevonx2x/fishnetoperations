@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAgentLiveAvailabilityFromPropertyRows } from "@/hooks/use-agent-live-availability";
 import Image from "next/image";
 import Link from "next/link";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity,
   ArrowDown,
@@ -50,7 +49,19 @@ import {
   type PropertyEngagement,
 } from "@/hooks/use-property-engagement";
 import { useAuth } from "@/contexts/auth-context";
-import { PropertyZoomModal } from "@/components/marketplace/property-zoom-modal";
+import {
+  HomepageFaqSectionSkeleton,
+  HomepageListingRowsSkeleton,
+  HomepageTopAgentsSectionSkeleton,
+} from "@/components/marketplace/homepage-load-shell";
+
+const PropertyZoomModal = dynamic(
+  () =>
+    import("@/components/marketplace/property-zoom-modal").then((m) => ({
+      default: m.PropertyZoomModal,
+    })),
+  { ssr: false },
+);
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
 import { listingListedLabel } from "@/lib/listing-listed-time";
@@ -759,7 +770,7 @@ function HeroFloatingCardImage({ src, priority, eager }: { src: string; priority
         sizes="(max-width: 768px) 100vw, 292px"
         priority={priority}
         loading={eager ? "eager" : "lazy"}
-        onLoadingComplete={() => setLoaded(true)}
+        onLoad={() => setLoaded(true)}
       />
     </>
   );
@@ -787,7 +798,7 @@ function FeaturedLocationStripImage({ src, priority, eager }: { src: string; pri
         sizes="(min-width: 1024px) 160px, 130px"
         priority={priority}
         loading={eager ? "eager" : "lazy"}
-        onLoadingComplete={() => setLoaded(true)}
+        onLoad={() => setLoaded(true)}
       />
     </>
   );
@@ -1092,19 +1103,16 @@ function HomepageFaqSection({
                   aria-hidden
                 />
               </button>
-              <AnimatePresence initial={false}>
-                {isOpen ? (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                    className="overflow-hidden"
-                  >
-                    <p className="pb-4 text-sm leading-relaxed text-[#404040]">{item.answer}</p>
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
+              <div
+                className={cn(
+                  "grid transition-[grid-template-rows] duration-200 ease-in-out",
+                  isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                )}
+              >
+                <div className="overflow-hidden">
+                  <p className="pb-4 text-sm leading-relaxed text-[#404040]">{item.answer}</p>
+                </div>
+              </div>
             </div>
           );
         })}
@@ -1187,7 +1195,8 @@ function HomepageTopVerifiedAgentsSection({
 
 const DynamicHomepageTopAgents = dynamic(
   () => Promise.resolve({ default: HomepageTopVerifiedAgentsSection }),
-  { ssr: false, loading: () => null },
+  { ssr: false, loading: () => <HomepageTopAgentsSectionSkeleton />,
+  },
 );
 
 export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" | "all" }) {
@@ -1932,11 +1941,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     el.scrollBy({ left: dir === "next" ? step : -step, behavior: "smooth" });
   }, []);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const scrollEl = featuredLocationsScrollRef.current;
     if (!scrollEl) return;
     const track = scrollEl.firstElementChild as HTMLElement | null;
     if (!track) return;
+
+    let resizeRaf = 0;
 
     const onScroll = () => {
       if (featuredLocationsJumpGuardRef.current) return;
@@ -1981,14 +1992,24 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       }
     };
 
+    const scheduleApply = () => {
+      cancelAnimationFrame(resizeRaf);
+      resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = requestAnimationFrame(() => {
+          apply();
+        });
+      });
+    };
+
     scrollEl.addEventListener("scroll", onScroll, { passive: true });
-    apply();
+    scheduleApply();
     const ro = new ResizeObserver(() => {
-      apply();
+      scheduleApply();
     });
     ro.observe(track);
     ro.observe(scrollEl);
     return () => {
+      cancelAnimationFrame(resizeRaf);
       ro.disconnect();
       scrollEl.removeEventListener("scroll", onScroll);
     };
@@ -2322,7 +2343,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             <p className="text-xs font-semibold text-white drop-shadow-sm lg:text-base">
                               {c.label}
                             </p>
-                            <p className="mt-0.5 text-[10px] font-semibold text-white/90 lg:text-[11px]">
+                            <p className="mt-0.5 min-h-[14px] text-[10px] font-semibold tabular-nums text-white/90 lg:min-h-[15px] lg:text-[11px]">
                               {count} {count === 1 ? "listing" : "listings"}
                             </p>
                           </div>
@@ -2334,16 +2355,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               </div>
             </div>
           </div>
-          <AnimatePresence initial={false}>
-            {selectedLocation && propertyTypeCounts.length >= 2 ? (
-              <motion.div
-                key="property-type-subfilter"
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 4 }}
-                transition={{ duration: 0.2 }}
-                className="mt-5"
-              >
+          {selectedLocation && propertyTypeCounts.length >= 2 ? (
+              <div className="mt-5 min-h-[4.5rem] opacity-100 transition-opacity duration-200">
                 <p className="text-[13px] font-semibold text-[#484848]">Property type</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
@@ -2373,9 +2386,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     );
                   })}
                 </div>
-              </motion.div>
+              </div>
             ) : null}
-          </AnimatePresence>
         </div>
       </section>
 
@@ -2384,19 +2396,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       <main className="mx-auto max-w-7xl px-6 pb-28 pt-10 md:pb-16">
         {/* Loading / error */}
         {loading ? (
-          <div className="mt-8 grid min-h-[400px] grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={`listing-skeleton-${i}`}
-                className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md"
-              >
-                <div className="relative h-44 w-full animate-pulse bg-neutral-200/90 lg:h-52" />
-                <div className="space-y-2 p-3">
-                  <div className="h-4 w-3/4 animate-pulse rounded bg-neutral-200/90" />
-                  <div className="h-4 w-1/2 animate-pulse rounded bg-neutral-200/90" />
-                </div>
-              </div>
-            ))}
+          <div className="mt-8 min-h-[400px]">
+            <HomepageListingRowsSkeleton />
           </div>
         ) : null}
         {!loading && error ? (
@@ -2440,13 +2441,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               ) : null}
 
               {filtersActive ? (
-                <motion.div
-                  layout
-                  className="sticky top-16 z-40 -mx-6 mt-4 border-b border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-6 py-3 backdrop-blur-md md:mx-0 md:rounded-b-xl md:shadow-sm"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
+                <div className="sticky top-16 z-40 -mx-6 mt-4 border-b border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-6 py-3 backdrop-blur-md md:mx-0 md:rounded-b-xl md:shadow-sm">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 flex-1">
                       <h2 className="font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] sm:text-xl">
@@ -2494,16 +2489,12 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                       ) : null}
                     </button>
                   </div>
-                </motion.div>
+                </div>
               ) : null}
 
               <div className={cn("mt-8", filtersActive && "mt-6")}>
                 {homepageRows.length === 0 && filtersActive ? (
-                  <motion.div
-                    className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center shadow-sm"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                  >
+                  <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center shadow-sm">
                     <p className="font-serif text-xl font-semibold text-[#2C2C2C]">
                       {buildFilteredEmptyMessage(filters, neighborhoodLabelForChips, search)}
                     </p>
@@ -2513,7 +2504,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         onExpand={handleExpandSearch}
                       />
                     </div>
-                  </motion.div>
+                  </div>
                 ) : (
                   <PropertyRows
                     rows={homepageRows}
@@ -2916,16 +2907,14 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
       <HomepageArticlesSection className="mt-2" />
 
-      <AnimatePresence>
-        {zoomProperty ? (
-          <PropertyZoomModal
-            property={zoomProperty}
-            agents={allConnectedAgentsByPropertyId.get(zoomProperty.id) ?? []}
-            onClose={() => setZoomProperty(null)}
-            engagement={engagement}
-          />
-        ) : null}
-      </AnimatePresence>
+      {zoomProperty ? (
+        <PropertyZoomModal
+          property={zoomProperty}
+          agents={allConnectedAgentsByPropertyId.get(zoomProperty.id) ?? []}
+          onClose={() => setZoomProperty(null)}
+          engagement={engagement}
+        />
+      ) : null}
     </div>
   );
 }
@@ -3753,45 +3742,36 @@ function PropertyRows({
         </div>
       ) : null}
 
-      <AnimatePresence initial={false}>
-        {enableShowMore && showMore ? (
-          <motion.div
-            key="more-cats"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className={cn("space-y-6", showMore ? "overflow-visible" : "overflow-hidden")}
-          >
-            {rest.map((r, idx) => (
-              <div key={r.key}>
-                <RowCarousel
-                  rowKey={r.key}
-                  title={titleWithSuffix(r.title)}
-                  subtitle={r.subtitle}
-                  items={r.items}
-                  featured={!!r.featured}
-                  titleHref={r.titleHref}
-                  rowRefs={rowRefs}
-                  cardRoomIdx={cardRoomIdx}
-                  setCardRoomIdx={setCardRoomIdx}
-                  engagement={engagement}
-                  connectedAgentsByPropertyId={connectedAgentsByPropertyId}
-                  viewerUserId={viewerUserId}
-                  onOpenPropertyZoom={onOpenPropertyZoom}
-                  viewerVerifiedListingAgent={viewerVerifiedListingAgent}
-                  listingsOnboardingHref={listingsOnboardingHref}
-                  eagerListingThumbKey={eagerListingThumbKey}
-                  priorityListingThumbKeys={priorityListingThumbKeys}
-                />
-                {idx < rest.length - 1 ? (
-                  <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
-                ) : null}
-              </div>
-            ))}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {enableShowMore && showMore && rest.length > 0 ? (
+        <div className="space-y-6">
+          {rest.map((r, idx) => (
+            <div key={r.key}>
+              <RowCarousel
+                rowKey={r.key}
+                title={titleWithSuffix(r.title)}
+                subtitle={r.subtitle}
+                items={r.items}
+                featured={!!r.featured}
+                titleHref={r.titleHref}
+                rowRefs={rowRefs}
+                cardRoomIdx={cardRoomIdx}
+                setCardRoomIdx={setCardRoomIdx}
+                engagement={engagement}
+                connectedAgentsByPropertyId={connectedAgentsByPropertyId}
+                viewerUserId={viewerUserId}
+                onOpenPropertyZoom={onOpenPropertyZoom}
+                viewerVerifiedListingAgent={viewerVerifiedListingAgent}
+                listingsOnboardingHref={listingsOnboardingHref}
+                eagerListingThumbKey={eagerListingThumbKey}
+                priorityListingThumbKeys={priorityListingThumbKeys}
+              />
+              {idx < rest.length - 1 ? (
+                <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -3804,11 +3784,7 @@ function ListingsComingSoonPlaceholderCard({
   href: string;
 }) {
   return (
-    <motion.div
-      className="shrink-0"
-      animate={{ opacity: [0.88, 1, 0.88] }}
-      transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
-    >
+    <div className="shrink-0 animate-[homepage-placeholder-pulse_2.6s_ease-in-out_infinite]">
       <Link
         href={href}
         className={cn(
@@ -3820,7 +3796,7 @@ function ListingsComingSoonPlaceholderCard({
         <p className="text-sm font-semibold text-[#2C2C2C]">More listings coming soon</p>
         <p className="mt-2 text-xs font-semibold text-[#6B9E6E]">Be the first to list here →</p>
       </Link>
-    </motion.div>
+    </div>
   );
 }
 
@@ -3957,11 +3933,7 @@ function AgentScoreTutorialCard({ compact }: { compact?: boolean }) {
 
 function MoreAgentsComingSoonCard() {
   return (
-    <motion.div
-      className="w-[180px] shrink-0 lg:w-[300px]"
-      animate={{ opacity: [0.88, 1, 0.88] }}
-      transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
-    >
+    <div className="w-[180px] shrink-0 animate-[homepage-placeholder-pulse_2.6s_ease-in-out_infinite] lg:w-[300px]">
       <Link
         href="/register/agent"
         className="flex min-h-[340px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-4 py-8 text-center shadow-sm transition hover:bg-[#F4F1EA] md:min-h-[340px]"
@@ -3970,7 +3942,7 @@ function MoreAgentsComingSoonCard() {
         <h3 className="font-serif text-lg font-semibold tracking-tight text-[#2C2C2C]">More Agents Coming Soon</h3>
         <p className="mt-2 text-sm font-semibold text-[#2C2C2C]">Join as a verified agent</p>
       </Link>
-    </motion.div>
+    </div>
   );
 }
 

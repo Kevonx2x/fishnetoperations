@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const ROTATE_MS = 4200;
@@ -26,7 +25,7 @@ const SLIDES = [
 ] as const;
 
 /** Diagonal corner flourishes — top-left & bottom-right only, rounded, open frame. */
-function DiagonalCornerFrame({ children }: { children: ReactNode }) {
+function DiagonalCornerFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative mx-auto w-full max-w-2xl px-6 py-12 sm:px-10 sm:py-16 md:py-20">
       <span
@@ -44,11 +43,16 @@ function DiagonalCornerFrame({ children }: { children: ReactNode }) {
 
 export function HomepageValueSlider() {
   const [index, setIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
   const slide = SLIDES[index]!;
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      setIndex((i) => (i + 1) % SLIDES.length);
+      setVisible(false);
+      window.setTimeout(() => {
+        setIndex((i) => (i + 1) % SLIDES.length);
+        setVisible(true);
+      }, 280);
     }, ROTATE_MS);
     return () => window.clearInterval(id);
   }, []);
@@ -61,29 +65,25 @@ export function HomepageValueSlider() {
     >
       <DiagonalCornerFrame>
         <div className="min-h-[4.75rem] sm:min-h-[5.25rem]">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={slide.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-              className="mx-auto max-w-md text-center sm:max-w-lg"
-              aria-live="polite"
-            >
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6B9E6E]/90">
-                {slide.kicker}
+          <div
+            className={cn(
+              "mx-auto max-w-md text-center transition-opacity duration-500 ease-out sm:max-w-lg",
+              visible ? "opacity-100" : "opacity-0",
+            )}
+            aria-live="polite"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6B9E6E]/90">
+              {slide.kicker}
+            </p>
+            <p className="mt-3 font-serif text-[1.05rem] font-medium leading-[1.65] text-[#2C2C2C]/80 sm:mt-4 sm:text-xl sm:leading-[1.7]">
+              {slide.body}
+            </p>
+            {"attribution" in slide && slide.attribution ? (
+              <p className="mt-4 text-xs font-medium tracking-wide text-[#2C2C2C]/40">
+                {slide.attribution}
               </p>
-              <p className="mt-3 font-serif text-[1.05rem] font-medium leading-[1.65] text-[#2C2C2C]/80 sm:mt-4 sm:text-xl sm:leading-[1.7]">
-                {slide.body}
-              </p>
-              {"attribution" in slide && slide.attribution ? (
-                <p className="mt-4 text-xs font-medium tracking-wide text-[#2C2C2C]/40">
-                  {slide.attribution}
-                </p>
-              ) : null}
-            </motion.div>
-          </AnimatePresence>
+            ) : null}
+          </div>
         </div>
 
         <div className="mt-8 flex justify-center gap-2 sm:mt-10" aria-hidden>

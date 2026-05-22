@@ -1,23 +1,25 @@
 "use client";
 
 import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import { BahayGoHomeMarketplace } from "@/components/marketplace/fishnet-home-marketplace";
-import { PostLoginModal } from "@/components/onboarding/post-login-modal";
-import { useAuth } from "@/contexts/auth-context";
+import { HomepageLoadShell } from "@/components/marketplace/homepage-load-shell";
+
+const PostLoginModal = dynamic(
+  () =>
+    import("@/components/onboarding/post-login-modal").then((m) => ({
+      default: m.PostLoginModal,
+    })),
+  { ssr: false },
+);
 
 export function HomePageContent() {
-  const { loading } = useAuth();
-
-  if (loading) {
-    return <div className="min-h-[40vh] bg-[#FAF8F4]" aria-hidden />;
-  }
-
   return (
     <>
-      <PostLoginModal gate="client-home" />
-      <Suspense fallback={<div>Loading...</div>}>
+      <Suspense fallback={<HomepageLoadShell />}>
         <BahayGoHomeMarketplace listingMode="rent" />
       </Suspense>
+      <PostLoginModal gate="client-home" />
     </>
   );
 }

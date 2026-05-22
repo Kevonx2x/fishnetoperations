@@ -53,7 +53,7 @@ function SpotlightHeroImage({ src, alt }: { src: string; alt: string }) {
         className={cn("z-[2] object-cover transition-opacity duration-500", loaded ? "opacity-100" : "opacity-0")}
         sizes="(max-width: 1024px) 100vw, 720px"
         priority
-        onLoadingComplete={() => setLoaded(true)}
+        onLoad={() => setLoaded(true)}
       />
     </>
   );

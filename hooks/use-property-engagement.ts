@@ -312,35 +312,48 @@ export function usePropertyEngagementForProperties(
     }
     const ids = propertyIdsKey.split(",");
     let cancelled = false;
-    void (async () => {
-      const [lc, sc] = await Promise.all([
-        supabase.rpc("property_like_counts_for", { property_ids: ids }),
-        supabase.rpc("property_save_counts_for", { property_ids: ids }),
-      ]);
-      if (cancelled) return;
 
-      if (lc.error) {
-        console.error("[usePropertyEngagementForProperties] property_like_counts_for", lc.error);
-      }
-      if (sc.error) {
-        console.error("[usePropertyEngagementForProperties] property_save_counts_for", sc.error);
-      }
+    const run = () => {
+      void (async () => {
+        const [lc, sc] = await Promise.all([
+          supabase.rpc("property_like_counts_for", { property_ids: ids }),
+          supabase.rpc("property_save_counts_for", { property_ids: ids }),
+        ]);
+        if (cancelled) return;
 
-      const lm: Record<string, number> = {};
-      for (const row of (lc.data ?? []) as { property_id: string; like_count: number }[]) {
-        lm[row.property_id] = Number(row.like_count);
-      }
-      const sm: Record<string, number> = {};
-      for (const row of (sc.data ?? []) as { property_id: string; save_count: number }[]) {
-        sm[row.property_id] = Number(row.save_count);
-      }
-      setLikeCounts(lm);
-      setSaveCounts(sm);
-      setLikeCountBias({});
-      setSaveCountBias({});
-    })();
+        if (lc.error) {
+          console.error("[usePropertyEngagementForProperties] property_like_counts_for", lc.error);
+        }
+        if (sc.error) {
+          console.error("[usePropertyEngagementForProperties] property_save_counts_for", sc.error);
+        }
+
+        const lm: Record<string, number> = {};
+        for (const row of (lc.data ?? []) as { property_id: string; like_count: number }[]) {
+          lm[row.property_id] = Number(row.like_count);
+        }
+        const sm: Record<string, number> = {};
+        for (const row of (sc.data ?? []) as { property_id: string; save_count: number }[]) {
+          sm[row.property_id] = Number(row.save_count);
+        }
+        setLikeCounts(lm);
+        setSaveCounts(sm);
+        setLikeCountBias({});
+        setSaveCountBias({});
+      })();
+    };
+
+    const idle =
+      typeof requestIdleCallback === "function"
+        ? requestIdleCallback(run, { timeout: 2500 })
+        : window.setTimeout(run, 1);
     return () => {
       cancelled = true;
+      if (typeof requestIdleCallback === "function" && typeof idle === "number") {
+        cancelIdleCallback(idle);
+      } else {
+        window.clearTimeout(idle as number);
+      }
     };
   }, [propertyIdsKey, supabase]);
 

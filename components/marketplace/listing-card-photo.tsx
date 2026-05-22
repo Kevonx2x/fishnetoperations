@@ -72,7 +72,6 @@ export function ListingCardPhoto({ src, alt, sizes, priority = false, eager = fa
           decoding="async"
           className={cn("object-cover", grayscale && "grayscale")}
           onLoad={markLoaded}
-          onLoadingComplete={markLoaded}
           onError={() => {
             const fallback = supabaseObjectUrlFromRenderUrl(resolvedSrc);
             if (fallback && fallback !== resolvedSrc) {

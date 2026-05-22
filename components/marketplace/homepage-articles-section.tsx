@@ -35,7 +35,9 @@ export function HomepageArticlesSection({ className }: HomepageArticlesSectionPr
     };
   }, []);
 
-  if (!loading && articles.length === 0) return null;
+  if (!loading && articles.length === 0) {
+    return <div className={cn("min-h-[1px]", className)} aria-hidden />;
+  }
 
   return (
     <section

@@ -8,16 +8,22 @@ import { Globe, Link2, Mail, MessageCircle } from "lucide-react";
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
+  adjustFontFallback: true,
 });
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
+  display: "swap",
+  adjustFontFallback: true,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
+  adjustFontFallback: true,
 });
 
 export const metadata: Metadata = {
@@ -118,20 +124,6 @@ export default function RootLayout({
           <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
         ) : null}
         <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
-        <link
-          rel="preload"
-          href="/_next/static/media/2a65768255d6b625-s.p.14by5b4al-y~f.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
-        <link
-          rel="preload"
-          href="/_next/static/media/b49b0d9b851e4899-s.0yfy_qj1.2qn0.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
       </head>
       <body className="flex min-h-full flex-col">
         <Providers>

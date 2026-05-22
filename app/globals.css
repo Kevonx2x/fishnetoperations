@@ -901,3 +901,13 @@
     background: transparent;
   }
 }
+
+@keyframes homepage-placeholder-pulse {
+  0%,
+  100% {
+    opacity: 0.88;
+  }
+  50% {
+    opacity: 1;
+  }
+}
