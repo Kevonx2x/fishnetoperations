@@ -17,8 +17,9 @@ export function RootLayoutChrome({
 }) {
   const pathname = usePathname() ?? "";
   const isDashboard = pathname.startsWith("/dashboard");
+  const isDormspacePortal = pathname.startsWith("/dormspaces");
 
-  if (isDashboard) {
+  if (isDashboard || isDormspacePortal) {
     return <div className="flex min-h-0 flex-1 flex-col">{children}</div>;
   }
 

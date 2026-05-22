@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 
+import { DormspacePortalFooter } from "@/components/dormspaces/dormspace-portal-footer";
 import { DormspacePortalNav } from "@/components/dormspaces/dormspace-portal-nav";
 import { DormspacePortalWatermark } from "@/components/dormspaces/dormspace-portal-watermark";
 import type { DormspacePortalNavVariant } from "@/lib/dormspace-portal-nav";
@@ -23,10 +24,11 @@ export function DormspacePortalShell({
   className,
 }: Props) {
   return (
-    <div className={`relative min-h-screen bg-[#FAF8F4] ${className ?? ""}`}>
+    <div className={`relative flex min-h-screen flex-col bg-[#FAF8F4] ${className ?? ""}`}>
       <DormspacePortalWatermark />
       <DormspacePortalNav variant={variant} activeLandlordTab={activeLandlordTab} minimal={minimalNav} />
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10 flex flex-1 flex-col">{children}</div>
+      <DormspacePortalFooter />
     </div>
   );
 }

@@ -458,14 +458,6 @@ export function DormspaceWelcome() {
         </motion.div>
       </main>
 
-      <footer className="border-t border-[#2C2C2C]/8 py-6">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <Link href="/" className="text-sm font-semibold text-[#6B9E6E] hover:underline">
-            ← Back to BahayGo
-          </Link>
-        </div>
-      </footer>
-
       <UpdateVacancyModal
         open={vacancyModalOpen}
         onOpenChange={setVacancyModalOpen}

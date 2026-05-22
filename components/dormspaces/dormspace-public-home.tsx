@@ -15,7 +15,6 @@ import {
 import { DormspaceBrowse, type DormspaceBrowseFilters } from "@/components/dormspaces/dormspace-browse";
 import { DormspaceCategoryChips } from "@/components/dormspaces/dormspace-category-chips";
 import { DormspaceCommunityCta } from "@/components/dormspaces/dormspace-community-cta";
-import { DormspacePortalFooter } from "@/components/dormspaces/dormspace-portal-footer";
 import { DormspacePopularAreasSection } from "@/components/dormspaces/dormspace-popular-areas-section";
 import { DormspaceRecommendedSection } from "@/components/dormspaces/dormspace-recommended-section";
 import { DormspaceTestimonialsSection } from "@/components/dormspaces/dormspace-testimonials-section";
@@ -276,8 +275,6 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
         }}
         syncLocationToHero={setLocationQuery}
       />
-
-      <DormspacePortalFooter />
     </>
   );
 }
