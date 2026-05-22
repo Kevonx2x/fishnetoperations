@@ -1,6 +1,16 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
+/** Gold house mark from the dormspacers lockup (nav dropdown, compact UI). */
+export function BahayGoHouseMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 40 36" className={cn("h-4 w-4 shrink-0", className)} aria-hidden>
+      <path fill="#D4A843" d="M20 2 L36 14 L36 32 L4 32 L4 14 Z" />
+      <rect x="16" y="22" width="8" height="10" rx="1" fill="#FAF8F4" />
+    </svg>
+  );
+}
+
 type Props = {
   className?: string;
   href?: string;
@@ -20,10 +30,7 @@ export function DormspaceWelcomeLogo({ className, href = "/dormspaces" }: Props)
       )}
       aria-label="BahayGo dormspacers"
     >
-      <svg viewBox="0 0 40 36" className="h-9 w-auto shrink-0" aria-hidden>
-        <path fill="#D4A843" d="M20 2 L36 14 L36 32 L4 32 L4 14 Z" />
-        <rect x="16" y="22" width="8" height="10" rx="1" fill="#FAF8F4" />
-      </svg>
+      <BahayGoHouseMark className="h-9 w-auto shrink-0" />
       <span className="flex flex-col items-start pt-0.5">
         <span className="inline-flex items-baseline gap-0 font-serif text-[1.35rem] font-bold leading-none tracking-tight">
           <span className="text-[#2C2C2C]">bahay</span>

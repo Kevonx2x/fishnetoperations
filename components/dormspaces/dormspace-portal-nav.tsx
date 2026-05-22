@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 
-import { DormspaceWelcomeLogo } from "@/components/dormspaces/dormspace-welcome-logo";
+import { BahayGoHouseMark, DormspaceWelcomeLogo } from "@/components/dormspaces/dormspace-welcome-logo";
 import { useAuth } from "@/contexts/auth-context";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { isLandlordCapable } from "@/lib/auth-roles";
@@ -104,9 +104,9 @@ function AccountDropdownMenu({
         </Link>
       )}
       <div className={DROPDOWN_DIVIDER} role="separator" />
-      <Link href="/" className={DROPDOWN_ITEM} onClick={onNavigate} role="menuitem">
-        <Home className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
-        Go to BahayGo
+      <Link href="/" className={DROPDOWN_ITEM} onClick={onNavigate} role="menuitem" aria-label="Bahaygo Main">
+        <BahayGoHouseMark />
+        Bahaygo Main
       </Link>
       <div className={DROPDOWN_DIVIDER} role="separator" />
       <button

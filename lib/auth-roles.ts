@@ -31,6 +31,12 @@ export function pathForDormspacesNav(
   return "/dormspaces/welcome";
 }
 
+/** BahayGo homepage dormspacers promo banner — browse for most users; welcome for agents. */
+export function pathForDormspacesHomeFromBahayGo(role: string | null | undefined): string {
+  if (role === "agent") return "/dormspaces/welcome";
+  return "/dormspaces";
+}
+
 export function pathForRole(role: string | null | undefined): string {
   switch (role) {
     case "admin":

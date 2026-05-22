@@ -87,7 +87,7 @@ import {
 import { HomepageFiltersSheet } from "@/components/marketplace/homepage-filters-sheet";
 import { HomepageExpandSearchCta } from "@/components/marketplace/homepage-results-surface";
 import { HomepageArticlesSection } from "@/components/marketplace/homepage-articles-section";
-import { HomepageSpotlightListing } from "@/components/marketplace/homepage-spotlight-listing";
+import { HomepageDormspacersBanner } from "@/components/marketplace/homepage-dormspacers-banner";
 import { TopCondosRow } from "@/components/marketplace/top-condos-row";
 import { HomepageValueSlider } from "@/components/marketplace/homepage-value-slider";
 import {
@@ -2890,17 +2890,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
             <HomepageValueSlider />
 
-            {featuredHomeProperty ? (
-              <HomepageSpotlightListing
-                property={featuredHomeProperty}
-                isAdminFeatured={featuredHomeIsAdminFeatured}
-                locationLabel={filters.locationLabel ?? neighborhoodLabelForChips}
-                connectedAgents={
-                  allConnectedAgentsByPropertyId.get(featuredHomeProperty.id) ??
-                  undefined
-                }
-              />
-            ) : null}
+            <HomepageDormspacersBanner />
 
             {/* 6. TOP VERIFIED AGENTS THIS WEEK (deferred client load) */}
             <hr className="mx-auto mt-6 w-3/4 border-t border-[#2C2C2C]/10 lg:mt-12" />
