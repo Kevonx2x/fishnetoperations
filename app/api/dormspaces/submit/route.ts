@@ -252,7 +252,7 @@ export async function POST(req: Request) {
   const nowIso = new Date().toISOString();
 
   const roomTypeParsed = room_type as (typeof roomTypes)[number];
-  let total_beds =
+  const total_beds =
     total_beds_raw != null && total_beds_raw >= 1
       ? Math.min(50, Math.round(total_beds_raw))
       : defaultTotalBedsFromRoomType(roomTypeParsed);
