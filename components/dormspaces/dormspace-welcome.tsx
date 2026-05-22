@@ -266,7 +266,7 @@ export function DormspaceWelcome() {
             variants={fadeUp}
             className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C] md:text-4xl lg:text-[2.35rem]"
           >
-            List your dormspace on BahayGo
+            Welcome to Dormspacer
           </motion.h1>
 
           <motion.p
