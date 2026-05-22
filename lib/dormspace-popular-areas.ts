@@ -14,6 +14,23 @@ export type DormspacePopularArea = {
 /** Same cities as `FEATURED_LOCATIONS` in fishnet-home-marketplace.tsx */
 export const DORMSPACE_POPULAR_AREAS: DormspacePopularArea[] = [
   {
+    label: "Near DLSU",
+    area: "Taft",
+    city: "Manila",
+    imageUrl: "https://images.unsplash.com/photo-1562774053-701939374585?w=400&h=260&fit=crop",
+  },
+  {
+    label: "Near UST",
+    area: "Sampaloc",
+    city: "Manila",
+    imageUrl: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=400&h=260&fit=crop",
+  },
+  {
+    label: "Quezon City",
+    city: "Quezon City",
+    imageUrl: "https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=400&h=260&fit=crop",
+  },
+  {
     label: "BGC",
     area: "BGC",
     city: "Taguig",

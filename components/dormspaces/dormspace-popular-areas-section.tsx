@@ -114,9 +114,11 @@ export function DormspacePopularAreasSection({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0 text-center sm:text-left">
             <h2 className="font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">
-              Featured Locations
+              Rooms near your school
             </h2>
-            <p className="mt-1 text-sm font-semibold text-[#484848]">Tap a city to filter listings</p>
+            <p className="mt-1 text-sm font-semibold text-[#484848]">
+              Tap an area to see dormspaces nearby — commute times vary by listing
+            </p>
           </div>
           {filterActive ? (
             <button

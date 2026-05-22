@@ -2,13 +2,24 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { ChevronDown, Heart, MessageCircle, Shield } from "lucide-react";
+import {
+  BadgeCheck,
+  ChevronDown,
+  GraduationCap,
+  Heart,
+  MapPin,
+  Sparkles,
+  Wifi,
+} from "lucide-react";
 
 import { DormspaceBrowse, type DormspaceBrowseFilters } from "@/components/dormspaces/dormspace-browse";
-import { DormspaceLandlordCtaBanner } from "@/components/dormspaces/dormspace-landlord-cta-banner";
+import { DormspaceCategoryChips } from "@/components/dormspaces/dormspace-category-chips";
+import { DormspaceCommunityCta } from "@/components/dormspaces/dormspace-community-cta";
+import { DormspacePortalFooter } from "@/components/dormspaces/dormspace-portal-footer";
 import { DormspacePopularAreasSection } from "@/components/dormspaces/dormspace-popular-areas-section";
 import { DormspaceRecommendedSection } from "@/components/dormspaces/dormspace-recommended-section";
 import { DormspaceTestimonialsSection } from "@/components/dormspaces/dormspace-testimonials-section";
+import { DormspaceWhyStudentsSection } from "@/components/dormspaces/dormspace-why-students";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import {
   DORMSPACE_HERO_IMAGE,
@@ -19,6 +30,11 @@ import {
 
 const FIELD =
   "rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25";
+
+const POLAROID_A =
+  "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=200&h=240&fit=crop";
+const POLAROID_B =
+  "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=200&h=240&fit=crop";
 
 function parseCityFromLocation(value: string): string {
   const t = value.trim();
@@ -40,6 +56,7 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [activeChipId, setActiveChipId] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<DormspaceBrowseFilters>({
     city: "",
@@ -51,6 +68,7 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
 
   const applySearch = () => {
     const city = parseCityFromLocation(locationQuery);
+    setActiveChipId(null);
     setFilters({
       city,
       roomType,
@@ -61,22 +79,36 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
     document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const handleChipSelect = (chipId: string | null, next: DormspaceBrowseFilters) => {
+    setActiveChipId(chipId);
+    setFilters(next);
+    if (next.city) setLocationQuery(next.city);
+  };
+
   return (
     <>
       <section className="relative overflow-hidden border-b border-[#2C2C2C]/8 bg-[#FAF8F4]">
-        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-10 lg:py-14">
+        <div className="pointer-events-none absolute -right-24 top-8 size-64 rounded-full bg-[#D4A843]/12 blur-3xl" aria-hidden />
+        <div className="pointer-events-none absolute -left-16 bottom-0 size-48 rounded-full bg-[#6B9E6E]/10 blur-3xl" aria-hidden />
+
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-12 lg:py-14">
           <div className="order-2 lg:order-1">
-            <h1 className="font-serif text-4xl font-bold tracking-tight text-[#2C2C2C] md:text-5xl">
-              Better dorms.
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-[#D4A843]/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#8a6d32]">
+              <Sparkles className="size-3.5" aria-hidden />
+              Student housing, verified
+            </p>
+            <h1 className="mt-4 font-serif text-4xl font-bold leading-[1.1] tracking-tight text-[#2C2C2C] md:text-[2.65rem]">
+              Find your space.
               <br />
-              Better days.
+              Live your{" "}
+              <span className="text-[#C49A2E]">campus life.</span>
             </h1>
             <p className="mt-4 max-w-xl text-base font-medium leading-relaxed text-[#484848] md:text-lg">
-              Find safe, verified bedspaces for students, BPO workers, and young professionals across Metro
+              Verified dorms and rooms near your school. Safe, affordable, and student-approved across Metro
               Manila.
             </p>
 
-            <div className="mt-6 rounded-2xl border border-[#DDDDDD] bg-white p-3 shadow-[0_4px_20px_rgba(44,44,44,0.06)] sm:p-4">
+            <div className="mt-6 rounded-2xl border border-[#DDDDDD]/80 bg-white p-4 shadow-[0_8px_32px_rgba(44,44,44,0.07)]">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
                 <div className="min-w-0 flex-1">
                   <PhLocationInput
@@ -104,7 +136,7 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
                 <button
                   type="button"
                   onClick={applySearch}
-                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] lg:h-auto lg:min-h-[44px]"
+                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#6B9E6E] px-8 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] lg:h-auto lg:min-h-[44px]"
                 >
                   Search
                 </button>
@@ -148,30 +180,16 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
               ) : null}
             </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              <TrustInline
-                icon={<Shield className="size-5 text-[#6B9E6E]" />}
-                title="Verified Listings"
-                subtitle="All landlords verified with ID"
-              />
-              <TrustInline
-                icon={<MessageCircle className="size-5 text-[#6B9E6E]" />}
-                title="Direct Contact"
-                subtitle="Message landlords through our platform"
-              />
-              <TrustInline
-                icon={<Heart className="size-5 text-[#6B9E6E]" />}
-                title="Free for Everyone"
-                subtitle="No fees ever — landlords or tenants"
-              />
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <ValueChip icon={<GraduationCap className="size-4 text-[#6B9E6E]" />} label="Near universities" />
+              <ValueChip icon={<Heart className="size-4 text-[#D4A843]" />} label="Budget friendly" />
+              <ValueChip icon={<BadgeCheck className="size-4 text-[#6B9E6E]" />} label="Verified listings" />
+              <ValueChip icon={<Sparkles className="size-4 text-[#D4A843]" />} label="Free for everyone" />
             </div>
           </div>
 
-          <div className="relative order-1 min-h-[240px] lg:order-2 lg:min-h-[420px]">
-            <div
-              className="relative h-full min-h-[240px] overflow-hidden shadow-[8px_0_24px_rgba(44,44,44,0.12)] lg:min-h-[420px]"
-              style={{ clipPath: "polygon(12% 0, 100% 0, 100% 100%, 0 100%)" }}
-            >
+          <div className="relative order-1 min-h-[300px] lg:order-2 lg:min-h-[440px]">
+            <div className="relative mx-auto h-[300px] max-w-md overflow-hidden rounded-3xl shadow-[0_20px_50px_rgba(44,44,44,0.15)] lg:mx-0 lg:h-[440px] lg:max-w-none">
               <Image
                 src={DORMSPACE_HERO_IMAGE}
                 alt=""
@@ -180,53 +198,95 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
                 className="object-cover"
                 sizes="(max-width: 1024px) 100vw, 45vw"
               />
-              <div className="absolute inset-y-0 right-0 w-2 bg-[#D4A843]/80" aria-hidden />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#1a2e22]/50 via-transparent to-transparent" />
+
+              <div className="absolute left-4 top-4 z-10 max-w-[11rem] rounded-2xl bg-white/95 px-3 py-2.5 shadow-lg backdrop-blur-sm">
+                <p className="flex items-center gap-1.5 text-[11px] font-bold text-[#2C2C2C]">
+                  <MapPin className="size-3.5 text-[#6B9E6E]" aria-hidden />
+                  Near campus
+                </p>
+                <p className="mt-0.5 text-[10px] font-semibold text-[#888888]">Walking distance to schools</p>
+              </div>
+              <div className="absolute bottom-20 right-3 z-10 max-w-[10rem] rounded-2xl bg-white/95 px-3 py-2.5 shadow-lg backdrop-blur-sm">
+                <p className="flex items-center gap-1.5 text-[11px] font-bold text-[#2C2C2C]">
+                  <Wifi className="size-3.5 text-[#6B9E6E]" aria-hidden />
+                  Wi-Fi included
+                </p>
+                <p className="mt-0.5 text-[10px] font-semibold text-[#888888]">Study-ready speeds</p>
+              </div>
+              <div className="absolute bottom-4 left-4 z-10 rounded-2xl bg-[#D4A843]/95 px-3 py-2 shadow-lg">
+                <p className="text-[11px] font-bold text-[#2C2C2C]">Move-in ready</p>
+                <p className="text-[10px] font-semibold text-[#484848]">Verified landlords</p>
+              </div>
+            </div>
+
+            <div
+              className="absolute -left-2 top-8 z-20 hidden w-[88px] rotate-[-8deg] overflow-hidden rounded-lg border-[3px] border-white bg-white p-1 shadow-xl sm:block lg:-left-6"
+              aria-hidden
+            >
+              <div className="relative aspect-[4/5] w-full overflow-hidden rounded-sm">
+                <Image src={POLAROID_A} alt="" fill className="object-cover" sizes="88px" />
+              </div>
+            </div>
+            <div
+              className="absolute -right-1 bottom-16 z-20 hidden w-[80px] rotate-[6deg] overflow-hidden rounded-lg border-[3px] border-white bg-white p-1 shadow-xl sm:block lg:-right-4"
+              aria-hidden
+            >
+              <div className="relative aspect-[4/5] w-full overflow-hidden rounded-sm">
+                <Image src={POLAROID_B} alt="" fill className="object-cover" sizes="80px" />
+              </div>
             </div>
           </div>
         </div>
       </section>
 
+      <DormspaceCategoryChips
+        activeChipId={activeChipId}
+        filters={filters}
+        onSelectChip={handleChipSelect}
+      />
+
       <DormspacePopularAreasSection
         listings={listings}
         activeCity={filters.city}
-        onSelectArea={(partial) => setFilters((f) => ({ ...f, ...partial }))}
-        onClearArea={() =>
-          setFilters({ city: "", roomType: "", gender: "", minPrice: "", maxPrice: "" })
-        }
+        onSelectArea={(partial) => {
+          setActiveChipId(null);
+          setFilters((f) => ({ ...f, ...partial }));
+        }}
+        onClearArea={() => {
+          setActiveChipId(null);
+          setFilters({ city: "", roomType: "", gender: "", minPrice: "", maxPrice: "" });
+        }}
       />
 
       <DormspaceRecommendedSection listings={listings} />
 
-      <DormspaceLandlordCtaBanner />
+      <DormspaceWhyStudentsSection />
+
+      <DormspaceCommunityCta />
 
       <DormspaceTestimonialsSection />
 
       <DormspaceBrowse
         listings={listings}
         filters={filters}
-        onFiltersChange={setFilters}
+        onFiltersChange={(next) => {
+          setFilters(next);
+          setActiveChipId(null);
+        }}
         syncLocationToHero={setLocationQuery}
       />
+
+      <DormspacePortalFooter />
     </>
   );
 }
 
-function TrustInline({
-  icon,
-  title,
-  subtitle,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-}) {
+function ValueChip({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <div className="flex gap-3">
-      <div className="mt-0.5 shrink-0">{icon}</div>
-      <div>
-        <p className="text-sm font-bold text-[#2C2C2C]">{title}</p>
-        <p className="mt-0.5 text-xs font-medium text-[#888888]">{subtitle}</p>
-      </div>
+    <div className="flex flex-col items-center gap-1.5 rounded-2xl bg-white/80 px-2 py-3 text-center ring-1 ring-[#2C2C2C]/6">
+      {icon}
+      <span className="text-[10px] font-bold leading-tight text-[#484848] sm:text-[11px]">{label}</span>
     </div>
   );
 }

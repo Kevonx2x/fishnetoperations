@@ -31,7 +31,7 @@ export function DormspaceTestimonialsSection() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex items-end justify-between gap-4">
           <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
-            What students say
+            Real stories from dormspacers
           </h2>
           <Link href="#" className="shrink-0 text-sm font-bold text-[#6B9E6E] hover:underline">
             Read more reviews →

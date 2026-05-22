@@ -33,7 +33,9 @@ export function DormspaceRecommendedSection({ listings }: { listings: DormspaceW
         <h2 className="font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">
           Recommended for you
         </h2>
-        <p className="mt-1 text-sm font-semibold text-[#484848]">New dormspaces across Metro Manila</p>
+        <p className="mt-1 text-sm font-semibold text-[#484848]">
+          Hand-picked bedspaces and shared rooms for students &amp; young pros
+        </p>
       </div>
 
       {recommended.length === 0 ? (
