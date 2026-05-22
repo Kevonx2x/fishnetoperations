@@ -4,6 +4,17 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 
 ---
 
+## 2026-05-22 18:00 — Landlord contact visibility + Viber
+
+**Migration file:** supabase/migrations/20260522180000_landlord_contact_visibility.sql
+**Executed by:** TJ (pending)
+**Status:** Pending
+**Tables affected:** profiles (landlord_viber, landlord_show_phone, landlord_show_whatsapp, landlord_show_email, landlord_show_viber, landlord_show_facebook, landlord_show_instagram)
+**Summary:** Viber number and per-channel “show on listings” toggles for the compact landlord card contact icon row on dormspace detail pages.
+**Rollback notes:** Drop new profile columns listed above.
+
+---
+
 ## 2026-05-22 16:00 — Dormspace bed capacity
 
 **Migration file:** supabase/migrations/20260522160000_dormspace_bed_capacity.sql

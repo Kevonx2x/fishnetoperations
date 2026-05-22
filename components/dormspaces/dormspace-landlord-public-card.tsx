@@ -1,53 +1,33 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { BadgeCheck, Mail, Phone } from "lucide-react";
 
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
+import { LandlordContactIconsRow } from "@/components/dormspaces/landlord-contact-icons-row";
 import {
   formatLandlordMemberYear,
-  LANDLORD_BIO_SNIPPET_LEN,
   preferredContactShort,
   type LandlordPublicProfile,
   type LandlordProfileTrust,
 } from "@/lib/dormspace-landlord-profile";
-import { cn } from "@/lib/utils";
 
 type Props = {
   landlord: LandlordPublicProfile;
   trust: LandlordProfileTrust;
   listingId: string;
+  listingTitle: string;
   isOwnListing?: boolean;
   onContact: () => void;
 };
-
-function BioSnippet({ bio }: { bio: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const needsMore = bio.length > LANDLORD_BIO_SNIPPET_LEN;
-  const shown = expanded || !needsMore ? bio : `${bio.slice(0, LANDLORD_BIO_SNIPPET_LEN).trimEnd()}…`;
-
-  return (
-    <div className="mt-4">
-      <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-[#484848]">{shown}</p>
-      {needsMore ? (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="mt-1 text-xs font-bold text-[#6B9E6E] hover:underline"
-        >
-          {expanded ? "Show less" : "Read more"}
-        </button>
-      ) : null}
-    </div>
-  );
-}
 
 export function DormspaceLandlordPublicCard({
   landlord,
   trust,
   listingId,
+  listingTitle,
   isOwnListing = false,
   onContact,
 }: Props) {
@@ -56,12 +36,7 @@ export function DormspaceLandlordPublicCard({
   const memberYear = formatLandlordMemberYear(landlord.created_at);
   const languages = (landlord.landlord_languages ?? []).filter(Boolean);
   const specialties = (landlord.landlord_specialties ?? []).filter(Boolean);
-  const areas = (landlord.landlord_operating_areas ?? []).filter(Boolean);
-  const bio = landlord.landlord_bio?.trim();
-  const aboutProps = landlord.landlord_about_properties?.trim();
   const contactPref = preferredContactShort(landlord.landlord_preferred_contact);
-  const fb = landlord.landlord_facebook_url?.trim();
-  const ig = landlord.landlord_instagram_url?.trim();
 
   const reportHref = useMemo(() => {
     const subject = encodeURIComponent(`Report dormspace listing ${listingId}`);
@@ -94,14 +69,7 @@ export function DormspaceLandlordPublicCard({
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate font-serif text-base font-bold text-[#2C2C2C]">{name}</p>
-            {landlord.landlord_years_renting != null && landlord.landlord_years_renting > 0 ? (
-              <p className="truncate text-xs font-semibold text-[#2C2C2C]/45">
-                {landlord.landlord_years_renting}{" "}
-                {landlord.landlord_years_renting === 1 ? "year" : "years"} renting
-              </p>
-            ) : (
-              <p className="truncate text-xs font-semibold text-[#2C2C2C]/45">Dormspace host</p>
-            )}
+            <p className="truncate text-xs font-semibold text-[#2C2C2C]/45">Dormspace host</p>
           </div>
         </div>
 
@@ -117,8 +85,6 @@ export function DormspaceLandlordPublicCard({
             </span>
           ) : null}
         </div>
-
-        {bio ? <BioSnippet bio={bio} /> : null}
 
         {languages.length > 0 ? (
           <div className="mt-4">
@@ -152,33 +118,8 @@ export function DormspaceLandlordPublicCard({
           </div>
         ) : null}
 
-        {areas.length > 0 ? (
-          <div className="mt-4">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-[#888888]">Areas</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {areas.slice(0, 6).map((area) => (
-                <span
-                  key={area}
-                  className="rounded-full bg-[#FAF8F4] px-2.5 py-1 text-[11px] font-semibold text-[#484848] ring-1 ring-[#2C2C2C]/10"
-                >
-                  {area}
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {aboutProps ? (
-          <p className="mt-4 text-xs font-medium leading-relaxed text-[#484848]">{aboutProps}</p>
-        ) : null}
-
         <ul className="mt-4 space-y-1.5 text-xs font-medium text-[#484848]">
           {memberYear ? <li>Member since {memberYear}</li> : null}
-          {trust.active_listing_count > 0 ? (
-            <li>
-              {trust.active_listing_count} dormspace{trust.active_listing_count === 1 ? "" : "s"} listed
-            </li>
-          ) : null}
           {contactPref ? (
             <li className="flex items-center gap-1.5">
               {landlord.landlord_preferred_contact === "phone" ? (
@@ -191,36 +132,12 @@ export function DormspaceLandlordPublicCard({
           ) : null}
         </ul>
 
-        {fb || ig ? (
-          <div className="mt-4 flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-[#888888]">Social</span>
-            <div className="flex gap-2">
-              {fb ? (
-                <a
-                  href={fb}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="grid size-8 place-items-center rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] text-[11px] font-bold text-[#1877F2] hover:bg-white"
-                  aria-label="Facebook profile"
-                >
-                  f
-                </a>
-              ) : null}
-              {ig ? (
-                <a
-                  href={ig}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(
-                    "grid size-8 place-items-center rounded-full border border-[#2C2C2C]/10 bg-[#FAF8F4] text-[11px] font-bold text-[#E4405F] hover:bg-white",
-                  )}
-                  aria-label="Instagram profile"
-                >
-                  ig
-                </a>
-              ) : null}
-            </div>
-          </div>
+        {!isOwnListing ? (
+          <LandlordContactIconsRow
+            landlord={landlord}
+            listingTitle={listingTitle}
+            className="mt-5"
+          />
         ) : null}
 
         {isOwnListing ? (

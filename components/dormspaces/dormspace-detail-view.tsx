@@ -251,6 +251,7 @@ export function DormspaceDetailView({
             <DormspaceLandlordPublicCard
               landlord={landlord}
               listingId={listing.id}
+              listingTitle={listing.title}
               isOwnListing={isOwnListing}
               trust={
                 landlordTrust ?? {

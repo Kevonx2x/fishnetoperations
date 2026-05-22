@@ -67,13 +67,17 @@ export default async function DormspaceDetailPage({ params }: { params: Promise<
     const { data: profile } = await supabase
       .from("profiles")
       .select(
-        "id, full_name, avatar_url, phone, landlord_bio, landlord_languages, landlord_preferred_contact, landlord_years_renting, created_at, landlord_verification_status, landlord_cover_url, landlord_specialties, landlord_operating_areas, landlord_facebook_url, landlord_instagram_url, landlord_about_properties",
+        "id, full_name, avatar_url, phone, email, landlord_bio, landlord_languages, landlord_preferred_contact, landlord_years_renting, created_at, landlord_verification_status, landlord_cover_url, landlord_specialties, landlord_operating_areas, landlord_facebook_url, landlord_instagram_url, landlord_about_properties, landlord_viber, landlord_show_phone, landlord_show_whatsapp, landlord_show_email, landlord_show_viber, landlord_show_facebook, landlord_show_instagram",
       )
       .eq("id", listing.landlord_user_id)
       .maybeSingle();
 
     if (profile) {
-      landlord = profile as LandlordPublicProfile;
+      landlord = {
+        ...(profile as LandlordPublicProfile),
+        phone: profile.phone?.trim() || listing.landlord_phone?.trim() || null,
+        email: (profile as { email?: string | null }).email?.trim() || listing.landlord_email?.trim() || null,
+      };
       const verStatus = normalizeLandlordVerificationStatus(
         profile.landlord_verification_status as string | null | undefined,
       );

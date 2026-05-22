@@ -22,6 +22,7 @@ export type LandlordPublicProfile = {
   full_name: string | null;
   avatar_url: string | null;
   phone: string | null;
+  email?: string | null;
   landlord_bio: string | null;
   landlord_languages: string[] | null;
   landlord_preferred_contact: DormspaceLandlordPreferredContact | null;
@@ -34,6 +35,13 @@ export type LandlordPublicProfile = {
   landlord_facebook_url?: string | null;
   landlord_instagram_url?: string | null;
   landlord_about_properties?: string | null;
+  landlord_viber?: string | null;
+  landlord_show_phone?: boolean | null;
+  landlord_show_whatsapp?: boolean | null;
+  landlord_show_email?: boolean | null;
+  landlord_show_viber?: boolean | null;
+  landlord_show_facebook?: boolean | null;
+  landlord_show_instagram?: boolean | null;
 };
 
 export type LandlordProfileTrust = {

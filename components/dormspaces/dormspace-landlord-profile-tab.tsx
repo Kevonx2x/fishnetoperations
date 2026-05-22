@@ -33,6 +33,14 @@ type ProfilePayload = {
   landlord_facebook_url?: string | null;
   landlord_instagram_url?: string | null;
   landlord_about_properties?: string | null;
+  landlord_viber?: string | null;
+  landlord_show_phone?: boolean | null;
+  landlord_show_whatsapp?: boolean | null;
+  landlord_show_email?: boolean | null;
+  landlord_show_viber?: boolean | null;
+  landlord_show_facebook?: boolean | null;
+  landlord_show_instagram?: boolean | null;
+  email?: string | null;
 };
 
 type Props = {
@@ -42,6 +50,33 @@ type Props = {
 
 function toggleMulti(arr: string[], v: string) {
   return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
+}
+
+function showOnListings(value: boolean | null | undefined): boolean {
+  return value !== false;
+}
+
+function PublicShowToggle({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs font-semibold text-[#484848]">
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="size-4 accent-[#6B9E6E]"
+      />
+      Show on listings publicly
+    </label>
+  );
 }
 
 type FormState = {
@@ -59,6 +94,14 @@ type FormState = {
   yearsRenting: string;
   facebookUrl: string;
   instagramUrl: string;
+  viber: string;
+  accountEmail: string;
+  showPhone: boolean;
+  showWhatsApp: boolean;
+  showEmail: boolean;
+  showViber: boolean;
+  showFacebook: boolean;
+  showInstagram: boolean;
 };
 
 const emptyForm = (): FormState => ({
@@ -76,6 +119,14 @@ const emptyForm = (): FormState => ({
   yearsRenting: "",
   facebookUrl: "",
   instagramUrl: "",
+  viber: "",
+  accountEmail: "",
+  showPhone: true,
+  showWhatsApp: true,
+  showEmail: true,
+  showViber: true,
+  showFacebook: true,
+  showInstagram: true,
 });
 
 function profileToForm(p: ProfilePayload): FormState {
@@ -97,6 +148,14 @@ function profileToForm(p: ProfilePayload): FormState {
         : "",
     facebookUrl: p.landlord_facebook_url?.trim() ?? "",
     instagramUrl: p.landlord_instagram_url?.trim() ?? "",
+    viber: p.landlord_viber?.trim() ?? "",
+    accountEmail: p.email?.trim() ?? "",
+    showPhone: showOnListings(p.landlord_show_phone),
+    showWhatsApp: showOnListings(p.landlord_show_whatsapp),
+    showEmail: showOnListings(p.landlord_show_email),
+    showViber: showOnListings(p.landlord_show_viber),
+    showFacebook: showOnListings(p.landlord_show_facebook),
+    showInstagram: showOnListings(p.landlord_show_instagram),
   };
 }
 
@@ -431,7 +490,12 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
         </div>
 
         <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
-          <label className="block">
+          <p className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Contact on listings</p>
+          <p className="mt-0.5 text-[11px] font-semibold text-[#2C2C2C]/45">
+            Tenants see icons on your dormspace pages. WhatsApp uses your phone number.
+          </p>
+
+          <label className="mt-4 block">
             <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Phone (PH)</span>
             <input
               className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
@@ -439,6 +503,59 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
               onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
               placeholder="+63 9XX XXX XXXX"
               maxLength={40}
+            />
+            <PublicShowToggle
+              checked={form.showPhone}
+              disabled={saving}
+              onChange={(showPhone) => setForm((f) => ({ ...f, showPhone }))}
+            />
+          </label>
+
+          <label className="mt-4 block">
+            <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+              WhatsApp (same as phone)
+            </span>
+            <p className="mt-0.5 text-[11px] font-semibold text-[#2C2C2C]/45">
+              Uses the phone number above when tenants tap WhatsApp.
+            </p>
+            <PublicShowToggle
+              checked={form.showWhatsApp}
+              disabled={saving}
+              onChange={(showWhatsApp) => setForm((f) => ({ ...f, showWhatsApp }))}
+            />
+          </label>
+
+          <label className="mt-4 block">
+            <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Viber (PH)</span>
+            <input
+              className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2.5 text-sm font-semibold text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+              value={form.viber}
+              onChange={(e) => setForm((f) => ({ ...f, viber: e.target.value }))}
+              placeholder="+63 9XX XXX XXXX (optional)"
+              maxLength={40}
+            />
+            <PublicShowToggle
+              checked={form.showViber}
+              disabled={saving}
+              onChange={(showViber) => setForm((f) => ({ ...f, showViber }))}
+            />
+          </label>
+
+          <label className="mt-4 block">
+            <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Email</span>
+            <input
+              className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]/70"
+              value={form.accountEmail}
+              readOnly
+              placeholder="From your BahayGo account"
+            />
+            <p className="mt-1 text-[11px] font-semibold text-[#2C2C2C]/45">
+              Listing inquiries also use the email on each dormspace submission.
+            </p>
+            <PublicShowToggle
+              checked={form.showEmail}
+              disabled={saving}
+              onChange={(showEmail) => setForm((f) => ({ ...f, showEmail }))}
             />
           </label>
 
@@ -490,25 +607,35 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
         <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
           <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Social links</span>
           <p className="mt-0.5 text-[11px] font-semibold text-[#2C2C2C]/45">
-            Optional — helps tenants verify you on social media.
+            Optional — shown as icons on your listing pages when enabled below.
           </p>
-          <div className="mt-3 space-y-3">
+          <div className="mt-3 space-y-4">
             <label className="block">
-              <span className="text-xs font-semibold text-[#2C2C2C]/60">Facebook</span>
+              <span className="text-xs font-semibold text-[#2C2C2C]/60">Facebook profile URL</span>
               <input
                 value={form.facebookUrl}
                 onChange={(e) => setForm((f) => ({ ...f, facebookUrl: e.target.value }))}
-                placeholder="https://facebook.com/…"
+                placeholder="https://facebook.com/yourprofile"
                 className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80 placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+              />
+              <PublicShowToggle
+                checked={form.showFacebook}
+                disabled={saving}
+                onChange={(showFacebook) => setForm((f) => ({ ...f, showFacebook }))}
               />
             </label>
             <label className="block">
-              <span className="text-xs font-semibold text-[#2C2C2C]/60">Instagram</span>
+              <span className="text-xs font-semibold text-[#2C2C2C]/60">Instagram profile URL</span>
               <input
                 value={form.instagramUrl}
                 onChange={(e) => setForm((f) => ({ ...f, instagramUrl: e.target.value }))}
-                placeholder="https://instagram.com/…"
+                placeholder="https://instagram.com/yourhandle"
                 className="mt-1.5 w-full rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]/80 placeholder:text-[#2C2C2C]/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/25"
+              />
+              <PublicShowToggle
+                checked={form.showInstagram}
+                disabled={saving}
+                onChange={(showInstagram) => setForm((f) => ({ ...f, showInstagram }))}
               />
             </label>
           </div>

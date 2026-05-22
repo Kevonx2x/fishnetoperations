@@ -57,7 +57,7 @@ export async function GET() {
   const { data: profile, error } = await admin
     .from("profiles")
     .select(
-      "id, full_name, email, phone, avatar_url, role, created_at, landlord_bio, landlord_languages, landlord_preferred_contact, landlord_years_renting, landlord_verification_status, landlord_verification_rejection_reason, landlord_cover_url, landlord_specialties, landlord_operating_areas, landlord_facebook_url, landlord_instagram_url, landlord_about_properties",
+      "id, full_name, email, phone, avatar_url, role, created_at, landlord_bio, landlord_languages, landlord_preferred_contact, landlord_years_renting, landlord_verification_status, landlord_verification_rejection_reason, landlord_cover_url, landlord_specialties, landlord_operating_areas, landlord_facebook_url, landlord_instagram_url, landlord_about_properties, landlord_viber, landlord_show_phone, landlord_show_whatsapp, landlord_show_email, landlord_show_viber, landlord_show_facebook, landlord_show_instagram",
     )
     .eq("id", session.userId)
     .maybeSingle();
@@ -94,6 +94,13 @@ const patchSchema = z.object({
   landlord_facebook_url: z.string().max(500).optional().nullable(),
   landlord_instagram_url: z.string().max(500).optional().nullable(),
   landlord_about_properties: z.string().max(300).optional().nullable(),
+  landlord_viber: z.string().max(40).optional().nullable(),
+  landlord_show_phone: z.boolean().optional(),
+  landlord_show_whatsapp: z.boolean().optional(),
+  landlord_show_email: z.boolean().optional(),
+  landlord_show_viber: z.boolean().optional(),
+  landlord_show_facebook: z.boolean().optional(),
+  landlord_show_instagram: z.boolean().optional(),
 });
 
 export async function PATCH(req: Request) {
@@ -165,6 +172,27 @@ export async function PATCH(req: Request) {
   }
   if (parsed.data.landlord_about_properties !== undefined) {
     update.landlord_about_properties = parsed.data.landlord_about_properties?.trim() || null;
+  }
+  if (parsed.data.landlord_viber !== undefined) {
+    update.landlord_viber = parsed.data.landlord_viber?.trim() || null;
+  }
+  if (parsed.data.landlord_show_phone !== undefined) {
+    update.landlord_show_phone = parsed.data.landlord_show_phone;
+  }
+  if (parsed.data.landlord_show_whatsapp !== undefined) {
+    update.landlord_show_whatsapp = parsed.data.landlord_show_whatsapp;
+  }
+  if (parsed.data.landlord_show_email !== undefined) {
+    update.landlord_show_email = parsed.data.landlord_show_email;
+  }
+  if (parsed.data.landlord_show_viber !== undefined) {
+    update.landlord_show_viber = parsed.data.landlord_show_viber;
+  }
+  if (parsed.data.landlord_show_facebook !== undefined) {
+    update.landlord_show_facebook = parsed.data.landlord_show_facebook;
+  }
+  if (parsed.data.landlord_show_instagram !== undefined) {
+    update.landlord_show_instagram = parsed.data.landlord_show_instagram;
   }
 
   const { error } = await admin.from("profiles").update(update).eq("id", session.userId);
