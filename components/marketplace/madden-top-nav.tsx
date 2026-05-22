@@ -512,21 +512,13 @@ export function MaddenTopNav() {
     <header className="sticky top-0 z-50 w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4]/95 backdrop-blur-sm">
       <div className="mx-auto grid w-full max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 py-4 md:gap-3">
         <div className="flex items-center gap-2 justify-self-start">
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((open) => !open)}
-            className="rounded-lg p-2 text-[#2C2C2C]/80 ring-1 ring-black/5 transition hover:bg-[#FAF8F4] sm:hidden"
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
           <Link
             href="/"
             className="inline-flex shrink-0 items-center leading-none"
             aria-label="BahayGo home"
           >
-            <span className="inline-flex items-center gap-2 sm:hidden">
-              <svg viewBox="0 0 40 36" className="h-9 w-auto shrink-0" aria-hidden>
+            <span className="inline-flex items-center gap-2 md:hidden">
+              <svg viewBox="0 0 40 36" className="h-7 w-auto shrink-0" aria-hidden>
                 <path fill="#D4A843" d="M20 2 L36 14 L36 32 L4 32 L4 14 Z" />
                 <rect x="16" y="22" width="8" height="10" rx="1" fill="#FAF8F4" />
               </svg>
@@ -535,7 +527,7 @@ export function MaddenTopNav() {
                 <span className="text-[#6B9E6E]">Go</span>
               </span>
             </span>
-            <span className="hidden sm:inline">
+            <span className="hidden md:inline">
               <BahayGoWordmark />
             </span>
           </Link>

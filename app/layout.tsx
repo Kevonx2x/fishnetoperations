@@ -129,7 +129,7 @@ export default function RootLayout({
         <Providers>
           <RootLayoutChrome
             footer={
-              <div className="min-h-[300px]">
+              <div className="hidden min-h-[300px] md:block">
                 <SiteFooter />
               </div>
             }

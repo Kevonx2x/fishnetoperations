@@ -2151,7 +2151,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           </button>
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-[#383838] lg:justify-start">
+      <div className="mt-4 hidden flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-[#383838] md:flex lg:justify-start">
         <span className="inline-flex items-center gap-1.5">
           <span className="text-[#6B9E6E]">✓</span> PRC Licensed Agents Only
         </span>
@@ -2159,7 +2159,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           <span className="text-[#6B9E6E]">✓</span> 0 Scams Guarantee
         </span>
       </div>
-      <p className="mt-3 text-center text-[11px] font-semibold tracking-wide text-[#525252] lg:text-left">
+      <p className="mt-3 hidden text-center text-[11px] font-semibold tracking-wide text-[#525252] md:block lg:text-left">
         1,200+ Listings · 847 Verified Agents · 0 Scams
       </p>
     </>
@@ -2207,21 +2207,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       ) : null}
 
       <section className="relative border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:py-10 lg:py-14">
+        <div className="mx-auto max-w-7xl px-4 py-4 md:py-8 lg:py-14">
           <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-14">
             <div className="min-w-0">
-              <div className="text-center lg:hidden">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B9E6E]">
-                  Verified Agents · Real Listings · 100% Filipino
-                </p>
-                <h1 className="mt-4 font-serif text-2xl font-semibold leading-tight tracking-tight text-[#2C2C2C] sm:text-3xl">
-                  FIND YOUR HOME IN THE PHILIPPINES
-                </h1>
-                <p className="mt-3 text-sm font-semibold text-[#454545]">
-                  Verified Agents, Real Listings, 100% Filipino
-                </p>
-              </div>
-
               <div className="hidden lg:block">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6B9E6E]">
                   Verified Agents · Real Listings · 100% Filipino
@@ -3142,7 +3130,7 @@ export function NewlyListedCard({
   return (
     <div
       className={cn(
-        "flex min-h-[412px] flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md lg:min-h-[448px]",
+        "flex min-h-[300px] flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md md:min-h-[412px] lg:min-h-[448px]",
         grid
           ? gridCardClassName ?? "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]"
           : cn(cardWidthClass ?? "w-[240px]", "shrink-0"),
@@ -3372,7 +3360,7 @@ export function NewlyListedCard({
         </div>
       </div>
 
-      <div className="relative z-10 mt-auto flex min-h-[56px] max-h-[76px] shrink-0 flex-col justify-start overflow-hidden bg-white px-3 py-1.5">
+      <div className="relative z-10 mt-auto hidden min-h-[56px] max-h-[76px] shrink-0 flex-col justify-start overflow-hidden bg-white px-3 py-1.5 md:flex">
         {connectedAgents.length === 0 ? (
           <div className="flex min-h-[40px] flex-1 items-center justify-center">
             <p className="text-center text-xs text-gray-400">No agent assigned</p>
