@@ -251,7 +251,7 @@ function ListingPhotosDrop({
 export function DormspaceSubmitForm() {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile, loading: authLoading } = useAuth();
 
   const isLandlordSignedIn = Boolean(user && profile && isLandlordCapable(profile));
   const verificationStatus = normalizeLandlordVerificationStatus(
@@ -293,6 +293,13 @@ export function DormspaceSubmitForm() {
     if (!roomType || totalBedsTouched) return;
     setTotalBeds(defaultTotalBedsFromRoomType(roomType));
   }, [roomType, totalBedsTouched]);
+
+  useEffect(() => {
+    if (!user || authLoading) return;
+    if (profile && isLandlordCapable(profile)) {
+      void refreshProfile();
+    }
+  }, [user, authLoading, profile?.id, refreshProfile]);
 
   useEffect(() => {
     if (!profile) return;
@@ -527,6 +534,7 @@ export function DormspaceSubmitForm() {
         <DormspaceLandlordVerificationBanner
           status={verificationStatus}
           rejectionReason={profile?.landlord_verification_rejection_reason}
+          submittedAt={profile?.landlord_verification_submitted_at}
           variant="submit"
         />
       ) : null}

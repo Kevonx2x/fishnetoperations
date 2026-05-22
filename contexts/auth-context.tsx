@@ -32,6 +32,7 @@ export type Profile = {
   last_seen_changelog?: string | null;
   landlord_verification_status: LandlordVerificationStatus;
   landlord_verification_rejection_reason: string | null;
+  landlord_verification_submitted_at: string | null;
 };
 
 type AuthContextValue = {
@@ -92,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: p } = await supabase
       .from("profiles")
       .select(
-        "id, full_name, avatar_url, phone, bio, role, is_landlord, onboarding_completed, created_at, tutorial_completed, tutorial_dismissed_at, last_seen_changelog",
+        "id, full_name, avatar_url, phone, bio, role, is_landlord, onboarding_completed, created_at, tutorial_completed, tutorial_dismissed_at, last_seen_changelog, landlord_verification_status, landlord_verification_rejection_reason, landlord_verification_submitted_at",
       )
       .eq("id", u.id)
       .maybeSingle();
@@ -122,6 +123,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         landlord_verification_rejection_reason:
           (p as { landlord_verification_rejection_reason?: string | null })
             .landlord_verification_rejection_reason ?? null,
+        landlord_verification_submitted_at:
+          (p as { landlord_verification_submitted_at?: string | null })
+            .landlord_verification_submitted_at ?? null,
       });
     } else {
       setProfile(null);

@@ -7,14 +7,24 @@ import { cn } from "@/lib/utils";
 type Props = {
   status: LandlordVerificationStatus;
   rejectionReason?: string | null;
+  /** ISO timestamp when verification was submitted (pending banner). */
+  submittedAt?: string | null;
   className?: string;
   /** Compact one-line style for submit form */
   variant?: "dashboard" | "submit";
 };
 
+function formatVerificationSubmittedDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+}
+
 export function DormspaceLandlordVerificationBanner({
   status,
   rejectionReason,
+  submittedAt,
   className,
   variant = "dashboard",
 }: Props) {
@@ -51,9 +61,9 @@ export function DormspaceLandlordVerificationBanner({
       >
         <BadgeCheck className="mt-0.5 size-5 shrink-0 text-[#6B9E6E]" aria-hidden />
         <p>
-          <span className="font-bold">Verified landlord.</span>{" "}
+          <span className="font-bold">Verified Landlord.</span>{" "}
           {variant === "submit"
-            ? "Your new listing will be visible immediately after submission."
+            ? "Your new listing will go live with the verified badge."
             : "Your verified badge shows on all listings."}
         </p>
       </div>

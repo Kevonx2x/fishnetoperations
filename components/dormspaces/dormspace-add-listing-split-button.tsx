@@ -12,9 +12,26 @@ import { cn } from "@/lib/utils";
 type Props = {
   listings: DormspaceWithPhotos[];
   onUpdateVacancy: (listing: VacancyModalListing) => void;
+  /** Submit form URL for "create new" (default /dormspaces/submit). */
+  submitHref?: string;
+  /** Primary action label when landlord has listings. */
+  primaryLabel?: string;
+  /** Label when landlord has no listings. */
+  emptyLabel?: string;
+  /** Stretch to full width of parent (welcome card). */
+  fullWidth?: boolean;
+  className?: string;
 };
 
-export function DormspaceAddListingSplitButton({ listings, onUpdateVacancy }: Props) {
+export function DormspaceAddListingSplitButton({
+  listings,
+  onUpdateVacancy,
+  submitHref = "/dormspaces/submit",
+  primaryLabel = "Add new dormspace",
+  emptyLabel = "Add your first dormspace",
+  fullWidth = false,
+  className,
+}: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -29,32 +46,45 @@ export function DormspaceAddListingSplitButton({ listings, onUpdateVacancy }: Pr
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpen]);
 
+  const heightCls = fullWidth ? "h-12" : "h-10";
+  const rootCls = cn(fullWidth ? "relative flex w-full" : "relative inline-flex", className);
+
   if (listings.length === 0) {
     return (
       <Link
-        href="/dormspaces/submit"
-        className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#6B9E6E] px-4 text-sm font-bold text-white hover:bg-[#5d8a60]"
+        href={submitHref}
+        className={cn(
+          "inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#6B9E6E] text-sm font-bold text-white hover:bg-[#5d8a60]",
+          heightCls,
+          fullWidth ? "w-full px-6" : "gap-1.5 px-4",
+        )}
       >
         <Plus className="size-4" aria-hidden />
-        Add your first dormspace
+        {emptyLabel}
       </Link>
     );
   }
 
   return (
-    <div ref={rootRef} className="relative inline-flex">
+    <div ref={rootRef} className={rootCls}>
       <Link
-        href="/dormspaces/submit"
-        className="inline-flex h-10 items-center gap-1.5 rounded-l-xl bg-[#6B9E6E] pl-4 pr-3 text-sm font-bold text-white hover:bg-[#5d8a60]"
+        href={submitHref}
+        className={cn(
+          "inline-flex items-center justify-center gap-1.5 rounded-l-xl bg-[#6B9E6E] text-sm font-bold text-white hover:bg-[#5d8a60]",
+          heightCls,
+          fullWidth ? "min-w-0 flex-1 pl-4 pr-3" : "gap-1.5 pl-4 pr-3",
+        )}
       >
-        <Plus className="size-4" aria-hidden />
-        Create new dormspace
+        <Plus className="size-4 shrink-0" aria-hidden />
+        {primaryLabel}
       </Link>
       <button
         type="button"
         onClick={() => setMenuOpen((o) => !o)}
         className={cn(
-          "inline-flex h-10 items-center justify-center rounded-r-xl border-l border-white/25 bg-[#6B9E6E] px-2.5 text-white hover:bg-[#5d8a60]",
+          "inline-flex items-center justify-center rounded-r-xl border-l border-white/25 bg-[#6B9E6E] text-white hover:bg-[#5d8a60]",
+          heightCls,
+          fullWidth ? "shrink-0 px-3" : "px-2.5",
           menuOpen && "bg-[#5d8a60]",
         )}
         aria-expanded={menuOpen}
@@ -67,7 +97,10 @@ export function DormspaceAddListingSplitButton({ listings, onUpdateVacancy }: Pr
       {menuOpen ? (
         <div
           role="menu"
-          className="absolute right-0 top-full z-30 mt-2 w-[min(100vw-2rem,22rem)] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white py-2 shadow-lg"
+          className={cn(
+            "absolute top-full z-30 mt-2 w-[min(100vw-2rem,22rem)] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white py-2 shadow-lg",
+            fullWidth ? "left-0 right-0 w-full" : "right-0",
+          )}
         >
           <p className="px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-[#888888]">
             Or update an existing dormspace:

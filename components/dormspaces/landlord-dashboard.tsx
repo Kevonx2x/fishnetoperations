@@ -311,6 +311,7 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
           <DormspaceLandlordVerificationBanner
             status={normalizeLandlordVerificationStatus(profile.landlord_verification_status)}
             rejectionReason={profile.landlord_verification_rejection_reason}
+            submittedAt={profile.landlord_verification_submitted_at}
             className="mb-6"
           />
         ) : null}
@@ -328,13 +329,15 @@ export function LandlordDashboard({ welcome }: { welcome?: boolean }) {
             ) : null}
             <div className="mb-4 flex items-center justify-between gap-3">
               <h1 className="font-serif text-2xl font-bold text-[#2C2C2C]">My Listings</h1>
-              <DormspaceAddListingSplitButton
-                listings={listings}
-                onUpdateVacancy={(listing) => {
-                  setVacancyListing(listing);
-                  setVacancyModalOpen(true);
-                }}
-              />
+              {!loadingListings ? (
+                <DormspaceAddListingSplitButton
+                  listings={listings}
+                  onUpdateVacancy={(listing) => {
+                    setVacancyListing(listing);
+                    setVacancyModalOpen(true);
+                  }}
+                />
+              ) : null}
             </div>
 
             {loadingListings ? (

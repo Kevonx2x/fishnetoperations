@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -12,8 +12,14 @@ import {
   AuthGoogleDivider,
   ContinueWithGoogleButton,
 } from "@/components/auth/continue-with-google-button";
+import { DormspaceAddListingSplitButton } from "@/components/dormspaces/dormspace-add-listing-split-button";
 import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
+import {
+  UpdateVacancyModal,
+  type VacancyModalListing,
+} from "@/components/dormspaces/update-vacancy-modal";
+import type { DormspaceWithPhotos } from "@/lib/dormspaces";
 import {
   isVerifiedLandlordProfile,
   normalizeLandlordVerificationStatus,
@@ -80,13 +86,19 @@ function isDuplicateSignupError(err: unknown): boolean {
 function LandlordWelcomeCard({
   firstName,
   listingCount,
+  listings,
+  listingsLoading,
   verificationStatus,
   rejectionReason,
+  onUpdateVacancy,
 }: {
   firstName: string;
   listingCount: number | null;
+  listings: DormspaceWithPhotos[];
+  listingsLoading: boolean;
   verificationStatus: ReturnType<typeof normalizeLandlordVerificationStatus>;
   rejectionReason?: string | null;
+  onUpdateVacancy: (listing: VacancyModalListing) => void;
 }) {
   const hasListings = listingCount != null && listingCount > 0;
   const verified = isVerifiedLandlordProfile(verificationStatus);
@@ -123,13 +135,19 @@ function LandlordWelcomeCard({
             >
               Go to my landlord dashboard
             </Link>
-            <Link
-              href="/dormspaces/submit?from=welcome"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-[#2C2C2C]/12 bg-white px-6 text-sm font-bold text-[#2C2C2C] transition hover:border-[#6B9E6E]/35 hover:bg-[#FAF8F4]"
-            >
-              <Plus className="size-4 text-[#6B9E6E]" aria-hidden />
-              Add another dormspace
-            </Link>
+            {!listingsLoading ? (
+              <DormspaceAddListingSplitButton
+                listings={listings}
+                onUpdateVacancy={onUpdateVacancy}
+                submitHref="/dormspaces/submit?from=welcome"
+                primaryLabel="Add another dormspace"
+                fullWidth
+              />
+            ) : (
+              <div className="flex h-12 items-center justify-center rounded-xl border border-[#2C2C2C]/12 bg-[#FAF8F4] text-sm font-medium text-[#484848]">
+                Loading listings…
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -185,7 +203,10 @@ export function DormspaceWelcome() {
     user && profile?.role && isDormspaceSubmitBlockedRole(profile.role),
   );
 
-  const [listingCount, setListingCount] = useState<number | null>(null);
+  const [listings, setListings] = useState<DormspaceWithPhotos[]>([]);
+  const [listingsLoading, setListingsLoading] = useState(false);
+  const [vacancyListing, setVacancyListing] = useState<VacancyModalListing | null>(null);
+  const [vacancyModalOpen, setVacancyModalOpen] = useState(false);
   const [tab, setTab] = useState<AuthTab>("create");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -218,32 +239,36 @@ export function DormspaceWelcome() {
     window.history.replaceState({}, "", "/dormspaces/welcome");
   }, []);
 
-  useEffect(() => {
+  const loadLandlordListings = useCallback(async () => {
     if (!isLandlordSignedIn || !user) {
-      setListingCount(null);
+      setListings([]);
+      setListingsLoading(false);
       return;
     }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/dormspaces/landlord/listings", { credentials: "include" });
-        const json = (await res.json()) as {
-          success?: boolean;
-          data?: { items?: unknown[] };
-        };
-        if (!cancelled && res.ok) {
-          setListingCount(json.data?.items?.length ?? 0);
-        } else if (!cancelled) {
-          setListingCount(0);
-        }
-      } catch {
-        if (!cancelled) setListingCount(0);
+    setListingsLoading(true);
+    try {
+      const res = await fetch("/api/dormspaces/landlord/listings", { credentials: "include" });
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { items?: DormspaceWithPhotos[] };
+      };
+      if (res.ok) {
+        setListings(json.data?.items ?? []);
+      } else {
+        setListings([]);
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    } catch {
+      setListings([]);
+    } finally {
+      setListingsLoading(false);
+    }
   }, [isLandlordSignedIn, user]);
+
+  useEffect(() => {
+    void loadLandlordListings();
+  }, [loadLandlordListings]);
+
+  const listingCount = listingsLoading ? null : listings.length;
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -481,10 +506,16 @@ export function DormspaceWelcome() {
             <LandlordWelcomeCard
               firstName={landlordFirstName(profile?.full_name, user?.email)}
               listingCount={listingCount}
+              listings={listings}
+              listingsLoading={listingsLoading}
               verificationStatus={normalizeLandlordVerificationStatus(
                 profile?.landlord_verification_status,
               )}
               rejectionReason={profile?.landlord_verification_rejection_reason}
+              onUpdateVacancy={(listing) => {
+                setVacancyListing(listing);
+                setVacancyModalOpen(true);
+              }}
             />
           ) : (
             <>
@@ -676,6 +707,13 @@ export function DormspaceWelcome() {
           </Link>
         </div>
       </footer>
+
+      <UpdateVacancyModal
+        open={vacancyModalOpen}
+        onOpenChange={setVacancyModalOpen}
+        listing={vacancyListing}
+        onSaved={() => void loadLandlordListings()}
+      />
     </DormspacePortalShell>
   );
 }
