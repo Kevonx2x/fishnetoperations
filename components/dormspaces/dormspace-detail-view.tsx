@@ -53,10 +53,12 @@ export function DormspaceDetailView({
   listing,
   landlord,
   landlordTrust,
+  showOwnerPendingBanner = false,
 }: {
   listing: DormspaceWithPhotos;
   landlord?: LandlordPublicProfile | null;
   landlordTrust?: LandlordProfileTrust | null;
+  showOwnerPendingBanner?: boolean;
 }) {
   const photos = sortedDormspacePhotos(listing.dormspace_photos ?? null);
   const urls = photos.map((p) => p.url).filter(Boolean);
@@ -83,6 +85,16 @@ export function DormspaceDetailView({
       <Link href="/dormspaces" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[#6B9E6E] hover:underline">
         ← All dormspaces
       </Link>
+
+      {showOwnerPendingBanner ? (
+        <div
+          className="mb-4 rounded-2xl border border-[#D4A843]/35 bg-[#D4A843]/10 px-4 py-3.5 text-sm font-medium text-[#2C2C2C]"
+          role="status"
+        >
+          Your listing is under review. Tenants will see this listing with a &quot;Pending verification&quot;
+          badge once it goes live.
+        </div>
+      ) : null}
 
       <div className="overflow-hidden rounded-2xl border border-[#DDDDDD] bg-white shadow-md">
         <div className="relative aspect-[16/10] w-full bg-[#F3F0EA] sm:aspect-[21/9]">

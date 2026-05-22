@@ -83,24 +83,33 @@ function isDuplicateSignupError(err: unknown): boolean {
   );
 }
 
+function WelcomeCardButtonSkeleton() {
+  return (
+    <div className="flex flex-col gap-3" aria-hidden>
+      <div className="h-12 animate-pulse rounded-xl bg-[#2C2C2C]/10" />
+      <div className="h-12 animate-pulse rounded-xl bg-[#2C2C2C]/8" />
+    </div>
+  );
+}
+
 function LandlordWelcomeCard({
   firstName,
-  listingCount,
   listings,
-  listingsLoading,
+  listingsResolved,
   verificationStatus,
   rejectionReason,
   onUpdateVacancy,
 }: {
   firstName: string;
-  listingCount: number | null;
   listings: DormspaceWithPhotos[];
-  listingsLoading: boolean;
+  listingsResolved: boolean;
   verificationStatus: ReturnType<typeof normalizeLandlordVerificationStatus>;
   rejectionReason?: string | null;
   onUpdateVacancy: (listing: VacancyModalListing) => void;
 }) {
-  const hasListings = listingCount != null && listingCount > 0;
+  const hasListings = listings.length > 0;
+  const showFirstListing = listingsResolved && !hasListings;
+  const showReturning = !listingsResolved || hasListings;
   const verified = isVerifiedLandlordProfile(verificationStatus);
 
   return (
@@ -110,11 +119,13 @@ function LandlordWelcomeCard({
         Welcome back, {firstName}
       </h2>
       <p className="mt-2 text-sm font-medium leading-relaxed text-[#484848]">
-        {listingCount === null
-          ? "Loading your listings…"
-          : hasListings
-            ? `You have ${listingCount} listing${listingCount === 1 ? "" : "s"} in your dashboard.`
-            : "You don't have any listings yet. Add your first dormspace to reach students and young professionals."}
+        {!listingsResolved ? (
+          <span className="inline-block h-4 w-48 max-w-full animate-pulse rounded bg-[#2C2C2C]/10" />
+        ) : hasListings ? (
+          `You have ${listings.length} listing${listings.length === 1 ? "" : "s"} in your dashboard.`
+        ) : (
+          "You don't have any listings yet. Add your first dormspace to reach students and young professionals."
+        )}
       </p>
 
       {verificationStatus !== "approved" ? (
@@ -127,50 +138,40 @@ function LandlordWelcomeCard({
       ) : null}
 
       <div className="mt-6 flex flex-col gap-3">
-        {hasListings ? (
-          <>
-            <Link
-              href="/dormspaces/dashboard"
-              className="inline-flex h-12 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
-            >
-              Go to my landlord dashboard
-            </Link>
-            {!listingsLoading ? (
+        {showReturning ? (
+          !listingsResolved ? (
+            <WelcomeCardButtonSkeleton />
+          ) : (
+            <>
+              <Link
+                href="/dormspaces/dashboard"
+                className="inline-flex h-12 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
+              >
+                Go to dashboard
+              </Link>
               <DormspaceAddListingSplitButton
                 listings={listings}
                 onUpdateVacancy={onUpdateVacancy}
                 submitHref="/dormspaces/submit?from=welcome"
-                primaryLabel="Add another dormspace"
+                primaryLabel="+ Add another dormspace"
                 fullWidth
               />
-            ) : (
-              <div className="flex h-12 items-center justify-center rounded-xl border border-[#2C2C2C]/12 bg-[#FAF8F4] text-sm font-medium text-[#484848]">
-                Loading listings…
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <Link
-              href="/dormspaces/submit?from=welcome"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
-            >
-              <Plus className="size-4" aria-hidden />
-              Add your first dormspace
-            </Link>
-            <Link
-              href="/dormspaces/dashboard"
-              className="inline-flex h-12 items-center justify-center rounded-xl border border-[#2C2C2C]/12 bg-white px-6 text-sm font-bold text-[#2C2C2C] transition hover:border-[#6B9E6E]/35 hover:bg-[#FAF8F4]"
-            >
-              Go to my landlord dashboard
-            </Link>
-          </>
-        )}
+            </>
+          )
+        ) : showFirstListing ? (
+          <Link
+            href="/dormspaces/submit?from=welcome"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
+          >
+            <Plus className="size-4" aria-hidden />
+            + Add your first dormspace
+          </Link>
+        ) : null}
         <Link
-          href="/dormspaces"
+          href="/"
           className="inline-flex h-10 items-center justify-center text-sm font-semibold text-[#6B9E6E] hover:underline"
         >
-          Browse dormspaces as a tenant
+          Go to homepage
         </Link>
       </div>
 
@@ -204,7 +205,7 @@ export function DormspaceWelcome() {
   );
 
   const [listings, setListings] = useState<DormspaceWithPhotos[]>([]);
-  const [listingsLoading, setListingsLoading] = useState(false);
+  const [listingsResolved, setListingsResolved] = useState(false);
   const [vacancyListing, setVacancyListing] = useState<VacancyModalListing | null>(null);
   const [vacancyModalOpen, setVacancyModalOpen] = useState(false);
   const [tab, setTab] = useState<AuthTab>("create");
@@ -242,10 +243,10 @@ export function DormspaceWelcome() {
   const loadLandlordListings = useCallback(async () => {
     if (!isLandlordSignedIn || !user) {
       setListings([]);
-      setListingsLoading(false);
+      setListingsResolved(true);
       return;
     }
-    setListingsLoading(true);
+    setListingsResolved(false);
     try {
       const res = await fetch("/api/dormspaces/landlord/listings", { credentials: "include" });
       const json = (await res.json()) as {
@@ -260,15 +261,14 @@ export function DormspaceWelcome() {
     } catch {
       setListings([]);
     } finally {
-      setListingsLoading(false);
+      setListingsResolved(true);
     }
   }, [isLandlordSignedIn, user]);
 
   useEffect(() => {
+    if (authLoading) return;
     void loadLandlordListings();
-  }, [loadLandlordListings]);
-
-  const listingCount = listingsLoading ? null : listings.length;
+  }, [authLoading, loadLandlordListings]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -505,9 +505,8 @@ export function DormspaceWelcome() {
           ) : isLandlordSignedIn ? (
             <LandlordWelcomeCard
               firstName={landlordFirstName(profile?.full_name, user?.email)}
-              listingCount={listingCount}
               listings={listings}
-              listingsLoading={listingsLoading}
+              listingsResolved={listingsResolved}
               verificationStatus={normalizeLandlordVerificationStatus(
                 profile?.landlord_verification_status,
               )}

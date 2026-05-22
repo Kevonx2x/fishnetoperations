@@ -7,37 +7,59 @@ import {
   isVerifiedLandlordProfile,
   normalizeLandlordVerificationStatus,
 } from "@/lib/landlord-verification";
-import type { DormspaceWithPhotos } from "@/lib/dormspaces";
+import type { DormspaceStatus, DormspaceWithPhotos } from "@/lib/dormspaces";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+function canViewDormspace(
+  status: DormspaceStatus,
+  landlordUserId: string | null,
+  viewerUserId: string | undefined,
+): boolean {
+  if (status === "approved" || status === "pending") return true;
+  return Boolean(viewerUserId && landlordUserId && viewerUserId === landlordUserId);
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   const { data } = await supabase
     .from("dormspaces")
-    .select("title")
+    .select("title, status, landlord_user_id")
     .eq("id", id)
-    .in("status", ["pending", "approved"])
     .maybeSingle();
+
+  if (!data || !canViewDormspace(data.status as DormspaceStatus, data.landlord_user_id, user?.id)) {
+    return { title: "Dormspace | BahayGo" };
+  }
+
   return {
-    title: data?.title ? `${data.title} | Dormspaces` : "Dormspace | BahayGo",
+    title: data.title ? `${data.title} | Dormspaces` : "Dormspace | BahayGo",
   };
 }
 
 export default async function DormspaceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
   const { data, error } = await supabase
     .from("dormspaces")
     .select("*, dormspace_photos(id, url, display_order, created_at)")
     .eq("id", id)
-    .eq("status", "approved")
     .maybeSingle();
 
   if (error || !data) notFound();
 
   const listing = data as DormspaceWithPhotos;
+  if (!canViewDormspace(listing.status, listing.landlord_user_id, user?.id)) {
+    notFound();
+  }
+
+  const isOwnerViewing = Boolean(user?.id && listing.landlord_user_id === user.id);
+  const showOwnerPendingBanner = isOwnerViewing && listing.status === "pending";
+
   let landlord: LandlordPublicProfile | null = null;
   let landlordTrust: LandlordProfileTrust | null = null;
 
@@ -75,7 +97,12 @@ export default async function DormspaceDetailPage({ params }: { params: Promise<
   return (
     <DormspacePortalShell variant="browse">
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 md:py-8">
-        <DormspaceDetailView listing={listing} landlord={landlord} landlordTrust={landlordTrust} />
+        <DormspaceDetailView
+          listing={listing}
+          landlord={landlord}
+          landlordTrust={landlordTrust}
+          showOwnerPendingBanner={showOwnerPendingBanner}
+        />
       </main>
     </DormspacePortalShell>
   );
