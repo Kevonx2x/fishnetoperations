@@ -138,8 +138,7 @@ async function finalizeLandlordOAuth(
   }
 
   if (canSetLandlordFlagOnSubmit(role)) {
-    await admin.from("profiles").update({ is_landlord: true }).eq("id", userId);
-    return NextResponse.redirect(new URL("/dormspaces/submit?from=welcome", requestUrl));
+    return NextResponse.redirect(new URL("/dormspaces", requestUrl));
   }
 
   await supabase.auth.signOut();

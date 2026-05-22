@@ -1,15 +1,13 @@
 import { z } from "zod";
 
 import { fail, fromZodError, ok } from "@/lib/api/response";
-import {
-  isDormspaceSubmitBlockedRole,
-  isLandlordCapable,
-} from "@/lib/auth-roles";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const bodySchema = z.object({
   email: z.string().email().max(320),
   password: z.string().min(8).max(128),
+  first_name: z.string().min(1).max(100),
+  last_name: z.string().min(1).max(100),
 });
 
 export async function POST(req: Request) {
@@ -25,6 +23,9 @@ export async function POST(req: Request) {
 
   const emailLower = parsed.data.email.trim().toLowerCase();
   const password = parsed.data.password;
+  const firstName = parsed.data.first_name.trim();
+  const lastName = parsed.data.last_name.trim();
+  const fullName = `${firstName} ${lastName}`.trim();
 
   let admin: ReturnType<typeof createSupabaseAdmin>;
   try {
@@ -40,21 +41,6 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (existingProfile?.id) {
-    const role = String(existingProfile.role ?? "");
-    if (isLandlordCapable({ role, is_landlord: existingProfile.is_landlord === true })) {
-      return fail(
-        "EMAIL_EXISTS",
-        "An account with this email already exists. Sign in to continue.",
-        409,
-      );
-    }
-    if (isDormspaceSubmitBlockedRole(role)) {
-      return fail(
-        "ROLE_CONFLICT",
-        "This email is tied to a BahayGo agent or admin account. Use a different email for your landlord account.",
-        409,
-      );
-    }
     return fail(
       "EMAIL_EXISTS",
       "An account with this email already exists. Sign in to continue.",
@@ -66,7 +52,7 @@ export async function POST(req: Request) {
     email: emailLower,
     password,
     email_confirm: true,
-    user_metadata: { role: "landlord" },
+    user_metadata: { role: "client", first_name: firstName, last_name: lastName, full_name: fullName },
   });
 
   if (createErr || !created.user?.id) {
@@ -86,9 +72,11 @@ export async function POST(req: Request) {
     {
       id: userId,
       email: emailLower,
-      full_name: "",
-      role: "landlord",
-      is_landlord: true,
+      full_name: fullName,
+      first_name: firstName,
+      last_name: lastName,
+      role: "client",
+      is_landlord: false,
     },
     { onConflict: "id" },
   );
@@ -96,7 +84,7 @@ export async function POST(req: Request) {
   if (profErr) {
     console.error("[dormspaces/welcome/register] profile upsert failed", profErr);
     await admin.auth.admin.deleteUser(userId);
-    return fail("SERVER_ERROR", "Could not create landlord profile", 500);
+    return fail("SERVER_ERROR", "Could not create profile", 500);
   }
 
   return ok({ userId });

@@ -53,11 +53,14 @@ type ContinueWithGoogleButtonProps = {
   onError?: (message: string) => void;
   /** OAuth return path + query (default `/auth/callback`). */
   callbackPath?: string;
+  /** `sage-outline` — bordered sage style for dormspaces welcome. */
+  variant?: "default" | "sage-outline";
 };
 
 export function ContinueWithGoogleButton({
   onError,
   callbackPath = "/auth/callback",
+  variant = "default",
 }: ContinueWithGoogleButtonProps) {
   const [busy, setBusy] = useState(false);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -103,7 +106,10 @@ export function ContinueWithGoogleButton({
       onClick={() => void handleClick()}
       disabled={busy}
       className={cn(
-        "flex w-full min-h-[44px] items-center justify-center gap-3 rounded-xl border border-[#2C2C2C]/12 bg-white px-4 py-3 text-[14px] font-medium text-[#2C2C2C] transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60",
+        "flex w-full min-h-[44px] items-center justify-center gap-3 rounded-xl px-4 py-3 text-[14px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        variant === "sage-outline"
+          ? "border-2 border-[#6B9E6E]/35 bg-white text-[#2C2C2C] hover:border-[#6B9E6E]/55 hover:bg-[#FAF8F4]"
+          : "border border-[#2C2C2C]/12 bg-white font-medium text-[#2C2C2C] hover:bg-gray-50",
       )}
     >
       {busy ? <Loader2 className="h-[18px] w-[18px] shrink-0 animate-spin text-[#2C2C2C]/70" aria-hidden /> : <GoogleGMark />}

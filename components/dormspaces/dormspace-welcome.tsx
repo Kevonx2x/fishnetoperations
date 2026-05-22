@@ -8,11 +8,12 @@ import { motion } from "framer-motion";
 import { BadgeCheck, MapPin, Plus, Sparkles, Wifi } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  AuthGoogleDivider,
-  ContinueWithGoogleButton,
-} from "@/components/auth/continue-with-google-button";
 import { DormspaceAddListingSplitButton } from "@/components/dormspaces/dormspace-add-listing-split-button";
+import {
+  ClientSignedInCard,
+  EmailFirstAuthCard,
+  StaffRoleNoticeCard,
+} from "@/components/dormspaces/dormspace-welcome-auth";
 import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
 import {
@@ -32,11 +33,6 @@ import {
 } from "@/lib/auth-roles";
 import { DORMSPACE_HERO_IMAGE } from "@/lib/dormspaces";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-
-type AuthTab = "create" | "signin";
-
-const FIELD =
-  "mt-1.5 w-full rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 14 },
@@ -67,21 +63,6 @@ const PREVIEW_LISTINGS = [
     tag: "No listing fees",
   },
 ];
-
-function isDuplicateSignupError(err: unknown): boolean {
-  const code =
-    typeof err === "object" && err !== null && "code" in err
-      ? String((err as { code?: string }).code ?? "")
-      : "";
-  const msg = err instanceof Error ? err.message : typeof err === "string" ? err : "";
-  const lower = msg.toLowerCase();
-  return (
-    code === "user_already_exists" ||
-    lower.includes("already registered") ||
-    lower.includes("already exists") ||
-    lower.includes("email address is already")
-  );
-}
 
 function WelcomeCardButtonSkeleton() {
   return (
@@ -164,7 +145,7 @@ function LandlordWelcomeCard({
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
           >
             <Plus className="size-4" aria-hidden />
-            + Add your first dormspace
+            Add your first dormspace
           </Link>
         ) : null}
         <Link
@@ -203,24 +184,15 @@ export function DormspaceWelcome() {
   const isStaffSignedIn = Boolean(
     user && profile?.role && isDormspaceSubmitBlockedRole(profile.role),
   );
+  const isClientSignedIn = Boolean(
+    user && profile && !isLandlordSignedIn && !isStaffSignedIn && profile.role === "client",
+  );
 
   const [listings, setListings] = useState<DormspaceWithPhotos[]>([]);
   const [listingsResolved, setListingsResolved] = useState(false);
   const [vacancyListing, setVacancyListing] = useState<VacancyModalListing | null>(null);
   const [vacancyModalOpen, setVacancyModalOpen] = useState(false);
-  const [tab, setTab] = useState<AuthTab>("create");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const tabParam = params.get("tab");
-    if (tabParam === "signin") setTab("signin");
-    else if (tabParam === "signup" || tabParam === "create") setTab("create");
-  }, []);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -270,106 +242,19 @@ export function DormspaceWelcome() {
     void loadLandlordListings();
   }, [authLoading, loadLandlordListings]);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    const trimmedEmail = email.trim().toLowerCase();
-    if (!trimmedEmail || password.length < 8) {
-      setError("Enter a valid email and a password with at least 8 characters.");
-      return;
-    }
-    setBusy(true);
+  const handleStaffSignOut = async () => {
+    setSigningOut(true);
     try {
-      const res = await fetch("/api/dormspaces/welcome/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmedEmail, password }),
-      });
-      const json = (await res.json()) as {
-        success?: boolean;
-        error?: { message?: string };
-      };
-      if (!res.ok) {
-        setError(json.error?.message ?? "Could not create account");
-        return;
-      }
-
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password,
-      });
-      if (signInErr) {
-        setError("Account created but sign-in failed. Try signing in.");
-        setTab("signin");
-        return;
-      }
-
-      router.replace("/dormspaces/submit?from=welcome");
+      await supabase.auth.signOut();
       router.refresh();
-    } catch (err) {
-      if (isDuplicateSignupError(err)) {
-        setError("An account with this email already exists. Sign in instead.");
-        setTab("signin");
-        return;
-      }
-      setError(err instanceof Error ? err.message : "Could not create account");
     } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    const trimmedEmail = email.trim().toLowerCase();
-    if (!trimmedEmail || !password) {
-      setError("Enter your email and password.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const { data: authData, error: signInErr } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password,
-      });
-      if (signInErr) {
-        setError("Could not sign in. Check your email and password.");
-        return;
-      }
-
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("role, is_landlord")
-        .eq("id", authData.user.id)
-        .maybeSingle();
-
-      const role = prof?.role ?? null;
-      const is_landlord = prof?.is_landlord === true;
-      if (!isLandlordCapable({ role, is_landlord })) {
-        await supabase.auth.signOut();
-        setError(
-          `This account isn't set up for dormspace listings. Create a landlord account or sign in with an account that has listed before.`,
-        );
-        if (isDormspaceSubmitBlockedRole(role)) {
-          toast.error(
-            `This Google account is signed up as an ${roleDisplayLabel(role)} on BahayGo. To list dormspaces, please use a different Google account or create a separate landlord account with email/password.`,
-          );
-        }
-        return;
-      }
-
-      router.replace("/dormspaces/dashboard");
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not sign in");
-    } finally {
-      setBusy(false);
+      setSigningOut(false);
     }
   };
 
   return (
     <DormspacePortalShell minimalNav>
-      <main className="mx-auto grid w-full max-w-6xl flex-1 gap-10 px-4 py-8 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-12 lg:py-10 xl:gap-16">
+      <main className="mx-auto grid w-full max-w-6xl flex-1 gap-10 px-4 py-8 sm:px-6 lg:grid-cols-2 lg:items-start lg:gap-12 lg:py-10 xl:gap-16">
         <motion.div
           className="flex flex-col"
           initial="hidden"
@@ -496,7 +381,7 @@ export function DormspaceWelcome() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.45 }}
-          className="w-full lg:sticky lg:top-24 lg:max-w-md lg:justify-self-end"
+          className="w-full lg:sticky lg:top-24 lg:flex lg:min-h-[calc(100dvh-7rem)] lg:max-w-md lg:flex-col lg:justify-center lg:justify-self-end lg:self-start"
         >
           {authLoading ? (
             <div className="rounded-2xl border border-[#DDDDDD] bg-white p-8 shadow-[0_4px_24px_rgba(44,44,44,0.06)]">
@@ -516,148 +401,22 @@ export function DormspaceWelcome() {
                 setVacancyModalOpen(true);
               }}
             />
-          ) : (
+          ) : isStaffSignedIn && profile ? (
+            <StaffRoleNoticeCard
+              role={profile.role}
+              onSignOut={() => void handleStaffSignOut()}
+              signingOut={signingOut}
+            />
+          ) : isClientSignedIn ? (
             <>
-              {isStaffSignedIn && profile ? (
-                <p className="mb-4 rounded-xl border border-amber-400/50 bg-amber-50 px-4 py-3 text-sm font-medium text-[#484848]">
-                  You&apos;re signed in as a{" "}
-                  <span className="font-semibold text-[#2C2C2C]">{roleDisplayLabel(profile.role)}</span>.
-                  To list a dormspace, sign out and create a separate landlord account.
-                </p>
-              ) : null}
-              <div className="rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_4px_24px_rgba(44,44,44,0.06)] sm:p-8">
-            <div
-              className="flex rounded-xl border border-[#2C2C2C]/8 bg-[#FAF8F4] p-1"
-              role="tablist"
-              aria-label="Account"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === "signin"}
-                onClick={() => {
-                  setTab("signin");
-                  setError("");
-                }}
-                className={`flex-1 rounded-lg py-2.5 text-sm font-bold transition ${
-                  tab === "signin"
-                    ? "bg-white text-[#2C2C2C] shadow-sm"
-                    : "text-[#888888] hover:text-[#484848]"
-                }`}
-              >
-                Sign in
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === "create"}
-                onClick={() => {
-                  setTab("create");
-                  setError("");
-                }}
-                className={`flex-1 rounded-lg py-2.5 text-sm font-bold transition ${
-                  tab === "create"
-                    ? "bg-white text-[#2C2C2C] shadow-sm"
-                    : "text-[#888888] hover:text-[#484848]"
-                }`}
-              >
-                Create account
-              </button>
-            </div>
-
-            <div className="mt-6">
-              <ContinueWithGoogleButton
-                onError={setError}
-                callbackPath="/auth/callback?context=landlord"
-              />
-              <AuthGoogleDivider />
-            </div>
-
-            {tab === "create" ? (
-              <form onSubmit={(e) => void handleCreate(e)} className="space-y-4">
-                <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-                  Email
-                  <input
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={FIELD}
-                  />
-                </label>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-                  Password
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={8}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={FIELD}
-                  />
-                </label>
-                {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="w-full rounded-xl bg-[#6B9E6E] py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {busy ? "Creating account…" : "Create account & continue"}
-                </button>
-                <p className="text-center text-xs font-medium leading-relaxed text-[#888888]">
-                  By creating an account, you agree to BahayGo&apos;s verified-landlord process — you&apos;ll
-                  upload your ID and proof of billing when listing your first dormspace.
-                </p>
-              </form>
-            ) : (
-              <form onSubmit={(e) => void handleSignIn(e)} className="space-y-4">
-                <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-                  Email
-                  <input
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={FIELD}
-                  />
-                </label>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-                  Password
-                  <input
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={FIELD}
-                  />
-                </label>
-                <div className="-mt-1">
-                  <Link
-                    href="/auth/forgot-password"
-                    className="text-sm font-semibold text-[#6B9E6E] hover:underline"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-                {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="w-full rounded-xl bg-[#6B9E6E] py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {busy ? "Signing in…" : "Sign in"}
-                </button>
-                <p className="text-center text-xs font-medium text-[#888888]">
-                  Need to manage existing listings? Sign in here.
-                </p>
-              </form>
-            )}
-              </div>
+              <p className="mb-4 rounded-xl border border-[#6B9E6E]/25 bg-[#6B9E6E]/8 px-4 py-3 text-sm font-medium text-[#484848]">
+                You&apos;re signed in as a client. Creating a listing here will let you list your own space
+                when you&apos;re ready — your client account stays intact.
+              </p>
+              <ClientSignedInCard />
             </>
+          ) : (
+            <EmailFirstAuthCard />
           )}
 
           {!isLandlordSignedIn ? (
