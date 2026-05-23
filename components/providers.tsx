@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { BahayGoThemeProvider } from "@/components/bahaygo-theme-provider";
 import { AuthProvider } from "@/contexts/auth-context";
+import { BahayGoGoGlowProvider } from "@/contexts/bahaygo-go-glow-context";
 import { EngagementSignInProvider } from "@/contexts/engagement-signin-context";
 import { GlobalAlertProvider } from "@/contexts/global-alert-context";
 import { Toaster } from "@/components/ui/sonner";
@@ -17,11 +18,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <StreamChatProvider>
           <GlobalAlertProvider>
             <EngagementSignInProvider>
-              <Suspense fallback={null}>
-                <AgentTourBootstrap />
-                <AgentTourOverlay />
-              </Suspense>
-              <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+              <BahayGoGoGlowProvider>
+                <Suspense fallback={null}>
+                  <AgentTourBootstrap />
+                  <AgentTourOverlay />
+                </Suspense>
+                <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+              </BahayGoGoGlowProvider>
             </EngagementSignInProvider>
           </GlobalAlertProvider>
         </StreamChatProvider>

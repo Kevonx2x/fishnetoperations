@@ -2193,7 +2193,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#FAF8F4]">
+    <div className="min-h-screen overflow-x-clip bg-[#FAF8F4]">
       <MaddenTopNav />
 
       {welcomeBannerVisible && user ? (
@@ -2258,10 +2258,10 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         </div>
       </section>
 
-      <div className="flex min-w-0 w-full flex-col overflow-x-hidden">
+      <div className="flex min-w-0 w-full flex-col overflow-x-clip">
       <section
         id="featured-locations"
-        className="order-2 w-full min-w-0 overflow-x-hidden border-b border-[#2C2C2C]/10 bg-[#FAF8F4] py-4 md:order-1 md:py-8 sm:py-10"
+        className="order-2 w-full min-w-0 overflow-x-clip border-b border-[#2C2C2C]/10 bg-[#FAF8F4] py-4 md:order-1 md:py-8 sm:py-10"
       >
         <div className="mx-auto w-full min-w-0 max-w-7xl px-4 sm:px-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -2400,7 +2400,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
       <hr className="order-2 mx-auto hidden w-3/4 border-t border-[#2C2C2C]/10 md:order-1 md:block" />
 
-      <main className="order-1 mx-auto min-w-0 w-full max-w-7xl overflow-x-hidden px-4 pb-28 pt-4 md:order-2 md:px-6 md:pb-16 md:pt-10">
+      <main className="order-1 mx-auto min-w-0 w-full max-w-7xl overflow-x-clip px-4 pb-32 pt-4 max-md:pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:order-2 md:px-6 md:pb-16 md:pt-10">
         {/* Loading / error */}
         {loading ? (
           <div className="mt-4 min-h-[280px] min-w-0 w-full max-w-full md:mt-8 md:min-h-[400px]">
@@ -2417,7 +2417,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         {!loading && !error ? (
           <>
             {/* PROPERTY LISTING SECTION (controlled by Buy/Rent toggle) */}
-            <section id="listings" className="min-w-0 w-full max-w-full overflow-x-hidden">
+            <section id="listings" className="min-w-0 w-full max-w-full overflow-x-clip">
               <HomepageFiltersSheet
                 open={filtersOpen}
                 onOpenChange={setFiltersOpen}
@@ -2964,13 +2964,15 @@ function CategorySection({
   return (
     <>
       <div>
-        <h2 className="font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] max-md:font-sans max-md:text-lg max-md:font-bold max-md:tracking-normal sm:text-3xl md:font-serif md:text-2xl md:font-semibold">
+        <h2 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl md:text-3xl">
           {title}
         </h2>
-        <p className="mt-1 text-sm font-semibold text-[#484848]">{subtitle}</p>
+        <p className="mt-1 text-sm font-normal text-[#717171] max-md:text-[13px] md:font-semibold md:text-[#484848]">
+          {subtitle}
+        </p>
       </div>
 
-      <div className="-mx-4 mt-4 flex min-w-0 w-full max-w-full items-stretch gap-1 md:mx-0 md:gap-2">
+      <div className="mt-4 flex min-w-0 w-full max-w-full items-stretch gap-1 md:mx-0 md:gap-2">
         <button
           type="button"
           onClick={() => scrollRow(sectionRef, "prev")}
@@ -2981,9 +2983,9 @@ function CategorySection({
         </button>
         <div
           ref={sectionRef}
-          className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide max-md:snap-x max-md:snap-proximity max-md:px-4 md:px-1"
+          className="min-w-0 flex-1 overflow-x-auto overflow-y-visible py-2 pb-4 scrollbar-hide max-md:snap-x max-md:snap-proximity max-md:px-0 md:px-1 md:pb-2"
         >
-          <div className="flex w-max flex-nowrap gap-2 md:gap-3">
+          <div className="flex w-max flex-nowrap gap-2.5 md:gap-3">
             {visible.length === 0
               ? Array.from({ length: 3 }).map((_, i) => (
                   <ListingsComingSoonPlaceholderCard
@@ -3154,10 +3156,10 @@ export function NewlyListedCard({
   return (
     <div
       className={cn(
-        "flex flex-col overflow-hidden bg-white",
+        "flex flex-col bg-white",
         browseCompact
-          ? "min-h-0 max-md:snap-start max-md:rounded-xl max-md:border-0 max-md:shadow-[0_2px_12px_rgba(0,0,0,0.1)] md:min-h-[412px] md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md lg:min-h-[448px]"
-          : "min-h-[300px] rounded-2xl border border-[#2C2C2C]/10 shadow-md md:min-h-[412px] lg:min-h-[448px]",
+          ? "min-h-0 max-md:snap-start max-md:overflow-visible max-md:rounded-2xl max-md:bg-white max-md:shadow-[0_4px_20px_rgba(44,44,44,0.1)] max-md:ring-1 max-md:ring-black/[0.05] md:min-h-[412px] md:overflow-hidden md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md lg:min-h-[448px]"
+          : "min-h-[300px] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 shadow-md md:min-h-[412px] lg:min-h-[448px]",
         grid
           ? gridCardClassName ?? HOMEPAGE_BROWSE_LISTING_CARD_WIDTH
           : cn(cardWidthClass ?? HOMEPAGE_BROWSE_LISTING_CARD_WIDTH, "shrink-0"),
@@ -3167,7 +3169,9 @@ export function NewlyListedCard({
       <div
         className={cn(
           "relative w-full shrink-0 overflow-hidden bg-[#F3F0EA]",
-          browseCompact ? "aspect-[20/19] md:aspect-auto md:h-44 lg:h-52" : "h-44 lg:h-52",
+          browseCompact
+            ? "aspect-[5/4] max-md:rounded-t-2xl md:aspect-auto md:h-44 md:rounded-none lg:h-52"
+            : "h-44 lg:h-52",
         )}
       >
         {img ? (
@@ -3349,13 +3353,13 @@ export function NewlyListedCard({
           </div>
         ) : null}
 
-        <div
-          className={cn(
-            "absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-5rem)] flex-col items-start gap-1.5",
-            browseCompact && "max-md:hidden",
-          )}
-        >
-          <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-xs font-semibold text-[#2C2C2C] shadow-sm ring-1 ring-black/5">
+        <div className="absolute bottom-2 left-2 z-20 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1 md:bottom-3 md:left-3 md:max-w-[calc(100%-5rem)]">
+          <span
+            className={cn(
+              "rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-semibold text-[#2C2C2C] shadow-sm ring-1 ring-black/5 md:px-2.5 md:text-xs",
+              browseCompact && "max-md:backdrop-blur-sm",
+            )}
+          >
             {listedLabel}
           </span>
           {showYourListingBadge ? (
@@ -3374,7 +3378,7 @@ export function NewlyListedCard({
         className={cn(
           "flex flex-col gap-0 bg-white",
           browseCompact
-            ? "max-md:border-0 max-md:px-2.5 max-md:pb-2.5 max-md:pt-2 border-t border-[#2C2C2C]/10 px-3 py-2"
+            ? "max-md:rounded-b-2xl max-md:border-0 max-md:px-3 max-md:pb-3 max-md:pt-2.5 border-t border-[#2C2C2C]/10 px-3 py-2"
             : "border-t border-[#2C2C2C]/10 px-3 py-3 sm:px-4",
         )}
       >
@@ -3407,19 +3411,19 @@ export function NewlyListedCard({
             <p
               className={cn(
                 "truncate font-semibold tracking-tight text-[#D4A843]",
-                browseCompact ? "text-[15px] leading-tight md:text-base" : "text-lg sm:text-xl",
+                browseCompact ? "text-base leading-tight md:text-base" : "text-lg sm:text-xl",
               )}
             >
               {formatPropertyPriceDisplay(property.price, property.status)}
             </p>
           )}
         </div>
-        <div className={cn("shrink-0 overflow-hidden", browseCompact ? "max-md:min-h-0 md:h-[48px]" : "h-[48px]")}>
+        <div className={cn("shrink-0", browseCompact ? "max-md:min-h-0 md:h-[48px] md:overflow-hidden" : "h-[48px] overflow-hidden")}>
           <p
             className={cn(
               "text-[#2C2C2C]",
               browseCompact
-                ? "line-clamp-1 text-[13px] font-semibold leading-snug md:line-clamp-2 md:text-sm"
+                ? "line-clamp-2 text-sm font-semibold leading-snug md:line-clamp-2 md:text-sm"
                 : "line-clamp-2 text-base font-semibold",
             )}
           >
@@ -3428,31 +3432,24 @@ export function NewlyListedCard({
         </div>
         <div
           className={cn(
-            "shrink-0 overflow-hidden",
-            browseCompact ? "max-md:hidden md:h-[24px]" : "h-[24px]",
+            "shrink-0",
+            browseCompact ? "max-md:min-h-0 md:h-[24px] md:overflow-hidden" : "h-[24px] overflow-hidden",
           )}
         >
-          <p className={cn("truncate text-[#717171]", browseCompact ? "text-[11px] md:text-[11px]" : "text-xs")}>
+          <p className={cn("truncate text-[#717171]", browseCompact ? "text-xs md:text-[11px]" : "text-xs")}>
             {property.beds ? `${property.beds} beds` : "Studio"} · {property.baths} baths · {property.sqft} sqft
           </p>
         </div>
-        <div className={cn("shrink-0 overflow-hidden", browseCompact ? "max-md:min-h-0 md:h-[24px]" : "h-[24px]")}>
-          {browseCompact ? (
-            <>
-              <p className="truncate text-[13px] leading-snug text-[#717171] md:hidden">
-                {property.beds ? `${property.beds} beds` : "Studio"} · {property.baths} baths · {property.location}
-              </p>
-              <p className="hidden items-start gap-1 text-[11px] text-[#717171] md:flex">
-                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8E8E8E]" aria-hidden />
-                <span className="min-w-0 flex-1 truncate leading-snug">{property.location}</span>
-              </p>
-            </>
-          ) : (
-            <p className="flex items-start gap-1 text-xs text-[#6B6B6B]">
-              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8E8E8E]" aria-hidden />
-              <span className="min-w-0 flex-1 truncate leading-snug">{property.location}</span>
-            </p>
+        <div
+          className={cn(
+            "shrink-0",
+            browseCompact ? "max-md:min-h-0 md:h-[24px] md:overflow-hidden" : "h-[24px] overflow-hidden",
           )}
+        >
+          <p className="flex items-start gap-1 text-xs text-[#717171]">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8E8E8E]" aria-hidden />
+            <span className="min-w-0 flex-1 truncate leading-snug">{property.location}</span>
+          </p>
         </div>
       </div>
 
@@ -3786,7 +3783,7 @@ function PropertyRows({
   const titleWithSuffix = (t: string) => (rowTitleSuffix ? `${t}${rowTitleSuffix}` : t);
 
   return (
-    <div className="min-w-0 w-full max-w-full space-y-4 overflow-x-hidden md:space-y-6">
+    <div className="min-w-0 w-full max-w-full space-y-6 overflow-x-clip max-md:space-y-8 md:space-y-6">
       {first.map((r, i) => (
         <div key={r.key}>
           <RowCarousel
@@ -4088,11 +4085,11 @@ function RowCarousel({
         rowRefs.current[rowKey] = el;
       }}
       className={cn(
-        "min-w-0 overflow-x-auto pb-2 scrollbar-hide max-md:snap-x max-md:snap-proximity max-md:px-4 md:px-1",
+        "min-w-0 overflow-x-auto overflow-y-visible py-2 pb-4 scrollbar-hide max-md:snap-x max-md:snap-proximity max-md:px-0 md:px-1 md:pb-2",
         isFeaturedPicksRow ? "md:px-10" : "flex-1",
       )}
     >
-      <div className="flex w-max flex-nowrap gap-2 md:gap-3">
+      <div className="flex w-max flex-nowrap gap-2.5 md:gap-3">
         {list.map((p, idx) => (
           <NewlyListedCard
             key={`${rowKey}-${p.id}`}
@@ -4146,21 +4143,23 @@ function RowCarousel({
           {titleHref ? (
             <Link
               href={titleHref}
-              className="min-w-0 font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] hover:underline max-md:font-sans max-md:text-lg max-md:font-bold max-md:tracking-normal sm:text-3xl md:font-serif md:text-2xl md:font-semibold"
+              className="min-w-0 font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] hover:underline sm:text-2xl md:text-3xl"
             >
               {title}
             </Link>
           ) : (
-            <h2 className="min-w-0 font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">
+            <h2 className="min-w-0 font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl md:text-3xl">
               {title}
             </h2>
           )}
         </div>
-        <p className="mt-1 text-sm font-semibold text-[#484848]">{subtitle}</p>
+        <p className="mt-1 text-sm font-normal text-[#717171] max-md:text-[13px] md:font-semibold md:text-[#484848]">
+          {subtitle}
+        </p>
       </div>
 
       {isFeaturedPicksRow ? (
-        <div className="relative -mx-4">
+        <div className="relative max-md:mx-0 md:-mx-4">
           <button
             type="button"
             onClick={() => scroll("prev")}
@@ -4180,7 +4179,7 @@ function RowCarousel({
           {scrollTrack}
         </div>
       ) : (
-        <div className="-mx-4 flex min-w-0 w-full max-w-full items-stretch gap-1 md:mx-0 md:gap-2">
+        <div className="flex min-w-0 w-full max-w-full items-stretch gap-1 md:mx-0 md:gap-2">
           <button
             type="button"
             onClick={() => scroll("prev")}

@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { BahayGoWordmark } from "@/components/marketplace/bahaygo-wordmark";
+import { BahayGoGoText } from "@/components/marketplace/bahaygo-go-text";
 import { NavNotificationsBell } from "@/components/notifications/nav-notifications-bell";
 import {
   AGENT_AVAILABILITY_NOW,
@@ -524,7 +525,7 @@ export function MaddenTopNav() {
               </svg>
               <span className="inline-flex items-baseline text-[1.35rem] font-semibold leading-none tracking-tight">
                 <span className="text-[#2C2C2C]">Bahay</span>
-                <span className="text-[#6B9E6E]">Go</span>
+                <BahayGoGoText>Go</BahayGoGoText>
               </span>
             </span>
             <span className="hidden md:inline">

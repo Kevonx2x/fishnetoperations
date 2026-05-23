@@ -275,6 +275,8 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
         }}
         syncLocationToHero={setLocationQuery}
       />
+
+      <DormspacePortalFooter />
     </>
   );
 }

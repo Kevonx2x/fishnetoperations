@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { BahayGoGoText } from "@/components/marketplace/bahaygo-go-text";
 
 type Props = {
   className?: string;
@@ -46,7 +47,7 @@ export function BahayGoWordmark({ className, size = "nav" }: Props) {
         )}
       >
         <span className="text-[#2C2C2C]">bahay</span>
-        <span className="text-[#6B9E6E]">go</span>
+        <BahayGoGoText />
       </span>
     </span>
   );
