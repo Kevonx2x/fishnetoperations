@@ -56,13 +56,6 @@ import {
   HomepageTopAgentsSectionSkeleton,
 } from "@/components/marketplace/homepage-load-shell";
 
-const PropertyZoomModal = dynamic(
-  () =>
-    import("@/components/marketplace/property-zoom-modal").then((m) => ({
-      default: m.PropertyZoomModal,
-    })),
-  { ssr: false },
-);
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
 import { listingListedCompactLabel } from "@/lib/listing-listed-time";
@@ -1275,7 +1268,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
   const [filters, setFilters] = useState<FiltersState>(defaultHomepageFiltersState);
   const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
-  const [zoomProperty, setZoomProperty] = useState<DbProperty | null>(null);
 
   const { engagement, likeCountsByPropertyId } = usePropertyEngagementForProperties(properties);
 
@@ -2524,7 +2516,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     engagement={engagement}
                     connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
                     viewerUserId={user?.id ?? null}
-                    onOpenPropertyZoom={setZoomProperty}
                     viewerVerifiedListingAgent={viewerVerifiedListingAgent}
                     listingsOnboardingHref={user ? "/register/agent" : "/auth/signup"}
                     hideRowPlaceholders={filtersActive}
@@ -2914,15 +2905,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       />
 
       <HomepageArticlesSection className="mt-2" />
-
-      {zoomProperty ? (
-        <PropertyZoomModal
-          property={zoomProperty}
-          agents={allConnectedAgentsByPropertyId.get(zoomProperty.id) ?? []}
-          onClose={() => setZoomProperty(null)}
-          engagement={engagement}
-        />
-      ) : null}
     </div>
   );
 }
@@ -2939,7 +2921,6 @@ function CategorySection({
   engagement,
   connectedAgentsByPropertyId,
   scrollRow,
-  onOpenPropertyZoom,
   viewerVerifiedListingAgent,
   listingOnboardingHref,
 }: {
@@ -2954,7 +2935,6 @@ function CategorySection({
   engagement: PropertyEngagement;
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
   scrollRow: (ref: React.RefObject<HTMLDivElement | null>, dir: "prev" | "next") => void;
-  onOpenPropertyZoom: (p: DbProperty) => void;
   viewerVerifiedListingAgent: boolean;
   listingOnboardingHref: string;
 }) {
@@ -3017,7 +2997,6 @@ function CategorySection({
                     }
                     engagement={engagement}
                     connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
-                    onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
                     grid
                     compact
                     verifiedListingAgent={viewerVerifiedListingAgent}
@@ -3080,7 +3059,6 @@ export function NewlyListedCard({
   onRoomNext,
   engagement,
   connectedAgents,
-  onOpenPropertyZoom,
   grid,
   gridCardClassName,
   cardWidthClass,
@@ -3097,7 +3075,6 @@ export function NewlyListedCard({
   onRoomNext: () => void;
   engagement: PropertyEngagement;
   connectedAgents: MarketplaceAgent[];
-  onOpenPropertyZoom: () => void;
   grid?: boolean;
   /** When `grid` is true: widths for horizontal category rows (mobile peek + desktop columns). */
   gridCardClassName?: string;
@@ -3160,6 +3137,9 @@ export function NewlyListedCard({
   const browseCardYourListingPillClass =
     "inline-flex w-fit shrink-0 items-center rounded-full bg-[#D4A843] px-1.5 py-px text-[10px] font-medium leading-tight text-white shadow-sm ring-1 ring-[#8a6d32]/30 transition hover:bg-[#c49a38] md:px-2 md:py-0.5 md:text-[10px]";
 
+  const propertyHref = `/properties/${encodeURIComponent(property.id)}`;
+  const propertyDetailLabel = `View ${titleLine}`;
+
   return (
     <div
       className={cn(
@@ -3191,16 +3171,13 @@ export function NewlyListedCard({
             grayscale={listingRemoved}
           />
         ) : null}
-        <button
-          type="button"
-          onClick={listingRemoved ? undefined : onOpenPropertyZoom}
-          disabled={listingRemoved}
-          className={cn(
-            "absolute inset-0 z-[6] bg-transparent",
-            listingRemoved ? "cursor-default" : "cursor-pointer",
-          )}
-          aria-label="Open property details"
-        />
+        {!listingRemoved ? (
+          <Link
+            href={propertyHref}
+            className="absolute inset-0 z-[7]"
+            aria-label={propertyDetailLabel}
+          />
+        ) : null}
 
         {listingRemoved ? (
           <div
@@ -3682,7 +3659,6 @@ function PropertyRows({
   engagement,
   connectedAgentsByPropertyId,
   viewerUserId,
-  onOpenPropertyZoom,
   viewerVerifiedListingAgent,
   listingsOnboardingHref,
   rowTitleSuffix,
@@ -3705,7 +3681,6 @@ function PropertyRows({
   engagement: PropertyEngagement;
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
   viewerUserId?: string | null;
-  onOpenPropertyZoom: (p: DbProperty) => void;
   viewerVerifiedListingAgent: boolean;
   listingsOnboardingHref: string;
   /** When set (featured city browse), append to each row title, e.g. " in Makati". */
@@ -3780,7 +3755,6 @@ function PropertyRows({
             engagement={engagement}
             connectedAgentsByPropertyId={connectedAgentsByPropertyId}
             viewerUserId={viewerUserId}
-            onOpenPropertyZoom={onOpenPropertyZoom}
             viewerVerifiedListingAgent={viewerVerifiedListingAgent}
             listingsOnboardingHref={listingsOnboardingHref}
             eagerListingThumbKey={eagerListingThumbKey}
@@ -3821,7 +3795,6 @@ function PropertyRows({
                 engagement={engagement}
                 connectedAgentsByPropertyId={connectedAgentsByPropertyId}
                 viewerUserId={viewerUserId}
-                onOpenPropertyZoom={onOpenPropertyZoom}
                 viewerVerifiedListingAgent={viewerVerifiedListingAgent}
                 listingsOnboardingHref={listingsOnboardingHref}
                 eagerListingThumbKey={eagerListingThumbKey}
@@ -4021,7 +3994,6 @@ function RowCarousel({
   engagement,
   connectedAgentsByPropertyId,
   viewerUserId,
-  onOpenPropertyZoom,
   viewerVerifiedListingAgent,
   listingsOnboardingHref,
   eagerListingThumbKey,
@@ -4039,7 +4011,6 @@ function RowCarousel({
   engagement: PropertyEngagement;
   connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
   viewerUserId?: string | null;
-  onOpenPropertyZoom: (p: DbProperty) => void;
   viewerVerifiedListingAgent: boolean;
   listingsOnboardingHref: string;
   eagerListingThumbKey?: string;
@@ -4092,7 +4063,6 @@ function RowCarousel({
             }
             engagement={engagement}
             connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
-            onOpenPropertyZoom={() => onOpenPropertyZoom(p)}
             cardWidthClass={cardWidthClass}
             viewerUserId={viewerUserId}
             compact

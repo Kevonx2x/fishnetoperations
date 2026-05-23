@@ -18,7 +18,6 @@ import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { NewlyListedCard } from "@/components/marketplace/fishnet-home-marketplace";
-import { PropertyZoomModal } from "@/components/marketplace/property-zoom-modal";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
@@ -78,7 +77,6 @@ function LandmarksContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
-  const [zoomProperty, setZoomProperty] = useState<DbProperty | null>(null);
 
   const { engagement } = usePropertyEngagementForProperties(properties);
 
@@ -250,7 +248,6 @@ function LandmarksContent() {
                     }
                     engagement={engagement}
                     connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
-                    onOpenPropertyZoom={() => setZoomProperty(p)}
                     grid
                     viewerUserId={user?.id ?? null}
                   />
@@ -260,17 +257,6 @@ function LandmarksContent() {
           </section>
         ) : null}
       </main>
-
-      <AnimatePresence>
-        {zoomProperty ? (
-          <PropertyZoomModal
-            property={zoomProperty}
-            agents={connectedAgentsByPropertyId.get(zoomProperty.id) ?? []}
-            onClose={() => setZoomProperty(null)}
-            engagement={engagement}
-          />
-        ) : null}
-      </AnimatePresence>
     </div>
   );
 }
