@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { BahayGoGoText } from "@/components/marketplace/bahaygo-go-text";
 
 /** Gold house mark from the dormspacers lockup (nav dropdown, compact UI). */
 export function BahayGoHouseMark({ className }: { className?: string }) {
@@ -35,7 +34,7 @@ export function DormspaceWelcomeLogo({ className, href = "/dormspaces" }: Props)
       <span className="flex flex-col items-start pt-0.5">
         <span className="inline-flex items-baseline gap-0 font-serif text-[1.35rem] font-bold leading-none tracking-tight">
           <span className="text-[#2C2C2C]">bahay</span>
-          <BahayGoGoText />
+          <span className="text-[#6B9E6E]">go</span>
         </span>
         <span className="mt-0.5 font-serif text-[0.65rem] font-semibold leading-none tracking-[0.14em] text-[#888888]">
           dormspacers

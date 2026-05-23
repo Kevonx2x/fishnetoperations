@@ -16,6 +16,7 @@ import { DormspaceBrowse, type DormspaceBrowseFilters } from "@/components/dorms
 import { DormspaceCategoryChips } from "@/components/dormspaces/dormspace-category-chips";
 import { DormspaceCommunityCta } from "@/components/dormspaces/dormspace-community-cta";
 import { DormspacePopularAreasSection } from "@/components/dormspaces/dormspace-popular-areas-section";
+import { DormspacePortalFooter } from "@/components/dormspaces/dormspace-portal-footer";
 import { DormspaceRecommendedSection } from "@/components/dormspaces/dormspace-recommended-section";
 import { DormspaceTestimonialsSection } from "@/components/dormspaces/dormspace-testimonials-section";
 import { DormspaceWhyStudentsSection } from "@/components/dormspaces/dormspace-why-students";

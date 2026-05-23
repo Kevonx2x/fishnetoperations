@@ -2967,12 +2967,12 @@ function CategorySection({
         <h2 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl md:text-3xl">
           {title}
         </h2>
-        <p className="mt-1 text-sm font-normal text-[#717171] max-md:text-[13px] md:font-semibold md:text-[#484848]">
+        <p className="mt-1 hidden text-sm font-normal text-[#717171] md:block md:font-semibold md:text-[#484848]">
           {subtitle}
         </p>
       </div>
 
-      <div className="mt-4 flex min-w-0 w-full max-w-full items-stretch gap-1 md:mx-0 md:gap-2">
+      <div className="mt-3 flex min-w-0 w-full max-w-full items-stretch gap-1 md:mx-0 md:mt-4 md:gap-2">
         <button
           type="button"
           onClick={() => scrollRow(sectionRef, "prev")}
@@ -3783,7 +3783,7 @@ function PropertyRows({
   const titleWithSuffix = (t: string) => (rowTitleSuffix ? `${t}${rowTitleSuffix}` : t);
 
   return (
-    <div className="min-w-0 w-full max-w-full space-y-6 overflow-x-clip max-md:space-y-8 md:space-y-6">
+    <div className="min-w-0 w-full max-w-full overflow-x-clip max-md:space-y-0 md:space-y-6">
       {first.map((r, i) => (
         <div key={r.key}>
           <RowCarousel
@@ -3806,7 +3806,7 @@ function PropertyRows({
             priorityListingThumbKeys={priorityListingThumbKeys}
           />
           {i < first.length - 1 ? (
-            <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
+            <hr className="hidden border-t border-[#2C2C2C]/10 md:mx-auto md:my-3 md:block md:w-3/4" />
           ) : null}
         </div>
       ))}
@@ -3824,7 +3824,7 @@ function PropertyRows({
       ) : null}
 
       {enableShowMore && showMore && rest.length > 0 ? (
-        <div className="space-y-6">
+        <div className="max-md:space-y-0 md:space-y-6">
           {rest.map((r, idx) => (
             <div key={r.key}>
               <RowCarousel
@@ -3847,7 +3847,7 @@ function PropertyRows({
                 priorityListingThumbKeys={priorityListingThumbKeys}
               />
               {idx < rest.length - 1 ? (
-                <hr className="mx-auto my-3 w-3/4 border-t border-[#2C2C2C]/10" />
+                <hr className="hidden border-t border-[#2C2C2C]/10 md:mx-auto md:my-3 md:block md:w-3/4" />
               ) : null}
             </div>
           ))}
@@ -4136,7 +4136,13 @@ function RowCarousel({
   );
 
   return (
-    <div className={cn(featuredClasses, reserveBrowseSectionMinH && "min-h-[400px]")}>
+    <div
+      className={cn(
+        featuredClasses,
+        reserveBrowseSectionMinH && "md:min-h-[400px]",
+        "max-md:py-4",
+      )}
+    >
       <div className="mb-3">
         <div className="flex flex-wrap items-center gap-2">
           {featured ? <Star className="h-4 w-4 shrink-0 text-[#D4A843]" /> : null}
@@ -4153,7 +4159,7 @@ function RowCarousel({
             </h2>
           )}
         </div>
-        <p className="mt-1 text-sm font-normal text-[#717171] max-md:text-[13px] md:font-semibold md:text-[#484848]">
+        <p className="mt-1 hidden text-sm font-normal text-[#717171] md:block md:font-semibold md:text-[#484848]">
           {subtitle}
         </p>
       </div>
