@@ -24,6 +24,7 @@ import {
   MapPin,
   PawPrint,
   Pin,
+  Check,
   Search,
   Shield,
   Star,
@@ -112,12 +113,13 @@ import {
   HOMEPAGE_INITIAL_CATEGORY_ROWS,
   HOMEPAGE_MAX_CATEGORY_ROWS,
 } from "@/lib/homepage-row-templates";
+import { HOMEPAGE_BROWSE_LISTING_CARD_WIDTH } from "@/lib/homepage-listing-card-layout";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { firstRawPropertyPhotoUrl, roomUrlsFor } from "@/lib/marketplace-property";
 
 /** Display width for listing thumbs (~carousel + grid); keeps `/_next/image` requests small. */
-const LISTING_IMAGE_SIZES = "(max-width: 639px) 100vw, (max-width: 1023px) 45vw, 320px" as const;
+const LISTING_IMAGE_SIZES = "(max-width: 767px) 50vw, (max-width: 1023px) 45vw, 320px" as const;
 
 function firstBrowseListingThumbKey(
   rows: { key: string; items: DbProperty[] }[],
@@ -2090,7 +2092,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
   const heroSearchCard = (
     <>
-      <div className="flex justify-center lg:justify-start">
+      <div className="flex w-full justify-center lg:justify-start">
         <div className="inline-flex gap-2 rounded-full bg-[#EBE6DC]/90 p-1 ring-1 ring-[#D4A843]/35 backdrop-blur-sm">
           {mode === "rent" ? (
             <>
@@ -2121,7 +2123,10 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           )}
         </div>
       </div>
-      <div className="mt-4 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
+      <p className="mt-3 text-center text-sm font-normal text-[#2C2C2C] md:hidden">
+        Find verified homes in Metro Manila
+      </p>
+      <div className="mt-3 w-full rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm md:mt-4">
         <div className="relative z-20 flex w-full flex-col gap-3 sm:flex-row sm:items-center">
           <PhLocationInput
             value={search}
@@ -2151,6 +2156,19 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           </button>
         </div>
       </div>
+      <p className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs font-normal text-[#888888] md:hidden">
+        <span className="inline-flex items-center gap-1">
+          <Check className="h-3 w-3 shrink-0 text-[#6B9E6E]" aria-hidden />
+          PRC Verified Agents
+        </span>
+        <span className="text-[#888888]" aria-hidden>
+          ·
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Check className="h-3 w-3 shrink-0 text-[#6B9E6E]" aria-hidden />
+          0 Scams Guarantee
+        </span>
+      </p>
       <div className="mt-4 hidden flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-[#383838] md:flex lg:justify-start">
         <span className="inline-flex items-center gap-1.5">
           <span className="text-[#6B9E6E]">✓</span> PRC Licensed Agents Only
@@ -2175,7 +2193,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4]">
+    <div className="min-h-screen overflow-x-hidden bg-[#FAF8F4]">
       <MaddenTopNav />
 
       {welcomeBannerVisible && user ? (
@@ -2206,10 +2224,10 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         </div>
       ) : null}
 
-      <section className="relative border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
-        <div className="mx-auto max-w-7xl px-4 py-4 md:py-8 lg:py-14">
-          <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-14">
-            <div className="min-w-0">
+      <section className="relative w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4] md:border-b">
+        <div className="mx-auto w-full max-w-7xl px-4 py-3 pb-2 md:py-8 md:pb-8 lg:py-14">
+          <div className="grid w-full grid-cols-1 items-stretch gap-4 md:items-center md:gap-10 lg:grid-cols-2 lg:gap-14">
+            <div className="w-full min-w-0">
               <div className="hidden lg:block">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6B9E6E]">
                   Verified Agents · Real Listings · 100% Filipino
@@ -2222,7 +2240,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 </p>
               </div>
 
-              <div className="mt-6 lg:mt-8">{heroSearchCard}</div>
+              <div className="mt-0 w-full md:mt-6 lg:mt-8">{heroSearchCard}</div>
 
             </div>
 
@@ -2240,11 +2258,12 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         </div>
       </section>
 
+      <div className="flex min-w-0 w-full flex-col overflow-x-hidden">
       <section
         id="featured-locations"
-        className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4] py-8 sm:py-10"
+        className="order-2 w-full min-w-0 overflow-x-hidden border-b border-[#2C2C2C]/10 bg-[#FAF8F4] py-4 md:order-1 md:py-8 sm:py-10"
       >
-        <div className="mx-auto max-w-7xl px-4 sm:px-5">
+        <div className="mx-auto w-full min-w-0 max-w-7xl px-4 sm:px-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0 text-center sm:text-left">
               <h2 className="font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">
@@ -2264,7 +2283,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               </button>
             ) : null}
           </div>
-          <div className="relative -mx-4 mt-6">
+          <div className="relative -mx-4 mt-4 min-w-0 w-full max-w-full md:mt-6">
             <button
               type="button"
               onClick={() => scrollFeaturedLocations("prev")}
@@ -2379,12 +2398,12 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         </div>
       </section>
 
-      <hr className="mx-auto w-3/4 border-t border-[#2C2C2C]/10" />
+      <hr className="order-2 mx-auto hidden w-3/4 border-t border-[#2C2C2C]/10 md:order-1 md:block" />
 
-      <main className="mx-auto max-w-7xl px-6 pb-28 pt-10 md:pb-16">
+      <main className="order-1 mx-auto min-w-0 w-full max-w-7xl overflow-x-hidden px-4 pb-28 pt-4 md:order-2 md:px-6 md:pb-16 md:pt-10">
         {/* Loading / error */}
         {loading ? (
-          <div className="mt-8 min-h-[400px]">
+          <div className="mt-4 min-h-[280px] min-w-0 w-full max-w-full md:mt-8 md:min-h-[400px]">
             <HomepageListingRowsSkeleton />
           </div>
         ) : null}
@@ -2398,7 +2417,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         {!loading && !error ? (
           <>
             {/* PROPERTY LISTING SECTION (controlled by Buy/Rent toggle) */}
-            <section id="listings">
+            <section id="listings" className="min-w-0 w-full max-w-full overflow-x-hidden">
               <HomepageFiltersSheet
                 open={filtersOpen}
                 onOpenChange={setFiltersOpen}
@@ -2416,7 +2435,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               />
 
               {!filtersActive ? (
-                <div className="mt-3">
+                <div className="mt-2 md:mt-3">
                   <button
                     type="button"
                     onClick={() => setFiltersOpen(true)}
@@ -2480,7 +2499,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 </div>
               ) : null}
 
-              <div className={cn("mt-8", filtersActive && "mt-6")}>
+              <div className={cn("mt-4 md:mt-8", filtersActive && "mt-4 md:mt-6")}>
                 {homepageRows.length === 0 && filtersActive ? (
                   <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center shadow-sm">
                     <p className="font-serif text-xl font-semibold text-[#2C2C2C]">
@@ -2886,6 +2905,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           </>
         ) : null}
       </main>
+      </div>
 
       <DynamicHomepageFaq
         openFaqIndex={openFaqIndex}
@@ -2939,16 +2959,18 @@ function CategorySection({
   listingOnboardingHref: string;
 }) {
   const visible = expanded ? items : items.slice(0, 12);
-  const categoryCardWidthClass = "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]";
+  const categoryCardWidthClass = HOMEPAGE_BROWSE_LISTING_CARD_WIDTH;
 
   return (
     <>
       <div>
-        <h2 className="font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">{title}</h2>
+        <h2 className="font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] max-md:font-sans max-md:text-lg max-md:font-bold max-md:tracking-normal sm:text-3xl md:font-serif md:text-2xl md:font-semibold">
+          {title}
+        </h2>
         <p className="mt-1 text-sm font-semibold text-[#484848]">{subtitle}</p>
       </div>
 
-      <div className="-mx-4 mt-4 flex items-stretch gap-1 md:gap-2">
+      <div className="-mx-4 mt-4 flex min-w-0 w-full max-w-full items-stretch gap-1 md:mx-0 md:gap-2">
         <button
           type="button"
           onClick={() => scrollRow(sectionRef, "prev")}
@@ -2959,9 +2981,9 @@ function CategorySection({
         </button>
         <div
           ref={sectionRef}
-          className="min-w-0 flex-1 overflow-x-auto px-1 pb-2 scrollbar-hide"
+          className="min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide max-md:snap-x max-md:snap-proximity max-md:px-4 md:px-1"
         >
-          <div className="flex w-max flex-nowrap gap-3">
+          <div className="flex w-max flex-nowrap gap-2 md:gap-3">
             {visible.length === 0
               ? Array.from({ length: 3 }).map((_, i) => (
                   <ListingsComingSoonPlaceholderCard
@@ -3127,17 +3149,27 @@ export function NewlyListedCard({
     !!viewerUserId &&
     !!property.listed_by &&
     viewerUserId !== property.listed_by;
+  const browseCompact = !!compact;
+
   return (
     <div
       className={cn(
-        "flex min-h-[300px] flex-col overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-md md:min-h-[412px] lg:min-h-[448px]",
+        "flex flex-col overflow-hidden bg-white",
+        browseCompact
+          ? "min-h-0 max-md:snap-start max-md:rounded-xl max-md:border-0 max-md:shadow-[0_2px_12px_rgba(0,0,0,0.1)] md:min-h-[412px] md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md lg:min-h-[448px]"
+          : "min-h-[300px] rounded-2xl border border-[#2C2C2C]/10 shadow-md md:min-h-[412px] lg:min-h-[448px]",
         grid
-          ? gridCardClassName ?? "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]"
-          : cn(cardWidthClass ?? "w-[240px]", "shrink-0"),
+          ? gridCardClassName ?? HOMEPAGE_BROWSE_LISTING_CARD_WIDTH
+          : cn(cardWidthClass ?? HOMEPAGE_BROWSE_LISTING_CARD_WIDTH, "shrink-0"),
         listingRemoved && "pointer-events-none opacity-50",
       )}
     >
-      <div className="relative h-44 w-full shrink-0 overflow-hidden bg-[#F3F0EA] lg:h-52">
+      <div
+        className={cn(
+          "relative w-full shrink-0 overflow-hidden bg-[#F3F0EA]",
+          browseCompact ? "aspect-[20/19] md:aspect-auto md:h-44 lg:h-52" : "h-44 lg:h-52",
+        )}
+      >
         {img ? (
           <ListingCardPhoto
             src={img}
@@ -3180,7 +3212,10 @@ export function NewlyListedCard({
                 e.stopPropagation();
                 onRoomPrev();
               }}
-              className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30"
+              className={cn(
+                "absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30",
+                browseCompact && "max-md:hidden",
+              )}
               aria-label="Previous room photo"
             >
               <ChevronLeft className="h-5 w-5 text-[#2C2C2C]" />
@@ -3192,7 +3227,10 @@ export function NewlyListedCard({
                 e.stopPropagation();
                 onRoomNext();
               }}
-              className="absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30"
+              className={cn(
+                "absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30",
+                browseCompact && "max-md:hidden",
+              )}
               aria-label="Next room photo"
             >
               <ChevronRight className="h-5 w-5 text-[#2C2C2C]" />
@@ -3202,18 +3240,30 @@ export function NewlyListedCard({
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-16 bg-gradient-to-t from-black/25 to-transparent" />
 
-        <div className="absolute left-3 top-3 z-20 flex flex-wrap gap-1">
+        <div className="absolute left-2 top-2 z-20 flex flex-wrap gap-1 md:left-3 md:top-3">
           {isDualListing ? (
             <>
-              <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-medium text-gray-800 shadow-sm backdrop-blur-sm">
+              <span
+                className={cn(
+                  "rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] font-semibold text-[#222] shadow-sm md:bg-white/70 md:px-3 md:py-1 md:text-xs md:font-medium md:text-gray-800 md:backdrop-blur-sm",
+                )}
+              >
                 For Sale
               </span>
-              <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-medium text-gray-800 shadow-sm backdrop-blur-sm">
+              <span
+                className={cn(
+                  "rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] font-semibold text-[#222] shadow-sm md:bg-white/70 md:px-3 md:py-1 md:text-xs md:font-medium md:text-gray-800 md:backdrop-blur-sm",
+                )}
+              >
                 For Rent
               </span>
             </>
           ) : (
-            <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-medium text-gray-800 shadow-sm backdrop-blur-sm">
+            <span
+              className={cn(
+                "rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] font-semibold text-[#222] shadow-sm md:bg-white/70 md:px-3 md:py-1 md:text-xs md:font-medium md:text-gray-800 md:backdrop-blur-sm",
+              )}
+            >
               {statusLabel}
             </span>
           )}
@@ -3221,7 +3271,7 @@ export function NewlyListedCard({
 
         {showEngagementRow ? (
           <div
-            className="absolute right-3 top-3 z-20 flex items-center gap-1"
+            className="absolute right-2 top-2 z-20 flex items-center gap-1 md:right-3 md:top-3"
             title={agentEngagementLocked ? "Only clients can like and pin properties" : undefined}
           >
             <button
@@ -3232,26 +3282,27 @@ export function NewlyListedCard({
               }}
               disabled={agentEngagementLocked || listingRemoved}
               className={cn(
-                "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+                "inline-flex flex-row items-center gap-1 rounded-full p-1 shadow-sm transition hover:bg-[#FAF8F4] md:p-1.5",
                 property.is_presale
                   ? cn("border bg-white", isLiked ? "border-red-200" : "border-gray-200")
                   : isLiked
                     ? "border border-red-200 bg-white"
-                    : "border border-gray-200 bg-white/80",
+                    : "border border-gray-200 bg-white/90",
+                browseCompact && "max-md:border-0 max-md:bg-white/95 max-md:shadow-md",
                 (agentEngagementLocked || listingRemoved) && "pointer-events-none opacity-40",
               )}
               aria-label={`${engagement.likeCount(property.id)} likes`}
             >
               <Heart
                 className={cn(
-                  "h-3.5 w-3.5 shrink-0",
-                  isLiked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
+                  "h-4 w-4 shrink-0 md:h-3.5 md:w-3.5",
+                  isLiked ? "fill-red-500 text-red-500" : "fill-none text-[#222] md:text-red-400",
                 )}
               />
               {showEng || agentEngagementLocked || property.is_presale ? (
                 <span
                   className={cn(
-                    "text-xs font-medium tabular-nums",
+                    "text-xs font-medium tabular-nums max-md:hidden",
                     isLiked ? "text-red-500" : "text-red-400",
                   )}
                 >
@@ -3267,26 +3318,27 @@ export function NewlyListedCard({
               }}
               disabled={agentEngagementLocked || listingRemoved}
               className={cn(
-                "inline-flex flex-row items-center gap-1 rounded-full p-1.5 shadow-sm transition hover:bg-[#FAF8F4]",
+                "inline-flex flex-row items-center gap-1 rounded-full p-1 shadow-sm transition hover:bg-[#FAF8F4] md:p-1.5",
                 property.is_presale
                   ? cn("border bg-white", isPinned ? "border-[#D4A843]/40" : "border-gray-200")
                   : isPinned
                     ? "border border-[#D4A843]/40 bg-white"
-                    : "border border-gray-200 bg-white/80",
+                    : "border border-gray-200 bg-white/90",
+                browseCompact && "max-md:border-0 max-md:bg-white/95 max-md:shadow-md",
                 (agentEngagementLocked || listingRemoved) && "pointer-events-none opacity-40",
               )}
               aria-label={`${engagement.saveCount(property.id)} saved`}
             >
               <Pin
                 className={cn(
-                  "h-3.5 w-3.5 shrink-0",
-                  isPinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#D4A843]",
+                  "h-4 w-4 shrink-0 md:h-3.5 md:w-3.5",
+                  isPinned ? "fill-[#D4A843] text-[#D4A843]" : "fill-none text-[#222] md:text-[#D4A843]",
                 )}
               />
               {showEng || agentEngagementLocked || property.is_presale ? (
                 <span
                   className={cn(
-                    "text-xs font-medium tabular-nums",
+                    "text-xs font-medium tabular-nums max-md:hidden",
                     isPinned ? "text-[#D4A843]" : "text-[#D4A843]",
                   )}
                 >
@@ -3297,7 +3349,12 @@ export function NewlyListedCard({
           </div>
         ) : null}
 
-        <div className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-5rem)] flex-col items-start gap-1.5">
+        <div
+          className={cn(
+            "absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-5rem)] flex-col items-start gap-1.5",
+            browseCompact && "max-md:hidden",
+          )}
+        >
           <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-xs font-semibold text-[#2C2C2C] shadow-sm ring-1 ring-black/5">
             {listedLabel}
           </span>
@@ -3314,49 +3371,88 @@ export function NewlyListedCard({
       </div>
 
       <div
-        className={`flex flex-col gap-0 border-t border-[#2C2C2C]/10 bg-white ${compact ? "px-3 py-2" : "px-3 py-3 sm:px-4"}`}
+        className={cn(
+          "flex flex-col gap-0 bg-white",
+          browseCompact
+            ? "max-md:border-0 max-md:px-2.5 max-md:pb-2.5 max-md:pt-2 border-t border-[#2C2C2C]/10 px-3 py-2"
+            : "border-t border-[#2C2C2C]/10 px-3 py-3 sm:px-4",
+        )}
       >
-        <div className={`min-h-[28px] shrink-0 overflow-hidden ${isDualListing ? "" : "h-[28px]"}`}>
+        <div
+          className={cn(
+            "shrink-0 overflow-hidden",
+            isDualListing ? "min-h-[28px]" : browseCompact ? "max-md:min-h-0 md:h-[28px]" : "h-[28px]",
+          )}
+        >
           {isDualListing ? (
             <div className="space-y-0.5">
               <p
-                className={`truncate font-semibold tracking-tight text-[#D4A843] ${compact ? "text-sm" : "text-base sm:text-lg"}`}
+                className={cn(
+                  "truncate font-semibold tracking-tight text-[#D4A843]",
+                  browseCompact ? "text-[15px] md:text-sm" : "text-base sm:text-lg",
+                )}
               >
                 Sale {formatPropertyPriceDisplay(property.price, "for_sale")}
               </p>
               <p
-                className={`truncate font-semibold tracking-tight text-[#2C2C2C]/90 ${compact ? "text-xs" : "text-sm sm:text-base"}`}
+                className={cn(
+                  "truncate font-semibold tracking-tight text-[#2C2C2C]/90",
+                  browseCompact ? "text-xs md:text-xs" : "text-sm sm:text-base",
+                )}
               >
                 Rent {formatPropertyPriceDisplay(property.rent_price, "for_rent")}
               </p>
             </div>
           ) : (
             <p
-              className={`truncate font-semibold tracking-tight text-[#D4A843] ${compact ? "text-base" : "text-lg sm:text-xl"}`}
+              className={cn(
+                "truncate font-semibold tracking-tight text-[#D4A843]",
+                browseCompact ? "text-[15px] leading-tight md:text-base" : "text-lg sm:text-xl",
+              )}
             >
               {formatPropertyPriceDisplay(property.price, property.status)}
             </p>
           )}
         </div>
-        <div className="h-[48px] shrink-0 overflow-hidden">
+        <div className={cn("shrink-0 overflow-hidden", browseCompact ? "max-md:min-h-0 md:h-[48px]" : "h-[48px]")}>
           <p
-            className={`line-clamp-2 text-[#2C2C2C] ${compact ? "text-sm font-semibold" : "text-base font-semibold"}`}
+            className={cn(
+              "text-[#2C2C2C]",
+              browseCompact
+                ? "line-clamp-1 text-[13px] font-semibold leading-snug md:line-clamp-2 md:text-sm"
+                : "line-clamp-2 text-base font-semibold",
+            )}
           >
             {titleLine}
           </p>
         </div>
-        <div className="h-[24px] shrink-0 overflow-hidden">
-          <p className={`truncate text-[#6B6B6B] ${compact ? "text-[11px]" : "text-xs"}`}>
+        <div
+          className={cn(
+            "shrink-0 overflow-hidden",
+            browseCompact ? "max-md:hidden md:h-[24px]" : "h-[24px]",
+          )}
+        >
+          <p className={cn("truncate text-[#717171]", browseCompact ? "text-[11px] md:text-[11px]" : "text-xs")}>
             {property.beds ? `${property.beds} beds` : "Studio"} · {property.baths} baths · {property.sqft} sqft
           </p>
         </div>
-        <div className="h-[24px] shrink-0 overflow-hidden">
-          <p
-            className={`flex items-start gap-1 text-[#6B6B6B] ${compact ? "text-[11px]" : "text-xs"}`}
-          >
-            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8E8E8E]" aria-hidden />
-            <span className="min-w-0 flex-1 truncate leading-snug">{property.location}</span>
-          </p>
+        <div className={cn("shrink-0 overflow-hidden", browseCompact ? "max-md:min-h-0 md:h-[24px]" : "h-[24px]")}>
+          {browseCompact ? (
+            <>
+              <p className="truncate text-[13px] leading-snug text-[#717171] md:hidden">
+                {property.beds ? `${property.beds} beds` : "Studio"} · {property.baths} baths · {property.location}
+              </p>
+              <p className="hidden items-start gap-1 text-[11px] text-[#717171] md:flex">
+                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8E8E8E]" aria-hidden />
+                <span className="min-w-0 flex-1 truncate leading-snug">{property.location}</span>
+              </p>
+            </>
+          ) : (
+            <p className="flex items-start gap-1 text-xs text-[#6B6B6B]">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8E8E8E]" aria-hidden />
+              <span className="min-w-0 flex-1 truncate leading-snug">{property.location}</span>
+            </p>
+          )}
         </div>
       </div>
 
@@ -3690,7 +3786,7 @@ function PropertyRows({
   const titleWithSuffix = (t: string) => (rowTitleSuffix ? `${t}${rowTitleSuffix}` : t);
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 w-full max-w-full space-y-4 overflow-x-hidden md:space-y-6">
       {first.map((r, i) => (
         <div key={r.key}>
           <RowCarousel
@@ -3776,7 +3872,7 @@ function ListingsComingSoonPlaceholderCard({
       <Link
         href={href}
         className={cn(
-          "flex min-h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-3 py-8 text-center shadow-sm transition hover:bg-[#F4F1EA]",
+          "flex min-h-[220px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-3 py-6 text-center shadow-sm transition hover:bg-[#F4F1EA] max-md:min-h-[200px] md:min-h-[300px] md:rounded-2xl md:py-8",
           cardWidthClass,
         )}
       >
@@ -3982,7 +4078,7 @@ function RowCarousel({
   if (list.length === 0) return null;
   const fillerCount = list.length > 0 && list.length < 5 ? 5 - list.length : 0;
   const featuredClasses = featured ? "rounded-2xl border border-[#D4A843]/30 bg-[#D4A843]/5 px-3 pt-3" : "";
-  const cardWidthClass = "w-[220px] shrink-0 sm:w-[232px] lg:w-[240px]";
+  const cardWidthClass = HOMEPAGE_BROWSE_LISTING_CARD_WIDTH;
   const reserveBrowseSectionMinH = title.startsWith("Newly Listed");
   const isFeaturedPicksRow = title.startsWith("Featured");
 
@@ -3992,11 +4088,11 @@ function RowCarousel({
         rowRefs.current[rowKey] = el;
       }}
       className={cn(
-        "min-w-0 overflow-x-auto px-1 pb-2 scrollbar-hide",
+        "min-w-0 overflow-x-auto pb-2 scrollbar-hide max-md:snap-x max-md:snap-proximity max-md:px-4 md:px-1",
         isFeaturedPicksRow ? "md:px-10" : "flex-1",
       )}
     >
-      <div className="flex w-max flex-nowrap gap-3">
+      <div className="flex w-max flex-nowrap gap-2 md:gap-3">
         {list.map((p, idx) => (
           <NewlyListedCard
             key={`${rowKey}-${p.id}`}
@@ -4050,7 +4146,7 @@ function RowCarousel({
           {titleHref ? (
             <Link
               href={titleHref}
-              className="min-w-0 font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] hover:underline sm:text-3xl"
+              className="min-w-0 font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] hover:underline max-md:font-sans max-md:text-lg max-md:font-bold max-md:tracking-normal sm:text-3xl md:font-serif md:text-2xl md:font-semibold"
             >
               {title}
             </Link>
@@ -4084,7 +4180,7 @@ function RowCarousel({
           {scrollTrack}
         </div>
       ) : (
-        <div className="-mx-4 flex items-stretch gap-1 md:gap-2">
+        <div className="-mx-4 flex min-w-0 w-full max-w-full items-stretch gap-1 md:mx-0 md:gap-2">
           <button
             type="button"
             onClick={() => scroll("prev")}

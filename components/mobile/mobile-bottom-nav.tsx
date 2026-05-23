@@ -198,13 +198,23 @@ function NavTab({
     <Link
       href={href}
       className={cn(
-        "relative flex min-h-[44px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 pt-1",
+        "relative flex min-h-[44px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 pt-1.5",
         active ? "text-[#6B9E6E]" : "text-[#888888]",
       )}
       aria-current={active ? "page" : undefined}
     >
+      {active ? (
+        <span
+          className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full bg-[#6B9E6E]"
+          aria-hidden
+        />
+      ) : null}
       <span className="relative flex h-6 w-6 items-center justify-center">
-        <Icon className="h-6 w-6 shrink-0" strokeWidth={active ? 2.25 : 2} aria-hidden />
+        <Icon
+          className={cn("h-6 w-6 shrink-0", active ? "text-[#6B9E6E]" : "text-[#888888]")}
+          strokeWidth={active ? 2.25 : 2}
+          aria-hidden
+        />
         {showBadge ? (
           <span className="pointer-events-none absolute -right-1.5 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white">
             {formatBadge(badgeCount!)}
@@ -214,17 +224,11 @@ function NavTab({
       <span
         className={cn(
           "max-w-[4.5rem] truncate text-center text-[10px] uppercase tracking-wide",
-          active ? "font-bold" : "font-semibold",
+          active ? "font-semibold text-[#6B9E6E]" : "font-semibold text-[#888888]",
         )}
       >
         {label}
       </span>
-      {active ? (
-        <span
-          className="absolute bottom-0 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-[#6B9E6E]"
-          aria-hidden
-        />
-      ) : null}
     </Link>
   );
 }
@@ -249,6 +253,7 @@ export function MobileBottomNav() {
   }
 
   return (
+    // TODO: Stray "N" circle on Explore tab in dev is likely the Next.js dev indicator overlay, not this nav.
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#DDDDDD] bg-white pt-2 shadow-[0_-2px_8px_rgba(0,0,0,0.04)] md:hidden pb-[max(0.5rem,env(safe-area-inset-bottom))]"
       aria-label="Main navigation"

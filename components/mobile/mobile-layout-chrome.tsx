@@ -9,7 +9,14 @@ import { cn } from "@/lib/utils";
 export function MobileLayoutChrome({ children }: { children: ReactNode }) {
   return (
     <>
-      <div className={cn("flex min-h-0 flex-1 flex-col", "pb-[80px] md:pb-0")}>{children}</div>
+      <div
+        className={cn(
+          "flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden",
+          "pb-[80px] md:pb-0",
+        )}
+      >
+        {children}
+      </div>
       <Suspense fallback={null}>
         <MobileBottomNav />
       </Suspense>

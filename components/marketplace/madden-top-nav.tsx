@@ -509,8 +509,8 @@ export function MaddenTopNav() {
 
   return (
     <Fragment>
-    <header className="sticky top-0 z-50 w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4]/95 backdrop-blur-sm">
-      <div className="mx-auto grid w-full max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 py-4 md:gap-3">
+    <header className="sticky top-0 z-40 w-full border-b border-black/[0.06] bg-white/95 shadow-sm backdrop-blur-sm md:z-50 md:border-[#2C2C2C]/10 md:bg-[#FAF8F4]/95 md:shadow-none">
+      <div className="mx-auto grid w-full min-w-0 max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 py-4 md:gap-3">
         <div className="flex items-center gap-2 justify-self-start">
           <Link
             href="/"
