@@ -65,7 +65,7 @@ const PropertyZoomModal = dynamic(
 );
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
-import { listingListedLabel } from "@/lib/listing-listed-time";
+import { listingListedCompactLabel } from "@/lib/listing-listed-time";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { cn } from "@/lib/utils";
@@ -3112,7 +3112,7 @@ export function NewlyListedCard({
   /** Small set of above-the-fold cards: `next/image` priority + eager fetch. */
   listingImagePriority?: boolean;
 }) {
-  const listedLabel = listingListedLabel(property.created_at);
+  const listedLabel = listingListedCompactLabel(property.created_at);
   const listingRemoved = propertyEngagementLooksUnavailable(property);
   const overlayMeta = availabilityCardOverlayClasses(property.availability_state);
   const overlayLabel = availabilityCardOverlayLabel(property.availability_state, property.deleted_at);
@@ -3152,6 +3152,13 @@ export function NewlyListedCard({
     !!property.listed_by &&
     viewerUserId !== property.listed_by;
   const browseCompact = !!compact;
+
+  const browseCardStatusPillClass =
+    "inline-flex w-fit shrink-0 items-center rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-xs font-medium text-[#2C2C2C] shadow-sm";
+  const browseCardListedPillClass =
+    "inline-flex w-fit shrink-0 items-center rounded-full bg-white/90 px-1.5 py-px text-[10px] font-medium leading-tight text-[#2C2C2C] shadow-sm ring-1 ring-black/5 md:px-2 md:py-0.5 md:text-[10px]";
+  const browseCardYourListingPillClass =
+    "inline-flex w-fit shrink-0 items-center rounded-full bg-[#D4A843] px-1.5 py-px text-[10px] font-medium leading-tight text-white shadow-sm ring-1 ring-[#8a6d32]/30 transition hover:bg-[#c49a38] md:px-2 md:py-0.5 md:text-[10px]";
 
   return (
     <div
@@ -3218,7 +3225,6 @@ export function NewlyListedCard({
               }}
               className={cn(
                 "absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30",
-                browseCompact && "max-md:hidden",
               )}
               aria-label="Previous room photo"
             >
@@ -3233,7 +3239,6 @@ export function NewlyListedCard({
               }}
               className={cn(
                 "absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30",
-                browseCompact && "max-md:hidden",
               )}
               aria-label="Next room photo"
             >
@@ -3247,30 +3252,25 @@ export function NewlyListedCard({
         <div className="absolute left-2 top-2 z-20 flex flex-wrap gap-1 md:left-3 md:top-3">
           {isDualListing ? (
             <>
-              <span
-                className={cn(
-                  "rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] font-semibold text-[#222] shadow-sm md:bg-white/70 md:px-3 md:py-1 md:text-xs md:font-medium md:text-gray-800 md:backdrop-blur-sm",
-                )}
-              >
-                For Sale
-              </span>
-              <span
-                className={cn(
-                  "rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] font-semibold text-[#222] shadow-sm md:bg-white/70 md:px-3 md:py-1 md:text-xs md:font-medium md:text-gray-800 md:backdrop-blur-sm",
-                )}
-              >
-                For Rent
-              </span>
+              <span className={browseCardStatusPillClass}>For Sale</span>
+              <span className={browseCardStatusPillClass}>For Rent</span>
             </>
           ) : (
-            <span
-              className={cn(
-                "rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] font-semibold text-[#222] shadow-sm md:bg-white/70 md:px-3 md:py-1 md:text-xs md:font-medium md:text-gray-800 md:backdrop-blur-sm",
-              )}
-            >
-              {statusLabel}
-            </span>
+            <span className={browseCardStatusPillClass}>{statusLabel}</span>
           )}
+        </div>
+
+        <div className="absolute bottom-2 left-2 z-20 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1 md:bottom-3 md:left-3 md:max-w-[calc(100%-5rem)]">
+          <span className={browseCardListedPillClass}>{listedLabel}</span>
+          {showYourListingBadge ? (
+            <Link
+              href="/dashboard/agent"
+              className={cn(browseCardYourListingPillClass, "pointer-events-auto")}
+              onClick={(e) => e.stopPropagation()}
+            >
+              Your listing
+            </Link>
+          ) : null}
         </div>
 
         {showEngagementRow ? (
@@ -3353,25 +3353,6 @@ export function NewlyListedCard({
           </div>
         ) : null}
 
-        <div className="absolute bottom-2 left-2 z-20 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1 md:bottom-3 md:left-3 md:max-w-[calc(100%-5rem)]">
-          <span
-            className={cn(
-              "rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-semibold text-[#2C2C2C] shadow-sm ring-1 ring-black/5 md:px-2.5 md:text-xs",
-              browseCompact && "max-md:backdrop-blur-sm",
-            )}
-          >
-            {listedLabel}
-          </span>
-          {showYourListingBadge ? (
-            <Link
-              href="/dashboard/agent"
-              className="pointer-events-auto rounded-full bg-[#D4A843]/95 px-2 py-0.5 text-xs font-semibold text-[#2C2C2C] shadow-sm ring-1 ring-[#8a6d32]/30 hover:bg-[#D4A843]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              This is your listing
-            </Link>
-          ) : null}
-        </div>
       </div>
 
       <div
