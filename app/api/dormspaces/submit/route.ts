@@ -214,23 +214,28 @@ export async function POST(req: Request) {
     }
   } else if (!landlordUserId && session?.userId) {
     landlordUserId = session.userId;
-    const sessionEmail = session.email?.trim().toLowerCase();
-    if (sessionEmail && sessionEmail === emailLower && canSetLandlordFlagOnSubmit(session.role)) {
+    if (canSetLandlordFlagOnSubmit(session.role)) {
       await admin.from("profiles").update({ is_landlord: true }).eq("id", session.userId);
     }
   }
 
-  let verificationStatus = normalizeLandlordVerificationStatus("unverified");
-  if (landlordUserId) {
-    const { data: landlordProfile } = await admin
-      .from("profiles")
-      .select("landlord_verification_status")
-      .eq("id", landlordUserId)
-      .maybeSingle();
-    verificationStatus = normalizeLandlordVerificationStatus(
-      landlordProfile?.landlord_verification_status as string | null | undefined,
+  if (!landlordUserId) {
+    return fail(
+      "ACCOUNT_REQUIRED",
+      "Create or sign in to a landlord account before submitting a dormspace listing.",
+      401,
     );
   }
+
+  let verificationStatus = normalizeLandlordVerificationStatus("unverified");
+  const { data: landlordProfile } = await admin
+    .from("profiles")
+    .select("landlord_verification_status")
+    .eq("id", landlordUserId)
+    .maybeSingle();
+  verificationStatus = normalizeLandlordVerificationStatus(
+    landlordProfile?.landlord_verification_status as string | null | undefined,
+  );
 
   const requiresVerificationUpload = needsLandlordVerificationUpload(verificationStatus);
 
@@ -247,7 +252,7 @@ export async function POST(req: Request) {
   const nowIso = new Date().toISOString();
 
   const roomTypeParsed = room_type as (typeof roomTypes)[number];
-  let total_beds =
+  const total_beds =
     total_beds_raw != null && total_beds_raw >= 1
       ? Math.min(50, Math.round(total_beds_raw))
       : defaultTotalBedsFromRoomType(roomTypeParsed);

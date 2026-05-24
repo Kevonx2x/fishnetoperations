@@ -87,6 +87,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     const { error } = await admin
       .from("profiles")
       .update({
+        is_landlord: true,
         landlord_verification_status: "approved",
         landlord_verification_approved_at: nowIso,
         landlord_verification_approved_by: session.userId,
