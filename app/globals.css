@@ -63,10 +63,20 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
+  /* Softer BahayGo mobile feed — warm charcoal, not pure black */
+  --background: #1a1c1a;
+  --foreground: #f2f0eb;
+  --card: #242824;
+  --card-foreground: #f2f0eb;
+  --surface-page: #1a1c1a;
+  --surface-panel: #242824;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --text-default: #f2f0eb;
+  --text-muted: #b8b6b0;
+  --text-secondary: #d4d2cc;
+  --text-tertiary: #9a9892;
+  --cream: #1a1c1a;
+  --cream-dark: #242824;
   --popover: oklch(0.145 0 0);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.985 0 0);

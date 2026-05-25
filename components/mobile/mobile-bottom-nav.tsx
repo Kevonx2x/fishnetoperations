@@ -10,12 +10,18 @@ import {
   Heart,
   Home,
   Inbox,
+  MessageSquare,
   Search,
   User,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { isLandlordCapable } from "@/lib/auth-roles";
+import {
+  BAHAYGO_HERO_SEARCH_ID,
+  resolveMarketplaceBottomNavTabs,
+} from "@/lib/bahaygo-mobile/navigation";
+import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { cn } from "@/lib/utils";
 
 export type MobileBottomNavTabConfig = {
@@ -35,11 +41,12 @@ function isMobileBottomNavHidden(pathname: string): boolean {
   return false;
 }
 
-/** Public marketplace (/, /properties/*, /saved, etc.) — same for all roles. */
+/** Public marketplace — Home → Search → Saved → Messages → Profile. */
 const MARKETPLACE_TABS: MobileBottomNavTabConfig[] = [
-  { id: "explore", label: "Explore", href: "/", Icon: Home },
+  { id: "home", label: "Home", href: "/", Icon: Home },
+  { id: "search", label: "Search", href: `/#${BAHAYGO_HERO_SEARCH_ID}`, Icon: Search },
   { id: "saved", label: "Saved", href: "/saved", Icon: Heart },
-  { id: "dormspaces", label: "Dormspaces", href: "/dormspaces", Icon: Bed },
+  { id: "messages", label: "Messages", href: "/dashboard/client/messages", Icon: MessageSquare },
   { id: "profile", label: "Profile", href: "/profile", Icon: User },
 ];
 
@@ -80,11 +87,24 @@ function isTabActive(
   const { path, tab: hrefTab } = parseHref(tab.href);
 
   if (path === "/") {
+    if (tab.id === "home") return pathname === "/";
+    if (tab.id === "search") return pathname === "/";
     return pathname === "/";
   }
 
-  if (path === "/saved") {
-    return pathname === "/saved" || pathname.startsWith("/saved/");
+  if (tab.id === "search" && path.startsWith("/#")) {
+    return pathname === "/";
+  }
+
+  if (path === "/saved" || tab.id === "saved") {
+    return pathname === "/saved" || pathname.startsWith("/saved/") || pathname === "/likes";
+  }
+
+  if (tab.id === "messages") {
+    return (
+      pathname.startsWith("/dashboard/client/messages") ||
+      (pathname.startsWith("/dashboard/agent") && searchTab === "messages")
+    );
   }
 
   if (path === "/dormspaces" && tab.id === "dormspaces") {
@@ -136,6 +156,7 @@ function resolveTabs(
   pathname: string | null | undefined,
   isSignedIn: boolean,
   isLandlordCapableUser: boolean,
+  profileRole: string | null | undefined,
 ): MobileBottomNavTabConfig[] {
   const path = pathname?.trim() || "/";
 
@@ -167,16 +188,12 @@ function resolveTabs(
     ];
   }
 
-  return MARKETPLACE_TABS.map((t) => {
-    if (t.id === "profile") {
-      return {
-        ...t,
-        label: isSignedIn ? "Profile" : "Sign In",
-        href: isSignedIn ? "/profile" : "/auth/login?next=/profile",
-      };
-    }
-    return t;
-  });
+  return resolveMarketplaceBottomNavTabs(profileRole, isSignedIn).map((t) => ({
+    id: t.id,
+    label: t.label,
+    href: t.href,
+    Icon: t.Icon,
+  }));
 }
 
 function formatBadge(count: number): string {
@@ -238,15 +255,25 @@ export function MobileBottomNav() {
   const searchParams = useSearchParams();
   const searchTab = searchParams.get("tab");
   const { user, profile } = useAuth();
+  const messagesUnread = useUnreadMessageCount();
 
   const path = pathname ?? "/";
   const hidden = isMobileBottomNavHidden(path);
   const isLandlordCapableUser = isLandlordCapable(profile);
 
-  const tabs = useMemo(
-    () => resolveTabs(pathname ?? "/", Boolean(user), isLandlordCapableUser),
-    [pathname, user, isLandlordCapableUser],
-  );
+  const tabs = useMemo(() => {
+    const base = resolveTabs(
+      pathname ?? "/",
+      Boolean(user),
+      isLandlordCapableUser,
+      profile?.role,
+    );
+    return base.map((t) =>
+      t.id === "messages" && messagesUnread > 0
+        ? { ...t, badgeCount: messagesUnread }
+        : t,
+    );
+  }, [pathname, user, isLandlordCapableUser, profile?.role, messagesUnread]);
 
   if (hidden) {
     return null;

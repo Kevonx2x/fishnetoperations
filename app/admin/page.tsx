@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronDown, Eye, EyeOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { ArticlesManagementSection } from "@/components/admin/articles-management-section";
+import { CeoDashboardSection } from "@/components/admin/ceo-dashboard-section";
 import { DormspaceAdminSection } from "@/components/admin/dormspace-admin-section";
 import { TeamManagementSection } from "@/components/admin/team-management-section";
 import { useAuth } from "@/contexts/auth-context";
@@ -505,6 +506,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
   const [adminSection, setAdminSection] = useState<
+    | "ceo"
     | "leads"
     | "properties"
     | "verification"
@@ -766,6 +768,7 @@ export default function AdminPage() {
 
   const canSeeCredentials = adminNavKind === "full" && isFullAdminRole(profile?.role);
   const canSeeManual = adminNavKind === "full" && isFullAdminRole(profile?.role);
+  const canSeeCeoTab = isFullAdminRole(profile?.role);
 
   const isAdminSectionVisible = useCallback(
     (section: typeof adminSection): boolean => {
@@ -797,6 +800,12 @@ export default function AdminPage() {
       setAdminSection("leads");
     }
   }, [isOpsAdminUser, adminSection]);
+
+  useEffect(() => {
+    if (!canSeeCeoTab && adminSection === "ceo") {
+      setAdminSection("leads");
+    }
+  }, [canSeeCeoTab, adminSection]);
 
   const [teamMembersRows, setTeamMembersRows] = useState<TeamMemberRow[]>([]);
   const [teamMembersLoading, setTeamMembersLoading] = useState(false);
@@ -2409,6 +2418,19 @@ export default function AdminPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {canSeeCeoTab ? (
+          <button
+            type="button"
+            onClick={() => setAdminSection("ceo")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+              adminSection === "ceo"
+                ? "bg-[#6B9E6E] text-white shadow-sm ring-1 ring-[#D4A843]/35"
+                : "border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40"
+            }`}
+          >
+            CEO
+          </button>
+          ) : null}
           {isAdminSectionVisible("leads") ? (
           <button
             type="button"
@@ -2636,6 +2658,19 @@ export default function AdminPage() {
             <p className="mt-1 text-xs text-white/40">Lead &amp; property</p>
           </div>
           <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
+            {canSeeCeoTab ? (
+            <button
+              type="button"
+              onClick={() => setAdminSection("ceo")}
+              className={`flex w-full items-center justify-between rounded-r-lg border-l-[3px] px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                adminSection === "ceo"
+                  ? "border-[#6B9E6E] bg-[#6B9E6E]/25 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              CEO
+            </button>
+            ) : null}
             {isAdminSectionVisible("leads") ? (
             <button
               type="button"
@@ -4566,6 +4601,8 @@ export default function AdminPage() {
             ) : null}
           </div>
         ) : null}
+
+        {adminSection === "ceo" && canSeeCeoTab ? <CeoDashboardSection /> : null}
 
         {adminSection === "articles" && isAdminPanelRole(profile?.role) ? (
           <ArticlesManagementSection />

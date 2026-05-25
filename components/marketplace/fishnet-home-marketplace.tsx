@@ -2118,7 +2118,10 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       <p className="mt-3 text-center text-sm font-normal text-[#2C2C2C] md:hidden">
         Find verified homes in Metro Manila
       </p>
-      <div className="mt-3 w-full rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm md:mt-4">
+      <div
+        id="bahaygo-hero-search"
+        className="mt-3 w-full scroll-mt-20 rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm md:mt-4"
+      >
         <div className="relative z-20 flex w-full flex-col gap-3 sm:flex-row sm:items-center">
           <PhLocationInput
             value={search}
