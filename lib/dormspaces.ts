@@ -287,3 +287,7 @@ export function activeDormspaceAmenities(row: DormspaceRow): { key: DormspaceAme
 /** Hero image — generic modern dorm/bedspace interior (Unsplash, no people). */
 export const DORMSPACE_HERO_IMAGE =
   "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1920&q=80";
+
+/** Community banner — students socializing (Unsplash). */
+export const DORMSPACE_COMMUNITY_BANNER_IMAGE =
+  "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1600&q=80";

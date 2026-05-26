@@ -17,7 +17,6 @@ import { DormspaceCategoryChips } from "@/components/dormspaces/dormspace-catego
 import { DormspaceCommunityCta } from "@/components/dormspaces/dormspace-community-cta";
 import { DormspacePopularAreasSection } from "@/components/dormspaces/dormspace-popular-areas-section";
 import { DormspaceRecommendedSection } from "@/components/dormspaces/dormspace-recommended-section";
-import { DormspaceTestimonialsSection } from "@/components/dormspaces/dormspace-testimonials-section";
 import { DormspaceWhyStudentsSection } from "@/components/dormspaces/dormspace-why-students";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import {
@@ -265,8 +264,6 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
       <DormspaceWhyStudentsSection />
 
       <DormspaceCommunityCta />
-
-      <DormspaceTestimonialsSection />
 
       <DormspaceBrowse
         listings={listings}
