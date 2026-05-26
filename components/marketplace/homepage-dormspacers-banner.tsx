@@ -35,7 +35,7 @@ export function HomepageDormspacersBanner() {
         imageSrc={DORMSPACE_COMMUNITY_BANNER_IMAGE}
         pills={[
           { label: "Explore dormspaces", href: "/dormspaces", variant: "primary" },
-          { label: "Sign up", href: "/auth/register?next=/dormspaces", variant: "outline" },
+          { label: "Sign up", href: "/dormspaces/welcome", variant: "outline" },
         ]}
       />
     </div>

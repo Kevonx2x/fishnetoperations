@@ -3,9 +3,7 @@
 import { BadgeCheck, Building2, ShieldCheck } from "lucide-react";
 
 import { ProductCrossBanner } from "@/components/marketplace/product-cross-banner";
-
-const BAHAYGO_BANNER_IMAGE =
-  "https://images.unsplash.com/photo-1600585154526-990c837543f3?auto=format&fit=crop&w=1600&q=80";
+import { BAHAYGO_MARKETPLACE_BANNER_IMAGE } from "@/lib/dormspaces";
 
 const FEATURES = [
   { icon: ShieldCheck, line1: "Verified", line2: "Agents" },
@@ -30,7 +28,7 @@ export function DormspaceCommunityCta() {
         }
         subline="Verified agents. Real listings. Across the Philippines."
         features={FEATURES}
-        imageSrc={BAHAYGO_BANNER_IMAGE}
+        imageSrc={BAHAYGO_MARKETPLACE_BANNER_IMAGE}
         bgClassName="bg-[#2C2C2C]"
         gradientFrom="#2C2C2C"
         pills={[
