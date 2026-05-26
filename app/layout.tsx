@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display, Geist_Mono } from "next/font/google";
+import { ConditionalMarketingFooter } from "@/components/conditional-marketing-footer";
 import { Providers } from "@/components/providers";
 import { RootLayoutChrome } from "@/components/root-layout-chrome";
 import "./globals.css";
@@ -129,9 +130,9 @@ export default function RootLayout({
         <Providers>
           <RootLayoutChrome
             footer={
-              <div className="hidden min-h-[300px] md:block">
+              <ConditionalMarketingFooter>
                 <SiteFooter />
-              </div>
+              </ConditionalMarketingFooter>
             }
           >
             {children}

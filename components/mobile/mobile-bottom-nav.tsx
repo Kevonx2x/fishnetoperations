@@ -18,8 +18,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { isLandlordCapable } from "@/lib/auth-roles";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
+import { isPublicDormspaceMarketplacePath } from "@/lib/dormspace-portal-chrome";
 import { cn } from "@/lib/utils";
 
 export type MobileBottomNavTabConfig = {
@@ -73,23 +73,22 @@ function parseHref(href: string): { path: string; tab: string | null } {
   return { path, tab };
 }
 
-function isDormspacesBrowsePath(pathname: string): boolean {
-  if (pathname === "/dormspaces") return true;
-  if (!pathname.startsWith("/dormspaces/")) return false;
-  if (pathname.startsWith("/dormspaces/dashboard")) return false;
-  if (pathname.startsWith("/dormspaces/welcome")) return false;
-  if (pathname.startsWith("/dormspaces/submit")) return false;
-  return true;
+function resolveMarketplaceTabs(pathname: string): MobileBottomNavTabConfig[] {
+  const homeHref = isPublicDormspaceMarketplacePath(pathname) ? "/dormspaces" : "/";
+  return MARKETPLACE_TABS.map((tab) =>
+    tab.id === "home" ? { ...tab, href: homeHref } : tab,
+  );
 }
 
 function isMarketplaceTabActive(tabId: string, pathname: string): boolean {
+  const dormspacesBrowse = isPublicDormspaceMarketplacePath(pathname);
+
   if (tabId === "more") {
     return (
       pathname.startsWith("/more") ||
       pathname.startsWith("/settings") ||
       pathname.startsWith("/profile") ||
-      pathname.startsWith("/dashboard/client") ||
-      pathname.startsWith("/dormspaces")
+      pathname.startsWith("/dashboard/client")
     );
   }
 
@@ -112,7 +111,7 @@ function isMarketplaceTabActive(tabId: string, pathname: string): boolean {
     if (pathname.startsWith("/more")) return false;
     if (pathname.startsWith("/settings") || pathname.startsWith("/profile")) return false;
     if (pathname.startsWith("/dashboard")) return false;
-    if (pathname.startsWith("/dormspaces")) return false;
+    if (dormspacesBrowse) return true;
     if (pathname === "/") return true;
     if (pathname.startsWith("/properties")) return true;
     if (pathname.startsWith("/agents")) return true;
@@ -163,19 +162,10 @@ function isTabActive(
     return effectiveTab === hrefTab;
   }
 
-  if (path === "/dormspaces" && tab.id === "browse") {
-    return isDormspacesBrowsePath(pathname);
-  }
-
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
-function resolveTabs(
-  pathname: string | null | undefined,
-  isSignedIn: boolean,
-  isLandlordCapableUser: boolean,
-  profileRole: string | null | undefined,
-): MobileBottomNavTabConfig[] {
+function resolveTabs(pathname: string | null | undefined): MobileBottomNavTabConfig[] {
   const path = pathname?.trim() || "/";
 
   if (path.startsWith("/dashboard/agent") || path.startsWith("/dashboard/broker")) {
@@ -186,27 +176,7 @@ function resolveTabs(
     return LANDLORD_TABS;
   }
 
-  if (path.startsWith("/dormspaces")) {
-    return [
-      { id: "browse", label: "Browse", href: "/dormspaces", Icon: Search },
-      isLandlordCapableUser
-        ? {
-            id: "listings",
-            label: "My Listings",
-            href: "/dormspaces/dashboard?tab=listings",
-            Icon: Bed,
-          }
-        : { id: "saved", label: "Saved", href: "/saved", Icon: Heart },
-      {
-        id: "profile",
-        label: isSignedIn ? "Profile" : "Sign In",
-        href: isSignedIn ? "/profile" : "/auth/login?next=/profile",
-        Icon: User,
-      },
-    ];
-  }
-
-  return MARKETPLACE_TABS;
+  return resolveMarketplaceTabs(path);
 }
 
 function formatBadge(count: number): string {
@@ -269,21 +239,14 @@ export function MobileBottomNav() {
 
   const path = pathname ?? "/";
   const hidden = isMobileBottomNavHidden(path);
-  const isLandlordCapableUser = isLandlordCapable(profile);
-
   const tabs = useMemo(() => {
-    const base = resolveTabs(
-      pathname ?? "/",
-      Boolean(user),
-      isLandlordCapableUser,
-      profile?.role,
-    );
+    const base = resolveTabs(pathname ?? "/");
     return base.map((t) =>
       t.id === "inbox" && messagesUnread > 0
         ? { ...t, badgeCount: messagesUnread }
         : t,
     );
-  }, [pathname, user, isLandlordCapableUser, profile?.role, messagesUnread]);
+  }, [pathname, messagesUnread]);
 
   if (hidden) {
     return null;

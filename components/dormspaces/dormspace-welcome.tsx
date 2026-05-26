@@ -11,8 +11,8 @@ import { toast } from "sonner";
 import { DormspaceAddListingSplitButton } from "@/components/dormspaces/dormspace-add-listing-split-button";
 import {
   ClientSignedInCard,
-  EmailFirstAuthCard,
   StaffRoleNoticeCard,
+  WelcomeTopAuthBar,
 } from "@/components/dormspaces/dormspace-welcome-auth";
 import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
@@ -252,11 +252,65 @@ export function DormspaceWelcome() {
     }
   };
 
+  const isSignedIn = Boolean(user);
+  const showThinAuthBar = authLoading || !isSignedIn || (isSignedIn && !isLandlordSignedIn);
+
+  const hasAccountPanel =
+    authLoading || isLandlordSignedIn || isStaffSignedIn || isClientSignedIn;
+
+  const accountPanel = (
+    <>
+      {authLoading ? (
+        <div className="rounded-2xl border border-[#DDDDDD] bg-white p-8 shadow-[0_4px_24px_rgba(44,44,44,0.06)]">
+          <p className="text-center text-sm font-medium text-[#484848]">Loading…</p>
+        </div>
+      ) : isLandlordSignedIn ? (
+        <LandlordWelcomeCard
+          firstName={landlordFirstName(profile?.full_name, user?.email)}
+          listings={listings}
+          listingsResolved={listingsResolved}
+          verificationStatus={normalizeLandlordVerificationStatus(
+            profile?.landlord_verification_status,
+          )}
+          rejectionReason={profile?.landlord_verification_rejection_reason}
+          onUpdateVacancy={(listing) => {
+            setVacancyListing(listing);
+            setVacancyModalOpen(true);
+          }}
+        />
+      ) : isStaffSignedIn && profile ? (
+        <StaffRoleNoticeCard
+          role={profile.role}
+          onSignOut={() => void handleStaffSignOut()}
+          signingOut={signingOut}
+        />
+      ) : isClientSignedIn ? (
+        <>
+          <p className="rounded-xl border border-[#6B9E6E]/25 bg-[#6B9E6E]/8 px-4 py-3 text-sm font-medium text-[#484848]">
+            You&apos;re signed in as a client. Creating a listing here will let you list your own space
+            when you&apos;re ready — your client account stays intact.
+          </p>
+          <ClientSignedInCard />
+        </>
+      ) : null}
+    </>
+  );
+
   return (
     <DormspacePortalShell minimalNav>
-      <main className="mx-auto grid w-full max-w-6xl flex-1 gap-10 px-4 py-8 sm:px-6 lg:grid-cols-2 lg:items-start lg:gap-12 lg:py-10 xl:gap-16">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-28 lg:px-6 lg:py-10 lg:pb-10">
+        {showThinAuthBar ? (
+          <WelcomeTopAuthBar
+            loading={authLoading}
+            signedIn={isSignedIn}
+            profile={profile}
+            email={user?.email}
+          />
+        ) : null}
+
+        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-12 xl:gap-16">
         <motion.div
-          className="flex flex-col"
+          className="order-2 flex flex-col lg:order-1"
           initial="hidden"
           animate="show"
           variants={{ show: { transition: { staggerChildren: 0.06 } } }}
@@ -264,7 +318,7 @@ export function DormspaceWelcome() {
           <motion.h1
             custom={0}
             variants={fadeUp}
-            className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C] md:text-4xl lg:text-[2.35rem]"
+            className="font-serif text-[28px] font-bold tracking-tight text-[#2C2C2C] md:text-[40px]"
           >
             Welcome to Dormspacer
           </motion.h1>
@@ -272,7 +326,7 @@ export function DormspaceWelcome() {
           <motion.p
             custom={1}
             variants={fadeUp}
-            className="mt-4 max-w-lg text-base font-medium leading-relaxed text-[#484848]"
+            className="mt-3 max-w-lg text-sm font-medium leading-relaxed text-[#484848] md:mt-4 md:text-base"
           >
             Free to list. Verified landlords only. Reach students, BPO workers, and young professionals
             across Metro Manila.
@@ -281,7 +335,7 @@ export function DormspaceWelcome() {
           <motion.div
             custom={2}
             variants={fadeUp}
-            className="mt-8 grid grid-cols-3 gap-2 sm:gap-3"
+            className="mt-6 flex gap-1.5 md:mt-8 md:grid md:grid-cols-3 md:gap-3"
           >
             {[
               { value: "17+", label: "Metro areas" },
@@ -290,18 +344,18 @@ export function DormspaceWelcome() {
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="rounded-xl border border-[#6B9E6E]/20 bg-white/80 px-3 py-3 text-center shadow-sm"
+                className="min-w-0 flex-1 rounded-lg border border-[#6B9E6E]/20 bg-white/80 px-2 py-2 text-center shadow-sm md:rounded-xl md:px-3 md:py-3"
               >
-                <p className="font-serif text-lg font-bold text-[#6B9E6E] md:text-xl">{stat.value}</p>
-                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#525252] sm:text-[11px]">
+                <p className="font-serif text-sm font-bold text-[#6B9E6E] md:text-xl">{stat.value}</p>
+                <p className="mt-0.5 text-[9px] font-semibold uppercase leading-tight tracking-wide text-[#525252] md:text-[11px]">
                   {stat.label}
                 </p>
               </div>
             ))}
           </motion.div>
 
-          <motion.div custom={3} variants={fadeUp} className="relative mt-8">
-            <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/8 shadow-[0_8px_30px_rgba(44,44,44,0.08)]">
+          <motion.div custom={3} variants={fadeUp} className="relative mt-6">
+            <div className="overflow-hidden rounded-xl border border-[#2C2C2C]/8 shadow-[0_8px_30px_rgba(44,44,44,0.08)] md:rounded-2xl">
               <div className="relative aspect-[16/10] w-full">
                 <Image
                   src={DORMSPACE_HERO_IMAGE}
@@ -324,7 +378,7 @@ export function DormspaceWelcome() {
               </div>
             </div>
 
-            <div className="mt-4 space-y-2.5">
+            <div className="mt-4 space-y-2">
               {PREVIEW_LISTINGS.map((listing, i) => (
                 <motion.div
                   key={listing.title}
@@ -332,7 +386,7 @@ export function DormspaceWelcome() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.35 + i * 0.1, duration: 0.4 }}
                   whileHover={{ y: -2, transition: { duration: 0.2 } }}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-[#DDDDDD] bg-white px-4 py-3 shadow-sm"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-[#DDDDDD] bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-[#2C2C2C]">{listing.title}</p>
@@ -356,9 +410,9 @@ export function DormspaceWelcome() {
           <motion.blockquote
             custom={4}
             variants={fadeUp}
-            className="mt-8 border-l-4 border-[#D4A843] bg-white/60 py-1 pl-4 pr-2"
+            className="mt-6 border-l-4 border-[#D4A843] bg-white/60 py-1 pl-4 pr-2"
           >
-            <p className="font-serif text-base italic leading-relaxed text-[#2C2C2C]">
+            <p className="font-serif text-sm italic leading-relaxed text-[#2C2C2C] md:text-base">
               &ldquo;I listed my bedspace in one evening. Students messaged me the same week — and BahayGo
               never charged a peso.&rdquo;
             </p>
@@ -370,92 +424,40 @@ export function DormspaceWelcome() {
           <motion.p
             custom={5}
             variants={fadeUp}
-            className="mt-6 inline-flex items-center gap-1.5 text-xs font-semibold text-[#525252]"
+            className="mb-6 mt-6 inline-flex items-center gap-1.5 text-xs font-semibold text-[#525252] lg:mb-0"
           >
             <Sparkles className="size-3.5 text-[#D4A843]" aria-hidden />
             Built for Filipino dorm owners — from QC bedspaces to BGC coliving
           </motion.p>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.45 }}
-          className="w-full lg:sticky lg:top-24 lg:flex lg:min-h-[calc(100dvh-7rem)] lg:max-w-md lg:flex-col lg:justify-center lg:justify-self-end lg:self-start"
-        >
-          {authLoading ? (
-            <div className="rounded-2xl border border-[#DDDDDD] bg-white p-8 shadow-[0_4px_24px_rgba(44,44,44,0.06)]">
-              <p className="text-center text-sm font-medium text-[#484848]">Loading…</p>
-            </div>
-          ) : isLandlordSignedIn ? (
-            <LandlordWelcomeCard
-              firstName={landlordFirstName(profile?.full_name, user?.email)}
-              listings={listings}
-              listingsResolved={listingsResolved}
-              verificationStatus={normalizeLandlordVerificationStatus(
-                profile?.landlord_verification_status,
-              )}
-              rejectionReason={profile?.landlord_verification_rejection_reason}
-              onUpdateVacancy={(listing) => {
-                setVacancyListing(listing);
-                setVacancyModalOpen(true);
-              }}
-            />
-          ) : isStaffSignedIn && profile ? (
-            <StaffRoleNoticeCard
-              role={profile.role}
-              onSignOut={() => void handleStaffSignOut()}
-              signingOut={signingOut}
-            />
-          ) : isClientSignedIn ? (
-            <>
-              <p className="mb-4 rounded-xl border border-[#6B9E6E]/25 bg-[#6B9E6E]/8 px-4 py-3 text-sm font-medium text-[#484848]">
-                You&apos;re signed in as a client. Creating a listing here will let you list your own space
-                when you&apos;re ready — your client account stays intact.
-              </p>
-              <ClientSignedInCard />
-            </>
-          ) : (
-            <EmailFirstAuthCard />
-          )}
+        {hasAccountPanel ? (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, duration: 0.45 }}
+            className="order-1 w-full lg:order-2 lg:sticky lg:top-24 lg:flex lg:min-h-[calc(100dvh-7rem)] lg:max-w-md lg:flex-col lg:justify-center lg:justify-self-end lg:self-start"
+          >
+            {accountPanel}
+          </motion.div>
+        ) : null}
+        </div>
 
-          {!isLandlordSignedIn && !isStaffSignedIn ? (
-            <div className="mt-5">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center" aria-hidden>
-                  <div className="w-full border-t border-[#2C2C2C]/10" />
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="bg-[#FAF8F4] px-2 font-medium text-[#888888]">or</span>
-                </div>
-              </div>
-              <p className="mt-4 text-center">
-                <Link
-                  href="/dormspaces"
-                  className="text-sm font-semibold text-[#6B9E6E] transition hover:text-[#5d8a60] hover:underline"
-                >
-                  Just looking? Browse dormspaces →
-                </Link>
-              </p>
-            </div>
-          ) : !isLandlordSignedIn && isStaffSignedIn ? null : (
-            <p className="mt-5 text-center">
-              <Link
-                href="/dormspaces"
-                className="text-sm font-semibold text-[#6B9E6E] transition hover:text-[#5d8a60] hover:underline"
-              >
-                Just looking? Browse dormspaces →
-              </Link>
-            </p>
-          )}
+        <p className="mt-6 text-center">
+          <Link
+            href="/dormspaces"
+            className="text-sm font-semibold text-[#6B9E6E] transition hover:text-[#5d8a60] hover:underline"
+          >
+            Just looking? Browse dormspaces →
+          </Link>
+        </p>
 
-          {!isLandlordSignedIn && !authLoading ? (
-            <p className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-[#888888]">
-              <Wifi className="size-3.5 text-[#6B9E6E]/70" aria-hidden />
-              Secure sign-in · Your listing stays private until verified
-            </p>
-          ) : null}
-        </motion.div>
+        {!isSignedIn && !authLoading ? (
+          <p className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-[#888888]">
+            <Wifi className="size-3.5 text-[#6B9E6E]/70" aria-hidden />
+            Secure sign-in · Your listing stays private until verified
+          </p>
+        ) : null}
       </main>
 
       <UpdateVacancyModal

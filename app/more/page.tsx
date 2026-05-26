@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 /** Routes verified against the app directory — hide rows when false. */
 const ROUTES = {
   dormspaces: true,
+  dormspacesWelcome: true,
   search: false,
   agents: true,
   pipeline: true,
@@ -46,6 +47,7 @@ const ROUTES = {
 
 const PATHS = {
   dormspaces: "/dormspaces",
+  dormspacesWelcome: "/dormspaces/welcome",
   search: "/search",
   agents: "/agents",
   pipeline: "/dashboard/client/pipeline",
@@ -165,12 +167,12 @@ export default function MorePage() {
 
   const sections = useMemo((): MenuSection[] => {
     const discoverItems: MenuItem[] = [];
-    if (ROUTES.dormspaces) {
+    if (ROUTES.dormspacesWelcome) {
       discoverItems.push({
         id: "dormspaces",
         label: "Dormspaces",
         icon: Bed,
-        href: PATHS.dormspaces,
+        href: PATHS.dormspacesWelcome,
         badge: "NEW",
       });
     }
@@ -309,14 +311,10 @@ export default function MorePage() {
   return (
     <div className="min-h-screen bg-[#FAF8F4] font-sans text-[#2C2C2C]">
       <div className="pb-32 pt-[env(safe-area-inset-top,0px)]">
-        <h1 className="px-4 pb-2 pt-6 font-serif text-[28px] font-semibold leading-tight text-[#2C2C2C]">
-          More
-        </h1>
-
         {!loading && isSignedIn ? (
           <Link
             href={PATHS.settings}
-            className="mx-4 mb-4 flex items-center gap-3 rounded-xl border border-black/[0.06] bg-white p-4 transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]"
+            className="mx-4 mb-4 mt-6 flex items-center gap-3 rounded-xl border border-black/[0.06] bg-white p-4 transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]"
           >
             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#6B9E6E]">
               {profile?.avatar_url ? (
@@ -342,7 +340,7 @@ export default function MorePage() {
         ) : null}
 
         {!loading && !isSignedIn ? (
-          <div className="mx-4 mb-4 rounded-xl border border-black/[0.06] bg-white p-4">
+          <div className="mx-4 mb-4 mt-6 rounded-xl border border-black/[0.06] bg-white p-4">
             <p className="text-sm text-[#2C2C2C]/70">Access saved homes, pipeline, and account settings.</p>
             {ROUTES.authLogin ? (
               <Link

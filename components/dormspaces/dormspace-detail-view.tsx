@@ -21,6 +21,10 @@ import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 
 import { DormspaceBedAvailability } from "@/components/dormspaces/dormspace-bed-availability";
 import { DormspaceContactModal } from "@/components/dormspaces/dormspace-contact-modal";
+import {
+  DormspaceDetailBackLink,
+  DormspaceDetailHeroChrome,
+} from "@/components/dormspaces/dormspace-detail-hero-chrome";
 import { DormspaceEngagementButtons } from "@/components/dormspaces/dormspace-engagement-buttons";
 import { DormspaceLandlordPublicCard } from "@/components/dormspaces/dormspace-landlord-public-card";
 import { DormspaceVerificationBadge } from "@/components/dormspaces/dormspace-verification-badge";
@@ -81,14 +85,12 @@ export function DormspaceDetailView({
       : null;
 
   return (
-    <div className="pb-16">
-      <Link href="/dormspaces" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[#6B9E6E] hover:underline">
-        ← All dormspaces
-      </Link>
+    <div className="pb-20 md:pb-16">
+      <DormspaceDetailBackLink />
 
       {showOwnerPendingBanner ? (
         <div
-          className="mb-4 rounded-2xl border border-[#D4A843]/35 bg-[#D4A843]/10 px-4 py-3.5 text-sm font-medium text-[#2C2C2C]"
+          className="mx-4 mb-4 rounded-2xl border border-[#D4A843]/35 bg-[#D4A843]/10 px-4 py-3.5 text-sm font-medium text-[#2C2C2C] md:mx-0"
           role="status"
         >
           Your listing is under review. Tenants will see this listing with a &quot;Pending verification&quot;
@@ -96,8 +98,13 @@ export function DormspaceDetailView({
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl border border-[#DDDDDD] bg-white shadow-md">
+      <div className="overflow-hidden border-[#DDDDDD] bg-white md:rounded-2xl md:border md:shadow-md">
         <div className="relative aspect-[16/10] w-full bg-[#F3F0EA] sm:aspect-[21/9]">
+          <DormspaceDetailHeroChrome
+            dormspaceId={listing.id}
+            landlordUserId={listing.landlord_user_id}
+            title={listing.title}
+          />
           {urls.length > 0 ? (
             <Image src={urls[idx]!} alt="" fill className="object-cover" sizes="100vw" priority />
           ) : (
@@ -174,7 +181,7 @@ export function DormspaceDetailView({
                 landlordUserId={listing.landlord_user_id}
                 signInNext={`/dormspaces/${listing.id}`}
                 size="md"
-                className="rounded-full"
+                className="hidden rounded-full md:flex"
               />
               <DormspaceVerificationBadge status={listing.status} />
             </div>

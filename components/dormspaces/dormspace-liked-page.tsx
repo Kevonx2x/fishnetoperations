@@ -62,8 +62,10 @@ export function DormspaceLikedPage() {
   if (!authLoading && !canLikeDormspaces(profile?.role)) {
     return (
       <DormspacePortalShell variant="browse">
-        <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-          <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">Liked dormspaces</h1>
+        <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 md:py-12 md:pb-12">
+          <h1 className="font-serif text-[28px] font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
+            Liked dormspaces
+          </h1>
           <p className="mt-3 max-w-lg text-sm font-medium text-[#484848]">
             Landlord accounts manage listings from the dashboard — saving favorites is for students and tenants
             browsing for a dorm.
@@ -81,8 +83,10 @@ export function DormspaceLikedPage() {
 
   return (
     <DormspacePortalShell variant="browse">
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 md:py-10">
-        <h1 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Liked dormspaces</h1>
+      <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 md:py-10 md:pb-10">
+        <h1 className="font-serif text-[28px] font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
+          Liked dormspaces
+        </h1>
         <p className="mt-2 text-sm font-medium text-[#484848]">
           {dbIds.length > 0 ? `${dbIds.length} saved` : "Tap the heart on any listing to save it here."}
         </p>

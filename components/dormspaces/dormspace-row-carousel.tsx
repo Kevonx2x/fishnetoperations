@@ -53,7 +53,7 @@ export function DormspaceRowCarousel({
 
   const track = (
     <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto px-1 pb-2 scrollbar-hide">
-      <div className="flex w-max flex-nowrap gap-3">
+      <div className="flex w-max flex-nowrap items-start gap-3">
         {list.map((listing) => (
           <DormspaceListingCardCompact key={`${rowKey}-${listing.id}`} listing={listing} />
         ))}

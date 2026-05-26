@@ -11,9 +11,7 @@ import {
   Home,
   Inbox,
   LogOut,
-  Menu,
   User,
-  X,
 } from "lucide-react";
 
 import { BahayGoHouseMark, DormspaceWelcomeLogo } from "@/components/dormspaces/dormspace-welcome-logo";
@@ -197,7 +195,6 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
   const variant = resolveDormspaceNavVariant(profile, variantProp);
   const logoHref = dormspaceLogoHref();
 
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [signOutBusy, setSignOutBusy] = useState(false);
   const [inquiryCount, setInquiryCount] = useState(0);
@@ -241,19 +238,7 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
     };
   }, [user, isLandlord]);
 
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [mobileOpen]);
-
-  const closeMobile = () => setMobileOpen(false);
-
   const scrollToListings = () => {
-    closeMobile();
     if (pathname === "/dormspaces") {
       document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
     } else {
@@ -310,16 +295,8 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
   return (
     <Fragment>
       <header className="sticky top-0 z-50 w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4]/95 backdrop-blur-sm">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 py-4 md:gap-3">
-          <div className="flex items-center gap-2 justify-self-start">
-            <button
-              type="button"
-              onClick={() => setMobileOpen((o) => !o)}
-              className="rounded-lg p-2 text-[#2C2C2C]/80 ring-1 ring-black/5 transition hover:bg-white sm:hidden"
-              aria-label={mobileOpen ? "Close menu" : "Open menu"}
-            >
-              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto] items-center gap-3 px-4 py-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-3">
+          <div className="flex min-w-0 items-center justify-self-start">
             <DormspaceWelcomeLogo href={logoHref} />
           </div>
 
@@ -344,7 +321,7 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
                 {mayLike && dbIds.length > 0 ? (
                   <Link
                     href="/dormspaces/liked"
-                    className="relative hidden rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm transition hover:bg-white/90 sm:inline-flex"
+                    className="relative inline-flex rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm transition hover:bg-white/90"
                     aria-label={`${dbIds.length} liked dormspaces`}
                   >
                     <Heart className="h-4 w-4 fill-red-500 text-red-500" aria-hidden />
@@ -363,7 +340,7 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
                 ) : null}
                 <button
                   type="button"
-                  className="relative hidden rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm transition hover:bg-white/90 sm:inline-flex"
+                  className="relative inline-flex rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm transition hover:bg-white/90"
                   aria-label="Notifications"
                 >
                   <Bell className="h-4 w-4" aria-hidden />
@@ -433,106 +410,6 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
           </div>
         </div>
       </header>
-
-      {mobileOpen ? (
-        <div
-          className="sm:hidden"
-          style={{ position: "fixed", inset: 0, zIndex: 9999 }}
-          onClick={closeMobile}
-          role="presentation"
-        >
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "80%",
-              maxWidth: "320px",
-              height: "100vh",
-              background: "white",
-              boxShadow: "4px 0 24px rgba(0,0,0,0.12)",
-              overflowY: "auto",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-[#2C2C2C]/10 px-4 py-4">
-              <DormspaceWelcomeLogo href={logoHref} />
-              <button type="button" onClick={closeMobile} className="rounded-lg p-2" aria-label="Close menu">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <nav className="flex flex-col gap-1 px-3 py-4">
-              {!minimal
-                ? centerItems.map((item) =>
-                    item.scrollToListings ? (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={scrollToListings}
-                        className="rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-[#404040] hover:bg-[#FAF8F4]"
-                      >
-                        {item.label}
-                      </button>
-                    ) : (
-                      <Link
-                        key={item.key}
-                        href={item.href}
-                        onClick={closeMobile}
-                        className={cn(
-                          "rounded-lg px-3 py-2.5 text-sm font-semibold hover:bg-[#FAF8F4]",
-                          navLinkActive(item.key) ? "bg-[#FAF8F4] text-[#2C2C2C]" : "text-[#404040]",
-                        )}
-                      >
-                        {item.label}
-                      </Link>
-                    ),
-                  )
-                : (
-                  <Link
-                    href="/dormspaces"
-                    onClick={closeMobile}
-                    className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040] hover:bg-[#FAF8F4]"
-                  >
-                    Browse dormspaces
-                  </Link>
-                )}
-              {!minimal ? (
-                <Link href="/faq" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040] hover:bg-[#FAF8F4]">
-                  Help &amp; FAQ
-                </Link>
-              ) : null}
-              <div className="my-2 h-px bg-[#2C2C2C]/10" />
-              {user ? (
-                <div className="px-0 py-1">
-                  <AccountDropdownMenu
-                    isLandlord={isLandlord}
-                    inquiryCount={inquiryCount}
-                    onNavigate={closeMobile}
-                    onSignOut={() => {
-                      closeMobile();
-                      void signOut();
-                    }}
-                    signOutBusy={signOutBusy}
-                  />
-                </div>
-              ) : (
-                <>
-                  <Link href={signInHref} onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm font-semibold text-[#404040]">
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/dormspaces/welcome?tab=signup"
-                    onClick={closeMobile}
-                    className="mt-1 rounded-xl bg-[#6B9E6E] px-3 py-2.5 text-center text-sm font-bold text-white"
-                  >
-                    Sign Up
-                  </Link>
-                </>
-              )}
-            </nav>
-          </div>
-        </div>
-      ) : null}
     </Fragment>
   );
 }

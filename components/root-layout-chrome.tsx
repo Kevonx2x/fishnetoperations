@@ -38,14 +38,11 @@ export function RootLayoutChrome({
 
   const isDashboard = pathname.startsWith("/dashboard");
 
-  const isDormspacePortal = pathname.startsWith("/dormspaces");
+  /** Dormspaces is a separate brand surface — no BahayGo marketing footer. */
+  const hideMarketingFooter = pathname.startsWith("/dormspaces");
 
-
-
-  if (isDashboard || isDormspacePortal) {
-
+  if (isDashboard || hideMarketingFooter) {
     return <MobileLayoutChrome>{children}</MobileLayoutChrome>;
-
   }
 
 

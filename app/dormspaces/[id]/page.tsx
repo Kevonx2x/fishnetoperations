@@ -100,7 +100,7 @@ export default async function DormspaceDetailPage({ params }: { params: Promise<
 
   return (
     <DormspacePortalShell variant="browse">
-      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 md:py-8">
+      <main className="mx-auto max-w-4xl px-0 pb-28 md:px-6 md:py-8 md:pb-8">
         <DormspaceDetailView
           listing={listing}
           landlord={landlord}

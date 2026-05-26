@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ChevronLeft, Loader2 } from "lucide-react";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
+import type { Profile } from "@/contexts/auth-context";
 import {
   AuthGoogleDivider,
   ContinueWithGoogleButton,
@@ -11,6 +13,7 @@ import {
 import {
   isDormspaceSubmitBlockedRole,
   isLandlordCapable,
+  pathForRole,
   roleDisplayLabel,
 } from "@/lib/auth-roles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -124,6 +127,102 @@ export function StaffRoleNoticeCard({
         </p>
       </div>
     </>
+  );
+}
+
+function welcomeFirstName(fullName: string | null | undefined, email: string | undefined): string {
+  const t = fullName?.trim() ?? "";
+  if (t) {
+    const space = t.indexOf(" ");
+    return space === -1 ? t : t.slice(0, space);
+  }
+  return email?.split("@")[0] ?? "there";
+}
+
+function welcomeProfileInitials(name: string | null | undefined, email: string | undefined): string {
+  const t = name?.trim();
+  if (t) return t.slice(0, 2).toUpperCase();
+  if (email) return email.slice(0, 2).toUpperCase();
+  return "?";
+}
+
+function welcomeDashboardHref(profile: Profile | null): string {
+  if (profile && isLandlordCapable(profile)) return "/dormspaces/dashboard";
+  if (profile?.role) return pathForRole(profile.role);
+  return "/dormspaces";
+}
+
+export function WelcomeTopAuthBar({
+  loading,
+  signedIn,
+  profile,
+  email,
+}: {
+  loading: boolean;
+  signedIn: boolean;
+  profile: Profile | null;
+  email?: string;
+}) {
+  if (loading) {
+    return (
+      <div
+        className="mb-6 h-14 animate-pulse rounded-xl border border-[#DDDDDD] bg-white"
+        aria-hidden
+      />
+    );
+  }
+
+  if (!signedIn) {
+    return (
+      <div className="mb-6 rounded-xl border border-[#DDDDDD] bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-2.5">
+          <Link
+            href="/auth/login?next=/dormspaces/welcome"
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-[#6B9E6E] px-4 text-sm font-bold text-white transition hover:bg-[#5d8a60]"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/auth/register?next=/dormspaces/welcome"
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-[#6B9E6E]/40 bg-white px-4 text-sm font-bold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/5"
+          >
+            Create account
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const firstName = welcomeFirstName(profile?.full_name, email);
+  const dashboardHref = welcomeDashboardHref(profile);
+
+  return (
+    <div className="mb-6 flex items-center gap-3 rounded-xl border border-[#DDDDDD] bg-white px-3 py-2.5 shadow-sm">
+      <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#6B9E6E]">
+        {profile?.avatar_url ? (
+          <SupabasePublicImage
+            src={profile.avatar_url}
+            alt=""
+            fill
+            className="object-cover"
+            sizes="36px"
+          />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center text-xs font-semibold text-white">
+            {welcomeProfileInitials(profile?.full_name, email)}
+          </span>
+        )}
+      </div>
+      <p className="min-w-0 flex-1 text-sm font-semibold text-[#2C2C2C]">
+        Welcome back, {firstName}
+      </p>
+      <Link
+        href={dashboardHref}
+        className="shrink-0 text-xs font-semibold text-[#6B9E6E] hover:underline"
+      >
+        Go to dashboard
+      </Link>
+    </div>
   );
 }
 
