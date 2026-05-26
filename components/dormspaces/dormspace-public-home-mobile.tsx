@@ -3,9 +3,7 @@
 import Image from "next/image";
 import {
   ChevronRight,
-  Footprints,
   Heart,
-  Lock,
   MapPin,
   PawPrint,
   Search,
@@ -42,13 +40,6 @@ const PEEK_CARD_W = "w-[calc((100vw-2rem-1rem)/2.5)]";
 const FOUR_UP = "grid grid-cols-4 gap-1.5";
 const CAROUSEL_SCROLL =
   "mt-2.5 flex overflow-x-auto px-4 pb-0.5 scrollbar-hide snap-x snap-mandatory scroll-pl-4 scroll-pr-4";
-
-const FEATURE_HIGHLIGHTS = [
-  { icon: ShieldCheck, title: "Verified", sub: "ID checked" },
-  { icon: Wifi, title: "Fast WiFi", sub: "45 Mbps avg" },
-  { icon: Footprints, title: "Walk", sub: "6 min DLSU" },
-  { icon: Lock, title: "Safe", sub: "Verified" },
-] as const;
 
 const BROWSE_MATTERS = [
   { icon: Wallet, title: "Cheapest", sub: "Near you", filter: { maxPrice: "8000" } as Partial<DormspaceBrowseFilters> },
@@ -235,15 +226,10 @@ export function DormspacePublicHomeMobile({
             <ChevronRight className="size-3" aria-hidden />
           </button>
         </div>
-      </section>
-
-      {/* Verified / feature row — 4 across */}
-      <section className={cn(SECTION, PAGE_X)}>
-        <div className={FOUR_UP}>
-          {FEATURE_HIGHLIGHTS.map(({ icon, title, sub }) => (
-            <FourUpTile key={title} icon={icon} title={title} sub={sub} />
-          ))}
-        </div>
+        <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-[#888888]">
+          <ShieldCheck className="size-3 shrink-0 text-[#6B9E6E]" strokeWidth={2.25} aria-hidden />
+          Verified landlords · Wi‑Fi &amp; walk times on listings
+        </p>
       </section>
 
       {/* New this week */}

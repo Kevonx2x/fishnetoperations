@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion, type TargetAndTransition } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
+import { BahayGoNavHomeIcon } from "@/components/mobile/bahaygo-nav-home-icon";
 import { cn } from "@/lib/utils";
 
 export type MobileNavIconId =
@@ -50,7 +51,6 @@ const ACTIVE_LOOP: Partial<Record<MobileNavIconId, TargetAndTransition>> = {
 };
 
 const FILLED_WHEN_ACTIVE = new Set<MobileNavIconId>([
-  "home",
   "search",
   "map",
   "saved",
@@ -107,15 +107,19 @@ export function MobileNavAnimatedIcon({
           : { type: "spring", stiffness: 420, damping: 24, mass: 0.65 }
       }
     >
-      <Icon
-        size={size}
-        strokeWidth={active ? 2.25 : 1.75}
-        color={color}
-        fill={useFill ? color : "none"}
-        fillOpacity={useFill ? (FULL_FILL.has(id) ? 1 : 0.22) : 0}
-        className="shrink-0"
-        aria-hidden
-      />
+      {id === "home" ? (
+        <BahayGoNavHomeIcon size={size} active={active} color={color} />
+      ) : (
+        <Icon
+          size={size}
+          strokeWidth={active ? 2.25 : 1.75}
+          color={color}
+          fill={useFill ? color : "none"}
+          fillOpacity={useFill ? (FULL_FILL.has(id) ? 1 : 0.22) : 0}
+          className="shrink-0"
+          aria-hidden
+        />
+      )}
     </motion.span>
   );
 }
