@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Heart, Home, MessageSquare, Search, User } from "lucide-react";
+import { UNIFIED_MESSAGES_PATH } from "@/lib/agent-messages-path";
 
 /** Anchor id on homepage hero search card. */
 export const BAHAYGO_HERO_SEARCH_ID = "bahaygo-hero-search";
@@ -31,12 +32,9 @@ export function pathForMessagesNav(
   signedIn: boolean,
 ): string {
   if (!signedIn) {
-    return "/auth/login?next=/dashboard/client/messages";
+    return `/auth/login?next=${encodeURIComponent(UNIFIED_MESSAGES_PATH)}`;
   }
-  if (role === "agent" || role === "team_member") {
-    return "/dashboard/agent?tab=messages";
-  }
-  return "/dashboard/client/messages";
+  return UNIFIED_MESSAGES_PATH;
 }
 
 export function resolveMarketplaceBottomNavTabs(

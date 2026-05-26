@@ -13,6 +13,7 @@ export function ConversationListPanel(props: {
   selfUserId: string;
   setActiveChannelOnMount: boolean;
   variant: "desktop" | "mobile";
+  suppressMobileHeader?: boolean;
 }) {
   const { client } = useChatContext();
   const streamMessagesUnreadTotal = useUnreadMessageCount();
@@ -66,12 +67,23 @@ export function ConversationListPanel(props: {
             <ConversationFilter value={filterMode} onChange={setFilterMode} />
           </div>
         </div>
+      ) : props.suppressMobileHeader ? (
+        <div className="border-b border-subtle bg-[#FAF8F4] px-4 py-3 md:hidden">
+          <div className="flex gap-2">
+            <SearchBar
+              value={listSearch}
+              onChange={setListSearch}
+              className="min-w-0 flex-1"
+            />
+            <ConversationFilter value={filterMode} onChange={setFilterMode} />
+          </div>
+        </div>
       ) : (
-        <div className="border-b border-subtle bg-surface-page px-4 py-3 md:hidden">
+        <div className="border-b border-subtle bg-[#FAF8F4] px-4 py-3 md:hidden">
           <div className="flex items-baseline gap-2">
-            <span className="font-serif text-xl font-semibold text-fg">Messages</span>
+            <span className="font-serif text-xl font-semibold text-[#2C2C2C]">Messages</span>
             {streamMessagesUnreadTotal > 0 ? (
-              <span className="rounded-full bg-fg/10 px-2 py-0.5 text-xs font-bold tabular-nums text-fg/80">
+              <span className="rounded-full bg-[#2C2C2C]/10 px-2 py-0.5 text-xs font-bold tabular-nums text-[#2C2C2C]/80">
                 {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
               </span>
             ) : null}

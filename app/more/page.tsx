@@ -65,9 +65,12 @@ const PATHS = {
 type MenuItem = {
   id: string;
   label: string;
+  description?: string;
   icon: LucideIcon;
   href?: string;
   badge?: string;
+  badgeGold?: boolean;
+  primaryAccent?: boolean;
   destructive?: boolean;
   onClick?: () => void;
 };
@@ -91,26 +94,47 @@ function profileInitials(name: string | null | undefined, email: string | null |
   return "?";
 }
 
-function MenuRow({ item }: { item: MenuItem }) {
+function MenuCard({ item }: { item: MenuItem }) {
   const iconClass = item.destructive ? "text-red-500" : "text-[#6B9E6E]";
-  const labelClass = item.destructive ? "text-red-500" : "text-[#2C2C2C]";
 
   const inner = (
     <>
-      <item.icon className={cn("h-5 w-5 shrink-0", iconClass)} strokeWidth={2} aria-hidden />
-      <span className={cn("min-w-0 flex-1 text-[15px] font-medium", labelClass)}>{item.label}</span>
+      <span className="flex w-8 shrink-0 items-center justify-center self-start pt-0.5">
+        <item.icon className={cn("h-[22px] w-[22px]", iconClass)} strokeWidth={1.5} aria-hidden />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p
+          className={cn(
+            "font-serif text-lg font-semibold leading-snug",
+            item.destructive ? "text-red-500" : "text-[#2C2C2C]",
+          )}
+        >
+          {item.label}
+        </p>
+        {item.description ? (
+          <p className="mt-0.5 text-[13px] font-normal leading-snug text-[#888888]">{item.description}</p>
+        ) : null}
+      </div>
       {item.badge ? (
-        <span className="rounded-full bg-[#6B9E6E]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#6B9E6E]">
+        <span
+          className={cn(
+            "shrink-0 self-start rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+            item.badgeGold ? "bg-[#D4A843] text-white" : "bg-[#6B9E6E]/10 text-[#6B9E6E]",
+          )}
+        >
           {item.badge}
         </span>
       ) : item.destructive ? null : (
-        <ChevronRight className="h-5 w-5 shrink-0 text-[#888888]" aria-hidden />
+        <ChevronRight className="h-5 w-5 shrink-0 self-center text-[#888888]" aria-hidden />
       )}
     </>
   );
 
-  const rowClass =
-    "flex min-h-12 w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]";
+  const rowClass = cn(
+    "flex w-full items-start gap-3 rounded-xl border border-black/[0.06] bg-white p-5 text-left transition-colors",
+    "hover:bg-black/[0.02] active:bg-black/[0.04]",
+    item.primaryAccent && "border-l-[3px] border-l-[#6B9E6E] shadow-sm",
+  );
 
   if (item.onClick) {
     return (
@@ -135,17 +159,20 @@ function MenuRow({ item }: { item: MenuItem }) {
   );
 }
 
-function MenuSectionBlock({ section }: { section: MenuSection }) {
+function MenuSectionBlock({ section, isFirst }: { section: MenuSection; isFirst?: boolean }) {
   if (section.items.length === 0) return null;
 
   return (
-    <section>
-      <h2 className="mb-2 mt-6 px-4 text-xs font-medium uppercase tracking-wide text-[#888888]">
+    <section className={cn(isFirst ? "mt-6" : "mt-8")}>
+      <h2
+        className="mb-2 px-4 text-xs font-medium uppercase tracking-wider text-[#888888]"
+        style={{ letterSpacing: "0.08em" }}
+      >
         {section.title}
       </h2>
-      <div className="mx-4 divide-y divide-black/[0.06] overflow-hidden rounded-xl border border-black/[0.06] bg-white">
+      <div className="flex flex-col gap-2 px-4">
         {section.items.map((item) => (
-          <MenuRow key={item.id} item={item} />
+          <MenuCard key={item.id} item={item} />
         ))}
       </div>
     </section>
@@ -171,15 +198,19 @@ export default function MorePage() {
       discoverItems.push({
         id: "dormspaces",
         label: "Dormspaces",
+        description: "Find dormmates and explore student housing",
         icon: Bed,
         href: PATHS.dormspacesWelcome,
         badge: "NEW",
+        badgeGold: true,
+        primaryAccent: true,
       });
     }
     if (ROUTES.search) {
       discoverItems.push({
         id: "browse-map",
         label: "Browse by map",
+        description: "Search listings across the metro",
         icon: Map,
         href: PATHS.search,
       });
@@ -188,6 +219,7 @@ export default function MorePage() {
       discoverItems.push({
         id: "featured-agents",
         label: "Featured agents",
+        description: "Meet verified BahayGo agents near you",
         icon: Users,
         href: PATHS.agents,
       });
@@ -195,10 +227,11 @@ export default function MorePage() {
 
     const activityItems: MenuItem[] = [];
     if (isSignedIn) {
-      if (ROUTES.pipeline) {
+      if (ROUTES.pipeline && !isAgentUser) {
         activityItems.push({
           id: "pipeline",
           label: "Pipeline",
+          description: "Track homes and viewings you're pursuing",
           icon: Activity,
           href: PATHS.pipeline,
         });
@@ -207,6 +240,7 @@ export default function MorePage() {
         activityItems.push({
           id: "saved",
           label: "Saved listings",
+          description: "Properties and dormspaces you've saved",
           icon: Heart,
           href: PATHS.saved,
         });
@@ -215,6 +249,7 @@ export default function MorePage() {
         activityItems.push({
           id: "recently-viewed",
           label: "Recently viewed",
+          description: "Pick up where you left off",
           icon: Clock,
           href: PATHS.recentlyViewed,
         });
@@ -226,6 +261,7 @@ export default function MorePage() {
       agentItems.push({
         id: "agent-dashboard",
         label: "Agent dashboard",
+        description: "Pipeline, listings, and client conversations",
         icon: LayoutDashboard,
         href: PATHS.agentDashboard,
       });
@@ -233,6 +269,7 @@ export default function MorePage() {
       agentItems.push({
         id: "become-agent",
         label: "Become a verified agent",
+        description: "List properties and grow your book of business",
         icon: BadgeCheck,
         href: PATHS.agentSignup,
       });
@@ -241,6 +278,7 @@ export default function MorePage() {
       agentItems.push({
         id: "list-property",
         label: "List a property",
+        description: "Publish a new BahayGo listing",
         icon: Plus,
         href: PATHS.propertiesSubmit,
       });
@@ -248,20 +286,38 @@ export default function MorePage() {
 
     const helpItems: MenuItem[] = [
       ...(ROUTES.faq
-        ? [{ id: "faq", label: "FAQ", icon: HelpCircle, href: PATHS.faq }]
+        ? [
+            {
+              id: "faq",
+              label: "FAQ",
+              description: "Answers to common questions",
+              icon: HelpCircle,
+              href: PATHS.faq,
+            },
+          ]
         : []),
       ...(ROUTES.about
-        ? [{ id: "about", label: "About BahayGo", icon: Info, href: PATHS.about }]
+        ? [
+            {
+              id: "about",
+              label: "About BahayGo",
+              description: "Our story and how we help you find home",
+              icon: Info,
+              href: PATHS.about,
+            },
+          ]
         : []),
       {
         id: "contact",
         label: "Contact support",
+        description: "We're here if you need a hand",
         icon: Mail,
         href: "mailto:support@bahaygo.com",
       },
       {
         id: "report",
         label: "Report an issue",
+        description: "Tell us what went wrong",
         icon: Flag,
         href: "mailto:support@bahaygo.com?subject=Issue%20Report",
       },
@@ -273,6 +329,7 @@ export default function MorePage() {
         accountItems.push({
           id: "settings",
           label: "Settings",
+          description: "Account, notifications, and preferences",
           icon: Settings,
           href: PATHS.settings,
         });
@@ -314,7 +371,7 @@ export default function MorePage() {
         {!loading && isSignedIn ? (
           <Link
             href={PATHS.settings}
-            className="mx-4 mb-4 mt-6 flex items-center gap-3 rounded-xl border border-black/[0.06] bg-white p-4 transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]"
+            className="mx-4 mb-4 mt-6 flex items-center gap-3 rounded-xl border border-black/[0.06] bg-white p-5 transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]"
           >
             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#6B9E6E]">
               {profile?.avatar_url ? (
@@ -332,16 +389,18 @@ export default function MorePage() {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-semibold text-[#2C2C2C]">{displayName}</p>
-              {email ? <p className="truncate text-xs text-[#888888]">{email}</p> : null}
+              <p className="truncate font-serif text-lg font-semibold text-[#2C2C2C]">{displayName}</p>
+              {email ? <p className="truncate text-[13px] font-normal text-[#888888]">{email}</p> : null}
             </div>
             <ChevronRight className="h-5 w-5 shrink-0 text-[#888888]" aria-hidden />
           </Link>
         ) : null}
 
         {!loading && !isSignedIn ? (
-          <div className="mx-4 mb-4 mt-6 rounded-xl border border-black/[0.06] bg-white p-4">
-            <p className="text-sm text-[#2C2C2C]/70">Access saved homes, pipeline, and account settings.</p>
+          <div className="mx-4 mb-4 mt-6 rounded-xl border border-black/[0.06] bg-white p-5">
+            <p className="text-[13px] font-normal text-[#888888]">
+              Access saved homes, pipeline, and account settings.
+            </p>
             {ROUTES.authLogin ? (
               <Link
                 href={PATHS.authLogin}
@@ -353,8 +412,8 @@ export default function MorePage() {
           </div>
         ) : null}
 
-        {sections.map((section) => (
-          <MenuSectionBlock key={section.id} section={section} />
+        {sections.map((section, index) => (
+          <MenuSectionBlock key={section.id} section={section} isFirst={index === 0 && !isSignedIn} />
         ))}
 
         <footer className="mb-24 mt-8 px-4 text-center">

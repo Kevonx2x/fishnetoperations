@@ -247,6 +247,63 @@
  * Use --str-chat__* variables on .str-chat; avoid redundant per-class backgrounds.
  */
 @layer stream-overrides {
+  /*
+   * Agent/client dashboard inboxes always use BahayGo cream (Model A).
+   * Overrides .dark so messaging matches #FAF8F4 headers and dashboard chrome.
+   */
+  .bahaygo-messaging-light {
+    --surface-page: #faf8f4;
+    --surface-panel: #ffffff;
+    --border-subtle: rgba(0, 0, 0, 0.06);
+    --text-default: #2c2c2c;
+    --text-muted: #525252;
+    --text-secondary: #484848;
+    --text-tertiary: #5c5c5c;
+    --brand-sage: #6b9e6e;
+    --brand-sage-hover: #5d8a60;
+    --brand-gold: #d4a843;
+    color-scheme: light;
+    background-color: #faf8f4;
+  }
+
+  .dark .bahaygo-messaging-light {
+    --surface-page: #faf8f4;
+    --surface-panel: #ffffff;
+    --border-subtle: rgba(0, 0, 0, 0.06);
+    --text-default: #2c2c2c;
+    --text-muted: #525252;
+    --text-secondary: #484848;
+    --text-tertiary: #5c5c5c;
+  }
+
+  /* Force cream panels — Stream v2 base CSS can win over variables in .dark */
+  .bahaygo-messaging-light .str-chat,
+  .bahaygo-messaging-light .str-chat__channel,
+  .bahaygo-messaging-light .str-chat__channel-list,
+  .bahaygo-messaging-light .str-chat__channel-list-messenger,
+  .bahaygo-messaging-light .str-chat__channel-list-messenger__main,
+  .bahaygo-messaging-light .str-chat__main-panel,
+  .bahaygo-messaging-light .str-chat__main-panel-inner,
+  .bahaygo-messaging-light .str-chat__message-list,
+  .bahaygo-messaging-light .str-chat__message-list-scroll,
+  .bahaygo-messaging-light .str-chat__container {
+    background-color: #faf8f4 !important;
+    color: #2c2c2c;
+    color-scheme: light;
+  }
+
+  .bahaygo-messaging-light .str-chat__message-bubble:not(.str-chat__message-bubble--me) {
+    background-color: #ffffff !important;
+    color: #2c2c2c !important;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .bahaygo-messaging-light .str-chat__message-bubble--me,
+  .bahaygo-messaging-light .str-chat__message--me .str-chat__message-bubble {
+    background-color: #6b9e6e !important;
+    color: #ffffff !important;
+  }
+
   /* Full-height flex column; parent (dashboard tab / client main) must pass height down */
   .bahaygo-stream-chat {
     display: flex;

@@ -4,7 +4,11 @@ import { MessagingInbox } from "@/features/messaging/components/messaging-inbox"
 import { useAuth } from "@/contexts/auth-context";
 import { useStreamChat } from "@/features/messaging/components/stream-chat-provider";
 
-export function AgentMessagesInbox(props: { initialChannelId?: string | null }) {
+export function AgentMessagesInbox(props: {
+  initialChannelId?: string | null;
+  /** When true, hides the in-panel mobile “Messages” title (page supplies its own header). */
+  suppressMobileListHeader?: boolean;
+}) {
   const client = useStreamChat();
   const { user } = useAuth();
 
@@ -21,7 +25,8 @@ export function AgentMessagesInbox(props: { initialChannelId?: string | null }) 
       setActiveChannelOnMount
       initialChannelId={props.initialChannelId ?? null}
       showConversationContextPanel
-      layoutClassName="flex h-full w-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page md:h-full md:max-h-full md:min-h-0 md:grid md:grid-cols-[320px_minmax(0,1fr)_300px]"
+      suppressMobileListHeader={props.suppressMobileListHeader}
+      layoutClassName="flex h-full w-full min-h-0 flex-1 flex-col overflow-hidden bg-[#FAF8F4] md:h-full md:max-h-full md:min-h-0 md:grid md:grid-cols-[320px_minmax(0,1fr)_300px]"
     />
   );
 }

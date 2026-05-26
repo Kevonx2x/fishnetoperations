@@ -21,6 +21,8 @@ export type MessagingInboxProps = {
   initialChannelId?: string | null;
   /** Enables the rich property context panel in the right sidebar. */
   showConversationContextPanel?: boolean;
+  /** Hides duplicate mobile list chrome when an outer page header is shown. */
+  suppressMobileListHeader?: boolean;
 };
 
 export function MessagingInbox({
@@ -28,6 +30,7 @@ export function MessagingInbox({
   setActiveChannelOnMount = true,
   initialChannelId = null,
   showConversationContextPanel = false,
+  suppressMobileListHeader = false,
 }: MessagingInboxProps) {
   const client = useStreamChat();
   const { user } = useAuth();
@@ -42,12 +45,13 @@ export function MessagingInbox({
   }
 
   return (
-    <Chat client={client} theme="messaging light">
+    <Chat client={client} theme="messaging light" customClasses={{ chat: "bahaygo-messaging-light" }}>
       <MessagingInboxInner
         layoutClassName={layoutClassName}
         setActiveChannelOnMount={setActiveChannelOnMount}
         initialChannelId={initialChannelId}
         showConversationContextPanel={showConversationContextPanel}
+        suppressMobileListHeader={suppressMobileListHeader}
         selfUserId={selfUserId}
       />
     </Chat>
@@ -87,7 +91,7 @@ function MessagingInboxInner(props: MessagingInboxProps & { selfUserId: string }
   );
 
   return (
-    <div className="bahaygo-stream-chat flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface-page">
+    <div className="bahaygo-stream-chat bahaygo-messaging-light flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#FAF8F4]">
       <div className="flex h-full min-h-0 flex-1 flex-col">
         <div className={layout}>
           <div className={mobileView === "thread" ? "max-md:hidden" : ""}>
@@ -95,6 +99,7 @@ function MessagingInboxInner(props: MessagingInboxProps & { selfUserId: string }
               selfUserId={props.selfUserId}
               setActiveChannelOnMount={props.setActiveChannelOnMount ?? true}
               variant={isDesktop ? "desktop" : "mobile"}
+              suppressMobileHeader={props.suppressMobileListHeader}
             />
           </div>
 
