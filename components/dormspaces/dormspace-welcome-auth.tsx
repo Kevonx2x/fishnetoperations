@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ChevronLeft, Loader2 } from "lucide-react";
+import { ChevronLeft, Loader2 } from "lucide-react";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import type { Profile } from "@/contexts/auth-context";
 import {
@@ -99,10 +99,9 @@ export function StaffRoleNoticeCard({
         <p className="mt-4 text-center">
           <Link
             href="/dormspaces"
-            className="inline-flex items-center justify-center gap-1 text-sm font-semibold text-[#6B9E6E] hover:underline"
+            className="text-sm font-semibold text-[#6B9E6E] hover:underline"
           >
-            Just looking? Browse
-            <ArrowRight className="size-4" aria-hidden />
+            Browse
           </Link>
         </p>
       </div>
@@ -122,7 +121,7 @@ export function StaffRoleNoticeCard({
             className="inline-flex items-center justify-center gap-1 text-sm font-semibold text-[#6B9E6E] hover:underline"
           >
             <ChevronLeft className="size-4" aria-hidden />
-            Back to BahayGo
+            Back
           </Link>
         </p>
       </div>

@@ -133,7 +133,7 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
                     value={locationQuery}
                     onChange={setLocationQuery}
                     onSubmitSearch={applySearch}
-                    placeholder="Where are you studying?"
+                    placeholder="Find your space near campus"
                     inputClassName="w-full rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-medium"
                     aria-label="Location"
                   />

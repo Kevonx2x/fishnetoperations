@@ -7,7 +7,6 @@ import {
   MapPin,
   PawPrint,
   Search,
-  ShieldCheck,
   SlidersHorizontal,
   Users,
   Wallet,
@@ -204,7 +203,7 @@ export function DormspacePublicHomeMobile({
             onKeyDown={(e) => {
               if (e.key === "Enter") onSearch();
             }}
-            placeholder="Where do you want to live?"
+            placeholder="Find your space near campus"
             className="min-w-0 flex-1 bg-transparent text-[14px] font-medium text-[#2C2C2C] placeholder:text-[#888888] focus:outline-none"
             aria-label="Search location"
           />
@@ -226,10 +225,6 @@ export function DormspacePublicHomeMobile({
             <ChevronRight className="size-3" aria-hidden />
           </button>
         </div>
-        <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-[#888888]">
-          <ShieldCheck className="size-3 shrink-0 text-[#6B9E6E]" strokeWidth={2.25} aria-hidden />
-          Verified landlords · Wi‑Fi &amp; walk times on listings
-        </p>
       </section>
 
       {/* New this week */}
@@ -242,10 +237,10 @@ export function DormspacePublicHomeMobile({
         </div>
       </section>
 
-      {/* Browse by what matters — icon left, text right */}
+      {/* What matters to students — icon left, text right */}
       <section className={cn(SECTION, PAGE_X)}>
         <h2 className="font-serif text-[18px] font-semibold leading-tight tracking-tight text-[#2C2C2C]">
-          Browse by what matters
+          What matters to students
         </h2>
         <div className={cn("mt-2.5", FOUR_UP)}>
           {BROWSE_MATTERS.map(({ icon, title, sub, filter }) => (
