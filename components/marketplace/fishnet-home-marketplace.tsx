@@ -39,6 +39,7 @@ import {
   isPreOptimizedPropertyPhotoUrl,
   propertyPhotoHeroUrl,
 } from "@/lib/cloudinary-property-photo-url";
+import { BahayGoHomeMobileTop } from "@/components/marketplace/bahaygo-home-mobile-top";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import type { DbProperty, SortMode } from "@/lib/marketplace-property";
@@ -2218,7 +2219,38 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         </div>
       ) : null}
 
-      <section className="relative w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4] md:border-b">
+      <BahayGoHomeMobileTop
+        mode={mode}
+        search={search}
+        onSearchChange={(v) => {
+          setNeighborhoodFilter(null);
+          setSearch(v);
+        }}
+        onSearchSubmit={onSearchSubmit}
+        recentSearches={recentHomepageSearches}
+        onRecentSearchPick={(q) => {
+          setNeighborhoodFilter(null);
+          setSearch(q);
+          applyLocationSearch(q);
+        }}
+        onBuyRentChange={(target) => {
+          router.replace(buildMarketplaceHref(search, target), { scroll: false });
+        }}
+        filters={filters}
+        onFiltersChange={setFilters}
+        onOpenFilters={() => setFiltersOpen(true)}
+        neighborhoodLabel={neighborhoodLabelForChips}
+        featuredProperty={featuredHomeProperty}
+        featuredIsAdminFeatured={featuredHomeIsAdminFeatured}
+        properties={properties}
+        engagement={engagement}
+        onScrollToListings={() => {
+          document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+        onLocationChipPress={() => setFiltersOpen(true)}
+      />
+
+      <section className="relative hidden w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4] md:block md:border-b">
         <div className="mx-auto w-full max-w-7xl px-4 py-3 pb-2 md:py-8 md:pb-8 lg:py-14">
           <div className="grid w-full grid-cols-1 items-stretch gap-4 md:items-center md:gap-10 lg:grid-cols-2 lg:gap-14">
             <div className="w-full min-w-0">
@@ -2255,7 +2287,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       <div className="flex min-w-0 w-full flex-col overflow-x-clip">
       <section
         id="featured-locations"
-        className="order-2 w-full min-w-0 overflow-x-clip border-b border-[#2C2C2C]/10 bg-[#FAF8F4] py-4 md:order-1 md:py-8 sm:py-10"
+        className="order-2 hidden w-full min-w-0 overflow-x-clip border-b border-[#2C2C2C]/10 bg-[#FAF8F4] py-4 md:order-1 md:block md:py-8 sm:py-10"
       >
         <div className="mx-auto w-full min-w-0 max-w-7xl px-4 sm:px-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -2394,7 +2426,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
       <hr className="order-2 mx-auto hidden w-3/4 border-t border-[#2C2C2C]/10 md:order-1 md:block" />
 
-      <main className="order-1 mx-auto min-w-0 w-full max-w-7xl overflow-x-clip px-4 pb-32 pt-4 max-md:pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:order-2 md:px-6 md:pb-16 md:pt-10">
+      <main className="order-1 mx-auto min-w-0 w-full max-w-7xl overflow-x-clip px-4 pb-32 pt-2 max-md:pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:order-2 md:px-6 md:pb-16 md:pt-10">
         {/* Loading / error */}
         {loading ? (
           <div className="mt-4 min-h-[280px] min-w-0 w-full max-w-full md:mt-8 md:min-h-[400px]">
@@ -2429,7 +2461,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
               />
 
               {!filtersActive ? (
-                <div className="mt-2 md:mt-3">
+                <div className="mt-2 hidden md:mt-3 md:block">
                   <button
                     type="button"
                     onClick={() => setFiltersOpen(true)}
@@ -2493,7 +2525,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 </div>
               ) : null}
 
-              <div className={cn("mt-4 md:mt-8", filtersActive && "mt-4 md:mt-6")}>
+              <div className={cn("mt-1 max-md:mt-0 md:mt-8", filtersActive && "mt-4 md:mt-6")}>
                 {homepageRows.length === 0 && filtersActive ? (
                   <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center shadow-sm">
                     <p className="font-serif text-xl font-semibold text-[#2C2C2C]">
@@ -2852,11 +2884,13 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             />
               */}
 
-            <HomepageTrustCarousel />
+            <div className="max-md:hidden">
+              <HomepageTrustCarousel />
+            </div>
 
-            <TopCondosRow
-              locationLabel={filters.locationLabel ?? neighborhoodLabelForChips}
-            />
+            <div className="hidden md:block">
+              <TopCondosRow locationLabel={filters.locationLabel ?? neighborhoodLabelForChips} />
+            </div>
 
             <HomepageValueSlider />
 
@@ -3708,9 +3742,14 @@ function PropertyRows({
   const titleWithSuffix = (t: string) => (rowTitleSuffix ? `${t}${rowTitleSuffix}` : t);
 
   return (
-    <div className="min-w-0 w-full max-w-full overflow-x-clip max-md:space-y-0 md:space-y-6">
+    <div className="min-w-0 w-full max-w-full overflow-x-clip max-md:space-y-1 md:space-y-6">
       {first.map((r, i) => (
-        <div key={r.key}>
+        <div
+          key={r.key}
+          className={cn(
+            (r.key === "newly-listed" || r.key === "featured") && "max-md:hidden",
+          )}
+        >
           <RowCarousel
             rowKey={r.key}
             title={titleWithSuffix(r.title)}
@@ -3750,7 +3789,12 @@ function PropertyRows({
       {enableShowMore && showMore && rest.length > 0 ? (
         <div className="max-md:space-y-0 md:space-y-6">
           {rest.map((r, idx) => (
-            <div key={r.key}>
+            <div
+              key={r.key}
+              className={cn(
+                (r.key === "newly-listed" || r.key === "featured") && "max-md:hidden",
+              )}
+            >
               <RowCarousel
                 rowKey={r.key}
                 title={titleWithSuffix(r.title)}
@@ -4006,7 +4050,7 @@ function RowCarousel({
         rowRefs.current[rowKey] = el;
       }}
       className={cn(
-        "min-w-0 overflow-x-auto overflow-y-visible py-2 pb-4 scrollbar-hide max-md:snap-x max-md:snap-proximity max-md:px-0 md:px-1 md:pb-2",
+        "min-w-0 overflow-x-auto overflow-y-visible py-1 pb-2 scrollbar-hide max-md:snap-x max-md:snap-mandatory max-md:scroll-pl-4 max-md:scroll-pr-4 max-md:pl-4 max-md:pr-4 md:px-1 md:py-2 md:pb-2",
         isFeaturedPicksRow ? "md:px-10" : "flex-1",
       )}
     >
@@ -4060,21 +4104,21 @@ function RowCarousel({
       className={cn(
         featuredClasses,
         reserveBrowseSectionMinH && "md:min-h-[400px]",
-        "max-md:py-4",
+        "max-md:py-2 md:py-4",
       )}
     >
-      <div className="mb-3">
+      <div className="mb-2 max-md:mb-1.5 md:mb-3">
         <div className="flex flex-wrap items-center gap-2">
           {featured ? <Star className="h-4 w-4 shrink-0 text-[#D4A843]" /> : null}
           {titleHref ? (
             <Link
               href={titleHref}
-              className="min-w-0 font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] hover:underline sm:text-2xl md:text-3xl"
+              className="min-w-0 px-4 font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] hover:underline sm:text-2xl md:px-0 md:text-3xl"
             >
               {title}
             </Link>
           ) : (
-            <h2 className="min-w-0 font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl md:text-3xl">
+            <h2 className="min-w-0 px-4 font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl md:px-0 md:text-3xl">
               {title}
             </h2>
           )}
