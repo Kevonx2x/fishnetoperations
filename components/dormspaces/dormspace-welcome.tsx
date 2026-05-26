@@ -149,10 +149,10 @@ function LandlordWelcomeCard({
           </Link>
         ) : null}
         <Link
-          href="/"
+          href="/dormspaces"
           className="inline-flex h-10 items-center justify-center text-sm font-semibold text-[#6B9E6E] hover:underline"
         >
-          Go to homepage
+          Browse dormspaces
         </Link>
       </div>
 

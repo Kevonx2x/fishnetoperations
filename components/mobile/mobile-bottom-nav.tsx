@@ -31,7 +31,7 @@ export type MobileBottomNavTabConfig = {
 };
 
 const HIDDEN_PATH_PREFIXES = ["/auth", "/admin"] as const;
-const HIDDEN_PATHS = ["/dormspaces/welcome", "/dormspaces/submit"] as const;
+const HIDDEN_PATHS = ["/dormspaces/submit", "/dormspaces/welcome"] as const;
 
 function isMobileBottomNavHidden(pathname: string): boolean {
   if (HIDDEN_PATH_PREFIXES.some((p) => pathname.startsWith(p))) return true;
@@ -53,6 +53,16 @@ const MARKETPLACE_TABS: MobileBottomNavTabConfig[] = [
 
 const MARKETPLACE_TAB_IDS = new Set(MARKETPLACE_TABS.map((tab) => tab.id));
 
+/** Public dormspaces marketplace — no Inbox; More stays in-product. */
+const DORMSPACES_PUBLIC_TABS: MobileBottomNavTabConfig[] = [
+  { id: "home", label: "Home", href: "/dormspaces", Icon: Home },
+  { id: "search", label: "Search", href: "/search", Icon: Map },
+  { id: "saved", label: "Saved", href: "/dormspaces/liked", Icon: Heart },
+  { id: "more", label: "More", href: "/dormspaces/more", Icon: MoreHorizontal },
+];
+
+const DORMSPACES_PUBLIC_TAB_IDS = new Set(DORMSPACES_PUBLIC_TABS.map((tab) => tab.id));
+
 const AGENT_TABS: MobileBottomNavTabConfig[] = [
   { id: "pipeline", label: "Pipeline", href: "/dashboard/agent?tab=pipeline", Icon: Columns3 },
   { id: "listings", label: "Listings", href: "/dashboard/agent?tab=listings", Icon: Building2 },
@@ -73,16 +83,27 @@ function parseHref(href: string): { path: string; tab: string | null } {
   return { path, tab };
 }
 
-function resolveMarketplaceTabs(pathname: string): MobileBottomNavTabConfig[] {
-  const homeHref = isPublicDormspaceMarketplacePath(pathname) ? "/dormspaces" : "/";
-  return MARKETPLACE_TABS.map((tab) =>
-    tab.id === "home" ? { ...tab, href: homeHref } : tab,
-  );
+function isDormspacesHomeActive(pathname: string): boolean {
+  if (!pathname.startsWith("/dormspaces")) return false;
+  if (pathname.startsWith("/dormspaces/dashboard")) return false;
+  if (pathname === "/dormspaces/submit" || pathname.startsWith("/dormspaces/submit/")) return false;
+  if (pathname.startsWith("/dormspaces/more")) return false;
+  if (pathname.startsWith("/dormspaces/search")) return false;
+  if (pathname.startsWith("/dormspaces/liked")) return false;
+  return true;
+}
+
+function isDormspacesPublicTabActive(tabId: string, pathname: string): boolean {
+  if (tabId === "home") return isDormspacesHomeActive(pathname);
+  if (tabId === "search") return pathname.startsWith("/dormspaces/search");
+  if (tabId === "saved") {
+    return pathname.startsWith("/dormspaces/liked");
+  }
+  if (tabId === "more") return pathname.startsWith("/dormspaces/more");
+  return false;
 }
 
 function isMarketplaceTabActive(tabId: string, pathname: string): boolean {
-  const dormspacesBrowse = isPublicDormspaceMarketplacePath(pathname);
-
   if (tabId === "more") {
     return (
       pathname.startsWith("/more") ||
@@ -111,7 +132,7 @@ function isMarketplaceTabActive(tabId: string, pathname: string): boolean {
     if (pathname.startsWith("/more")) return false;
     if (pathname.startsWith("/settings") || pathname.startsWith("/profile")) return false;
     if (pathname.startsWith("/dashboard")) return false;
-    if (dormspacesBrowse) return true;
+    if (pathname.startsWith("/dormspaces")) return false;
     if (pathname === "/") return true;
     if (pathname.startsWith("/properties")) return true;
     if (pathname.startsWith("/agents")) return true;
@@ -126,6 +147,10 @@ function isTabActive(
   pathname: string,
   searchTab: string | null,
 ): boolean {
+  if (DORMSPACES_PUBLIC_TAB_IDS.has(tab.id) && isPublicDormspaceMarketplacePath(pathname)) {
+    return isDormspacesPublicTabActive(tab.id, pathname);
+  }
+
   if (MARKETPLACE_TAB_IDS.has(tab.id)) {
     return isMarketplaceTabActive(tab.id, pathname);
   }
@@ -176,7 +201,11 @@ function resolveTabs(pathname: string | null | undefined): MobileBottomNavTabCon
     return LANDLORD_TABS;
   }
 
-  return resolveMarketplaceTabs(path);
+  if (isPublicDormspaceMarketplacePath(path)) {
+    return DORMSPACES_PUBLIC_TABS;
+  }
+
+  return MARKETPLACE_TABS;
 }
 
 function formatBadge(count: number): string {
