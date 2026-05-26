@@ -10,17 +10,15 @@ import {
   Heart,
   Home,
   Inbox,
+  Map,
   MessageSquare,
+  MoreHorizontal,
   Search,
   User,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { isLandlordCapable } from "@/lib/auth-roles";
-import {
-  BAHAYGO_HERO_SEARCH_ID,
-  resolveMarketplaceBottomNavTabs,
-} from "@/lib/bahaygo-mobile/navigation";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { cn } from "@/lib/utils";
 
@@ -38,17 +36,22 @@ const HIDDEN_PATHS = ["/dormspaces/welcome", "/dormspaces/submit"] as const;
 function isMobileBottomNavHidden(pathname: string): boolean {
   if (HIDDEN_PATH_PREFIXES.some((p) => pathname.startsWith(p))) return true;
   if (HIDDEN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return true;
+  if (pathname.startsWith("/messages/")) return true;
+  if (pathname === "/properties/submit" || pathname.startsWith("/properties/submit/")) return true;
+  if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) return true;
   return false;
 }
 
-/** Public marketplace — Home → Search → Saved → Messages → Profile. */
+/** Public marketplace — Home → Search → Saved → Inbox → More. */
 const MARKETPLACE_TABS: MobileBottomNavTabConfig[] = [
   { id: "home", label: "Home", href: "/", Icon: Home },
-  { id: "search", label: "Search", href: `/#${BAHAYGO_HERO_SEARCH_ID}`, Icon: Search },
+  { id: "search", label: "Search", href: "/search", Icon: Map },
   { id: "saved", label: "Saved", href: "/saved", Icon: Heart },
-  { id: "messages", label: "Messages", href: "/dashboard/client/messages", Icon: MessageSquare },
-  { id: "profile", label: "Profile", href: "/profile", Icon: User },
+  { id: "inbox", label: "Inbox", href: "/messages", Icon: MessageSquare },
+  { id: "more", label: "More", href: "/more", Icon: MoreHorizontal },
 ];
+
+const MARKETPLACE_TAB_IDS = new Set(MARKETPLACE_TABS.map((tab) => tab.id));
 
 const AGENT_TABS: MobileBottomNavTabConfig[] = [
   { id: "pipeline", label: "Pipeline", href: "/dashboard/agent?tab=pipeline", Icon: Columns3 },
@@ -79,41 +82,56 @@ function isDormspacesBrowsePath(pathname: string): boolean {
   return true;
 }
 
+function isMarketplaceTabActive(tabId: string, pathname: string): boolean {
+  if (tabId === "more") {
+    return (
+      pathname.startsWith("/more") ||
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/profile") ||
+      pathname.startsWith("/dashboard/client") ||
+      pathname.startsWith("/dormspaces")
+    );
+  }
+
+  if (tabId === "inbox") {
+    return pathname.startsWith("/messages");
+  }
+
+  if (tabId === "saved") {
+    return pathname === "/saved" || pathname.startsWith("/saved/") || pathname === "/likes";
+  }
+
+  if (tabId === "search") {
+    return pathname.startsWith("/search");
+  }
+
+  if (tabId === "home") {
+    if (pathname.startsWith("/search")) return false;
+    if (pathname === "/saved" || pathname.startsWith("/saved/") || pathname === "/likes") return false;
+    if (pathname.startsWith("/messages")) return false;
+    if (pathname.startsWith("/more")) return false;
+    if (pathname.startsWith("/settings") || pathname.startsWith("/profile")) return false;
+    if (pathname.startsWith("/dashboard")) return false;
+    if (pathname.startsWith("/dormspaces")) return false;
+    if (pathname === "/") return true;
+    if (pathname.startsWith("/properties")) return true;
+    if (pathname.startsWith("/agents")) return true;
+    return true;
+  }
+
+  return false;
+}
+
 function isTabActive(
   tab: MobileBottomNavTabConfig,
   pathname: string,
   searchTab: string | null,
 ): boolean {
+  if (MARKETPLACE_TAB_IDS.has(tab.id)) {
+    return isMarketplaceTabActive(tab.id, pathname);
+  }
+
   const { path, tab: hrefTab } = parseHref(tab.href);
-
-  if (path === "/") {
-    if (tab.id === "home") return pathname === "/";
-    if (tab.id === "search") return pathname === "/";
-    return pathname === "/";
-  }
-
-  if (tab.id === "search" && path.startsWith("/#")) {
-    return pathname === "/";
-  }
-
-  if (path === "/saved" || tab.id === "saved") {
-    return pathname === "/saved" || pathname.startsWith("/saved/") || pathname === "/likes";
-  }
-
-  if (tab.id === "messages") {
-    return (
-      pathname.startsWith("/dashboard/client/messages") ||
-      (pathname.startsWith("/dashboard/agent") && searchTab === "messages")
-    );
-  }
-
-  if (path === "/dormspaces" && tab.id === "dormspaces") {
-    return isDormspacesBrowsePath(pathname);
-  }
-
-  if (path === "/profile" || tab.id === "profile") {
-    return pathname === "/profile" || pathname === "/settings" || pathname.startsWith("/settings/");
-  }
 
   if (tab.id === "listings" && path === "/dormspaces/dashboard") {
     if (!pathname.startsWith("/dormspaces/dashboard")) return false;
@@ -188,12 +206,7 @@ function resolveTabs(
     ];
   }
 
-  return resolveMarketplaceBottomNavTabs(profileRole, isSignedIn).map((t) => ({
-    id: t.id,
-    label: t.label,
-    href: t.href,
-    Icon: t.Icon,
-  }));
+  return MARKETPLACE_TABS;
 }
 
 function formatBadge(count: number): string {
@@ -215,16 +228,13 @@ function NavTab({
     <Link
       href={href}
       className={cn(
-        "relative flex min-h-[44px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 pt-1.5",
+        "relative flex min-h-[44px] min-w-[44px] min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0",
         active ? "text-[#6B9E6E]" : "text-[#888888]",
       )}
       aria-current={active ? "page" : undefined}
     >
       {active ? (
-        <span
-          className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full bg-[#6B9E6E]"
-          aria-hidden
-        />
+        <span className="absolute inset-x-0 top-0 h-0.5 bg-[#6B9E6E]" aria-hidden />
       ) : null}
       <span className="relative flex h-6 w-6 items-center justify-center">
         <Icon
@@ -240,8 +250,8 @@ function NavTab({
       </span>
       <span
         className={cn(
-          "max-w-[4.5rem] truncate text-center text-[10px] uppercase tracking-wide",
-          active ? "font-semibold text-[#6B9E6E]" : "font-semibold text-[#888888]",
+          "max-w-[4.5rem] truncate text-center text-[10px] uppercase tracking-tight",
+          active ? "font-semibold text-[#6B9E6E]" : "font-medium text-[#888888]",
         )}
       >
         {label}
@@ -269,7 +279,7 @@ export function MobileBottomNav() {
       profile?.role,
     );
     return base.map((t) =>
-      t.id === "messages" && messagesUnread > 0
+      t.id === "inbox" && messagesUnread > 0
         ? { ...t, badgeCount: messagesUnread }
         : t,
     );
@@ -282,10 +292,10 @@ export function MobileBottomNav() {
   return (
     // TODO: Stray "N" circle on Explore tab in dev is likely the Next.js dev indicator overlay, not this nav.
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#DDDDDD] bg-white pt-2 shadow-[0_-2px_8px_rgba(0,0,0,0.04)] md:hidden pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-black/[0.06] bg-white py-2 md:hidden pb-[env(safe-area-inset-bottom,0px)]"
       aria-label="Main navigation"
     >
-      <div className="mx-auto flex h-[60px] max-w-lg items-stretch justify-between px-1">
+      <div className="mx-auto flex h-14 max-w-lg items-stretch px-0">
         {tabs.map((tab) => (
           <NavTab key={tab.id} tab={tab} active={isTabActive(tab, path, searchTab)} />
         ))}
