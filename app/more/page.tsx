@@ -195,7 +195,7 @@ export default function MorePage() {
 
     const activityItems: MenuItem[] = [];
     if (isSignedIn) {
-      if (ROUTES.pipeline) {
+      if (ROUTES.pipeline && !isAgentUser) {
         activityItems.push({
           id: "pipeline",
           label: "Pipeline",

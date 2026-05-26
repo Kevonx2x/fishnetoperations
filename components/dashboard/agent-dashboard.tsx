@@ -58,6 +58,12 @@ import { AgentViewingsProvider, useAgentViewings } from "@/lib/agent-viewings-co
 // Legacy onboarding modal — replaced by agent tour overlay. Kept commented in case we want to revive.
 // import { PostLoginModal } from "@/components/onboarding/post-login-modal";
 import { AgentTourSidebarHelp } from "@/components/onboarding/agent-tour-trigger";
+import { AgentDashboardSubpageHeader } from "@/components/dashboard/agent-dashboard-subpage-header";
+import {
+  AGENT_DASHBOARD_HUB_PATH,
+  agentTabPath,
+  type AgentDashboardTabId,
+} from "@/lib/agent-dashboard-routes";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { normalizeListingLocation } from "@/lib/duplicate-listing";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -957,7 +963,19 @@ function DashboardLoadErrorsBanner(props: {
   );
 }
 
-export function AgentDashboard() {
+export type AgentDashboardSurface = "legacy" | "section";
+
+export type AgentDashboardProps = {
+  surface?: AgentDashboardSurface;
+  sectionTab?: AgentDashboardTabId;
+  sectionTitle?: string;
+};
+
+export function AgentDashboard({
+  surface = "legacy",
+  sectionTab,
+  sectionTitle,
+}: AgentDashboardProps = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -966,19 +984,33 @@ export function AgentDashboard() {
   const streamMessagesUnreadTotal = useUnreadMessageCount();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const agentViewingsRefetchRef = useRef<(() => Promise<void>) | null>(null);
+  const isSectionSurface = surface === "section";
 
-  const tab = useMemo(() => tabFromSearchParamsString(searchQueryString), [searchQueryString]);
+  const tab = useMemo((): Tab => {
+    if (isSectionSurface && sectionTab) {
+      return sectionTab as Tab;
+    }
+    return tabFromSearchParamsString(searchQueryString);
+  }, [isSectionSurface, sectionTab, searchQueryString]);
   const isMobilePipeline = useIsMobile();
   const showMobilePipelineUi = isMobilePipeline && tab === "pipeline";
 
   const navigateAgentTab = useCallback(
     (next: Tab) => {
+      if (isSectionSurface) {
+        if (next === "overview") {
+          router.push(AGENT_DASHBOARD_HUB_PATH);
+          return;
+        }
+        router.push(agentTabPath(next as AgentDashboardTabId));
+        return;
+      }
       const sp = new URLSearchParams(searchQueryString);
       sp.set("tab", next);
       const qs = sp.toString();
       router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
     },
-    [pathname, router, searchQueryString],
+    [isSectionSurface, pathname, router, searchQueryString],
   );
 
   const [streamChannelId, setStreamChannelId] = useState<string | null>(null);
@@ -1881,21 +1913,35 @@ export function AgentDashboard() {
   useEffect(() => {
     if (!agent || isTeamMemberView) return;
     if (agent.verification_status !== "verified" && (tab === "pipeline" || tab === "listings")) {
-      navigateAgentTab("overview");
+      if (isSectionSurface) {
+        router.replace(AGENT_DASHBOARD_HUB_PATH);
+      } else {
+        navigateAgentTab("overview");
+      }
     }
-  }, [agent, tab, isTeamMemberView, navigateAgentTab]);
+  }, [agent, tab, isTeamMemberView, navigateAgentTab, isSectionSurface, router]);
 
   useEffect(() => {
     if (!isTeamMemberView && tab === "documents") {
-      navigateAgentTab("pipeline");
+      if (isSectionSurface) {
+        router.replace(agentTabPath("pipeline"));
+      } else {
+        navigateAgentTab("pipeline");
+      }
     }
-  }, [isTeamMemberView, tab, navigateAgentTab]);
+  }, [isTeamMemberView, tab, navigateAgentTab, isSectionSurface, router]);
 
   useEffect(() => {
     if (!isTeamMemberView) return;
     const allowed: Tab[] = ["pipeline", "messages", "documents"];
-    if (!allowed.includes(tab)) navigateAgentTab("pipeline");
-  }, [isTeamMemberView, tab, navigateAgentTab]);
+    if (!allowed.includes(tab)) {
+      if (isSectionSurface) {
+        router.replace(agentTabPath("pipeline"));
+      } else {
+        navigateAgentTab("pipeline");
+      }
+    }
+  }, [isTeamMemberView, tab, navigateAgentTab, isSectionSurface, router]);
 
   useEffect(() => {
     if (!agent || authProfileRole === "team_member") return;
@@ -1956,6 +2002,26 @@ export function AgentDashboard() {
     setListingFormErrors({});
     setListingOpen(true);
   };
+
+  useEffect(() => {
+    if (!isSectionSurface || tab !== "listings") return;
+    const wantsNew = searchParams.get("new") === "1" || searchParams.get("action") === "new";
+    if (!wantsNew || !identityVerified) return;
+    openNewListingFlow();
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.delete("new");
+    sp.delete("action");
+    const qs = sp.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [
+    isSectionSurface,
+    tab,
+    searchParams,
+    identityVerified,
+    pathname,
+    router,
+    atListingLimit,
+  ]);
 
   useEffect(() => {
     if (authLoading || !user?.id || !agent?.id || isTeamMemberView) return;
@@ -2728,8 +2794,11 @@ export function AgentDashboard() {
   return (
     <div
       className={cn(
-        "min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0",
-        showMobilePipelineUi && "pb-0",
+        "min-h-screen bg-[#FAF8F4]",
+        isSectionSurface
+          ? "pb-32"
+          : "pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0",
+        showMobilePipelineUi && !isSectionSurface && "pb-0",
         tab === "messages" &&
           "max-md:flex max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:min-h-0 max-md:flex-col max-md:overflow-hidden",
       )}
@@ -2769,8 +2838,10 @@ export function AgentDashboard() {
         <aside
           data-tour="agent-sidebar"
           className={cn(
-            "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:min-h-0 md:flex-col md:overflow-hidden md:px-2 md:py-5",
-            tab === "messages" ? "w-[208px]" : "w-[180px]",
+            "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4]",
+            !isSectionSurface &&
+              "md:sticky md:top-0 md:flex md:h-full md:max-h-full md:min-h-0 md:flex-col md:overflow-hidden md:px-2 md:py-5",
+            !isSectionSurface && (tab === "messages" ? "w-[208px]" : "w-[180px]"),
           )}
         >
           <div className="flex flex-col min-h-0">
@@ -2872,9 +2943,14 @@ export function AgentDashboard() {
               ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
               : tab === "pipeline"
                 ? "min-h-0 px-4 py-3 md:overflow-y-auto md:px-8 md:py-5 md:pb-5"
-                : "px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 md:pb-10",
+                : isSectionSurface
+                  ? "min-h-0 overflow-y-auto px-4 py-4 md:px-6 md:py-6"
+                  : "px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 md:pb-10",
           )}
         >
+          {isSectionSurface && sectionTitle ? (
+            <AgentDashboardSubpageHeader title={sectionTitle} />
+          ) : null}
           <DashboardLoadErrorsBanner
             errors={loadErrors}
             onRetry={() => void loadData()}
@@ -3138,8 +3214,8 @@ export function AgentDashboard() {
         </main>
       </div>
 
-      {/* Mobile bottom bar — hidden on mobile pipeline (uses AgentMobileBottomNav) */}
-      {!showMobilePipelineUi ? (
+      {/* Mobile bottom bar — hidden on hub sub-pages (global nav) and mobile pipeline */}
+      {!showMobilePipelineUi && !isSectionSurface ? (
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-1 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
         <button
           type="button"
