@@ -26,14 +26,12 @@ import {
   Pin,
   Check,
   Search,
-  Shield,
   Star,
   UserPlus,
   Flame,
   Waves,
   Wind,
   BadgeCheck,
-  Lock,
   X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -93,6 +91,7 @@ import { HomepageFiltersSheet } from "@/components/marketplace/homepage-filters-
 import { HomepageExpandSearchCta } from "@/components/marketplace/homepage-results-surface";
 import { HomepageArticlesSection } from "@/components/marketplace/homepage-articles-section";
 import { HomepageDormspacersBanner } from "@/components/marketplace/homepage-dormspacers-banner";
+import { HomepageTrustCarousel } from "@/components/marketplace/homepage-trust-carousel";
 import { TopCondosRow } from "@/components/marketplace/top-condos-row";
 import { HomepageValueSlider } from "@/components/marketplace/homepage-value-slider";
 import {
@@ -2853,28 +2852,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                             />
               */}
 
-            {/* 7. WHY FISHNET TRUST SECTION */}
-            <section className="mt-6 lg:mt-12">
-              <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6 shadow-sm">
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-                  <Trust
-                    icon={<Shield className="h-5 w-5 text-[#6B9E6E]" />}
-                    title="All Agents Verified"
-                    body="Every agent on BahayGo has a verified PRC license"
-                  />
-                  <Trust
-                    icon={<BadgeCheck className="h-5 w-5 text-[#6B9E6E]" />}
-                    title="Licensed Agencies Only"
-                    body="All agencies are registered and monitored"
-                  />
-                  <Trust
-                    icon={<Lock className="h-5 w-5 text-[#6B9E6E]" />}
-                    title="Anti-Scam Protection"
-                    body="Zero tolerance policy. Report and remove instantly"
-                  />
-                </div>
-              </div>
-            </section>
+            <HomepageTrustCarousel />
 
             <TopCondosRow
               locationLabel={filters.locationLabel ?? neighborhoodLabelForChips}
@@ -3030,18 +3008,6 @@ function CategorySection({
         </div>
       ) : null}
     </>
-  );
-}
-
-function Trust({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2">
-        {icon}
-        <p className="font-semibold text-[#2C2C2C]">{title}</p>
-      </div>
-      <p className="mt-2 text-sm font-semibold text-[#484848]">{body}</p>
-    </div>
   );
 }
 
