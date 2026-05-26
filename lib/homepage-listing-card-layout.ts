@@ -9,3 +9,10 @@ export const HOMEPAGE_MOBILE_CAROUSEL_INSET =
 /** Two listing cards visible on ~375px mobile browse carousels (Airbnb-style). */
 export const HOMEPAGE_BROWSE_LISTING_CARD_WIDTH =
   "w-[calc((100vw-2rem-0.625rem)/2)] shrink-0 md:w-[232px] lg:w-[240px]";
+
+/** Trulia-style mobile feed: one large card per row with a peek of the next. */
+export const HOMEPAGE_MOBILE_FEED_CARD_WIDTH =
+  "w-[calc((100vw-2rem-0.75rem)/1.06)] shrink-0 snap-start md:w-[232px] lg:w-[240px]";
+
+/** Default category rows on mobile home (no Show More). */
+export const HOMEPAGE_MOBILE_FEED_ROW_COUNT = 6;

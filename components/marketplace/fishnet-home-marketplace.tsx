@@ -9,6 +9,8 @@ import Link from "next/link";
 import {
   Activity,
   ArrowDown,
+  Bath,
+  BedDouble,
   Building2,
   Car,
   ChevronDown,
@@ -109,6 +111,8 @@ import {
 import {
   HOMEPAGE_BROWSE_LISTING_CARD_WIDTH,
   HOMEPAGE_MOBILE_CAROUSEL_TRACK,
+  HOMEPAGE_MOBILE_FEED_CARD_WIDTH,
+  HOMEPAGE_MOBILE_FEED_ROW_COUNT,
 } from "@/lib/homepage-listing-card-layout";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
@@ -1710,6 +1714,10 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
   const { queries: recentHomepageSearches } = useRecentHomepageSearches();
 
+  const scrollToListings = useCallback(() => {
+    document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   const applyLocationSearch = useCallback(
     (queryOverride?: string) => {
       const trimmed = (queryOverride ?? search).trim();
@@ -1722,11 +1730,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       const nk = resolveFeaturedKeyFromQuery(trimmed);
       setNeighborhoodFilter(nk);
       syncMarketplaceUrl(trimmed);
-      requestAnimationFrame(() => {
-        document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      requestAnimationFrame(() => scrollToListings());
     },
-    [search, syncMarketplaceUrl],
+    [search, syncMarketplaceUrl, scrollToListings],
   );
 
   useEffect(() => {
@@ -2017,6 +2023,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   }, [featuredLocationCounts]);
 
   const filtersActive = hasActiveHomepageFilters(filters, { search, neighborhoodFilter });
+
   const neighborhoodLabelForChips = neighborhoodFilter
     ? (FEATURED_CITIES.find((c) => c.key === neighborhoodFilter)?.label ?? null)
     : null;
@@ -2079,9 +2086,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       setNeighborhoodFilter(key);
       setSearch(label);
     }
-    requestAnimationFrame(() => {
-      document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    requestAnimationFrame(() => scrollToListings());
   };
 
   const handleExpandSearch = () => {
@@ -2251,9 +2256,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         featuredIsAdminFeatured={featuredHomeIsAdminFeatured}
         properties={properties}
         engagement={engagement}
-        onScrollToListings={() => {
-          document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }}
+        onScrollToListings={scrollToListings}
         onLocationChipPress={() => setFiltersOpen(true)}
       />
 
@@ -2358,9 +2361,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                           setFilters((s) => ({ ...s, locationLabel: c.label }));
                           setSelectedLocation(null);
                           setSelectedPropertyType(null);
-                          requestAnimationFrame(() => {
-                            document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                          });
+                          requestAnimationFrame(() => scrollToListings());
                         }}
                         className={`group relative flex w-[130px] shrink-0 flex-col overflow-hidden rounded-2xl border text-left shadow-md transition hover:scale-[1.02] lg:w-[160px] ${
                           active
@@ -2461,9 +2462,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 onClearAll={clearFiltersAndBrowse}
                 onApply={() => {
                   setFiltersOpen(false);
-                  requestAnimationFrame(() => {
-                    document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  });
+                  requestAnimationFrame(() => scrollToListings());
                 }}
               />
 
@@ -2532,7 +2531,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 </div>
               ) : null}
 
-              <div className={cn("mt-1 max-md:mt-0 md:mt-8", filtersActive && "mt-4 md:mt-6")}>
+              <div className={cn("mt-1 max-md:mt-3 md:mt-8", filtersActive && "mt-4 md:mt-6")}>
                 {homepageRows.length === 0 && filtersActive ? (
                   <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center shadow-sm">
                     <p className="font-serif text-xl font-semibold text-[#2C2C2C]">
@@ -2551,6 +2550,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     showMore={showMoreCategories}
                     onToggleShowMore={() => setShowMoreCategories((v) => !v)}
                     enableShowMore={!filtersActive}
+                    mobileFeedBrowse={!filtersActive}
                     rowRefs={rowRefs}
                     cardRoomIdx={cardRoomIdx}
                     setCardRoomIdx={setCardRoomIdx}
@@ -3156,9 +3156,9 @@ export function NewlyListedCard({
   return (
     <div
       className={cn(
-        "flex flex-col bg-white",
+        "relative flex flex-col bg-white",
         browseCompact
-          ? "min-h-0 max-md:snap-start max-md:overflow-visible max-md:rounded-2xl max-md:bg-white max-md:shadow-[0_4px_20px_rgba(44,44,44,0.1)] max-md:ring-1 max-md:ring-black/[0.05] md:min-h-[412px] md:overflow-hidden md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md lg:min-h-[448px]"
+          ? "min-h-0 max-md:snap-start max-md:overflow-visible max-md:rounded-2xl max-md:bg-white max-md:shadow-[0_2px_16px_rgba(0,0,0,0.08)] max-md:ring-1 max-md:ring-black/[0.06] max-md:transition max-md:active:scale-[0.99] md:min-h-[412px] md:overflow-hidden md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md lg:min-h-[448px]"
           : "min-h-[300px] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 shadow-md md:min-h-[412px] lg:min-h-[448px]",
         grid
           ? gridCardClassName ?? HOMEPAGE_BROWSE_LISTING_CARD_WIDTH
@@ -3166,11 +3166,18 @@ export function NewlyListedCard({
         listingRemoved && "pointer-events-none opacity-50",
       )}
     >
+      {!listingRemoved && browseCompact ? (
+        <Link
+          href={propertyHref}
+          className="absolute inset-0 z-[12] rounded-2xl md:hidden"
+          aria-label={propertyDetailLabel}
+        />
+      ) : null}
       <div
         className={cn(
           "relative w-full shrink-0 overflow-hidden bg-[#F3F0EA]",
           browseCompact
-            ? "aspect-[5/4] max-md:rounded-t-2xl md:aspect-auto md:h-44 md:rounded-none lg:h-52"
+            ? "aspect-[4/3] max-md:rounded-t-2xl md:aspect-auto md:h-44 md:rounded-none lg:h-52"
             : "h-44 lg:h-52",
         )}
       >
@@ -3187,7 +3194,7 @@ export function NewlyListedCard({
         {!listingRemoved ? (
           <Link
             href={propertyHref}
-            className="absolute inset-0 z-[7]"
+            className={cn("absolute inset-0 z-[7]", browseCompact && "max-md:hidden")}
             aria-label={propertyDetailLabel}
           />
         ) : null}
@@ -3215,6 +3222,7 @@ export function NewlyListedCard({
               }}
               className={cn(
                 "absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30",
+                browseCompact && "max-md:hidden",
               )}
               aria-label="Previous room photo"
             >
@@ -3229,6 +3237,7 @@ export function NewlyListedCard({
               }}
               className={cn(
                 "absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30",
+                browseCompact && "max-md:hidden",
               )}
               aria-label="Next room photo"
             >
@@ -3237,9 +3246,19 @@ export function NewlyListedCard({
           </>
         ) : null}
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-16 bg-gradient-to-t from-black/25 to-transparent" />
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-16 bg-gradient-to-t from-black/25 to-transparent",
+            browseCompact && "max-md:hidden",
+          )}
+        />
 
-        <div className="absolute left-2 top-2 z-20 flex flex-wrap gap-1 md:left-3 md:top-3">
+        <div
+          className={cn(
+            "absolute left-2 top-2 z-20 flex flex-wrap gap-1 md:left-3 md:top-3",
+            browseCompact && "max-md:hidden",
+          )}
+        >
           {isDualListing ? (
             <>
               <span className={browseCardStatusPillClass}>For Sale</span>
@@ -3250,7 +3269,12 @@ export function NewlyListedCard({
           )}
         </div>
 
-        <div className="absolute bottom-2 left-2 z-20 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1 md:bottom-3 md:left-3 md:max-w-[calc(100%-5rem)]">
+        <div
+          className={cn(
+            "absolute bottom-2 left-2 z-20 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1 md:bottom-3 md:left-3 md:max-w-[calc(100%-5rem)]",
+            browseCompact && "max-md:hidden",
+          )}
+        >
           <span className={browseCardListedPillClass}>{listedLabel}</span>
           {showYourListingBadge ? (
             <Link
@@ -3282,16 +3306,19 @@ export function NewlyListedCard({
                   : isLiked
                     ? "border border-red-200 bg-white"
                     : "border border-gray-200 bg-white/90",
-                browseCompact && "max-md:border-0 max-md:bg-white/95 max-md:shadow-md",
+                browseCompact &&
+                  "max-md:flex max-md:size-7 max-md:items-center max-md:justify-center max-md:rounded-full max-md:bg-white/95 max-md:shadow-md max-md:ring-1 max-md:ring-black/[0.06]",
                 (agentEngagementLocked || listingRemoved) && "pointer-events-none opacity-40",
               )}
-              aria-label={`${engagement.likeCount(property.id)} likes`}
+              aria-label={isLiked ? "Unlike" : "Save"}
             >
               <Heart
                 className={cn(
-                  "h-4 w-4 shrink-0 md:h-3.5 md:w-3.5",
-                  isLiked ? "fill-red-500 text-red-500" : "fill-none text-[#222] md:text-red-400",
+                  "shrink-0",
+                  browseCompact ? "size-3.5 md:h-3.5 md:w-3.5" : "h-4 w-4 md:h-3.5 md:w-3.5",
+                  isLiked ? "fill-red-500 text-red-500" : browseCompact ? "text-[#2C2C2C]/80" : "fill-none text-[#222] md:text-red-400",
                 )}
+                strokeWidth={2}
               />
               {showEng || agentEngagementLocked || property.is_presale ? (
                 <span
@@ -3319,6 +3346,7 @@ export function NewlyListedCard({
                     ? "border border-[#D4A843]/40 bg-white"
                     : "border border-gray-200 bg-white/90",
                 browseCompact && "max-md:border-0 max-md:bg-white/95 max-md:shadow-md",
+                browseCompact && "max-md:hidden",
                 (agentEngagementLocked || listingRemoved) && "pointer-events-none opacity-40",
               )}
               aria-label={`${engagement.saveCount(property.id)} saved`}
@@ -3349,79 +3377,76 @@ export function NewlyListedCard({
         className={cn(
           "flex flex-col gap-0 bg-white",
           browseCompact
-            ? "max-md:rounded-b-2xl max-md:border-0 max-md:px-3 max-md:pb-3 max-md:pt-2.5 border-t border-[#2C2C2C]/10 px-3 py-2"
+            ? "max-md:gap-2 max-md:rounded-b-2xl max-md:border-0 max-md:px-4 max-md:pb-4 max-md:pt-3 md:border-t md:border-[#2C2C2C]/10 md:px-3 md:py-2"
             : "border-t border-[#2C2C2C]/10 px-3 py-3 sm:px-4",
         )}
       >
-        <div
-          className={cn(
-            "shrink-0 overflow-hidden",
-            isDualListing ? "min-h-[28px]" : browseCompact ? "max-md:min-h-0 md:h-[28px]" : "h-[28px]",
-          )}
-        >
-          {isDualListing ? (
-            <div className="space-y-0.5">
-              <p
-                className={cn(
-                  "truncate font-semibold tracking-tight text-[#D4A843]",
-                  browseCompact ? "text-[15px] md:text-sm" : "text-base sm:text-lg",
-                )}
-              >
-                Sale {formatPropertyPriceDisplay(property.price, "for_sale")}
-              </p>
-              <p
-                className={cn(
-                  "truncate font-semibold tracking-tight text-[#2C2C2C]/90",
-                  browseCompact ? "text-xs md:text-xs" : "text-sm sm:text-base",
-                )}
-              >
-                Rent {formatPropertyPriceDisplay(property.rent_price, "for_rent")}
-              </p>
-            </div>
-          ) : (
+        {isDualListing ? (
+          <div className={cn("shrink-0 space-y-0.5", browseCompact && "max-md:space-y-1")}>
             <p
               className={cn(
-                "truncate font-semibold tracking-tight text-[#D4A843]",
-                browseCompact ? "text-base leading-tight md:text-base" : "text-lg sm:text-xl",
+                "truncate font-bold tracking-tight text-[#2C2C2C]",
+                browseCompact ? "text-[20px] leading-tight md:text-sm md:text-[#D4A843]" : "text-base sm:text-lg text-[#D4A843]",
               )}
             >
-              {formatPropertyPriceDisplay(property.price, property.status)}
+              Sale {formatPropertyPriceDisplay(property.price, "for_sale")}
             </p>
-          )}
-        </div>
-        <div className={cn("shrink-0", browseCompact ? "max-md:min-h-0 md:h-[48px] md:overflow-hidden" : "h-[48px] overflow-hidden")}>
+            <p
+              className={cn(
+                "truncate font-semibold tracking-tight text-[#484848]",
+                browseCompact ? "text-sm md:text-xs" : "text-sm sm:text-base",
+              )}
+            >
+              Rent {formatPropertyPriceDisplay(property.rent_price, "for_rent")}
+            </p>
+          </div>
+        ) : (
           <p
             className={cn(
-              "text-[#2C2C2C]",
-              browseCompact
-                ? "line-clamp-2 text-sm font-semibold leading-snug md:line-clamp-2 md:text-sm"
-                : "line-clamp-2 text-base font-semibold",
+              "shrink-0 truncate font-bold tracking-tight text-[#2C2C2C]",
+              browseCompact ? "text-[20px] leading-tight md:text-base md:text-[#D4A843]" : "text-lg text-[#D4A843] sm:text-xl",
             )}
           >
-            {titleLine}
+            {formatPropertyPriceDisplay(property.price, property.status)}
           </p>
-        </div>
+        )}
         <div
           className={cn(
-            "shrink-0",
-            browseCompact ? "max-md:min-h-0 md:h-[24px] md:overflow-hidden" : "h-[24px] overflow-hidden",
+            "flex shrink-0 items-center gap-3 text-[#484848]",
+            browseCompact ? "max-md:text-sm md:text-xs" : "text-xs",
           )}
         >
-          <p className={cn("truncate text-[#717171]", browseCompact ? "text-xs md:text-[11px]" : "text-xs")}>
-            {property.beds ? `${property.beds} beds` : "Studio"} · {property.baths} baths · {property.sqft} sqft
-          </p>
+          <span className="inline-flex items-center gap-1.5 font-medium">
+            <BedDouble className="size-4 shrink-0 text-[#6B9E6E] md:size-3.5" aria-hidden />
+            {property.beds === 0 ? "Studio" : property.beds === 1 ? "1 Bed" : `${property.beds} Beds`}
+          </span>
+          <span className="inline-flex items-center gap-1.5 font-medium">
+            <Bath className="size-4 shrink-0 text-[#6B9E6E] md:size-3.5" aria-hidden />
+            {property.baths === 1 ? "1 Bath" : `${property.baths} Baths`}
+          </span>
+          {browseCompact ? (
+            <span className="max-md:hidden font-medium text-[#717171]">{property.sqft} sqft</span>
+          ) : (
+            <span className="font-medium text-[#717171]">{property.sqft} sqft</span>
+          )}
         </div>
-        <div
+        <p
           className={cn(
-            "shrink-0",
-            browseCompact ? "max-md:min-h-0 md:h-[24px] md:overflow-hidden" : "h-[24px] overflow-hidden",
+            "shrink-0 font-semibold text-[#2C2C2C]",
+            browseCompact ? "line-clamp-2 text-[15px] leading-snug md:text-sm" : "line-clamp-2 text-base",
           )}
         >
-          <p className="flex items-start gap-1 text-xs text-[#717171]">
-            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8E8E8E]" aria-hidden />
-            <span className="min-w-0 flex-1 truncate leading-snug">{property.location}</span>
-          </p>
-        </div>
+          {titleLine}
+        </p>
+        <p
+          className={cn(
+            "flex shrink-0 items-start gap-1.5 text-[#717171]",
+            browseCompact ? "text-sm leading-snug md:text-xs" : "text-xs",
+          )}
+        >
+          <MapPin className="mt-0.5 size-4 shrink-0 text-[#8E8E8E] md:size-3.5" aria-hidden />
+          <span className="min-w-0 line-clamp-2">{property.location}</span>
+        </p>
       </div>
 
       <div className="relative z-10 mt-auto hidden min-h-[56px] max-h-[76px] shrink-0 flex-col justify-start overflow-hidden bg-white px-3 py-1.5 md:flex">
@@ -3677,6 +3702,8 @@ function PropertyRows({
   rowTitleSuffix,
   hideRowPlaceholders,
   enableShowMore = true,
+  mobileInitialRows,
+  mobileFeedBrowse = false,
 }: {
   rows: {
     key: string;
@@ -3702,6 +3729,10 @@ function PropertyRows({
   hideRowPlaceholders?: boolean;
   /** Default browse: first {@link HOMEPAGE_INITIAL_CATEGORY_ROWS} rows + expand (12 total); filtered views show all rows. */
   enableShowMore?: boolean;
+  /** On mobile discovery feed, show fewer category rows before expanding. */
+  mobileInitialRows?: number;
+  /** Mobile home: six Trulia-style rows, no Show More. */
+  mobileFeedBrowse?: boolean;
 }) {
   const dedupedRows = useMemo(() => {
     if (hideRowPlaceholders) return rows.filter((r) => r.items.length > 0);
@@ -3744,15 +3775,22 @@ function PropertyRows({
 
   const eagerListingThumbKey = useMemo(() => firstBrowseListingThumbKey(homepageRows), [homepageRows]);
   const priorityListingThumbKeys = useMemo(() => listingThumbPriorityKeys(homepageRows, 4), [homepageRows]);
-  const first = enableShowMore
-    ? homepageRows.slice(0, HOMEPAGE_INITIAL_CATEGORY_ROWS)
-    : homepageRows;
-  const rest = enableShowMore ? homepageRows.slice(HOMEPAGE_INITIAL_CATEGORY_ROWS) : [];
+  const initialRowCount = mobileFeedBrowse
+    ? HOMEPAGE_MOBILE_FEED_ROW_COUNT
+    : (mobileInitialRows ?? HOMEPAGE_INITIAL_CATEGORY_ROWS);
+  const showExpand = enableShowMore && !mobileFeedBrowse;
+  const first = showExpand || mobileFeedBrowse ? homepageRows.slice(0, initialRowCount) : homepageRows;
+  const rest = showExpand ? homepageRows.slice(initialRowCount) : [];
 
   const titleWithSuffix = (t: string) => (rowTitleSuffix ? `${t}${rowTitleSuffix}` : t);
 
   return (
-    <div className="min-w-0 w-full max-w-full overflow-x-clip max-md:space-y-1 md:space-y-6">
+    <div
+      className={cn(
+        "min-w-0 w-full max-w-full overflow-x-clip md:space-y-6",
+        mobileFeedBrowse ? "max-md:space-y-4" : "max-md:space-y-1",
+      )}
+    >
       {first.map((r, i) => (
         <div
           key={r.key}
@@ -3784,8 +3822,8 @@ function PropertyRows({
         </div>
       ))}
 
-      {enableShowMore && rest.length > 0 ? (
-        <div className="flex justify-center">
+      {showExpand && rest.length > 0 ? (
+        <div className="flex justify-center max-md:hidden">
           <button
             type="button"
             onClick={onToggleShowMore}
@@ -3796,7 +3834,7 @@ function PropertyRows({
         </div>
       ) : null}
 
-      {enableShowMore && showMore && rest.length > 0 ? (
+      {showExpand && showMore && rest.length > 0 ? (
         <div className="max-md:space-y-0 md:space-y-6">
           {rest.map((r, idx) => (
             <div
@@ -4050,7 +4088,7 @@ function RowCarousel({
   if (list.length === 0) return null;
   const fillerCount = list.length > 0 && list.length < 5 ? 5 - list.length : 0;
   const featuredClasses = featured ? "rounded-2xl border border-[#D4A843]/30 bg-[#D4A843]/5 px-3 pt-3" : "";
-  const cardWidthClass = HOMEPAGE_BROWSE_LISTING_CARD_WIDTH;
+  const cardWidthClass = HOMEPAGE_MOBILE_FEED_CARD_WIDTH;
   const reserveBrowseSectionMinH = title.startsWith("Newly Listed");
   const isFeaturedPicksRow = title.startsWith("Featured");
 
@@ -4065,7 +4103,7 @@ function RowCarousel({
         isFeaturedPicksRow ? "md:px-10" : "flex-1",
       )}
     >
-      <div className="flex w-max flex-nowrap gap-2.5 md:gap-3">
+      <div className="flex w-max flex-nowrap gap-3.5 md:gap-3">
         {list.map((p, idx) => (
           <NewlyListedCard
             key={`${rowKey}-${p.id}`}
@@ -4115,10 +4153,10 @@ function RowCarousel({
       className={cn(
         featuredClasses,
         reserveBrowseSectionMinH && "md:min-h-[400px]",
-        "max-md:py-2 md:py-4",
+        "max-md:py-1 md:py-4",
       )}
     >
-      <div className="mb-2 max-md:mb-1.5 md:mb-3">
+      <div className="mb-2 max-md:mb-2 md:mb-3">
         <div className="flex flex-wrap items-center gap-2">
           {featured ? <Star className="h-4 w-4 shrink-0 text-[#D4A843]" /> : null}
           {titleHref ? (
@@ -4129,7 +4167,7 @@ function RowCarousel({
               {title}
             </Link>
           ) : (
-            <h2 className="min-w-0 max-md:px-0 px-4 font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl md:px-0 md:text-3xl">
+            <h2 className="min-w-0 max-md:px-0 px-4 font-serif text-[18px] font-semibold leading-tight tracking-tight text-[#2C2C2C] sm:text-2xl md:px-0 md:text-3xl">
               {title}
             </h2>
           )}

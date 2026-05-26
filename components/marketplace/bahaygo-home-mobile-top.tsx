@@ -39,33 +39,6 @@ const PEEK_CARD_W = "w-[calc((100vw-2rem-1rem)/2.5)]";
 /** ~88% viewport width so the next slide peeks like the reference mock. */
 const TRENDING_CARD_W = "w-[calc((100vw-2rem-0.625rem)/1.22)]";
 
-const LIFESTYLE_COLLECTIONS = [
-  {
-    id: "minimal",
-    title: "Minimal & Modern",
-    count: "128 listings",
-    imageUrl: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=480&h=360&fit=crop",
-  },
-  {
-    id: "city-views",
-    title: "City Views",
-    count: "94 listings",
-    imageUrl: "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=480&h=360&fit=crop",
-  },
-  {
-    id: "luxury",
-    title: "Luxury Living",
-    count: "56 listings",
-    imageUrl: "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=480&h=360&fit=crop",
-  },
-  {
-    id: "cozy",
-    title: "Cozy Homes",
-    count: "72 listings",
-    imageUrl: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=480&h=360&fit=crop",
-  },
-] as const;
-
 type QuickCategoryId = "condo" | "house" | "mrt" | "pet" | "furnished" | "new";
 
 const QUICK_CATEGORIES: {
@@ -603,30 +576,6 @@ export function BahayGoHomeMobileTop({
             </div>
           </section>
         ) : null}
-
-        <section className="mt-2.5 overflow-x-clip pb-2">
-          <SectionHeader title="Explore by Lifestyle" onSeeAll={onScrollToListings} />
-          <div className={cn("mt-2 grid min-w-0 grid-cols-4 gap-2", PAGE_X)}>
-            {LIFESTYLE_COLLECTIONS.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => {
-                  onFiltersChange(() => defaultHomepageFiltersState());
-                  onScrollToListings();
-                }}
-                className="group relative aspect-[3/4] overflow-hidden rounded-xl text-left shadow-[0_6px_18px_rgba(44,44,44,0.12)] ring-1 ring-black/[0.05]"
-              >
-                <Image src={c.imageUrl} alt="" fill className="object-cover" sizes="25vw" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/85 via-[#1a1a1a]/15 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-1.5">
-                  <p className="line-clamp-2 text-[9px] font-bold leading-tight text-white">{c.title}</p>
-                  <p className="mt-0.5 text-[7px] font-medium text-white/80">{c.count}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
       </div>
     </div>
   );
