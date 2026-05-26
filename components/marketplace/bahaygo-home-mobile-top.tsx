@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Building2,
   ChevronRight,
   Flame,
   Footprints,
@@ -19,12 +18,8 @@ import {
 
 import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
-import {
-  defaultHomepageFiltersState,
-  formatHomepageFilterPrice,
-  type FiltersState,
-  type HomePropertyKind,
-} from "@/lib/homepage-marketplace-filters";
+import { defaultHomepageFiltersState, type FiltersState } from "@/lib/homepage-marketplace-filters";
+import { HOMEPAGE_MOBILE_CAROUSEL_INSET } from "@/lib/homepage-listing-card-layout";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { firstRawPropertyPhotoUrl, roomUrlsFor } from "@/lib/marketplace-property";
@@ -34,7 +29,7 @@ import { cn } from "@/lib/utils";
 
 const PAGE_X = "px-4";
 const CAROUSEL_SCROLL =
-  "flex overflow-x-auto gap-2.5 pb-0.5 scrollbar-hide snap-x snap-mandatory scroll-pl-4 scroll-pr-4";
+  "flex overflow-x-auto gap-2.5 pb-0.5 scrollbar-hide snap-x snap-mandatory";
 const PEEK_CARD_W = "w-[calc((100vw-2rem-1rem)/2.5)]";
 /** ~88% viewport width so the next slide peeks like the reference mock. */
 const TRENDING_CARD_W = "w-[calc((100vw-2rem-0.625rem)/1.22)]";
@@ -119,14 +114,6 @@ function FilterChip({
       {children}
     </button>
   );
-}
-
-function priceChipLabel(filters: FiltersState, mode: "buy" | "rent" | "all"): string {
-  const defaultMax = 350_000_000;
-  if (filters.minPrice === 0 && filters.maxPrice === defaultMax) {
-    return mode === "rent" ? "₱15k – ₱40k" : "Any price";
-  }
-  return `${formatHomepageFilterPrice(filters.minPrice)} – ${formatHomepageFilterPrice(filters.maxPrice)}`;
 }
 
 function locationLineLabel(
@@ -368,11 +355,9 @@ export function BahayGoHomeMobileTop({
     [properties],
   );
 
-  const condoActive = filters.homePropertyKind === "condo";
-
   return (
-    <div className="md:hidden">
-      <div className="relative overflow-hidden bg-[#FAF8F4] pb-2">
+    <div className="md:hidden overflow-x-clip">
+      <div className="relative overflow-x-clip bg-[#FAF8F4] pb-2">
         <section className={cn("relative space-y-2.5 pt-2", PAGE_X)}>
           <div
             id="bahaygo-hero-search"
@@ -417,40 +402,34 @@ export function BahayGoHomeMobileTop({
             </button>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
-            <FilterChip active={mode === "rent"} onClick={() => onBuyRentChange("rent")}>
+          <div className="flex justify-center gap-2">
+            <FilterChip
+              active={mode === "rent"}
+              onClick={() => onBuyRentChange("rent")}
+              className="min-w-[7.25rem] justify-center px-6"
+            >
               Rent
             </FilterChip>
-            <FilterChip active={mode === "buy"} onClick={() => onBuyRentChange("buy")}>
+            <FilterChip
+              active={mode === "buy"}
+              onClick={() => onBuyRentChange("buy")}
+              className="min-w-[7.25rem] justify-center px-6"
+            >
               Buy
             </FilterChip>
-            <FilterChip
-              active={condoActive}
-              onClick={() => {
-                onFiltersChange((s) => ({
-                  ...s,
-                  homePropertyKind: condoActive ? "any" : ("condo" as HomePropertyKind),
-                  propertyType: "any",
-                }));
-                onScrollToListings();
-              }}
-            >
-              <Building2 className="size-3.5 text-[#6B9E6E]" aria-hidden />
-              Condo
-            </FilterChip>
-            <FilterChip onClick={onOpenFilters}>{priceChipLabel(filters, mode)}</FilterChip>
-            <FilterChip onClick={onOpenFilters}>… More</FilterChip>
           </div>
 
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-4 gap-2">
             {VALUE_CARDS.map(({ icon: Icon, title, sub }) => (
               <div
                 key={title}
-                className="flex flex-col items-center rounded-xl bg-white px-1 py-2 text-center shadow-[0_2px_10px_rgba(44,44,44,0.06)] ring-1 ring-black/[0.05]"
+                className="flex flex-col items-center rounded-xl border border-black/[0.04] bg-white p-4 text-center shadow-[0_4px_12px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]"
               >
-                <Icon className="size-4 text-[#6B9E6E]" strokeWidth={2} aria-hidden />
-                <p className="mt-1 line-clamp-2 text-[8px] font-bold leading-[1.1] text-[#2C2C2C]">{title}</p>
-                <p className="line-clamp-1 text-[7px] font-semibold text-[#888888]">{sub}</p>
+                <Icon className="size-7 text-[#6B9E6E]" strokeWidth={2} aria-hidden />
+                <p className="mt-2 line-clamp-2 text-[13px] font-semibold leading-tight text-[#2C2C2C]">
+                  {title}
+                </p>
+                <p className="line-clamp-1 text-[11px] font-medium text-[#888888]">{sub}</p>
               </div>
             ))}
           </div>
@@ -466,7 +445,10 @@ export function BahayGoHomeMobileTop({
               }
               onSeeAll={onScrollToListings}
             />
-            <div ref={heroScrollRef} className={cn(CAROUSEL_SCROLL, "mt-2 gap-2.5 pl-4 pr-4")}>
+            <div
+              ref={heroScrollRef}
+              className={cn(CAROUSEL_SCROLL, HOMEPAGE_MOBILE_CAROUSEL_INSET, "mt-2 gap-2.5")}
+            >
               {heroSlides.map((p, i) => {
                 const raw = firstRawPropertyPhotoUrl(p);
                 const src = raw ? propertyPhotoHeroUrl(raw) : "";
@@ -509,7 +491,7 @@ export function BahayGoHomeMobileTop({
         {newThisWeek.length > 0 ? (
           <section className="mt-2.5">
             <SectionHeader title="New This Week" onSeeAll={onScrollToListings} />
-            <div className={cn(CAROUSEL_SCROLL, "mt-2 gap-2.5 pl-4 pr-4")}>
+            <div className={cn(CAROUSEL_SCROLL, HOMEPAGE_MOBILE_CAROUSEL_INSET, "mt-2 gap-2.5")}>
               {newThisWeek.map((p) => (
                 <MobileNewCard key={p.id} property={p} mode={mode} engagement={engagement} />
               ))}
@@ -517,9 +499,9 @@ export function BahayGoHomeMobileTop({
           </section>
         ) : null}
 
-        <section className="mt-2.5 pb-2">
+        <section className="mt-2.5 overflow-x-clip pb-2">
           <SectionHeader title="Explore by Lifestyle" onSeeAll={onScrollToListings} />
-          <div className={cn("mt-2 grid grid-cols-4 gap-2", PAGE_X)}>
+          <div className={cn("mt-2 grid min-w-0 grid-cols-4 gap-2", PAGE_X)}>
             {LIFESTYLE_COLLECTIONS.map((c) => (
               <button
                 key={c.id}

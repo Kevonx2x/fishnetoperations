@@ -1,3 +1,11 @@
+/** Mobile carousel inside a padded parent (e.g. main px-4): bleed + 16px scroll inset. */
+export const HOMEPAGE_MOBILE_CAROUSEL_TRACK =
+  "max-md:-mx-4 max-md:px-4 max-md:scroll-pl-4 max-md:scroll-pr-4";
+
+/** Mobile carousel on full-width surface (no parent horizontal padding). */
+export const HOMEPAGE_MOBILE_CAROUSEL_INSET =
+  "max-md:px-4 max-md:scroll-pl-4 max-md:scroll-pr-4";
+
 /** Two listing cards visible on ~375px mobile browse carousels (Airbnb-style). */
 export const HOMEPAGE_BROWSE_LISTING_CARD_WIDTH =
   "w-[calc((100vw-2rem-0.625rem)/2)] shrink-0 md:w-[232px] lg:w-[240px]";

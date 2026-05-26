@@ -118,7 +118,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfair.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${playfair.variable} ${geistMono.variable} h-full bg-[#FAF8F4] antialiased dark:bg-background`}
     >
       <head>
         {process.env.NEXT_PUBLIC_SUPABASE_URL ? (
@@ -126,7 +126,7 @@ export default function RootLayout({
         ) : null}
         <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
       </head>
-      <body className="flex min-h-full flex-col">
+      <body className="flex min-h-full flex-col bg-[#FAF8F4] dark:bg-background">
         <Providers>
           <RootLayoutChrome
             footer={

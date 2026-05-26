@@ -169,9 +169,19 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    min-height: 100%;
+    background-color: #faf8f4;
+  }
   body {
+    min-height: 100%;
+    background-color: #faf8f4;
     @apply bg-background text-foreground font-normal antialiased;
     font-feature-settings: "kern" 1, "liga" 1;
+  }
+  .dark html,
+  .dark body {
+    background-color: var(--background);
   }
 
   p,

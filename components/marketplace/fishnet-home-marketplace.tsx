@@ -106,7 +106,10 @@ import {
   HOMEPAGE_INITIAL_CATEGORY_ROWS,
   HOMEPAGE_MAX_CATEGORY_ROWS,
 } from "@/lib/homepage-row-templates";
-import { HOMEPAGE_BROWSE_LISTING_CARD_WIDTH } from "@/lib/homepage-listing-card-layout";
+import {
+  HOMEPAGE_BROWSE_LISTING_CARD_WIDTH,
+  HOMEPAGE_MOBILE_CAROUSEL_TRACK,
+} from "@/lib/homepage-listing-card-layout";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { firstRawPropertyPhotoUrl, roomUrlsFor } from "@/lib/marketplace-property";
@@ -1158,7 +1161,11 @@ function HomepageTopVerifiedAgentsSection({
           </button>
           <div
             ref={topAgentsRef}
-            className="min-w-0 flex-1 overflow-x-auto px-4 pb-2 scrollbar-hide"
+            className={cn(
+              "min-w-0 flex-1 overflow-x-auto pb-2 scrollbar-hide",
+              HOMEPAGE_MOBILE_CAROUSEL_TRACK,
+              "md:px-4",
+            )}
             style={{ WebkitOverflowScrolling: "touch" }}
           >
             <div className="flex w-max flex-nowrap gap-4 md:gap-4">
@@ -2978,7 +2985,10 @@ function CategorySection({
         </button>
         <div
           ref={sectionRef}
-          className="min-w-0 flex-1 overflow-x-auto overflow-y-visible py-2 pb-4 scrollbar-hide max-md:snap-x max-md:snap-proximity max-md:px-0 md:px-1 md:pb-2"
+          className={cn(
+            "min-w-0 flex-1 overflow-x-auto overflow-y-visible py-2 pb-4 scrollbar-hide max-md:snap-x max-md:snap-proximity md:px-1 md:pb-2",
+            HOMEPAGE_MOBILE_CAROUSEL_TRACK,
+          )}
         >
           <div className="flex w-max flex-nowrap gap-2.5 md:gap-3">
             {visible.length === 0
@@ -4050,7 +4060,8 @@ function RowCarousel({
         rowRefs.current[rowKey] = el;
       }}
       className={cn(
-        "min-w-0 overflow-x-auto overflow-y-visible py-1 pb-2 scrollbar-hide max-md:snap-x max-md:snap-mandatory max-md:scroll-pl-4 max-md:scroll-pr-4 max-md:pl-4 max-md:pr-4 md:px-1 md:py-2 md:pb-2",
+        "min-w-0 overflow-x-auto overflow-y-visible py-1 pb-2 scrollbar-hide max-md:snap-x max-md:snap-mandatory md:px-1 md:py-2 md:pb-2",
+        HOMEPAGE_MOBILE_CAROUSEL_TRACK,
         isFeaturedPicksRow ? "md:px-10" : "flex-1",
       )}
     >
@@ -4113,12 +4124,12 @@ function RowCarousel({
           {titleHref ? (
             <Link
               href={titleHref}
-              className="min-w-0 px-4 font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] hover:underline sm:text-2xl md:px-0 md:text-3xl"
+              className="min-w-0 max-md:px-0 px-4 font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] hover:underline sm:text-2xl md:px-0 md:text-3xl"
             >
               {title}
             </Link>
           ) : (
-            <h2 className="min-w-0 px-4 font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl md:px-0 md:text-3xl">
+            <h2 className="min-w-0 max-md:px-0 px-4 font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl md:px-0 md:text-3xl">
               {title}
             </h2>
           )}
