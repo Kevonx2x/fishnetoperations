@@ -4,21 +4,26 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
+  Building2,
   ChevronRight,
-  Flame,
-  Footprints,
   Heart,
+  Home,
   MapPin,
+  PawPrint,
   Search,
-  Shield,
-  ShieldCheck,
   SlidersHorizontal,
-  Wifi,
+  Sofa,
+  Sparkles,
+  TrainFront,
 } from "lucide-react";
 
 import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
-import { defaultHomepageFiltersState, type FiltersState } from "@/lib/homepage-marketplace-filters";
+import {
+  defaultHomepageFiltersState,
+  type FiltersState,
+  type HomePropertyKind,
+} from "@/lib/homepage-marketplace-filters";
 import { HOMEPAGE_MOBILE_CAROUSEL_INSET } from "@/lib/homepage-listing-card-layout";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import type { DbProperty } from "@/lib/marketplace-property";
@@ -61,12 +66,20 @@ const LIFESTYLE_COLLECTIONS = [
   },
 ] as const;
 
-const VALUE_CARDS = [
-  { icon: ShieldCheck, title: "Verified Listings", sub: "Checked" },
-  { icon: Wifi, title: "Fast & Stable WiFi", sub: "Reliable" },
-  { icon: Footprints, title: "Walkable to Campus", sub: "Convenient" },
-  { icon: Shield, title: "No Broker Spam", sub: "Guaranteed" },
-] as const;
+type QuickCategoryId = "condo" | "house" | "mrt" | "pet" | "furnished" | "new";
+
+const QUICK_CATEGORIES: {
+  id: QuickCategoryId;
+  label: string;
+  icon: typeof Building2;
+}[] = [
+  { id: "condo", label: "Condo", icon: Building2 },
+  { id: "house", label: "House", icon: Home },
+  { id: "mrt", label: "Near MRT", icon: TrainFront },
+  { id: "pet", label: "Pet Friendly", icon: PawPrint },
+  { id: "furnished", label: "Furnished", icon: Sofa },
+  { id: "new", label: "New", icon: Sparkles },
+];
 
 function SectionHeader({
   title,
@@ -85,6 +98,69 @@ function SectionHeader({
         </button>
       ) : null}
     </div>
+  );
+}
+
+function isQuickCategoryActive(
+  id: QuickCategoryId,
+  filters: FiltersState,
+  search: string,
+): boolean {
+  switch (id) {
+    case "condo":
+      return filters.homePropertyKind === "condo";
+    case "house":
+      return filters.homePropertyKind === "house";
+    case "mrt":
+      return search.trim().toLowerCase() === "mrt";
+    case "pet":
+      return filters.amenities.includes("pet");
+    case "furnished":
+      return filters.furnishing === "furnished";
+    case "new":
+      return false;
+    default:
+      return false;
+  }
+}
+
+function QuickCategoryButton({
+  id,
+  label,
+  icon: Icon,
+  active,
+  onClick,
+}: {
+  id: QuickCategoryId;
+  label: string;
+  icon: typeof Building2;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className="flex min-w-0 flex-1 flex-col items-center gap-1.5"
+    >
+      <span
+        className={cn(
+          "flex size-[52px] items-center justify-center rounded-2xl bg-white shadow-[0_4px_14px_rgba(0,0,0,0.08),0_1px_3px_rgba(0,0,0,0.04)] ring-1 transition active:scale-[0.97]",
+          active ? "ring-[#6B9E6E]/50 ring-2" : "ring-black/[0.06]",
+        )}
+      >
+        <Icon className={cn("size-[22px]", active ? "text-[#3d5240]" : "text-[#6B9E6E]")} strokeWidth={2} aria-hidden />
+      </span>
+      <span
+        className={cn(
+          "line-clamp-2 w-full text-center text-[10px] font-semibold leading-tight",
+          active ? "text-[#3d5240]" : "text-[#2C2C2C]",
+        )}
+      >
+        {label}
+      </span>
+    </button>
   );
 }
 
@@ -151,24 +227,23 @@ function MobileNewCard({
       : formatPropertyPriceDisplay(property.price, property.status);
 
   return (
-    <article
+    <Link
+      href={href}
       className={cn(
         PEEK_CARD_W,
-        "shrink-0 snap-start overflow-hidden rounded-2xl bg-white shadow-[0_6px_20px_rgba(44,44,44,0.1)] ring-1 ring-black/[0.04]",
+        "block shrink-0 snap-start overflow-hidden rounded-2xl bg-white shadow-[0_6px_20px_rgba(44,44,44,0.1)] ring-1 ring-black/[0.04] transition active:scale-[0.99]",
       )}
     >
       <div className="relative aspect-[5/4] w-full bg-[#F3F0EA]">
         {img ? <ListingCardPhoto src={img} alt="" sizes="40vw" eager /> : null}
-        <span className="absolute left-2 top-2 rounded bg-[#6B9E6E] px-1.5 py-0.5 text-[8px] font-bold uppercase text-white">
-          NEW
-        </span>
         <button
           type="button"
           onClick={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             void engagement.toggleLike(property.id);
           }}
-          className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/[0.06]"
+          className="absolute right-2 top-2 z-10 flex size-7 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/[0.06]"
           aria-label={liked ? "Unlike" : "Save"}
         >
           <Heart
@@ -177,7 +252,7 @@ function MobileNewCard({
           />
         </button>
       </div>
-      <Link href={href} className="block px-2.5 pb-2.5 pt-2">
+      <div className="px-2.5 pb-2.5 pt-2">
         <p className="text-[13px] font-bold leading-none text-[#C49A2E]">{priceLabel}</p>
         <h3 className="mt-1 line-clamp-2 text-[12px] font-semibold leading-tight text-[#2C2C2C]">
           {property.name?.trim() || property.location}
@@ -188,8 +263,8 @@ function MobileNewCard({
         <p className="mt-0.5 line-clamp-1 text-[9px] font-medium text-[#888888]">
           {propertyLocationLine(property)}
         </p>
-      </Link>
-    </article>
+      </div>
+    </Link>
   );
 }
 
@@ -197,13 +272,11 @@ function TrendingHeroCard({
   property,
   mode,
   heroSrc,
-  showTrendingBadge,
   engagement,
 }: {
   property: DbProperty;
   mode: "buy" | "rent" | "all";
   heroSrc: string;
-  showTrendingBadge: boolean;
   engagement: PropertyEngagement;
 }) {
   const href = `/properties/${encodeURIComponent(property.id)}`;
@@ -214,10 +287,11 @@ function TrendingHeroCard({
       : formatPropertyPriceDisplay(property.price, property.status);
 
   return (
-    <article
+    <Link
+      href={href}
       className={cn(
         TRENDING_CARD_W,
-        "relative shrink-0 snap-start overflow-hidden rounded-2xl shadow-[0_12px_36px_rgba(44,44,44,0.16)] ring-1 ring-black/[0.06]",
+        "relative block shrink-0 snap-start overflow-hidden rounded-2xl shadow-[0_12px_36px_rgba(44,44,44,0.16)] ring-1 ring-black/[0.06] transition active:scale-[0.99]",
       )}
     >
       <div className="relative aspect-[5/3] w-full bg-[#1a1a1a]">
@@ -228,17 +302,14 @@ function TrendingHeroCard({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/95 via-[#1a1a1a]/30 to-transparent" />
 
-        {showTrendingBadge ? (
-          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-md bg-[#1f1f1f]/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg">
-            <Flame className="size-3 text-[#E07A3A]" aria-hidden />
-            Trending
-          </span>
-        ) : null}
-
         <button
           type="button"
-          onClick={() => void engagement.toggleLike(property.id)}
-          className="absolute right-3 top-3 flex size-9 items-center justify-center rounded-full bg-white/95 shadow-lg ring-1 ring-black/[0.08]"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void engagement.toggleLike(property.id);
+          }}
+          className="absolute right-3 top-3 z-10 flex size-9 items-center justify-center rounded-full bg-white/95 shadow-lg ring-1 ring-black/[0.08]"
           aria-label={liked ? "Unlike" : "Save"}
         >
           <Heart
@@ -248,28 +319,17 @@ function TrendingHeroCard({
         </button>
 
         <div className="absolute bottom-0 left-0 right-0 p-3">
-          <div className="flex items-end justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <h3 className="line-clamp-2 font-serif text-[15px] font-semibold leading-snug text-white">
-                {property.name?.trim() || property.location}
-              </h3>
-              <p className="mt-0.5 text-sm font-bold text-white">{priceLabel}</p>
-              <p className="mt-0.5 text-[10px] font-medium text-white/85">
-                {property.beds} bed · {property.baths} bath · {property.sqft} sqft
-              </p>
-              <p className="mt-0.5 text-[10px] font-medium text-white/75">{propertyLocationLine(property)}</p>
-            </div>
-            <Link
-              href={href}
-              className="inline-flex h-8 shrink-0 items-center justify-center rounded-full bg-white px-3 text-[11px] font-bold text-[#2C2C2C] shadow-md"
-            >
-              View Details
-              <ChevronRight className="ml-0.5 size-3.5" aria-hidden />
-            </Link>
-          </div>
+          <h3 className="line-clamp-2 font-serif text-[15px] font-semibold leading-snug text-white">
+            {property.name?.trim() || property.location}
+          </h3>
+          <p className="mt-0.5 text-sm font-bold text-white">{priceLabel}</p>
+          <p className="mt-0.5 text-[10px] font-medium text-white/85">
+            {property.beds} bed · {property.baths} bath · {property.sqft} sqft
+          </p>
+          <p className="mt-0.5 text-[10px] font-medium text-white/75">{propertyLocationLine(property)}</p>
         </div>
       </div>
-    </article>
+    </Link>
   );
 }
 
@@ -306,7 +366,7 @@ export function BahayGoHomeMobileTop({
   onOpenFilters,
   neighborhoodLabel,
   featuredProperty,
-  featuredIsAdminFeatured,
+  featuredIsAdminFeatured: _featuredIsAdminFeatured,
   properties,
   engagement,
   onScrollToListings,
@@ -354,6 +414,54 @@ export function BahayGoHomeMobileTop({
         .slice(0, 8),
     [properties],
   );
+
+  const handleQuickCategory = (id: QuickCategoryId) => {
+    const active = isQuickCategoryActive(id, filters, search);
+    const keepLocation = filters.locationLabel;
+
+    if (id === "new") {
+      onFiltersChange(() => ({ ...defaultHomepageFiltersState(), locationLabel: keepLocation }));
+      onSearchChange("");
+      onScrollToListings();
+      return;
+    }
+
+    if (id === "mrt") {
+      if (active) {
+        onSearchChange("");
+      } else {
+        onFiltersChange(() => ({ ...defaultHomepageFiltersState(), locationLabel: keepLocation }));
+        onSearchChange("MRT");
+      }
+      onScrollToListings();
+      return;
+    }
+
+    onFiltersChange((s) => {
+      const cleared: FiltersState = {
+        ...defaultHomepageFiltersState(),
+        locationLabel: keepLocation,
+        minPrice: s.minPrice,
+        maxPrice: s.maxPrice,
+      };
+
+      if (active) return cleared;
+
+      const next = { ...cleared };
+      if (id === "condo") {
+        next.homePropertyKind = "condo" as HomePropertyKind;
+      } else if (id === "house") {
+        next.homePropertyKind = "house" as HomePropertyKind;
+      } else if (id === "pet") {
+        next.amenities = ["pet"];
+      } else if (id === "furnished") {
+        next.furnishing = "furnished";
+      }
+      return next;
+    });
+    if (search.trim().toLowerCase() === "mrt") onSearchChange("");
+    onScrollToListings();
+  };
 
   return (
     <div className="md:hidden overflow-x-clip">
@@ -419,18 +527,16 @@ export function BahayGoHomeMobileTop({
             </FilterChip>
           </div>
 
-          <div className="grid grid-cols-4 gap-2">
-            {VALUE_CARDS.map(({ icon: Icon, title, sub }) => (
-              <div
-                key={title}
-                className="flex flex-col items-center rounded-xl border border-black/[0.04] bg-white p-4 text-center shadow-[0_4px_12px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]"
-              >
-                <Icon className="size-7 text-[#6B9E6E]" strokeWidth={2} aria-hidden />
-                <p className="mt-2 line-clamp-2 text-[13px] font-semibold leading-tight text-[#2C2C2C]">
-                  {title}
-                </p>
-                <p className="line-clamp-1 text-[11px] font-medium text-[#888888]">{sub}</p>
-              </div>
+          <div className="flex gap-1.5 pt-0.5">
+            {QUICK_CATEGORIES.map(({ id, label, icon }) => (
+              <QuickCategoryButton
+                key={id}
+                id={id}
+                label={label}
+                icon={icon}
+                active={isQuickCategoryActive(id, filters, search)}
+                onClick={() => handleQuickCategory(id)}
+              />
             ))}
           </div>
         </section>
@@ -458,7 +564,6 @@ export function BahayGoHomeMobileTop({
                       property={p}
                       mode={mode}
                       heroSrc={src}
-                      showTrendingBadge={featuredIsAdminFeatured && i === 0}
                       engagement={engagement}
                     />
                   </div>
@@ -518,9 +623,6 @@ export function BahayGoHomeMobileTop({
                   <p className="line-clamp-2 text-[9px] font-bold leading-tight text-white">{c.title}</p>
                   <p className="mt-0.5 text-[7px] font-medium text-white/80">{c.count}</p>
                 </div>
-                <span className="absolute bottom-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-white/95 shadow-sm">
-                  <ChevronRight className="size-2.5 text-[#2C2C2C]" aria-hidden />
-                </span>
               </button>
             ))}
           </div>
