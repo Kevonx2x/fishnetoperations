@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import {
-  Bed,
   Building2,
   Columns3,
   Heart,
@@ -17,6 +16,7 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
+import { isDormspaceDashboardPath } from "@/lib/dormspace-portal-chrome";
 import { useAuth } from "@/contexts/auth-context";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { isPublicDormspaceMarketplacePath } from "@/lib/dormspace-portal-chrome";
@@ -70,12 +70,9 @@ const AGENT_TABS: MobileBottomNavTabConfig[] = [
   { id: "profile", label: "Profile", href: "/dashboard/agent?tab=profile", Icon: User },
 ];
 
-const LANDLORD_TABS: MobileBottomNavTabConfig[] = [
-  { id: "listings", label: "Listings", href: "/dormspaces/dashboard?tab=listings", Icon: Bed },
-  { id: "inquiries", label: "Inquiries", href: "/dormspaces/dashboard?tab=inquiries", Icon: Inbox },
-  { id: "browse", label: "Browse", href: "/dormspaces", Icon: Search },
-  { id: "profile", label: "Profile", href: "/dormspaces/dashboard?tab=profile", Icon: User },
-];
+function usesDormspacesPublicBottomNav(pathname: string): boolean {
+  return isPublicDormspaceMarketplacePath(pathname) || isDormspaceDashboardPath(pathname);
+}
 
 function parseHref(href: string): { path: string; tab: string | null } {
   const [path, query] = href.split("?");
@@ -99,7 +96,9 @@ function isDormspacesPublicTabActive(tabId: string, pathname: string): boolean {
   if (tabId === "saved") {
     return pathname.startsWith("/dormspaces/liked");
   }
-  if (tabId === "more") return pathname.startsWith("/dormspaces/more");
+  if (tabId === "more") {
+    return pathname.startsWith("/dormspaces/more") || pathname.startsWith("/dormspaces/dashboard");
+  }
   return false;
 }
 
@@ -147,7 +146,7 @@ function isTabActive(
   pathname: string,
   searchTab: string | null,
 ): boolean {
-  if (DORMSPACES_PUBLIC_TAB_IDS.has(tab.id) && isPublicDormspaceMarketplacePath(pathname)) {
+  if (DORMSPACES_PUBLIC_TAB_IDS.has(tab.id) && usesDormspacesPublicBottomNav(pathname)) {
     return isDormspacesPublicTabActive(tab.id, pathname);
   }
 
@@ -156,12 +155,6 @@ function isTabActive(
   }
 
   const { path, tab: hrefTab } = parseHref(tab.href);
-
-  if (tab.id === "listings" && path === "/dormspaces/dashboard") {
-    if (!pathname.startsWith("/dormspaces/dashboard")) return false;
-    const effectiveTab = searchTab ?? "listings";
-    return effectiveTab === "listings";
-  }
 
   if (path === "/dashboard/agent") {
     if (
@@ -178,15 +171,6 @@ function isTabActive(
     return searchTab === hrefTab;
   }
 
-  if (path === "/dormspaces/dashboard") {
-    if (!pathname.startsWith("/dormspaces/dashboard")) return false;
-    const effectiveTab = searchTab ?? "listings";
-    if (hrefTab === "listings") return effectiveTab === "listings";
-    if (hrefTab === "inquiries") return effectiveTab === "inquiries";
-    if (hrefTab === "profile") return effectiveTab === "profile";
-    return effectiveTab === hrefTab;
-  }
-
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
@@ -197,11 +181,7 @@ function resolveTabs(pathname: string | null | undefined): MobileBottomNavTabCon
     return AGENT_TABS;
   }
 
-  if (path.startsWith("/dormspaces/dashboard")) {
-    return LANDLORD_TABS;
-  }
-
-  if (isPublicDormspaceMarketplacePath(path)) {
+  if (usesDormspacesPublicBottomNav(path)) {
     return DORMSPACES_PUBLIC_TABS;
   }
 

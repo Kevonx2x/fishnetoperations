@@ -46,6 +46,8 @@ type ProfilePayload = {
 type Props = {
   onError: (msg: string) => void;
   onSaved?: () => void;
+  hideTitle?: boolean;
+  hideVerificationBanner?: boolean;
 };
 
 function toggleMulti(arr: string[], v: string) {
@@ -159,7 +161,12 @@ function profileToForm(p: ProfilePayload): FormState {
   };
 }
 
-export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
+export function DormspaceLandlordProfileTab({
+  onError,
+  onSaved,
+  hideTitle = false,
+  hideVerificationBanner = false,
+}: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -292,18 +299,32 @@ export function DormspaceLandlordProfileTab({ onError, onSaved }: Props) {
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-6">
-        <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">My Profile</h1>
-        <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+      {hideTitle ? (
+        <p className="mb-6 text-sm text-[#888888]">
           How tenants see you on dormspace listing pages. Save when you are done editing.
         </p>
-      </div>
+      ) : (
+        <div className="mb-6">
+          <h1 className="font-serif text-3xl font-bold text-[#2C2C2C]">My Profile</h1>
+          <p className="mt-1 text-sm font-semibold text-[#2C2C2C]/55">
+            How tenants see you on dormspace listing pages. Save when you are done editing.
+          </p>
+        </div>
+      )}
 
-      <DormspaceLandlordVerificationBanner
-        status={verificationStatus}
-        rejectionReason={rejectionReason}
-        className="mb-4"
-      />
+      {!hideVerificationBanner ? (
+        <DormspaceLandlordVerificationBanner
+          status={verificationStatus}
+          rejectionReason={rejectionReason}
+          className="mb-4"
+        />
+      ) : verificationStatus === "rejected" ? (
+        <DormspaceLandlordVerificationBanner
+          status={verificationStatus}
+          rejectionReason={rejectionReason}
+          className="mb-4"
+        />
+      ) : null}
 
       <ul className="mb-6 flex flex-wrap gap-2">
         {trust.verified_landlord ? (

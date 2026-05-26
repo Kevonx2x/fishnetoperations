@@ -28,9 +28,9 @@ export function DormspaceRecommendedSection({ listings }: { listings: DormspaceW
   }, []);
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-5">
+    <section className="mx-auto max-w-7xl px-4 py-6 sm:px-5 sm:py-8">
       <div className="min-w-0">
-        <h2 className="font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">
+        <h2 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl">
           Recommended for you
         </h2>
         <p className="mt-1 text-sm font-semibold text-[#484848]">

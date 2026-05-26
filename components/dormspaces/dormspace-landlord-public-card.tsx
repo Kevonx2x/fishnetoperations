@@ -142,7 +142,7 @@ export function DormspaceLandlordPublicCard({
 
         {isOwnListing ? (
           <Link
-            href="/dormspaces/dashboard?tab=listings"
+            href="/dormspaces/dashboard/listings"
             className="mt-5 flex w-full items-center justify-center rounded-full bg-[#6B9E6E] px-4 py-2.5 text-xs font-semibold text-white shadow-md transition-colors hover:bg-[#5d8a60] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
           >
             Edit this listing

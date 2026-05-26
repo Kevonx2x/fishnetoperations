@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { isLandlordCapable } from "@/lib/auth-roles";
 import { canLikeDormspaces, dormspaceLogoHref } from "@/lib/dormspace-engagement";
+import { isPublicDormspaceMarketplacePath } from "@/lib/dormspace-portal-chrome";
 import {
   dormspaceCenterNavItems,
   isDormspaceNavLinkActive,
@@ -53,7 +54,7 @@ function AccountDropdownMenu({
   signOutBusy,
 }: AccountMenuProps) {
   const profileSettingsHref = isLandlord
-    ? "/dormspaces/dashboard?tab=profile"
+    ? "/dormspaces/dashboard/profile"
     : "/settings";
 
   return (
@@ -61,7 +62,7 @@ function AccountDropdownMenu({
       {isLandlord ? (
         <>
           <Link
-            href="/dormspaces/dashboard?tab=listings"
+            href="/dormspaces/dashboard/listings"
             className={DROPDOWN_ITEM}
             onClick={onNavigate}
             role="menuitem"
@@ -71,7 +72,7 @@ function AccountDropdownMenu({
           </Link>
           {inquiryCount > 0 ? (
             <Link
-              href="/dormspaces/dashboard?tab=inquiries"
+              href="/dormspaces/dashboard/inquiries"
               className={DROPDOWN_ITEM}
               onClick={onNavigate}
               role="menuitem"
@@ -294,7 +295,12 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
 
   return (
     <Fragment>
-      <header className="sticky top-0 z-50 w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4]/95 backdrop-blur-sm">
+      <header
+        className={cn(
+          "sticky top-0 z-50 w-full bg-[#FAF8F4]/95 backdrop-blur-sm",
+          !isPublicDormspaceMarketplacePath(pathname) && "border-b border-[#2C2C2C]/10",
+        )}
+      >
         <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto] items-center gap-3 px-4 py-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-3">
           <div className="flex min-w-0 items-center justify-self-start">
             <DormspaceWelcomeLogo href={logoHref} />

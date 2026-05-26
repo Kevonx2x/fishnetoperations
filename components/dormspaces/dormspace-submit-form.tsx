@@ -472,7 +472,7 @@ export function DormspaceSubmitForm() {
         }
       }
 
-      router.replace("/dormspaces/dashboard?welcome=1");
+      router.replace("/dormspaces/dashboard/listings?welcome=1");
       router.refresh();
     } catch {
       setError("Network error. Please try again.");

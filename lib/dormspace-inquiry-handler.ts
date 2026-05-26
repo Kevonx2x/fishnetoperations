@@ -58,7 +58,7 @@ export async function handleDormspaceInquiry(
   if (emailValid && process.env.RESEND_API_KEY) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
-      const dashboardLink = `${publicAppBaseUrl()}/dormspaces/dashboard?tab=inquiries`;
+      const dashboardLink = `${publicAppBaseUrl()}/dormspaces/dashboard/inquiries`;
       const listingTitle = listing.title ?? "your listing";
       await resend.emails.send({
         from: RESEND_FROM,

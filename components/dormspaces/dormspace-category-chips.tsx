@@ -61,7 +61,7 @@ export function DormspaceCategoryChips({ activeChipId, filters, onSelectChip }: 
   };
 
   return (
-    <section className="border-b border-[#2C2C2C]/8 bg-[#FAF8F4] py-4">
+    <section className="bg-[#FAF8F4] py-3 sm:py-4">
       <div className="relative mx-auto max-w-7xl px-4 sm:px-5">
         <button
           type="button"

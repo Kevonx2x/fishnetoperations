@@ -12,8 +12,15 @@ export function isDormspaceDashboardPath(pathname: string): boolean {
 
 export type DormspacePortalNavVisibility = "full" | "minimal" | "none";
 
+export function isDormspaceDashboardSubpage(pathname: string): boolean {
+  return pathname.startsWith("/dormspaces/dashboard/");
+}
+
 export function dormspacePortalNavVisibility(pathname: string): DormspacePortalNavVisibility {
-  if (isDormspaceDashboardPath(pathname)) return "full";
+  if (isDormspaceDashboardSubpage(pathname)) return "none";
+  if (pathname === "/dormspaces/dashboard" || pathname.startsWith("/dormspaces/dashboard?")) {
+    return "full";
+  }
   if (pathname === "/dormspaces/welcome" || pathname.startsWith("/dormspaces/welcome/")) {
     return "minimal";
   }

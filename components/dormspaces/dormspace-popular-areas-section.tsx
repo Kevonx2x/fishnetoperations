@@ -108,12 +108,12 @@ export function DormspacePopularAreasSection({
   return (
     <section
       id="featured-locations"
-      className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4] py-8 sm:py-10"
+      className="bg-[#FAF8F4] py-6 sm:py-8"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0 text-center sm:text-left">
-            <h2 className="font-serif text-2xl font-semibold tracking-tight text-[#2C2C2C] sm:text-3xl">
+            <h2 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl">
               Rooms near your school
             </h2>
             <p className="mt-1 text-sm font-semibold text-[#484848]">
@@ -182,7 +182,7 @@ export function DormspacePopularAreasSection({
                       transition: "opacity 200ms ease",
                     }}
                   >
-                    <div className="relative h-[110px] w-full shrink-0 overflow-hidden lg:h-[130px]">
+                    <div className="relative h-[96px] w-full shrink-0 overflow-hidden sm:h-[104px] lg:h-[120px]">
                       <FeaturedLocationStripImage src={area.imageUrl} priority={i < 2} eager={i < 2} />
                       <div className="absolute inset-0 z-[3] bg-gradient-to-t from-[#1a1a1a]/95 via-[#2C2C2C]/35 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 z-[5] flex flex-col items-center justify-center p-2 text-center lg:p-2.5">

@@ -86,17 +86,17 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
 
   return (
     <>
-      <section className="relative overflow-hidden border-b border-[#2C2C2C]/8 bg-[#FAF8F4]">
+      <section className="relative overflow-hidden bg-[#FAF8F4]">
         <div className="pointer-events-none absolute -right-24 top-8 size-64 rounded-full bg-[#D4A843]/12 blur-3xl" aria-hidden />
         <div className="pointer-events-none absolute -left-16 bottom-0 size-48 rounded-full bg-[#6B9E6E]/10 blur-3xl" aria-hidden />
 
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-12 lg:py-14">
+        <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-12 lg:py-12">
           <div className="order-2 lg:order-1">
             <p className="inline-flex items-center gap-1.5 rounded-full bg-[#D4A843]/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#8a6d32]">
               <Sparkles className="size-3.5" aria-hidden />
               Student housing, verified
             </p>
-            <h1 className="mt-4 font-serif text-4xl font-bold leading-[1.1] tracking-tight text-[#2C2C2C] md:text-[2.65rem]">
+            <h1 className="mt-3 font-serif text-[1.75rem] font-bold leading-[1.12] tracking-tight text-[#2C2C2C] sm:mt-4 sm:text-4xl md:text-[2.65rem]">
               Find your space.
               <br />
               Live your{" "}
@@ -107,7 +107,7 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
               Manila.
             </p>
 
-            <div className="mt-6 rounded-2xl border border-[#DDDDDD]/80 bg-white p-4 shadow-[0_8px_32px_rgba(44,44,44,0.07)]">
+            <div className="mt-5 rounded-2xl border border-black/[0.06] bg-white p-3.5 shadow-[0_4px_20px_rgba(44,44,44,0.08)] sm:mt-6 sm:p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
                 <div className="min-w-0 flex-1">
                   <PhLocationInput
@@ -179,7 +179,7 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
               ) : null}
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-6 sm:grid-cols-4 sm:gap-3">
               <ValueChip icon={<GraduationCap className="size-4 text-[#6B9E6E]" />} label="Near universities" />
               <ValueChip icon={<Heart className="size-4 text-[#D4A843]" />} label="Budget friendly" />
               <ValueChip icon={<BadgeCheck className="size-4 text-[#6B9E6E]" />} label="Verified listings" />
@@ -187,8 +187,8 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
             </div>
           </div>
 
-          <div className="relative order-1 min-h-[300px] lg:order-2 lg:min-h-[440px]">
-            <div className="relative mx-auto h-[300px] max-w-md overflow-hidden rounded-3xl shadow-[0_20px_50px_rgba(44,44,44,0.15)] lg:mx-0 lg:h-[440px] lg:max-w-none">
+          <div className="relative order-1 lg:order-2 lg:min-h-[400px]">
+            <div className="relative mx-auto aspect-[16/10] max-h-[200px] w-full max-w-sm overflow-hidden rounded-2xl shadow-[0_8px_28px_rgba(44,44,44,0.12)] sm:max-h-[220px] lg:mx-0 lg:aspect-[4/5] lg:h-[400px] lg:max-h-none lg:max-w-none lg:rounded-3xl lg:shadow-[0_16px_40px_rgba(44,44,44,0.14)]">
               <Image
                 src={DORMSPACE_HERO_IMAGE}
                 alt=""
@@ -199,23 +199,25 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#1a2e22]/50 via-transparent to-transparent" />
 
-              <div className="absolute left-4 top-4 z-10 max-w-[11rem] rounded-2xl bg-white/95 px-3 py-2.5 shadow-lg backdrop-blur-sm">
-                <p className="flex items-center gap-1.5 text-[11px] font-bold text-[#2C2C2C]">
-                  <MapPin className="size-3.5 text-[#6B9E6E]" aria-hidden />
+              <div className="absolute left-3 top-3 z-10 max-w-[9.5rem] rounded-xl bg-white/95 px-2.5 py-2 shadow-md backdrop-blur-sm lg:left-4 lg:top-4 lg:max-w-[11rem] lg:rounded-2xl lg:px-3 lg:py-2.5">
+                <p className="flex items-center gap-1 text-[10px] font-bold text-[#2C2C2C] lg:text-[11px]">
+                  <MapPin className="size-3 text-[#6B9E6E] lg:size-3.5" aria-hidden />
                   Near campus
                 </p>
-                <p className="mt-0.5 text-[10px] font-semibold text-[#888888]">Walking distance to schools</p>
+                <p className="mt-0.5 text-[9px] font-semibold text-[#888888] lg:text-[10px]">
+                  Walking distance to schools
+                </p>
               </div>
-              <div className="absolute bottom-20 right-3 z-10 max-w-[10rem] rounded-2xl bg-white/95 px-3 py-2.5 shadow-lg backdrop-blur-sm">
-                <p className="flex items-center gap-1.5 text-[11px] font-bold text-[#2C2C2C]">
-                  <Wifi className="size-3.5 text-[#6B9E6E]" aria-hidden />
+              <div className="absolute bottom-3 right-3 z-10 hidden max-w-[9rem] rounded-xl bg-white/95 px-2.5 py-2 shadow-md backdrop-blur-sm sm:block lg:bottom-20 lg:max-w-[10rem] lg:rounded-2xl">
+                <p className="flex items-center gap-1 text-[10px] font-bold text-[#2C2C2C] lg:text-[11px]">
+                  <Wifi className="size-3 text-[#6B9E6E] lg:size-3.5" aria-hidden />
                   Wi-Fi included
                 </p>
-                <p className="mt-0.5 text-[10px] font-semibold text-[#888888]">Study-ready speeds</p>
+                <p className="mt-0.5 text-[9px] font-semibold text-[#888888] lg:text-[10px]">Study-ready speeds</p>
               </div>
-              <div className="absolute bottom-4 left-4 z-10 rounded-2xl bg-[#D4A843]/95 px-3 py-2 shadow-lg">
-                <p className="text-[11px] font-bold text-[#2C2C2C]">Move-in ready</p>
-                <p className="text-[10px] font-semibold text-[#484848]">Verified landlords</p>
+              <div className="absolute bottom-3 left-3 z-10 rounded-xl bg-[#D4A843]/95 px-2.5 py-1.5 shadow-md lg:bottom-4 lg:left-4 lg:rounded-2xl lg:px-3 lg:py-2">
+                <p className="text-[10px] font-bold text-[#2C2C2C] lg:text-[11px]">Move-in ready</p>
+                <p className="text-[9px] font-semibold text-[#484848] lg:text-[10px]">Verified landlords</p>
               </div>
             </div>
 
@@ -281,9 +283,9 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
 
 function ValueChip({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <div className="flex flex-col items-center gap-1.5 rounded-2xl bg-white/80 px-2 py-3 text-center ring-1 ring-[#2C2C2C]/6">
+    <div className="flex flex-col items-center gap-1 rounded-xl bg-white/90 px-1.5 py-2 text-center ring-1 ring-black/[0.05] sm:gap-1.5 sm:rounded-2xl sm:px-2 sm:py-3">
       {icon}
-      <span className="text-[10px] font-bold leading-tight text-[#484848] sm:text-[11px]">{label}</span>
+      <span className="text-[9px] font-bold leading-tight text-[#484848] sm:text-[11px]">{label}</span>
     </div>
   );
 }

@@ -36,7 +36,7 @@ export function isDormspaceNavLinkActive(
   pathname: string,
 ): boolean {
   if (item.key === "listings") {
-    return pathname === "/dormspaces/dashboard";
+    return pathname.startsWith("/dormspaces/dashboard");
   }
   if (item.key === "inquiries" || item.key === "profile" || item.key === "browse") {
     return false;

@@ -1,15 +1,8 @@
 import { Suspense } from "react";
 
-import { LandlordDashboard } from "@/components/dormspaces/landlord-dashboard";
+import { LandlordDashboardHub } from "@/components/dormspaces/landlord-dashboard-hub";
 
-export default async function DormspaceLandlordDashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ welcome?: string; tab?: string }>;
-}) {
-  const params = await searchParams;
-  const welcome = params.welcome === "1" || params.welcome === "true";
-
+export default function DormspaceLandlordDashboardPage() {
   return (
     <Suspense
       fallback={
@@ -18,7 +11,7 @@ export default async function DormspaceLandlordDashboardPage({
         </div>
       }
     >
-      <LandlordDashboard welcome={welcome} />
+      <LandlordDashboardHub />
     </Suspense>
   );
 }

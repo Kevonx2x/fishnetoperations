@@ -30,7 +30,7 @@ const POINTS = [
 
 export function DormspaceWhyStudentsSection() {
   return (
-    <section className="border-y border-[#2C2C2C]/8 bg-white py-10 sm:py-12">
+    <section className="bg-white py-6 sm:py-8">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_1.1fr] lg:items-center">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#8a6d32]">Why dormspacers</p>
@@ -42,11 +42,11 @@ export function DormspaceWhyStudentsSection() {
             campus housing community.
           </p>
         </div>
-        <ul className="space-y-4">
+        <ul className="space-y-2.5 sm:space-y-3">
           {POINTS.map(({ icon: Icon, title, text }) => (
-            <li key={title} className="flex gap-3 rounded-2xl bg-[#FAF8F4] px-4 py-3.5 ring-1 ring-[#2C2C2C]/6">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/12">
-                <Icon className="size-5 text-[#6B9E6E]" aria-hidden />
+            <li key={title} className="flex gap-3 rounded-xl bg-[#FAF8F4] px-3.5 py-3 ring-1 ring-black/[0.05] sm:rounded-2xl sm:px-4 sm:py-3.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/12 sm:size-10">
+                <Icon className="size-4 text-[#6B9E6E] sm:size-5" aria-hidden />
               </span>
               <div>
                 <p className="text-sm font-bold text-[#2C2C2C]">{title}</p>

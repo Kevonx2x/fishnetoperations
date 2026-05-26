@@ -241,9 +241,7 @@ export function DormspaceBrowse({
                 items={row.items}
                 featured={row.featured}
               />
-              {i < rows.length - 1 ? (
-                <hr className="mx-auto mt-8 w-3/4 border-t border-[#2C2C2C]/10" />
-              ) : null}
+              {i < rows.length - 1 ? <div className="mt-6 h-0 sm:mt-8" aria-hidden /> : null}
             </div>
           ))}
         </div>

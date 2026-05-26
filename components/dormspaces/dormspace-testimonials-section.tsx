@@ -27,34 +27,40 @@ const TESTIMONIALS = [
 
 export function DormspaceTestimonialsSection() {
   return (
-    <section className="border-t border-[#2C2C2C]/8 bg-[#FAF8F4] py-10 sm:py-12">
+    <section className="bg-[#FAF8F4] py-6 sm:py-8">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="flex items-end justify-between gap-4">
-          <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
+        <div className="flex items-end justify-between gap-3">
+          <h2 className="font-serif text-xl font-bold tracking-tight text-[#2C2C2C] sm:text-2xl">
             Real stories from dormspacers
           </h2>
-          <Link href="#" className="shrink-0 text-sm font-bold text-[#6B9E6E] hover:underline">
-            Read more reviews →
+          <Link
+            href="#"
+            className="shrink-0 text-xs font-bold text-[#6B9E6E] hover:underline sm:text-sm"
+          >
+            Read more →
           </Link>
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
+        <div
+          className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scrollbar-hide sm:mx-0 sm:mt-5 sm:snap-none sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-visible sm:px-0 md:gap-4"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           {TESTIMONIALS.map((t) => (
             <article
               key={t.name}
-              className="flex flex-col rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_2px_12px_rgba(44,44,44,0.05)]"
+              className="flex w-[min(252px,78vw)] shrink-0 snap-start flex-col rounded-xl border border-black/[0.06] bg-white p-4 shadow-[0_4px_16px_rgba(44,44,44,0.06)] sm:w-auto"
             >
-              <Quote className="size-8 text-[#D4A843]/80" aria-hidden />
-              <p className="mt-4 flex-1 text-sm font-medium leading-relaxed text-[#484848]">
+              <Quote className="size-5 text-[#D4A843]/80" aria-hidden />
+              <p className="mt-2.5 flex-1 text-[13px] font-medium leading-relaxed text-[#484848] sm:text-sm">
                 &ldquo;{t.quote}&rdquo;
               </p>
-              <div className="mt-6 flex items-center gap-3 border-t border-[#2C2C2C]/8 pt-4">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/15 text-xs font-bold text-[#4a7a4d]">
+              <div className="mt-4 flex items-center gap-2.5 border-t border-black/[0.06] pt-3">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/12 text-[10px] font-bold text-[#4a7a4d]">
                   {t.initials}
                 </span>
-                <div>
-                  <p className="text-sm font-bold text-[#2C2C2C]">{t.name}</p>
-                  <p className="text-xs font-medium text-[#888888]">{t.role}</p>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-[#2C2C2C]">{t.name}</p>
+                  <p className="truncate text-[11px] font-medium text-[#888888]">{t.role}</p>
                 </div>
               </div>
             </article>
