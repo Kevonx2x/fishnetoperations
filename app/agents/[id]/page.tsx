@@ -61,6 +61,7 @@ import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import type { CreateMessagingChannelErrorBody, CreateMessagingChannelResponse } from "@/features/messaging/types";
 import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagement";
 import { ReportProfileButton } from "@/components/report-profile-button";
+import { agentMessagesHref } from "@/lib/agent-messages-path";
 import { canAgentMessageAgent, type AgentToAgentDealContext } from "@/lib/messaging-permissions";
 import {
   DropdownMenu,
@@ -1077,7 +1078,7 @@ export default function AgentProfilePage() {
         toast.error(typeof err.error === "string" ? err.error : "Could not start chat");
         return;
       }
-      router.push(`/dashboard/client/messages?channel=${encodeURIComponent(ok.channel_id)}`);
+      router.push(agentMessagesHref(ok.channel_id));
     } finally {
       setMessageBusy(false);
     }
