@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Channel, Event } from "stream-chat";
 import { useChatContext } from "stream-chat-react";
 
@@ -74,6 +74,7 @@ function pickMessagingIdFromQueried(event: Event, messagingId: string): string |
 export function useActiveConversation(params: UseActiveConversationParams) {
   const { channel, setActiveChannel, client } = useChatContext();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const router = useRouter();
 
   /** Stable primitive for `useEffect` deps — never pass the Stream `client` instance in the array. */
@@ -97,10 +98,21 @@ export function useActiveConversation(params: UseActiveConversationParams) {
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
 
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+
   const clientRef = useRef(client);
   clientRef.current = client;
 
-  const clearActiveConversation = useCallback(() => setActiveChannel(undefined), [setActiveChannel]);
+  const clearActiveConversation = useCallback(() => {
+    setActiveChannel(undefined);
+    const sp = new URLSearchParams(searchParamsRef.current.toString());
+    if (!sp.has("channel")) return;
+    sp.delete("channel");
+    const qs = sp.toString();
+    const path = pathnameRef.current || "/messages";
+    router.replace(qs ? `${path}?${qs}` : path, { scroll: false });
+  }, [router, setActiveChannel]);
 
   useEffect(() => {
     const cli = clientRef.current;

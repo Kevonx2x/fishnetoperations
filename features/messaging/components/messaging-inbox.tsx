@@ -77,7 +77,10 @@ function MessagingInboxInner(props: MessagingInboxProps & { selfUserId: string }
 
   useEffect(() => {
     if (isDesktop) return;
-    if (!activeChannel) return;
+    if (!activeChannel) {
+      setMobileView("list");
+      return;
+    }
     setMobileView("thread");
   }, [activeChannel, isDesktop]);
 

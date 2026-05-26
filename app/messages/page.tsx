@@ -64,6 +64,7 @@ function MessagesPageContent() {
           <AgentMessagesInbox
             initialChannelId={channel}
             suppressMobileListHeader
+            setActiveChannelOnMount={Boolean(channel)}
           />
         ) : (
           <ClientMessagesView initialChannelId={channel} />

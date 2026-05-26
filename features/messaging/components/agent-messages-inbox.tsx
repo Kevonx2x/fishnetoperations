@@ -8,6 +8,8 @@ export function AgentMessagesInbox(props: {
   initialChannelId?: string | null;
   /** When true, hides the in-panel mobile “Messages” title (page supplies its own header). */
   suppressMobileListHeader?: boolean;
+  /** When false, list view stays on /messages without auto-selecting the first channel. */
+  setActiveChannelOnMount?: boolean;
 }) {
   const client = useStreamChat();
   const { user } = useAuth();
@@ -22,7 +24,7 @@ export function AgentMessagesInbox(props: {
 
   return (
     <MessagingInbox
-      setActiveChannelOnMount
+      setActiveChannelOnMount={props.setActiveChannelOnMount ?? true}
       initialChannelId={props.initialChannelId ?? null}
       showConversationContextPanel
       suppressMobileListHeader={props.suppressMobileListHeader}

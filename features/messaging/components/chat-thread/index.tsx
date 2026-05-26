@@ -7,6 +7,7 @@ import { Channel, Window, useChannelStateContext, useChatContext } from "stream-
 
 import { useAuth } from "@/contexts/auth-context";
 import { ChatHeader } from "@/features/messaging/components/chat-thread/chat-header";
+import { MobileThreadHeader } from "@/features/messaging/components/chat-thread/mobile-thread-header";
 import { MessageList } from "@/features/messaging/components/chat-thread/message-list";
 import { MessageInput } from "@/features/messaging/components/chat-thread/message-input";
 import { MessagesOnlySupportWelcome } from "@/features/messaging/components/messages-only-support-welcome";
@@ -56,7 +57,7 @@ export function ChatThreadPanel(props: {
     const variant = profile?.role === "client" ? "client" : "agent";
     return (
       <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-page">
-        <ChatHeader onBack={props.onBackToList} className="md:hidden" />
+        <MobileThreadHeader onBack={props.onBackToList} />
         <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-4 py-8 md:justify-center md:py-12">
           {noSelectionKind === "checking" ? (
             <div className="h-12 w-12 shrink-0 animate-pulse rounded-2xl bg-fg/[0.06]" aria-hidden />
@@ -120,8 +121,8 @@ export function ChatThreadPanel(props: {
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <ChatHeader onBack={props.onBackToList} className="md:hidden" />
-      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <MobileThreadHeader onBack={props.onBackToList} />
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <Channel
           key={activeChannel?.cid ?? "no-active-channel"}
           channelQueryOptions={{ messages: { limit: 20 } }}

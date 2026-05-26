@@ -1,15 +1,11 @@
-import Image from "next/image";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, BadgeCheck, Home } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, BadgeCheck } from "lucide-react";
 import { Avatar, useChatContext } from "stream-chat-react";
 
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { formatRelativeTime } from "@/lib/relative-time";
-import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { cn } from "@/lib/utils";
-import type { ChannelPropertyMetadata, PeerInfo } from "@/features/messaging/types";
+import type { PeerInfo } from "@/features/messaging/types";
 
 function getPeerFromMembers(params: {
   members:
@@ -72,19 +68,6 @@ export function ChatHeader(props: { onBack?: () => void; className?: string }) {
   });
   const [peerIsVerifiedAgent, setPeerIsVerifiedAgent] = useState(false);
 
-  const channelMeta = (activeChannel?.data ?? {}) as ChannelPropertyMetadata;
-  const propertyId = (channelMeta.property_id ?? "").trim();
-  const propertyName = (channelMeta.property_name ?? "").trim();
-  const propertyPrice = (channelMeta.property_price ?? "").trim();
-  const propertyImage = (channelMeta.property_image ?? "").trim();
-
-  const formattedMobilePropertyPrice = useMemo(() => {
-    if (!propertyPrice) return null;
-    const cleaned = propertyPrice.replace(/^\$/u, "").trim();
-    if (!cleaned) return null;
-    return formatPropertyPriceDisplay(cleaned, undefined);
-  }, [propertyPrice]);
-
   useEffect(() => {
     let cancelled = false;
     if (!peer?.id || selfRole === "agent") {
@@ -113,13 +96,6 @@ export function ChatHeader(props: { onBack?: () => void; className?: string }) {
     };
   }, [peer?.id, selfRole]);
 
-  const mobileOfflineLabel = useMemo(() => {
-    if (!peer) return "Offline";
-    if (peer.online) return "Online";
-    if (peer.lastActive) return `Offline · last seen ${formatRelativeTime(peer.lastActive)}`;
-    return "Offline";
-  }, [peer]);
-
   if (!activeChannel || !peer) {
     return (
       <div className={cn("flex min-h-14 items-center gap-3 border-b border-subtle bg-surface-page px-4 py-3", props.className)}>
@@ -134,7 +110,12 @@ export function ChatHeader(props: { onBack?: () => void; className?: string }) {
   }
 
   return (
-    <div className={cn("flex min-h-14 items-center gap-3 border-b border-subtle bg-surface-page px-4 py-3", props.className)}>
+    <div
+      className={cn(
+        "hidden min-h-14 items-center gap-3 border-b border-subtle bg-surface-page px-4 py-3 md:flex",
+        props.className,
+      )}
+    >
       {props.onBack ? (
         <button type="button" onClick={props.onBack} aria-label="Back to conversations">
           <ArrowLeft className="h-5 w-5" />
@@ -155,36 +136,7 @@ export function ChatHeader(props: { onBack?: () => void; className?: string }) {
             </span>
           ) : null}
         </div>
-        <p className="text-xs font-medium text-fg/50 md:hidden">{mobileOfflineLabel}</p>
-        <p className="hidden text-xs font-medium text-fg/50 md:block">{peer.online ? "Online" : "Offline"}</p>
-        {propertyId && propertyName ? (
-          <Link
-            href={`/properties/${encodeURIComponent(propertyId)}`}
-            className="mt-2 flex max-w-[280px] items-center gap-2 rounded-lg border border-subtle bg-surface-panel px-2 py-1.5 md:hidden"
-          >
-            {propertyImage ? (
-              <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md">
-                <Image src={propertyImage} alt="" fill className="object-cover" sizes="40px" unoptimized />
-              </span>
-            ) : (
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#FAF8F4] text-[#6B9E6E]">
-                <Home className="h-4 w-4" aria-hidden />
-              </span>
-            )}
-            <span className="min-w-0">
-              <span
-                className="line-clamp-2 block overflow-hidden text-xs font-semibold leading-tight text-fg [display:-webkit-box] [WebkitBoxOrient:vertical] [WebkitLineClamp:2]"
-              >
-                {propertyName}
-              </span>
-              {formattedMobilePropertyPrice ? (
-                <span className="mt-1 block truncate text-[11px] font-semibold text-[#D4A843]">
-                  {formattedMobilePropertyPrice}
-                </span>
-              ) : null}
-            </span>
-          </Link>
-        ) : null}
+        <p className="text-xs font-medium text-fg/50">{peer.online ? "Online" : "Offline"}</p>
       </div>
     </div>
   );
