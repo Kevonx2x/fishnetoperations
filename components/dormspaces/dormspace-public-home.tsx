@@ -16,6 +16,7 @@ import { DormspaceBrowse, type DormspaceBrowseFilters } from "@/components/dorms
 import { DormspaceCategoryChips } from "@/components/dormspaces/dormspace-category-chips";
 import { DormspaceCommunityCta } from "@/components/dormspaces/dormspace-community-cta";
 import { DormspacePopularAreasSection } from "@/components/dormspaces/dormspace-popular-areas-section";
+import { DormspacePublicHomeMobile } from "@/components/dormspaces/dormspace-public-home-mobile";
 import { DormspaceRecommendedSection } from "@/components/dormspaces/dormspace-recommended-section";
 import { DormspaceWhyStudentsSection } from "@/components/dormspaces/dormspace-why-students";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
@@ -83,8 +84,27 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
     if (next.city) setLocationQuery(next.city);
   };
 
+  const scrollToListings = () => {
+    document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const applyMobileBrowseFilter = (partial: Partial<DormspaceBrowseFilters>) => {
+    setActiveChipId(null);
+    setFilters((f) => ({ ...f, ...partial }));
+    if (partial.city) setLocationQuery(partial.city);
+  };
+
   return (
     <>
+      <DormspacePublicHomeMobile
+        locationQuery={locationQuery}
+        onLocationChange={setLocationQuery}
+        onSearch={applySearch}
+        onBrowseFilter={applyMobileBrowseFilter}
+        onScrollToListings={scrollToListings}
+      />
+
+      <div className="hidden md:contents">
       <section className="relative overflow-hidden bg-[#FAF8F4]">
         <div className="pointer-events-none absolute -right-24 top-8 size-64 rounded-full bg-[#D4A843]/12 blur-3xl" aria-hidden />
         <div className="pointer-events-none absolute -left-16 bottom-0 size-48 rounded-full bg-[#6B9E6E]/10 blur-3xl" aria-hidden />
@@ -264,16 +284,25 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
       <DormspaceWhyStudentsSection />
 
       <DormspaceCommunityCta />
+      </div>
 
-      <DormspaceBrowse
-        listings={listings}
-        filters={filters}
-        onFiltersChange={(next) => {
-          setFilters(next);
-          setActiveChipId(null);
-        }}
-        syncLocationToHero={setLocationQuery}
-      />
+      <div id="listings" className="scroll-mt-20 md:scroll-mt-24">
+        <div className="border-t border-black/[0.06] bg-[#FAF8F4] px-5 py-4 md:hidden">
+          <h2 className="font-serif text-[18px] font-semibold leading-tight tracking-tight text-[#2C2C2C]">
+            All listings
+          </h2>
+          <p className="mt-0.5 text-[11px] font-semibold text-[#888888]">Verified bedspaces near you</p>
+        </div>
+        <DormspaceBrowse
+          listings={listings}
+          filters={filters}
+          onFiltersChange={(next) => {
+            setFilters(next);
+            setActiveChipId(null);
+          }}
+          syncLocationToHero={setLocationQuery}
+        />
+      </div>
     </>
   );
 }
