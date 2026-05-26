@@ -11,6 +11,10 @@ import {
   MoreHorizontal,
   type LucideIcon,
 } from "lucide-react";
+import {
+  MobileNavAnimatedIcon,
+  type MobileNavIconId,
+} from "@/components/mobile/mobile-nav-animated-icon";
 import { isDormspaceDashboardPath } from "@/lib/dormspace-portal-chrome";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { isPublicDormspaceMarketplacePath } from "@/lib/dormspace-portal-chrome";
@@ -51,7 +55,7 @@ const MARKETPLACE_TAB_IDS = new Set(MARKETPLACE_TABS.map((tab) => tab.id));
 /** Public dormspaces marketplace — no Inbox; More stays in-product. */
 const DORMSPACES_PUBLIC_TABS: MobileBottomNavTabConfig[] = [
   { id: "home", label: "Home", href: "/dormspaces", Icon: Home },
-  { id: "search", label: "Search", href: "/search", Icon: Map },
+  { id: "search", label: "Search", href: "/dormspaces/search", Icon: Map },
   { id: "saved", label: "Saved", href: "/dormspaces/liked", Icon: Heart },
   { id: "more", label: "More", href: "/dormspaces/more", Icon: MoreHorizontal },
 ];
@@ -151,6 +155,14 @@ function formatBadge(count: number): string {
   return String(count);
 }
 
+function navIconId(tabId: string): MobileNavIconId {
+  if (tabId === "inbox") return "inbox";
+  if (tabId === "search") return "search";
+  if (tabId === "saved") return "saved";
+  if (tabId === "more") return "more";
+  return "home";
+}
+
 function NavTab({
   tab,
   active,
@@ -165,30 +177,26 @@ function NavTab({
     <Link
       href={href}
       className={cn(
-        "relative flex min-h-[44px] min-w-[44px] min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0",
-        active ? "text-[#6B9E6E]" : "text-[#888888]",
+        "relative flex min-h-[44px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0",
+        active ? "text-[#6B9E6E]" : "text-[#717171]",
       )}
       aria-current={active ? "page" : undefined}
     >
       {active ? (
-        <span className="absolute inset-x-0 top-0 h-0.5 bg-[#6B9E6E]" aria-hidden />
+        <span className="absolute inset-x-2 top-0 h-0.5 rounded-full bg-[#6B9E6E]" aria-hidden />
       ) : null}
-      <span className="relative flex h-6 w-6 items-center justify-center">
-        <Icon
-          className={cn("h-6 w-6 shrink-0", active ? "text-[#6B9E6E]" : "text-[#888888]")}
-          strokeWidth={active ? 2.25 : 2}
-          aria-hidden
-        />
+      <span className="relative flex h-7 w-7 items-center justify-center">
+        <MobileNavAnimatedIcon id={navIconId(tab.id)} Icon={Icon} active={active} size={24} />
         {showBadge ? (
-          <span className="pointer-events-none absolute -right-1.5 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white">
+          <span className="pointer-events-none absolute -right-1 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white">
             {formatBadge(badgeCount!)}
           </span>
         ) : null}
       </span>
       <span
         className={cn(
-          "max-w-[4.5rem] truncate text-center text-[10px] uppercase tracking-tight",
-          active ? "font-semibold text-[#6B9E6E]" : "font-medium text-[#888888]",
+          "max-w-[4.5rem] truncate text-center text-[10px] tracking-tight",
+          active ? "font-semibold text-[#6B9E6E]" : "font-medium text-[#717171]",
         )}
       >
         {label}

@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { Bell, Home, Settings } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import {
+  MobileNavAnimatedIcon,
+  type MobileNavIconId,
+} from "@/components/mobile/mobile-nav-animated-icon";
 import { cn } from "@/lib/utils";
 
 const ITEMS: {
@@ -55,7 +59,7 @@ export function ClientMobileBottomNav({
             href={href}
             className={cn(
               "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-0.5 text-[9px] font-bold sm:text-[10px]",
-              active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45",
+              active ? "text-[#6B9E6E]" : "text-[#717171]",
             )}
           >
             {segment === "notifications" && unreadCount > 0 ? (
@@ -63,8 +67,19 @@ export function ClientMobileBottomNav({
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             ) : null}
-            <span className={active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>
-              <Icon className="mx-auto h-5 w-5" aria-hidden />
+            <span className={active ? "text-[#6B9E6E]" : "text-[#717171]"}>
+              <MobileNavAnimatedIcon
+                id={
+                  (segment === "overview"
+                    ? "home"
+                    : segment === "notifications"
+                      ? "notifications"
+                      : "settings") satisfies MobileNavIconId
+                }
+                Icon={Icon}
+                active={active}
+                size={22}
+              />
             </span>
             <span className="max-w-[3.75rem] truncate text-center leading-tight">{label}</span>
           </Link>

@@ -38,8 +38,10 @@ type Props = {
 const PAGE_X = "px-5";
 const SECTION = "mt-5";
 /** ~2.5 cards visible: (viewport − side padding − gaps) ÷ 2.5 */
-const PEEK_CARD_W = "w-[calc((100vw-2.5rem-1rem)/2.5)]";
+const PEEK_CARD_W = "w-[calc((100vw-2rem-1rem)/2.5)]";
 const FOUR_UP = "grid grid-cols-4 gap-1.5";
+const CAROUSEL_SCROLL =
+  "mt-2.5 flex overflow-x-auto px-4 pb-0.5 scrollbar-hide snap-x snap-mandatory scroll-pl-4 scroll-pr-4";
 
 const FEATURE_HIGHLIGHTS = [
   { icon: ShieldCheck, title: "Verified", sub: "ID checked" },
@@ -65,7 +67,7 @@ function SectionHeader({
   onAction?: () => void;
 }) {
   return (
-    <div className={cn("flex items-baseline justify-between gap-3", PAGE_X)}>
+    <div className="flex items-baseline justify-between gap-3 px-4">
       <h2 className="font-serif text-[18px] font-semibold leading-tight tracking-tight text-[#2C2C2C]">
         {title}
       </h2>
@@ -247,7 +249,7 @@ export function DormspacePublicHomeMobile({
       {/* New this week */}
       <section className={SECTION}>
         <SectionHeader title="New this week" actionLabel="See all" onAction={onScrollToListings} />
-        <div className="mt-2.5 flex gap-2 overflow-x-auto pl-5 pr-5 pb-0.5 scrollbar-hide snap-x snap-mandatory">
+        <div className={cn(CAROUSEL_SCROLL, "gap-2")}>
           {DORMSPACE_HOME_DEMO_NEW.map((listing) => (
             <NewThisWeekCard key={listing.id} listing={listing} />
           ))}
@@ -278,7 +280,7 @@ export function DormspacePublicHomeMobile({
       {/* Near your campus */}
       <section className={SECTION}>
         <SectionHeader title="Near your campus" actionLabel="See all" onAction={onScrollToListings} />
-        <div className="mt-2.5 flex gap-2.5 overflow-x-auto pl-5 pr-5 pb-0.5 scrollbar-hide snap-x snap-mandatory">
+        <div className={cn(CAROUSEL_SCROLL, "gap-2.5")}>
           {DORMSPACE_HOME_DEMO_CAMPUSES.map((campus) => (
             <button
               key={campus.id}

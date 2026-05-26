@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { GitBranch, Home, MessageSquare, MoreHorizontal, Plus } from "lucide-react";
+import { MobileNavAnimatedIcon } from "@/components/mobile/mobile-nav-animated-icon";
 import { cn } from "@/lib/utils";
 
 export type AgentMobileBottomNavTab = "home" | "pipeline" | "messages" | "more";
@@ -37,7 +38,7 @@ function NavItem({
       onClick={onClick}
       className={cn(
         "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[10px] font-bold",
-        active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45",
+        active ? "text-[#6B9E6E]" : "text-[#717171]",
       )}
     >
       {showDot ? (
@@ -51,7 +52,7 @@ function NavItem({
           {badge > 99 ? "99+" : badge}
         </span>
       ) : null}
-      <span className={active ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"}>{children}</span>
+      <span className={active ? "text-[#6B9E6E]" : "text-[#717171]"}>{children}</span>
       <span className="max-w-[4.5rem] truncate">{label}</span>
     </button>
   );
@@ -73,7 +74,7 @@ export function AgentMobileBottomNav({
     >
       <div className="flex items-end justify-between gap-0">
         <NavItem label="Home" active={activeTab === "home"} onClick={onHome}>
-          <Home className="h-5 w-5" aria-hidden />
+          <MobileNavAnimatedIcon id="home" Icon={Home} active={activeTab === "home"} size={22} />
         </NavItem>
         <NavItem
           label="Pipeline"
@@ -87,7 +88,13 @@ export function AgentMobileBottomNav({
               activeTab === "pipeline" ? "bg-[#6B9E6E] text-white" : "",
             )}
           >
-            <GitBranch className="h-5 w-5" aria-hidden />
+            <MobileNavAnimatedIcon
+              id="pipeline"
+              Icon={GitBranch}
+              active={activeTab === "pipeline"}
+              size={22}
+              activeColor={activeTab === "pipeline" ? "#ffffff" : undefined}
+            />
           </span>
         </NavItem>
         {/* TODO: full add-deal flow — currently placeholder via onAdd */}
@@ -97,7 +104,7 @@ export function AgentMobileBottomNav({
           aria-label="Add deal"
           className="relative -mt-4 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-[0_4px_16px_rgba(107,158,110,0.45)] ring-4 ring-[#FAF8F4]/95"
         >
-          <Plus className="h-7 w-7" strokeWidth={2.5} aria-hidden />
+          <Plus className="h-7 w-7 text-white" strokeWidth={2.25} aria-hidden />
         </button>
         <NavItem
           label="Messages"
@@ -105,10 +112,15 @@ export function AgentMobileBottomNav({
           onClick={onMessages}
           badge={messagesUnread}
         >
-          <MessageSquare className="h-5 w-5" aria-hidden />
+          <MobileNavAnimatedIcon
+            id="inbox"
+            Icon={MessageSquare}
+            active={activeTab === "messages"}
+            size={22}
+          />
         </NavItem>
         <NavItem label="More" active={activeTab === "more"} onClick={onMore}>
-          <MoreHorizontal className="h-5 w-5" aria-hidden />
+          <MobileNavAnimatedIcon id="more" Icon={MoreHorizontal} active={activeTab === "more"} size={22} />
         </NavItem>
       </div>
     </nav>

@@ -2,6 +2,10 @@
 
 import { motion } from "framer-motion";
 import { Building2, Home, Map, Search, Sparkles, User } from "lucide-react";
+import {
+  MobileNavAnimatedIcon,
+  type MobileNavIconId,
+} from "@/components/mobile/mobile-nav-animated-icon";
 
 export type BottomTab = "home" | "search" | "map" | "agencies" | "profile";
 
@@ -12,7 +16,7 @@ export function BottomNav({
   active: BottomTab;
   onTab: (t: BottomTab) => void;
 }) {
-  const items: Array<{ id: BottomTab; label: string; Icon: React.ComponentType<{ className?: string }> }> = [
+  const items: Array<{ id: BottomTab; label: string; Icon: typeof Home }> = [
     { id: "home", label: "Home", Icon: Home },
     { id: "search", label: "Search", Icon: Search },
     { id: "map", label: "Map", Icon: Map },
@@ -44,9 +48,22 @@ export function BottomNav({
               )}
 
               <span className="relative">
-                <item.Icon className={`h-5 w-5 ${isActive ? "text-[#6B9E6E]" : "text-[#2C2C2C]/55"}`} />
+                <MobileNavAnimatedIcon
+                  id={
+                    (item.id === "agencies"
+                      ? "agencies"
+                      : item.id === "profile"
+                        ? "profile"
+                        : item.id) satisfies MobileNavIconId
+                  }
+                  Icon={item.Icon}
+                  active={isActive}
+                  size={22}
+                />
               </span>
-              <span className={`relative ${isActive ? "text-[#6B9E6E]" : ""}`}>{item.label}</span>
+              <span className={`relative ${isActive ? "font-semibold text-[#6B9E6E]" : "text-[#717171]"}`}>
+                {item.label}
+              </span>
 
               {isActive && (
                 <motion.div

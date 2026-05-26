@@ -42,7 +42,7 @@ const ROUTES = {
 const PATHS = {
   dormspaces: "/dormspaces",
   dormspacesLiked: "/dormspaces/liked",
-  search: "/search",
+  search: "/dormspaces/search",
   dormspacesLandlords: "/dormspaces/landlords",
   dormspacesDashboard: "/dormspaces/dashboard",
   dormspacesSubmit: "/dormspaces/submit",
