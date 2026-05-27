@@ -1,17 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { ChevronLeft, ChevronRight, Images, LayoutGrid, Share2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { DormspaceDetailHeroChrome } from "@/components/dormspaces/dormspace-detail-hero-chrome";
 import { DormspaceEngagementButtons } from "@/components/dormspaces/dormspace-engagement-buttons";
 import { DormspacePhotoLightbox } from "@/components/dormspaces/dormspace-photo-lightbox";
-import {
-  propertyPhotoDisplayUrl,
-  propertyPhotoHeroUrl,
-} from "@/lib/cloudinary-property-photo-url";
+import { dormspaceListingPhotoSrc } from "@/lib/dormspaces";
 import { cn } from "@/lib/utils";
 
 const HERO_SIZES = "(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 900px" as const;
@@ -48,8 +45,8 @@ function GalleryTile({
       className={cn("group relative block h-full w-full overflow-hidden bg-[#F3F0EA]", className)}
       aria-label={alt}
     >
-      <Image
-        src={propertyPhotoHeroUrl(url)}
+      <SupabasePublicImage
+        src={dormspaceListingPhotoSrc(url)}
         alt=""
         fill
         sizes={sizes}
@@ -109,8 +106,8 @@ export function DormspaceDetailGallery({ urls, title, dormspaceId, landlordUserI
             className="absolute inset-0 z-0 block"
             aria-label={`Open photo ${idx + 1}`}
           >
-            <Image
-              src={propertyPhotoHeroUrl(urls[idx]!)}
+            <SupabasePublicImage
+              src={dormspaceListingPhotoSrc(urls[idx]!)}
               alt={title}
               fill
               sizes="100vw"
@@ -177,8 +174,8 @@ export function DormspaceDetailGallery({ urls, title, dormspaceId, landlordUserI
                 aria-label={`View photo ${i + 1}`}
                 aria-current={i === idx ? "true" : undefined}
               >
-                <Image
-                  src={propertyPhotoDisplayUrl(url)}
+                <SupabasePublicImage
+                  src={dormspaceListingPhotoSrc(url)}
                   alt=""
                   fill
                   sizes="96px"

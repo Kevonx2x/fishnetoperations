@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, type TouchEvent } from "react";
 import { createPortal } from "react-dom";
-import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
-import { propertyPhotoHeroUrl } from "@/lib/cloudinary-property-photo-url";
+import { dormspaceListingPhotoSrc } from "@/lib/dormspaces";
 
 export function DormspacePhotoLightbox({
   photos,
@@ -74,7 +73,7 @@ export function DormspacePhotoLightbox({
 
   if (typeof document === "undefined") return null;
 
-  const currentSrc = propertyPhotoHeroUrl(String(photos[index] ?? photos[0] ?? "").trim());
+  const currentSrc = dormspaceListingPhotoSrc(String(photos[index] ?? photos[0] ?? "").trim());
   const countLabel = photos.length > 0 ? `${index + 1} of ${photos.length}` : "";
 
   const shell = (
@@ -112,18 +111,15 @@ export function DormspacePhotoLightbox({
           onTouchEnd={onTouchEnd}
         >
           <div
-            className="pointer-events-auto relative h-full w-full max-h-full max-w-full"
+            className="pointer-events-auto flex h-full w-full max-h-full max-w-full items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
             {photos.length > 0 ? (
-              <Image
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
                 src={currentSrc}
                 alt=""
-                fill
-                className="object-contain"
-                sizes="100vw"
-                priority
-                loading="eager"
+                className="max-h-full max-w-full object-contain"
               />
             ) : null}
           </div>

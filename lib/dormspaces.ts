@@ -1,4 +1,4 @@
-/** Dormspace listing types and display helpers. */
+import { isSupabaseRenderUrl, supabaseObjectUrlFromRenderUrl } from "@/lib/supabase-image-url";
 
 export type DormspaceRoomType = "private" | "shared_2" | "shared_4" | "shared_6_plus";
 export type DormspaceGenderPreference = "any" | "male" | "female";
@@ -278,6 +278,16 @@ export function sortedDormspacePhotos(photos: DormspacePhotoRow[] | null | undef
 export function dormspacePrimaryPhotoUrl(photos: DormspacePhotoRow[] | null | undefined): string | null {
   const first = sortedDormspacePhotos(photos).find((p) => p.url?.trim());
   return first?.url.trim() ?? null;
+}
+
+/** Use the public storage URL — Supabase render transforms often 404 without Image Transformations enabled. */
+export function dormspaceListingPhotoSrc(url: string | null | undefined): string {
+  const t = (url ?? "").trim();
+  if (!t) return t;
+  if (isSupabaseRenderUrl(t)) {
+    return supabaseObjectUrlFromRenderUrl(t) ?? t;
+  }
+  return t;
 }
 
 export type DormspaceAmenityKey =
