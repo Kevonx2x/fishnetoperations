@@ -29,14 +29,14 @@ export function DormspaceRecommendedSection({ listings }: { listings: DormspaceW
   }, []);
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-5 lg:py-16">
+    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-5 md:py-8 lg:py-10">
       <DormspaceHomeSectionHeader
         title="Recommended for you"
         subtitle="Hand-picked bedspaces and shared rooms for students & young pros"
       />
 
       {recommended.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white px-6 py-12 text-center">
+        <div className="mt-5 rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white px-6 py-12 text-center md:mt-6">
           <p className="font-serif text-xl font-semibold text-[#2C2C2C]">Be the first to list a dormspace</p>
           <p className="mt-2 text-sm font-medium text-[#484848]">
             New verified bedspaces will appear here as landlords join.
@@ -49,7 +49,7 @@ export function DormspaceRecommendedSection({ listings }: { listings: DormspaceW
           </Link>
         </div>
       ) : (
-        <div className="-mx-4 mt-8 flex items-stretch gap-1 lg:gap-2">
+        <div className="-mx-4 mt-5 flex items-stretch gap-1 md:mt-6 lg:gap-2">
           <button
             type="button"
             onClick={() => scroll("prev")}

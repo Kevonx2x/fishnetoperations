@@ -108,14 +108,14 @@ export function DormspaceBrowseBySchoolSection({
   if (sortedUniversities.length === 0) return null;
 
   return (
-    <section className="bg-[#F3F7F4] py-12 lg:py-16">
+    <section className="bg-[#F3F7F4] py-12 md:py-8 lg:py-10">
       <div className="mx-auto max-w-7xl px-4 sm:px-5">
         <DormspaceHomeSectionHeader
           title="Browse by school"
           subtitle="Find dorms near major Manila universities"
         />
 
-        <div className="relative -mx-4 mt-8">
+        <div className="relative -mx-4 mt-5 md:mt-6">
           <button
             type="button"
             onClick={() => scroll("prev")}

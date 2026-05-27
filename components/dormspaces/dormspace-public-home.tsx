@@ -11,7 +11,6 @@ import {
 
 import { DormspaceBrowse, type DormspaceBrowseFilters } from "@/components/dormspaces/dormspace-browse";
 import { DormspaceBrowseBySchoolSection } from "@/components/dormspaces/dormspace-browse-by-school-section";
-import { DormspaceExploreMapSection } from "@/components/dormspaces/dormspace-explore-map-section";
 import { DormspaceFeaturedNeighborhoodsSection } from "@/components/dormspaces/dormspace-featured-neighborhoods-section";
 import { DormspaceNewThisWeekSection } from "@/components/dormspaces/dormspace-new-this-week-section";
 import { DormspacePublicHomeMobile, DormspaceMobileStickySearch } from "@/components/dormspaces/dormspace-public-home-mobile";
@@ -141,7 +140,7 @@ export function DormspacePublicHome({
         <div className="pointer-events-none absolute -right-24 top-8 size-64 rounded-full bg-[#D4A843]/12 blur-3xl" aria-hidden />
         <div className="pointer-events-none absolute -left-16 bottom-0 size-48 rounded-full bg-[#6B9E6E]/10 blur-3xl" aria-hidden />
 
-        <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-12 lg:py-12">
+        <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-12 lg:pt-8 lg:pb-4">
           <div className="order-2 lg:order-1">
             <p className="inline-flex items-center gap-1.5 rounded-full bg-[#D4A843]/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#8a6d32]">
               <Sparkles className="size-3.5" aria-hidden />
@@ -286,8 +285,6 @@ export function DormspacePublicHome({
       </section>
 
       <DormspaceNewThisWeekSection listings={listings} />
-
-      <DormspaceExploreMapSection listings={listings} />
 
       <DormspaceBrowseBySchoolSection
         universities={universities}
