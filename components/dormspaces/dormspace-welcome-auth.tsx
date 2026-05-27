@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Loader2 } from "lucide-react";
@@ -551,6 +551,58 @@ export function EmailFirstAuthCard() {
           </form>
         </>
       ) : null}
+    </div>
+  );
+}
+
+export function WelcomeHeroAuthPanel({
+  loading,
+  intent: _intent,
+  isLandlordSignedIn,
+  isStaffSignedIn,
+  isClientSignedIn,
+  landlordCard,
+  staffCard,
+  clientCard,
+}: {
+  loading: boolean;
+  intent: "signin" | "signup" | null;
+  isLandlordSignedIn: boolean;
+  isStaffSignedIn: boolean;
+  isClientSignedIn: boolean;
+  landlordCard: ReactNode;
+  staffCard: ReactNode | null;
+  clientCard: ReactNode | null;
+}) {
+  if (loading) {
+    return (
+      <div
+        id="get-started"
+        className="rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_4px_24px_rgba(44,44,44,0.06)] sm:p-8"
+        aria-busy="true"
+      >
+        <div className="h-8 w-48 max-w-full animate-pulse rounded bg-[#2C2C2C]/10" />
+        <div className="mt-4 h-12 animate-pulse rounded-xl bg-[#2C2C2C]/8" />
+        <div className="mt-3 h-12 animate-pulse rounded-xl bg-[#2C2C2C]/8" />
+      </div>
+    );
+  }
+
+  if (isLandlordSignedIn) {
+    return <div id="get-started">{landlordCard}</div>;
+  }
+
+  if (isStaffSignedIn && staffCard) {
+    return <div id="get-started">{staffCard}</div>;
+  }
+
+  if (isClientSignedIn && clientCard) {
+    return <div id="get-started">{clientCard}</div>;
+  }
+
+  return (
+    <div id="get-started">
+      <EmailFirstAuthCard />
     </div>
   );
 }
