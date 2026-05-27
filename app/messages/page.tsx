@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
 import { ChevronLeft, Loader2 } from "lucide-react";
 
 import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
@@ -15,7 +16,7 @@ function MessagesPageContent() {
   const searchParams = useSearchParams();
   const { user, role, loading } = useAuth();
   const channel = searchParams.get("channel");
-  const showThreadChrome = Boolean(channel);
+  const showThreadChrome = isMessagesThreadOpen("/messages", channel);
 
   useEffect(() => {
     if (loading) return;

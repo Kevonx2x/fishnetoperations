@@ -210,7 +210,8 @@ export function useActiveConversation(params: UseActiveConversationParams) {
 
     const next = new URLSearchParams(sp.toString());
     next.set("channel", activeChannelId);
-    router.replace(`?${next.toString()}`);
+    const path = pathnameRef.current || "/messages";
+    router.replace(`${path}?${next.toString()}`, { scroll: false });
   }, [activeChannelId, router]);
 
   return { clearActiveConversation };

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
+import { useSoftKeyboardOpen } from "@/hooks/use-soft-keyboard-open";
+import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
 import {
   Heart,
   Home,
@@ -31,11 +33,16 @@ export type MobileBottomNavTabConfig = {
 const HIDDEN_PATH_PREFIXES = ["/auth", "/admin"] as const;
 const HIDDEN_PATHS = ["/dormspaces/submit", "/dormspaces/welcome"] as const;
 
-function isMobileBottomNavHidden(pathname: string, hasActiveChannel: boolean): boolean {
+function isMobileBottomNavHidden(
+  pathname: string,
+  hasActiveChannel: boolean,
+  keyboardOpenOnMessagesThread: boolean,
+): boolean {
   if (HIDDEN_PATH_PREFIXES.some((p) => pathname.startsWith(p))) return true;
   if (HIDDEN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return true;
   if (pathname.startsWith("/messages/")) return true;
   if (pathname === "/messages" && hasActiveChannel) return true;
+  if (keyboardOpenOnMessagesThread) return true;
   if (pathname === "/properties/submit" || pathname.startsWith("/properties/submit/")) return true;
   if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) return true;
   return false;
@@ -211,8 +218,11 @@ export function MobileBottomNav() {
   const messagesUnread = useUnreadMessageCount();
 
   const path = pathname ?? "/";
-  const hasActiveChannel = path === "/messages" && Boolean(searchParams.get("channel")?.trim());
-  const hidden = isMobileBottomNavHidden(path, hasActiveChannel);
+  const channelParam = searchParams.get("channel");
+  const messagesThreadOpen = isMessagesThreadOpen(path, channelParam);
+  const keyboardOpen = useSoftKeyboardOpen();
+  const keyboardOnMessagesThread = keyboardOpen && messagesThreadOpen;
+  const hidden = isMobileBottomNavHidden(path, messagesThreadOpen, keyboardOnMessagesThread);
   const tabs = useMemo(() => {
     const base = resolveTabs(pathname ?? "/");
     return base.map((t) =>

@@ -10,7 +10,6 @@ import {
   Home,
   MoreHorizontal,
 } from "lucide-react";
-import { Avatar, useChatContext } from "stream-chat-react";
 
 import {
   DropdownMenu,
@@ -22,45 +21,10 @@ import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
-import { isSupportChannel } from "@/features/messaging/lib/channel-helpers";
-import type { ChannelPropertyMetadata, PeerInfo } from "@/features/messaging/types";
+import { getPeerUser, isSupportChannel } from "@/features/messaging/lib/channel-helpers";
+import type { ChannelPropertyMetadata } from "@/features/messaging/types";
 import { cn } from "@/lib/utils";
-
-function getPeerFromMembers(params: {
-  members:
-    | Record<
-        string,
-        {
-          user?: {
-            id?: string;
-            name?: string | null;
-            image?: string | null;
-            online?: boolean;
-            last_active?: string | Date | null;
-          };
-        }
-      >
-    | undefined;
-  selfId: string;
-}): PeerInfo | null {
-  const { members, selfId } = params;
-  if (!members || !selfId) return null;
-
-  for (const m of Object.values(members)) {
-    const u = m.user;
-    const id = u?.id;
-    if (!id || id === selfId) continue;
-    return {
-      id,
-      name: (u?.name || id).trim(),
-      image: (u?.image || "").trim() || undefined,
-      online: Boolean(u?.online),
-      lastActive: u?.last_active ? new Date(u.last_active).toISOString() : null,
-    };
-  }
-
-  return null;
-}
+import { useChatContext } from "stream-chat-react";
 
 function peerProfileHref(peerId: string, selfRole: string): string {
   if (selfRole === "agent" || selfRole === "broker" || selfRole === "team_member") {
@@ -69,10 +33,51 @@ function peerProfileHref(peerId: string, selfRole: string): string {
   return `/agents/${encodeURIComponent(peerId)}`;
 }
 
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
+}
+
+function ContactAvatar(props: { image?: string; name: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  const showImage = Boolean(props.image?.trim()) && !failed;
+
+  if (showImage) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={props.image}
+        alt=""
+        width={32}
+        height={32}
+        className={cn("size-8 shrink-0 rounded-full object-cover", props.className)}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <span
+      className={cn(
+        "flex size-8 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E] text-xs font-semibold text-white",
+        props.className,
+      )}
+      aria-hidden
+    >
+      {initialsFromName(props.name)}
+    </span>
+  );
+}
+
 type Props = {
   onBack: () => void;
   className?: string;
 };
+
+const HEADER_STICKY =
+  "sticky top-[env(safe-area-inset-top,0px)] z-20 bg-white shadow-sm";
 
 /** Mobile-only conversation chrome — compact header + property row below. */
 export function MobileThreadHeader(props: Props) {
@@ -82,23 +87,30 @@ export function MobileThreadHeader(props: Props) {
   const selfRole = profile?.role ?? "";
   const support = activeChannel ? isSupportChannel(activeChannel) : false;
 
-  const peer = getPeerFromMembers({
-    members: activeChannel?.state?.members as
-      | Record<
-          string,
-          {
-            user?: {
-              id?: string;
-              name?: string | null;
-              image?: string | null;
-              online?: boolean;
-              last_active?: string | Date | null;
-            };
-          }
-        >
-      | undefined,
-    selfId,
-  });
+  const channelData = activeChannel?.data as
+    | { display_name?: string; display_avatar_url?: string; name?: string }
+    | undefined;
+
+  const streamPeer = activeChannel ? getPeerUser(activeChannel, selfId) : null;
+  const peer = streamPeer
+    ? {
+        id: streamPeer.id ?? "",
+        name: (streamPeer.name || streamPeer.id || "Conversation").trim(),
+        image: (streamPeer.image || "").trim() || undefined,
+        online: Boolean(streamPeer.online),
+        lastActive: streamPeer.last_active
+          ? new Date(streamPeer.last_active).toISOString()
+          : null,
+      }
+    : null;
+
+  const displayName = support
+    ? (channelData?.display_name?.trim() || "BahayGo Support")
+    : (peer?.name ?? (activeChannel ? "Conversation" : ""));
+
+  const displayImage = support
+    ? (channelData?.display_avatar_url?.trim() || "/apple-touch-icon.png")
+    : peer?.image;
 
   const [peerIsVerifiedAgent, setPeerIsVerifiedAgent] = useState(false);
 
@@ -144,24 +156,25 @@ export function MobileThreadHeader(props: Props) {
   }, [peer?.id, selfRole]);
 
   const statusLine = useMemo(() => {
-    if (!peer) return "Offline";
+    if (support) return "We typically reply within a few hours";
+    if (!peer) return "Loading…";
     if (peer.online) return "Online";
     if (peer.lastActive) return `Last seen ${formatRelativeTime(peer.lastActive)}`;
     return "Offline";
-  }, [peer]);
+  }, [peer, support]);
 
   const statusIsOnline = Boolean(peer?.online);
 
-  if (!activeChannel || !peer) {
+  if (!activeChannel) {
     return (
-      <div className={cn("md:hidden", props.className)}>
-        <div className="sticky top-0 z-20 border-b border-black/[0.06] bg-white pt-[env(safe-area-inset-top,0px)] shadow-sm">
-          <div className="flex h-14 items-center px-2">
+      <div className={cn("shrink-0 md:hidden", props.className)}>
+        <div className={cn(HEADER_STICKY, "border-b border-black/[0.06]")}>
+          <div className="flex h-14 items-center px-3">
             <button
               type="button"
               onClick={props.onBack}
               aria-label="Back to conversations"
-              className="flex size-11 items-center justify-center rounded-lg text-[#2C2C2C] active:bg-black/[0.04]"
+              className="flex size-11 shrink-0 items-center justify-center rounded-lg text-[#2C2C2C] active:bg-black/[0.04]"
             >
               <ArrowLeft className="size-6" strokeWidth={2} aria-hidden />
             </button>
@@ -173,8 +186,8 @@ export function MobileThreadHeader(props: Props) {
 
   return (
     <div className={cn("shrink-0 md:hidden", props.className)}>
-      <div className="sticky top-0 z-20 bg-white pt-[env(safe-area-inset-top,0px)] shadow-sm">
-        <div className="flex h-14 items-center gap-2 border-b border-black/[0.06] px-2">
+      <div className={HEADER_STICKY}>
+        <div className="flex h-14 items-center gap-2 border-b border-black/[0.06] px-3">
           <button
             type="button"
             onClick={props.onBack}
@@ -183,36 +196,26 @@ export function MobileThreadHeader(props: Props) {
           >
             <ArrowLeft className="size-6" strokeWidth={2} aria-hidden />
           </button>
-          <span className="relative shrink-0">
-            <Avatar
-              image={peer.image}
-              name={peer.name}
-              className="size-8 [&_.str-chat__avatar-fallback]:text-xs"
-            />
-            {peer.online ? (
-              <span
-                className="absolute bottom-0 right-0 size-2 rounded-full border-2 border-white bg-[#6B9E6E]"
-                aria-hidden
-              />
-            ) : null}
-          </span>
-          <div className="min-w-0 flex-1">
+          <ContactAvatar image={displayImage} name={displayName} className="ml-0.5" />
+          <div className="min-w-0 flex-1 pl-0.5">
             <div className="flex items-center gap-1">
-              <p className="truncate text-base font-semibold text-[#2C2C2C]">{peer.name}</p>
+              <p className="truncate text-base font-semibold leading-tight text-[#2C2C2C]">
+                {displayName}
+              </p>
               {peerIsVerifiedAgent ? (
                 <BadgeCheck className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
               ) : null}
             </div>
             <p
               className={cn(
-                "truncate text-xs font-normal",
+                "truncate text-xs font-normal leading-tight",
                 statusIsOnline ? "text-[#6B9E6E]" : "text-[#888888]",
               )}
             >
               {statusLine}
             </p>
           </div>
-          {!support ? (
+          {!support && peer?.id ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

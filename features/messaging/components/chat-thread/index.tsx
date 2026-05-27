@@ -193,7 +193,7 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
         ) : null}
       </header>
       {!supportThread && dealKind && dealPropertyName ? (
-        <div className="shrink-0 border-b border-subtle bg-surface-panel px-4 py-2 text-[11px] font-semibold text-fg/65">
+        <div className="hidden shrink-0 border-b border-subtle bg-surface-panel px-4 py-2 text-[11px] font-semibold text-fg/65 md:block">
           {dealKind === "co_listing" ? "Co-listing" : "Re:"}{" "}
           {dealPropertyId ? (
             <a
