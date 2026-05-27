@@ -11,10 +11,13 @@ import {
 
 import { DormspaceBrowse, type DormspaceBrowseFilters } from "@/components/dormspaces/dormspace-browse";
 import { DormspaceBrowseBySchoolSection } from "@/components/dormspaces/dormspace-browse-by-school-section";
+import { DormspaceCommunityCta } from "@/components/dormspaces/dormspace-community-cta";
 import { DormspaceFeaturedNeighborhoodsSection } from "@/components/dormspaces/dormspace-featured-neighborhoods-section";
+import { DormspaceHomepageFaqSection } from "@/components/dormspaces/dormspace-homepage-faq-section";
 import { DormspaceNewThisWeekSection } from "@/components/dormspaces/dormspace-new-this-week-section";
 import { DormspacePublicHomeMobile, DormspaceMobileStickySearch } from "@/components/dormspaces/dormspace-public-home-mobile";
 import { MobileFixedSearchShell } from "@/components/marketplace/mobile-fixed-search-shell";
+import { HomepageArticlesSection } from "@/components/marketplace/homepage-articles-section";
 import { DormspaceRecommendedSection } from "@/components/dormspaces/dormspace-recommended-section";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import {
@@ -307,6 +310,13 @@ export function DormspacePublicHome({
       />
 
       <DormspaceRecommendedSection listings={listings} />
+
+      <div className="hidden md:block">
+        <hr className="mx-auto mt-2 w-3/4 border-t border-[#2C2C2C]/10" />
+        <DormspaceCommunityCta />
+        <DormspaceHomepageFaqSection className="mt-4" />
+        <HomepageArticlesSection className="mt-2 pb-8" />
+      </div>
 
       </div>
 

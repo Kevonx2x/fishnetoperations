@@ -56,8 +56,10 @@ export function DormspacePortalShell({
 
   const navVisibility = dormspacePortalNavVisibility(pathname);
 
-  /** Dashboard uses unified mobile bottom nav — skip the heavy marketing footer. */
-  const showPortalFooter = false;
+  const showPortalFooter =
+    pathname === "/dormspaces" ||
+    pathname.startsWith("/dormspaces/liked") ||
+    pathname.startsWith("/dormspaces/search");
 
 
 
