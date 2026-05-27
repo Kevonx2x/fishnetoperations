@@ -2,13 +2,10 @@
 
 import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import Image from "next/image";
 import Link from "next/link";
 import {
   AirVent,
   BadgeCheck,
-  ChevronLeft,
-  ChevronRight,
   Droplets,
   MapPin,
   Shield,
@@ -22,10 +19,8 @@ import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 import { DormspaceWalkTimesLine } from "@/components/dormspaces/dormspace-walk-times-line";
 import { DormspaceBedAvailability } from "@/components/dormspaces/dormspace-bed-availability";
 import { DormspaceContactModal } from "@/components/dormspaces/dormspace-contact-modal";
-import {
-  DormspaceDetailBackLink,
-  DormspaceDetailHeroChrome,
-} from "@/components/dormspaces/dormspace-detail-hero-chrome";
+import { DormspaceDetailBackLink } from "@/components/dormspaces/dormspace-detail-hero-chrome";
+import { DormspaceDetailGallery } from "@/components/dormspaces/dormspace-detail-gallery";
 import { DormspaceEngagementButtons } from "@/components/dormspaces/dormspace-engagement-buttons";
 import { DormspaceLandlordPublicCard } from "@/components/dormspaces/dormspace-landlord-public-card";
 import { DormspaceVerificationBadge } from "@/components/dormspaces/dormspace-verification-badge";
@@ -68,7 +63,6 @@ export function DormspaceDetailView({
   const photos = sortedDormspacePhotos(listing.dormspace_photos ?? null);
   const urls = photos.map((p) => p.url).filter(Boolean);
   const { user } = useAuth();
-  const [idx, setIdx] = useState(0);
   const [contactOpen, setContactOpen] = useState(false);
   const [notifyWhenAvailable, setNotifyWhenAvailable] = useState(false);
   const bedInfo = dormspaceBedAvailability(listing);
@@ -99,70 +93,14 @@ export function DormspaceDetailView({
         </div>
       ) : null}
 
-      <div className="overflow-hidden border-[#DDDDDD] bg-white md:rounded-2xl md:border md:shadow-md">
-        <div className="relative aspect-[16/10] w-full bg-[#F3F0EA] sm:aspect-[21/9]">
-          <DormspaceDetailHeroChrome
-            dormspaceId={listing.id}
-            landlordUserId={listing.landlord_user_id}
-            title={listing.title}
-          />
-          {urls.length > 0 ? (
-            <Image src={urls[idx]!} alt="" fill className="object-cover" sizes="100vw" priority />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#E8F0E9] to-[#FAF8F4]" />
-          )}
-          {urls.length > 1 ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setIdx((i) => (i - 1 + urls.length) % urls.length)}
-                className="absolute left-3 top-1/2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow"
-                aria-label="Previous photo"
-              >
-                <ChevronLeft className="size-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setIdx((i) => (i + 1) % urls.length)}
-                className="absolute right-3 top-1/2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow"
-                aria-label="Next photo"
-              >
-                <ChevronRight className="size-5" />
-              </button>
-              <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
-                {urls.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setIdx(i)}
-                    className={`h-1.5 rounded-full transition ${i === idx ? "w-6 bg-white" : "w-1.5 bg-white/50"}`}
-                    aria-label={`Photo ${i + 1}`}
-                  />
-                ))}
-              </div>
-            </>
-          ) : null}
-        </div>
+      <DormspaceDetailGallery
+        urls={urls}
+        title={listing.title}
+        dormspaceId={listing.id}
+        landlordUserId={listing.landlord_user_id}
+      />
 
-        {urls.length > 1 ? (
-          <div className="flex gap-2 overflow-x-auto border-t border-[#2C2C2C]/8 bg-white px-3 py-3 scrollbar-hide">
-            {urls.map((url, i) => (
-              <button
-                key={`${url}-${i}`}
-                type="button"
-                onClick={() => setIdx(i)}
-                className={`relative h-14 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition ${
-                  i === idx ? "border-[#6B9E6E] ring-2 ring-[#6B9E6E]/25" : "border-transparent opacity-80 hover:opacity-100"
-                }`}
-                aria-label={`View photo ${i + 1}`}
-                aria-current={i === idx ? "true" : undefined}
-              >
-                <Image src={url} alt="" fill sizes="80px" className="object-cover" />
-              </button>
-            ))}
-          </div>
-        ) : null}
-
+      <div className="mt-4 overflow-hidden border-[#DDDDDD] bg-white md:mt-6 md:rounded-2xl md:border md:shadow-md">
         <div className="grid gap-8 p-5 md:grid-cols-[1fr_280px] md:p-8">
           <div>
             <div className="flex flex-wrap gap-2">
@@ -182,7 +120,7 @@ export function DormspaceDetailView({
                 landlordUserId={listing.landlord_user_id}
                 signInNext={`/dormspaces/${listing.id}`}
                 size="md"
-                className="hidden rounded-full md:flex"
+                className="rounded-full md:hidden"
               />
               <DormspaceVerificationBadge status={listing.status} />
             </div>

@@ -69,19 +69,13 @@ export function DormspacePortalShell({
 
       <DormspacePortalWatermark />
 
-      {navVisibility !== "none" ? (
-
+      <div className={navVisibility === "desktop-only" ? "hidden md:block" : undefined}>
         <DormspacePortalNav
-
           variant={variant}
-
           activeLandlordTab={activeLandlordTab}
-
           minimal={minimalNav ?? navVisibility === "minimal"}
-
         />
-
-      ) : null}
+      </div>
 
       <div className="relative z-10 flex flex-1 flex-col">{children}</div>
 

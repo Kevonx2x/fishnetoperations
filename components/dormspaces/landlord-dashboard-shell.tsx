@@ -51,7 +51,7 @@ export function LandlordDashboardShell({ children, loginNext, variant = "subpage
   return (
     <DormspacePortalShell variant="landlord">
       {showVerificationBanner && profile ? (
-        <div className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#FAF8F4]/95 backdrop-blur-sm">
+        <div className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#FAF8F4]/95 backdrop-blur-sm md:static">
           <DormspaceLandlordVerificationBanner
             status={normalizeLandlordVerificationStatus(profile.landlord_verification_status)}
             rejectionReason={profile.landlord_verification_rejection_reason}

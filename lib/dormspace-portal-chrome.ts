@@ -10,23 +10,19 @@ export function isDormspaceDashboardPath(pathname: string): boolean {
   return pathname.startsWith("/dormspaces/dashboard");
 }
 
-export type DormspacePortalNavVisibility = "full" | "minimal" | "none";
+export type DormspacePortalNavVisibility = "full" | "minimal" | "desktop-only";
 
 export function isDormspaceDashboardSubpage(pathname: string): boolean {
   return pathname.startsWith("/dormspaces/dashboard/");
 }
 
+/** Welcome keeps a slim header; all other dormspacer routes show portal nav on desktop. */
 export function dormspacePortalNavVisibility(pathname: string): DormspacePortalNavVisibility {
-  if (isDormspaceDashboardSubpage(pathname)) return "none";
-  if (pathname === "/dormspaces/dashboard" || pathname.startsWith("/dormspaces/dashboard?")) {
-    return "full";
-  }
   if (pathname === "/dormspaces/welcome" || pathname.startsWith("/dormspaces/welcome/")) {
     return "minimal";
   }
   if (pathname === "/dormspaces" || pathname.startsWith("/dormspaces?")) return "full";
   if (pathname.startsWith("/dormspaces/submit")) return "full";
-  if (isPublicDormspaceMarketplacePath(pathname)) return "none";
-  if (pathname.startsWith("/dormspaces")) return "full";
+  if (pathname.startsWith("/dormspaces")) return "desktop-only";
   return "full";
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
 import Link from "next/link";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { useRouter } from "next/navigation";
@@ -297,8 +298,9 @@ export default function DormspacesMorePage() {
   const showLandlordBadge = isLandlordUser;
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4] font-sans text-[#2C2C2C]">
-      <div className="pb-32 pt-[env(safe-area-inset-top,0px)]">
+    <DormspacePortalShell variant="browse">
+      <div className="min-h-screen font-sans text-[#2C2C2C]">
+      <div className="pb-32 pt-[env(safe-area-inset-top,0px)] md:pt-4">
         {!loading && isSignedIn ? (
           <Link
             href={PATHS.settings}
@@ -360,6 +362,7 @@ export default function DormspacesMorePage() {
           <p className="mt-1 text-xs text-[#888888]">v1.0</p>
         </footer>
       </div>
-    </div>
+      </div>
+    </DormspacePortalShell>
   );
 }

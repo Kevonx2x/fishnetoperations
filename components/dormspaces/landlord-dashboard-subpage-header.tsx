@@ -24,7 +24,7 @@ export function LandlordDashboardSubpageHeader({
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 border-b border-black/[0.06] bg-[#FAF8F4]/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur-sm",
+        "sticky top-0 z-40 border-b border-black/[0.06] bg-[#FAF8F4]/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur-sm md:static md:z-auto",
         className,
       )}
     >
