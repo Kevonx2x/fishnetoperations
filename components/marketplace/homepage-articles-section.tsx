@@ -9,9 +9,13 @@ import { cn } from "@/lib/utils";
 
 type HomepageArticlesSectionProps = {
   className?: string;
+  showViewAllLink?: boolean;
 };
 
-export function HomepageArticlesSection({ className }: HomepageArticlesSectionProps) {
+export function HomepageArticlesSection({
+  className,
+  showViewAllLink = true,
+}: HomepageArticlesSectionProps) {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -56,13 +60,24 @@ export function HomepageArticlesSection({ className }: HomepageArticlesSectionPr
             Weekly insights to help you make smarter real estate decisions.
           </p>
         </div>
-        <Link
-          href="/blog"
-          className="inline-flex items-center gap-1 text-sm font-semibold text-[#6B9E6E] hover:underline"
-        >
-          View all articles
-          <ChevronRight className="h-4 w-4" aria-hidden />
-        </Link>
+        {showViewAllLink ? (
+          <Link
+            href="/blog"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-[#6B9E6E] hover:underline"
+          >
+            View all articles
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </Link>
+        ) : (
+          <span
+            className="inline-flex cursor-not-allowed items-center gap-1 text-sm font-semibold text-[#888888]"
+            aria-disabled="true"
+            title="Coming soon"
+          >
+            View all articles
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </span>
+        )}
       </div>
 
       {loading ? (

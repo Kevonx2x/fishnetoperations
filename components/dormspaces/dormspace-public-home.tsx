@@ -315,7 +315,7 @@ export function DormspacePublicHome({
         <hr className="mx-auto mt-2 w-3/4 border-t border-[#2C2C2C]/10" />
         <DormspaceCommunityCta />
         <DormspaceHomepageFaqSection className="mt-4" />
-        <HomepageArticlesSection className="mt-2 pb-8" />
+        <HomepageArticlesSection className="mt-2 pb-8" showViewAllLink={false} />
       </div>
 
       </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -39,6 +38,7 @@ export function DormspaceHomepageFaqSection({ className }: { className?: string 
 
   return (
     <section
+      id="dormspace-faq"
       className={cn("mx-auto max-w-3xl px-4 pb-12 sm:px-5", className)}
       aria-labelledby="dormspace-homepage-faq-heading"
     >
@@ -86,12 +86,9 @@ export function DormspaceHomepageFaqSection({ className }: { className?: string 
         })}
       </div>
       <div className="mt-8 flex justify-center">
-        <Link
-          href="/faq"
-          className="inline-flex rounded-full border-2 border-[#6B9E6E] bg-white px-6 py-2.5 text-sm font-semibold text-[#6B9E6E] shadow-sm transition hover:bg-[#6B9E6E]/10"
-        >
-          View all FAQs
-        </Link>
+        <span className="inline-flex cursor-not-allowed rounded-full border-2 border-white/20 bg-white/5 px-6 py-2.5 text-sm font-semibold text-[#888888]">
+          More FAQs coming soon
+        </span>
       </div>
     </section>
   );
