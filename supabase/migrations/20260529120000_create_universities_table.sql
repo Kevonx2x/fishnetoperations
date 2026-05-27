@@ -95,7 +95,7 @@ values
     'Sampaloc',
     14.609719,
     120.989324,
-    'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=400&h=400&q=80',
     0,
     30,
     true
@@ -109,7 +109,7 @@ values
     'Sta. Mesa',
     14.596351,
     121.004997,
-    'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?auto=format&fit=crop&w=400&h=400&q=80',
     0,
     40,
     true
@@ -137,7 +137,7 @@ values
     'Sampaloc',
     14.603564,
     120.991409,
-    'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=400&h=400&q=80',
     0,
     60,
     true
@@ -151,7 +151,7 @@ values
     'Loyola Heights',
     14.639492,
     121.077841,
-    'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=400&h=400&q=80',
+    'https://images.unsplash.com/photo-1501854140801-50d01698950b?auto=format&fit=crop&w=400&h=400&q=80',
     0,
     70,
     true
@@ -165,7 +165,7 @@ values
     'Diliman',
     14.653945,
     121.068366,
-    'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=400&h=400&q=80',
+    'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=400&h=400&q=80',
     0,
     80,
     true
@@ -179,7 +179,7 @@ values
     'Dasmariñas',
     14.329444,
     120.936389,
-    'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&h=400&q=80',
     0,
     90,
     true
@@ -193,7 +193,7 @@ values
     'Ermita',
     14.587444,
     120.993861,
-    'https://images.unsplash.com/photo-1486325212027-8081e485255e?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=400&h=400&q=80',
     0,
     100,
     true
