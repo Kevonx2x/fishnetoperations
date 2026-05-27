@@ -1,5 +1,5 @@
 import { fail, ok } from "@/lib/api/response";
-import { requireAdminSession } from "@/lib/admin-api-auth";
+import { requireFullAdminSession } from "@/lib/admin-api-auth";
 import {
   CEO_DECISION_CATEGORIES,
   CEO_DECISION_STATUSES,
@@ -10,7 +10,7 @@ export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireAdminSession();
+  const session = await requireFullAdminSession();
   if (session === "unauthorized") {
     return fail("UNAUTHORIZED", "Admin sign-in required", 401);
   }
@@ -99,7 +99,7 @@ export async function DELETE(
   _req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireAdminSession();
+  const session = await requireFullAdminSession();
   if (session === "unauthorized") {
     return fail("UNAUTHORIZED", "Admin sign-in required", 401);
   }
