@@ -67,7 +67,7 @@ values
     'Malate',
     14.564611,
     120.993019,
-    'https://images.unsplash.com/photo-1562774053-701939374585?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=400&h=400&q=80',
     0,
     10,
     true
@@ -81,7 +81,7 @@ values
     'Malate',
     14.563047,
     120.994667,
-    'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=400&h=400&q=80',
     0,
     20,
     true
@@ -123,7 +123,7 @@ values
     'Intramuros',
     14.590729,
     120.979912,
-    'https://images.unsplash.com/photo-1607237138185-eedd9c632b59?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1486325212027-8081e485255e?auto=format&fit=crop&w=400&h=400&q=80',
     0,
     50,
     true
@@ -151,7 +151,7 @@ values
     'Loyola Heights',
     14.639492,
     121.077841,
-    'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=400&h=400&q=80',
     0,
     70,
     true
@@ -165,7 +165,7 @@ values
     'Diliman',
     14.653945,
     121.068366,
-    'https://images.unsplash.com/photo-1562774053-701939374585?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=400&h=400&q=80',
     0,
     80,
     true

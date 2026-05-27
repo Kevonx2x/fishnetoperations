@@ -1,4 +1,5 @@
 import type { UniversityRow } from "@/lib/universities";
+import { withUniversityImageDefaults } from "@/lib/university-default-images";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function fetchActiveUniversitiesServer(): Promise<UniversityRow[]> {
@@ -14,5 +15,5 @@ export async function fetchActiveUniversitiesServer(): Promise<UniversityRow[]> 
     return [];
   }
 
-  return (data ?? []) as UniversityRow[];
+  return withUniversityImageDefaults((data ?? []) as UniversityRow[]);
 }
