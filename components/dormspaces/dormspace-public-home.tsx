@@ -22,11 +22,15 @@ import { DormspaceRecommendedSection } from "@/components/dormspaces/dormspace-r
 import { DormspaceWhyStudentsSection } from "@/components/dormspaces/dormspace-why-students";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import {
+  EMPTY_DORMSPACE_BROWSE_FILTERS,
+} from "@/lib/dormspace-browse-filters";
+import {
   DORMSPACE_HERO_IMAGE,
   DORMSPACE_ROOM_TYPE_OPTIONS,
   type DormspaceRoomType,
   type DormspaceWithPhotos,
 } from "@/lib/dormspaces";
+import type { UniversityRow } from "@/lib/universities";
 
 const FIELD =
   "rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25";
@@ -43,13 +47,35 @@ function parseCityFromLocation(value: string): string {
   return parts.length > 1 ? (parts[parts.length - 1] ?? "") : t;
 }
 
-export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhotos[] }) {
+export function DormspacePublicHome({
+  listings,
+  universities,
+  initialUniversityId = "",
+  initialNeighborhood = "",
+}: {
+  listings: DormspaceWithPhotos[];
+  universities: UniversityRow[];
+  initialUniversityId?: string;
+  initialNeighborhood?: string;
+}) {
   useEffect(() => {
     if (typeof window === "undefined" || window.location.hash !== "#listings") return;
     requestAnimationFrame(() => {
       document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }, []);
+
+  useEffect(() => {
+    if (!initialUniversityId && !initialNeighborhood) return;
+    setFilters({
+      ...EMPTY_DORMSPACE_BROWSE_FILTERS,
+      universityId: initialUniversityId,
+      neighborhood: initialNeighborhood,
+    });
+    requestAnimationFrame(() => {
+      document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [initialUniversityId, initialNeighborhood]);
 
   const [locationQuery, setLocationQuery] = useState("");
   const [roomType, setRoomType] = useState<"" | DormspaceRoomType>("");
@@ -58,21 +84,15 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
   const [maxPrice, setMaxPrice] = useState("");
   const [activeChipId, setActiveChipId] = useState<string | null>(null);
 
-  const [filters, setFilters] = useState<DormspaceBrowseFilters>({
-    city: "",
-    roomType: "",
-    gender: "",
-    minPrice: "",
-    maxPrice: "",
-  });
+  const [filters, setFilters] = useState<DormspaceBrowseFilters>(EMPTY_DORMSPACE_BROWSE_FILTERS);
 
   const applySearch = () => {
     const city = parseCityFromLocation(locationQuery);
     setActiveChipId(null);
     setFilters({
+      ...EMPTY_DORMSPACE_BROWSE_FILTERS,
       city,
       roomType,
-      gender: "",
       minPrice,
       maxPrice,
     });
@@ -114,6 +134,8 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
       </MobileFixedSearchShell>
 
       <DormspacePublicHomeMobile
+        universities={universities}
+        listings={listings}
         onBrowseFilter={applyMobileBrowseFilter}
         onScrollToListings={scrollToListings}
       />
@@ -289,7 +311,7 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
         }}
         onClearArea={() => {
           setActiveChipId(null);
-          setFilters({ city: "", roomType: "", gender: "", minPrice: "", maxPrice: "" });
+          setFilters(EMPTY_DORMSPACE_BROWSE_FILTERS);
         }}
       />
 

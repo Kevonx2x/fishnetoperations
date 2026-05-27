@@ -1,7 +1,7 @@
 import { DormspacePublicHomeClient } from "@/components/dormspaces/dormspace-public-home-client";
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
-import type { DormspaceWithPhotos } from "@/lib/dormspaces";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchDormspaceListingsServer } from "@/lib/dormspace-listings-server";
+import { fetchActiveUniversitiesServer } from "@/lib/universities-server";
 
 export const metadata = {
   title: "Dormspaces & Coliving | BahayGo",
@@ -9,20 +9,26 @@ export const metadata = {
     "Verified bedspaces and coliving rooms for students, BPO workers, and young professionals across Metro Manila.",
 };
 
-export default async function DormspacesPage() {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("dormspaces")
-    .select("*, dormspace_photos(id, url, display_order, created_at)")
-    .in("status", ["pending", "approved"])
-    .order("created_at", { ascending: false });
-
-  const listings = (error ? [] : (data ?? [])) as DormspaceWithPhotos[];
+export default async function DormspacesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ university?: string; neighborhood?: string }>;
+}) {
+  const params = await searchParams;
+  const [listings, universities] = await Promise.all([
+    fetchDormspaceListingsServer(),
+    fetchActiveUniversitiesServer(),
+  ]);
 
   return (
     <DormspacePortalShell variant="browse">
       <main>
-        <DormspacePublicHomeClient initialListings={listings} />
+        <DormspacePublicHomeClient
+          initialListings={listings}
+          initialUniversities={universities}
+          initialUniversityId={params.university?.trim() ?? ""}
+          initialNeighborhood={params.neighborhood?.trim() ?? ""}
+        />
       </main>
     </DormspacePortalShell>
   );

@@ -7,7 +7,8 @@ import {
   isVerifiedLandlordProfile,
   normalizeLandlordVerificationStatus,
 } from "@/lib/landlord-verification";
-import type { DormspaceStatus, DormspaceWithPhotos } from "@/lib/dormspaces";
+import type { DormspaceStatus } from "@/lib/dormspaces";
+import { fetchDormspaceListingByIdServer } from "@/lib/dormspace-listings-server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function canViewDormspace(
@@ -44,15 +45,8 @@ export default async function DormspaceDetailPage({ params }: { params: Promise<
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { data, error } = await supabase
-    .from("dormspaces")
-    .select("*, dormspace_photos(id, url, display_order, created_at)")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error || !data) notFound();
-
-  const listing = data as DormspaceWithPhotos;
+  const listing = await fetchDormspaceListingByIdServer(id);
+  if (!listing) notFound();
   if (!canViewDormspace(listing.status, listing.landlord_user_id, user?.id)) {
     notFound();
   }

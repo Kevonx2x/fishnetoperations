@@ -1,3 +1,7 @@
+import type { DormspaceBrowseFilters } from "@/lib/dormspace-browse-filters";
+import { findFeaturedNeighborhood } from "@/lib/dormspace-featured-neighborhoods";
+import { listingMatchesPopularArea } from "@/lib/dormspace-popular-areas";
+import { UNIVERSITY_LISTING_WALK_MAX_SECONDS } from "@/lib/dormspace-walk-times-display";
 import {
   METRO_MANILA_CITIES,
   type DormspaceGenderPreference,
@@ -208,13 +212,7 @@ export function buildDormspaceBrowseRows(pool: DormspaceWithPhotos[]): Dormspace
 
 export function dormspaceMatchesFilters(
   row: DormspaceWithPhotos,
-  filters: {
-    city: string;
-    roomType: "" | DormspaceRoomType;
-    gender: "" | DormspaceGenderPreference;
-    minPrice: string;
-    maxPrice: string;
-  },
+  filters: DormspaceBrowseFilters,
 ): boolean {
   const price = priceNum(row);
   const min = filters.minPrice.trim() ? Number(filters.minPrice) : null;
@@ -228,17 +226,32 @@ export function dormspaceMatchesFilters(
   }
   if (min != null && Number.isFinite(min) && price < min) return false;
   if (max != null && Number.isFinite(max) && price > max) return false;
+
+  if (filters.universityId) {
+    const match = (row.dormspace_walk_times ?? []).some(
+      (walkTime) =>
+        walkTime.university_id === filters.universityId &&
+        walkTime.walk_duration_seconds <= UNIVERSITY_LISTING_WALK_MAX_SECONDS,
+    );
+    if (!match) return false;
+  }
+
+  if (filters.neighborhood) {
+    const area = findFeaturedNeighborhood(filters.neighborhood);
+    if (area && !listingMatchesPopularArea(row, area)) return false;
+  }
+
   return true;
 }
 
-export function hasActiveDormspaceFilters(filters: {
-  city: string;
-  roomType: string;
-  gender: string;
-  minPrice: string;
-  maxPrice: string;
-}): boolean {
+export function hasActiveDormspaceFilters(filters: DormspaceBrowseFilters): boolean {
   return Boolean(
-    filters.city || filters.roomType || filters.gender || filters.minPrice.trim() || filters.maxPrice.trim(),
+    filters.city ||
+      filters.roomType ||
+      filters.gender ||
+      filters.minPrice.trim() ||
+      filters.maxPrice.trim() ||
+      filters.universityId ||
+      filters.neighborhood,
   );
 }

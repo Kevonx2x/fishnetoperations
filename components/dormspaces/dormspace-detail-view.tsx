@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 
+import { DormspaceWalkTimesLine } from "@/components/dormspaces/dormspace-walk-times-line";
 import { DormspaceBedAvailability } from "@/components/dormspaces/dormspace-bed-availability";
 import { DormspaceContactModal } from "@/components/dormspaces/dormspace-contact-modal";
 import {
@@ -189,6 +190,7 @@ export function DormspaceDetailView({
               <MapPin className="size-4 shrink-0 text-[#6B9E6E]" aria-hidden />
               {dormspaceLocationLine(listing)}
             </p>
+            <DormspaceWalkTimesLine listing={listing} className="mt-1.5" />
             {listing.near_school?.trim() ? (
               <p className="mt-2 text-sm font-medium text-[#525252]">Near: {listing.near_school.trim()}</p>
             ) : null}

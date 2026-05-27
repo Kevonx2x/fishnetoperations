@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useDormspaceEngagement } from "@/hooks/use-dormspace-engagement";
 import { isOwnDormspaceListing } from "@/lib/dormspace-engagement";
 import { listingListedCompactLabel } from "@/lib/listing-listed-time";
+import { DormspaceWalkTimesLine } from "@/components/dormspaces/dormspace-walk-times-line";
 import { DormspaceBedAvailability } from "@/components/dormspaces/dormspace-bed-availability";
 import { DORMSPACE_LISTING_CARD_WIDTH } from "@/lib/dormspace-browse-rows";
 import {
@@ -152,6 +153,7 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
           <MapPin className="h-3 w-3 shrink-0 text-[#8E8E8E]" aria-hidden />
           <span className="min-w-0 flex-1 truncate">{dormspaceLocationLine(listing)}</span>
         </p>
+        <DormspaceWalkTimesLine listing={listing} className="mt-0.5" />
       </div>
 
       <div className="relative z-10 mt-auto hidden min-h-[56px] max-h-[76px] shrink-0 flex-col justify-center overflow-hidden bg-white px-3 py-1.5 md:flex">

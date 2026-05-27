@@ -13,6 +13,10 @@ import {
   type DormspaceWithPhotos,
 } from "@/lib/dormspaces";
 import {
+  EMPTY_DORMSPACE_BROWSE_FILTERS,
+  type DormspaceBrowseFilters,
+} from "@/lib/dormspace-browse-filters";
+import {
   buildDormspaceBrowseRows,
   dormspaceMatchesFilters,
   hasActiveDormspaceFilters,
@@ -21,13 +25,7 @@ import {
 const FIELD =
   "rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2 text-sm font-medium text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25";
 
-export type DormspaceBrowseFilters = {
-  city: string;
-  roomType: "" | DormspaceRoomType;
-  gender: "" | DormspaceGenderPreference;
-  minPrice: string;
-  maxPrice: string;
-};
+export type { DormspaceBrowseFilters } from "@/lib/dormspace-browse-filters";
 
 type Props = {
   listings: DormspaceWithPhotos[];
@@ -63,7 +61,14 @@ export function DormspaceBrowse({
     () =>
       isControlled && controlledFilters
         ? controlledFilters
-        : { city, roomType, gender, minPrice, maxPrice },
+        : {
+            ...EMPTY_DORMSPACE_BROWSE_FILTERS,
+            city,
+            roomType,
+            gender,
+            minPrice,
+            maxPrice,
+          },
     [isControlled, controlledFilters, city, roomType, gender, minPrice, maxPrice],
   );
 
@@ -109,15 +114,8 @@ export function DormspaceBrowse({
   }, [listings, filtered, filtersActive, filters.city]);
 
   const clearFilters = () => {
-    const empty: DormspaceBrowseFilters = {
-      city: "",
-      roomType: "",
-      gender: "",
-      minPrice: "",
-      maxPrice: "",
-    };
     if (onFiltersChange) {
-      onFiltersChange(empty);
+      onFiltersChange(EMPTY_DORMSPACE_BROWSE_FILTERS);
       syncLocationToHero?.("");
     } else {
       setCity("");

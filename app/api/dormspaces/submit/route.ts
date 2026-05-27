@@ -21,6 +21,7 @@ import {
 } from "@/lib/dormspace-storage";
 import { RESEND_FROM } from "@/lib/resend-from";
 import { defaultTotalBedsFromRoomType } from "@/lib/dormspaces";
+import { calculateAndStoreWalkTimes } from "@/lib/dormspace-walk-times";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const roomTypes = ["private", "shared_2", "shared_4", "shared_6_plus"] as const;
@@ -370,6 +371,10 @@ export async function POST(req: Request) {
         <p><a href="${esc(listingLink)}">Preview listing</a> · <a href="${esc(`${siteBase}/admin`)}">Admin — Listings queue</a></p>`,
       `New dormspace listing — ${title}`,
     );
+  }
+
+  if (latitude != null && longitude != null) {
+    void calculateAndStoreWalkTimes(dormspaceId, latitude, longitude).catch(console.error);
   }
 
   return NextResponse.json({

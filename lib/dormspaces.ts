@@ -52,8 +52,27 @@ export type DormspacePhotoRow = {
   created_at: string;
 };
 
+export type DormspaceWalkTimeUniversity = {
+  id: string;
+  short_name: string;
+  name: string;
+  display_order?: number;
+};
+
+export type DormspaceWalkTimeRow = {
+  walk_duration_seconds: number;
+  walk_distance_meters: number;
+  university_id: string;
+  universities?: DormspaceWalkTimeUniversity | null;
+};
+
+export type DormspaceWalkTimeWithUniversity = DormspaceWalkTimeRow & {
+  universities: DormspaceWalkTimeUniversity;
+};
+
 export type DormspaceWithPhotos = DormspaceRow & {
   dormspace_photos?: DormspacePhotoRow[] | null;
+  dormspace_walk_times?: DormspaceWalkTimeRow[] | null;
 };
 
 export type DormspaceInquiryStatus = "new" | "responded" | "archived";

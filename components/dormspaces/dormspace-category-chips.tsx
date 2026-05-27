@@ -11,7 +11,8 @@ import {
   Wallet,
 } from "lucide-react";
 
-import type { DormspaceBrowseFilters } from "@/components/dormspaces/dormspace-browse";
+import type { DormspaceBrowseFilters } from "@/lib/dormspace-browse-filters";
+import { EMPTY_DORMSPACE_BROWSE_FILTERS } from "@/lib/dormspace-browse-filters";
 import { DORMSPACE_CATEGORY_CHIPS } from "@/lib/dormspace-category-chips";
 import { cn } from "@/lib/utils";
 
@@ -45,10 +46,11 @@ export function DormspaceCategoryChips({ activeChipId, filters, onSelectChip }: 
     const chip = DORMSPACE_CATEGORY_CHIPS.find((c) => c.id === id);
     if (!chip) return;
     if (activeChipId === id) {
-      onSelectChip(null, { city: "", roomType: "", gender: "", minPrice: "", maxPrice: "" });
+      onSelectChip(null, EMPTY_DORMSPACE_BROWSE_FILTERS);
       return;
     }
     onSelectChip(id, {
+      ...EMPTY_DORMSPACE_BROWSE_FILTERS,
       city: chip.filters.city ?? "",
       roomType: chip.filters.roomType ?? "",
       gender: chip.filters.gender ?? "",
@@ -86,12 +88,16 @@ export function DormspaceCategoryChips({ activeChipId, filters, onSelectChip }: 
         >
           <button
             type="button"
-            onClick={() =>
-              onSelectChip(null, { city: "", roomType: "", gender: "", minPrice: "", maxPrice: "" })
-            }
+            onClick={() => onSelectChip(null, EMPTY_DORMSPACE_BROWSE_FILTERS)}
             className={cn(
               "flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-bold transition",
-              !activeChipId && !filters.city && !filters.gender && !filters.roomType && !filters.maxPrice
+              !activeChipId &&
+                !filters.city &&
+                !filters.gender &&
+                !filters.roomType &&
+                !filters.maxPrice &&
+                !filters.universityId &&
+                !filters.neighborhood
                 ? "border-[#6B9E6E] bg-[#6B9E6E] text-white shadow-sm"
                 : "border-[#2C2C2C]/12 bg-white text-[#484848] hover:border-[#6B9E6E]/40",
             )}
