@@ -3,11 +3,11 @@
 import { useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Car, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { DormspaceHomeSectionHeader } from "@/components/dormspaces/dormspace-home-section-header";
 import type { DormspaceBrowseFilters } from "@/lib/dormspace-browse-filters";
-import { walkMinutesLabel } from "@/lib/dormspace-walk-times-display";
+import { formatReachTimeDisplay } from "@/lib/dormspace-walk-times-display";
 import type { DormspaceWithPhotos } from "@/lib/dormspaces";
 import {
   formatUniversityListingCount,
@@ -21,20 +21,26 @@ type Props = {
   onSelectUniversity: (partial: Partial<DormspaceBrowseFilters>) => void;
 };
 
-function fastestWalkSeconds(
+function fastestWalkToUniversity(
   listings: DormspaceWithPhotos[],
   universityId: string,
-): number | null {
-  let min: number | null = null;
+): { walkSeconds: number; walkMeters: number } | null {
+  let fastest: { walkSeconds: number; walkMeters: number } | null = null;
   for (const listing of listings) {
     for (const walkTime of listing.dormspace_walk_times ?? []) {
       if (walkTime.university_id !== universityId) continue;
-      if (min == null || walkTime.walk_duration_seconds < min) {
-        min = walkTime.walk_duration_seconds;
+      if (
+        fastest == null ||
+        walkTime.walk_duration_seconds < fastest.walkSeconds
+      ) {
+        fastest = {
+          walkSeconds: walkTime.walk_duration_seconds,
+          walkMeters: walkTime.walk_distance_meters,
+        };
       }
     }
   }
-  return min;
+  return fastest;
 }
 
 function UniversityWalkLabel({
@@ -44,11 +50,15 @@ function UniversityWalkLabel({
   university: UniversityRow;
   listings: DormspaceWithPhotos[];
 }) {
-  const fastest = fastestWalkSeconds(listings, university.id);
+  const fastest = fastestWalkToUniversity(listings, university.id);
   if (fastest != null) {
+    const reach = formatReachTimeDisplay(fastest.walkSeconds, fastest.walkMeters);
     return (
-      <p className="mt-1 text-xs font-semibold text-[#6B9E6E] lg:text-sm">
-        {walkMinutesLabel(fastest)} walk
+      <p className="mt-1 flex items-center justify-center gap-1 text-xs font-semibold text-[#6B9E6E] lg:text-sm">
+        {reach.mode === "drive" ? (
+          <Car className="size-3.5 shrink-0" aria-hidden />
+        ) : null}
+        <span>{reach.label}</span>
       </p>
     );
   }

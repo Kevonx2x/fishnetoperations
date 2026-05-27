@@ -21,6 +21,7 @@ import {
   dormspaceMatchesFilters,
   hasActiveDormspaceFilters,
 } from "@/lib/dormspace-browse-rows";
+import type { DormspacePopularArea } from "@/lib/dormspace-popular-areas";
 
 const FIELD =
   "rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2 text-sm font-medium text-[#2C2C2C] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25";
@@ -29,6 +30,7 @@ export type { DormspaceBrowseFilters } from "@/lib/dormspace-browse-filters";
 
 type Props = {
   listings: DormspaceWithPhotos[];
+  featuredNeighborhoods?: DormspacePopularArea[];
   filters?: DormspaceBrowseFilters;
   onFiltersChange?: (filters: DormspaceBrowseFilters) => void;
   syncLocationToHero?: (location: string) => void;
@@ -36,6 +38,7 @@ type Props = {
 
 export function DormspaceBrowse({
   listings,
+  featuredNeighborhoods,
   filters: controlledFilters,
   onFiltersChange,
   syncLocationToHero,
@@ -91,8 +94,8 @@ export function DormspaceBrowse({
   const filtersActive = hasActiveDormspaceFilters(filters);
 
   const filtered = useMemo(
-    () => listings.filter((row) => dormspaceMatchesFilters(row, filters)),
-    [listings, filters],
+    () => listings.filter((row) => dormspaceMatchesFilters(row, filters, featuredNeighborhoods)),
+    [listings, filters, featuredNeighborhoods],
   );
 
   const rows = useMemo(() => {

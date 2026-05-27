@@ -66,20 +66,30 @@ export async function POST(req: Request) {
     purposeRaw === "prc" ||
     purposeRaw === "prc_verification";
 
+  const isVisualAssetUpload =
+    purposeRaw === "visual-asset" || folderRaw === "bahaygo/visual-assets";
+
   if (isArticleUpload && !isAdmin) {
     return Response.json({ error: "Only admins can upload article images" }, { status: 403 });
   }
 
+  if (isVisualAssetUpload && !isAdmin) {
+    return Response.json({ error: "Only admins can upload visual asset images" }, { status: 403 });
+  }
+
   const uploadFolder = isArticleUpload
     ? "bahaygo/articles"
-    : isVerificationUpload
-      ? "bahaygo/verification"
-      : "bahaygo/properties";
+    : isVisualAssetUpload
+      ? "bahaygo/visual-assets"
+      : isVerificationUpload
+        ? "bahaygo/verification"
+        : "bahaygo/properties";
 
   const propertyIdRaw = String(formData.get("property_id") ?? "").trim();
   if (
     !isVerificationUpload &&
     !isArticleUpload &&
+    !isVisualAssetUpload &&
     uploadFolder === "bahaygo/properties" &&
     propertyIdRaw
   ) {

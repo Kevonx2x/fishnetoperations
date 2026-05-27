@@ -7,7 +7,6 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { DormspaceHomeSectionHeader } from "@/components/dormspaces/dormspace-home-section-header";
 import type { DormspaceBrowseFilters } from "@/lib/dormspace-browse-filters";
-import { DORMSPACE_MOBILE_FEATURED_NEIGHBORHOODS } from "@/lib/dormspace-featured-neighborhoods";
 import {
   countListingsInPopularArea,
   type DormspacePopularArea,
@@ -15,18 +14,9 @@ import {
 import type { DormspaceWithPhotos } from "@/lib/dormspaces";
 import { cn } from "@/lib/utils";
 
-/** Desktop featured row order (matches product spec). */
-const DESKTOP_NEIGHBORHOOD_ORDER = [
-  "Manila",
-  "Baguio",
-  "BGC",
-  "Makati CBD",
-  "Ortigas Center",
-  "Alabang",
-] as const;
-
 type Props = {
   listings: DormspaceWithPhotos[];
+  neighborhoods: DormspacePopularArea[];
   activeNeighborhood: string;
   onSelectNeighborhood: (partial: Partial<DormspaceBrowseFilters>) => void;
   onClearNeighborhood: () => void;
@@ -67,21 +57,13 @@ function NeighborhoodCardImage({ src, priority }: { src: string; priority?: bool
 
 export function DormspaceFeaturedNeighborhoodsSection({
   listings,
+  neighborhoods,
   activeNeighborhood,
   onSelectNeighborhood,
   onClearNeighborhood,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
-
-  const neighborhoods = useMemo(() => {
-    const byLabel = new Map(
-      DORMSPACE_MOBILE_FEATURED_NEIGHBORHOODS.map((area) => [area.label, area]),
-    );
-    return DESKTOP_NEIGHBORHOOD_ORDER.map((label) => byLabel.get(label)).filter(
-      (area): area is DormspacePopularArea => area != null,
-    );
-  }, []);
 
   const counts = useMemo(() => {
     const next: Record<string, number> = {};

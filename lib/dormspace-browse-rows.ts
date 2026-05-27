@@ -1,6 +1,7 @@
 import type { DormspaceBrowseFilters } from "@/lib/dormspace-browse-filters";
-import { findFeaturedNeighborhood } from "@/lib/dormspace-featured-neighborhoods";
+import { findFeaturedNeighborhood, findFeaturedNeighborhoodInList } from "@/lib/dormspace-featured-neighborhoods";
 import { listingMatchesPopularArea } from "@/lib/dormspace-popular-areas";
+import type { DormspacePopularArea } from "@/lib/dormspace-popular-areas";
 import { UNIVERSITY_LISTING_WALK_MAX_SECONDS } from "@/lib/dormspace-walk-times-display";
 import {
   METRO_MANILA_CITIES,
@@ -213,6 +214,7 @@ export function buildDormspaceBrowseRows(pool: DormspaceWithPhotos[]): Dormspace
 export function dormspaceMatchesFilters(
   row: DormspaceWithPhotos,
   filters: DormspaceBrowseFilters,
+  featuredNeighborhoods?: DormspacePopularArea[],
 ): boolean {
   const price = priceNum(row);
   const min = filters.minPrice.trim() ? Number(filters.minPrice) : null;
@@ -237,7 +239,9 @@ export function dormspaceMatchesFilters(
   }
 
   if (filters.neighborhood) {
-    const area = findFeaturedNeighborhood(filters.neighborhood);
+    const area = featuredNeighborhoods
+      ? findFeaturedNeighborhoodInList(featuredNeighborhoods, filters.neighborhood)
+      : findFeaturedNeighborhood(filters.neighborhood);
     if (area && !listingMatchesPopularArea(row, area)) return false;
   }
 

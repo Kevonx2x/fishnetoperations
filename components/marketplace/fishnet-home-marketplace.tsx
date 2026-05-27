@@ -123,6 +123,12 @@ import {
   useHomepageAgentsDirectory,
   useHomepageProperties,
 } from "@/hooks/use-homepage-marketplace-data";
+import { useBahaygoFeaturedLocations } from "@/hooks/use-bahaygo-featured-locations";
+import {
+  DEFAULT_BAHAYGO_FEATURED_LOCATIONS,
+  propertyMatchesBahaygoFeaturedLocation,
+  type BahaygoFeaturedLocation,
+} from "@/lib/bahaygo-featured-locations";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { firstRawPropertyPhotoUrl, roomUrlsFor } from "@/lib/marketplace-property";
@@ -970,19 +976,12 @@ function matchesFloorAreaFilter(p: DbProperty, minS: string, maxS: string): bool
   return true;
 }
 
-function propertyMatchesFeaturedLocationByLabel(p: DbProperty, label: string): boolean {
-  const entry = FEATURED_LOCATIONS.find((x) => x.label === label);
-  if (!entry) return false;
-  if ("neighborhood" in entry.match) {
-    const v = entry.match.neighborhood ?? "";
-    return (p.neighborhood ?? "").trim() === v || p.location.toLowerCase().includes(v.toLowerCase());
-  }
-  const city = entry.match.city ?? "";
-  return (
-    propertyCanonicalCity(p).toLowerCase() === city.toLowerCase() ||
-    (p.city ?? "").trim().toLowerCase() === city.toLowerCase() ||
-    p.location.toLowerCase().includes(city.toLowerCase())
-  );
+function propertyMatchesFeaturedLocationByLabel(
+  p: DbProperty,
+  label: string,
+  locations: BahaygoFeaturedLocation[] = DEFAULT_BAHAYGO_FEATURED_LOCATIONS,
+): boolean {
+  return propertyMatchesBahaygoFeaturedLocation(p, label, locations);
 }
 
 function matchesAmenitySelection(p: DbProperty, keys: AmenityFilterKey[], extra: FiltersState["amenityExtra"]): boolean {
@@ -1003,6 +1002,7 @@ function propertyPassesHomepageFilters(
   filters: FiltersState,
   mode: "buy" | "rent" | "all",
   opts: { search: string; neighborhoodFilter: string | null },
+  featuredLocations: BahaygoFeaturedLocation[] = DEFAULT_BAHAYGO_FEATURED_LOCATIONS,
 ): boolean {
   if (opts.neighborhoodFilter) {
     const city = FEATURED_CITIES.find((c) => c.key === opts.neighborhoodFilter);
@@ -1031,7 +1031,7 @@ function propertyPassesHomepageFilters(
   if (!matchesTransactionFilter(p, filters.transactionType)) return false;
   if (!matchesFurnishingFilter(p, filters.furnishing)) return false;
   if (!matchesFloorAreaFilter(p, filters.floorAreaMin, filters.floorAreaMax)) return false;
-  if (filters.locationLabel && !propertyMatchesFeaturedLocationByLabel(p, filters.locationLabel)) return false;
+  if (filters.locationLabel && !propertyMatchesFeaturedLocationByLabel(p, filters.locationLabel, featuredLocations)) return false;
   if (!matchesAmenitySelection(p, filters.amenities, filters.amenityExtra)) return false;
   return true;
 }
@@ -1304,6 +1304,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     mode,
     listingTypeFilter,
   });
+
+  const { data: featuredLocationsData } = useBahaygoFeaturedLocations();
+  const featuredLocations = featuredLocationsData ?? DEFAULT_BAHAYGO_FEATURED_LOCATIONS;
 
   const properties = homepagePropertiesData?.list ?? [];
   const featuredHomeProperty = homepagePropertiesData?.featured ?? null;
@@ -1699,8 +1702,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   }, [properties, listingTypeFilter]);
 
   const passesHomepageFilters = useCallback(
-    (p: DbProperty) => propertyPassesHomepageFilters(p, filters, mode, { search, neighborhoodFilter }),
-    [filters, mode, search, neighborhoodFilter],
+    (p: DbProperty) =>
+      propertyPassesHomepageFilters(p, filters, mode, { search, neighborhoodFilter }, featuredLocations),
+    [filters, mode, search, neighborhoodFilter, featuredLocations],
   );
 
   const homepageMatchCount = useMemo(
@@ -2256,10 +2260,10 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
             >
               <div className="flex w-max flex-nowrap justify-start gap-3 sm:gap-4">
                 {Array.from({ length: FEATURED_LOCATIONS_LOOP_COPIES }, (_, copyIdx) =>
-                  FEATURED_LOCATIONS.map((c, flIdx) => {
+                  featuredLocations.map((c, flIdx) => {
                     const count = featuredLocationCounts[c.label] ?? 0;
-                    const matchType = "neighborhood" in c.match ? ("neighborhood" as const) : ("city" as const);
-                    const matchValue = (c.match as { neighborhood?: string; city?: string })[matchType] ?? "";
+                    const matchType = c.match.neighborhood ? ("neighborhood" as const) : ("city" as const);
+                    const matchValue = c.match.neighborhood ?? c.match.city ?? "";
                     const active = filters.locationLabel === c.label;
                     return (
                       <button
@@ -2374,7 +2378,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                 onOpenChange={setFiltersOpen}
                 filters={filters}
                 onFiltersChange={setFilters}
-                locationOptions={FEATURED_LOCATIONS.map((loc) => ({ label: loc.label }))}
+                locationOptions={featuredLocations.map((loc) => ({ label: loc.label }))}
                 matchCount={homepageMatchCount}
                 onClearAll={clearFiltersAndBrowse}
                 onApply={() => {
@@ -2769,7 +2773,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                         aria-label="Filter by location"
                       >
                         <option value="">Any location</option>
-                        {FEATURED_LOCATIONS.map((loc) => (
+                        {featuredLocations.map((loc) => (
                           <option key={loc.label} value={loc.label}>
                             {loc.label}
                           </option>

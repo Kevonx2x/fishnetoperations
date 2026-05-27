@@ -27,6 +27,8 @@ import {
   type DormspaceWithPhotos,
 } from "@/lib/dormspaces";
 import type { UniversityRow } from "@/lib/universities";
+import type { DormspacePopularArea } from "@/lib/dormspace-popular-areas";
+import { useDormspaceFeaturedNeighborhoods } from "@/hooks/use-dormspace-featured-neighborhoods";
 
 const FIELD =
   "rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25";
@@ -46,14 +48,19 @@ function parseCityFromLocation(value: string): string {
 export function DormspacePublicHome({
   listings,
   universities,
+  initialFeaturedNeighborhoods,
   initialUniversityId = "",
   initialNeighborhood = "",
 }: {
   listings: DormspaceWithPhotos[];
   universities: UniversityRow[];
+  initialFeaturedNeighborhoods: DormspacePopularArea[];
   initialUniversityId?: string;
   initialNeighborhood?: string;
 }) {
+  const { data: featuredNeighborhoods = initialFeaturedNeighborhoods } =
+    useDormspaceFeaturedNeighborhoods(initialFeaturedNeighborhoods);
+
   useEffect(() => {
     if (typeof window === "undefined" || window.location.hash !== "#listings") return;
     requestAnimationFrame(() => {
@@ -123,6 +130,7 @@ export function DormspacePublicHome({
       <DormspacePublicHomeMobile
         universities={universities}
         listings={listings}
+        neighborhoods={featuredNeighborhoods}
         onBrowseFilter={applyMobileBrowseFilter}
         onScrollToListings={scrollToListings}
       />
@@ -288,6 +296,7 @@ export function DormspacePublicHome({
 
       <DormspaceFeaturedNeighborhoodsSection
         listings={listings}
+        neighborhoods={featuredNeighborhoods}
         activeNeighborhood={filters.neighborhood}
         onSelectNeighborhood={(partial) => {
           setFilters((f) => ({ ...f, ...partial }));
@@ -310,6 +319,7 @@ export function DormspacePublicHome({
         </div>
         <DormspaceBrowse
           listings={listings}
+          featuredNeighborhoods={featuredNeighborhoods}
           filters={filters}
           onFiltersChange={(next) => {
             setFilters(next);

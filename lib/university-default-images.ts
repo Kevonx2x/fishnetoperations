@@ -23,11 +23,11 @@ const BROKEN_UNIVERSITY_IMAGE_URLS = new Set([
 ]);
 
 export function getUniversityImageUrl(universityId: string, imageUrl: string | null): string | null {
-  const curated = UNIVERSITY_IMAGE_URL_BY_ID[universityId];
-  if (curated) return curated;
-  if (!imageUrl) return null;
-  if (BROKEN_UNIVERSITY_IMAGE_URLS.has(imageUrl)) return null;
-  return imageUrl;
+  const trimmed = imageUrl?.trim() ?? "";
+  if (trimmed && !BROKEN_UNIVERSITY_IMAGE_URLS.has(trimmed)) {
+    return trimmed;
+  }
+  return UNIVERSITY_IMAGE_URL_BY_ID[universityId] ?? null;
 }
 
 export function withUniversityImageDefaults<T extends { id: string; image_url: string | null }>(
