@@ -120,9 +120,9 @@ export function ChatThreadPanel(props: {
   }
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#FAF8F4]">
       <MobileThreadHeader onBack={props.onBackToList} />
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#FAF8F4]">
         <Channel
           key={activeChannel?.cid ?? "no-active-channel"}
           channelQueryOptions={{ messages: { limit: 20 } }}
@@ -172,7 +172,7 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
   }
 
   return (
-    <div className="bhg-chat-panel flex h-full min-h-0 w-full min-w-0 flex-col bg-surface-page max-lg:min-h-0 max-lg:flex-1">
+    <div className="bhg-chat-panel flex h-full min-h-0 w-full min-w-0 flex-col bg-[#FAF8F4] max-lg:min-h-0 max-lg:flex-1">
       <header className="hidden shrink-0 items-center justify-between border-b border-subtle bg-surface-page px-4 py-4 md:flex">
         <ChatHeader className="min-w-0 flex-1 border-b-0 bg-transparent px-0 py-0" />
         {!supportThread ? (

@@ -2,13 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft,
   BadgeCheck,
+  ChevronLeft,
   ChevronRight,
   Home,
-  MoreHorizontal,
+  MoreVertical,
 } from "lucide-react";
 
 import {
@@ -74,18 +74,18 @@ function ContactAvatar(props: { image?: string; name: string; className?: string
 type Props = {
   onBack: () => void;
   className?: string;
+  onChromeHeightChange?: (height: number) => void;
 };
 
-const HEADER_STICKY =
-  "sticky top-[env(safe-area-inset-top,0px)] z-20 bg-white shadow-sm";
-
-/** Mobile-only conversation chrome — compact header + property row below. */
+/** Mobile-only conversation chrome — fixed contact row + optional property row. */
 export function MobileThreadHeader(props: Props) {
   const { channel: activeChannel } = useChatContext();
   const { user, profile } = useAuth();
   const selfId = user?.id ?? "";
   const selfRole = profile?.role ?? "";
   const support = activeChannel ? isSupportChannel(activeChannel) : false;
+  const chromeRef = useRef<HTMLDivElement>(null);
+  const [chromeHeight, setChromeHeight] = useState(0);
 
   const channelData = activeChannel?.data as
     | { display_name?: string; display_avatar_url?: string; name?: string }
@@ -119,6 +119,7 @@ export function MobileThreadHeader(props: Props) {
   const propertyName = (channelMeta.property_name ?? "").trim();
   const propertyPrice = (channelMeta.property_price ?? "").trim();
   const propertyImage = (channelMeta.property_image ?? "").trim();
+  const showPropertyRow = !support && Boolean(propertyId && propertyName);
 
   const formattedPropertyPrice = useMemo(() => {
     if (!propertyPrice) return null;
@@ -165,87 +166,119 @@ export function MobileThreadHeader(props: Props) {
 
   const statusIsOnline = Boolean(peer?.online);
 
+  useLayoutEffect(() => {
+    const el = chromeRef.current;
+    if (!el) {
+      setChromeHeight(0);
+      props.onChromeHeightChange?.(0);
+      return;
+    }
+    const report = () => {
+      const h = el.getBoundingClientRect().height;
+      setChromeHeight(h);
+      props.onChromeHeightChange?.(h);
+    };
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [activeChannel, displayName, showPropertyRow, props.onChromeHeightChange]);
+
+  const contactRow = (
+    <div className="flex h-14 items-center gap-2 border-b border-black/[0.06] px-4">
+      <button
+        type="button"
+        onClick={props.onBack}
+        aria-label="Back to conversations"
+        className="flex size-11 shrink-0 items-center justify-center rounded-lg text-[#2C2C2C] active:bg-black/[0.04]"
+      >
+        <ChevronLeft className="size-6" strokeWidth={2} aria-hidden />
+      </button>
+      <ContactAvatar image={displayImage} name={displayName} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1">
+          <p className="truncate text-base font-semibold leading-tight text-[#2C2C2C]">
+            {displayName}
+          </p>
+          {peerIsVerifiedAgent ? (
+            <BadgeCheck className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
+          ) : null}
+        </div>
+        <p
+          className={cn(
+            "truncate text-xs font-normal leading-tight",
+            statusIsOnline ? "text-[#6B9E6E]" : "text-[#888888]",
+          )}
+        >
+          {statusLine}
+        </p>
+      </div>
+      {!support && (peer?.id || activeChannel) ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Conversation actions"
+              className="flex size-11 shrink-0 items-center justify-center rounded-lg text-[#2C2C2C] active:bg-black/[0.04]"
+            >
+              <MoreVertical className="size-6" strokeWidth={2} aria-hidden />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[200px]">
+            {peer?.id ? (
+              <DropdownMenuItem asChild>
+                <Link href={peerProfileHref(peer.id, selfRole)}>View profile</Link>
+              </DropdownMenuItem>
+            ) : null}
+            {peer?.id ? (
+              <DropdownMenuItem asChild>
+                <a
+                  href={`mailto:support@bahaygo.com?subject=${encodeURIComponent("Report a user")}&body=${encodeURIComponent(`Report regarding user ${peer.id}`)}`}
+                >
+                  Report
+                </a>
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem disabled>Block (coming soon)</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <span className="size-11 shrink-0" aria-hidden />
+      )}
+    </div>
+  );
+
   if (!activeChannel) {
     return (
-      <div className={cn("shrink-0 md:hidden", props.className)}>
-        <div className={cn(HEADER_STICKY, "border-b border-black/[0.06]")}>
-          <div className="flex h-14 items-center px-3">
+      <div className={cn("md:hidden", props.className)}>
+        <div
+          ref={chromeRef}
+          className="fixed left-0 right-0 top-0 z-30 border-b border-black/[0.06] bg-white pt-[env(safe-area-inset-top,0px)] shadow-sm"
+        >
+          <div className="flex h-14 items-center px-4">
             <button
               type="button"
               onClick={props.onBack}
               aria-label="Back to conversations"
               className="flex size-11 shrink-0 items-center justify-center rounded-lg text-[#2C2C2C] active:bg-black/[0.04]"
             >
-              <ArrowLeft className="size-6" strokeWidth={2} aria-hidden />
+              <ChevronLeft className="size-6" strokeWidth={2} aria-hidden />
             </button>
           </div>
         </div>
+        <div className="shrink-0 md:hidden" style={{ height: chromeHeight }} aria-hidden />
       </div>
     );
   }
 
   return (
-    <div className={cn("shrink-0 md:hidden", props.className)}>
-      <div className={HEADER_STICKY}>
-        <div className="flex h-14 items-center gap-2 border-b border-black/[0.06] px-3">
-          <button
-            type="button"
-            onClick={props.onBack}
-            aria-label="Back to conversations"
-            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-[#2C2C2C] active:bg-black/[0.04]"
-          >
-            <ArrowLeft className="size-6" strokeWidth={2} aria-hidden />
-          </button>
-          <ContactAvatar image={displayImage} name={displayName} className="ml-0.5" />
-          <div className="min-w-0 flex-1 pl-0.5">
-            <div className="flex items-center gap-1">
-              <p className="truncate text-base font-semibold leading-tight text-[#2C2C2C]">
-                {displayName}
-              </p>
-              {peerIsVerifiedAgent ? (
-                <BadgeCheck className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
-              ) : null}
-            </div>
-            <p
-              className={cn(
-                "truncate text-xs font-normal leading-tight",
-                statusIsOnline ? "text-[#6B9E6E]" : "text-[#888888]",
-              )}
-            >
-              {statusLine}
-            </p>
-          </div>
-          {!support && peer?.id ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Conversation actions"
-                  className="flex size-11 shrink-0 items-center justify-center rounded-lg text-[#2C2C2C] active:bg-black/[0.04]"
-                >
-                  <MoreHorizontal className="size-6" strokeWidth={2} aria-hidden />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[200px]">
-                <DropdownMenuItem asChild>
-                  <Link href={peerProfileHref(peer.id, selfRole)}>View profile</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <a
-                    href={`mailto:support@bahaygo.com?subject=${encodeURIComponent("Report a user")}&body=${encodeURIComponent(`Report regarding user ${peer.id}`)}`}
-                  >
-                    Report
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled>Block (coming soon)</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <span className="size-11 shrink-0" aria-hidden />
-          )}
-        </div>
-
-        {!support && propertyId && propertyName ? (
+    <div className={cn("md:hidden", props.className)}>
+      <div
+        ref={chromeRef}
+        className="fixed left-0 right-0 top-0 z-30 bg-white pt-[env(safe-area-inset-top,0px)] shadow-sm"
+      >
+        {contactRow}
+        {showPropertyRow ? (
           <Link
             href={`/properties/${encodeURIComponent(propertyId)}`}
             className="flex items-center gap-3 border-y border-black/[0.06] bg-[#FAF8F4] px-4 py-3 active:bg-black/[0.02]"
@@ -273,6 +306,7 @@ export function MobileThreadHeader(props: Props) {
           </Link>
         ) : null}
       </div>
+      <div className="shrink-0" style={{ height: chromeHeight }} aria-hidden />
     </div>
   );
 }

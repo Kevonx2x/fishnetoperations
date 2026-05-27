@@ -83,8 +83,8 @@ export function CustomMessage() {
         gap === "start" && "bhg-msg--gap-start",
         gap === "same" && "bhg-msg--gap-same",
         gap === "turn" && "bhg-msg--gap-turn",
-        !mine && "pl-0",
-        "w-full",
+        !mine && "max-md:pl-1",
+        "w-full max-md:px-1",
       )}
     >
       {!mine && showAvatar ? (

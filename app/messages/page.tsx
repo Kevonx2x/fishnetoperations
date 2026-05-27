@@ -37,7 +37,7 @@ function MessagesPageContent() {
     role === "agent" || role === "broker" || role === "team_member";
 
   return (
-    <div className="bahaygo-messaging-light flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#FAF8F4] md:min-h-screen md:h-[100dvh]">
+    <div className="bahaygo-messaging-light flex min-h-[100vh] min-h-dvh h-dvh max-h-dvh flex-col overflow-hidden bg-[#FAF8F4] md:min-h-screen md:h-dvh md:max-h-dvh">
       {!showThreadChrome ? (
         <header className="shrink-0 border-b border-black/[0.06] bg-[#FAF8F4]/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur-sm md:hidden">
           <div className="px-4 py-3">
@@ -57,8 +57,8 @@ function MessagesPageContent() {
       <div
         className={
           showThreadChrome
-            ? "flex min-h-0 flex-1 flex-col overflow-hidden"
-            : "flex min-h-0 flex-1 flex-col overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom))]"
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden max-md:pb-0"
+            : "flex min-h-0 flex-1 flex-col overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]"
         }
       >
         {isAgentRole ? (
