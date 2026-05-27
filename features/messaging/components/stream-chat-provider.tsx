@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { StreamChat } from "stream-chat";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -12,12 +13,28 @@ const StreamChatContext = createContext<StreamChat | null>(null);
 let cachedToken: string | null = null;
 let cachedTokenUserId: string | null = null;
 
+/** Stream Chat only on messaging routes — keeps homepage bfcache-eligible. */
+function useStreamChatRouteEnabled(): boolean {
+  const pathname = usePathname() ?? "";
+  return (
+    pathname.startsWith("/messages") ||
+    pathname.startsWith("/dashboard/agent") ||
+    pathname.startsWith("/dashboard/client/messages")
+  );
+}
+
 export function StreamChatProvider({ children }: { children: React.ReactNode }) {
+  const routeEnabled = useStreamChatRouteEnabled();
   const { user, profile, loading: authLoading } = useAuth();
   const [client, setClient] = useState<StreamChat | null>(null);
+  const clientRef = useRef<StreamChat | null>(null);
 
   useEffect(() => {
-    if (authLoading || !user?.id) {
+    clientRef.current = client;
+  }, [client]);
+
+  useEffect(() => {
+    if (!routeEnabled || authLoading || !user?.id) {
       setClient(null);
       return;
     }
@@ -69,9 +86,34 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
 
     return () => {
       cancelled = true;
-      setClient(null);
     };
-  }, [authLoading, profile?.avatar_url, profile?.full_name, profile?.role, user?.email, user?.id]);
+  }, [
+    authLoading,
+    profile?.avatar_url,
+    profile?.full_name,
+    profile?.role,
+    routeEnabled,
+    user?.email,
+    user?.id,
+  ]);
+
+  useEffect(() => {
+    const onPageHide = (event: PageTransitionEvent) => {
+      if (event.persisted) return;
+    };
+
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted || !routeEnabled || !clientRef.current?.userID) return;
+      setClient(clientRef.current);
+    };
+
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, [routeEnabled]);
 
   return <StreamChatContext.Provider value={client}>{children}</StreamChatContext.Provider>;
 }
@@ -79,4 +121,3 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
 export function useStreamChat() {
   return useContext(StreamChatContext);
 }
-

@@ -1,4 +1,4 @@
-import { DormspacePublicHome } from "@/components/dormspaces/dormspace-public-home";
+import { DormspacePublicHomeClient } from "@/components/dormspaces/dormspace-public-home-client";
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
 import type { DormspaceWithPhotos } from "@/lib/dormspaces";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -22,7 +22,7 @@ export default async function DormspacesPage() {
   return (
     <DormspacePortalShell variant="browse">
       <main>
-        <DormspacePublicHome listings={listings} />
+        <DormspacePublicHomeClient initialListings={listings} />
       </main>
     </DormspacePortalShell>
   );

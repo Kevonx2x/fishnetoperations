@@ -1,48 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Heart, Pin } from "lucide-react";
 import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { useAuth } from "@/contexts/auth-context";
 import { usePinnedPropertyIds, usePropertyLikes } from "@/hooks/use-property-engagement";
+import { useSavedListings } from "@/hooks/use-saved-listings";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import {
   availabilityCardOverlayLabel,
   propertyEngagementLooksUnavailable,
 } from "@/lib/property-availability";
-import { supabase } from "@/lib/supabase";
+import type { EngagementSource, SavedListingEntry } from "@/lib/saved-listings-fetcher";
 import { cn } from "@/lib/utils";
-
-type PropertyCard = {
-  id: string;
-  location: string;
-  price: string;
-  status: string;
-  beds: number;
-  baths: number;
-  sqft: string;
-  image_url: string;
-  deleted_at?: string | null;
-  availability_state?: string | null;
-  is_demo?: boolean | null;
-};
-
-type EngagementSource = "liked" | "saved" | "both";
-
-type SavedListingEntry = {
-  property: PropertyCard;
-  source: EngagementSource;
-  sortAt: string;
-};
-
-function maxTimestamp(a?: string, b?: string): string {
-  const ta = a ? Date.parse(a) : 0;
-  const tb = b ? Date.parse(b) : 0;
-  if (ta >= tb) return a ?? b ?? "";
-  return b ?? a ?? "";
-}
 
 function sourceChipLabel(source: EngagementSource): string {
   if (source === "both") return "Liked + Saved";
@@ -55,110 +27,21 @@ export default function SavedPage() {
   const likes = usePropertyLikes();
   const pins = usePinnedPropertyIds();
 
-  const [entries, setEntries] = useState<SavedListingEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const refreshEngagementList = useCallback(async () => {
-    if (!user?.id) {
-      setEntries([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    const [likesRes, savesRes] = await Promise.all([
-      supabase
-        .from("property_likes")
-        .select("property_id, created_at")
-        .eq("user_id", user.id),
-      supabase
-        .from("saved_properties")
-        .select("property_id, created_at")
-        .eq("user_id", user.id),
-    ]);
-
-    if (likesRes.error || savesRes.error) {
-      setError(likesRes.error?.message ?? savesRes.error?.message ?? "Could not load saved listings");
-      setEntries([]);
-      setLoading(false);
-      return;
-    }
-
-    const byProperty = new Map<string, { likedAt?: string; savedAt?: string }>();
-    for (const row of likesRes.data ?? []) {
-      const id = String(row.property_id);
-      byProperty.set(id, { ...byProperty.get(id), likedAt: String(row.created_at) });
-    }
-    for (const row of savesRes.data ?? []) {
-      const id = String(row.property_id);
-      const prev = byProperty.get(id) ?? {};
-      byProperty.set(id, { ...prev, savedAt: String(row.created_at) });
-    }
-
-    if (byProperty.size === 0) {
-      setEntries([]);
-      setLoading(false);
-      return;
-    }
-
-    const merged = [...byProperty.entries()]
-      .map(([propertyId, times]) => {
-        const liked = Boolean(times.likedAt);
-        const saved = Boolean(times.savedAt);
-        const source: EngagementSource = liked && saved ? "both" : liked ? "liked" : "saved";
-        return {
-          propertyId,
-          source,
-          sortAt: maxTimestamp(times.likedAt, times.savedAt),
-        };
-      })
-      .sort((a, b) => b.sortAt.localeCompare(a.sortAt));
-
-    const propertyIds = merged.map((m) => m.propertyId);
-    const { data, error: fetchErr } = await supabase
-      .from("properties")
-      .select("id, location, price, status, beds, baths, sqft, image_url, deleted_at, availability_state, is_demo")
-      .in("id", propertyIds);
-
-    if (fetchErr) {
-      setError(fetchErr.message);
-      setEntries([]);
-      setLoading(false);
-      return;
-    }
-
-    const list = ((data ?? []) as unknown as PropertyCard[]).filter((p) => !p.is_demo);
-    const byId = new Map(list.map((p) => [p.id, p]));
-    setEntries(
-      merged
-        .map((m) => {
-          const property = byId.get(m.propertyId);
-          if (!property) return null;
-          return { property, source: m.source, sortAt: m.sortAt };
-        })
-        .filter(Boolean) as SavedListingEntry[],
-    );
-    setLoading(false);
-  }, [user?.id]);
-
   const engagementKey = useMemo(
     () => `${likes.dbIds.join(",")}|${pins.ids.join(",")}`,
     [likes.dbIds, pins.ids],
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      await refreshEngagementList();
-      if (cancelled) return;
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, engagementKey, refreshEngagementList]);
+  const {
+    data: entries = [],
+    error,
+    isLoading,
+    isValidating,
+    mutate,
+  } = useSavedListings(user?.id);
+
+  const showInitialLoading = Boolean(user?.id) && isLoading && entries.length === 0;
+  const errorMessage = error instanceof Error ? error.message : error ? String(error) : null;
 
   const content = useMemo(() => {
     if (!user?.id) {
@@ -196,7 +79,7 @@ export default function SavedPage() {
 
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {entries.map(({ property: p, source }) => {
+        {entries.map(({ property: p, source }: SavedListingEntry) => {
           const removed = propertyEngagementLooksUnavailable(p);
           const overlayLabel = availabilityCardOverlayLabel(p.availability_state, p.deleted_at);
           const isLiked = likes.has(p.id);
@@ -319,6 +202,10 @@ export default function SavedPage() {
     );
   }, [entries, likes, pins, user?.id]);
 
+  useEffect(() => {
+    if (user?.id) void mutate();
+  }, [engagementKey, mutate, user?.id]);
+
   return (
     <div className="min-h-screen bg-[#FAF8F4] pb-12">
       <MaddenTopNav />
@@ -327,18 +214,21 @@ export default function SavedPage() {
           <h1 className="font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">Saved</h1>
           <div className="rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-semibold text-[#2C2C2C]/70">
             {user?.id ? `${entries.length} saved` : "—"}
+            {user?.id && isValidating && entries.length > 0 ? " · refreshing" : null}
           </div>
         </div>
 
         {authLoading && <div className="h-40 animate-pulse rounded-2xl bg-black/5" />}
-        {!authLoading && loading && <div className="h-40 animate-pulse rounded-2xl bg-black/5" />}
-        {!authLoading && !loading && error && (
+        {!authLoading && showInitialLoading && (
+          <div className="h-40 animate-pulse rounded-2xl bg-black/5" />
+        )}
+        {!authLoading && !showInitialLoading && errorMessage && (
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6">
             <p className="font-semibold text-[#2C2C2C]">Couldn’t load saved homes</p>
-            <p className="mt-1 text-sm text-[#2C2C2C]/60">{error}</p>
+            <p className="mt-1 text-sm text-[#2C2C2C]/60">{errorMessage}</p>
           </div>
         )}
-        {!authLoading && !loading && !error && content}
+        {!authLoading && !showInitialLoading && !errorMessage && content}
       </main>
     </div>
   );

@@ -103,7 +103,6 @@ import {
   recordHomepageRecentSearch,
   useRecentHomepageSearches,
 } from "@/lib/homepage-recent-searches";
-import { findRentHomepageSpotlightUptownParkSuite } from "@/lib/homepage-spotlight-pin";
 import {
   buildFilteredEmptyMessage,
   buildHomepageRowsFromTemplates,
@@ -118,7 +117,11 @@ import {
   HOMEPAGE_MOBILE_FEED_CARD_WIDTH,
   HOMEPAGE_MOBILE_FEED_ROW_COUNT,
 } from "@/lib/homepage-listing-card-layout";
-import { retryOnTransientFetchError } from "@/lib/transient-fetch-retry";
+import {
+  useFeaturedLocationCounts,
+  useHomepageAgentsDirectory,
+  useHomepageProperties,
+} from "@/hooks/use-homepage-marketplace-data";
 
 export type { DbProperty, SortMode } from "@/lib/marketplace-property";
 export { firstRawPropertyPhotoUrl, roomUrlsFor } from "@/lib/marketplace-property";
@@ -1259,13 +1262,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const listingTypeFilter: "sale" | "rent" | null = mode === "buy" ? "sale" : mode === "rent" ? "rent" : null;
   const [search, setSearch] = useState("");
 
-  const [properties, setProperties] = useState<DbProperty[]>([]);
-  const [featuredHomeProperty, setFeaturedHomeProperty] = useState<DbProperty | null>(null);
-  const [featuredHomeIsAdminFeatured, setFeaturedHomeIsAdminFeatured] = useState(false);
-  const [agents, setAgents] = useState<MarketplaceAgent[]>([]);
   const [agentHomeExtrasById, setAgentHomeExtrasById] = useState<Record<string, AgentHomeExtra>>({});
-  const [loading, setLoading] = useState(true);
-  const [listingsLoadFailed, setListingsLoadFailed] = useState(false);
 
   const [neighborhoodFilter, setNeighborhoodFilter] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<
@@ -1273,7 +1270,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     | null
   >(null);
   const [selectedPropertyType, setSelectedPropertyType] = useState<string | null>(null);
-  const [featuredLocationCounts, setFeaturedLocationCounts] = useState<Record<string, number>>({});
   const [propertyTypeCounts, setPropertyTypeCounts] = useState<{ property_type: string; count: number }[]>([]);
   const [locationCuratedRows, setLocationCuratedRows] = useState<
     { key: string; title: string; subtitle: string; items: DbProperty[]; featured?: boolean }[]
@@ -1285,8 +1281,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   const [filters, setFilters] = useState<FiltersState>(defaultHomepageFiltersState);
   const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
 
-  const { engagement, likeCountsByPropertyId } = usePropertyEngagementForProperties(properties);
-
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const topAgentsRef = useRef<HTMLDivElement | null>(null);
   const featuredLocationsScrollRef = useRef<HTMLDivElement | null>(null);
@@ -1296,126 +1290,44 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   /** When not false, next commit should sync the marketplace URL from a featured-location card click. */
   const pendingFeaturedLocationUrlSyncRef = useRef<string | false>(false);
 
-  const loadProperties = useCallback(async () => {
-    setListingsLoadFailed(false);
-    setLoading(true);
+  const {
+    data: homepagePropertiesData,
+    error: homepagePropertiesError,
+    isLoading: homepagePropertiesLoading,
+    mutate: mutateHomepageProperties,
+  } = useHomepageProperties({ neighborhoodFilter, listingTypeFilter });
 
-    const selectQ = `
-          id, created_at, name, location, region, city, neighborhood, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
-          is_presale, developer_name, turnover_date, unit_types, deleted_at, availability_state,
-          duplicate_of_property_id, flagged_for_admin_review,
-          property_photos (url, sort_order, created_at),
-          property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, listing_tier, updated_at, agencies (id, company_name, logo_url), profiles(email, phone)))
-        `;
+  const { data: homepageAgentsData } = useHomepageAgentsDirectory();
 
-    try {
-      const result = await retryOnTransientFetchError(async () => {
-        const expiryOr = publicListingExpiryOrFilter();
-        const featuredCityRow = neighborhoodFilter
-          ? FEATURED_CITIES.find((c) => c.key === neighborhoodFilter)
-          : null;
-        const cityOrClause =
-          featuredCityRow != null
-            ? `city.ilike.%${featuredCityRow.label}%,location.ilike.%${featuredCityRow.label}%`
-            : null;
+  const { data: featuredLocationCounts = {} } = useFeaturedLocationCounts({
+    mode,
+    listingTypeFilter,
+  });
 
-        let mainQuery = supabase
-          .from("properties")
-          .select(selectQ)
-          .or(expiryOr)
-          .or(hideTutorialDemoPropertiesOrFilter())
-          .is("deleted_at", null)
-          .or("availability_state.eq.available,availability_state.is.null");
-        if (listingTypeFilter) mainQuery = mainQuery.eq("listing_type", listingTypeFilter);
-        if (cityOrClause) mainQuery = mainQuery.or(cityOrClause);
-        mainQuery = mainQuery.order("created_at", { ascending: false });
+  const properties = homepagePropertiesData?.list ?? [];
+  const featuredHomeProperty = homepagePropertiesData?.featured ?? null;
+  const featuredHomeIsAdminFeatured = homepagePropertiesData?.isAdminFeatured ?? false;
+  const agents: MarketplaceAgent[] = homepageAgentsData?.agents ?? [];
+  const listingsLoadFailed = Boolean(homepagePropertiesError);
+  const loading = homepagePropertiesLoading && !homepagePropertiesData;
 
-        let featQuery = supabase
-          .from("properties")
-          .select(selectQ)
-          .eq("featured", true)
-          .or(expiryOr)
-          .or(hideTutorialDemoPropertiesOrFilter())
-          .is("deleted_at", null)
-          .or("availability_state.eq.available,availability_state.is.null");
-        if (listingTypeFilter) featQuery = featQuery.eq("listing_type", listingTypeFilter);
-        if (cityOrClause) featQuery = featQuery.or(cityOrClause);
-        featQuery = featQuery.limit(1);
+  const { engagement, likeCountsByPropertyId } = usePropertyEngagementForProperties(properties);
 
-        let rentSpotlightQuery = supabase
-          .from("properties")
-          .select(selectQ)
-          .eq("listing_type", "rent")
-          .or(expiryOr)
-          .or(hideTutorialDemoPropertiesOrFilter())
-          .is("deleted_at", null)
-          .or("availability_state.eq.available,availability_state.is.null")
-          .or(
-            "name.ilike.%uptown%,location.ilike.%uptown%,city.ilike.%taguig%,neighborhood.ilike.%uptown%,neighborhood.ilike.%bgc%",
-          )
-          .order("created_at", { ascending: false })
-          .limit(24);
-        if (cityOrClause) rentSpotlightQuery = rentSpotlightQuery.or(cityOrClause);
-
-        const [mainRes, featRes, rentSpotlightRes] = await Promise.all([
-          mainQuery,
-          featQuery.maybeSingle(),
-          listingTypeFilter === "rent" ? rentSpotlightQuery : Promise.resolve({ data: [], error: null }),
-        ]);
-
-        if (mainRes.error) throw mainRes.error;
-
-        const list = (mainRes.data ?? []) as unknown as DbProperty[];
-        const adminFeatured =
-          !featRes.error && featRes.data ? (featRes.data as unknown as DbProperty) : null;
-        const rentSpotlightCandidates = (rentSpotlightRes.data ?? []) as unknown as DbProperty[];
-        const pinnedRentSpotlight = findRentHomepageSpotlightUptownParkSuite([
-          ...rentSpotlightCandidates,
-          ...list,
-          ...(adminFeatured ? [adminFeatured] : []),
-        ]);
-
-        let featured: DbProperty | null = null;
-        let isAdminFeatured = false;
-        if (pinnedRentSpotlight) {
-          featured = pinnedRentSpotlight;
-        } else if (adminFeatured) {
-          featured = adminFeatured;
-          isAdminFeatured = true;
-        } else if (list.length > 0) {
-          featured = list[0];
-        }
-
-        return { list, featured, isAdminFeatured };
-      });
-
-      setProperties(result.list);
-      setFeaturedHomeProperty(result.featured);
-      setFeaturedHomeIsAdminFeatured(result.isAdminFeatured);
-      setListingsLoadFailed(false);
-    } catch (e) {
-      console.error("[BahayGo homepage] listings fetch failed after retries", e);
-      setListingsLoadFailed(true);
-      setProperties([]);
-      setFeaturedHomeProperty(null);
-      setFeaturedHomeIsAdminFeatured(false);
-    } finally {
-      setLoading(false);
-    }
-  }, [neighborhoodFilter, listingTypeFilter]);
-
-  const loadAgentsDirectory = useCallback(async () => {
-    const { data, error: fetchErr } = await supabase
-      .from("agents")
-      .select("*, agencies(*), profiles!inner(email, phone, role)")
-      .eq("status", "approved")
-      .eq("verified", true)
-      .eq("profiles.role", "agent")
-      .neq("name", "Ron Admin");
-    if (!fetchErr) {
-      const filtered = (data ?? []).filter(shouldIncludeAgentDirectoryRow);
+  useEffect(() => {
+    if (!agents.length) return;
+    void (async () => {
+      const { data, error: fetchErr } = await supabase
+        .from("agents")
+        .select("id, years_experience, languages_spoken, service_areas, specialties")
+        .eq("status", "approved")
+        .eq("verified", true)
+        .in(
+          "id",
+          agents.map((a) => a.id),
+        );
+      if (fetchErr || !data) return;
       const extras: Record<string, AgentHomeExtra> = {};
-      for (const row of filtered) {
+      for (const row of data) {
         const r = row as {
           id?: string | null;
           years_experience?: number | string | null;
@@ -1436,11 +1348,12 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         extras[id] = {
           yearsExperience,
           languagesSpoken:
-            typeof r.languages_spoken === "string" && r.languages_spoken.trim() ? r.languages_spoken.trim() : null,
+            typeof r.languages_spoken === "string" && r.languages_spoken.trim()
+              ? r.languages_spoken.trim()
+              : null,
           serviceAreaPills: specializePillsForHomeCard(r.service_areas, r.specialties),
         };
       }
-      // Preserve async follower counts already fetched for top agents.
       setAgentHomeExtrasById((prev) => {
         const merged: Record<string, AgentHomeExtra> = { ...prev };
         for (const [id, nextExtra] of Object.entries(extras)) {
@@ -1451,21 +1364,8 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         }
         return merged;
       });
-      setAgents(
-        filtered
-          .map((row) => mapRowToMarketplaceAgent(row as Parameters<typeof mapRowToMarketplaceAgent>[0]))
-          .filter((a) => !isExcludedFromPublicAgentDirectory(a)),
-      );
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadProperties();
-  }, [loadProperties]);
-
-  useEffect(() => {
-    void loadAgentsDirectory();
-  }, [loadAgentsDirectory]);
+    })();
+  }, [agents]);
 
   const clearGeoFilters = useCallback(() => {
     setSelectedLocation(null);
@@ -1473,30 +1373,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     setPropertyTypeCounts([]);
     setFilters((s) => ({ ...s, locationLabel: null }));
   }, []);
-
-  const refreshFeaturedLocationCounts = useCallback(async () => {
-    const statusIn = mode === "buy" ? ["for_sale", "both"] : mode === "rent" ? ["for_rent", "both"] : ["for_sale", "for_rent", "both"];
-    const rows = await Promise.all(
-      FEATURED_LOCATIONS.map(async (loc) => {
-        const field = "neighborhood" in loc.match ? "neighborhood" : "city";
-        const value = (loc.match as { neighborhood?: string; city?: string })[field] ?? "";
-        let q = supabase
-          .from("properties")
-          .select("id", { count: "exact", head: true })
-          .is("deleted_at", null)
-          .or(hideTutorialDemoPropertiesOrFilter())
-          .or("availability_state.eq.available,availability_state.is.null")
-          .in("status", statusIn);
-        if (listingTypeFilter) q = q.eq("listing_type", listingTypeFilter);
-        q = field === "neighborhood" ? q.eq("neighborhood", value) : q.eq("city", value);
-        const { count, error } = await q;
-        return { label: loc.label, count: error ? 0 : count ?? 0 };
-      }),
-    );
-    const next: Record<string, number> = {};
-    for (const r of rows) next[r.label] = r.count;
-    setFeaturedLocationCounts(next);
-  }, [listingTypeFilter, mode]);
 
   const refreshPropertyTypeCounts = useCallback(
     async (sel: { type: "neighborhood" | "city"; value: string; label: string } | null) => {
@@ -1532,10 +1408,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     },
     [listingTypeFilter, mode],
   );
-
-  useEffect(() => {
-    void refreshFeaturedLocationCounts();
-  }, [refreshFeaturedLocationCounts]);
 
   useEffect(() => {
     void refreshPropertyTypeCounts(selectedLocation);
@@ -1688,17 +1560,6 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   useEffect(() => {
     void loadCuratedRowsForLocation();
   }, [loadCuratedRowsForLocation]);
-
-  useEffect(() => {
-    const onVis = () => {
-      if (document.visibilityState === "visible") {
-        void loadProperties();
-        void loadAgentsDirectory();
-      }
-    };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, [loadProperties, loadAgentsDirectory]);
 
   const syncMarketplaceUrl = useCallback(
     (qText: string) => {
@@ -2488,7 +2349,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         ) : null}
         {!loading && listingsLoadFailed ? (
           <div className="mt-4 min-w-0 w-full max-w-full md:mt-8">
-            <HomepageListingsLoadError onRetry={() => void loadProperties()} />
+            <HomepageListingsLoadError onRetry={() => void mutateHomepageProperties()} />
           </div>
         ) : null}
 

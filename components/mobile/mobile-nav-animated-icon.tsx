@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion, useReducedMotion, type TargetAndTransition } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import { BahayGoNavHomeIcon } from "@/components/mobile/bahaygo-nav-home-icon";
@@ -75,51 +76,72 @@ type Props = {
   inactiveColor?: string;
 };
 
-export function MobileNavAnimatedIcon({
+function NavIconGlyph({
   id,
   Icon,
   active,
-  className,
   size = 24,
   activeColor,
   inactiveColor,
 }: Props) {
-  const reduceMotion = useReducedMotion();
   const color = active ? (activeColor ?? ACTIVE) : (inactiveColor ?? INACTIVE);
   const useFill = active && FILLED_WHEN_ACTIVE.has(id);
 
-  const loop = active && !reduceMotion ? ACTIVE_LOOP[id] : undefined;
-  const activate = active && !reduceMotion ? ACTIVATE[id] : undefined;
+  if (id === "home") {
+    return <BahayGoNavHomeIcon size={size} active={active} color={color} />;
+  }
+
+  return (
+    <Icon
+      size={size}
+      strokeWidth={active ? 2.25 : 1.75}
+      color={color}
+      fill={useFill ? color : "none"}
+      fillOpacity={useFill ? (FULL_FILL.has(id) ? 1 : 0.22) : 0}
+      className="shrink-0"
+      aria-hidden
+    />
+  );
+}
+
+/** Static icon — SSR + hydration + prefers-reduced-motion (no transform/opacity animation). */
+function StaticNavIcon({ className, ...props }: Props) {
+  return (
+    <span className={cn("inline-flex items-center justify-center", className)}>
+      <NavIconGlyph {...props} />
+    </span>
+  );
+}
+
+export function MobileNavAnimatedIcon(props: Props) {
+  const { id, active, className } = props;
+  const [isMounted, setIsMounted] = useState(false);
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted || reduceMotion) {
+    return <StaticNavIcon {...props} />;
+  }
+
+  const loop = active ? ACTIVE_LOOP[id] : undefined;
+  const activate = active ? ACTIVATE[id] : undefined;
 
   return (
     <motion.span
       key={`${id}-${active ? "on" : "off"}`}
       className={cn("inline-flex items-center justify-center", className)}
-      initial={active && !reduceMotion ? { scale: 0.86, opacity: 0.65 } : false}
-      animate={
-        reduceMotion
-          ? { rotate: 0, scale: 1, y: 0 }
-          : loop ?? activate ?? { rotate: 0, scale: 1, y: 0 }
-      }
+      initial={false}
+      animate={loop ?? activate ?? { rotate: 0, scale: 1, y: 0 }}
       transition={
         loop
           ? { duration: id === "search" || id === "map" ? 6 : 2.8, repeat: Infinity, ease: "easeInOut" }
           : { type: "spring", stiffness: 420, damping: 24, mass: 0.65 }
       }
     >
-      {id === "home" ? (
-        <BahayGoNavHomeIcon size={size} active={active} color={color} />
-      ) : (
-        <Icon
-          size={size}
-          strokeWidth={active ? 2.25 : 1.75}
-          color={color}
-          fill={useFill ? color : "none"}
-          fillOpacity={useFill ? (FULL_FILL.has(id) ? 1 : 0.22) : 0}
-          className="shrink-0"
-          aria-hidden
-        />
-      )}
+      <NavIconGlyph {...props} />
     </motion.span>
   );
 }
