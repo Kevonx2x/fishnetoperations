@@ -22,6 +22,9 @@ import {
 
 
 
+import {
+  MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN,
+} from "@/lib/bahaygo-mobile/sticky-mobile-search-chrome";
 import type { DormspaceBrowseFilters } from "@/lib/dormspace-browse-filters";
 import type { DormspacePopularArea } from "@/lib/dormspace-popular-areas";
 
@@ -109,7 +112,7 @@ export function DormspaceMobileStickySearch({
 
         id="dormspace-hero-search"
 
-        className="scroll-mt-[10.75rem] flex h-12 items-center gap-2.5 rounded-2xl border border-[#2C2C2C]/10 bg-white px-3.5 shadow-[0_2px_14px_rgba(44,44,44,0.06)]"
+        className={cn(MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN, "flex h-12 items-center gap-2.5 rounded-2xl border border-[#2C2C2C]/10 bg-white px-3.5 shadow-[0_2px_14px_rgba(44,44,44,0.06)]")}
 
       >
 
@@ -191,7 +194,7 @@ export function DormspaceMobileStickySearch({
 
 const PAGE_X = "px-5";
 
-const SECTION = "mt-5";
+const SECTION = cn("mt-5", MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN);
 
 const PEEK_CARD_W = "w-[calc((100vw-2rem-1rem)/2.5)]";
 
@@ -497,7 +500,7 @@ export function DormspacePublicHomeMobile({
 
   return (
 
-    <div className="pb-6 md:hidden">
+    <div className="pb-6 pt-1 md:hidden">
 
       <section className={SECTION}>
 

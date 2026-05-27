@@ -5,10 +5,11 @@ import { cn } from "@/lib/utils";
 import {
   MOBILE_FIXED_SEARCH_CHROME,
   MOBILE_PORTAL_TOP_NAV_OFFSET,
+  MOBILE_SEARCH_STRIP_FALLBACK_PX,
 } from "@/lib/bahaygo-mobile/sticky-mobile-search-chrome";
 
 /** Reserve space so content does not sit under the fixed search strip before measure. */
-const FALLBACK_SEARCH_STRIP_HEIGHT_PX = 108;
+const SPACER_BUFFER_PX = 6;
 
 export function MobileFixedSearchShell({
   children,
@@ -18,14 +19,19 @@ export function MobileFixedSearchShell({
   className?: string;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
-  const [spacerHeight, setSpacerHeight] = useState(FALLBACK_SEARCH_STRIP_HEIGHT_PX);
+  const [spacerHeight, setSpacerHeight] = useState(MOBILE_SEARCH_STRIP_FALLBACK_PX);
 
   useLayoutEffect(() => {
     const el = barRef.current;
     if (!el) return;
 
     const syncHeight = () => {
-      setSpacerHeight(el.offsetHeight);
+      const measured = el.offsetHeight;
+      const next = Math.max(
+        MOBILE_SEARCH_STRIP_FALLBACK_PX,
+        measured > 0 ? measured + SPACER_BUFFER_PX : MOBILE_SEARCH_STRIP_FALLBACK_PX,
+      );
+      setSpacerHeight(next);
     };
 
     syncHeight();
@@ -38,7 +44,7 @@ export function MobileFixedSearchShell({
     <>
       <div
         className="md:hidden"
-        style={{ height: spacerHeight }}
+        style={{ height: spacerHeight, minHeight: MOBILE_SEARCH_STRIP_FALLBACK_PX }}
         aria-hidden
       />
       <div

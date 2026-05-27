@@ -79,7 +79,11 @@ export function DormspacePortalShell({
 
       <div className="relative z-10 flex flex-1 flex-col">{children}</div>
 
-      {showPortalFooter ? <DormspacePortalFooter /> : null}
+      {showPortalFooter ? (
+        <div className="hidden md:block">
+          <DormspacePortalFooter />
+        </div>
+      ) : null}
 
     </div>
 

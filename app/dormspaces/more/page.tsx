@@ -356,7 +356,7 @@ export default function DormspacesMorePage() {
           <MenuSectionBlock key={section.id} section={section} />
         ))}
 
-        <footer className="mb-24 mt-8 px-4 text-center">
+        <footer className="mb-24 mt-8 hidden px-4 text-center md:block">
           <p className="text-xs text-[#888888]">BahayGo Realty Services</p>
           <p className="mt-1 text-xs text-[#888888]">Made in the Philippines</p>
           <p className="mt-1 text-xs text-[#888888]">v1.0</p>

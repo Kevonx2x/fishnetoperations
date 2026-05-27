@@ -17,6 +17,7 @@ import { DormspaceHomepageFaqSection } from "@/components/dormspaces/dormspace-h
 import { DormspaceNewThisWeekSection } from "@/components/dormspaces/dormspace-new-this-week-section";
 import { DormspacePublicHomeMobile, DormspaceMobileStickySearch } from "@/components/dormspaces/dormspace-public-home-mobile";
 import { MobileFixedSearchShell } from "@/components/marketplace/mobile-fixed-search-shell";
+import { MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN } from "@/lib/bahaygo-mobile/sticky-mobile-search-chrome";
 import { HomepageArticlesSection } from "@/components/marketplace/homepage-articles-section";
 import { DormspaceRecommendedSection } from "@/components/dormspaces/dormspace-recommended-section";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
@@ -31,6 +32,7 @@ import {
 } from "@/lib/dormspaces";
 import type { UniversityRow } from "@/lib/universities";
 import type { DormspacePopularArea } from "@/lib/dormspace-popular-areas";
+import { cn } from "@/lib/utils";
 import { useDormspaceFeaturedNeighborhoods } from "@/hooks/use-dormspace-featured-neighborhoods";
 
 const FIELD =
@@ -320,7 +322,7 @@ export function DormspacePublicHome({
 
       </div>
 
-      <div id="listings" className="scroll-mt-[10.75rem] md:scroll-mt-24">
+      <div id="listings" className={cn("md:scroll-mt-24", MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN)}>
         <div className="border-t border-black/[0.06] bg-[#FAF8F4] px-5 py-4 md:hidden">
           <h2 className="font-serif text-[18px] font-semibold leading-tight tracking-tight text-[#2C2C2C]">
             All listings
