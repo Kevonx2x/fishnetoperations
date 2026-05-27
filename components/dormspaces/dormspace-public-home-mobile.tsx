@@ -25,12 +25,68 @@ import {
 import { cn } from "@/lib/utils";
 
 type Props = {
-  locationQuery: string;
-  onLocationChange: (value: string) => void;
-  onSearch: () => void;
   onBrowseFilter: (partial: Partial<DormspaceBrowseFilters>) => void;
   onScrollToListings: () => void;
 };
+
+export type DormspaceMobileStickySearchProps = {
+  locationQuery: string;
+  onLocationChange: (value: string) => void;
+  onSearch: () => void;
+  onScrollToListings: () => void;
+  locationLabel?: string;
+};
+
+export function DormspaceMobileStickySearch({
+  locationQuery,
+  onLocationChange,
+  onSearch,
+  onScrollToListings,
+  locationLabel = "Near DLSU, Taft Ave.",
+}: DormspaceMobileStickySearchProps) {
+  return (
+    <section className={cn(PAGE_X, "space-y-2 py-2")}>
+      <div
+        id="dormspace-hero-search"
+        className="scroll-mt-[10.75rem] flex h-12 items-center gap-2.5 rounded-2xl border border-[#2C2C2C]/10 bg-white px-3.5 shadow-[0_2px_14px_rgba(44,44,44,0.06)]"
+      >
+        <Search className="size-[18px] shrink-0 text-[#888888]" strokeWidth={2.25} aria-hidden />
+        <input
+          type="search"
+          value={locationQuery}
+          onChange={(e) => onLocationChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onSearch();
+          }}
+          placeholder="Find your space near campus"
+          className="min-w-0 flex-1 bg-transparent text-[14px] font-medium text-[#2C2C2C] placeholder:text-[#888888] focus:outline-none"
+          aria-label="Search location"
+        />
+        <button
+          type="button"
+          onClick={onScrollToListings}
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-[#2C2C2C]/60"
+          aria-label="Open filters"
+        >
+          <SlidersHorizontal className="size-[18px]" strokeWidth={2} />
+        </button>
+      </div>
+
+      <div className="flex items-center gap-1 text-[13px]">
+        <MapPin className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
+        <span className="font-semibold text-[#2C2C2C]">{locationLabel}</span>
+        <button
+          type="button"
+          onClick={onScrollToListings}
+          className="ml-auto inline-flex items-center text-[13px] font-semibold text-[#6B9E6E]"
+        >
+          Change
+          <ChevronRight className="size-3" aria-hidden />
+        </button>
+      </div>
+    </section>
+  );
+}
 
 const PAGE_X = "px-5";
 const SECTION = "mt-5";
@@ -184,49 +240,11 @@ function RecommendedRowCard({ listing }: { listing: DormspaceHomeDemoListing }) 
 }
 
 export function DormspacePublicHomeMobile({
-  locationQuery,
-  onLocationChange,
-  onSearch,
   onBrowseFilter,
   onScrollToListings,
 }: Props) {
   return (
     <div className="pb-6 md:hidden">
-      {/* Search */}
-      <section className={cn(PAGE_X, "pt-2")}>
-        <div className="flex h-12 items-center gap-2.5 rounded-2xl border border-[#2C2C2C]/10 bg-white px-3.5 shadow-[0_2px_14px_rgba(44,44,44,0.06)]">
-          <Search className="size-[18px] shrink-0 text-[#888888]" strokeWidth={2.25} aria-hidden />
-          <input
-            type="search"
-            value={locationQuery}
-            onChange={(e) => onLocationChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onSearch();
-            }}
-            placeholder="Find your space near campus"
-            className="min-w-0 flex-1 bg-transparent text-[14px] font-medium text-[#2C2C2C] placeholder:text-[#888888] focus:outline-none"
-            aria-label="Search location"
-          />
-          <button
-            type="button"
-            onClick={onScrollToListings}
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-[#2C2C2C]/60"
-            aria-label="Open filters"
-          >
-            <SlidersHorizontal className="size-[18px]" strokeWidth={2} />
-          </button>
-        </div>
-
-        <div className="mt-2 flex items-center gap-1 text-[13px]">
-          <MapPin className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
-          <span className="font-semibold text-[#2C2C2C]">Near DLSU, Taft Ave.</span>
-          <button type="button" className="ml-auto inline-flex items-center text-[13px] font-semibold text-[#6B9E6E]">
-            Change
-            <ChevronRight className="size-3" aria-hidden />
-          </button>
-        </div>
-      </section>
-
       {/* New this week */}
       <section className={SECTION}>
         <SectionHeader title="New this week" actionLabel="See all" onAction={onScrollToListings} />

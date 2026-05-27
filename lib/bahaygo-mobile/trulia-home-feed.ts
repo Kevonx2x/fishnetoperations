@@ -14,7 +14,7 @@ export type TruliaFeedSection =
       tabs: TruliaFeedTab[];
     }
   | {
-      kind: "feature_tabs";
+      kind: "tourist_location_tabs";
       title: string;
       tabs: TruliaFeedTab[];
     };
@@ -23,24 +23,13 @@ function normType(p: DbProperty): string {
   return String(p.property_type ?? "").trim().toLowerCase();
 }
 
-function propertyMarketingText(p: DbProperty): string {
-  return `${p.name ?? ""} ${p.location} ${p.description ?? ""}`;
+function propertyLocationText(p: DbProperty): string {
+  return `${p.city ?? ""} ${p.location ?? ""} ${p.region ?? ""}`.toLowerCase();
 }
 
-function isFurnishedListing(p: DbProperty): boolean {
-  const text = propertyMarketingText(p);
-  return /\bf(?:ully)?\s*furnished\b/i.test(text) || /\bfurnished\b/i.test(text);
-}
-
-function isNearTransitListing(p: DbProperty): boolean {
-  const text = propertyMarketingText(p).toLowerCase();
-  return (
-    /\bmrt\b/.test(text) ||
-    /\blrt\b/.test(text) ||
-    /\btransit\b/.test(text) ||
-    /\bstation\b/.test(text) ||
-    /\bnear\s+(?:the\s+)?(?:mrt|lrt)\b/.test(text)
-  );
+function matchesLocationKeywords(p: DbProperty, keywords: string[]): boolean {
+  const text = propertyLocationText(p);
+  return keywords.some((k) => text.includes(k.toLowerCase()));
 }
 
 function isCondoListing(p: DbProperty): boolean {
@@ -131,29 +120,56 @@ export function buildTruliaMobileFeedSections(
     sections.push({ kind: "vertical", listings: vertical2 });
   }
 
-  const featureTabs: TruliaFeedTab[] = [
+  const touristLocationTabs: TruliaFeedTab[] = [
     {
-      id: "pet-friendly",
-      label: "Pet friendly",
-      listings: filterTabListings(pool, (p) => p.pet_friendly === true, 10),
+      id: "tagaytay",
+      label: "Tagaytay",
+      listings: filterTabListings(pool, (p) => matchesLocationKeywords(p, ["tagaytay"]), 10),
     },
     {
-      id: "furnished",
-      label: "Furnished",
-      listings: filterTabListings(pool, isFurnishedListing, 10),
+      id: "cebu",
+      label: "Cebu",
+      listings: filterTabListings(pool, (p) => matchesLocationKeywords(p, ["cebu"]), 10),
     },
     {
-      id: "near-mrt",
-      label: "Near MRT",
-      listings: filterTabListings(pool, isNearTransitListing, 10),
+      id: "subic",
+      label: "Subic",
+      listings: filterTabListings(
+        pool,
+        (p) => matchesLocationKeywords(p, ["subic", "olongapo", "zambales"]),
+        10,
+      ),
+    },
+    {
+      id: "metro-manila",
+      label: "Metro Manila",
+      listings: filterTabListings(
+        pool,
+        (p) =>
+          matchesLocationKeywords(p, [
+            "makati",
+            "taguig",
+            "manila",
+            "pasig",
+            "quezon",
+            "mandaluyong",
+            "paranaque",
+            "las pinas",
+            "muntinlupa",
+            "bgc",
+            "bonifacio",
+            "ortigas",
+          ]),
+        10,
+      ),
     },
   ].filter((tab) => tab.listings.length > 0);
 
-  if (featureTabs.length > 0) {
+  if (touristLocationTabs.length > 0) {
     sections.push({
-      kind: "feature_tabs",
-      title: "Explore by feature",
-      tabs: featureTabs,
+      kind: "tourist_location_tabs",
+      title: "Tourist locations",
+      tabs: touristLocationTabs,
     });
   }
 

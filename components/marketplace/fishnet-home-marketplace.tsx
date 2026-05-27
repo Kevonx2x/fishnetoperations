@@ -41,7 +41,8 @@ import {
   isPreOptimizedPropertyPhotoUrl,
   propertyPhotoHeroUrl,
 } from "@/lib/cloudinary-property-photo-url";
-import { BahayGoHomeMobileTop } from "@/components/marketplace/bahaygo-home-mobile-top";
+import { BahayGoHomeMobileTop, BahayGoHomeMobileStickySearch } from "@/components/marketplace/bahaygo-home-mobile-top";
+import { MobileFixedSearchShell } from "@/components/marketplace/mobile-fixed-search-shell";
 import { BahayGoMobileTruliaFeed } from "@/components/marketplace/bahaygo-mobile-trulia-feed";
 import { HomepageListingsLoadError } from "@/components/marketplace/homepage-listings-load-error";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
@@ -2101,8 +2102,29 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   };
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#FAF8F4]">
+    <div className="min-h-screen bg-[#FAF8F4]">
       <MaddenTopNav />
+
+      <MobileFixedSearchShell>
+        <BahayGoHomeMobileStickySearch
+          search={search}
+          onSearchChange={(v) => {
+            setNeighborhoodFilter(null);
+            setSearch(v);
+          }}
+          onSearchSubmit={onSearchSubmit}
+          recentSearches={recentHomepageSearches}
+          onRecentSearchPick={(q) => {
+            setNeighborhoodFilter(null);
+            setSearch(q);
+            applyLocationSearch(q);
+          }}
+          onOpenFilters={() => setFiltersOpen(true)}
+          filters={filters}
+          neighborhoodLabel={neighborhoodLabelForChips}
+          onLocationChipPress={() => setFiltersOpen(true)}
+        />
+      </MobileFixedSearchShell>
 
       {welcomeBannerVisible && user ? (
         <div
@@ -2139,26 +2161,16 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
           setNeighborhoodFilter(null);
           setSearch(v);
         }}
-        onSearchSubmit={onSearchSubmit}
-        recentSearches={recentHomepageSearches}
-        onRecentSearchPick={(q) => {
-          setNeighborhoodFilter(null);
-          setSearch(q);
-          applyLocationSearch(q);
-        }}
         onBuyRentChange={(target) => {
           router.replace(buildMarketplaceHref(search, target), { scroll: false });
         }}
         filters={filters}
         onFiltersChange={setFilters}
-        onOpenFilters={() => setFiltersOpen(true)}
-        neighborhoodLabel={neighborhoodLabelForChips}
         featuredProperty={mobileFeaturedProperty}
         featuredIsAdminFeatured={featuredHomeIsAdminFeatured}
         properties={mobileDiscoveryPool}
         engagement={engagement}
         onScrollToListings={scrollToListings}
-        onLocationChipPress={() => setFiltersOpen(true)}
       />
 
       <section className="relative hidden w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4] md:block md:border-b">
@@ -2356,7 +2368,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         {!loading && !listingsLoadFailed ? (
           <>
             {/* PROPERTY LISTING SECTION (controlled by Buy/Rent toggle) */}
-            <section id="listings" className="min-w-0 w-full max-w-full overflow-x-clip">
+            <section id="listings" className="min-w-0 w-full max-w-full overflow-x-clip scroll-mt-[10.75rem] md:scroll-mt-24">
               <HomepageFiltersSheet
                 open={filtersOpen}
                 onOpenChange={setFiltersOpen}

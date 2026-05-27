@@ -16,7 +16,8 @@ import { DormspaceBrowse, type DormspaceBrowseFilters } from "@/components/dorms
 import { DormspaceCategoryChips } from "@/components/dormspaces/dormspace-category-chips";
 import { DormspaceCommunityCta } from "@/components/dormspaces/dormspace-community-cta";
 import { DormspacePopularAreasSection } from "@/components/dormspaces/dormspace-popular-areas-section";
-import { DormspacePublicHomeMobile } from "@/components/dormspaces/dormspace-public-home-mobile";
+import { DormspacePublicHomeMobile, DormspaceMobileStickySearch } from "@/components/dormspaces/dormspace-public-home-mobile";
+import { MobileFixedSearchShell } from "@/components/marketplace/mobile-fixed-search-shell";
 import { DormspaceRecommendedSection } from "@/components/dormspaces/dormspace-recommended-section";
 import { DormspaceWhyStudentsSection } from "@/components/dormspaces/dormspace-why-students";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
@@ -94,12 +95,25 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
     if (partial.city) setLocationQuery(partial.city);
   };
 
+  const dormspaceLocationLabel = locationQuery.trim()
+    ? `Near ${locationQuery.trim()}`
+    : filters.city.trim()
+      ? `Near ${filters.city.trim()}`
+      : "Near DLSU, Taft Ave.";
+
   return (
     <>
+      <MobileFixedSearchShell>
+        <DormspaceMobileStickySearch
+          locationQuery={locationQuery}
+          onLocationChange={setLocationQuery}
+          onSearch={applySearch}
+          onScrollToListings={scrollToListings}
+          locationLabel={dormspaceLocationLabel}
+        />
+      </MobileFixedSearchShell>
+
       <DormspacePublicHomeMobile
-        locationQuery={locationQuery}
-        onLocationChange={setLocationQuery}
-        onSearch={applySearch}
         onBrowseFilter={applyMobileBrowseFilter}
         onScrollToListings={scrollToListings}
       />
@@ -286,7 +300,7 @@ export function DormspacePublicHome({ listings }: { listings: DormspaceWithPhoto
       <DormspaceCommunityCta />
       </div>
 
-      <div id="listings" className="scroll-mt-20 md:scroll-mt-24">
+      <div id="listings" className="scroll-mt-[10.75rem] md:scroll-mt-24">
         <div className="border-t border-black/[0.06] bg-[#FAF8F4] px-5 py-4 md:hidden">
           <h2 className="font-serif text-[18px] font-semibold leading-tight tracking-tight text-[#2C2C2C]">
             All listings

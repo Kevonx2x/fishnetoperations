@@ -46,33 +46,29 @@ function TruliaTabBar({
   onChange: (id: string) => void;
 }) {
   return (
-    <div
-      className={cn(
-        "flex gap-2 overflow-x-auto pb-1 scrollbar-hide",
-        HOMEPAGE_MOBILE_CAROUSEL_TRACK,
-      )}
-      role="tablist"
-    >
-      {tabs.map((tab) => {
-        const active = tab.id === activeId;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(tab.id)}
-            className={cn(
-              "inline-flex shrink-0 items-center rounded-full px-3.5 py-2 text-xs font-semibold shadow-[0_2px_8px_rgba(44,44,44,0.06)] ring-1 transition",
-              active
-                ? "bg-[#3d5240] text-white ring-[#3d5240]"
-                : "bg-white text-[#2C2C2C] ring-black/[0.08]",
-            )}
-          >
-            {tab.label}
-          </button>
-        );
-      })}
+    <div className="overflow-visible px-1 pt-1.5 pb-2" role="tablist">
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {tabs.map((tab) => {
+          const active = tab.id === activeId;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => onChange(tab.id)}
+              className={cn(
+                "inline-flex shrink-0 items-center rounded-full px-3.5 py-2 text-xs font-semibold shadow-[0_2px_8px_rgba(44,44,44,0.06)] ring-1 transition",
+                active
+                  ? "bg-[#3d5240] text-white ring-[#3d5240]"
+                  : "bg-white text-[#2C2C2C] ring-black/[0.08]",
+              )}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -120,7 +116,7 @@ function TruliaTabbedCarouselSection({
   mode,
   engagement,
 }: {
-  section: Extract<TruliaFeedSection, { kind: "property_type_tabs" | "feature_tabs" }>;
+  section: Extract<TruliaFeedSection, { kind: "property_type_tabs" | "tourist_location_tabs" }>;
   mode: "buy" | "rent";
   engagement: PropertyEngagement;
 }) {
@@ -134,13 +130,12 @@ function TruliaTabbedCarouselSection({
       <h3 className="font-serif text-[18px] font-semibold leading-tight text-[#2C2C2C]">
         {section.title}
       </h3>
-      <div
-        className="mt-2"
-        style={{ marginBottom: BAHAYGO_FEED_SPACING.sectionTitleToCards }}
-      >
+      <div className="mt-3">
         <TruliaTabBar tabs={section.tabs} activeId={activeTab.id} onChange={setActiveTabId} />
       </div>
-      <TruliaHorizontalCarousel tab={activeTab} mode={mode} engagement={engagement} />
+      <div className="mt-1">
+        <TruliaHorizontalCarousel tab={activeTab} mode={mode} engagement={engagement} />
+      </div>
     </section>
   );
 }

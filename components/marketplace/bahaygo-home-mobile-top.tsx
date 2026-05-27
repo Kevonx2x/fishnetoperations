@@ -258,44 +258,103 @@ function TrendingHeroCard({
   );
 }
 
-export type BahayGoHomeMobileTopProps = {
-  mode: "buy" | "rent" | "all";
+export type BahayGoHomeMobileStickySearchProps = {
   search: string;
   onSearchChange: (value: string) => void;
   onSearchSubmit: () => void;
   recentSearches: string[];
   onRecentSearchPick: (q: string) => void;
+  onOpenFilters: () => void;
+  filters: FiltersState;
+  neighborhoodLabel: string | null;
+  onLocationChipPress: () => void;
+};
+
+export function BahayGoHomeMobileStickySearch({
+  search,
+  onSearchChange,
+  onSearchSubmit,
+  recentSearches,
+  onRecentSearchPick,
+  onOpenFilters,
+  filters,
+  neighborhoodLabel,
+  onLocationChipPress,
+}: BahayGoHomeMobileStickySearchProps) {
+  return (
+    <div className={cn("space-y-2", PAGE_X, "py-2")}>
+      <div
+        id="bahaygo-hero-search"
+        className="scroll-mt-[10.75rem] rounded-2xl border border-[#2C2C2C]/8 bg-white px-3 py-2 shadow-[0_8px_28px_rgba(44,44,44,0.1)]"
+      >
+        <div className="flex items-center gap-2">
+          <Search className="size-[18px] shrink-0 text-[#888888]" strokeWidth={2} aria-hidden />
+          <PhLocationInput
+            value={search}
+            onChange={onSearchChange}
+            onSubmitSearch={onSearchSubmit}
+            recentSearches={recentSearches}
+            onRecentSearchPick={onRecentSearchPick}
+            placeholder="Where do you want to live?"
+            aria-label="Search location"
+            className="min-w-0 flex-1"
+            inputClassName="w-full border-0 bg-transparent p-0 text-[14px] font-medium text-[#2C2C2C] shadow-none placeholder:text-[#888888] focus-visible:ring-0"
+          />
+          <button
+            type="button"
+            onClick={onOpenFilters}
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl text-[#2C2C2C]/70"
+            aria-label="Filters"
+          >
+            <SlidersHorizontal className="size-[18px]" strokeWidth={2} />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1 text-[13px]">
+        <MapPin className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
+        <span className="font-semibold text-[#2C2C2C]">
+          {locationLineLabel(filters, neighborhoodLabel, search)}
+        </span>
+        <button
+          type="button"
+          onClick={onLocationChipPress}
+          className="ml-auto inline-flex items-center text-[13px] font-semibold text-[#6B9E6E]"
+        >
+          Change
+          <ChevronRight className="size-3" aria-hidden />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export type BahayGoHomeMobileTopProps = {
+  mode: "buy" | "rent" | "all";
+  search: string;
+  onSearchChange: (value: string) => void;
   onBuyRentChange: (target: "buy" | "rent") => void;
   filters: FiltersState;
   onFiltersChange: (updater: (prev: FiltersState) => FiltersState) => void;
-  onOpenFilters: () => void;
-  neighborhoodLabel: string | null;
   featuredProperty: DbProperty | null;
   featuredIsAdminFeatured: boolean;
   properties: DbProperty[];
   engagement: PropertyEngagement;
   onScrollToListings: () => void;
-  onLocationChipPress: () => void;
 };
 
 export function BahayGoHomeMobileTop({
   mode,
   search,
   onSearchChange,
-  onSearchSubmit,
-  recentSearches,
-  onRecentSearchPick,
   onBuyRentChange,
   filters,
   onFiltersChange,
-  onOpenFilters,
-  neighborhoodLabel,
   featuredProperty,
   featuredIsAdminFeatured: _featuredIsAdminFeatured,
   properties,
   engagement,
   onScrollToListings,
-  onLocationChipPress,
 }: BahayGoHomeMobileTopProps) {
   const [heroIndex, setHeroIndex] = useState(0);
   const heroScrollRef = useRef<HTMLDivElement | null>(null);
@@ -392,49 +451,6 @@ export function BahayGoHomeMobileTop({
     <div className="md:hidden overflow-x-clip">
       <div className="relative overflow-x-clip bg-[#FAF8F4] pb-2">
         <section className={cn("relative space-y-2.5 pt-2", PAGE_X)}>
-          <div
-            id="bahaygo-hero-search"
-            className="scroll-mt-20 rounded-2xl border border-[#2C2C2C]/8 bg-white px-3 py-2 shadow-[0_8px_28px_rgba(44,44,44,0.1)]"
-          >
-            <div className="flex items-center gap-2">
-              <Search className="size-[18px] shrink-0 text-[#888888]" strokeWidth={2} aria-hidden />
-              <PhLocationInput
-                value={search}
-                onChange={onSearchChange}
-                onSubmitSearch={onSearchSubmit}
-                recentSearches={recentSearches}
-                onRecentSearchPick={onRecentSearchPick}
-                placeholder="Where do you want to live?"
-                aria-label="Search location"
-                className="min-w-0 flex-1"
-                inputClassName="w-full border-0 bg-transparent p-0 text-[14px] font-medium text-[#2C2C2C] shadow-none placeholder:text-[#888888] focus-visible:ring-0"
-              />
-              <button
-                type="button"
-                onClick={onOpenFilters}
-                className="flex size-9 shrink-0 items-center justify-center rounded-xl text-[#2C2C2C]/70"
-                aria-label="Filters"
-              >
-                <SlidersHorizontal className="size-[18px]" strokeWidth={2} />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1 text-[13px]">
-            <MapPin className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
-            <span className="font-semibold text-[#2C2C2C]">
-              {locationLineLabel(filters, neighborhoodLabel, search)}
-            </span>
-            <button
-              type="button"
-              onClick={onLocationChipPress}
-              className="ml-auto inline-flex items-center text-[13px] font-semibold text-[#6B9E6E]"
-            >
-              Change
-              <ChevronRight className="size-3" aria-hidden />
-            </button>
-          </div>
-
           <div className="flex justify-center gap-2">
             <FilterChip
               active={mode === "rent"}
