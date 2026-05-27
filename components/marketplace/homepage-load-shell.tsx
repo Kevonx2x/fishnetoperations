@@ -19,7 +19,7 @@ export function HomepageListingRowsSkeleton({ rows = HOMEPAGE_INITIAL_CATEGORY_R
           <Pulse className="mt-2 h-4 w-56 max-w-[55%]" />
           <div className="-mx-4 mt-3 min-w-0 w-full overflow-x-auto scroll-pl-4 scroll-pr-4 pb-2 scrollbar-hide md:mx-0 md:scroll-pl-0 md:scroll-pr-0">
             <div className="flex w-max flex-nowrap gap-2 px-4 md:gap-3 md:px-0">
-              {Array.from({ length: 4 }).map((_, cardIdx) => (
+              {Array.from({ length: 3 }).map((_, cardIdx) => (
                 <div
                   key={`listing-card-skel-${rowIdx}-${cardIdx}`}
                   className={`${MOBILE_LISTING_CARD_SKELETON_WIDTH} overflow-hidden rounded-xl border-0 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.1)] md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md`}
