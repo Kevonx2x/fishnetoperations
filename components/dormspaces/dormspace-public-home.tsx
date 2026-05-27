@@ -11,6 +11,7 @@ import {
 
 import { DormspaceBrowse, type DormspaceBrowseFilters } from "@/components/dormspaces/dormspace-browse";
 import { DormspaceBrowseBySchoolSection } from "@/components/dormspaces/dormspace-browse-by-school-section";
+import { DormspaceExploreMapSection } from "@/components/dormspaces/dormspace-explore-map-section";
 import { DormspaceFeaturedNeighborhoodsSection } from "@/components/dormspaces/dormspace-featured-neighborhoods-section";
 import { DormspaceNewThisWeekSection } from "@/components/dormspaces/dormspace-new-this-week-section";
 import { DormspacePublicHomeMobile, DormspaceMobileStickySearch } from "@/components/dormspaces/dormspace-public-home-mobile";
@@ -285,6 +286,8 @@ export function DormspacePublicHome({
       </section>
 
       <DormspaceNewThisWeekSection listings={listings} />
+
+      <DormspaceExploreMapSection listings={listings} />
 
       <DormspaceBrowseBySchoolSection
         universities={universities}

@@ -1,7 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
-import { APIProvider, Map, Marker, useMap } from "@vis.gl/react-google-maps";
+import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import {
+  APIProvider,
+  InfoWindow,
+  Map,
+  Marker,
+  useMap,
+  useMarkerRef,
+} from "@vis.gl/react-google-maps";
 
 import {
   DORMSPACE_MAP_DEFAULT_CENTER,
@@ -15,6 +24,7 @@ type Props = {
   selectedMarkerId?: string | null;
   onMarkerClick?: (markerId: string) => void;
   className?: string;
+  showCountLabel?: boolean;
 };
 
 function FitMapToMarkers({ markers }: { markers: DormspaceMapMarker[] }) {
@@ -39,6 +49,70 @@ function FitMapToMarkers({ markers }: { markers: DormspaceMapMarker[] }) {
   return null;
 }
 
+function ListingMarker({
+  marker,
+  selected,
+  onSelect,
+}: {
+  marker: DormspaceMapMarker;
+  selected: boolean;
+  onSelect: (markerId: string) => void;
+}) {
+  const [markerRef, mapMarker] = useMarkerRef();
+  const [infoOpen, setInfoOpen] = useState(false);
+
+  const markerIcon: google.maps.Symbol = {
+    path: google.maps.SymbolPath.CIRCLE,
+    fillColor: selected ? "#2C2C2C" : "#6B9E6E",
+    fillOpacity: 1,
+    strokeColor: selected ? "#D4A843" : "#ffffff",
+    strokeWeight: selected ? 3 : 2,
+    scale: selected ? 12 : 10,
+  };
+
+  return (
+    <>
+      <Marker
+        ref={markerRef}
+        position={{ lat: marker.lat, lng: marker.lng }}
+        title={marker.title}
+        icon={markerIcon}
+        onClick={() => {
+          onSelect(marker.id);
+          setInfoOpen(true);
+        }}
+      />
+      {infoOpen && mapMarker ? (
+        <InfoWindow anchor={mapMarker} onCloseClick={() => setInfoOpen(false)}>
+          <div className="flex max-w-[240px] gap-3">
+            {marker.imageUrl ? (
+              <div className="relative size-[60px] shrink-0 overflow-hidden rounded-lg bg-[#F3F0EA]">
+                <Image
+                  src={marker.imageUrl}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="60px"
+                />
+              </div>
+            ) : null}
+            <div className="min-w-0 flex-1">
+              <p className="line-clamp-2 text-sm font-semibold text-[#2C2C2C]">{marker.title}</p>
+              <p className="mt-1 text-sm font-semibold text-[#6B9E6E]">{marker.label}</p>
+              <Link
+                href={marker.href}
+                className="mt-2 inline-flex text-xs font-bold text-[#6B9E6E] hover:underline"
+              >
+                View details
+              </Link>
+            </div>
+          </div>
+        </InfoWindow>
+      ) : null}
+    </>
+  );
+}
+
 function MapMarkers({
   markers,
   selectedMarkerId,
@@ -48,33 +122,14 @@ function MapMarkers({
   selectedMarkerId: string | null;
   onMarkerClick?: (markerId: string) => void;
 }) {
-  const markerIcon: google.maps.Symbol = {
-    path: google.maps.SymbolPath.CIRCLE,
-    fillColor: "#6B9E6E",
-    fillOpacity: 1,
-    strokeColor: "#ffffff",
-    strokeWeight: 2,
-    scale: 10,
-  };
-
-  const selectedMarkerIcon: google.maps.Symbol = {
-    path: google.maps.SymbolPath.CIRCLE,
-    fillColor: "#2C2C2C",
-    fillOpacity: 1,
-    strokeColor: "#D4A843",
-    strokeWeight: 3,
-    scale: 12,
-  };
-
   return (
     <>
       {markers.map((marker) => (
-        <Marker
+        <ListingMarker
           key={marker.id}
-          position={{ lat: marker.lat, lng: marker.lng }}
-          title={marker.label}
-          icon={selectedMarkerId === marker.id ? selectedMarkerIcon : markerIcon}
-          onClick={() => onMarkerClick?.(marker.id)}
+          marker={marker}
+          selected={selectedMarkerId === marker.id}
+          onSelect={(markerId) => onMarkerClick?.(markerId)}
         />
       ))}
     </>
@@ -86,6 +141,7 @@ export function DormspaceListingsMap({
   selectedMarkerId = null,
   onMarkerClick,
   className,
+  showCountLabel = true,
 }: Props) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API?.trim() ?? "";
   const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID?.trim() ?? "";
@@ -131,13 +187,15 @@ export function DormspaceListingsMap({
         </Map>
       </APIProvider>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
-        <div className="rounded-full border border-black/10 bg-white/95 px-4 py-2 text-xs font-semibold text-[#2C2C2C] shadow-md backdrop-blur-sm">
-          {markers.length > 0
-            ? `${markers.length} ${markers.length === 1 ? "space" : "spaces"} on map`
-            : "Map ready — markers will appear here"}
+      {showCountLabel ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
+          <div className="rounded-full border border-black/10 bg-white/95 px-4 py-2 text-xs font-semibold text-[#2C2C2C] shadow-md backdrop-blur-sm">
+            {markers.length > 0
+              ? `${markers.length} ${markers.length === 1 ? "space" : "spaces"} on map`
+              : "Map ready — markers will appear here"}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
