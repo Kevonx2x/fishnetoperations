@@ -17,7 +17,10 @@ import {
   TrainFront,
 } from "lucide-react";
 
-import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
+import {
+  BahayGoMobilePeekListingCard,
+  propertyLocationLine,
+} from "@/components/marketplace/bahaygo-mobile-peek-listing-card";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import {
   defaultHomepageFiltersState,
@@ -27,7 +30,7 @@ import {
 import { HOMEPAGE_MOBILE_CAROUSEL_INSET } from "@/lib/homepage-listing-card-layout";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import type { DbProperty } from "@/lib/marketplace-property";
-import { firstRawPropertyPhotoUrl, roomUrlsFor } from "@/lib/marketplace-property";
+import { firstRawPropertyPhotoUrl } from "@/lib/marketplace-property";
 import { propertyPhotoHeroUrl } from "@/lib/cloudinary-property-photo-url";
 import type { PropertyEngagement } from "@/hooks/use-property-engagement";
 import {
@@ -39,7 +42,6 @@ import { cn } from "@/lib/utils";
 const PAGE_X = "px-4";
 const CAROUSEL_SCROLL =
   "flex overflow-x-auto gap-2.5 pb-0.5 scrollbar-hide snap-x snap-mandatory";
-const PEEK_CARD_W = "w-[calc((100vw-2rem-1rem)/2.5)]";
 /** ~88% viewport width so the next slide peeks like the reference mock. */
 const TRENDING_CARD_W = "w-[calc((100vw-2rem-0.625rem)/1.22)]";
 
@@ -179,13 +181,6 @@ function locationLineLabel(
   return "Near Metro Manila";
 }
 
-function propertyLocationLine(property: DbProperty): string {
-  const city = property.city?.trim() || property.neighborhood?.trim();
-  const loc = property.location?.trim();
-  if (city && loc) return `${city} · ${loc}`;
-  return city || loc || "Metro Manila";
-}
-
 function MobileNewCard({
   property,
   mode,
@@ -195,54 +190,7 @@ function MobileNewCard({
   mode: "buy" | "rent" | "all";
   engagement: PropertyEngagement;
 }) {
-  const img = roomUrlsFor(property)[0] ?? property.image_url ?? "";
-  const href = `/properties/${encodeURIComponent(property.id)}`;
-  const liked = engagement.isLiked(property.id);
-  const priceLabel =
-    mode === "rent" || property.listing_type === "rent"
-      ? formatPropertyPriceDisplay(property.rent_price, "for_rent")
-      : formatPropertyPriceDisplay(property.price, property.status);
-
-  return (
-    <Link
-      href={href}
-      className={cn(
-        PEEK_CARD_W,
-        "block shrink-0 snap-start overflow-hidden rounded-2xl bg-white shadow-[0_6px_20px_rgba(44,44,44,0.1)] ring-1 ring-black/[0.04] transition active:scale-[0.99]",
-      )}
-    >
-      <div className="relative aspect-[5/4] w-full bg-[#F3F0EA]">
-        {img ? <ListingCardPhoto src={img} alt="" sizes="40vw" eager /> : null}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            void engagement.toggleLike(property.id);
-          }}
-          className="absolute right-2 top-2 z-10 flex size-7 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/[0.06]"
-          aria-label={liked ? "Unlike" : "Save"}
-        >
-          <Heart
-            className={cn("size-3.5", liked ? "fill-red-500 text-red-500" : "text-[#2C2C2C]/80")}
-            strokeWidth={2}
-          />
-        </button>
-      </div>
-      <div className="px-2.5 pb-2.5 pt-2">
-        <p className="text-[13px] font-bold leading-none text-[#C49A2E]">{priceLabel}</p>
-        <h3 className="mt-1 line-clamp-2 text-[12px] font-semibold leading-tight text-[#2C2C2C]">
-          {property.name?.trim() || property.location}
-        </h3>
-        <p className="mt-0.5 text-[9px] font-medium text-[#888888]">
-          {property.beds} bed · {property.baths} bath · {property.sqft} sqft
-        </p>
-        <p className="mt-0.5 line-clamp-1 text-[9px] font-medium text-[#888888]">
-          {propertyLocationLine(property)}
-        </p>
-      </div>
-    </Link>
-  );
+  return <BahayGoMobilePeekListingCard property={property} mode={mode} engagement={engagement} />;
 }
 
 function TrendingHeroCard({

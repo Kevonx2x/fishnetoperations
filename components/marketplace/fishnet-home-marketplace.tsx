@@ -42,6 +42,7 @@ import {
   propertyPhotoHeroUrl,
 } from "@/lib/cloudinary-property-photo-url";
 import { BahayGoHomeMobileTop } from "@/components/marketplace/bahaygo-home-mobile-top";
+import { BahayGoMobileTruliaFeed } from "@/components/marketplace/bahaygo-mobile-trulia-feed";
 import { HomepageListingsLoadError } from "@/components/marketplace/homepage-listings-load-error";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
@@ -110,7 +111,6 @@ import {
   HOMEPAGE_MAX_CATEGORY_ROWS,
 } from "@/lib/homepage-row-templates";
 import { buildMobileDiscoveryPool, dedupeMobileHomepageRows, propertyListingLocationKey } from "@/lib/homepage-listing-dedupe";
-import { BAHAYGO_FEED_SPACING } from "@/lib/bahaygo-design-tokens";
 import {
   HOMEPAGE_BROWSE_LISTING_CARD_WIDTH,
   HOMEPAGE_MOBILE_CAROUSEL_TRACK,
@@ -2453,13 +2453,32 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                   <>
                     {!filtersActive ? (
                       <div className="md:hidden">
-                        <MobileVerticalListingFeed
+                        <BahayGoMobileTruliaFeed
                           mode={mode === "buy" ? "buy" : "rent"}
                           listings={mobileVerticalListings}
                           engagement={engagement}
-                          connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
-                          viewerUserId={user?.id ?? null}
-                          viewerVerifiedListingAgent={viewerVerifiedListingAgent}
+                          cardRoomIdx={cardRoomIdx}
+                          setCardRoomIdx={setCardRoomIdx}
+                          getRoomUrls={roomUrlsFor}
+                          renderListingCard={(cardProps) => (
+                            <NewlyListedCard
+                              property={cardProps.property}
+                              roomUrls={cardProps.roomUrls}
+                              roomIdx={cardProps.roomIdx}
+                              onRoomPrev={cardProps.onRoomPrev}
+                              onRoomNext={cardProps.onRoomNext}
+                              engagement={engagement}
+                              connectedAgents={
+                                allConnectedAgentsByPropertyId.get(cardProps.property.id) ?? []
+                              }
+                              cardWidthClass={cardProps.cardWidthClass}
+                              viewerUserId={user?.id ?? null}
+                              compact
+                              verifiedListingAgent={viewerVerifiedListingAgent}
+                              listingImageLoadEager={cardProps.listingImageLoadEager}
+                              listingImagePriority={cardProps.listingImagePriority}
+                            />
+                          )}
                         />
                       </div>
                     ) : null}
@@ -3002,6 +3021,7 @@ export function NewlyListedCard({
   verifiedListingAgent,
   listingImageLoadEager,
   listingImagePriority = false,
+  equalHeightRow = false,
 }: {
   property: DbProperty;
   roomUrls: string[];
@@ -3023,6 +3043,8 @@ export function NewlyListedCard({
   listingImageLoadEager?: boolean;
   /** Small set of above-the-fold cards: `next/image` priority + eager fetch. */
   listingImagePriority?: boolean;
+  /** Horizontal carousel rows on mobile: reserve text block height so cards align. */
+  equalHeightRow?: boolean;
 }) {
   const listedLabel = listingListedCompactLabel(property.created_at);
   const listingRemoved = propertyEngagementLooksUnavailable(property);
@@ -3064,6 +3086,7 @@ export function NewlyListedCard({
     !!property.listed_by &&
     viewerUserId !== property.listed_by;
   const browseCompact = !!compact;
+  const mobileEqualHeightRow = browseCompact && equalHeightRow;
 
   const browseCardStatusPillClass =
     "inline-flex w-fit shrink-0 items-center rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-xs font-medium text-[#2C2C2C] shadow-sm";
@@ -3082,7 +3105,11 @@ export function NewlyListedCard({
       className={cn(
         "relative flex flex-col bg-white",
         browseCompact
-          ? "min-h-0 max-md:snap-start max-md:overflow-visible max-md:rounded-2xl max-md:bg-white max-md:shadow-[0_2px_16px_rgba(0,0,0,0.08)] max-md:ring-1 max-md:ring-black/[0.06] max-md:transition max-md:active:scale-[0.99] md:min-h-[412px] md:overflow-hidden md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md lg:min-h-[448px]"
+          ? cn(
+              "min-h-0 max-md:snap-start max-md:overflow-visible max-md:rounded-2xl max-md:bg-white max-md:shadow-[0_2px_16px_rgba(0,0,0,0.08)] max-md:ring-1 max-md:ring-black/[0.06] max-md:transition max-md:active:scale-[0.99]",
+              mobileEqualHeightRow && "max-md:h-full",
+              "md:min-h-[412px] md:overflow-hidden md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md lg:min-h-[448px]",
+            )
           : "min-h-[300px] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 shadow-md md:min-h-[412px] lg:min-h-[448px]",
         grid
           ? gridCardClassName ?? HOMEPAGE_BROWSE_LISTING_CARD_WIDTH
@@ -3344,12 +3371,22 @@ export function NewlyListedCard({
         className={cn(
           "flex flex-col gap-0 bg-white",
           browseCompact
-            ? "max-md:gap-2 max-md:rounded-b-2xl max-md:border-0 max-md:px-4 max-md:pb-4 max-md:pt-3 md:border-t md:border-[#2C2C2C]/10 md:px-3 md:py-2"
+            ? cn(
+                "max-md:gap-2 max-md:rounded-b-2xl max-md:border-0 max-md:px-4 max-md:pb-4 max-md:pt-3",
+                mobileEqualHeightRow && "max-md:flex-1",
+                "md:border-t md:border-[#2C2C2C]/10 md:px-3 md:py-2",
+              )
             : "border-t border-[#2C2C2C]/10 px-3 py-3 sm:px-4",
         )}
       >
         {isDualListing ? (
-          <div className={cn("shrink-0 space-y-0.5", browseCompact && "max-md:space-y-1")}>
+          <div
+            className={cn(
+              "shrink-0 space-y-0.5",
+              browseCompact && "max-md:space-y-1",
+              mobileEqualHeightRow && "max-md:min-h-[3.25rem]",
+            )}
+          >
             <p
               className={cn(
                 "truncate font-bold tracking-tight text-[#2C2C2C]",
@@ -3372,6 +3409,7 @@ export function NewlyListedCard({
             className={cn(
               "shrink-0 truncate font-bold tracking-tight text-[#2C2C2C]",
               browseCompact ? "text-[20px] leading-tight md:text-base md:text-[#D4A843]" : "text-lg text-[#D4A843] sm:text-xl",
+              mobileEqualHeightRow && "max-md:min-h-[3.25rem]",
             )}
           >
             {formatPropertyPriceDisplay(property.price, property.status)}
@@ -3401,6 +3439,7 @@ export function NewlyListedCard({
           className={cn(
             "shrink-0 font-semibold text-[#2C2C2C]",
             browseCompact ? "line-clamp-2 text-[15px] leading-snug md:text-sm" : "line-clamp-2 text-base",
+            mobileEqualHeightRow && "max-md:min-h-[2.75rem]",
           )}
         >
           {titleLine}
@@ -3409,6 +3448,7 @@ export function NewlyListedCard({
           className={cn(
             "flex shrink-0 items-start gap-1.5 text-[#717171]",
             browseCompact ? "text-sm leading-snug md:text-xs" : "text-xs",
+            mobileEqualHeightRow && "max-md:min-h-[2.5rem]",
           )}
         >
           <MapPin className="mt-0.5 size-4 shrink-0 text-[#8E8E8E] md:size-3.5" aria-hidden />
@@ -3649,86 +3689,6 @@ function HomepageFilterDualPriceSlider({
             aria-label="Maximum price (pesos)"
           />
         </div>
-      </div>
-    </div>
-  );
-}
-
-function MobileVerticalListingFeed({
-  mode,
-  listings,
-  engagement,
-  connectedAgentsByPropertyId,
-  viewerUserId,
-  viewerVerifiedListingAgent,
-}: {
-  mode: "buy" | "rent";
-  listings: DbProperty[];
-  engagement: PropertyEngagement;
-  connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
-  viewerUserId?: string | null;
-  viewerVerifiedListingAgent: boolean;
-}) {
-  const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
-
-  if (listings.length === 0) {
-    return (
-      <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center shadow-sm">
-        <p className="font-serif text-lg font-semibold text-[#2C2C2C]">No homes to show yet</p>
-        <p className="mt-2 text-sm font-medium text-[#717171]">
-          New verified listings are added regularly — check back soon.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-w-0 w-full">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="font-serif text-[18px] font-semibold leading-tight text-[#2C2C2C]">
-          {mode === "buy" ? "Homes for sale" : "Homes for rent"}
-        </h2>
-        <span className="shrink-0 text-[13px] font-semibold text-[#888888]">
-          {listings.length} {listings.length === 1 ? "home" : "homes"}
-        </span>
-      </div>
-
-      <div
-        className="mt-3 flex flex-col"
-        style={{ gap: BAHAYGO_FEED_SPACING.sectionGapMobile }}
-      >
-        {listings.map((property, idx) => {
-          const urls = roomUrlsFor(property);
-          return (
-            <NewlyListedCard
-              key={property.id}
-              property={property}
-              roomUrls={urls}
-              roomIdx={cardRoomIdx[property.id] ?? 0}
-              onRoomPrev={() =>
-                setCardRoomIdx((s) => ({
-                  ...s,
-                  [property.id]:
-                    (urls.length + (s[property.id] ?? 0) - 1) % Math.max(1, urls.length),
-                }))
-              }
-              onRoomNext={() =>
-                setCardRoomIdx((s) => ({
-                  ...s,
-                  [property.id]: ((s[property.id] ?? 0) + 1) % Math.max(1, urls.length),
-                }))
-              }
-              engagement={engagement}
-              connectedAgents={connectedAgentsByPropertyId.get(property.id) ?? []}
-              cardWidthClass="w-full shrink-0"
-              viewerUserId={viewerUserId}
-              compact
-              verifiedListingAgent={viewerVerifiedListingAgent}
-              listingImageLoadEager={idx < 4}
-              listingImagePriority={idx < 2}
-            />
-          );
-        })}
       </div>
     </div>
   );
@@ -4159,39 +4119,41 @@ function RowCarousel({
         isFeaturedPicksRow ? "md:px-10" : "flex-1",
       )}
     >
-      <div className="flex w-max flex-nowrap gap-3.5 md:gap-3">
+      <div className="flex w-max flex-nowrap items-stretch gap-3.5 md:gap-3">
         {list.map((p, idx) => (
-          <NewlyListedCard
-            key={`${rowKey}-${p.id}`}
-            property={p}
-            roomUrls={roomUrlsFor(p)}
-            roomIdx={cardRoomIdx[p.id] ?? 0}
-            onRoomPrev={() =>
-              setCardRoomIdx((s) => ({
-                ...s,
-                [p.id]:
-                  (roomUrlsFor(p).length + (s[p.id] ?? 0) - 1) % Math.max(1, roomUrlsFor(p).length),
-              }))
-            }
-            onRoomNext={() =>
-              setCardRoomIdx((s) => ({
-                ...s,
-                [p.id]: ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
-              }))
-            }
-            engagement={engagement}
-            connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
-            cardWidthClass={cardWidthClass}
-            viewerUserId={viewerUserId}
-            compact
-            verifiedListingAgent={viewerVerifiedListingAgent}
-            listingImageLoadEager={
-              eagerListingThumbKey === `${rowKey}-${p.id}` || (featured && idx < 2)
-            }
-            listingImagePriority={
-              (priorityListingThumbKeys?.has(`${rowKey}-${p.id}`) ?? false) || (featured && idx < 3)
-            }
-          />
+          <div key={`${rowKey}-${p.id}`} className="flex self-stretch max-md:items-stretch">
+            <NewlyListedCard
+              property={p}
+              roomUrls={roomUrlsFor(p)}
+              roomIdx={cardRoomIdx[p.id] ?? 0}
+              onRoomPrev={() =>
+                setCardRoomIdx((s) => ({
+                  ...s,
+                  [p.id]:
+                    (roomUrlsFor(p).length + (s[p.id] ?? 0) - 1) % Math.max(1, roomUrlsFor(p).length),
+                }))
+              }
+              onRoomNext={() =>
+                setCardRoomIdx((s) => ({
+                  ...s,
+                  [p.id]: ((s[p.id] ?? 0) + 1) % Math.max(1, roomUrlsFor(p).length),
+                }))
+              }
+              engagement={engagement}
+              connectedAgents={connectedAgentsByPropertyId.get(p.id) ?? []}
+              cardWidthClass={cardWidthClass}
+              viewerUserId={viewerUserId}
+              compact
+              equalHeightRow
+              verifiedListingAgent={viewerVerifiedListingAgent}
+              listingImageLoadEager={
+                eagerListingThumbKey === `${rowKey}-${p.id}` || (featured && idx < 2)
+              }
+              listingImagePriority={
+                (priorityListingThumbKeys?.has(`${rowKey}-${p.id}`) ?? false) || (featured && idx < 3)
+              }
+            />
+          </div>
         ))}
         {Array.from({ length: fillerCount }).map((_, i) => (
           <ListingsComingSoonPlaceholderCard
