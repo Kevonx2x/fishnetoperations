@@ -3,23 +3,19 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
-  BadgeCheck,
   ChevronDown,
-  GraduationCap,
-  Heart,
   MapPin,
   Sparkles,
   Wifi,
 } from "lucide-react";
 
 import { DormspaceBrowse, type DormspaceBrowseFilters } from "@/components/dormspaces/dormspace-browse";
-import { DormspaceCategoryChips } from "@/components/dormspaces/dormspace-category-chips";
-import { DormspaceCommunityCta } from "@/components/dormspaces/dormspace-community-cta";
-import { DormspacePopularAreasSection } from "@/components/dormspaces/dormspace-popular-areas-section";
+import { DormspaceBrowseBySchoolSection } from "@/components/dormspaces/dormspace-browse-by-school-section";
+import { DormspaceFeaturedNeighborhoodsSection } from "@/components/dormspaces/dormspace-featured-neighborhoods-section";
+import { DormspaceNewThisWeekSection } from "@/components/dormspaces/dormspace-new-this-week-section";
 import { DormspacePublicHomeMobile, DormspaceMobileStickySearch } from "@/components/dormspaces/dormspace-public-home-mobile";
 import { MobileFixedSearchShell } from "@/components/marketplace/mobile-fixed-search-shell";
 import { DormspaceRecommendedSection } from "@/components/dormspaces/dormspace-recommended-section";
-import { DormspaceWhyStudentsSection } from "@/components/dormspaces/dormspace-why-students";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import {
   EMPTY_DORMSPACE_BROWSE_FILTERS,
@@ -82,13 +78,11 @@ export function DormspacePublicHome({
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
-  const [activeChipId, setActiveChipId] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<DormspaceBrowseFilters>(EMPTY_DORMSPACE_BROWSE_FILTERS);
 
   const applySearch = () => {
     const city = parseCityFromLocation(locationQuery);
-    setActiveChipId(null);
     setFilters({
       ...EMPTY_DORMSPACE_BROWSE_FILTERS,
       city,
@@ -99,18 +93,11 @@ export function DormspacePublicHome({
     document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const handleChipSelect = (chipId: string | null, next: DormspaceBrowseFilters) => {
-    setActiveChipId(chipId);
-    setFilters(next);
-    if (next.city) setLocationQuery(next.city);
-  };
-
   const scrollToListings = () => {
     document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const applyMobileBrowseFilter = (partial: Partial<DormspaceBrowseFilters>) => {
-    setActiveChipId(null);
     setFilters((f) => ({ ...f, ...partial }));
     if (partial.city) setLocationQuery(partial.city);
   };
@@ -233,13 +220,6 @@ export function DormspacePublicHome({
                 </div>
               ) : null}
             </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-6 sm:grid-cols-4 sm:gap-3">
-              <ValueChip icon={<GraduationCap className="size-4 text-[#6B9E6E]" />} label="Near universities" />
-              <ValueChip icon={<Heart className="size-4 text-[#D4A843]" />} label="Budget friendly" />
-              <ValueChip icon={<BadgeCheck className="size-4 text-[#6B9E6E]" />} label="Verified listings" />
-              <ValueChip icon={<Sparkles className="size-4 text-[#D4A843]" />} label="Free for everyone" />
-            </div>
           </div>
 
           <div className="relative order-1 lg:order-2 lg:min-h-[400px]">
@@ -296,30 +276,29 @@ export function DormspacePublicHome({
         </div>
       </section>
 
-      <DormspaceCategoryChips
-        activeChipId={activeChipId}
-        filters={filters}
-        onSelectChip={handleChipSelect}
-      />
+      <DormspaceNewThisWeekSection listings={listings} />
 
-      <DormspacePopularAreasSection
+      <DormspaceBrowseBySchoolSection
+        universities={universities}
         listings={listings}
-        activeCity={filters.city}
-        onSelectArea={(partial) => {
-          setActiveChipId(null);
+        onSelectUniversity={(partial) => {
           setFilters((f) => ({ ...f, ...partial }));
         }}
-        onClearArea={() => {
-          setActiveChipId(null);
+      />
+
+      <DormspaceFeaturedNeighborhoodsSection
+        listings={listings}
+        activeNeighborhood={filters.neighborhood}
+        onSelectNeighborhood={(partial) => {
+          setFilters((f) => ({ ...f, ...partial }));
+        }}
+        onClearNeighborhood={() => {
           setFilters(EMPTY_DORMSPACE_BROWSE_FILTERS);
         }}
       />
 
       <DormspaceRecommendedSection listings={listings} />
 
-      <DormspaceWhyStudentsSection />
-
-      <DormspaceCommunityCta />
       </div>
 
       <div id="listings" className="scroll-mt-[10.75rem] md:scroll-mt-24">
@@ -334,7 +313,6 @@ export function DormspacePublicHome({
           filters={filters}
           onFiltersChange={(next) => {
             setFilters(next);
-            setActiveChipId(null);
           }}
           syncLocationToHero={setLocationQuery}
         />
@@ -343,11 +321,3 @@ export function DormspacePublicHome({
   );
 }
 
-function ValueChip({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <div className="flex flex-col items-center gap-1 rounded-xl bg-white/90 px-1.5 py-2 text-center ring-1 ring-black/[0.05] sm:gap-1.5 sm:rounded-2xl sm:px-2 sm:py-3">
-      {icon}
-      <span className="text-[9px] font-bold leading-tight text-[#484848] sm:text-[11px]">{label}</span>
-    </div>
-  );
-}

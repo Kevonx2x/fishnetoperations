@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { DormspaceHomeSectionHeader } from "@/components/dormspaces/dormspace-home-section-header";
 import { DormspaceListingCardCompact } from "@/components/dormspaces/dormspace-listing-card-compact";
 import type { DormspaceWithPhotos } from "@/lib/dormspaces";
 
@@ -28,15 +29,11 @@ export function DormspaceRecommendedSection({ listings }: { listings: DormspaceW
   }, []);
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-6 sm:px-5 sm:py-8">
-      <div className="min-w-0">
-        <h2 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl">
-          Recommended for you
-        </h2>
-        <p className="mt-1 text-sm font-semibold text-[#484848]">
-          Hand-picked bedspaces and shared rooms for students &amp; young pros
-        </p>
-      </div>
+    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-5 lg:py-16">
+      <DormspaceHomeSectionHeader
+        title="Recommended for you"
+        subtitle="Hand-picked bedspaces and shared rooms for students & young pros"
+      />
 
       {recommended.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white px-6 py-12 text-center">
@@ -52,7 +49,7 @@ export function DormspaceRecommendedSection({ listings }: { listings: DormspaceW
           </Link>
         </div>
       ) : (
-        <div className="-mx-4 mt-4 flex items-stretch gap-1 md:gap-2">
+        <div className="-mx-4 mt-8 flex items-stretch gap-1 lg:gap-2">
           <button
             type="button"
             onClick={() => scroll("prev")}
