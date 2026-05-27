@@ -1,11 +1,17 @@
+import { Suspense } from "react";
+
 import { DormspaceWelcome } from "@/components/dormspaces/dormspace-welcome";
 
 export const metadata = {
-  title: "List your dormspace | BahayGo",
+  title: "Find your dorm | BahayGo dormspacers",
   description:
-    "Free to list. Verified landlords only. Reach students, BPO workers, and young professionals across Metro Manila.",
+    "Find your dorm. Free to list. Verified landlords only. Reach students and young professionals across Metro Manila.",
 };
 
 export default function DormspaceWelcomePage() {
-  return <DormspaceWelcome />;
+  return (
+    <Suspense fallback={null}>
+      <DormspaceWelcome />
+    </Suspense>
+  );
 }

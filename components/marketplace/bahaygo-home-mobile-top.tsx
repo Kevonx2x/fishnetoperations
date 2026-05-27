@@ -30,6 +30,10 @@ import type { DbProperty } from "@/lib/marketplace-property";
 import { firstRawPropertyPhotoUrl, roomUrlsFor } from "@/lib/marketplace-property";
 import { propertyPhotoHeroUrl } from "@/lib/cloudinary-property-photo-url";
 import type { PropertyEngagement } from "@/hooks/use-property-engagement";
+import {
+  pickMobileCarouselListings,
+  propertyListingLocationKey,
+} from "@/lib/homepage-listing-dedupe";
 import { cn } from "@/lib/utils";
 
 const PAGE_X = "px-4";
@@ -349,13 +353,12 @@ export function BahayGoHomeMobileTop({
   const heroScrollRef = useRef<HTMLDivElement | null>(null);
 
   const heroSlides = useMemo(() => {
-    const out: DbProperty[] = [];
-    if (featuredProperty) out.push(featuredProperty);
+    const ordered: DbProperty[] = [];
+    if (featuredProperty) ordered.push(featuredProperty);
     for (const p of properties) {
-      if (out.length >= 5) break;
-      if (p.id !== featuredProperty?.id) out.push(p);
+      if (p.id !== featuredProperty?.id) ordered.push(p);
     }
-    return out;
+    return pickMobileCarouselListings(ordered, { limit: 5 });
   }, [featuredProperty, properties]);
 
   useEffect(() => {
@@ -380,13 +383,14 @@ export function BahayGoHomeMobileTop({
     return () => node.removeEventListener("scroll", onScroll);
   }, [heroSlides.length]);
 
-  const newThisWeek = useMemo(
-    () =>
-      [...properties]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 8),
-    [properties],
-  );
+  const newThisWeek = useMemo(() => {
+    const excludeIds = new Set(heroSlides.map((p) => p.id));
+    const excludeLocationKeys = new Set(heroSlides.map((p) => propertyListingLocationKey(p)));
+    const sorted = [...properties].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+    return pickMobileCarouselListings(sorted, { limit: 8, excludeIds, excludeLocationKeys });
+  }, [heroSlides, properties]);
 
   const handleQuickCategory = (id: QuickCategoryId) => {
     const active = isQuickCategoryActive(id, filters, search);

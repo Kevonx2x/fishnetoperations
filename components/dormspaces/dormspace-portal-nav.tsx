@@ -400,14 +400,14 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
             ) : (
               <>
                 <Link
-                  href={signInHref}
+                  href="/dormspaces/welcome?intent=signin#get-started"
                   className="hidden text-sm font-semibold text-[#404040] transition hover:text-[#2C2C2C] sm:inline"
                 >
                   Sign In
                 </Link>
                 <Link
-                  href="/dormspaces/welcome?tab=signup"
-                  className="inline-flex h-9 items-center justify-center rounded-xl bg-[#6B9E6E] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#5d8a60]"
+                  href="/dormspaces/welcome?intent=signup#get-started"
+                  className="inline-flex h-9 items-center justify-center rounded-xl bg-[#1a2e22] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#243828]"
                 >
                   Sign Up
                 </Link>

@@ -2,6 +2,8 @@
 
 import { Building2, Lock, ShieldCheck, Zap, type LucideIcon } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+
 const TRUST_ITEMS: {
   icon: LucideIcon;
   title: string;
@@ -31,7 +33,14 @@ const TRUST_ITEMS: {
 
 function TrustCard({ icon: Icon, title, body }: (typeof TRUST_ITEMS)[number]) {
   return (
-    <article className="flex w-[min(168px,44vw)] shrink-0 snap-start flex-col items-center rounded-2xl bg-white px-4 py-5 text-center shadow-[0_4px_20px_rgba(44,44,44,0.08)] ring-1 ring-black/[0.05] sm:w-[180px] sm:py-6">
+    <article
+      className={cn(
+        "flex shrink-0 snap-start flex-col items-center rounded-2xl bg-white px-4 py-5 text-center",
+        "shadow-[0_4px_20px_rgba(44,44,44,0.08)] ring-1 ring-black/[0.05]",
+        "w-[min(168px,44vw)] sm:w-[180px] sm:py-6",
+        "md:w-full md:shrink",
+      )}
+    >
       <span className="flex size-11 items-center justify-center rounded-full bg-[#6B9E6E]/14 sm:size-12">
         <Icon className="size-5 text-[#2d4a32] sm:size-6" strokeWidth={2} aria-hidden />
       </span>
@@ -45,7 +54,11 @@ export function HomepageTrustCarousel() {
   return (
     <section className="mt-6 lg:mt-12" aria-label="Why BahayGo">
       <div
-        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scrollbar-hide sm:mx-0 sm:gap-4 sm:px-0 md:overflow-visible md:pb-0"
+        className={cn(
+          "-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scrollbar-hide",
+          "sm:mx-0 sm:gap-4 sm:px-0",
+          "md:grid md:grid-cols-4 md:gap-4 md:overflow-visible md:pb-0",
+        )}
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {TRUST_ITEMS.map((item) => (

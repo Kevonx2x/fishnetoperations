@@ -55,6 +55,7 @@ import { useAuth } from "@/contexts/auth-context";
 import {
   HomepageFaqSectionSkeleton,
   HomepageListingRowsSkeleton,
+  HomepageMobileVerticalFeedSkeleton,
   HomepageTopAgentsSectionSkeleton,
 } from "@/components/marketplace/homepage-load-shell";
 
@@ -109,6 +110,8 @@ import {
   HOMEPAGE_INITIAL_CATEGORY_ROWS,
   HOMEPAGE_MAX_CATEGORY_ROWS,
 } from "@/lib/homepage-row-templates";
+import { buildMobileDiscoveryPool, dedupeMobileHomepageRows, propertyListingLocationKey } from "@/lib/homepage-listing-dedupe";
+import { BAHAYGO_FEED_SPACING } from "@/lib/bahaygo-design-tokens";
 import {
   HOMEPAGE_BROWSE_LISTING_CARD_WIDTH,
   HOMEPAGE_MOBILE_CAROUSEL_TRACK,
@@ -1300,6 +1303,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     const selectQ = `
           id, created_at, name, location, region, city, neighborhood, price, rent_price, listing_type, sqft, beds, baths, image_url, status, listed_by, description, property_type,
           is_presale, developer_name, turnover_date, unit_types, deleted_at, availability_state,
+          duplicate_of_property_id, flagged_for_admin_review,
           property_photos (url, sort_order, created_at),
           property_agents (agent:agents (id, user_id, name, email, phone, image_url, score, closings, response_time, availability, listing_tier, updated_at, agencies (id, company_name, logo_url), profiles(email, phone)))
         `;
@@ -1855,6 +1859,28 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
     return m;
   }, [properties, allConnectedAgentsByPropertyId]);
 
+  /** Mobile-only: merge same-address listings and drop backend-flagged duplicates. */
+  const mobileDiscoveryPool = useMemo(
+    () => buildMobileDiscoveryPool(modePool, { trustScoreById: propertyTrustScoreById }),
+    [modePool, propertyTrustScoreById],
+  );
+
+  /** Mobile hero: prefer the canonical listing when the spotlight points at a duplicate address. */
+  const mobileFeaturedProperty = useMemo(() => {
+    if (!featuredHomeProperty) return null;
+    if (mobileDiscoveryPool.some((p) => p.id === featuredHomeProperty.id)) {
+      return featuredHomeProperty;
+    }
+    const loc = propertyListingLocationKey(featuredHomeProperty);
+    const canonical = mobileDiscoveryPool.find((p) => propertyListingLocationKey(p) === loc);
+    return canonical ?? mobileDiscoveryPool[0] ?? featuredHomeProperty;
+  }, [featuredHomeProperty, mobileDiscoveryPool]);
+
+  const mobileVerticalListings = useMemo(
+    () => mobileDiscoveryPool.filter(passesHomepageFilters),
+    [mobileDiscoveryPool, passesHomepageFilters],
+  );
+
   const templateRowContext = useMemo(
     () => ({
       mode: (mode === "buy" ? "buy" : "rent") as "buy" | "rent",
@@ -2266,9 +2292,9 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         onFiltersChange={setFilters}
         onOpenFilters={() => setFiltersOpen(true)}
         neighborhoodLabel={neighborhoodLabelForChips}
-        featuredProperty={featuredHomeProperty}
+        featuredProperty={mobileFeaturedProperty}
         featuredIsAdminFeatured={featuredHomeIsAdminFeatured}
-        properties={properties}
+        properties={mobileDiscoveryPool}
         engagement={engagement}
         onScrollToListings={scrollToListings}
         onLocationChipPress={() => setFiltersOpen(true)}
@@ -2452,7 +2478,12 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         {/* Loading / error */}
         {loading ? (
           <div className="mt-4 min-h-[280px] min-w-0 w-full max-w-full md:mt-8 md:min-h-[400px]">
-            <HomepageListingRowsSkeleton rows={HOMEPAGE_MOBILE_FEED_ROW_COUNT} />
+            <div className="md:hidden">
+              <HomepageMobileVerticalFeedSkeleton count={4} />
+            </div>
+            <div className="hidden md:block">
+              <HomepageListingRowsSkeleton rows={HOMEPAGE_INITIAL_CATEGORY_ROWS} />
+            </div>
           </div>
         ) : null}
         {!loading && listingsLoadFailed ? (
@@ -2558,22 +2589,39 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
                     </div>
                   </div>
                 ) : (
-                  <PropertyRows
-                    rows={homepageRows}
-                    showMore={showMoreCategories}
-                    onToggleShowMore={() => setShowMoreCategories((v) => !v)}
-                    enableShowMore={!filtersActive}
-                    mobileFeedBrowse={!filtersActive}
-                    rowRefs={rowRefs}
-                    cardRoomIdx={cardRoomIdx}
-                    setCardRoomIdx={setCardRoomIdx}
-                    engagement={engagement}
-                    connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
-                    viewerUserId={user?.id ?? null}
-                    viewerVerifiedListingAgent={viewerVerifiedListingAgent}
-                    listingsOnboardingHref={user ? "/register/agent" : "/auth/signup"}
-                    hideRowPlaceholders={filtersActive}
-                  />
+                  <>
+                    {!filtersActive ? (
+                      <div className="md:hidden">
+                        <MobileVerticalListingFeed
+                          mode={mode === "buy" ? "buy" : "rent"}
+                          listings={mobileVerticalListings}
+                          engagement={engagement}
+                          connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
+                          viewerUserId={user?.id ?? null}
+                          viewerVerifiedListingAgent={viewerVerifiedListingAgent}
+                        />
+                      </div>
+                    ) : null}
+                    <div className={cn(!filtersActive && "hidden md:block")}>
+                      <PropertyRows
+                        rows={homepageRows}
+                        showMore={showMoreCategories}
+                        onToggleShowMore={() => setShowMoreCategories((v) => !v)}
+                        enableShowMore={!filtersActive}
+                        mobileFeedBrowse={false}
+                        alternateListingPool={!filtersActive ? mobileDiscoveryPool : undefined}
+                        rowRefs={rowRefs}
+                        cardRoomIdx={cardRoomIdx}
+                        setCardRoomIdx={setCardRoomIdx}
+                        engagement={engagement}
+                        connectedAgentsByPropertyId={allConnectedAgentsByPropertyId}
+                        viewerUserId={user?.id ?? null}
+                        viewerVerifiedListingAgent={viewerVerifiedListingAgent}
+                        listingsOnboardingHref={user ? "/register/agent" : "/auth/signup"}
+                        hideRowPlaceholders={filtersActive}
+                      />
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -3165,6 +3213,8 @@ export function NewlyListedCard({
 
   const propertyHref = `/properties/${encodeURIComponent(property.id)}`;
   const propertyDetailLabel = `View ${titleLine}`;
+  const photoDotCount = Math.min(roomUrls.length, 5);
+  const activePhotoDot = Math.min(roomIdx, photoDotCount - 1);
 
   return (
     <div
@@ -3231,38 +3281,81 @@ export function NewlyListedCard({
               disabled={listingRemoved}
               onClick={(e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 onRoomPrev();
               }}
               className={cn(
-                "absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30",
-                browseCompact && "max-md:hidden",
+                "absolute top-1/2 z-[25] -translate-y-1/2 disabled:pointer-events-none disabled:opacity-30",
+                browseCompact
+                  ? "left-2 p-0.5 max-md:left-2 md:left-1 md:rounded-full md:bg-white/90 md:p-1 md:opacity-60 md:shadow-sm md:ring-1 md:ring-black/5 md:hover:opacity-100"
+                  : "left-1 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100",
               )}
-              aria-label="Previous room photo"
+              aria-label="Previous photo"
             >
-              <ChevronLeft className="h-5 w-5 text-[#2C2C2C]" />
+              <ChevronLeft
+                className={cn(
+                  "h-5 w-5",
+                  browseCompact
+                    ? "max-md:h-6 max-md:w-6 max-md:text-white max-md:drop-shadow-[0_1px_4px_rgba(0,0,0,0.65)] md:text-[#2C2C2C]"
+                    : "text-[#2C2C2C]",
+                )}
+                strokeWidth={2.5}
+              />
             </button>
             <button
               type="button"
               disabled={listingRemoved}
               onClick={(e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 onRoomNext();
               }}
               className={cn(
-                "absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100 disabled:pointer-events-none disabled:opacity-30",
-                browseCompact && "max-md:hidden",
+                "absolute top-1/2 z-[25] -translate-y-1/2 disabled:pointer-events-none disabled:opacity-30",
+                browseCompact
+                  ? "right-2 p-0.5 max-md:right-2 md:right-1 md:rounded-full md:bg-white/90 md:p-1 md:opacity-60 md:shadow-sm md:ring-1 md:ring-black/5 md:hover:opacity-100"
+                  : "right-1 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100",
               )}
-              aria-label="Next room photo"
+              aria-label="Next photo"
             >
-              <ChevronRight className="h-5 w-5 text-[#2C2C2C]" />
+              <ChevronRight
+                className={cn(
+                  "h-5 w-5",
+                  browseCompact
+                    ? "max-md:h-6 max-md:w-6 max-md:text-white max-md:drop-shadow-[0_1px_4px_rgba(0,0,0,0.65)] md:text-[#2C2C2C]"
+                    : "text-[#2C2C2C]",
+                )}
+                strokeWidth={2.5}
+              />
             </button>
+
+            {browseCompact ? (
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-2.5 z-[25] flex items-center justify-center gap-[6px] md:hidden"
+                aria-hidden
+              >
+                {Array.from({ length: photoDotCount }).map((_, i) => (
+                  <span
+                    key={`photo-dot-${i}`}
+                    className={cn(
+                      "rounded-full bg-white transition-all duration-200",
+                      i === activePhotoDot ? "size-2 opacity-100" : "size-[5px] opacity-50",
+                    )}
+                  />
+                ))}
+              </div>
+            ) : null}
           </>
         ) : null}
 
         <div
           className={cn(
-            "pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-16 bg-gradient-to-t from-black/25 to-transparent",
-            browseCompact && "max-md:hidden",
+            "pointer-events-none absolute inset-x-0 bottom-0 z-[10] bg-gradient-to-t from-black/30 to-transparent",
+            browseCompact
+              ? roomUrls.length > 1
+                ? "h-14 max-md:block md:h-16"
+                : "h-16 max-md:hidden md:block"
+              : "h-16",
           )}
         />
 
@@ -3700,6 +3793,86 @@ function HomepageFilterDualPriceSlider({
   );
 }
 
+function MobileVerticalListingFeed({
+  mode,
+  listings,
+  engagement,
+  connectedAgentsByPropertyId,
+  viewerUserId,
+  viewerVerifiedListingAgent,
+}: {
+  mode: "buy" | "rent";
+  listings: DbProperty[];
+  engagement: PropertyEngagement;
+  connectedAgentsByPropertyId: Map<string, MarketplaceAgent[]>;
+  viewerUserId?: string | null;
+  viewerVerifiedListingAgent: boolean;
+}) {
+  const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
+
+  if (listings.length === 0) {
+    return (
+      <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center shadow-sm">
+        <p className="font-serif text-lg font-semibold text-[#2C2C2C]">No homes to show yet</p>
+        <p className="mt-2 text-sm font-medium text-[#717171]">
+          New verified listings are added regularly — check back soon.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-0 w-full">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="font-serif text-[18px] font-semibold leading-tight text-[#2C2C2C]">
+          {mode === "buy" ? "Homes for sale" : "Homes for rent"}
+        </h2>
+        <span className="shrink-0 text-[13px] font-semibold text-[#888888]">
+          {listings.length} {listings.length === 1 ? "home" : "homes"}
+        </span>
+      </div>
+
+      <div
+        className="mt-3 flex flex-col"
+        style={{ gap: BAHAYGO_FEED_SPACING.sectionGapMobile }}
+      >
+        {listings.map((property, idx) => {
+          const urls = roomUrlsFor(property);
+          return (
+            <NewlyListedCard
+              key={property.id}
+              property={property}
+              roomUrls={urls}
+              roomIdx={cardRoomIdx[property.id] ?? 0}
+              onRoomPrev={() =>
+                setCardRoomIdx((s) => ({
+                  ...s,
+                  [property.id]:
+                    (urls.length + (s[property.id] ?? 0) - 1) % Math.max(1, urls.length),
+                }))
+              }
+              onRoomNext={() =>
+                setCardRoomIdx((s) => ({
+                  ...s,
+                  [property.id]: ((s[property.id] ?? 0) + 1) % Math.max(1, urls.length),
+                }))
+              }
+              engagement={engagement}
+              connectedAgents={connectedAgentsByPropertyId.get(property.id) ?? []}
+              cardWidthClass="w-full shrink-0"
+              viewerUserId={viewerUserId}
+              compact
+              verifiedListingAgent={viewerVerifiedListingAgent}
+              listingImageLoadEager={idx < 4}
+              listingImagePriority={idx < 2}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function PropertyRows({
   rows,
   showMore,
@@ -3717,6 +3890,7 @@ function PropertyRows({
   enableShowMore = true,
   mobileInitialRows,
   mobileFeedBrowse = false,
+  alternateListingPool,
 }: {
   rows: {
     key: string;
@@ -3746,9 +3920,17 @@ function PropertyRows({
   mobileInitialRows?: number;
   /** Mobile home: six Trulia-style rows, no Show More. */
   mobileFeedBrowse?: boolean;
+  /** Extra listings used to backfill mobile rows without repeating across carousels. */
+  alternateListingPool?: DbProperty[];
 }) {
   const dedupedRows = useMemo(() => {
     if (hideRowPlaceholders) return rows.filter((r) => r.items.length > 0);
+    if (mobileFeedBrowse && alternateListingPool && alternateListingPool.length > 0) {
+      return dedupeMobileHomepageRows(rows, alternateListingPool, {
+        minItemsPerRow: 2,
+        maxItemsPerRow: 12,
+      });
+    }
     if (rows.length <= 1) return rows;
     const seen = new Set<string>();
     const out: typeof rows = [];
@@ -3778,7 +3960,7 @@ function PropertyRows({
       out.push({ ...r, items: nextItems });
     }
     return out;
-  }, [rows, hideRowPlaceholders]);
+  }, [alternateListingPool, hideRowPlaceholders, mobileFeedBrowse, rows]);
 
   const homepageRows = useMemo(
     () =>

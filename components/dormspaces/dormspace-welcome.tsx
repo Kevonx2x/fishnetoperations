@@ -3,16 +3,27 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { BadgeCheck, MapPin, Plus, Sparkles, Wifi } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  BadgeCheck,
+  Bath,
+  BedDouble,
+  Building2,
+  Check,
+  Home,
+  MapPin,
+  Plus,
+  Ruler,
+  Shield,
+  Wifi,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { DormspaceAddListingSplitButton } from "@/components/dormspaces/dormspace-add-listing-split-button";
 import {
   ClientSignedInCard,
   StaffRoleNoticeCard,
-  WelcomeTopAuthBar,
+  WelcomeHeroAuthPanel,
 } from "@/components/dormspaces/dormspace-welcome-auth";
 import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
@@ -26,43 +37,25 @@ import {
   normalizeLandlordVerificationStatus,
 } from "@/lib/landlord-verification";
 import { useAuth } from "@/contexts/auth-context";
-import {
-  isDormspaceSubmitBlockedRole,
-  isLandlordCapable,
-  roleDisplayLabel,
-} from "@/lib/auth-roles";
+import { isDormspaceSubmitBlockedRole, isLandlordCapable } from "@/lib/auth-roles";
 import { DORMSPACE_HERO_IMAGE } from "@/lib/dormspaces";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 14 },
-  show: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.08, duration: 0.45, ease: [0.22, 1, 0.36, 1] as const },
-  }),
-};
+/** Cozy dorm/studio — matches welcome mockup featured card. */
+const FEATURED_LISTING_IMAGE =
+  "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80";
 
-const PREVIEW_LISTINGS = [
-  {
-    title: "Bright bedspace near Taft",
-    area: "Malate, Manila",
-    price: "₱4,200",
-    tag: "ID verified",
-  },
-  {
-    title: "Quiet shared room · BGC",
-    area: "Taguig",
-    price: "₱5,800",
-    tag: "WiFi included",
-  },
-  {
-    title: "Student-friendly dorm · QC",
-    area: "Quezon City",
-    price: "₱3,500",
-    tag: "No listing fees",
-  },
-];
+const HERO_STATS = [
+  { icon: MapPin, value: "17+", label: "Metro Areas" },
+  { icon: Shield, value: "₱0", label: "Listing Fees" },
+  { icon: Home, value: "100%", label: "Filipino-Built" },
+] as const;
+
+const TRUST_ITEMS = [
+  "Verified landlords and listings only",
+  "Zero listing fees. Always free.",
+  "Made for Filipinos, by Filipinos",
+] as const;
 
 function WelcomeCardButtonSkeleton() {
   return (
@@ -96,7 +89,7 @@ function LandlordWelcomeCard({
   return (
     <div className="rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_8px_32px_rgba(44,44,44,0.08)] sm:p-8">
       <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#6B9E6E]">Landlord account</p>
-      <h2 className="mt-2 font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-[1.65rem]">
+      <h2 className="mt-2 font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] sm:text-[1.75rem]">
         Welcome back, {firstName}
       </h2>
       <p className="mt-2 text-sm font-medium leading-relaxed text-[#484848]">
@@ -126,7 +119,7 @@ function LandlordWelcomeCard({
             <>
               <Link
                 href="/dormspaces/dashboard"
-                className="inline-flex h-12 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
+                className="inline-flex h-12 items-center justify-center rounded-xl bg-[#1a2e22] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#243828]"
               >
                 Go to dashboard
               </Link>
@@ -142,7 +135,7 @@ function LandlordWelcomeCard({
         ) : showFirstListing ? (
           <Link
             href="/dormspaces/submit?from=welcome"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#1a2e22] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#243828]"
           >
             <Plus className="size-4" aria-hidden />
             Add your first dormspace
@@ -175,10 +168,23 @@ function landlordFirstName(fullName: string | null | undefined, email: string | 
   return email?.split("@")[0] ?? "there";
 }
 
+function parseWelcomeIntent(searchParams: URLSearchParams): "signin" | "signup" | null {
+  const intent = searchParams.get("intent");
+  if (intent === "signup" || intent === "signin") return intent;
+  if (searchParams.get("tab") === "signup") return "signup";
+  return null;
+}
+
 export function DormspaceWelcome() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { user, profile, loading: authLoading } = useAuth();
+
+  const welcomeIntent = useMemo(
+    () => parseWelcomeIntent(searchParams),
+    [searchParams],
+  );
 
   const isLandlordSignedIn = Boolean(user && profile && isLandlordCapable(profile));
   const isStaffSignedIn = Boolean(
@@ -211,6 +217,14 @@ export function DormspaceWelcome() {
 
     window.history.replaceState({}, "", "/dormspaces/welcome");
   }, []);
+
+  useEffect(() => {
+    if (!welcomeIntent) return;
+    const t = window.setTimeout(() => {
+      document.getElementById("get-started")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [welcomeIntent, authLoading]);
 
   const loadLandlordListings = useCallback(async () => {
     if (!isLandlordSignedIn || !user) {
@@ -252,212 +266,210 @@ export function DormspaceWelcome() {
     }
   };
 
-  const isSignedIn = Boolean(user);
-  const showThinAuthBar = authLoading || !isSignedIn || (isSignedIn && !isLandlordSignedIn);
-
-  const hasAccountPanel =
-    authLoading || isLandlordSignedIn || isStaffSignedIn || isClientSignedIn;
-
-  const accountPanel = (
-    <>
-      {authLoading ? (
-        <div className="rounded-2xl border border-[#DDDDDD] bg-white p-8 shadow-[0_4px_24px_rgba(44,44,44,0.06)]">
-          <p className="text-center text-sm font-medium text-[#484848]">Loading…</p>
-        </div>
-      ) : isLandlordSignedIn ? (
-        <LandlordWelcomeCard
-          firstName={landlordFirstName(profile?.full_name, user?.email)}
-          listings={listings}
-          listingsResolved={listingsResolved}
-          verificationStatus={normalizeLandlordVerificationStatus(
-            profile?.landlord_verification_status,
-          )}
-          rejectionReason={profile?.landlord_verification_rejection_reason}
-          onUpdateVacancy={(listing) => {
-            setVacancyListing(listing);
-            setVacancyModalOpen(true);
-          }}
-        />
-      ) : isStaffSignedIn && profile ? (
-        <StaffRoleNoticeCard
-          role={profile.role}
-          onSignOut={() => void handleStaffSignOut()}
-          signingOut={signingOut}
-        />
-      ) : isClientSignedIn ? (
-        <>
-          <p className="rounded-xl border border-[#6B9E6E]/25 bg-[#6B9E6E]/8 px-4 py-3 text-sm font-medium text-[#484848]">
-            You&apos;re signed in as a client. Creating a listing here will let you list your own space
-            when you&apos;re ready — your client account stays intact.
-          </p>
-          <ClientSignedInCard />
-        </>
-      ) : null}
-    </>
+  const landlordCard = (
+    <LandlordWelcomeCard
+      firstName={landlordFirstName(profile?.full_name, user?.email)}
+      listings={listings}
+      listingsResolved={listingsResolved}
+      verificationStatus={normalizeLandlordVerificationStatus(profile?.landlord_verification_status)}
+      rejectionReason={profile?.landlord_verification_rejection_reason}
+      onUpdateVacancy={(listing) => {
+        setVacancyListing(listing);
+        setVacancyModalOpen(true);
+      }}
+    />
   );
+
+  const staffCard =
+    profile && isStaffSignedIn ? (
+      <StaffRoleNoticeCard
+        role={profile.role}
+        onSignOut={() => void handleStaffSignOut()}
+        signingOut={signingOut}
+      />
+    ) : null;
+
+  const clientCard = isClientSignedIn ? <ClientSignedInCard /> : null;
 
   return (
     <DormspacePortalShell minimalNav>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-28 lg:px-6 lg:py-10 lg:pb-10">
-        {showThinAuthBar ? (
-          <WelcomeTopAuthBar
-            loading={authLoading}
-            signedIn={isSignedIn}
-            profile={profile}
-            email={user?.email}
-          />
-        ) : null}
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-6 lg:px-6 lg:pb-16 lg:pt-10">
+        {/* Hero — photo visible above the fold (mockup: headline + image + stats | auth card) */}
+        <section className="grid gap-6 lg:grid-cols-[1fr_minmax(0,380px)] lg:items-start lg:gap-10">
+          <div className="min-w-0">
+            <h1 className="font-serif text-[30px] font-semibold leading-[1.12] tracking-tight text-[#2C2C2C] md:text-[38px] lg:text-[42px]">
+              Find your space.
+              <br />
+              Feel at <span className="text-[#6B9E6E]">dorm.</span>
+            </h1>
+            <p className="mt-3 max-w-xl text-sm font-medium leading-relaxed text-[#484848] md:text-[15px]">
+              Free to list. Verified landlords only. Reach students, BPO workers, and young professionals
+              across Metro Manila.
+            </p>
 
-        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-12 xl:gap-16">
-        <motion.div
-          className="order-2 flex flex-col lg:order-1"
-          initial="hidden"
-          animate="show"
-          variants={{ show: { transition: { staggerChildren: 0.06 } } }}
-        >
-          <motion.h1
-            custom={0}
-            variants={fadeUp}
-            className="font-serif text-[28px] font-bold tracking-tight text-[#2C2C2C] md:text-[40px]"
-          >
-            Welcome to Dormspacer
-          </motion.h1>
-
-          <motion.p
-            custom={1}
-            variants={fadeUp}
-            className="mt-3 max-w-lg text-sm font-medium leading-relaxed text-[#484848] md:mt-4 md:text-base"
-          >
-            Free to list. Verified landlords only. Reach students, BPO workers, and young professionals
-            across Metro Manila.
-          </motion.p>
-
-          <motion.div
-            custom={2}
-            variants={fadeUp}
-            className="mt-6 flex gap-1.5 md:mt-8 md:grid md:grid-cols-3 md:gap-3"
-          >
-            {[
-              { value: "17+", label: "Metro areas" },
-              { value: "₱0", label: "Listing fees" },
-              { value: "100%", label: "Filipino-built" },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className="min-w-0 flex-1 rounded-lg border border-[#6B9E6E]/20 bg-white/80 px-2 py-2 text-center shadow-sm md:rounded-xl md:px-3 md:py-3"
-              >
-                <p className="font-serif text-sm font-bold text-[#6B9E6E] md:text-xl">{stat.value}</p>
-                <p className="mt-0.5 text-[9px] font-semibold uppercase leading-tight tracking-wide text-[#525252] md:text-[11px]">
-                  {stat.label}
-                </p>
-              </div>
-            ))}
-          </motion.div>
-
-          <motion.div custom={3} variants={fadeUp} className="relative mt-6">
-            <div className="overflow-hidden rounded-xl border border-[#2C2C2C]/8 shadow-[0_8px_30px_rgba(44,44,44,0.08)] md:rounded-2xl">
-              <div className="relative aspect-[16/10] w-full">
+            <div className="relative mt-5 overflow-hidden rounded-2xl border border-[#2C2C2C]/8 shadow-[0_8px_28px_rgba(44,44,44,0.1)]">
+              <div className="relative h-[168px] w-full sm:h-[190px] lg:h-[200px]">
                 <Image
                   src={DORMSPACE_HERO_IMAGE}
-                  alt=""
+                  alt="Bright dorm and bedspace interior"
                   fill
                   className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  sizes="(max-width: 1024px) 100vw, 640px"
                   priority
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#1a2e22]/75 via-[#1a2e22]/20 to-transparent" />
-                <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-sm">
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1a2e22]/55 via-transparent to-transparent" />
+                <div className="absolute bottom-3 left-3 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
                     <BadgeCheck className="size-3 text-[#6B9E6E]" aria-hidden />
                     Verified landlords
                   </span>
-                  <span className="rounded-full bg-[#D4A843]/90 px-2.5 py-1 text-[11px] font-bold text-[#2C2C2C] shadow-sm">
-                    Free for everyone
+                  <span className="rounded-full bg-[#D4A843]/95 px-2.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
+                    Free to list
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 space-y-2">
-              {PREVIEW_LISTINGS.map((listing, i) => (
-                <motion.div
-                  key={listing.title}
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.35 + i * 0.1, duration: 0.4 }}
-                  whileHover={{ y: -2, transition: { duration: 0.2 } }}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-[#DDDDDD] bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3"
+            <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+              {HERO_STATS.map(({ icon: Icon, value, label }) => (
+                <div
+                  key={label}
+                  className="flex flex-col items-center rounded-xl border border-[#6B9E6E]/15 bg-white px-1.5 py-3 text-center shadow-sm sm:px-2 sm:py-3.5"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-[#2C2C2C]">{listing.title}</p>
-                    <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-[#888888]">
-                      <MapPin className="size-3 shrink-0 text-[#6B9E6E]" aria-hidden />
-                      {listing.area}
-                    </p>
-                    <span className="mt-1.5 inline-block rounded-full bg-[#6B9E6E]/10 px-2 py-0.5 text-[10px] font-semibold text-[#4a7a4d]">
-                      {listing.tag}
-                    </span>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm font-bold text-[#6B9E6E]">{listing.price}</p>
-                    <p className="text-[10px] font-semibold text-[#888888]">/ month</p>
-                  </div>
-                </motion.div>
+                  <span className="flex size-9 items-center justify-center rounded-full bg-[#6B9E6E]/12 sm:size-10">
+                    <Icon className="size-4 text-[#6B9E6E] sm:size-5" strokeWidth={2} aria-hidden />
+                  </span>
+                  <p className="mt-1.5 font-serif text-base font-bold text-[#2C2C2C] sm:text-lg">{value}</p>
+                  <p className="mt-0.5 text-[9px] font-semibold uppercase leading-tight tracking-wide text-[#525252] sm:text-[10px]">
+                    {label}
+                  </p>
+                </div>
               ))}
             </div>
-          </motion.div>
+          </div>
 
-          <motion.blockquote
-            custom={4}
-            variants={fadeUp}
-            className="mt-6 border-l-4 border-[#D4A843] bg-white/60 py-1 pl-4 pr-2"
-          >
-            <p className="font-serif text-sm italic leading-relaxed text-[#2C2C2C] md:text-base">
-              &ldquo;I listed my bedspace in one evening. Students messaged me the same week — and BahayGo
-              never charged a peso.&rdquo;
-            </p>
-            <footer className="mt-2 text-xs font-semibold text-[#6B9E6E]">
-              — Marla R., landlord · Makati
-            </footer>
-          </motion.blockquote>
+          <div className="lg:sticky lg:top-20">
+            <WelcomeHeroAuthPanel
+              loading={authLoading}
+              intent={welcomeIntent}
+              isLandlordSignedIn={isLandlordSignedIn}
+              isStaffSignedIn={isStaffSignedIn}
+              isClientSignedIn={isClientSignedIn}
+              landlordCard={landlordCard}
+              staffCard={staffCard}
+              clientCard={clientCard}
+            />
+          </div>
+        </section>
 
-          <motion.p
-            custom={5}
-            variants={fadeUp}
-            className="mb-6 mt-6 inline-flex items-center gap-1.5 text-xs font-semibold text-[#525252] lg:mb-0"
-          >
-            <Sparkles className="size-3.5 text-[#D4A843]" aria-hidden />
-            Built for Filipino dorm owners — from QC bedspaces to BGC coliving
-          </motion.p>
-        </motion.div>
+        {/* Trust banner */}
+        <section className="mt-8 rounded-2xl border border-[#DDDDDD] bg-white px-5 py-5 shadow-sm md:mt-10 md:flex md:items-center md:justify-between md:gap-8 md:px-8 md:py-6">
+          <div className="flex items-start gap-3 md:min-w-0 md:shrink-0">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#6B9E6E]/12">
+              <Building2 className="size-6 text-[#6B9E6E]" aria-hidden />
+            </span>
+            <div>
+              <p className="font-serif text-lg font-bold text-[#2C2C2C] md:text-xl">
+                Built for renters. Trusted by landlords.
+              </p>
+            </div>
+          </div>
+          <ul className="mt-4 space-y-2 md:mt-0 md:flex-1">
+            {TRUST_ITEMS.map((item) => (
+              <li key={item} className="flex items-center gap-2 text-sm font-medium text-[#484848]">
+                <Check className="size-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </section>
 
-        {hasAccountPanel ? (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.45 }}
-            className="order-1 w-full lg:order-2 lg:sticky lg:top-24 lg:flex lg:min-h-[calc(100dvh-7rem)] lg:max-w-md lg:flex-col lg:justify-center lg:justify-self-end lg:self-start"
-          >
-            {accountPanel}
-          </motion.div>
-        ) : null}
-        </div>
+        {/* Featured dormspaces */}
+        <section className="mt-8 md:mt-12">
+          <div className="mb-3 flex items-end justify-between gap-4">
+            <h2 className="font-serif text-xl font-bold text-[#2C2C2C] md:text-2xl">Featured dormspaces</h2>
+            <Link
+              href="/dormspaces"
+              className="shrink-0 text-sm font-semibold text-[#6B9E6E] hover:underline"
+            >
+              Browse all →
+            </Link>
+          </div>
 
-        <p className="mt-6 text-center">
+          <article className="overflow-hidden rounded-2xl border border-[#DDDDDD] bg-white shadow-[0_4px_24px_rgba(44,44,44,0.08)] sm:flex">
+            <div className="relative h-[160px] w-full shrink-0 sm:h-auto sm:w-[42%] sm:min-h-[200px] sm:max-w-[320px]">
+              <Image
+                src={FEATURED_LISTING_IMAGE}
+                alt="Cozy studio dormspace near Araneta Center"
+                fill
+                className="object-cover"
+                sizes="(max-width: 640px) 100vw, 320px"
+              />
+              <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
+                <BadgeCheck className="size-3.5 text-[#6B9E6E]" aria-hidden />
+                Verified
+              </span>
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col justify-center p-5 sm:p-6">
+              <span className="inline-flex w-fit rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-bold text-[#4a7a4d]">
+                Quezon City
+              </span>
+              <h3 className="mt-3 font-serif text-lg font-bold leading-snug text-[#2C2C2C] sm:text-xl">
+                Cozy Studio Unit near Araneta Center
+              </h3>
+              <p className="mt-2 text-lg font-bold text-[#2C2C2C]">
+                ₱8,500 <span className="text-sm font-semibold text-[#888888]">/ month</span>
+              </p>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-[#525252]">
+                <span className="inline-flex items-center gap-1.5">
+                  <BedDouble className="size-4 text-[#6B9E6E]" aria-hidden />
+                  Studio
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Bath className="size-4 text-[#6B9E6E]" aria-hidden />
+                  1 Bath
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Ruler className="size-4 text-[#6B9E6E]" aria-hidden />
+                  18 sqm
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Wifi className="size-4 text-[#6B9E6E]" aria-hidden />
+                  Wi-Fi Included
+                </span>
+              </div>
+              <Link
+                href="/dormspaces"
+                className="mt-4 inline-flex h-10 w-fit items-center justify-center rounded-xl border-2 border-[#1a2e22]/20 px-5 text-sm font-bold text-[#1a2e22] transition hover:border-[#6B9E6E]/40 hover:bg-[#6B9E6E]/5"
+              >
+                View details
+              </Link>
+            </div>
+          </article>
+        </section>
+
+        {/* List CTA */}
+        <section className="mt-8 rounded-2xl border border-[#6B9E6E]/20 bg-[#6B9E6E]/10 px-5 py-5 md:mt-10 md:flex md:items-center md:justify-between md:gap-8 md:px-6 md:py-6">
+          <div className="flex items-start gap-4">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-[#6B9E6E]/20">
+              <Home className="size-6 text-[#6B9E6E]" aria-hidden />
+            </span>
+            <div>
+              <p className="font-serif text-lg font-bold text-[#2C2C2C] md:text-xl">
+                List your space for free.
+              </p>
+              <p className="mt-1 text-sm font-medium leading-relaxed text-[#484848]">
+                Connect with thousands of renters looking for their next dorm.
+              </p>
+            </div>
+          </div>
           <Link
-            href="/dormspaces"
-            className="text-sm font-semibold text-[#6B9E6E] transition hover:text-[#5d8a60] hover:underline"
+            href={user ? "/dormspaces/submit?from=welcome" : "/dormspaces/welcome?intent=signup#get-started"}
+            className="mt-5 inline-flex h-12 w-full shrink-0 items-center justify-center rounded-xl bg-[#1a2e22] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#243828] md:mt-0 md:w-auto"
           >
-            Just looking? Browse dormspaces →
+            List your dormspace
           </Link>
-        </p>
-
-        {!isSignedIn && !authLoading ? (
-          <p className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-[#888888]">
-            <Wifi className="size-3.5 text-[#6B9E6E]/70" aria-hidden />
-            Secure sign-in · Your listing stays private until verified
-          </p>
-        ) : null}
+        </section>
       </main>
 
       <UpdateVacancyModal

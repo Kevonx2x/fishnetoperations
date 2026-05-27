@@ -7,7 +7,7 @@ type Props = {
   size?: "nav" | "sidebar" | "onboarding" | "login";
 };
 
-/** Geometric gold house + bahay (charcoal) / go (sage) wordmark — inline SVG, same source as homepage nav */
+/** Geometric gold house + Bahay (charcoal) / Go (sage) wordmark — inline SVG, same source as homepage nav */
 export function BahayGoWordmark({ className, size = "nav" }: Props) {
   const isNav = size === "nav";
   const isSidebar = size === "sidebar";
@@ -45,8 +45,8 @@ export function BahayGoWordmark({ className, size = "nav" }: Props) {
           isSidebar && "inline-flex text-[0.95rem] leading-tight sm:text-[1.05rem]",
         )}
       >
-        <span className="text-[#2C2C2C]">bahay</span>
-        <span className="text-[#6B9E6E]">go</span>
+        <span className="text-[#2C2C2C]">Bahay</span>
+        <span className="text-[#6B9E6E]">Go</span>
       </span>
     </span>
   );

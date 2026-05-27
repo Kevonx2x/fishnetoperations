@@ -44,6 +44,10 @@ export type DbProperty = {
   deleted_at?: string | null;
   /** available | reserved | closed | removed — public discovery uses `available` only. */
   availability_state?: string | null;
+  /** Set when another agent listed the same address; hidden from mobile discovery. */
+  duplicate_of_property_id?: string | null;
+  /** Admin review queue for possible duplicate listings. */
+  flagged_for_admin_review?: boolean | null;
 };
 
 /** Order gallery: lowest sort_order first; ties or missing sort_order use created_at ascending. */

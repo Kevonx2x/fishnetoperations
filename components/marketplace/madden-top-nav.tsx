@@ -522,7 +522,7 @@ export function MaddenTopNav() {
                 <path fill="#D4A843" d="M20 2 L36 14 L36 32 L4 32 L4 14 Z" />
                 <rect x="16" y="22" width="8" height="10" rx="1" fill="#FAF8F4" />
               </svg>
-              <span className="inline-flex items-baseline text-[1.35rem] font-semibold leading-none tracking-tight">
+              <span className="inline-flex items-baseline gap-0 font-serif text-[1.35rem] font-bold leading-none tracking-tight">
                 <span className="text-[#2C2C2C]">Bahay</span>
                 <span className="text-[#6B9E6E]">Go</span>
               </span>
