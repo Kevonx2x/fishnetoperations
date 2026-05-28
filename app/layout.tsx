@@ -28,7 +28,7 @@ const geistMono = Geist_Mono({
 });
 
 export const viewport: Viewport = {
-  themeColor: "#FFFFFF",
+  themeColor: "#FAF8F4",
 };
 
 export const metadata: Metadata = {
@@ -131,7 +131,7 @@ export default function RootLayout({
       className={`${inter.variable} ${playfair.variable} ${geistMono.variable} min-h-dvh bg-[#FAF8F4] antialiased dark:bg-background`}
     >
       <head>
-        <meta name="theme-color" content="#FFFFFF" />
+        <meta name="theme-color" content="#FAF8F4" />
         {process.env.NEXT_PUBLIC_SUPABASE_URL ? (
           <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
         ) : null}

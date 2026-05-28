@@ -706,11 +706,48 @@
     align-items: center;
     align-self: center;
     display: flex;
+    flex-shrink: 0;
     height: 32px;
     justify-content: center;
     min-height: 32px;
     min-width: 32px;
     width: 32px;
+  }
+
+  /* Stream v13 attachment menu uses a masked div, not the legacy file-input SVG. */
+  .bahaygo-stream-chat .str-chat__message-input .str-chat__attachment-selector {
+    flex-shrink: 0;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-input .str-chat__attachment-selector__menu-button {
+    align-items: center;
+    display: flex;
+    flex-shrink: 0;
+    padding: 0 2px;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-input .str-chat__attachment-selector__menu-button__icon {
+    background-color: #2f7d5a;
+    flex-shrink: 0;
+    height: 22px;
+    -webkit-mask: var(--str-chat__add-attachment-icon) no-repeat center / contain;
+    mask: var(--str-chat__add-attachment-icon) no-repeat center / contain;
+    width: 22px;
+  }
+
+  .bahaygo-stream-chat
+    .str-chat__message-input
+    .str-chat__attachment-selector__menu-button:hover
+    .str-chat__attachment-selector__menu-button__icon,
+  .bahaygo-stream-chat
+    .str-chat__message-input
+    .str-chat__attachment-selector__menu-button:focus-visible
+    .str-chat__attachment-selector__menu-button__icon {
+    background-color: #6b9e6e;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-input .str-chat__file-input-container svg path {
+    fill: #2f7d5a;
   }
 
   .bahaygo-stream-chat .str-chat__message-input .str-chat__send-button {
