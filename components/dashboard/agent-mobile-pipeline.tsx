@@ -276,6 +276,7 @@ export function AgentMobilePipeline({
   const [requestDocsDeal, setRequestDocsDeal] = useState<PipelineLeadRow | null>(null);
   const [requestDocsBusy, setRequestDocsBusy] = useState(false);
   const [viewingConfirmLead, setViewingConfirmLead] = useState<PipelineLeadRow | null>(null);
+  const [viewingConfirmBusy, setViewingConfirmBusy] = useState(false);
   const [viewingConfirmError, setViewingConfirmError] = useState<string | null>(null);
   const [swipeResetEpoch, setSwipeResetEpoch] = useState(0);
 
@@ -296,11 +297,13 @@ export function AgentMobilePipeline({
 
   const openViewingSheet = useCallback((lead: PipelineLeadRow) => {
     setViewingConfirmLead(lead);
+    setViewingConfirmBusy(false);
     setViewingConfirmError(null);
   }, []);
 
   const closeViewingSheet = useCallback(() => {
     setViewingConfirmLead(null);
+    setViewingConfirmBusy(false);
     setViewingConfirmError(null);
     setSwipeResetEpoch((n) => n + 1);
   }, []);
@@ -710,37 +713,32 @@ export function AgentMobilePipeline({
       <PipelineMobileViewingConfirmSheet
         lead={viewingConfirmLead}
         open={viewingConfirmLead != null}
-        busy={false}
+        busy={viewingConfirmBusy}
         error={viewingConfirmError}
-        onClose={closeViewingSheet}
+        onClose={() => {
+          if (!viewingConfirmBusy) closeViewingSheet();
+        }}
         onConfirm={(dateYmd, timeHm, notes) => {
-          if (!viewingConfirmLead) return;
+          if (!viewingConfirmLead || viewingConfirmBusy) return;
           const lead = viewingConfirmLead;
-          const previousStage = normalizeStage(String(lead.pipeline_stage ?? "lead"));
-          const previousUpdatedAt = lead.updated_at;
 
           setViewingConfirmError(null);
-          onPatchLead?.(lead.id, {
-            pipeline_stage: "viewing",
-            updated_at: new Date().toISOString(),
-          });
-          toast.success("Viewing scheduled");
-          setViewingConfirmLead(null);
-          setSwipeResetEpoch((n) => n + 1);
+          setViewingConfirmBusy(true);
 
           void confirmViewingForLead(lead.id, dateYmd, timeHm, notes).then((result) => {
+            setViewingConfirmBusy(false);
             if (!result.ok) {
+              setViewingConfirmError(result.message);
               setSwipeResetEpoch((n) => n + 1);
-            }
-            if (!result.ok) {
-              onPatchLead?.(lead.id, {
-                pipeline_stage: previousStage,
-                updated_at: previousUpdatedAt,
-              });
-              toast.error(result.message);
-              void Promise.resolve(onRefresh());
               return;
             }
+            onPatchLead?.(lead.id, {
+              pipeline_stage: "viewing",
+              updated_at: new Date().toISOString(),
+            });
+            toast.success("Viewing scheduled");
+            setViewingConfirmLead(null);
+            setSwipeResetEpoch((n) => n + 1);
             void Promise.resolve(onRefresh());
           });
         }}

@@ -336,17 +336,22 @@ export async function confirmViewingForLead(
     return { ok: false, message: "Pick a future date and time." };
   }
 
-  const res = await fetch("/api/agent/pipeline-confirm-viewing", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
-      leadId,
-      date: dateYmd.trim(),
-      time: normalized,
-      notes: notes.trim() ? notes.trim().slice(0, 300) : null,
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch("/api/agent/pipeline-confirm-viewing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        leadId,
+        date: dateYmd.trim(),
+        time: normalized,
+        notes: notes.trim() ? notes.trim().slice(0, 300) : null,
+      }),
+    });
+  } catch {
+    return { ok: false, message: "Could not reach the server. Check your connection and try again." };
+  }
   const json = (await res.json().catch(() => ({}))) as {
     success?: boolean;
     data?: { success?: boolean };
