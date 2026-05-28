@@ -29,8 +29,7 @@ export function DormspaceCommunityCta() {
         subline="Verified agents. Real listings. Across the Philippines."
         features={FEATURES}
         imageSrc={BAHAYGO_MARKETPLACE_BANNER_IMAGE}
-        bgClassName="bg-[#2C2C2C]"
-        gradientFrom="#2C2C2C"
+        imageLayout="fullBleed"
         pills={[
           { label: "Explore BahayGo", href: "/", variant: "primary" },
           { label: "Sign up", href: "/auth/register?next=/", variant: "outline" },

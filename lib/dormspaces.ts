@@ -321,6 +321,6 @@ export const DORMSPACE_HERO_IMAGE =
 export const DORMSPACE_COMMUNITY_BANNER_IMAGE =
   "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1600&q=80";
 
-/** BahayGo cross-sell on dormspaces — suburban family home (Unsplash). */
+/** BahayGo cross-sell on dormspaces — Manila skyline at golden hour (Unsplash). */
 export const BAHAYGO_MARKETPLACE_BANNER_IMAGE =
-  "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1600&q=80";
+  "https://images.unsplash.com/photo-1511721464821-5641710d5bf2?auto=format&fit=crop&w=1600&q=80";

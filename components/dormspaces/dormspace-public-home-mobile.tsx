@@ -24,6 +24,8 @@ import {
 
 import {
   MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN,
+  MOBILE_DORMSPACE_CAROUSEL_TRACK,
+  MOBILE_HORIZONTAL_SCROLL_STYLE,
 } from "@/lib/bahaygo-mobile/sticky-mobile-search-chrome";
 import type { DormspaceBrowseFilters } from "@/lib/dormspace-browse-filters";
 import type { DormspacePopularArea } from "@/lib/dormspace-popular-areas";
@@ -194,17 +196,11 @@ export function DormspaceMobileStickySearch({
 
 const PAGE_X = "px-5";
 
-const SECTION = cn("mt-5", MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN);
+const SECTION = "mt-5";
 
 const PEEK_CARD_W = "w-[calc((100vw-2rem-1rem)/2.5)]";
 
-const CAROUSEL_SCROLL =
-
-  "mt-2.5 flex overflow-x-auto px-4 pb-0.5 scrollbar-hide snap-x snap-mandatory scroll-pl-4 scroll-pr-4";
-
-const UNIVERSITY_SCROLL =
-
-  "mt-2.5 flex gap-4 overflow-x-auto px-4 pb-1 scrollbar-hide snap-x snap-mandatory scroll-pl-4 scroll-pr-4";
+const UNIVERSITY_SCROLL = cn(MOBILE_DORMSPACE_CAROUSEL_TRACK, "gap-4 pb-1");
 
 
 
@@ -500,13 +496,13 @@ export function DormspacePublicHomeMobile({
 
   return (
 
-    <div className="pb-6 pt-1 md:hidden">
+    <div className="min-w-0 overflow-x-clip pb-6 pt-1 md:hidden">
 
-      <section className={SECTION}>
+      <section className={cn(SECTION, MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN)}>
 
         <SectionHeader title="New this week" actionLabel="See all" onAction={onScrollToListings} />
 
-        <div className={cn(CAROUSEL_SCROLL, "gap-2")}>
+        <div className={cn(MOBILE_DORMSPACE_CAROUSEL_TRACK, "gap-2")} style={MOBILE_HORIZONTAL_SCROLL_STYLE}>
 
           {DORMSPACE_HOME_DEMO_NEW.map((listing) => (
 
@@ -532,7 +528,7 @@ export function DormspacePublicHomeMobile({
 
           />
 
-          <div className={UNIVERSITY_SCROLL}>
+          <div className={UNIVERSITY_SCROLL} style={MOBILE_HORIZONTAL_SCROLL_STYLE}>
 
             {universities.map((university) => (
 
@@ -584,7 +580,7 @@ export function DormspacePublicHomeMobile({
 
         <SectionHeader title="Featured neighborhoods" actionLabel="See all" onAction={onScrollToListings} />
 
-        <div className={cn(CAROUSEL_SCROLL, "gap-2.5")}>
+        <div className={cn(MOBILE_DORMSPACE_CAROUSEL_TRACK, "gap-2.5")} style={MOBILE_HORIZONTAL_SCROLL_STYLE}>
 
           {neighborhoods.map((area) => {
 

@@ -121,23 +121,43 @@ export function DormspacePublicHome({
 
   return (
     <>
-      <MobileFixedSearchShell>
-        <DormspaceMobileStickySearch
-          locationQuery={locationQuery}
-          onLocationChange={setLocationQuery}
-          onSearch={applySearch}
-          onScrollToListings={scrollToListings}
-          locationLabel={dormspaceLocationLabel}
-        />
-      </MobileFixedSearchShell>
+      <div className="min-w-0 overflow-x-clip md:hidden">
+        <MobileFixedSearchShell>
+          <DormspaceMobileStickySearch
+            locationQuery={locationQuery}
+            onLocationChange={setLocationQuery}
+            onSearch={applySearch}
+            onScrollToListings={scrollToListings}
+            locationLabel={dormspaceLocationLabel}
+          />
+        </MobileFixedSearchShell>
 
-      <DormspacePublicHomeMobile
-        universities={universities}
-        listings={listings}
-        neighborhoods={featuredNeighborhoods}
-        onBrowseFilter={applyMobileBrowseFilter}
-        onScrollToListings={scrollToListings}
-      />
+        <DormspacePublicHomeMobile
+          universities={universities}
+          listings={listings}
+          neighborhoods={featuredNeighborhoods}
+          onBrowseFilter={applyMobileBrowseFilter}
+          onScrollToListings={scrollToListings}
+        />
+
+        <div className={cn("min-w-0 overflow-x-clip", MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN)}>
+          <div className="border-t border-black/[0.06] bg-[#FAF8F4] px-5 py-4">
+            <h2 className="font-serif text-[18px] font-semibold leading-tight tracking-tight text-[#2C2C2C]">
+              All listings
+            </h2>
+            <p className="mt-0.5 text-[11px] font-semibold text-[#888888]">Verified bedspaces near you</p>
+          </div>
+          <DormspaceBrowse
+            listings={listings}
+            featuredNeighborhoods={featuredNeighborhoods}
+            filters={filters}
+            onFiltersChange={(next) => {
+              setFilters(next);
+            }}
+            syncLocationToHero={setLocationQuery}
+          />
+        </div>
+      </div>
 
       <div className="hidden md:contents">
       <section className="relative overflow-hidden bg-[#FAF8F4]">
@@ -339,26 +359,6 @@ export function DormspacePublicHome({
         <HomepageArticlesSection className="mt-2 pb-8" showViewAllLink={false} />
       </div>
 
-      </div>
-
-      <div className={cn("md:hidden", MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN)}>
-        <div className="border-t border-black/[0.06] bg-[#FAF8F4] px-5 py-4 md:hidden">
-          <h2 className="font-serif text-[18px] font-semibold leading-tight tracking-tight text-[#2C2C2C]">
-            All listings
-          </h2>
-          <p className="mt-0.5 text-[11px] font-semibold text-[#888888]">Verified bedspaces near you</p>
-        </div>
-        <div className="md:hidden">
-          <DormspaceBrowse
-            listings={listings}
-            featuredNeighborhoods={featuredNeighborhoods}
-            filters={filters}
-            onFiltersChange={(next) => {
-              setFilters(next);
-            }}
-            syncLocationToHero={setLocationQuery}
-          />
-        </div>
       </div>
     </>
   );

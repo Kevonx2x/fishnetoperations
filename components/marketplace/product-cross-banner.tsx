@@ -26,8 +26,9 @@ type Props = {
   features?: readonly CrossBannerFeature[];
   imageSrc: string;
   pills: CrossBannerPill[];
+  /** `split` = image on right panel; `fullBleed` = image edge-to-edge with text scrim. */
+  imageLayout?: "split" | "fullBleed";
   bgClassName?: string;
-  gradientFrom?: string;
   className?: string;
 };
 
@@ -39,34 +40,55 @@ export function ProductCrossBanner({
   features,
   imageSrc,
   pills,
+  imageLayout = "split",
   bgClassName = "bg-[#1a2e22]",
-  gradientFrom = "#1a2e22",
   className,
 }: Props) {
+  const fullBleed = imageLayout === "fullBleed";
+
   return (
     <section className={cn("mx-auto max-w-6xl px-0 py-0", className)} aria-labelledby={id}>
       <div
         className={cn(
           "relative h-[200px] overflow-hidden rounded-[24px] shadow-[0_10px_36px_rgba(26,46,34,0.22)] sm:h-[220px] sm:rounded-[28px] md:h-[248px] md:rounded-[32px]",
-          bgClassName,
+          fullBleed ? "bg-[#1a2e22]" : bgClassName,
         )}
       >
-        <div className="absolute inset-y-0 right-0 w-[46%] min-w-[132px] max-w-[52%] sm:w-[44%] md:w-[42%]">
-          <Image
-            src={imageSrc}
-            alt=""
-            fill
-            className="object-cover object-center"
-            sizes="(max-width: 768px) 46vw, 320px"
-          />
+        {fullBleed ? (
+          <>
+            <Image
+              src={imageSrc}
+              alt=""
+              fill
+              className="object-cover object-center"
+              sizes="(max-width: 768px) 100vw, 1152px"
+            />
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(to right, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.42) 28%, rgba(0,0,0,0.18) 48%, transparent 68%)",
+              }}
+              aria-hidden
+            />
+          </>
+        ) : (
           <div
-            className="pointer-events-none absolute inset-0"
+            className="absolute inset-y-0 right-0 w-[46%] min-w-[132px] max-w-[52%] sm:w-[44%] md:w-[42%]"
             style={{
-              background: `linear-gradient(to right, ${gradientFrom} 5%, color-mix(in srgb, ${gradientFrom} 55%, transparent) 35%, transparent 100%)`,
+              WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 20%)",
+              maskImage: "linear-gradient(to right, transparent 0%, #000 20%)",
             }}
-            aria-hidden
-          />
-        </div>
+          >
+            <Image
+              src={imageSrc}
+              alt=""
+              fill
+              className="object-cover object-center"
+              sizes="(max-width: 768px) 46vw, 320px"
+            />
+          </div>
+        )}
 
         <div className="relative z-10 flex h-full min-w-0 flex-col justify-center px-4 py-3 sm:px-6 sm:py-4 md:px-8">
           {eyebrow}
