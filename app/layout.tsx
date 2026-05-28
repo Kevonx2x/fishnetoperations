@@ -28,8 +28,7 @@ const geistMono = Geist_Mono({
 });
 
 export const viewport: Viewport = {
-  themeColor: "#FAF8F4",
-  viewportFit: "cover",
+  themeColor: "#FFFFFF",
 };
 
 export const metadata: Metadata = {
@@ -39,7 +38,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "BahayGo",
   },
 };
@@ -132,7 +131,7 @@ export default function RootLayout({
       className={`${inter.variable} ${playfair.variable} ${geistMono.variable} min-h-dvh bg-[#FAF8F4] antialiased dark:bg-background`}
     >
       <head>
-        <meta name="theme-color" content="#FAF8F4" />
+        <meta name="theme-color" content="#FFFFFF" />
         {process.env.NEXT_PUBLIC_SUPABASE_URL ? (
           <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
         ) : null}

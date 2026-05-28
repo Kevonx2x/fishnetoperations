@@ -1238,6 +1238,7 @@ export function AgentDashboard() {
   /** Bumps when a new edit open starts or the edit modal closes, so stale photo fetches cannot apply the wrong listing's images. */
   const editListingPhotosLoadIdRef = useRef(0);
   const [propertiesLoadVersion, setPropertiesLoadVersion] = useState(0);
+  const [pipelineDataReady, setPipelineDataReady] = useState(false);
   const sampleSeedAttemptedRef = useRef(false);
   const [removeSampleBusy, setRemoveSampleBusy] = useState(false);
 
@@ -1249,6 +1250,7 @@ export function AgentDashboard() {
     const errs: { scope: string; message: string }[] = [];
     setLoadErrors([]);
     setTeamMemberSetupError(null);
+    setPipelineDataReady(false);
 
     const pushErr = (scope: DashboardLoadErrorScope, fallbackMessage: string, error?: PostgrestError | null) => {
       const message = error?.message?.trim() ? String(error.message).trim() : fallbackMessage;
@@ -1287,6 +1289,7 @@ export function AgentDashboard() {
         setYesterdayPendingDocumentsCount(0);
         setYesterdayUnreadNotificationsCount(0);
         setPropertiesLoadVersion((v) => v + 1);
+        setPipelineDataReady(true);
         setLoaded(true);
         setTeamMemberSetupError(tmErr?.message ?? "No active team assignment found.");
         return;
@@ -1321,6 +1324,7 @@ export function AgentDashboard() {
         setYesterdayPendingDocumentsCount(0);
         setYesterdayUnreadNotificationsCount(0);
         setPropertiesLoadVersion((v) => v + 1);
+        setPipelineDataReady(true);
         setTeamMemberSetupError("Supervising agent profile could not be loaded.");
         return;
       }
@@ -1452,6 +1456,7 @@ export function AgentDashboard() {
         setYesterdayUnreadNotificationsCount(0);
       }
       setPropertiesLoadVersion((v) => v + 1);
+      setPipelineDataReady(true);
       return;
     }
 
@@ -1482,6 +1487,7 @@ export function AgentDashboard() {
       setYesterdayPendingDocumentsCount(0);
       setYesterdayUnreadNotificationsCount(0);
       setPropertiesLoadVersion((v) => v + 1);
+      setPipelineDataReady(true);
       return;
     }
 
@@ -1743,6 +1749,7 @@ export function AgentDashboard() {
       setYesterdayUnreadNotificationsCount(0);
     }
     setPropertiesLoadVersion((v) => v + 1);
+    setPipelineDataReady(true);
     } finally {
       setLoadErrors(errs);
     }
@@ -3031,7 +3038,7 @@ export function AgentDashboard() {
                     unreadNotifications={unreadNotificationsCount}
                     messagesUnread={streamMessagesUnreadTotal}
                     properties={mobilePipelineProperties}
-                    isLoading={authLoading || !loaded}
+                    isLoading={authLoading || !loaded || !pipelineDataReady}
                     onOpenMenu={() => setMoreDrawerOpen(true)}
                     onNavigateTab={(next) => {
                       if (next === "notifications") navigateAgentTab("overview");
