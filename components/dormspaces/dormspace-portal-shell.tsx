@@ -14,7 +14,7 @@ import { DormspacePortalNav } from "@/components/dormspaces/dormspace-portal-nav
 
 import { DormspacePortalWatermark } from "@/components/dormspaces/dormspace-portal-watermark";
 
-import { dormspacePortalNavVisibility } from "@/lib/dormspace-portal-chrome";
+import { dormspacePortalNavVisibility, isDormspaceMarketplaceHomePath } from "@/lib/dormspace-portal-chrome";
 
 import type { DormspacePortalNavVariant } from "@/lib/dormspace-portal-nav";
 
@@ -55,6 +55,7 @@ export function DormspacePortalShell({
   const pathname = usePathname() ?? "";
 
   const navVisibility = dormspacePortalNavVisibility(pathname);
+  const hideMobilePortalNav = isDormspaceMarketplaceHomePath(pathname);
 
   const showPortalFooter =
     pathname === "/dormspaces" ||
@@ -69,7 +70,11 @@ export function DormspacePortalShell({
 
       <DormspacePortalWatermark />
 
-      <div className={navVisibility === "desktop-only" ? "hidden md:block" : undefined}>
+      <div
+        className={
+          navVisibility === "desktop-only" || hideMobilePortalNav ? "hidden md:block" : undefined
+        }
+      >
         <DormspacePortalNav
           variant={variant}
           activeLandlordTab={activeLandlordTab}

@@ -19,7 +19,7 @@ function MobileLayoutContent({
     <>
       <div
         className={cn(
-          "flex min-w-0 flex-col overflow-x-clip overflow-y-visible",
+          "flex min-w-0 flex-col",
           /* Mobile: let the document scroll (flex-1 + min-h-0 traps content inside 100vh). */
           "max-md:h-auto max-md:min-h-0 max-md:flex-none",
           "md:min-h-0 md:flex-1",

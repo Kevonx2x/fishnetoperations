@@ -16,8 +16,11 @@ import { DormspaceFeaturedNeighborhoodsSection } from "@/components/dormspaces/d
 import { DormspaceHomepageFaqSection } from "@/components/dormspaces/dormspace-homepage-faq-section";
 import { DormspaceNewThisWeekSection } from "@/components/dormspaces/dormspace-new-this-week-section";
 import { DormspacePublicHomeMobile, DormspaceMobileStickySearch } from "@/components/dormspaces/dormspace-public-home-mobile";
-import { MobileFixedSearchShell } from "@/components/marketplace/mobile-fixed-search-shell";
-import { MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN, MOBILE_DORMSPACE_PORTAL_TOP_OFFSET } from "@/lib/bahaygo-mobile/sticky-mobile-search-chrome";
+import { DormspacePortalNav } from "@/components/dormspaces/dormspace-portal-nav";
+import {
+  MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN,
+  MOBILE_DORMSPACE_UNIFIED_STICKY_CHROME,
+} from "@/lib/bahaygo-mobile/sticky-mobile-search-chrome";
 import { HomepageArticlesSection } from "@/components/marketplace/homepage-articles-section";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import {
@@ -122,7 +125,8 @@ export function DormspacePublicHome({
   return (
     <>
       <div className="min-w-0 md:hidden">
-        <MobileFixedSearchShell topOffsetClass={MOBILE_DORMSPACE_PORTAL_TOP_OFFSET}>
+        <div className={MOBILE_DORMSPACE_UNIFIED_STICKY_CHROME}>
+          <DormspacePortalNav embedded />
           <DormspaceMobileStickySearch
             locationQuery={locationQuery}
             onLocationChange={setLocationQuery}
@@ -130,7 +134,7 @@ export function DormspacePublicHome({
             onScrollToListings={scrollToListings}
             locationLabel={dormspaceLocationLabel}
           />
-        </MobileFixedSearchShell>
+        </div>
 
         <DormspacePublicHomeMobile
           universities={universities}

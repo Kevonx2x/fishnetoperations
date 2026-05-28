@@ -495,7 +495,7 @@ export function DormspacePublicHomeMobile({
 
   return (
 
-    <div className="min-w-0 overflow-x-clip pb-6 pt-1 md:hidden">
+    <div className="min-w-0 pb-6 pt-1 md:hidden">
 
       <section className={SECTION}>
 

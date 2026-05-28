@@ -16,6 +16,10 @@ export function isDormspaceDashboardSubpage(pathname: string): boolean {
   return pathname.startsWith("/dormspaces/dashboard/");
 }
 
+export function isDormspaceMarketplaceHomePath(pathname: string): boolean {
+  return pathname === "/dormspaces";
+}
+
 /** Welcome keeps a slim header; all other dormspacer routes show portal nav on desktop. */
 export function dormspacePortalNavVisibility(pathname: string): DormspacePortalNavVisibility {
   if (pathname === "/dormspaces/welcome" || pathname.startsWith("/dormspaces/welcome/")) {

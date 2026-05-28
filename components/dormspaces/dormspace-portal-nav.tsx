@@ -128,6 +128,8 @@ type Props = {
   activeLandlordTab?: "listings" | "inquiries" | "profile" | "account";
   /** Minimal header on welcome (logo + browse only) */
   minimal?: boolean;
+  /** Inside unified mobile home sticky — no separate sticky/safe-area shell. */
+  embedded?: boolean;
 };
 
 function ResourcesMenu({ onNavigate }: { onNavigate?: () => void }) {
@@ -185,7 +187,7 @@ function ResourcesMenu({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, minimal }: Props) {
+export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, minimal, embedded }: Props) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -293,129 +295,137 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
 
   const signInHref = `/auth/login?next=${encodeURIComponent(pathname || "/dormspaces")}`;
 
+  const bar = (
+    <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto] items-center gap-3 px-4 py-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-3">
+      <div className="flex min-w-0 items-center justify-self-start">
+        <DormspaceWelcomeLogo href={logoHref} />
+      </div>
+
+      {!minimal ? (
+        <nav className="hidden items-center justify-center gap-6 sm:flex">
+          {centerItems.map(renderCenterLink)}
+          <ResourcesMenu />
+        </nav>
+      ) : (
+        <nav className="hidden items-center justify-center gap-6 sm:flex">
+          <Link href="/dormspaces" className={NAV_LINK}>
+            Browse dormspaces
+          </Link>
+        </nav>
+      )}
+
+      <div className="flex items-center gap-2 justify-self-end">
+        {loading ? (
+          <div className="h-9 w-24 animate-pulse rounded-full bg-black/5" />
+        ) : user ? (
+          <>
+            {mayLike && dbIds.length > 0 ? (
+              <Link
+                href="/dormspaces/liked"
+                className="relative inline-flex rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm transition hover:bg-white/90"
+                aria-label={`${dbIds.length} liked dormspaces`}
+              >
+                <Heart className="h-4 w-4 fill-red-500 text-red-500" aria-hidden />
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#6B9E6E] px-1 text-[10px] font-bold text-white">
+                  {dbIds.length > 9 ? "9+" : dbIds.length}
+                </span>
+              </Link>
+            ) : null}
+            {isLandlord ? (
+              <Link
+                href="/dormspaces/submit?from=welcome"
+                className="hidden h-9 items-center justify-center rounded-xl bg-[#6B9E6E] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#5d8a60] sm:inline-flex"
+              >
+                List Your Space
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              className="relative inline-flex rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm transition hover:bg-white/90"
+              aria-label="Notifications"
+            >
+              <Bell className="h-4 w-4" aria-hidden />
+            </button>
+            <div className="relative" ref={accountRef}>
+              <button
+                type="button"
+                onClick={() => setAccountOpen((o) => !o)}
+                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white shadow-sm ring-2 ring-[#D4A843]/25 transition hover:bg-[#FAF8F4]"
+                aria-expanded={accountOpen}
+                aria-haspopup="menu"
+              >
+                {profile?.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-xs font-semibold text-white">
+                    {profile?.full_name?.trim()
+                      ? agentAvatarInitials(profile.full_name)
+                      : (email[0] ?? "?").toUpperCase()}
+                  </span>
+                )}
+              </button>
+              <AnimatePresence>
+                {accountOpen ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full z-[70] mt-2 w-64 rounded-xl border border-black/10 bg-white py-2 shadow-lg ring-1 ring-black/5"
+                    role="menu"
+                  >
+                    <div className="px-3 pb-2 pt-1">
+                      <p className="truncate text-sm font-semibold text-[#525252]">{displayName}</p>
+                      <p className="mt-0.5 truncate text-xs text-[#2C2C2C]/40">{email}</p>
+                    </div>
+                    <div className={DROPDOWN_DIVIDER} />
+                    <AccountDropdownMenu
+                      isLandlord={isLandlord}
+                      inquiryCount={inquiryCount}
+                      onNavigate={() => setAccountOpen(false)}
+                      onSignOut={() => void signOut()}
+                      signOutBusy={signOutBusy}
+                    />
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </div>
+          </>
+        ) : (
+          <>
+            <Link
+              href="/dormspaces/welcome?intent=signin#get-started"
+              className="hidden text-sm font-semibold text-[#404040] transition hover:text-[#2C2C2C] sm:inline"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/dormspaces/welcome?intent=signup#get-started"
+              className="inline-flex h-9 items-center justify-center rounded-xl bg-[#1a2e22] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#243828]"
+            >
+              Sign Up
+            </Link>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <Fragment>
+      {embedded ? (
+        bar
+      ) : (
       <header
         className={cn(
           "sticky top-0 z-50 w-full border-b border-black/[0.06] bg-[#FAF8F4]/95 pt-[env(safe-area-inset-top,0px)] shadow-sm backdrop-blur-sm supports-[backdrop-filter]:bg-[#FAF8F4]/90",
           !isPublicDormspaceMarketplacePath(pathname) && "md:border-[#2C2C2C]/10",
         )}
       >
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto] items-center gap-3 px-4 py-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-3">
-          <div className="flex min-w-0 items-center justify-self-start">
-            <DormspaceWelcomeLogo href={logoHref} />
-          </div>
-
-          {!minimal ? (
-            <nav className="hidden items-center justify-center gap-6 sm:flex">
-              {centerItems.map(renderCenterLink)}
-              <ResourcesMenu />
-            </nav>
-          ) : (
-            <nav className="hidden items-center justify-center gap-6 sm:flex">
-              <Link href="/dormspaces" className={NAV_LINK}>
-                Browse dormspaces
-              </Link>
-            </nav>
-          )}
-
-          <div className="flex items-center gap-2 justify-self-end">
-            {loading ? (
-              <div className="h-9 w-24 animate-pulse rounded-full bg-black/5" />
-            ) : user ? (
-              <>
-                {mayLike && dbIds.length > 0 ? (
-                  <Link
-                    href="/dormspaces/liked"
-                    className="relative inline-flex rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm transition hover:bg-white/90"
-                    aria-label={`${dbIds.length} liked dormspaces`}
-                  >
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" aria-hidden />
-                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#6B9E6E] px-1 text-[10px] font-bold text-white">
-                      {dbIds.length > 9 ? "9+" : dbIds.length}
-                    </span>
-                  </Link>
-                ) : null}
-                {isLandlord ? (
-                  <Link
-                    href="/dormspaces/submit?from=welcome"
-                    className="hidden h-9 items-center justify-center rounded-xl bg-[#6B9E6E] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#5d8a60] sm:inline-flex"
-                  >
-                    List Your Space
-                  </Link>
-                ) : null}
-                <button
-                  type="button"
-                  className="relative inline-flex rounded-full border border-black/10 bg-white p-2 text-[#2C2C2C]/75 shadow-sm transition hover:bg-white/90"
-                  aria-label="Notifications"
-                >
-                  <Bell className="h-4 w-4" aria-hidden />
-                </button>
-                <div className="relative" ref={accountRef}>
-                  <button
-                    type="button"
-                    onClick={() => setAccountOpen((o) => !o)}
-                    className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white shadow-sm ring-2 ring-[#D4A843]/25 transition hover:bg-[#FAF8F4]"
-                    aria-expanded={accountOpen}
-                    aria-haspopup="menu"
-                  >
-                    {profile?.avatar_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center bg-[#6B9E6E] text-xs font-semibold text-white">
-                        {profile?.full_name?.trim()
-                          ? agentAvatarInitials(profile.full_name)
-                          : (email[0] ?? "?").toUpperCase()}
-                      </span>
-                    )}
-                  </button>
-                  <AnimatePresence>
-                    {accountOpen ? (
-                      <motion.div
-                        initial={{ opacity: 0, y: -6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -6 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute right-0 top-full z-[70] mt-2 w-64 rounded-xl border border-black/10 bg-white py-2 shadow-lg ring-1 ring-black/5"
-                        role="menu"
-                      >
-                        <div className="px-3 pb-2 pt-1">
-                          <p className="truncate text-sm font-semibold text-[#525252]">{displayName}</p>
-                          <p className="mt-0.5 truncate text-xs text-[#2C2C2C]/40">{email}</p>
-                        </div>
-                        <div className={DROPDOWN_DIVIDER} />
-                        <AccountDropdownMenu
-                          isLandlord={isLandlord}
-                          inquiryCount={inquiryCount}
-                          onNavigate={() => setAccountOpen(false)}
-                          onSignOut={() => void signOut()}
-                          signOutBusy={signOutBusy}
-                        />
-                      </motion.div>
-                    ) : null}
-                  </AnimatePresence>
-                </div>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/dormspaces/welcome?intent=signin#get-started"
-                  className="hidden text-sm font-semibold text-[#404040] transition hover:text-[#2C2C2C] sm:inline"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/dormspaces/welcome?intent=signup#get-started"
-                  className="inline-flex h-9 items-center justify-center rounded-xl bg-[#1a2e22] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#243828]"
-                >
-                  Sign Up
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
+        {bar}
       </header>
+      )}
     </Fragment>
   );
 }
