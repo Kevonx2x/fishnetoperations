@@ -189,6 +189,16 @@ export function useAgentPipelineMobileActions({
 
   const submitDecline = useCallback(
     async (lead: PipelineLeadRow, reasonKey: string) => {
+      const prevSnapshot: Partial<PipelineLeadRow> = {
+        pipeline_stage: lead.pipeline_stage,
+        updated_at: lead.updated_at ?? null,
+      };
+      const nowIso = new Date().toISOString();
+      onPatchLead?.(lead.id, {
+        pipeline_stage: "declined" as PipelineLeadRow["pipeline_stage"],
+        updated_at: nowIso,
+      });
+
       try {
         const res = await fetch("/api/agent/decline-deal", {
           method: "POST",
@@ -198,6 +208,7 @@ export function useAgentPipelineMobileActions({
         });
         const json = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
+          onPatchLead?.(lead.id, prevSnapshot);
           toast.error(json.error ?? "Could not archive this deal");
           return false;
         }
@@ -205,11 +216,12 @@ export function useAgentPipelineMobileActions({
         await Promise.resolve(onRefresh());
         return true;
       } catch {
+        onPatchLead?.(lead.id, prevSnapshot);
         toast.error("Could not reach server. Check your connection.");
         return false;
       }
     },
-    [onRefresh],
+    [onPatchLead, onRefresh],
   );
 
   const sendDocumentRequest = useCallback(

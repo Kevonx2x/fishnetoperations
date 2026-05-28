@@ -179,6 +179,17 @@
     @apply bg-background text-foreground font-normal antialiased;
     font-feature-settings: "kern" 1, "liga" 1;
   }
+  @media (max-width: 767px) {
+    html {
+      min-height: 100dvh;
+      background-color: #faf8f4;
+    }
+    body {
+      min-height: 100dvh;
+      overscroll-behavior-y: none;
+      background-color: #faf8f4;
+    }
+  }
   .dark html,
   .dark body {
     background-color: var(--background);

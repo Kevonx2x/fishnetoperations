@@ -20,6 +20,7 @@ import {
 import { isDormspaceDashboardPath } from "@/lib/dormspace-portal-chrome";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { isPublicDormspaceMarketplacePath } from "@/lib/dormspace-portal-chrome";
+import { useMobileChromeOverlay } from "@/contexts/mobile-chrome-context";
 import { cn } from "@/lib/utils";
 
 export type MobileBottomNavTabConfig = {
@@ -53,7 +54,7 @@ const MARKETPLACE_TABS: MobileBottomNavTabConfig[] = [
   { id: "home", label: "Home", href: "/", Icon: Home },
   { id: "search", label: "Search", href: "/search", Icon: Map },
   { id: "saved", label: "Saved", href: "/saved", Icon: Heart },
-  { id: "inbox", label: "Inbox", href: "/messages", Icon: MessageSquare },
+  { id: "inbox", label: "Messages", href: "/messages", Icon: MessageSquare },
   { id: "more", label: "More", href: "/more", Icon: MoreHorizontal },
 ];
 
@@ -229,13 +230,15 @@ export function MobileBottomNav() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const messagesUnread = useUnreadMessageCount();
+  const { overlayOpen } = useMobileChromeOverlay();
 
   const path = pathname ?? "/";
   const channelParam = searchParams.get("channel");
   const messagesThreadOpen = isMessagesThreadOpen(path, channelParam);
   const keyboardOpen = useSoftKeyboardOpen();
   const keyboardOnMessagesThread = keyboardOpen && messagesThreadOpen;
-  const hidden = isMobileBottomNavHidden(path, messagesThreadOpen, keyboardOnMessagesThread);
+  const hidden =
+    overlayOpen || isMobileBottomNavHidden(path, messagesThreadOpen, keyboardOnMessagesThread);
   const tabs = useMemo(() => {
     const base = resolveTabs(pathname ?? "/");
     return base.map((t) =>

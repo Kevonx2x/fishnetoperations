@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { MobileBottomNav } from "@/components/mobile/mobile-bottom-nav";
+import { MobileChromeProvider } from "@/contexts/mobile-chrome-context";
 import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
 import { cn } from "@/lib/utils";
 
@@ -49,8 +50,12 @@ function MobileLayoutChromeInner({ children }: { children: ReactNode }) {
 /** Wraps page content with mobile bottom-nav clearance and mounts global mobile nav. */
 export function MobileLayoutChrome({ children }: { children: ReactNode }) {
   return (
-    <Suspense fallback={<MobileLayoutContent messagesThreadOpen={false}>{children}</MobileLayoutContent>}>
-      <MobileLayoutChromeInner>{children}</MobileLayoutChromeInner>
-    </Suspense>
+    <MobileChromeProvider>
+      <Suspense
+        fallback={<MobileLayoutContent messagesThreadOpen={false}>{children}</MobileLayoutContent>}
+      >
+        <MobileLayoutChromeInner>{children}</MobileLayoutChromeInner>
+      </Suspense>
+    </MobileChromeProvider>
   );
 }

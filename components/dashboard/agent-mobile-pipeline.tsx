@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMobileChromeOverlay } from "@/contexts/mobile-chrome-context";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import {
@@ -21,7 +22,6 @@ import {
   type PipelineStageId,
   type ViewingRequestPipelineMeta,
 } from "@/components/dashboard/agent-pipeline-tab";
-import { AgentMobileBottomNav } from "@/components/dashboard/agent-mobile-bottom-nav";
 import {
   PipelineDealCardMobile,
   type MobileDealPropertyMeta,
@@ -292,8 +292,8 @@ export function AgentMobilePipeline({
   const [requestDocsDeal, setRequestDocsDeal] = useState<PipelineLeadRow | null>(null);
   const [requestDocsBusy, setRequestDocsBusy] = useState(false);
   const [viewingConfirmLead, setViewingConfirmLead] = useState<PipelineLeadRow | null>(null);
-  const [viewingConfirmBusy, setViewingConfirmBusy] = useState(false);
   const [viewingConfirmError, setViewingConfirmError] = useState<string | null>(null);
+  const [swipeResetEpoch, setSwipeResetEpoch] = useState(0);
 
   const {
     moveLeadToStage,
@@ -306,14 +306,37 @@ export function AgentMobilePipeline({
     onPatchLead,
     onRefresh,
     onBeforeMoveToViewing: (lead) => {
-      setViewingConfirmLead(lead);
-      setViewingConfirmError(null);
+      openViewingSheet(lead);
     },
   });
+
+  const openViewingSheet = useCallback((lead: PipelineLeadRow) => {
+    setViewingConfirmLead(lead);
+    setViewingConfirmError(null);
+  }, []);
+
+  const closeViewingSheet = useCallback(() => {
+    setViewingConfirmLead(null);
+    setViewingConfirmError(null);
+    setSwipeResetEpoch((n) => n + 1);
+  }, []);
 
   const handleOpenActionMenu = useCallback((deal: PipelineLeadRow) => {
     setActionDeal(deal);
   }, []);
+
+  const pipelineSheetOpen =
+    actionDeal != null ||
+    declineDeal != null ||
+    requestDocsDeal != null ||
+    viewingConfirmLead != null ||
+    addDealOpen;
+
+  const { setOverlayOpen } = useMobileChromeOverlay();
+  useEffect(() => {
+    setOverlayOpen(pipelineSheetOpen);
+    return () => setOverlayOpen(false);
+  }, [pipelineSheetOpen, setOverlayOpen]);
 
   const sortStorageKey = useMemo(() => `bhg:pipeline:mobile:sort:${pipelineAgentId}`, [pipelineAgentId]);
 
@@ -354,6 +377,11 @@ export function AgentMobilePipeline({
     [leads],
   );
 
+  const searchedActive = useMemo(
+    () => activeDeals.filter((d) => leadMatchesSearch(d, searchQuery, propertyLabel, propertyById)),
+    [activeDeals, searchQuery, propertyLabel, propertyById],
+  );
+
   const counts = useMemo(() => {
     const c: Record<PipelineStageId, number> = {
       lead: 0,
@@ -362,11 +390,11 @@ export function AgentMobilePipeline({
       reservation: 0,
       closed: 0,
     };
-    for (const d of activeDeals) {
+    for (const d of searchedActive) {
       if (d.pipeline_stage in c) c[d.pipeline_stage]++;
     }
     return c;
-  }, [activeDeals]);
+  }, [searchedActive]);
 
   const pipelineValueFormatted = useMemo(() => {
     let sum = 0;
@@ -378,11 +406,6 @@ export function AgentMobilePipeline({
     }
     return formatPipelineTotalValue(sum);
   }, [activeDeals, propertyById]);
-
-  const searchedActive = useMemo(
-    () => activeDeals.filter((d) => leadMatchesSearch(d, searchQuery, propertyLabel, propertyById)),
-    [activeDeals, searchQuery, propertyLabel, propertyById],
-  );
 
   const searchedArchived = useMemo(
     () => archivedLeads.filter((d) => leadMatchesSearch(d, searchQuery, propertyLabel, propertyById)),
@@ -426,7 +449,7 @@ export function AgentMobilePipeline({
   const archivedCount = archivedLeads.length;
 
   return (
-    <div className="flex min-h-[100dvh] min-w-0 flex-col overflow-x-clip bg-[#FAF8F4] pb-24">
+    <div className="flex min-h-[100dvh] min-w-0 flex-col overflow-x-clip bg-[#FAF8F4] max-md:pb-0 md:pb-8">
       <header className="sticky top-0 z-30 bg-[#FAF8F4]/90 backdrop-blur-md">
         <div className="grid grid-cols-[2.5rem_1fr_auto_auto] items-center gap-2 px-3 py-2.5">
           <button
@@ -607,9 +630,15 @@ export function AgentMobilePipeline({
               <div className="space-y-3">
                 {stageDeals.map((deal) => (
                   <PipelineMobileSwipeCard
-                    key={deal.id}
+                    key={`${deal.id}-${swipeResetEpoch}`}
                     deal={deal}
-                    onSwipeAdvance={(d) => void advanceLeadStage(d)}
+                    onSwipeAdvance={(d) => {
+                      if (d.pipeline_stage === "lead") {
+                        openViewingSheet(d);
+                        return;
+                      }
+                      void advanceLeadStage(d);
+                    }}
                     onSwipeDecline={(d) => setDeclineDeal(d)}
                   >
                     <PipelineDealCardMobile
@@ -693,7 +722,11 @@ export function AgentMobilePipeline({
         deal={declineDeal}
         open={declineDeal != null}
         busy={declineBusy}
-        onClose={() => !declineBusy && setDeclineDeal(null)}
+        onClose={() => {
+          if (declineBusy) return;
+          setDeclineDeal(null);
+          setSwipeResetEpoch((n) => n + 1);
+        }}
         onConfirm={(reasonKey) => {
           if (!declineDeal) return;
           setDeclineBusy(true);
@@ -736,26 +769,37 @@ export function AgentMobilePipeline({
       <PipelineMobileViewingConfirmSheet
         lead={viewingConfirmLead}
         open={viewingConfirmLead != null}
-        busy={viewingConfirmBusy}
+        busy={false}
         error={viewingConfirmError}
-        onClose={() => !viewingConfirmBusy && setViewingConfirmLead(null)}
+        onClose={closeViewingSheet}
         onConfirm={(dateYmd, timeHm, notes) => {
           if (!viewingConfirmLead) return;
-          setViewingConfirmBusy(true);
+          const lead = viewingConfirmLead;
+          const previousStage = normalizeStage(String(lead.pipeline_stage ?? "lead"));
+          const previousUpdatedAt = lead.updated_at;
+
           setViewingConfirmError(null);
-          void confirmViewingForLead(viewingConfirmLead.id, dateYmd, timeHm, notes).then((result) => {
+          onPatchLead?.(lead.id, {
+            pipeline_stage: "viewing",
+            updated_at: new Date().toISOString(),
+          });
+          toast.success("Viewing scheduled");
+          setViewingConfirmLead(null);
+          setSwipeResetEpoch((n) => n + 1);
+
+          void confirmViewingForLead(lead.id, dateYmd, timeHm, notes).then((result) => {
             if (!result.ok) {
-              setViewingConfirmError(result.message);
-              setViewingConfirmBusy(false);
+              setSwipeResetEpoch((n) => n + 1);
+            }
+            if (!result.ok) {
+              onPatchLead?.(lead.id, {
+                pipeline_stage: previousStage,
+                updated_at: previousUpdatedAt,
+              });
+              toast.error(result.message);
+              void Promise.resolve(onRefresh());
               return;
             }
-            onPatchLead?.(viewingConfirmLead.id, {
-              pipeline_stage: "viewing",
-              updated_at: new Date().toISOString(),
-            });
-            toast.success("Viewing scheduled");
-            setViewingConfirmLead(null);
-            setViewingConfirmBusy(false);
             void Promise.resolve(onRefresh());
           });
         }}
@@ -770,28 +814,12 @@ export function AgentMobilePipeline({
               setAddDealOpen(true);
             })
           }
-          className="fixed bottom-[5.25rem] right-3 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-[0_6px_20px_rgba(107,158,110,0.38)] transition active:scale-95"
+          className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] right-3 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-[0_6px_20px_rgba(107,158,110,0.38)] transition active:scale-95"
           aria-label="Add new deal"
         >
           <Plus className="h-6 w-6" strokeWidth={2.5} aria-hidden />
         </button>
       ) : null}
-
-      <AgentMobileBottomNav
-        activeTab="pipeline"
-        messagesUnread={messagesUnread}
-        onHome={onHome ?? (() => onNavigateTab("overview"))}
-        onPipeline={() => onNavigateTab("pipeline")}
-        onAdd={
-          onAddDeal ??
-          (() => {
-            // TODO: full add-deal flow — currently placeholder bottom sheet
-            setAddDealOpen(true);
-          })
-        }
-        onMessages={() => onNavigateTab("messages")}
-        onMore={onMore ?? onOpenMenu}
-      />
 
       <Sheet open={addDealOpen} onOpenChange={setAddDealOpen}>
         <SheetContent side="bottom" className="rounded-t-2xl border-[#2C2C2C]/10 bg-[#FAF8F4]">

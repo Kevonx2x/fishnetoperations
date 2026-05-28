@@ -3164,7 +3164,7 @@ export function AgentDashboard() {
         </main>
       </div>
 
-      {/* Mobile bottom bar — hidden on pipeline (AgentMobileBottomNav) and messages (/messages inbox) */}
+      {/* Mobile bottom bar — hidden on mobile pipeline (global MobileBottomNav) and messages thread */}
       {!showMobilePipelineUi && tab !== "messages" ? (
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-1 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
         <button

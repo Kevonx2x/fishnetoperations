@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { fail, ok } from "@/lib/api/response";
 import { getSessionProfile } from "@/lib/admin-api-auth";
@@ -217,8 +217,6 @@ export async function POST(request: NextRequest) {
         .eq("id", leadId);
       if (updErr) return fail("DATABASE_ERROR", updErr.message, 500);
 
-      await recompactStagePositions(sb, { agent_id: agentId, broker_id: brokerId }, currentStage);
-
       const { error: histErr } = await sb.from("lead_pipeline_history").insert({
         lead_id: leadId,
         from_stage: currentStage,
@@ -230,47 +228,72 @@ export async function POST(request: NextRequest) {
     }
 
     const propertyId = (lead as { property_id?: string | null }).property_id;
-    let propertyName = PROPERTY_ADDRESS_FALLBACK;
-    if (admin && propertyId) {
-      const { data: propRow } = await admin
-        .from("properties")
-        .select("name, location")
-        .eq("id", propertyId)
-        .maybeSingle();
-      propertyName =
-        (propRow as { name?: string | null } | null)?.name?.trim() ||
-        (propRow as { location?: string | null } | null)?.location?.trim() ||
-        propertyAddressLabel(propRow as { name?: string | null; location?: string | null } | null);
-    }
+    const leadEmail = String((lead as { email?: string }).email ?? "");
+    const leadClientId = (lead as { client_id?: string | null }).client_id ?? null;
+    const stageChanged = currentStage !== "viewing";
 
-    const clientUserId = await resolveClientUserId(lead as { client_id?: string | null; email: string });
-    const d = new Date(scheduledAt);
-    const dateStr = d.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-    const timeStr = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    after(async () => {
+      try {
+        if (stageChanged) {
+          await recompactStagePositions(sb, { agent_id: agentId, broker_id: brokerId }, currentStage);
+        }
 
-    if (admin && clientUserId) {
-      await admin.from("notifications").insert({
-        user_id: clientUserId,
-        type: "viewing_confirmed",
-        title: "Viewing scheduled",
-        body: `Your viewing for ${propertyName} is set for ${dateStr} at ${timeStr}.`,
-        metadata: {
-          lead_id: leadId,
-          property_id: propertyId ?? null,
-          scheduled_at: scheduledAt,
-          property_name: propertyName,
-        },
-      });
-    }
+        let propertyName = PROPERTY_ADDRESS_FALLBACK;
+        if (propertyId) {
+          const { data: propRow } = await admin
+            .from("properties")
+            .select("name, location")
+            .eq("id", propertyId)
+            .maybeSingle();
+          propertyName =
+            (propRow as { name?: string | null } | null)?.name?.trim() ||
+            (propRow as { location?: string | null } | null)?.location?.trim() ||
+            propertyAddressLabel(propRow as { name?: string | null; location?: string | null } | null);
+        }
 
-    const seenIso = new Date().toISOString();
-    const { error: seenErr } = await sb
-      .from("leads")
-      .update({ new_viewing_request_seen_at: seenIso, updated_at: seenIso })
-      .eq("id", leadId);
-    if (seenErr) {
-      console.warn("[pipeline-confirm-viewing] new_viewing_request_seen_at update failed", seenErr);
-    }
+        const clientUserId = await resolveClientUserId({
+          client_id: leadClientId,
+          email: leadEmail,
+        });
+        const d = new Date(scheduledAt);
+        const dateStr = d.toLocaleDateString(undefined, {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+        const timeStr = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+        if (clientUserId) {
+          const { error: notifErr } = await admin.from("notifications").insert({
+            user_id: clientUserId,
+            type: "viewing_confirmed",
+            title: "Viewing scheduled",
+            body: `Your viewing for ${propertyName} is set for ${dateStr} at ${timeStr}.`,
+            metadata: {
+              lead_id: leadId,
+              property_id: propertyId ?? null,
+              scheduled_at: scheduledAt,
+              property_name: propertyName,
+            },
+          });
+          if (notifErr) {
+            console.warn("[pipeline-confirm-viewing] notification insert failed", notifErr);
+          }
+        }
+
+        const seenIso = new Date().toISOString();
+        const { error: seenErr } = await sb
+          .from("leads")
+          .update({ new_viewing_request_seen_at: seenIso, updated_at: seenIso })
+          .eq("id", leadId);
+        if (seenErr) {
+          console.warn("[pipeline-confirm-viewing] new_viewing_request_seen_at update failed", seenErr);
+        }
+      } catch (bgErr) {
+        console.error("[pipeline-confirm-viewing] background tasks failed", bgErr);
+      }
+    });
 
     return ok({ success: true, scheduled_at: scheduledAt });
   } catch (e) {

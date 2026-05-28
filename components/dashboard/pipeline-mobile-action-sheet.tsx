@@ -190,10 +190,11 @@ export function PipelineMobileActionSheet({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[85vh] rounded-t-2xl border-[#2C2C2C]/10 bg-white px-0 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 text-[#2C2C2C]"
+        overlayClassName="z-[100] bg-black/45"
+        className="z-[100] flex max-h-[85dvh] flex-col rounded-t-2xl border-[#2C2C2C]/10 bg-white px-0 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 text-[#2C2C2C]"
       >
         <div className="mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-[#2C2C2C]/15" aria-hidden />
-        <SheetHeader className="px-4 text-left">
+        <SheetHeader className="shrink-0 px-4 text-left">
           <SheetTitle className="font-sans text-base font-semibold text-[#2C2C2C]">
             {movePickerOpen ? "Move to stage" : deal?.name ?? "Deal actions"}
           </SheetTitle>
@@ -201,7 +202,7 @@ export function PipelineMobileActionSheet({
         </SheetHeader>
 
         {movePickerOpen && deal ? (
-          <div className="mt-2 px-2">
+          <div className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain px-2">
             <button
               type="button"
               className="mb-1 flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-[#888888] active:bg-[#F3F0EA]"
@@ -226,7 +227,7 @@ export function PipelineMobileActionSheet({
             ))}
           </div>
         ) : (
-          <div className="mt-2 px-2">
+          <div className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain px-2">
             {rows.map((row) => (
               <button
                 key={row.key}
