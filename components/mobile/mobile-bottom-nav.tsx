@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { useSoftKeyboardOpen } from "@/hooks/use-soft-keyboard-open";
 import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
@@ -173,9 +173,11 @@ function navIconId(tabId: string): MobileNavIconId {
 function NavTab({
   tab,
   active,
+  onNavigate,
 }: {
   tab: MobileBottomNavTabConfig;
   active: boolean;
+  onNavigate: (href: string) => void;
 }) {
   const { Icon, label, href, badgeCount } = tab;
   const showBadge = badgeCount != null && badgeCount > 0;
@@ -183,8 +185,18 @@ function NavTab({
   return (
     <Link
       href={href}
+      prefetch
+      scroll
+      onClick={(e) => {
+        e.preventDefault();
+        if (active) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+        onNavigate(href);
+      }}
       className={cn(
-        "relative flex min-h-[44px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0",
+        "relative z-10 flex min-h-[44px] min-w-0 flex-1 touch-manipulation flex-col items-center justify-center gap-0.5 px-0",
         active ? "text-[#6B9E6E]" : "text-[#717171]",
       )}
       aria-current={active ? "page" : undefined}
@@ -214,6 +226,7 @@ function NavTab({
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const messagesUnread = useUnreadMessageCount();
 
@@ -244,7 +257,12 @@ export function MobileBottomNav() {
     >
       <div className="mx-auto flex h-14 max-w-lg items-stretch px-0">
         {tabs.map((tab) => (
-          <NavTab key={tab.id} tab={tab} active={isTabActive(tab, path)} />
+          <NavTab
+            key={tab.id}
+            tab={tab}
+            active={isTabActive(tab, path)}
+            onNavigate={(href) => router.push(href)}
+          />
         ))}
       </div>
     </nav>

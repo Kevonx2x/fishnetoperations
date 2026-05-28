@@ -21,7 +21,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
                 <AgentTourBootstrap />
                 <AgentTourOverlay />
               </Suspense>
-              <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+              <div className="flex min-h-0 flex-col max-md:flex-none md:flex-1">{children}</div>
             </EngagementSignInProvider>
           </GlobalAlertProvider>
         </BahayGoSWRProvider>

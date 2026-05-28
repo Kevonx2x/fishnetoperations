@@ -18,7 +18,10 @@ function MobileLayoutContent({
     <>
       <div
         className={cn(
-          "flex min-h-0 min-w-0 flex-1 flex-col overflow-x-clip",
+          "flex min-w-0 flex-col overflow-x-clip overflow-y-visible",
+          /* Mobile: let the document scroll (flex-1 + min-h-0 traps content inside 100vh). */
+          "max-md:h-auto max-md:min-h-0 max-md:flex-none",
+          "md:min-h-0 md:flex-1",
           messagesThreadOpen ? "max-md:pb-0" : "pb-[80px] md:pb-0",
         )}
       >
