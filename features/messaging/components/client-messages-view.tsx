@@ -1,8 +1,21 @@
 "use client";
 
 import { MessagingInbox } from "@/features/messaging/components/messaging-inbox";
+import { useAuth } from "@/contexts/auth-context";
+import { useStreamChat } from "@/features/messaging/components/stream-chat-provider";
 
 export function ClientMessagesView(props: { initialChannelId?: string | null }) {
+  const client = useStreamChat();
+  const { user } = useAuth();
+
+  if (!client || !user?.id || !client.userID) {
+    return (
+      <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-fg/10 bg-surface-panel font-sans text-sm font-medium text-fg/55">
+        Loading messages…
+      </div>
+    );
+  }
+
   return (
     <MessagingInbox
       initialChannelId={props.initialChannelId ?? null}
@@ -12,3 +25,4 @@ export function ClientMessagesView(props: { initialChannelId?: string | null }) 
     />
   );
 }
+

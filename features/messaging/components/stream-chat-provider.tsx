@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { StreamChat } from "stream-chat";
 
 import { useAuth } from "@/contexts/auth-context";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { createBrowserStreamClient } from "@/features/messaging/lib/stream-client";
 
 const StreamChatContext = createContext<StreamChat | null>(null);
@@ -64,11 +65,6 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
     const generation = ++connectGeneration;
     let cancelled = false;
 
-    const chat = createBrowserStreamClient();
-    if (chat.userID === user.id) {
-      setClient((prev) => prev ?? chat);
-    }
-
     void (async () => {
       try {
         let token = cachedTokenUserId === user.id ? cachedToken : null;
@@ -87,16 +83,32 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
           cachedTokenUserId = user.id;
         }
 
+        const chat = createBrowserStreamClient();
+        let image = streamProfile.image;
+
+        if (!image && streamProfile.role === "agent") {
+          try {
+            const supabase = createSupabaseBrowserClient();
+            const { data: agentRow } = await supabase
+              .from("agents")
+              .select("image_url")
+              .eq("user_id", user.id)
+              .maybeSingle();
+            image = (agentRow?.image_url as string | null | undefined)?.trim() || undefined;
+          } catch {
+            /* ignore */
+          }
+        }
+
+        const streamUser = { id: user.id, name: streamProfile.name, image };
+        const key = streamProfileKey(user.id, streamUser.name, streamUser.image);
+
         if (cancelled || generation !== connectGeneration) return;
 
         if (chat.userID && chat.userID !== user.id) {
           await chat.disconnectUser();
           lastUpsertedProfileKey = null;
         }
-
-        const image = streamProfile.image;
-        const streamUser = { id: user.id, name: streamProfile.name, image };
-        const key = streamProfileKey(user.id, streamUser.name, streamUser.image);
 
         if (chat.userID === user.id) {
           if (lastUpsertedProfileKey !== key) {
@@ -110,28 +122,6 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
 
         if (!cancelled && generation === connectGeneration) {
           setClient((prev) => (prev === chat ? prev : chat));
-        }
-
-        if (!cancelled && generation === connectGeneration && !image && streamProfile.role === "agent") {
-          void (async () => {
-            try {
-              const { createSupabaseBrowserClient } = await import("@/lib/supabase/client");
-              const supabase = createSupabaseBrowserClient();
-              const { data: agentRow } = await supabase
-                .from("agents")
-                .select("image_url")
-                .eq("user_id", user.id)
-                .maybeSingle();
-              const agentImage = (agentRow?.image_url as string | null | undefined)?.trim();
-              if (!agentImage || cancelled || generation !== connectGeneration) return;
-              const nextKey = streamProfileKey(user.id, streamUser.name, agentImage);
-              if (lastUpsertedProfileKey === nextKey) return;
-              await chat.upsertUser({ id: user.id, name: streamUser.name, image: agentImage });
-              lastUpsertedProfileKey = nextKey;
-            } catch {
-              /* ignore background avatar sync */
-            }
-          })();
         }
       } catch (err) {
         console.error("[StreamChatProvider] connect failed", err);

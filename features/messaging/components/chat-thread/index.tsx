@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MessageSquareText, MoreHorizontal } from "lucide-react";
 import { Channel, Window, useChannelStateContext, useChatContext } from "stream-chat-react";
@@ -11,10 +11,8 @@ import { MobileThreadHeader } from "@/features/messaging/components/chat-thread/
 import { MessageList } from "@/features/messaging/components/chat-thread/message-list";
 import { MessageInput } from "@/features/messaging/components/chat-thread/message-input";
 import { MessagesOnlySupportWelcome } from "@/features/messaging/components/messages-only-support-welcome";
-import { useMobileVisualViewport } from "@/features/messaging/hooks/use-mobile-visual-viewport";
 import { isChannelArchived, isSupportChannel } from "@/features/messaging/lib/channel-helpers";
 import type { ChannelPropertyMetadata } from "@/features/messaging/types";
-import { cn } from "@/lib/utils";
 
 export function ChatThreadPanel(props: {
   channelLoading: boolean;
@@ -122,7 +120,7 @@ export function ChatThreadPanel(props: {
   }
 
   return (
-    <MobileThreadViewport className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#FAF8F4]">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#FAF8F4]">
       <MobileThreadHeader onBack={props.onBackToList} />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#FAF8F4]">
         <Channel
@@ -138,27 +136,6 @@ export function ChatThreadPanel(props: {
           </Window>
         </Channel>
       </div>
-    </MobileThreadViewport>
-  );
-}
-
-function MobileThreadViewport({ children, className }: { children: ReactNode; className?: string }) {
-  const { height, keyboardOpen } = useMobileVisualViewport(true);
-  const viewportStyle =
-    height != null
-      ? ({
-          height,
-          maxHeight: height,
-        } as const)
-      : undefined;
-
-  return (
-    <div
-      className={cn(className)}
-      style={viewportStyle}
-      data-keyboard-open={keyboardOpen ? "true" : undefined}
-    >
-      {children}
     </div>
   );
 }
@@ -166,7 +143,6 @@ function MobileThreadViewport({ children, className }: { children: ReactNode; cl
 function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
   const { loading, channel } = useChannelStateContext();
   const { setActiveChannel, channel: activeChannel } = useChatContext();
-  const { keyboardOpen } = useMobileVisualViewport(true);
   const supportThread = channel ? isSupportChannel(channel) : false;
   const meta = (channel?.data ?? {}) as ChannelPropertyMetadata;
   const dealKind = (meta.deal_context_kind ?? "").toString().trim();
@@ -236,12 +212,7 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
       <div className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col max-lg:min-h-0 lg:min-h-0">
         <MessageList />
       </div>
-      <div
-        className={cn(
-          "relative z-10 max-lg:shrink-0 max-lg:border-t max-lg:border-[#2C2C2C]/10 max-lg:bg-[#FAF8F4]",
-          keyboardOpen ? "max-lg:pb-0" : "max-lg:pb-[env(safe-area-inset-bottom,0px)]",
-        )}
-      >
+      <div className="relative z-10 max-lg:shrink-0 max-lg:border-t max-lg:border-[#2C2C2C]/10 max-lg:bg-white max-lg:pb-[env(safe-area-inset-bottom,0px)]">
         <MessageInput />
       </div>
     </div>
