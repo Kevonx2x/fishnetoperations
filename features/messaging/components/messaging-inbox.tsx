@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
-import type { ChannelFilters, ChannelSort } from "stream-chat";
+import { useLayoutEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Chat, useChatContext } from "stream-chat-react";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -60,8 +60,8 @@ export function MessagingInbox({
 
 function MessagingInboxInner(props: MessagingInboxProps & { selfUserId: string }) {
   const [isDesktop, setIsDesktop] = useState(false);
-  const [mobileView, setMobileView] = useState<"list" | "thread">("list");
   const { channel: activeChannel } = useChatContext();
+  const searchParams = useSearchParams();
 
   useLayoutEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -75,14 +75,15 @@ function MessagingInboxInner(props: MessagingInboxProps & { selfUserId: string }
     initialChannelParam: props.initialChannelId ?? null,
   });
 
-  useEffect(() => {
-    if (isDesktop) return;
-    if (!activeChannel) {
-      setMobileView("list");
-      return;
-    }
-    setMobileView("thread");
-  }, [activeChannel, isDesktop]);
+  const channelQueryKey = useMemo(() => {
+    const fromUrl = (searchParams.get("channel") ?? "").trim();
+    const fromProp = (props.initialChannelId ?? "").trim();
+    return fromUrl || fromProp || "";
+  }, [searchParams, props.initialChannelId]);
+
+  /** Mobile thread follows URL intent (or active selection), not transient activeChannel loss. */
+  const mobileView =
+    channelQueryKey || activeChannel?.id ? ("thread" as const) : ("list" as const);
 
   const layout = useMemo(
     () =>
@@ -117,7 +118,6 @@ function MessagingInboxInner(props: MessagingInboxProps & { selfUserId: string }
               onLoaded={() => {}}
               onBackToList={() => {
                 clearActiveConversation();
-                setMobileView("list");
               }}
             />
           </div>

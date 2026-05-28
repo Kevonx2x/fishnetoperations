@@ -19,8 +19,6 @@ export function ConversationListPanel(props: {
   const streamMessagesUnreadTotal = useUnreadMessageCount();
   const {
     filters,
-    channelListKey,
-    bumpChannelListKey,
     listSearch,
     setListSearch,
     filterMode,
@@ -30,18 +28,13 @@ export function ConversationListPanel(props: {
 
   useEnsureSupportChannel({
     enabled: Boolean(filters && client.userID),
-    onEnsured: bumpChannelListKey,
   });
 
   const Preview = useCallback(
     (p: ChannelPreviewUIComponentProps) => (
-      <ConversationPreview
-        {...p}
-        selfId={props.selfUserId}
-        onChannelListMutate={bumpChannelListKey}
-      />
+      <ConversationPreview {...p} selfId={props.selfUserId} />
     ),
-    [bumpChannelListKey, props.selfUserId],
+    [props.selfUserId],
   );
 
   const showLargeHeader = props.variant === "desktop";
@@ -101,7 +94,7 @@ export function ConversationListPanel(props: {
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <ChannelList
-          key={`${client.userID}-${channelListKey}`}
+          key={client.userID}
           filters={filters}
           sort={CHANNEL_LIST_SORT}
           options={CHANNEL_LIST_OPTIONS}
