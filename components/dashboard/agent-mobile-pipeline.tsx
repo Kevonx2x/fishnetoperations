@@ -10,7 +10,6 @@ import {
   Filter,
   GitBranch,
   Inbox,
-  Menu,
   MoreHorizontal,
   Plus,
   Search,
@@ -34,7 +33,6 @@ import {
   confirmViewingForLead,
 } from "@/components/dashboard/pipeline-mobile-support-modals";
 import { PipelineMobileSwipeCard } from "@/components/dashboard/pipeline-mobile-swipe-card";
-import { PipelineOverviewStrip } from "@/components/dashboard/pipeline-overview-strip";
 import { PipelineStagePillTabs } from "@/components/dashboard/pipeline-stage-pill-tabs";
 import { useAgentPipelineMobileActions } from "@/hooks/use-agent-pipeline-mobile-actions";
 import { CLIENT_DOC_REQUEST_OPTIONS } from "@/lib/agent-pipeline-card-menu";
@@ -51,8 +49,6 @@ import {
 import { propertyCanonicalCity } from "@/lib/normalize-city";
 import {
   formatDealPriceLine,
-  formatPipelineTotalValue,
-  propertyPipelineValueNumber,
   type PipelinePropertyPriceInput,
 } from "@/lib/pipeline-mobile-value";
 import {
@@ -210,28 +206,16 @@ function dealPropertyMeta(
   };
 }
 
-function leadScoreOverviewHint(score: number): { hint: string; hintTone: "positive" | "neutral" } {
-  if (score >= 7) return { hint: "Excellent", hintTone: "positive" };
-  if (score >= 5) return { hint: "Good", hintTone: "positive" };
-  if (score >= 3) return { hint: "Fair", hintTone: "neutral" };
-  return { hint: "Building", hintTone: "neutral" };
-}
-
 function AgentPipelineHeaderLockup({ className }: { className?: string }) {
   return (
     <div
-      className={cn("inline-flex shrink-0 items-start gap-1.5 leading-none", className)}
-      aria-label="BahayGo dormspacers"
+      className={cn("inline-flex shrink-0 items-center gap-1.5 leading-none", className)}
+      aria-label="BahayGo"
     >
       <BahayGoHouseMark className="h-8 w-auto shrink-0" />
-      <span className="flex flex-col items-start pt-0.5">
-        <span className="inline-flex items-baseline gap-0 font-serif text-[1.15rem] font-bold leading-none tracking-tight">
-          <span className="text-[#2C2C2C]">Bahay</span>
-          <span className="text-[#6B9E6E]">Go</span>
-        </span>
-        <span className="mt-0.5 font-serif text-[0.6rem] font-semibold leading-none tracking-[0.14em] text-[#888888]">
-          dormspacers
-        </span>
+      <span className="inline-flex items-baseline gap-0 font-serif text-[1.15rem] font-bold leading-none tracking-tight">
+        <span className="text-[#2C2C2C]">Bahay</span>
+        <span className="text-[#6B9E6E]">Go</span>
       </span>
     </div>
   );
@@ -260,11 +244,11 @@ export function AgentMobilePipeline({
   archivedLeads,
   propertyLabel,
   leadsAgentUserId: _leadsAgentUserId,
-  agentScore,
+  agentScore: _agentScore,
   agentAvatarUrl,
   agentName,
   unreadNotifications,
-  messagesUnread,
+  messagesUnread: _messagesUnread,
   properties,
   isLoading,
   onOpenMenu,
@@ -396,17 +380,6 @@ export function AgentMobilePipeline({
     return c;
   }, [searchedActive]);
 
-  const pipelineValueFormatted = useMemo(() => {
-    let sum = 0;
-    for (const d of activeDeals) {
-      const pid = d.property_id;
-      if (!pid) continue;
-      const p = propertyById.get(pid);
-      if (p) sum += propertyPipelineValueNumber(p);
-    }
-    return formatPipelineTotalValue(sum);
-  }, [activeDeals, propertyById]);
-
   const searchedArchived = useMemo(
     () => archivedLeads.filter((d) => leadMatchesSearch(d, searchQuery, propertyLabel, propertyById)),
     [archivedLeads, searchQuery, propertyLabel, propertyById],
@@ -417,50 +390,15 @@ export function AgentMobilePipeline({
     return sortDeals(inStage, sortMode);
   }, [searchedActive, filterStage, sortMode]);
 
-  const overviewStats = useMemo(() => {
-    const scoreHint = leadScoreOverviewHint(agentScore);
-    return [
-      {
-        id: "inquiries",
-        label: "Active inquiries",
-        value: String(counts.lead ?? 0),
-        hint: "In your pipeline",
-        hintTone: "positive" as const,
-      },
-      {
-        id: "value",
-        label: "Pipeline value",
-        value: pipelineValueFormatted,
-        hint: "↑ 18% vs last 30 days",
-        hintTone: "positive" as const,
-      },
-      {
-        id: "score",
-        label: "Lead score",
-        value: `${agentScore.toFixed(1)}/10`,
-        hint: scoreHint.hint,
-        hintTone: scoreHint.hintTone,
-      },
-    ];
-  }, [counts.lead, pipelineValueFormatted, agentScore]);
-
   const stageLabel =
     filterStage === "lead" ? "Inquiries" : agentPipelineStageDisplayLabel(filterStage);
   const archivedCount = archivedLeads.length;
 
   return (
-    <div className="flex min-h-[100dvh] min-w-0 flex-col overflow-x-clip bg-[#FAF8F4] max-md:pb-0 md:pb-8">
-      <header className="sticky top-0 z-30 bg-[#FAF8F4]/90 backdrop-blur-md">
-        <div className="grid grid-cols-[2.5rem_1fr_auto_auto] items-center gap-2 px-3 py-2.5">
-          <button
-            type="button"
-            onClick={onOpenMenu}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-[#2C2C2C]/70 hover:bg-white"
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" aria-hidden />
-          </button>
-          <AgentPipelineHeaderLockup className="justify-self-center" />
+    <div className="flex min-h-[100dvh] min-w-0 flex-col overflow-hidden bg-[#FAF8F4] max-md:pb-0 md:pb-8">
+      <header className="sticky top-0 z-30 shrink-0 bg-[#FAF8F4] pt-[env(safe-area-inset-top,0px)] shadow-[0_1px_0_rgba(0,0,0,0.06)]">
+        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-3 py-2.5">
+          <AgentPipelineHeaderLockup className="justify-self-start" />
           <button
             type="button"
             onClick={() => onNavigateTab("notifications")}
@@ -469,7 +407,10 @@ export function AgentMobilePipeline({
           >
             <Bell className="h-5 w-5" aria-hidden />
             {unreadNotifications > 0 ? (
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#6B9E6E] ring-2 ring-[#FAF8F4]" aria-hidden />
+              <span
+                className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#6B9E6E] ring-2 ring-[#FAF8F4]"
+                aria-hidden
+              />
             ) : null}
           </button>
           <button
@@ -488,7 +429,7 @@ export function AgentMobilePipeline({
           </button>
         </div>
 
-        <div className="px-3 pb-3 pt-1">
+        <div className="px-3 pb-3">
           <div className="flex items-center gap-2.5">
             <div className="relative min-w-0 flex-1">
               <Search
@@ -567,27 +508,27 @@ export function AgentMobilePipeline({
             </button>
           </div>
         </div>
+
+        {vault === "active" ? (
+          isLoading ? (
+            <div className="grid grid-cols-5 gap-0.5 px-3 pb-2">
+              {PIPELINE_STAGES.map((s) => (
+                <div key={s.id} className="h-11 animate-pulse rounded-full bg-[#2C2C2C]/10" />
+              ))}
+            </div>
+          ) : (
+            <PipelineStagePillTabs
+              activeStage={filterStage}
+              counts={counts}
+              onStageChange={setFilterStage}
+            />
+          )
+        ) : null}
       </header>
 
-      <main className="min-w-0 flex-1 space-y-6 overflow-x-clip px-3 pb-3 pt-2">
+      <main className="min-h-0 flex-1 overflow-y-auto overflow-x-clip px-3 pb-3 pt-2">
         {vault === "active" ? (
           <>
-            <PipelineOverviewStrip stats={overviewStats} />
-
-            {isLoading ? (
-              <div className="flex gap-2 overflow-hidden">
-                {PIPELINE_STAGES.map((s) => (
-                  <div key={s.id} className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-[#2C2C2C]/10" />
-                ))}
-              </div>
-            ) : (
-              <PipelineStagePillTabs
-                activeStage={filterStage}
-                counts={counts}
-                onStageChange={setFilterStage}
-              />
-            )}
-
             <div className="flex items-center justify-between gap-2 px-0.5">
               <h2 className="min-w-0 text-[17px] font-semibold tracking-tight text-[#2C2C2C]">
                 {stageLabel}{" "}

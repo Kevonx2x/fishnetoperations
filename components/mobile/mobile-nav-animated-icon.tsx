@@ -13,6 +13,7 @@ export type MobileNavIconId =
   | "inbox"
   | "more"
   | "pipeline"
+  | "activity"
   | "notifications"
   | "profile"
   | "settings"
@@ -32,6 +33,7 @@ const ACTIVATE: Partial<Record<MobileNavIconId, TargetAndTransition>> = {
   inbox: { rotate: [0, -8, 8, 0], y: [0, -3, 0] },
   more: { rotate: [0, 90, 180], scale: [0.85, 1.05, 1] },
   pipeline: { rotate: [0, -18, 10, 0], scale: [0.92, 1.06, 1] },
+  activity: { scale: [0.88, 1.12, 0.96, 1.08, 1], y: [0, -2, 0, -1, 0] },
   notifications: { rotate: [0, 14, -14, 0], scale: [0.9, 1.08, 1] },
   profile: { scale: [0.86, 1.1, 1] },
   settings: { rotate: [0, 48, 0], scale: [0.9, 1.05, 1] },
@@ -48,6 +50,7 @@ const ACTIVE_LOOP: Partial<Record<MobileNavIconId, TargetAndTransition>> = {
   inbox: { rotate: [0, -4, 4, 0] },
   more: { rotate: [180, 270, 180] },
   pipeline: { rotate: [0, 10, -10, 0] },
+  activity: { scale: [1, 1.08, 1, 1.05, 1] },
   notifications: { rotate: [0, 12, -12, 0] },
 };
 
@@ -57,6 +60,7 @@ const FILLED_WHEN_ACTIVE = new Set<MobileNavIconId>([
   "saved",
   "inbox",
   "pipeline",
+  "activity",
   "notifications",
   "profile",
   "settings",

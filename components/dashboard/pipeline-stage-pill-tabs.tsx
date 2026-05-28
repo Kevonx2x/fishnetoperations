@@ -18,16 +18,13 @@ type Props = {
   className?: string;
 };
 
+/** Mobile pipeline stage row — five equal columns, label over count, no horizontal scroll. */
 export function PipelineStagePillTabs({ activeStage, counts, onStageChange, className }: Props) {
   return (
     <div
-      className={cn(
-        "-mx-3 flex snap-x snap-proximity gap-2 overflow-x-auto scroll-pl-3 scroll-pr-8 px-3 pb-1.5 scrollbar-hide touch-pan-x",
-        className,
-      )}
+      className={cn("grid grid-cols-5 gap-0.5 px-3 pb-2", className)}
       role="tablist"
       aria-label="Pipeline stages"
-      style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
     >
       {PIPELINE_STAGES.map((stage) => {
         const isActive = activeStage === stage.id;
@@ -42,14 +39,26 @@ export function PipelineStagePillTabs({ activeStage, counts, onStageChange, clas
             aria-selected={isActive}
             onClick={() => onStageChange(stage.id)}
             className={cn(
-              "shrink-0 snap-start whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold transition",
+              "flex min-w-0 flex-col items-center justify-center rounded-full px-0.5 py-1.5 transition",
               isActive
                 ? "bg-[#6B9E6E] text-white shadow-[0_4px_14px_rgba(107,158,110,0.28)]"
                 : "bg-transparent text-[#2C2C2C]",
             )}
           >
-            {label}
-            <span className={cn("ml-0.5 font-medium", isActive ? "text-white/90" : "text-[#AAAAAA]")}>
+            <span
+              className={cn(
+                "w-full text-center text-[10px] font-semibold leading-tight tracking-tight",
+                isActive ? "text-white" : "text-[#2C2C2C]",
+              )}
+            >
+              {label}
+            </span>
+            <span
+              className={cn(
+                "mt-0.5 text-[10px] font-medium leading-none",
+                isActive ? "text-white/90" : "text-[#AAAAAA]",
+              )}
+            >
               ({count})
             </span>
           </button>

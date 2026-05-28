@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { useSoftKeyboardOpen } from "@/hooks/use-soft-keyboard-open";
 import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
 import {
+  Activity,
   Heart,
   Home,
   Map,
@@ -13,6 +14,8 @@ import {
   MoreHorizontal,
   type LucideIcon,
 } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
+import { AGENT_MOBILE_PIPELINE_PATH } from "@/lib/agent-dashboard-routes";
 import {
   MobileNavAnimatedIcon,
   type MobileNavIconId,
@@ -58,7 +61,31 @@ const MARKETPLACE_TABS: MobileBottomNavTabConfig[] = [
   { id: "more", label: "More", href: "/more", Icon: MoreHorizontal },
 ];
 
+/** Agent/broker mobile nav — Saved becomes Leads (pipeline). */
+const AGENT_LEADS_TAB: MobileBottomNavTabConfig = {
+  id: "leads",
+  label: "Leads",
+  href: AGENT_MOBILE_PIPELINE_PATH,
+  Icon: Activity,
+};
+
 const MARKETPLACE_TAB_IDS = new Set(MARKETPLACE_TABS.map((tab) => tab.id));
+const AGENT_LEADS_TAB_IDS = new Set([...MARKETPLACE_TAB_IDS, AGENT_LEADS_TAB.id]);
+
+function isAgentBrokerNavRole(role: string | null | undefined): boolean {
+  return role === "agent" || role === "broker";
+}
+
+function isAgentLeadsPathActive(pathname: string, searchParams: URLSearchParams | null): boolean {
+  if (pathname === AGENT_MOBILE_PIPELINE_PATH || pathname.startsWith(`${AGENT_MOBILE_PIPELINE_PATH}/`)) {
+    return true;
+  }
+  if (pathname === "/dashboard/agent" || pathname.startsWith("/dashboard/agent/")) {
+    const tab = searchParams?.get("tab");
+    return tab === "pipeline" || tab === "leads" || tab === "viewings";
+  }
+  return false;
+}
 
 /** Public dormspaces marketplace — no Inbox; More stays in-product. */
 const DORMSPACES_PUBLIC_TABS: MobileBottomNavTabConfig[] = [
@@ -96,8 +123,13 @@ function isDormspacesPublicTabActive(tabId: string, pathname: string): boolean {
   return false;
 }
 
-function isMarketplaceTabActive(tabId: string, pathname: string): boolean {
+function isMarketplaceTabActive(
+  tabId: string,
+  pathname: string,
+  searchParams: URLSearchParams | null,
+): boolean {
   if (tabId === "more") {
+    if (isAgentLeadsPathActive(pathname, searchParams)) return false;
     return (
       pathname.startsWith("/more") ||
       pathname.startsWith("/settings") ||
@@ -111,6 +143,10 @@ function isMarketplaceTabActive(tabId: string, pathname: string): boolean {
     return pathname.startsWith("/messages");
   }
 
+  if (tabId === "leads") {
+    return isAgentLeadsPathActive(pathname, searchParams);
+  }
+
   if (tabId === "saved") {
     return pathname === "/saved" || pathname.startsWith("/saved/") || pathname === "/likes";
   }
@@ -122,6 +158,7 @@ function isMarketplaceTabActive(tabId: string, pathname: string): boolean {
   if (tabId === "home") {
     if (pathname.startsWith("/search")) return false;
     if (pathname === "/saved" || pathname.startsWith("/saved/") || pathname === "/likes") return false;
+    if (isAgentLeadsPathActive(pathname, searchParams)) return false;
     if (pathname.startsWith("/messages")) return false;
     if (pathname.startsWith("/more")) return false;
     if (pathname.startsWith("/settings") || pathname.startsWith("/profile")) return false;
@@ -136,23 +173,34 @@ function isMarketplaceTabActive(tabId: string, pathname: string): boolean {
   return false;
 }
 
-function isTabActive(tab: MobileBottomNavTabConfig, pathname: string): boolean {
+function isTabActive(
+  tab: MobileBottomNavTabConfig,
+  pathname: string,
+  searchParams: URLSearchParams | null,
+): boolean {
   if (DORMSPACES_PUBLIC_TAB_IDS.has(tab.id) && usesDormspacesPublicBottomNav(pathname)) {
     return isDormspacesPublicTabActive(tab.id, pathname);
   }
 
-  if (MARKETPLACE_TAB_IDS.has(tab.id)) {
-    return isMarketplaceTabActive(tab.id, pathname);
+  if (AGENT_LEADS_TAB_IDS.has(tab.id)) {
+    return isMarketplaceTabActive(tab.id, pathname, searchParams);
   }
 
   return pathname === tab.href || pathname.startsWith(`${tab.href}/`);
 }
 
-function resolveTabs(pathname: string | null | undefined): MobileBottomNavTabConfig[] {
+function resolveTabs(
+  pathname: string | null | undefined,
+  role: string | null | undefined,
+): MobileBottomNavTabConfig[] {
   const path = pathname?.trim() || "/";
 
   if (usesDormspacesPublicBottomNav(path)) {
     return DORMSPACES_PUBLIC_TABS;
+  }
+
+  if (isAgentBrokerNavRole(role)) {
+    return MARKETPLACE_TABS.map((t) => (t.id === "saved" ? AGENT_LEADS_TAB : t));
   }
 
   return MARKETPLACE_TABS;
@@ -167,6 +215,7 @@ function navIconId(tabId: string): MobileNavIconId {
   if (tabId === "inbox") return "inbox";
   if (tabId === "search") return "search";
   if (tabId === "saved") return "saved";
+  if (tabId === "leads") return "activity";
   if (tabId === "more") return "more";
   return "home";
 }
@@ -229,6 +278,7 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { role } = useAuth();
   const messagesUnread = useUnreadMessageCount();
   const { overlayOpen } = useMobileChromeOverlay();
 
@@ -240,13 +290,13 @@ export function MobileBottomNav() {
   const hidden =
     overlayOpen || isMobileBottomNavHidden(path, messagesThreadOpen, keyboardOnMessagesThread);
   const tabs = useMemo(() => {
-    const base = resolveTabs(pathname ?? "/");
+    const base = resolveTabs(pathname ?? "/", role);
     return base.map((t) =>
       t.id === "inbox" && messagesUnread > 0
         ? { ...t, badgeCount: messagesUnread }
         : t,
     );
-  }, [pathname, messagesUnread]);
+  }, [pathname, role, messagesUnread]);
 
   if (hidden) {
     return null;
@@ -263,7 +313,7 @@ export function MobileBottomNav() {
           <NavTab
             key={tab.id}
             tab={tab}
-            active={isTabActive(tab, path)}
+            active={isTabActive(tab, path, searchParams)}
             onNavigate={(href) => router.push(href)}
           />
         ))}
