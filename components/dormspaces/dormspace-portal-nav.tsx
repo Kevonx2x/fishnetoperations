@@ -297,8 +297,8 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
     <Fragment>
       <header
         className={cn(
-          "sticky top-0 z-50 w-full bg-[#FAF8F4]/95 backdrop-blur-sm",
-          !isPublicDormspaceMarketplacePath(pathname) && "border-b border-[#2C2C2C]/10",
+          "sticky top-0 z-50 w-full border-b border-black/[0.06] bg-[#FAF8F4]/95 pt-[env(safe-area-inset-top,0px)] shadow-sm backdrop-blur-sm supports-[backdrop-filter]:bg-[#FAF8F4]/90",
+          !isPublicDormspaceMarketplacePath(pathname) && "md:border-[#2C2C2C]/10",
         )}
       >
         <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto] items-center gap-3 px-4 py-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-3">

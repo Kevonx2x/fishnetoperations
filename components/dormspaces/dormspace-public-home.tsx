@@ -17,7 +17,7 @@ import { DormspaceHomepageFaqSection } from "@/components/dormspaces/dormspace-h
 import { DormspaceNewThisWeekSection } from "@/components/dormspaces/dormspace-new-this-week-section";
 import { DormspacePublicHomeMobile, DormspaceMobileStickySearch } from "@/components/dormspaces/dormspace-public-home-mobile";
 import { MobileFixedSearchShell } from "@/components/marketplace/mobile-fixed-search-shell";
-import { MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN } from "@/lib/bahaygo-mobile/sticky-mobile-search-chrome";
+import { MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN, MOBILE_DORMSPACE_PORTAL_TOP_OFFSET } from "@/lib/bahaygo-mobile/sticky-mobile-search-chrome";
 import { HomepageArticlesSection } from "@/components/marketplace/homepage-articles-section";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import {
@@ -121,8 +121,8 @@ export function DormspacePublicHome({
 
   return (
     <>
-      <div className="min-w-0 overflow-x-clip md:hidden">
-        <MobileFixedSearchShell>
+      <div className="min-w-0 md:hidden">
+        <MobileFixedSearchShell topOffsetClass={MOBILE_DORMSPACE_PORTAL_TOP_OFFSET}>
           <DormspaceMobileStickySearch
             locationQuery={locationQuery}
             onLocationChange={setLocationQuery}

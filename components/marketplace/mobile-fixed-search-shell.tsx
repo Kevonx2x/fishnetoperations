@@ -14,9 +14,12 @@ const SPACER_BUFFER_PX = 6;
 export function MobileFixedSearchShell({
   children,
   className,
+  topOffsetClass = MOBILE_PORTAL_TOP_NAV_OFFSET,
 }: {
   children: ReactNode;
   className?: string;
+  /** Tailwind `top-*` offset below the sticky portal nav (dormspacers uses a taller lockup). */
+  topOffsetClass?: string;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
   const [spacerHeight, setSpacerHeight] = useState(MOBILE_SEARCH_STRIP_FALLBACK_PX);
@@ -49,7 +52,7 @@ export function MobileFixedSearchShell({
       />
       <div
         ref={barRef}
-        className={cn("md:hidden", MOBILE_FIXED_SEARCH_CHROME, MOBILE_PORTAL_TOP_NAV_OFFSET, className)}
+        className={cn("md:hidden", MOBILE_FIXED_SEARCH_CHROME, topOffsetClass, className)}
       >
         {children}
       </div>

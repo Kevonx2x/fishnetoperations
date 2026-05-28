@@ -1,13 +1,18 @@
-/** Mobile portal nav: `py-4` + BahayGo/dormspacers lockup (~68px rendered). */
+/** Mobile portal nav: `py-4` + BahayGo lockup (~68px rendered). */
 export const MOBILE_PORTAL_NAV_HEIGHT_PX = 68;
 export const MOBILE_PORTAL_TOP_NAV_OFFSET = "top-[68px]" as const;
+
+/** Dormspacers nav: two-line lockup (BahayGo + dormspacers tag) under the same `py-4` bar. */
+export const MOBILE_DORMSPACE_PORTAL_NAV_HEIGHT_PX = 76;
+export const MOBILE_DORMSPACE_PORTAL_TOP_OFFSET =
+  "top-[calc(76px+env(safe-area-inset-top,0px))]" as const;
 
 /** Search input + location row under the portal nav (measure + fallback reserve). */
 export const MOBILE_SEARCH_STRIP_FALLBACK_PX = 116;
 
-/** Combined nav + search strip — use for scroll-margin / anchor clearance on dormspaces mobile. */
+/** Anchor clearance below fixed dormspacers nav + search on mobile. */
 export const MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN =
-  "scroll-mt-[11.5rem]" as const;
+  "scroll-mt-[calc(76px+116px+env(safe-area-inset-top,0px))]" as const;
 
 /** Fixed search strip below portal nav — avoids broken `sticky` inside overflow ancestors. */
 export const MOBILE_FIXED_SEARCH_CHROME =

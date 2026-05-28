@@ -23,7 +23,6 @@ import {
 
 
 import {
-  MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN,
   MOBILE_DORMSPACE_CAROUSEL_TRACK,
   MOBILE_HORIZONTAL_SCROLL_STYLE,
 } from "@/lib/bahaygo-mobile/sticky-mobile-search-chrome";
@@ -114,7 +113,7 @@ export function DormspaceMobileStickySearch({
 
         id="dormspace-hero-search"
 
-        className={cn(MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN, "flex h-12 items-center gap-2.5 rounded-2xl border border-[#2C2C2C]/10 bg-white px-3.5 shadow-[0_2px_14px_rgba(44,44,44,0.06)]")}
+        className="flex h-12 items-center gap-2.5 rounded-2xl border border-[#2C2C2C]/10 bg-white px-3.5 shadow-[0_2px_14px_rgba(44,44,44,0.06)]"
 
       >
 
@@ -498,7 +497,7 @@ export function DormspacePublicHomeMobile({
 
     <div className="min-w-0 overflow-x-clip pb-6 pt-1 md:hidden">
 
-      <section className={cn(SECTION, MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN)}>
+      <section className={SECTION}>
 
         <SectionHeader title="New this week" actionLabel="See all" onAction={onScrollToListings} />
 
