@@ -34,6 +34,8 @@ type Props = {
   filters?: DormspaceBrowseFilters;
   onFiltersChange?: (filters: DormspaceBrowseFilters) => void;
   syncLocationToHero?: (location: string) => void;
+  /** Desktop layout split: filters block then property rows. Default `full` (mobile). */
+  part?: "full" | "filters" | "grids";
 };
 
 export function DormspaceBrowse({
@@ -42,6 +44,7 @@ export function DormspaceBrowse({
   filters: controlledFilters,
   onFiltersChange,
   syncLocationToHero,
+  part = "full",
 }: Props) {
   const [city, setCity] = useState("");
   const [roomType, setRoomType] = useState<"" | DormspaceRoomType>("");
@@ -129,8 +132,11 @@ export function DormspaceBrowse({
     }
   };
 
-  return (
-    <section id="listings" className="mx-auto mt-4 max-w-7xl scroll-mt-24 px-4 pb-12 sm:px-5">
+  const showFilters = part === "full" || part === "filters";
+  const showGrids = part === "full" || part === "grids";
+
+  const browseHeader = showFilters ? (
+    <>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
@@ -218,7 +224,11 @@ export function DormspaceBrowse({
           </select>
         </label>
       </div>
+    </>
+  ) : null;
 
+  const browseGrids = showGrids ? (
+    <>
       {filtersActive && filtered.length === 0 ? (
         <div className="mt-10 rounded-2xl border border-dashed border-[#2C2C2C]/15 bg-white px-6 py-14 text-center">
           <p className="font-serif text-xl font-semibold text-[#2C2C2C]">No dormspaces match your filters</p>
@@ -261,6 +271,29 @@ export function DormspaceBrowse({
           </Link>
         </div>
       ) : null}
+    </>
+  ) : null;
+
+  if (part === "grids") {
+    return (
+      <div className="mx-auto max-w-7xl px-4 pb-12 sm:px-5">
+        {browseGrids}
+      </div>
+    );
+  }
+
+  if (part === "filters") {
+    return (
+      <section id="listings" className="mx-auto mt-4 max-w-7xl scroll-mt-24 px-4 sm:px-5">
+        {browseHeader}
+      </section>
+    );
+  }
+
+  return (
+    <section id="listings" className="mx-auto mt-4 max-w-7xl scroll-mt-24 px-4 pb-12 sm:px-5">
+      {browseHeader}
+      {browseGrids}
     </section>
   );
 }
