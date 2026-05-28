@@ -8,5 +8,11 @@ import {
 export function createSupabaseBrowserClient() {
   logSupabasePublicEnvDebugOnce();
   const { url, anonKey } = getPublicSupabaseEnv();
-  return createBrowserClient(url, anonKey);
+  return createBrowserClient(url, anonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
 }

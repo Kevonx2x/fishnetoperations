@@ -6,9 +6,10 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import type { User } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
 import type { ProfileRole } from "@/lib/auth-roles";
 import {
   normalizeLandlordVerificationStatus,
@@ -35,15 +36,25 @@ export type Profile = {
   landlord_verification_submitted_at: string | null;
 };
 
+/** Session resolution state — never treat `loading` as logged out. */
+export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+
 type AuthContextValue = {
   user: User | null;
   profile: Profile | null;
   role: ProfileRole | null;
+  /** True while `status === "loading"`. */
   loading: boolean;
+  status: AuthStatus;
   refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+const PROFILE_SELECT =
+  "id, full_name, avatar_url, phone, bio, role, is_landlord, onboarding_completed, created_at, tutorial_completed, tutorial_dismissed_at, last_seen_changelog, landlord_verification_status, landlord_verification_rejection_reason, landlord_verification_submitted_at";
+
+const AUTH_RESOLVE_TIMEOUT_MS = 10_000;
 
 function normalizeRole(r: string | null | undefined): ProfileRole {
   if (
@@ -60,88 +71,237 @@ function normalizeRole(r: string | null | undefined): ProfileRole {
   return "client";
 }
 
+function profileFromRow(p: Record<string, unknown>): Profile {
+  const row = p as {
+    created_at?: string | null;
+    tutorial_completed?: boolean | null;
+    tutorial_dismissed_at?: string | null;
+    last_seen_changelog?: string | null;
+  };
+  return {
+    id: p.id as string,
+    full_name: (p.full_name as string | null) ?? null,
+    avatar_url: (p.avatar_url as string | null) ?? null,
+    phone: (p.phone as string | null | undefined) ?? null,
+    bio: (p.bio as string | null | undefined) ?? null,
+    role: normalizeRole(p.role as string | null | undefined),
+    is_landlord: (p as { is_landlord?: boolean | null }).is_landlord === true,
+    onboarding_completed: Boolean((p as { onboarding_completed?: unknown }).onboarding_completed),
+    created_at: row.created_at ?? null,
+    tutorial_completed: row.tutorial_completed ?? null,
+    tutorial_dismissed_at: row.tutorial_dismissed_at ?? null,
+    last_seen_changelog: row.last_seen_changelog ?? null,
+    landlord_verification_status: normalizeLandlordVerificationStatus(
+      (p as { landlord_verification_status?: string | null }).landlord_verification_status,
+    ),
+    landlord_verification_rejection_reason:
+      (p as { landlord_verification_rejection_reason?: string | null })
+        .landlord_verification_rejection_reason ?? null,
+    landlord_verification_submitted_at:
+      (p as { landlord_verification_submitted_at?: string | null })
+        .landlord_verification_submitted_at ?? null,
+  };
+}
+
+function isInvalidRefreshTokenError(message: string): boolean {
+  return message.toLowerCase().includes("invalid refresh token");
+}
+
+function isLikelyNetworkAuthError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("fetch") ||
+    m.includes("network") ||
+    m.includes("timeout") ||
+    m.includes("failed to fetch") ||
+    m.includes("load failed")
+  );
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<AuthStatus>("loading");
 
-  const refreshProfile = useCallback(async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error) {
-      // Only force-signout on the known stale refresh-token case.
-      const msg = String((error as { message?: unknown } | null)?.message ?? "");
-      if (msg.toLowerCase().includes("invalid refresh token")) {
-        try {
-          await supabase.auth.signOut();
-        } catch {
-          // ignore
-        }
-      }
-      setProfile(null);
-      setUser(null);
-      setLoading(false);
-      return;
-    }
-    const u = data.user ?? null;
-    setUser(u);
-    if (!u) {
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
-    const { data: p } = await supabase
-      .from("profiles")
-      .select(
-        "id, full_name, avatar_url, phone, bio, role, is_landlord, onboarding_completed, created_at, tutorial_completed, tutorial_dismissed_at, last_seen_changelog, landlord_verification_status, landlord_verification_rejection_reason, landlord_verification_submitted_at",
-      )
-      .eq("id", u.id)
-      .maybeSingle();
-    if (p) {
-      const row = p as {
-        created_at?: string | null;
-        tutorial_completed?: boolean | null;
-        tutorial_dismissed_at?: string | null;
-        last_seen_changelog?: string | null;
-      };
-      setProfile({
-        id: p.id,
-        full_name: p.full_name,
-        avatar_url: p.avatar_url,
-        phone: (p as { phone?: string | null }).phone ?? null,
-        bio: (p as { bio?: string | null }).bio ?? null,
-        role: normalizeRole(p.role),
-        is_landlord: (p as { is_landlord?: boolean | null }).is_landlord === true,
-        onboarding_completed: Boolean((p as { onboarding_completed?: unknown }).onboarding_completed),
-        created_at: row.created_at ?? null,
-        tutorial_completed: row.tutorial_completed ?? null,
-        tutorial_dismissed_at: row.tutorial_dismissed_at ?? null,
-        last_seen_changelog: row.last_seen_changelog ?? null,
-        landlord_verification_status: normalizeLandlordVerificationStatus(
-          (p as { landlord_verification_status?: string | null }).landlord_verification_status,
-        ),
-        landlord_verification_rejection_reason:
-          (p as { landlord_verification_rejection_reason?: string | null })
-            .landlord_verification_rejection_reason ?? null,
-        landlord_verification_submitted_at:
-          (p as { landlord_verification_submitted_at?: string | null })
-            .landlord_verification_submitted_at ?? null,
-      });
-    } else {
-      setProfile(null);
-    }
-    setLoading(false);
-  }, [supabase]);
+  const userRef = useRef<User | null>(null);
+  const statusRef = useRef<AuthStatus>("loading");
+  const resolveGenerationRef = useRef(0);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void refreshProfile();
+    userRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  const loadProfileForUser = useCallback(
+    async (u: User): Promise<Profile | null> => {
+      const { data: p } = await supabase.from("profiles").select(PROFILE_SELECT).eq("id", u.id).maybeSingle();
+      return p ? profileFromRow(p as Record<string, unknown>) : null;
+    },
+    [supabase],
+  );
+
+  const applyAuthenticated = useCallback((u: User, p: Profile | null) => {
+    userRef.current = u;
+    setUser(u);
+    setProfile(p);
+    setStatus("authenticated");
+  }, []);
+
+  const applyUnauthenticated = useCallback(() => {
+    userRef.current = null;
+    setUser(null);
+    setProfile(null);
+    setStatus("unauthenticated");
+  }, []);
+
+  const resolveAuth = useCallback(
+    async (options?: { resume?: boolean }) => {
+      const generation = ++resolveGenerationRef.current;
+      const resume = options?.resume === true;
+      const hadUser = userRef.current != null;
+
+      if (!resume) {
+        setStatus("loading");
+      }
+
+      const finishIfCurrent = () => generation === resolveGenerationRef.current;
+
+      // Prefer getSession (local persisted storage) before network getUser().
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!finishIfCurrent()) return;
+
+      const sessionUser = sessionData.session?.user ?? null;
+      if (sessionUser) {
+        const p = await loadProfileForUser(sessionUser);
+        if (!finishIfCurrent()) return;
+        applyAuthenticated(sessionUser, p);
+        return;
+      }
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (!finishIfCurrent()) return;
+
+      if (userData.user) {
+        const p = await loadProfileForUser(userData.user);
+        if (!finishIfCurrent()) return;
+        applyAuthenticated(userData.user, p);
+        return;
+      }
+
+      if (userError) {
+        const msg = String(userError.message ?? "");
+        if (isInvalidRefreshTokenError(msg)) {
+          try {
+            await supabase.auth.signOut();
+          } catch {
+            /* ignore */
+          }
+          if (!finishIfCurrent()) return;
+          applyUnauthenticated();
+          return;
+        }
+
+        // Transient network failure on resume — keep the last known signed-in view.
+        if (resume && hadUser && isLikelyNetworkAuthError(msg)) {
+          setStatus("authenticated");
+          return;
+        }
+      }
+
+      if (resume && hadUser) {
+        // Session missing from storage but we had a user — retry once (PWA storage wake-up).
+        await new Promise((r) => setTimeout(r, 150));
+        if (!finishIfCurrent()) return;
+        const retry = await supabase.auth.getSession();
+        if (!finishIfCurrent()) return;
+        const retryUser = retry.data.session?.user ?? null;
+        if (retryUser) {
+          const p = await loadProfileForUser(retryUser);
+          if (!finishIfCurrent()) return;
+          applyAuthenticated(retryUser, p);
+          return;
+        }
+      }
+
+      applyUnauthenticated();
+    },
+    [applyAuthenticated, applyUnauthenticated, loadProfileForUser, supabase],
+  );
+
+  const syncFromSession = useCallback(
+    async (session: Session | null) => {
+      const u = session?.user ?? null;
+      if (!u) {
+        applyUnauthenticated();
+        return;
+      }
+      const p = await loadProfileForUser(u);
+      applyAuthenticated(u, p);
+    },
+    [applyAuthenticated, applyUnauthenticated, loadProfileForUser],
+  );
+
+  const refreshProfile = useCallback(async () => {
+    await resolveAuth({ resume: userRef.current != null });
+  }, [resolveAuth]);
+
+  useEffect(() => {
+    void resolveAuth();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      // Initial hydration is handled by resolveAuth() — avoid racing to unauthenticated.
+      if (event === "INITIAL_SESSION") return;
+      if (event === "SIGNED_OUT") {
+        applyUnauthenticated();
+        return;
+      }
+      if (
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "USER_UPDATED" ||
+        event === "PASSWORD_RECOVERY"
+      ) {
+        void syncFromSession(session);
+      }
     });
-    const { data: sub } = supabase.auth.onAuthStateChange(() => {
-      void refreshProfile();
-    });
+
     return () => sub.subscription.unsubscribe();
-  }, [supabase, refreshProfile]);
+  }, [applyUnauthenticated, resolveAuth, supabase, syncFromSession]);
+
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        void resolveAuth({ resume: true });
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void resolveAuth({ resume: true });
+      }
+    };
+
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [resolveAuth]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (statusRef.current !== "loading") return;
+      void resolveAuth({ resume: userRef.current != null });
+    }, AUTH_RESOLVE_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [resolveAuth]);
+
+  const loading = status === "loading";
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -149,9 +309,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       role: profile?.role ?? null,
       loading,
+      status,
       refreshProfile,
     }),
-    [user, profile, loading, refreshProfile],
+    [user, profile, loading, status, refreshProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
