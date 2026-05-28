@@ -94,46 +94,56 @@ function profileInitials(name: string | null | undefined, email: string | null |
   return "?";
 }
 
-function MenuCard({ item }: { item: MenuItem }) {
+function MenuRow({
+  item,
+  showDivider,
+}: {
+  item: MenuItem;
+  showDivider?: boolean;
+}) {
   const iconClass = item.destructive ? "text-red-500" : "text-[#6B9E6E]";
 
   const inner = (
     <>
-      <span className="flex w-8 shrink-0 items-center justify-center self-start pt-0.5">
+      <span className="flex w-[22px] shrink-0 items-center justify-center">
         <item.icon className={cn("h-[22px] w-[22px]", iconClass)} strokeWidth={1.5} aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
         <p
           className={cn(
-            "font-serif text-lg font-semibold leading-snug",
+            "truncate text-[15px] font-medium leading-tight",
             item.destructive ? "text-red-500" : "text-[#2C2C2C]",
           )}
         >
           {item.label}
         </p>
         {item.description ? (
-          <p className="mt-0.5 text-[13px] font-normal leading-snug text-[#888888]">{item.description}</p>
+          <p className="mt-0.5 truncate text-[13px] font-normal leading-tight text-[#888888]">
+            {item.description}
+          </p>
         ) : null}
       </div>
       {item.badge ? (
         <span
           className={cn(
-            "shrink-0 self-start rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
             item.badgeGold ? "bg-[#D4A843] text-white" : "bg-[#6B9E6E]/10 text-[#6B9E6E]",
           )}
         >
           {item.badge}
         </span>
-      ) : item.destructive ? null : (
-        <ChevronRight className="h-5 w-5 shrink-0 self-center text-[#888888]" aria-hidden />
-      )}
+      ) : null}
+      {!item.destructive ? (
+        <ChevronRight className="h-4 w-4 shrink-0 text-[#BBBBBB]" aria-hidden />
+      ) : null}
     </>
   );
 
   const rowClass = cn(
-    "flex w-full items-start gap-3 rounded-xl border border-black/[0.06] bg-white p-5 text-left transition-colors",
+    "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
     "hover:bg-black/[0.02] active:bg-black/[0.04]",
-    item.primaryAccent && "border-l-[3px] border-l-[#6B9E6E] shadow-sm",
+    item.primaryAccent && "border-l-[3px] border-l-[#6B9E6E] pl-[13px]",
+    showDivider && "border-t border-black/[0.06]",
   );
 
   if (item.onClick) {
@@ -170,9 +180,9 @@ function MenuSectionBlock({ section, isFirst }: { section: MenuSection; isFirst?
       >
         {section.title}
       </h2>
-      <div className="flex flex-col gap-2 px-4">
-        {section.items.map((item) => (
-          <MenuCard key={item.id} item={item} />
+      <div className="mx-4 overflow-hidden rounded-xl border border-black/[0.06] bg-white">
+        {section.items.map((item, index) => (
+          <MenuRow key={item.id} item={item} showDivider={index > 0} />
         ))}
       </div>
     </section>
