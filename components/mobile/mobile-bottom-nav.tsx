@@ -73,7 +73,15 @@ const MARKETPLACE_TAB_IDS = new Set(MARKETPLACE_TABS.map((tab) => tab.id));
 const AGENT_LEADS_TAB_IDS = new Set([...MARKETPLACE_TAB_IDS, AGENT_LEADS_TAB.id]);
 
 function isAgentBrokerNavRole(role: string | null | undefined): boolean {
-  return role === "agent" || role === "broker";
+  return role === "agent" || role === "broker" || role === "team_member";
+}
+
+/** Agent pipeline routes should show Leads even before auth role resolves. */
+function usesAgentLeadsBottomNav(pathname: string): boolean {
+  if (pathname === AGENT_MOBILE_PIPELINE_PATH || pathname.startsWith(`${AGENT_MOBILE_PIPELINE_PATH}/`)) {
+    return true;
+  }
+  return pathname === "/dashboard/agent" || pathname.startsWith("/dashboard/agent/");
 }
 
 function isAgentLeadsPathActive(pathname: string, searchParams: URLSearchParams | null): boolean {
@@ -199,7 +207,7 @@ function resolveTabs(
     return DORMSPACES_PUBLIC_TABS;
   }
 
-  if (isAgentBrokerNavRole(role)) {
+  if (isAgentBrokerNavRole(role) || usesAgentLeadsBottomNav(path)) {
     return MARKETPLACE_TABS.map((t) => (t.id === "saved" ? AGENT_LEADS_TAB : t));
   }
 

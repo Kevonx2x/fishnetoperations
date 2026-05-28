@@ -32,7 +32,7 @@ function streamProfileKey(userId: string, name: string, image?: string): string 
 
 export function StreamChatProvider({ children }: { children: React.ReactNode }) {
   const routeEnabled = useStreamChatRouteEnabled();
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile } = useAuth();
   const [client, setClient] = useState<StreamChat | null>(null);
   const clientRef = useRef<StreamChat | null>(null);
 
@@ -60,7 +60,7 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
       return;
     }
 
-    if (authLoading || !streamProfile) return;
+    if (!streamProfile) return;
 
     const generation = ++connectGeneration;
     let cancelled = false;
@@ -84,23 +84,7 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
         }
 
         const chat = createBrowserStreamClient();
-        let image = streamProfile.image;
-
-        if (!image && streamProfile.role === "agent") {
-          try {
-            const supabase = createSupabaseBrowserClient();
-            const { data: agentRow } = await supabase
-              .from("agents")
-              .select("image_url")
-              .eq("user_id", user.id)
-              .maybeSingle();
-            image = (agentRow?.image_url as string | null | undefined)?.trim() || undefined;
-          } catch {
-            /* ignore */
-          }
-        }
-
-        const streamUser = { id: user.id, name: streamProfile.name, image };
+        const streamUser = { id: user.id, name: streamProfile.name, image: streamProfile.image };
         const key = streamProfileKey(user.id, streamUser.name, streamUser.image);
 
         if (cancelled || generation !== connectGeneration) return;
@@ -123,6 +107,29 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
         if (!cancelled && generation === connectGeneration) {
           setClient((prev) => (prev === chat ? prev : chat));
         }
+
+        // Enrich agent avatar after connect — never block the initial connection on this query.
+        if (!streamProfile.image && streamProfile.role === "agent" && !cancelled && generation === connectGeneration) {
+          void (async () => {
+            try {
+              const supabase = createSupabaseBrowserClient();
+              const { data: agentRow } = await supabase
+                .from("agents")
+                .select("image_url")
+                .eq("user_id", user.id)
+                .maybeSingle();
+              const image = (agentRow?.image_url as string | null | undefined)?.trim() || undefined;
+              if (!image || cancelled || generation !== connectGeneration) return;
+              const enriched = { id: user.id, name: streamProfile.name, image };
+              const enrichedKey = streamProfileKey(user.id, enriched.name, enriched.image);
+              if (lastUpsertedProfileKey === enrichedKey) return;
+              await chat.upsertUser(enriched);
+              lastUpsertedProfileKey = enrichedKey;
+            } catch {
+              /* ignore */
+            }
+          })();
+        }
       } catch (err) {
         console.error("[StreamChatProvider] connect failed", err);
       }
@@ -131,7 +138,7 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
     return () => {
       cancelled = true;
     };
-  }, [authLoading, profileKey, routeEnabled, streamProfile, user?.id]);
+  }, [profileKey, routeEnabled, streamProfile, user?.id]);
 
   useEffect(() => {
     const onPageShow = (event: PageTransitionEvent) => {

@@ -1289,7 +1289,6 @@ export function AgentDashboard() {
         setYesterdayPendingDocumentsCount(0);
         setYesterdayUnreadNotificationsCount(0);
         setPropertiesLoadVersion((v) => v + 1);
-        setPipelineDataReady(true);
         setLoaded(true);
         setTeamMemberSetupError(tmErr?.message ?? "No active team assignment found.");
         return;
@@ -1324,7 +1323,6 @@ export function AgentDashboard() {
         setYesterdayPendingDocumentsCount(0);
         setYesterdayUnreadNotificationsCount(0);
         setPropertiesLoadVersion((v) => v + 1);
-        setPipelineDataReady(true);
         setTeamMemberSetupError("Supervising agent profile could not be loaded.");
         return;
       }
@@ -1456,7 +1454,6 @@ export function AgentDashboard() {
         setYesterdayUnreadNotificationsCount(0);
       }
       setPropertiesLoadVersion((v) => v + 1);
-      setPipelineDataReady(true);
       return;
     }
 
@@ -1487,7 +1484,6 @@ export function AgentDashboard() {
       setYesterdayPendingDocumentsCount(0);
       setYesterdayUnreadNotificationsCount(0);
       setPropertiesLoadVersion((v) => v + 1);
-      setPipelineDataReady(true);
       return;
     }
 
@@ -1749,8 +1745,8 @@ export function AgentDashboard() {
       setYesterdayUnreadNotificationsCount(0);
     }
     setPropertiesLoadVersion((v) => v + 1);
-    setPipelineDataReady(true);
     } finally {
+      setPipelineDataReady(true);
       setLoadErrors(errs);
     }
   }, [supabase, user?.id]);
