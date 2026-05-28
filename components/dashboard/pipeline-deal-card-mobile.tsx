@@ -153,7 +153,11 @@ export function PipelineDealCardMobile({
       <button
         type="button"
         aria-label="Deal options"
-        onClick={() => onOpenMenu?.(deal)}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          onOpenMenu?.(deal);
+        }}
         className="absolute right-2 top-2 z-[2] flex h-7 w-7 items-center justify-center rounded-full text-[#BBBBBB] active:bg-[#F3F0EA]"
       >
         <MoreHorizontal className="h-4 w-4" aria-hidden />

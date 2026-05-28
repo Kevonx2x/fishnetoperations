@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { toast } from "sonner";
 import {
   Bell,
   ChevronDown,
@@ -25,8 +26,18 @@ import {
   PipelineDealCardMobile,
   type MobileDealPropertyMeta,
 } from "@/components/dashboard/pipeline-deal-card-mobile";
+import { PipelineMobileActionSheet } from "@/components/dashboard/pipeline-mobile-action-sheet";
+import {
+  PipelineMobileDeclineSheet,
+  PipelineMobileRequestDocsSheet,
+  PipelineMobileViewingConfirmSheet,
+  confirmViewingForLead,
+} from "@/components/dashboard/pipeline-mobile-support-modals";
+import { PipelineMobileSwipeCard } from "@/components/dashboard/pipeline-mobile-swipe-card";
 import { PipelineOverviewStrip } from "@/components/dashboard/pipeline-overview-strip";
 import { PipelineStagePillTabs } from "@/components/dashboard/pipeline-stage-pill-tabs";
+import { useAgentPipelineMobileActions } from "@/hooks/use-agent-pipeline-mobile-actions";
+import { CLIENT_DOC_REQUEST_OPTIONS } from "@/lib/agent-pipeline-card-menu";
 import { BahayGoHouseMark } from "@/components/dormspaces/dormspace-welcome-logo";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import {
@@ -258,19 +269,51 @@ export function AgentMobilePipeline({
   isLoading,
   onOpenMenu,
   onNavigateTab,
-  onViewDocuments,
-  onOpenDealMenu,
+  onViewDocuments: _onViewDocuments,
+  onOpenDealMenu: _onOpenDealMenu,
   onOpenLeadDetails,
+  onOpenMessagesForClient,
+  onPatchLead,
+  onRefresh,
   onAddDeal,
   onMore,
   onHome,
   pipelineAgentId,
+  leadsAgentUserId,
 }: AgentMobilePipelineProps) {
   const [vault, setVault] = useState<"active" | "archived">("active");
   const [filterStage, setFilterStage] = useState<PipelineStageId>("lead");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState<PipelineSortMode>("last_activity_desc");
   const [addDealOpen, setAddDealOpen] = useState(false);
+  const [actionDeal, setActionDeal] = useState<PipelineLeadRow | null>(null);
+  const [declineDeal, setDeclineDeal] = useState<PipelineLeadRow | null>(null);
+  const [declineBusy, setDeclineBusy] = useState(false);
+  const [requestDocsDeal, setRequestDocsDeal] = useState<PipelineLeadRow | null>(null);
+  const [requestDocsBusy, setRequestDocsBusy] = useState(false);
+  const [viewingConfirmLead, setViewingConfirmLead] = useState<PipelineLeadRow | null>(null);
+  const [viewingConfirmBusy, setViewingConfirmBusy] = useState(false);
+  const [viewingConfirmError, setViewingConfirmError] = useState<string | null>(null);
+
+  const {
+    moveLeadToStage,
+    advanceLeadStage,
+    archiveLead,
+    submitDecline,
+    sendDocumentRequest,
+  } = useAgentPipelineMobileActions({
+    leadsAgentUserId,
+    onPatchLead,
+    onRefresh,
+    onBeforeMoveToViewing: (lead) => {
+      setViewingConfirmLead(lead);
+      setViewingConfirmError(null);
+    },
+  });
+
+  const handleOpenActionMenu = useCallback((deal: PipelineLeadRow) => {
+    setActionDeal(deal);
+  }, []);
 
   const sortStorageKey = useMemo(() => `bhg:pipeline:mobile:sort:${pipelineAgentId}`, [pipelineAgentId]);
 
@@ -563,14 +606,20 @@ export function AgentMobilePipeline({
             ) : (
               <div className="space-y-3">
                 {stageDeals.map((deal) => (
-                  <PipelineDealCardMobile
+                  <PipelineMobileSwipeCard
                     key={deal.id}
                     deal={deal}
-                    property={dealPropertyMeta(deal, propertyLabel, propertyById)}
-                    onViewDocuments={onViewDocuments}
-                    onOpenMenu={onOpenDealMenu}
-                    onOpenDeal={(deal) => onOpenLeadDetails(deal.id)}
-                  />
+                    onSwipeAdvance={(d) => void advanceLeadStage(d)}
+                    onSwipeDecline={(d) => setDeclineDeal(d)}
+                  >
+                    <PipelineDealCardMobile
+                      deal={deal}
+                      property={dealPropertyMeta(deal, propertyLabel, propertyById)}
+                      onViewDocuments={() => {}}
+                      onOpenMenu={handleOpenActionMenu}
+                      onOpenDeal={(d) => onOpenLeadDetails(d.id)}
+                    />
+                  </PipelineMobileSwipeCard>
                 ))}
               </div>
             )}
@@ -602,9 +651,9 @@ export function AgentMobilePipeline({
                       pipeline_stage: normalizeStage(deal.pipeline_stage as string),
                     }}
                     property={dealPropertyMeta(deal, propertyLabel, propertyById)}
-                    onViewDocuments={onViewDocuments}
-                    onOpenMenu={onOpenDealMenu}
-                    onOpenDeal={(deal) => onOpenLeadDetails(deal.id)}
+                    onViewDocuments={() => {}}
+                    onOpenMenu={handleOpenActionMenu}
+                    onOpenDeal={(d) => onOpenLeadDetails(d.id)}
                   />
                 ))}
               </div>
@@ -612,6 +661,105 @@ export function AgentMobilePipeline({
           </>
         )}
       </main>
+
+      <PipelineMobileActionSheet
+        deal={actionDeal}
+        open={actionDeal != null}
+        onOpenChange={(open) => {
+          if (!open) setActionDeal(null);
+        }}
+        onMessages={(deal) => {
+          if (!deal.client_id?.trim()) {
+            toast.error("This deal is not linked to a client account yet.");
+            return;
+          }
+          onOpenMessagesForClient?.(deal.client_id.trim());
+        }}
+        onRequestDocuments={(deal) => {
+          if (!deal.client_id) {
+            toast.error("This deal is not linked to a client account yet.");
+            return;
+          }
+          setRequestDocsDeal(deal);
+        }}
+        onMarkWon={(deal) => void moveLeadToStage(deal, "closed")}
+        onMarkLost={(deal) => setDeclineDeal(deal)}
+        onArchive={(deal) => void archiveLead(deal)}
+        onDeclineArchive={(deal) => setDeclineDeal(deal)}
+        onMoveToStage={(deal, stage) => void moveLeadToStage(deal, stage)}
+      />
+
+      <PipelineMobileDeclineSheet
+        deal={declineDeal}
+        open={declineDeal != null}
+        busy={declineBusy}
+        onClose={() => !declineBusy && setDeclineDeal(null)}
+        onConfirm={(reasonKey) => {
+          if (!declineDeal) return;
+          setDeclineBusy(true);
+          void submitDecline(declineDeal, reasonKey).then((ok) => {
+            setDeclineBusy(false);
+            if (ok) setDeclineDeal(null);
+          });
+        }}
+      />
+
+      <PipelineMobileRequestDocsSheet
+        deal={requestDocsDeal}
+        open={requestDocsDeal != null}
+        busy={requestDocsBusy}
+        onClose={() => !requestDocsBusy && setRequestDocsDeal(null)}
+        onSend={(selections, otherName) => {
+          if (!requestDocsDeal) return;
+          const document_items = CLIENT_DOC_REQUEST_OPTIONS.filter((o) => selections[o.key]).map(
+            (o) =>
+              o.key === "other"
+                ? { type: "other" as const, document_name: otherName.trim() }
+                : { type: o.key },
+          );
+          if (document_items.length === 0) {
+            toast.error("Select at least one document type.");
+            return;
+          }
+          if (selections.other && !otherName.trim()) {
+            toast.error('Add a name for "Other" before sending.');
+            return;
+          }
+          setRequestDocsBusy(true);
+          void sendDocumentRequest(requestDocsDeal, document_items).then((ok) => {
+            setRequestDocsBusy(false);
+            if (ok) setRequestDocsDeal(null);
+          });
+        }}
+      />
+
+      <PipelineMobileViewingConfirmSheet
+        lead={viewingConfirmLead}
+        open={viewingConfirmLead != null}
+        busy={viewingConfirmBusy}
+        error={viewingConfirmError}
+        onClose={() => !viewingConfirmBusy && setViewingConfirmLead(null)}
+        onConfirm={(dateYmd, timeHm, notes) => {
+          if (!viewingConfirmLead) return;
+          setViewingConfirmBusy(true);
+          setViewingConfirmError(null);
+          void confirmViewingForLead(viewingConfirmLead.id, dateYmd, timeHm, notes).then((result) => {
+            if (!result.ok) {
+              setViewingConfirmError(result.message);
+              setViewingConfirmBusy(false);
+              return;
+            }
+            onPatchLead?.(viewingConfirmLead.id, {
+              pipeline_stage: "viewing",
+              updated_at: new Date().toISOString(),
+            });
+            toast.success("Viewing scheduled");
+            setViewingConfirmLead(null);
+            setViewingConfirmBusy(false);
+            void Promise.resolve(onRefresh());
+          });
+        }}
+      />
 
       {vault === "active" ? (
         <button

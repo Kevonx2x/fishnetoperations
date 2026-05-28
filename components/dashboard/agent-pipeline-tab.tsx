@@ -2706,7 +2706,7 @@ export function AgentPipelineTab({
     void (async () => {
       const { data, error } = await supabase
         .from("properties")
-        .select("id, city, location, price, rent_price, listing_type, status, deleted_at, availability_state")
+        .select("id, city, location, price, rent_price, listing_type, status, availability_state")
         .in("id", ids);
       if (cancelled) return;
       if (error) {
@@ -2726,16 +2726,17 @@ export function AgentPipelineTab({
         rent_price: unknown;
         listing_type: unknown;
         status: unknown;
-        deleted_at?: string | null;
         availability_state?: string | null;
       }[]) {
         const location = String(row.location ?? "").trim();
         const canonicalCity = propertyCanonicalCity({ city: row.city, location });
+        const availability = row.availability_state != null ? String(row.availability_state) : null;
         meta[row.id] = {
           city: canonicalCity,
           location,
-          deleted_at: row.deleted_at != null ? String(row.deleted_at) : null,
-          availability_state: row.availability_state != null ? String(row.availability_state) : null,
+          deleted_at:
+            availability?.trim().toLowerCase() === "removed" ? "removed" : null,
+          availability_state: availability,
         };
 
         const lt = String(row.listing_type ?? "").trim().toLowerCase();

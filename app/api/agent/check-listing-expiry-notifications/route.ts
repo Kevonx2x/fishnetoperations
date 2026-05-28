@@ -5,6 +5,11 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
  * Creates one notification per listing expiring within 7 days (not yet expired),
  * only if expiry_notified_at is null. Sets expiry_notified_at after send.
  */
+/** Avoid 404 on accidental GET/prefetch. */
+export async function GET() {
+  return Response.json({ success: true, sent: 0, noop: true });
+}
+
 export async function POST() {
   const session = await getSessionProfile();
   if (!session?.userId) {

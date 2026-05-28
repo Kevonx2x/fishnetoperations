@@ -294,6 +294,15 @@ function propertyPhotosFromLeadPropertiesJoin(
   return node?.property_photos ?? null;
 }
 
+function propertyDeletedAtFromRow(raw: Record<string, unknown>): string | null {
+  const availability = String(raw.availability_state ?? "").trim().toLowerCase();
+  if (availability === "removed") return "removed";
+  const deleted = raw.deleted_at;
+  if (deleted != null && typeof deleted === "string" && deleted.trim()) return deleted;
+  if (deleted != null) return String(deleted);
+  return null;
+}
+
 function leadRowFromQueryRow(
   row: LeadRow & LeadQueryPropertiesJoin,
   clientAvatarUrl: string | null,
@@ -1503,7 +1512,7 @@ export function AgentDashboard() {
         supabase
           .from("properties")
           .select(
-            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng, formatted_address, place_id, is_demo, pet_friendly, near_schools, family_friendly",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, availability_state, listed_by, lat, lng, formatted_address, place_id, is_demo, pet_friendly, near_schools, family_friendly",
           )
           .eq("listed_by", user.id)
           .order("created_at", { ascending: false }),
@@ -1641,12 +1650,7 @@ export function AgentDashboard() {
               : p.expires_at != null
                 ? String(p.expires_at)
                 : null,
-          deleted_at:
-            p.deleted_at != null && typeof p.deleted_at === "string"
-              ? p.deleted_at
-              : p.deleted_at != null
-                ? String(p.deleted_at)
-                : null,
+          deleted_at: propertyDeletedAtFromRow(p),
           listed_by: (p.listed_by as string | null) ?? null,
           availability_state: (p.availability_state as string | null) ?? "available",
           city: (p.city as string | null) ?? null,
@@ -1670,7 +1674,7 @@ export function AgentDashboard() {
         const { data: co, error: coErr } = await supabase
           .from("properties")
           .select(
-            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, deleted_at, availability_state, listed_by, lat, lng, formatted_address, place_id, is_demo, pet_friendly, near_schools, family_friendly",
+            "id, name, location, city, price, rent_price, listing_type, image_url, status, beds, baths, sqft, description, property_type, listing_status, is_presale, developer_name, turnover_date, unit_types, expires_at, availability_state, listed_by, lat, lng, formatted_address, place_id, is_demo, pet_friendly, near_schools, family_friendly",
           )
           .in("id", coIds)
           .order("created_at", { ascending: false });
@@ -1703,12 +1707,7 @@ export function AgentDashboard() {
                 : p.expires_at != null
                   ? String(p.expires_at)
                   : null,
-            deleted_at:
-              p.deleted_at != null && typeof p.deleted_at === "string"
-                ? p.deleted_at
-                : p.deleted_at != null
-                  ? String(p.deleted_at)
-                  : null,
+            deleted_at: propertyDeletedAtFromRow(p),
             listed_by: (p.listed_by as string | null) ?? null,
             availability_state: (p.availability_state as string | null) ?? "available",
             city: (p.city as string | null) ?? null,
@@ -1882,6 +1881,7 @@ export function AgentDashboard() {
 
   useEffect(() => {
     if (!agent?.user_id || isTeamMemberView) return;
+    if (agent.verification_status !== "verified") return;
     const uid = agent.user_id;
     void (async () => {
       try {
@@ -1889,16 +1889,26 @@ export function AgentDashboard() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: uid }),
+          credentials: "include",
         });
-        const json = (await res.json()) as { success?: boolean; data?: { score: number } };
-        if (json.success && json.data && typeof json.data.score === "number") {
-          setAgent((prev) => (prev ? { ...prev, score: json.data!.score } : null));
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          success?: boolean;
+          data?: { score: number | null; updated?: boolean };
+        };
+        if (
+          json.success &&
+          json.data?.updated !== false &&
+          json.data &&
+          typeof json.data.score === "number"
+        ) {
+          setAgent((prev) => (prev ? { ...prev, score: json.data!.score! } : null));
         }
       } catch {
         /* score recalc is best-effort */
       }
     })();
-  }, [agent?.user_id, isTeamMemberView]);
+  }, [agent?.user_id, agent?.verification_status, isTeamMemberView]);
 
   useEffect(() => {
     if (!agent || isTeamMemberView) return;
@@ -3027,14 +3037,7 @@ export function AgentDashboard() {
                       if (next === "notifications") navigateAgentTab("overview");
                       else navigateAgentTab(next);
                     }}
-                    onViewDocuments={(deal) => {
-                      const row = [...leads, ...archivedLeads].find((x) => x.id === deal.id);
-                      if (row) setSelectedLead(row);
-                    }}
-                    onOpenDealMenu={(deal) => {
-                      const row = [...leads, ...archivedLeads].find((x) => x.id === deal.id);
-                      if (row) setSelectedLead(row);
-                    }}
+                    onViewDocuments={() => {}}
                     onMore={() => setMoreDrawerOpen(true)}
                     onHome={() => router.push("/")}
                   />

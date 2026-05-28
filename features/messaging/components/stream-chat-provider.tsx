@@ -16,13 +16,13 @@ let cachedTokenUserId: string | null = null;
 let lastUpsertedProfileKey: string | null = null;
 let connectGeneration = 0;
 
-/** Stream Chat only on messaging routes — keeps homepage bfcache-eligible. */
+/** Stream Chat only on messaging routes — not pipeline/overview (avoids token fetch noise). */
 function useStreamChatRouteEnabled(): boolean {
   const pathname = usePathname() ?? "";
   return (
     pathname.startsWith("/messages") ||
-    pathname.startsWith("/dashboard/agent") ||
-    pathname.startsWith("/dashboard/client/messages")
+    pathname === "/dashboard/client/messages" ||
+    pathname.startsWith("/dashboard/client/messages/")
   );
 }
 

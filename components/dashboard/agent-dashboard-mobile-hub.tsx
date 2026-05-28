@@ -143,9 +143,9 @@ export function AgentDashboardMobileHub() {
     if (!teamMember) {
       const { data: props } = await supabase
         .from("properties")
-        .select("id, deleted_at, availability_state")
-        .eq("agent_id", user.id)
-        .is("deleted_at", null);
+        .select("id, availability_state")
+        .eq("listed_by", user.id)
+        .neq("availability_state", "removed");
       const active = ((props ?? []) as { availability_state?: string | null }[]).filter(
         (p) => String(p.availability_state ?? "").trim().toLowerCase() !== "removed",
       );

@@ -7,6 +7,11 @@ const bodySchema = z.object({
   userId: z.string().uuid(),
 });
 
+/** Avoid 404 on accidental GET/prefetch during dashboard load. */
+export async function GET() {
+  return ok({ score: null, updated: false });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const raw = await request.json().catch(() => ({}));
@@ -15,9 +20,9 @@ export async function POST(request: NextRequest) {
 
     const score = await recalculateAndPersistAgentScore(parsed.data.userId);
     if (score == null) {
-      return fail("NOT_FOUND", "Could not update score", 404);
+      return ok({ score: null, updated: false });
     }
-    return ok({ score });
+    return ok({ score, updated: true });
   } catch (e) {
     return fail(
       "INTERNAL_ERROR",
