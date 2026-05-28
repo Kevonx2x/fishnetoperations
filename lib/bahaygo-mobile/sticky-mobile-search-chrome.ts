@@ -30,4 +30,4 @@ export const MOBILE_HORIZONTAL_SCROLL_STYLE = {
 } as const;
 
 export const MOBILE_DORMSPACE_CAROUSEL_TRACK =
-  "mt-2.5 flex touch-pan-x overflow-x-auto px-4 pb-0.5 scrollbar-hide snap-x snap-proximity scroll-pl-4 scroll-pr-4";
+  "mt-2.5 flex min-w-0 overflow-x-auto overflow-y-visible px-4 pb-0.5 scrollbar-hide snap-x snap-proximity scroll-pl-4 scroll-pr-4";

@@ -136,15 +136,16 @@ export function DormspacePublicHome({
           />
         </div>
 
-        <DormspacePublicHomeMobile
-          universities={universities}
-          listings={listings}
-          neighborhoods={featuredNeighborhoods}
-          onBrowseFilter={applyMobileBrowseFilter}
-          onScrollToListings={scrollToListings}
-        />
+        <div className="flex min-w-0 w-full flex-col">
+          <DormspacePublicHomeMobile
+            universities={universities}
+            listings={listings}
+            neighborhoods={featuredNeighborhoods}
+            onBrowseFilter={applyMobileBrowseFilter}
+            onScrollToListings={scrollToListings}
+          />
 
-        <div className={cn("min-w-0 overflow-x-clip", MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN)}>
+          <div className={cn("min-w-0", MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN)}>
           <div className="border-t border-black/[0.06] bg-[#FAF8F4] px-5 py-4">
             <h2 className="font-serif text-[18px] font-semibold leading-tight tracking-tight text-[#2C2C2C]">
               All listings
@@ -160,6 +161,7 @@ export function DormspacePublicHome({
             }}
             syncLocationToHero={setLocationQuery}
           />
+          </div>
         </div>
       </div>
 
