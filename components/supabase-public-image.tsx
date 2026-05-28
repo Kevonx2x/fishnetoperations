@@ -11,6 +11,7 @@ type Base = {
   sizes?: string;
   priority?: boolean;
   quality?: number;
+  onLoad?: () => void;
 };
 
 export type SupabasePublicImageProps = Base &
@@ -21,15 +22,24 @@ export type SupabasePublicImageProps = Base &
  * optimizer issues (e.g. private IP); otherwise uses `next/image`.
  */
 export function SupabasePublicImage(props: SupabasePublicImageProps) {
-  const { src, alt, className, sizes, priority, quality } = props;
+  const { src, alt, className, sizes, priority, quality, onLoad } = props;
   const fill = "fill" in props && props.fill === true;
 
   if (isSupabasePublicStorageUrl(src)) {
     if (fill) {
-      return <img src={src} alt={alt} className={cn("absolute inset-0 h-full w-full", className)} />;
+      return (
+        <img
+          src={src}
+          alt={alt}
+          onLoad={onLoad}
+          className={cn("absolute inset-0 h-full w-full", className)}
+        />
+      );
     }
     const { width, height } = props;
-    return <img src={src} alt={alt} width={width} height={height} className={className} />;
+    return (
+      <img src={src} alt={alt} width={width} height={height} onLoad={onLoad} className={className} />
+    );
   }
 
   if (fill) {
@@ -42,6 +52,7 @@ export function SupabasePublicImage(props: SupabasePublicImageProps) {
         className={className}
         priority={priority}
         quality={quality}
+        onLoad={onLoad}
       />
     );
   }
@@ -57,6 +68,7 @@ export function SupabasePublicImage(props: SupabasePublicImageProps) {
       sizes={sizes}
       priority={priority}
       quality={quality}
+      onLoad={onLoad}
     />
   );
 }

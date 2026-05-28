@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { MapPin, MoreHorizontal } from "lucide-react";
 import type { PipelineLeadRow } from "@/components/dashboard/agent-pipeline-tab";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
+import { cn } from "@/lib/utils";
 
 export type MobileDealPropertyMeta = {
   title: string;
@@ -47,6 +49,43 @@ function specsLine(property: MobileDealPropertyMeta): string {
   return parts.join(" · ");
 }
 
+function DealImage({
+  imageKey,
+  src,
+  alt,
+  sizes,
+  className,
+}: {
+  imageKey: string;
+  src: string;
+  alt: string;
+  sizes: string;
+  className?: string;
+}) {
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+  }, [imageKey]);
+
+  return (
+    <>
+      {!loaded ? (
+        <div className="absolute inset-0 animate-pulse bg-[#ECEAE4]" aria-hidden />
+      ) : null}
+      <SupabasePublicImage
+        key={imageKey}
+        src={src}
+        alt={alt}
+        fill
+        sizes={sizes}
+        className={cn(className, loaded ? "opacity-100" : "opacity-0")}
+        onLoad={() => setLoaded(true)}
+      />
+    </>
+  );
+}
+
 type PipelineDealCardMobileProps = {
   deal: PipelineLeadRow & {
     property_cover_photo_url?: string | null;
@@ -85,10 +124,10 @@ export function PipelineDealCardMobile({
           aria-label={`Open ${property.title}`}
         >
           {thumb ? (
-            <SupabasePublicImage
+            <DealImage
+              imageKey={`${deal.id}-${thumb}`}
               src={thumb}
               alt=""
-              fill
               sizes={`${PHOTO_SIZE_PX}px`}
               className="object-cover object-center"
             />
@@ -128,10 +167,10 @@ export function PipelineDealCardMobile({
       <div className="pointer-events-none absolute right-2.5 top-11 z-[1] flex w-11 flex-col items-center gap-0.5">
         <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#E8F0E9] ring-2 ring-white shadow-[0_2px_6px_rgba(44,44,44,0.05)]">
           {deal.client_avatar_url ? (
-            <SupabasePublicImage
+            <DealImage
+              imageKey={`${deal.id}-avatar-${deal.client_avatar_url}`}
               src={deal.client_avatar_url}
               alt=""
-              fill
               sizes="36px"
               className="object-cover"
             />

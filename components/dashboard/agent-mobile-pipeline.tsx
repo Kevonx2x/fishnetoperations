@@ -529,11 +529,7 @@ export function AgentMobilePipeline({
       <main className="min-h-0 flex-1 overflow-y-auto overflow-x-clip px-3 pb-3 pt-2">
         {vault === "active" ? (
           <>
-            <div className="flex items-center justify-between gap-2 px-0.5">
-              <h2 className="min-w-0 text-[17px] font-semibold tracking-tight text-[#2C2C2C]">
-                {stageLabel}{" "}
-                <span className="font-medium text-[#AAAAAA]">({stageDeals.length})</span>
-              </h2>
+            <div className="flex justify-end px-0.5 pb-0.5">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button

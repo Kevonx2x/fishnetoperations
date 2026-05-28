@@ -251,9 +251,6 @@ function NavTab({
       )}
       aria-current={active ? "page" : undefined}
     >
-      {active ? (
-        <span className="absolute inset-x-2 top-0 h-0.5 rounded-full bg-[#6B9E6E]" aria-hidden />
-      ) : null}
       <span className="relative flex h-7 w-7 items-center justify-center">
         <MobileNavAnimatedIcon id={navIconId(tab.id)} Icon={Icon} active={active} size={24} />
         {showBadge ? (
