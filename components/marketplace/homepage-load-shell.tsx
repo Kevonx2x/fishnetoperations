@@ -111,7 +111,7 @@ export function HomepageTopAgentsSectionSkeleton() {
 export function HomepageLoadShell() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#FAF8F4]" aria-busy="true" aria-label="Loading homepage">
-      <div className="sticky top-0 z-50 w-full border-b border-black/[0.06] bg-white/95 shadow-sm backdrop-blur-sm">
+      <div className="sticky top-0 z-50 w-full border-b border-black/[0.06] bg-[#FAF8F4]/95 pt-[env(safe-area-inset-top,0px)] shadow-sm backdrop-blur-sm">
         <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4">
           <Pulse className="h-8 w-24" />
           <Pulse className="h-9 w-9 rounded-full" />

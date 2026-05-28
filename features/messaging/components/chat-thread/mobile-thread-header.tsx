@@ -253,7 +253,7 @@ export function MobileThreadHeader(props: Props) {
       <div className={cn("md:hidden", props.className)}>
         <div
           ref={chromeRef}
-          className="fixed left-0 right-0 top-0 z-30 border-b border-black/[0.06] bg-white pt-[env(safe-area-inset-top,0px)] shadow-sm"
+          className="fixed left-0 right-0 top-0 z-30 border-b border-black/[0.06] bg-[#FAF8F4] pt-[env(safe-area-inset-top,0px)] shadow-sm"
         >
           <div className="flex h-14 items-center px-4">
             <button
@@ -275,7 +275,7 @@ export function MobileThreadHeader(props: Props) {
     <div className={cn("md:hidden", props.className)}>
       <div
         ref={chromeRef}
-        className="fixed left-0 right-0 top-0 z-30 bg-white pt-[env(safe-area-inset-top,0px)] shadow-sm"
+        className="fixed left-0 right-0 top-0 z-30 bg-[#FAF8F4] pt-[env(safe-area-inset-top,0px)] shadow-sm"
       >
         {contactRow}
         {showPropertyRow ? (
