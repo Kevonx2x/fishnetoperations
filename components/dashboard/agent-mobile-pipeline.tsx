@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   Bell,
@@ -10,9 +10,9 @@ import {
   Inbox,
   Menu,
   MoreHorizontal,
+  Plus,
   Search,
 } from "lucide-react";
-import { toast } from "sonner";
 import {
   PIPELINE_STAGES,
   agentPipelineStageDisplayLabel,
@@ -25,9 +25,9 @@ import {
   PipelineDealCardMobile,
   type MobileDealPropertyMeta,
 } from "@/components/dashboard/pipeline-deal-card-mobile";
-import { PipelineHeroCard } from "@/components/dashboard/pipeline-hero-card";
-import { PipelineStageScroller } from "@/components/dashboard/pipeline-stage-scroller";
-import { BahayGoWordmark } from "@/components/marketplace/bahaygo-wordmark";
+import { PipelineOverviewStrip } from "@/components/dashboard/pipeline-overview-strip";
+import { PipelineStagePillTabs } from "@/components/dashboard/pipeline-stage-pill-tabs";
+import { BahayGoHouseMark } from "@/components/dormspaces/dormspace-welcome-logo";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import {
   DropdownMenu,
@@ -116,13 +116,6 @@ const SORT_LABELS: Record<PipelineSortMode, string> = {
   name_desc: "Name (Z → A)",
 };
 
-const NEXT_STAGE: Partial<Record<PipelineStageId, PipelineStageId>> = {
-  lead: "viewing",
-  viewing: "offer",
-  offer: "reservation",
-  reservation: "closed",
-};
-
 function normalizeStage(raw: string): PipelineStageId {
   const s = String(raw ?? "").trim().toLowerCase();
   const order: PipelineStageId[] = ["lead", "viewing", "offer", "reservation", "closed"];
@@ -191,9 +184,13 @@ function dealPropertyMeta(
 ): MobileDealPropertyMeta {
   const pid = deal.property_id;
   const p = pid ? propertyById.get(pid) : undefined;
+  const locationLine = p
+    ? [p.city, p.location].filter(Boolean).join(" · ") || null
+    : null;
   return {
     title: pid ? propertyLabel(pid) : "No property linked",
     priceLine: p ? formatDealPriceLine(p) : null,
+    locationLine,
     beds: p?.beds ?? null,
     baths: p?.baths ?? null,
     sqft: p?.sqft != null ? String(p.sqft) : null,
@@ -202,21 +199,46 @@ function dealPropertyMeta(
   };
 }
 
+function leadScoreOverviewHint(score: number): { hint: string; hintTone: "positive" | "neutral" } {
+  if (score >= 7) return { hint: "Excellent", hintTone: "positive" };
+  if (score >= 5) return { hint: "Good", hintTone: "positive" };
+  if (score >= 3) return { hint: "Fair", hintTone: "neutral" };
+  return { hint: "Building", hintTone: "neutral" };
+}
+
+function AgentPipelineHeaderLockup({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn("inline-flex shrink-0 items-start gap-1.5 leading-none", className)}
+      aria-label="BahayGo dormspacers"
+    >
+      <BahayGoHouseMark className="h-8 w-auto shrink-0" />
+      <span className="flex flex-col items-start pt-0.5">
+        <span className="inline-flex items-baseline gap-0 font-serif text-[1.15rem] font-bold leading-none tracking-tight">
+          <span className="text-[#2C2C2C]">Bahay</span>
+          <span className="text-[#6B9E6E]">Go</span>
+        </span>
+        <span className="mt-0.5 font-serif text-[0.6rem] font-semibold leading-none tracking-[0.14em] text-[#888888]">
+          dormspacers
+        </span>
+      </span>
+    </div>
+  );
+}
+
 function MobileDealCardSkeleton() {
   return (
-    <div className="animate-pulse rounded-2xl border border-[#2C2C2C]/10 bg-white p-3 shadow-[0_2px_12px_rgba(44,44,44,0.06)]">
-      <div className="flex gap-3">
-        <div className="h-20 w-20 shrink-0 rounded-xl bg-[#2C2C2C]/10" />
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="h-3 w-16 rounded bg-[#2C2C2C]/10" />
-          <div className="h-4 w-3/4 rounded bg-[#2C2C2C]/10" />
-          <div className="h-3 w-full rounded bg-[#2C2C2C]/10" />
-        </div>
+    <div className="relative flex h-[108px] animate-pulse overflow-hidden rounded-xl bg-white shadow-[0_4px_16px_rgba(44,44,44,0.06)]">
+      <div className="size-[108px] shrink-0 bg-[#ECEAE4]" />
+      <div className="flex flex-1 flex-col justify-center gap-1 py-2 pl-2.5 pr-14">
+        <div className="h-3.5 w-4/5 rounded-md bg-[#ECEAE4]" />
+        <div className="h-3 w-3/5 rounded-md bg-[#ECEAE4]" />
+        <div className="h-2.5 w-full rounded-md bg-[#ECEAE4]" />
+        <div className="h-3.5 w-24 rounded-md bg-[#ECEAE4]" />
       </div>
-      <div className="mt-3 h-5 w-28 rounded bg-[#2C2C2C]/10" />
-      <div className="mt-3 flex gap-2">
-        <div className="h-10 flex-1 rounded-xl bg-[#2C2C2C]/10" />
-        <div className="h-10 flex-1 rounded-xl bg-[#2C2C2C]/10" />
+      <div className="absolute right-2.5 top-11 flex w-11 flex-col items-center gap-0.5">
+        <div className="h-9 w-9 rounded-full bg-[#ECEAE4]" />
+        <div className="h-3 w-full rounded-md bg-[#ECEAE4]" />
       </div>
     </div>
   );
@@ -226,8 +248,7 @@ export function AgentMobilePipeline({
   leads,
   archivedLeads,
   propertyLabel,
-  onPatchLead,
-  leadsAgentUserId,
+  leadsAgentUserId: _leadsAgentUserId,
   agentScore,
   agentAvatarUrl,
   agentName,
@@ -239,6 +260,7 @@ export function AgentMobilePipeline({
   onNavigateTab,
   onViewDocuments,
   onOpenDealMenu,
+  onOpenLeadDetails,
   onAddDeal,
   onMore,
   onHome,
@@ -246,10 +268,8 @@ export function AgentMobilePipeline({
 }: AgentMobilePipelineProps) {
   const [vault, setVault] = useState<"active" | "archived">("active");
   const [filterStage, setFilterStage] = useState<PipelineStageId>("lead");
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState<PipelineSortMode>("last_activity_desc");
-  const [moveBusyId, setMoveBusyId] = useState<number | null>(null);
   const [addDealOpen, setAddDealOpen] = useState(false);
 
   const sortStorageKey = useMemo(() => `bhg:pipeline:mobile:sort:${pipelineAgentId}`, [pipelineAgentId]);
@@ -331,83 +351,50 @@ export function AgentMobilePipeline({
     return sortDeals(inStage, sortMode);
   }, [searchedActive, filterStage, sortMode]);
 
-  const displayScore = Number.isFinite(agentScore) ? agentScore : 5;
+  const overviewStats = useMemo(() => {
+    const scoreHint = leadScoreOverviewHint(agentScore);
+    return [
+      {
+        id: "inquiries",
+        label: "Active inquiries",
+        value: String(counts.lead ?? 0),
+        hint: "In your pipeline",
+        hintTone: "positive" as const,
+      },
+      {
+        id: "value",
+        label: "Pipeline value",
+        value: pipelineValueFormatted,
+        hint: "↑ 18% vs last 30 days",
+        hintTone: "positive" as const,
+      },
+      {
+        id: "score",
+        label: "Lead score",
+        value: `${agentScore.toFixed(1)}/10`,
+        hint: scoreHint.hint,
+        hintTone: scoreHint.hintTone,
+      },
+    ];
+  }, [counts.lead, pipelineValueFormatted, agentScore]);
 
-  const moveDealToNext = useCallback(
-    async (deal: PipelineLeadRow, nextStage: PipelineStageId) => {
-      setMoveBusyId(deal.id);
-      const prevSnapshot: Partial<PipelineLeadRow> = {
-        pipeline_stage: deal.pipeline_stage,
-        updated_at: deal.updated_at ?? null,
-        closed_at: deal.closed_at ?? null,
-        closed_date: deal.closed_date ?? null,
-        closed_by: deal.closed_by ?? null,
-        closure_confirmed_by_client: deal.closure_confirmed_by_client ?? null,
-      };
-      const nowIso = new Date().toISOString();
-      const optimisticPatch: Partial<PipelineLeadRow> = {
-        pipeline_stage: nextStage,
-        updated_at: nowIso,
-      };
-      if (nextStage === "closed") {
-        optimisticPatch.closed_at = nowIso;
-        optimisticPatch.closed_date = nowIso.slice(0, 10);
-        optimisticPatch.closed_by = leadsAgentUserId;
-        optimisticPatch.closure_confirmed_by_client = null;
-      }
-      onPatchLead?.(deal.id, optimisticPatch);
-
-      try {
-        const res = await fetch("/api/agent/pipeline-set-stage", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ leadId: deal.id, pipeline_stage: nextStage }),
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          success?: boolean;
-          data?: { success?: boolean };
-          error?: { message?: string };
-        };
-        const apiOk = res.ok && json.success === true && json.data?.success === true;
-        if (!apiOk) {
-          toast.error(json?.error?.message ?? "Could not move deal");
-          onPatchLead?.(deal.id, prevSnapshot);
-        }
-      } catch {
-        toast.error("Could not reach server. Check your connection.");
-        onPatchLead?.(deal.id, prevSnapshot);
-      } finally {
-        setMoveBusyId(null);
-      }
-    },
-    [onPatchLead, leadsAgentUserId],
-  );
-
-  const stageLabel = agentPipelineStageDisplayLabel(filterStage);
+  const stageLabel =
+    filterStage === "lead" ? "Inquiries" : agentPipelineStageDisplayLabel(filterStage);
   const archivedCount = archivedLeads.length;
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-[#FAF8F4] pb-24">
-      <header className="sticky top-0 z-30 border-b border-[#2C2C2C]/10 bg-[#FAF8F4]/95 backdrop-blur">
-        <div className="flex items-center gap-2 px-3 py-2.5">
+    <div className="flex min-h-[100dvh] min-w-0 flex-col overflow-x-clip bg-[#FAF8F4] pb-24">
+      <header className="sticky top-0 z-30 bg-[#FAF8F4]/90 backdrop-blur-md">
+        <div className="grid grid-cols-[2.5rem_1fr_auto_auto] items-center gap-2 px-3 py-2.5">
           <button
             type="button"
             onClick={onOpenMenu}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#2C2C2C]/70 hover:bg-white"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-[#2C2C2C]/70 hover:bg-white"
             aria-label="Open menu"
           >
             <Menu className="h-5 w-5" aria-hidden />
           </button>
-          <BahayGoWordmark size="nav" className="min-w-0 flex-1 justify-center sm:justify-start" />
-          <button
-            type="button"
-            onClick={() => setSearchOpen((v) => !v)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#2C2C2C]/70 hover:bg-white"
-            aria-label="Search pipeline"
-          >
-            <Search className="h-5 w-5" aria-hidden />
-          </button>
+          <AgentPipelineHeaderLockup className="justify-self-center" />
           <button
             type="button"
             onClick={() => onNavigateTab("notifications")}
@@ -435,57 +422,30 @@ export function AgentMobilePipeline({
           </button>
         </div>
 
-        {searchOpen ? (
-          <div className="border-t border-[#2C2C2C]/[0.06] px-3 pb-2.5">
-            <div className="relative">
+        <div className="px-3 pb-3 pt-1">
+          <div className="flex items-center gap-2.5">
+            <div className="relative min-w-0 flex-1">
               <Search
-                className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2C2C2C]/40"
+                className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#AAAAAA]"
                 aria-hidden
               />
               <input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search leads, clients, properties…"
-                className="h-9 w-full rounded-xl border border-[#2C2C2C]/10 bg-white py-0 pl-9 pr-3 text-sm text-[#2C2C2C] outline-none placeholder:text-[#2C2C2C]/45 focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/30"
+                placeholder="Search listings, clients, or locations…"
+                className="h-12 w-full rounded-full bg-white py-0 pl-11 pr-3 text-[14px] font-medium text-[#2C2C2C] shadow-[0_4px_20px_rgba(44,44,44,0.06)] outline-none placeholder:text-[#AAAAAA] focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/25"
                 aria-label="Search pipeline"
               />
             </div>
-          </div>
-        ) : null}
-
-        <div className="flex items-center justify-between gap-2 border-t border-[#2C2C2C]/[0.06] px-3 py-2">
-          <div className="flex gap-1 rounded-xl border border-[#2C2C2C]/10 bg-white p-0.5">
-            <button
-              type="button"
-              onClick={() => setVault("active")}
-              className={cn(
-                "rounded-lg px-3 py-1.5 text-xs font-bold",
-                vault === "active" ? "bg-[#6B9E6E] text-white" : "text-[#2C2C2C]/55",
-              )}
-            >
-              Active
-            </button>
-            <button
-              type="button"
-              onClick={() => setVault("archived")}
-              className={cn(
-                "rounded-lg px-3 py-1.5 text-xs font-bold",
-                vault === "archived" ? "bg-[#6B9E6E] text-white" : "text-[#2C2C2C]/55",
-              )}
-            >
-              Archived ({archivedCount})
-            </button>
-          </div>
-          <div className="flex items-center gap-1">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold text-[#2C2C2C]/75 hover:bg-white"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-[#888888] shadow-[0_4px_20px_rgba(44,44,44,0.06)]"
+                  aria-label="Filters"
                 >
-                  <Filter className="h-3.5 w-3.5" aria-hidden />
-                  Filters
+                  <Filter className="h-[18px] w-[18px]" aria-hidden />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[200px] border border-[#2C2C2C]/10 bg-[#FAF8F4]">
@@ -499,11 +459,38 @@ export function AgentMobilePipeline({
                     }}
                     className="font-semibold"
                   >
-                    {s.label}
+                    {s.id === "lead" ? "Inquiries" : s.label}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-2 px-3 pb-2">
+          <div className="inline-flex gap-1 rounded-full bg-[#ECEAE4]/80 p-1">
+            <button
+              type="button"
+              onClick={() => setVault("active")}
+              className={cn(
+                "rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition",
+                vault === "active" ? "bg-white text-[#2C2C2C] shadow-sm" : "text-[#888888]",
+              )}
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              onClick={() => setVault("archived")}
+              className={cn(
+                "rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition",
+                vault === "archived" ? "bg-white text-[#2C2C2C] shadow-sm" : "text-[#888888]",
+              )}
+            >
+              Archived ({archivedCount})
+            </button>
+          </div>
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={onOpenMenu}
@@ -516,40 +503,35 @@ export function AgentMobilePipeline({
         </div>
       </header>
 
-      <main className="flex-1 space-y-4 px-3 pt-3">
+      <main className="min-w-0 flex-1 space-y-6 overflow-x-clip px-3 pb-3 pt-2">
         {vault === "active" ? (
           <>
-            <PipelineHeroCard
-              stageId={filterStage}
-              stageActiveCount={counts[filterStage] ?? 0}
-              scoreOutOfTen={displayScore}
-              pipelineValueFormatted={pipelineValueFormatted}
-            />
+            <PipelineOverviewStrip stats={overviewStats} />
 
             {isLoading ? (
               <div className="flex gap-2 overflow-hidden">
                 {PIPELINE_STAGES.map((s) => (
-                  <div key={s.id} className="h-16 w-16 shrink-0 animate-pulse rounded-full bg-[#2C2C2C]/10" />
+                  <div key={s.id} className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-[#2C2C2C]/10" />
                 ))}
               </div>
             ) : (
-              <PipelineStageScroller
+              <PipelineStagePillTabs
                 activeStage={filterStage}
                 counts={counts}
                 onStageChange={setFilterStage}
               />
             )}
 
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="min-w-0 font-serif text-lg font-bold text-[#2C2C2C]">
-                Deals in {stageLabel}{" "}
-                <span className="text-[#2C2C2C]/45">({stageDeals.length})</span>
+            <div className="flex items-center justify-between gap-2 px-0.5">
+              <h2 className="min-w-0 text-[17px] font-semibold tracking-tight text-[#2C2C2C]">
+                {stageLabel}{" "}
+                <span className="font-medium text-[#AAAAAA]">({stageDeals.length})</span>
               </h2>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#2C2C2C]/10 bg-white px-2 py-1 text-xs font-bold text-[#2C2C2C]/75"
+                    className="inline-flex shrink-0 items-center gap-1 text-[12px] font-medium text-[#888888]"
                   >
                     Sort: {SORT_LABELS[sortMode]}
                     <ChevronDown className="h-3.5 w-3.5" aria-hidden />
@@ -585,10 +567,9 @@ export function AgentMobilePipeline({
                     key={deal.id}
                     deal={deal}
                     property={dealPropertyMeta(deal, propertyLabel, propertyById)}
-                    moveBusy={moveBusyId === deal.id}
-                    onMoveToNextStage={(d, stage) => void moveDealToNext(d, stage)}
                     onViewDocuments={onViewDocuments}
                     onOpenMenu={onOpenDealMenu}
+                    onOpenDeal={(deal) => onOpenLeadDetails(deal.id)}
                   />
                 ))}
               </div>
@@ -623,6 +604,7 @@ export function AgentMobilePipeline({
                     property={dealPropertyMeta(deal, propertyLabel, propertyById)}
                     onViewDocuments={onViewDocuments}
                     onOpenMenu={onOpenDealMenu}
+                    onOpenDeal={(deal) => onOpenLeadDetails(deal.id)}
                   />
                 ))}
               </div>
@@ -630,6 +612,22 @@ export function AgentMobilePipeline({
           </>
         )}
       </main>
+
+      {vault === "active" ? (
+        <button
+          type="button"
+          onClick={
+            onAddDeal ??
+            (() => {
+              setAddDealOpen(true);
+            })
+          }
+          className="fixed bottom-[5.25rem] right-3 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-[#6B9E6E] text-white shadow-[0_6px_20px_rgba(107,158,110,0.38)] transition active:scale-95"
+          aria-label="Add new deal"
+        >
+          <Plus className="h-6 w-6" strokeWidth={2.5} aria-hidden />
+        </button>
+      ) : null}
 
       <AgentMobileBottomNav
         activeTab="pipeline"

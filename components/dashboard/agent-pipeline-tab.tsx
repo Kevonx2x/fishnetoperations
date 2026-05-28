@@ -140,6 +140,7 @@ export type PipelineLeadRow = {
   id: number;
   name: string;
   email: string;
+  phone?: string | null;
   /** Linked client profile id (for document requests). */
   client_id?: string | null;
   /** Cached avatar_url for the linked client profile (pipeline cards). */

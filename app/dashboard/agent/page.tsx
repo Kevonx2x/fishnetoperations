@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 
 import { AgentDashboard } from "@/components/dashboard/agent-dashboard";
 import { AgentDashboardMobileHub } from "@/components/dashboard/agent-dashboard-mobile-hub";
-import { StreamChatProvider } from "@/features/messaging/components/stream-chat-provider";
 
 const MOBILE_TAB_SECTIONS = new Set([
   "pipeline",
@@ -37,10 +36,8 @@ function AgentDashboardPageInner() {
 
 export default function AgentDashboardPage() {
   return (
-    <StreamChatProvider>
-      <Suspense fallback={null}>
-        <AgentDashboardPageInner />
-      </Suspense>
-    </StreamChatProvider>
+    <Suspense fallback={null}>
+      <AgentDashboardPageInner />
+    </Suspense>
   );
 }

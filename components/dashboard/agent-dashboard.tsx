@@ -45,6 +45,7 @@ import {
   type ViewingRequestPipelineMeta,
 } from "@/components/dashboard/agent-pipeline-tab";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { AGENT_MOBILE_PIPELINE_PATH } from "@/lib/agent-dashboard-routes";
 import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
 import { streamDmChannelId } from "@/features/messaging/lib/stream-dm-channel-id";
 import { useAgentPipelineTabAttentionCount } from "@/features/messaging/hooks/use-agent-pipeline-tab-attention-count";
@@ -158,6 +159,11 @@ function tabFromSearchParamsString(queryString: string): Tab {
   if (raw === "team") return "profile";
   if (raw && URL_TAB_QUERY_ALLOWED.includes(raw as Tab)) return raw as Tab;
   return "overview";
+}
+
+function tabFromPathnameAndSearch(pathname: string, queryString: string): Tab {
+  if (pathname === "/dashboard/agent/pipeline") return "pipeline";
+  return tabFromSearchParamsString(queryString);
 }
 
 type AgentRow = {
@@ -967,18 +973,34 @@ export function AgentDashboard() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const agentViewingsRefetchRef = useRef<(() => Promise<void>) | null>(null);
 
-  const tab = useMemo(() => tabFromSearchParamsString(searchQueryString), [searchQueryString]);
+  const tab = useMemo(
+    () => tabFromPathnameAndSearch(pathname, searchQueryString),
+    [pathname, searchQueryString],
+  );
   const isMobilePipeline = useIsMobile();
-  const showMobilePipelineUi = isMobilePipeline && tab === "pipeline";
+  const showMobilePipelineUi =
+    isMobilePipeline && (tab === "pipeline" || pathname === AGENT_MOBILE_PIPELINE_PATH);
 
   const navigateAgentTab = useCallback(
     (next: Tab) => {
+      if (isMobilePipeline && next === "pipeline") {
+        if (pathname !== AGENT_MOBILE_PIPELINE_PATH) {
+          router.replace(AGENT_MOBILE_PIPELINE_PATH, { scroll: false });
+        }
+        return;
+      }
+      if (pathname === AGENT_MOBILE_PIPELINE_PATH) {
+        const sp = new URLSearchParams();
+        sp.set("tab", next);
+        router.replace(`/dashboard/agent?${sp.toString()}`, { scroll: false });
+        return;
+      }
       const sp = new URLSearchParams(searchQueryString);
       sp.set("tab", next);
       const qs = sp.toString();
       router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
     },
-    [pathname, router, searchQueryString],
+    [isMobilePipeline, pathname, router, searchQueryString],
   );
 
   const [streamChannelId, setStreamChannelId] = useState<string | null>(null);
@@ -2871,7 +2893,7 @@ export function AgentDashboard() {
             tab === "messages"
               ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
               : tab === "pipeline"
-                ? "min-h-0 px-4 py-3 md:overflow-y-auto md:px-8 md:py-5 md:pb-5"
+                ? "min-h-0 max-md:px-0 max-md:py-0 md:overflow-y-auto md:px-8 md:py-5 md:pb-5"
                 : "px-4 py-6 md:overflow-y-auto md:px-8 md:py-10 md:pb-10",
           )}
         >
@@ -2952,6 +2974,7 @@ export function AgentDashboard() {
                       id: l.id,
                       name: l.name,
                       email: l.email,
+                      phone: l.phone ?? null,
                       client_id: l.client_id ?? null,
                       client_avatar_url: l.client_avatar_url ?? null,
                       pipeline_stage: (l.pipeline_stage ?? "lead") as PipelineStageId,

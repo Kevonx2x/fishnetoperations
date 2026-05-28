@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { StreamChat } from "stream-chat";
 
@@ -12,6 +12,9 @@ const StreamChatContext = createContext<StreamChat | null>(null);
 
 let cachedToken: string | null = null;
 let cachedTokenUserId: string | null = null;
+/** Skip redundant Stream `upsertUser` calls (rate limit code 9). */
+let lastUpsertedProfileKey: string | null = null;
+let connectGeneration = 0;
 
 /** Stream Chat only on messaging routes — keeps homepage bfcache-eligible. */
 function useStreamChatRouteEnabled(): boolean {
@@ -23,96 +26,121 @@ function useStreamChatRouteEnabled(): boolean {
   );
 }
 
+function streamProfileKey(userId: string, name: string, image?: string): string {
+  return `${userId}|${name}|${image ?? ""}`;
+}
+
 export function StreamChatProvider({ children }: { children: React.ReactNode }) {
   const routeEnabled = useStreamChatRouteEnabled();
   const { user, profile, loading: authLoading } = useAuth();
   const [client, setClient] = useState<StreamChat | null>(null);
   const clientRef = useRef<StreamChat | null>(null);
 
+  const streamProfile = useMemo(() => {
+    if (!user?.id) return null;
+    const name = profile?.full_name?.trim() || user.email || "User";
+    const image = profile?.avatar_url?.trim() || undefined;
+    return { id: user.id, name, image, role: profile?.role };
+  }, [user?.id, user?.email, profile?.avatar_url, profile?.full_name, profile?.role]);
+
+  const profileKey = useMemo(
+    () => (streamProfile ? streamProfileKey(streamProfile.id, streamProfile.name, streamProfile.image) : ""),
+    [streamProfile],
+  );
+
   useEffect(() => {
     clientRef.current = client;
   }, [client]);
 
   useEffect(() => {
-    if (!routeEnabled || authLoading || !user?.id) {
+    if (!routeEnabled || !user?.id) {
+      connectGeneration += 1;
+      lastUpsertedProfileKey = null;
       setClient(null);
       return;
     }
 
+    if (authLoading || !streamProfile) return;
+
+    const generation = ++connectGeneration;
     let cancelled = false;
+
     void (async () => {
-      let token = cachedTokenUserId === user.id ? cachedToken : null;
-      if (!token) {
-        const res = await fetch("/api/stream/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: user.id }),
-          credentials: "include",
-        });
-        if (!res.ok || cancelled) return;
-        const data = (await res.json().catch(() => null)) as { token?: string };
-        if (!data?.token || cancelled) return;
-        token = data.token;
-        cachedToken = token;
-        cachedTokenUserId = user.id;
-      }
-
-      const chat = createBrowserStreamClient();
-      const displayName = profile?.full_name?.trim() || user.email || "User";
-      let image = profile?.avatar_url?.trim() || undefined;
-
-      if (!image && profile?.role === "agent") {
-        try {
-          const supabase = createSupabaseBrowserClient();
-          const { data: agentRow } = await supabase
-            .from("agents")
-            .select("image_url")
-            .eq("user_id", user.id)
-            .maybeSingle();
-          image = (agentRow?.image_url as string | null | undefined)?.trim() || undefined;
-        } catch {
-          /* ignore */
+      try {
+        let token = cachedTokenUserId === user.id ? cachedToken : null;
+        if (!token) {
+          const res = await fetch("/api/stream/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: user.id }),
+            credentials: "include",
+          });
+          if (!res.ok || cancelled || generation !== connectGeneration) return;
+          const data = (await res.json().catch(() => null)) as { token?: string };
+          if (!data?.token || cancelled || generation !== connectGeneration) return;
+          token = data.token;
+          cachedToken = token;
+          cachedTokenUserId = user.id;
         }
+
+        const chat = createBrowserStreamClient();
+        let image = streamProfile.image;
+
+        if (!image && streamProfile.role === "agent") {
+          try {
+            const supabase = createSupabaseBrowserClient();
+            const { data: agentRow } = await supabase
+              .from("agents")
+              .select("image_url")
+              .eq("user_id", user.id)
+              .maybeSingle();
+            image = (agentRow?.image_url as string | null | undefined)?.trim() || undefined;
+          } catch {
+            /* ignore */
+          }
+        }
+
+        const streamUser = { id: user.id, name: streamProfile.name, image };
+        const key = streamProfileKey(user.id, streamUser.name, streamUser.image);
+
+        if (cancelled || generation !== connectGeneration) return;
+
+        if (chat.userID && chat.userID !== user.id) {
+          await chat.disconnectUser();
+          lastUpsertedProfileKey = null;
+        }
+
+        if (chat.userID === user.id) {
+          if (lastUpsertedProfileKey !== key) {
+            await chat.upsertUser(streamUser);
+            lastUpsertedProfileKey = key;
+          }
+        } else {
+          await chat.connectUser(streamUser, token);
+          lastUpsertedProfileKey = key;
+        }
+
+        if (!cancelled && generation === connectGeneration) {
+          setClient((prev) => (prev === chat ? prev : chat));
+        }
+      } catch (err) {
+        console.error("[StreamChatProvider] connect failed", err);
       }
-
-      const streamUser = { id: user.id, name: displayName, image };
-
-      if (chat.userID && chat.userID !== user.id) await chat.disconnectUser();
-      if (chat.userID === user.id) await chat.upsertUser(streamUser);
-      else await chat.connectUser(streamUser, token);
-
-      if (!cancelled) setClient(chat);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [
-    authLoading,
-    profile?.avatar_url,
-    profile?.full_name,
-    profile?.role,
-    routeEnabled,
-    user?.email,
-    user?.id,
-  ]);
+  }, [authLoading, profileKey, routeEnabled, streamProfile, user?.id]);
 
   useEffect(() => {
-    const onPageHide = (event: PageTransitionEvent) => {
-      if (event.persisted) return;
-    };
-
     const onPageShow = (event: PageTransitionEvent) => {
       if (!event.persisted || !routeEnabled || !clientRef.current?.userID) return;
-      setClient(clientRef.current);
+      setClient((prev) => prev ?? clientRef.current);
     };
 
-    window.addEventListener("pagehide", onPageHide);
     window.addEventListener("pageshow", onPageShow);
-    return () => {
-      window.removeEventListener("pagehide", onPageHide);
-      window.removeEventListener("pageshow", onPageShow);
-    };
+    return () => window.removeEventListener("pageshow", onPageShow);
   }, [routeEnabled]);
 
   return <StreamChatContext.Provider value={client}>{children}</StreamChatContext.Provider>;

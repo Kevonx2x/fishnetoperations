@@ -20,7 +20,7 @@ function AgentDashboardTabRedirect() {
     const channel = searchParams.get("channel");
     const editProperty = searchParams.get("editProperty");
     const target = AGENT_LEGACY_TAB_REDIRECTS[tab];
-    if (!target) return;
+    if (!target || pathname === target) return;
     const sp = new URLSearchParams();
     if (channel) sp.set("channel", channel);
     if (editProperty) sp.set("editProperty", editProperty);
