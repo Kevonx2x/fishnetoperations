@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display, Geist_Mono } from "next/font/google";
 import { ConditionalMarketingFooter } from "@/components/conditional-marketing-footer";
 import { Providers } from "@/components/providers";
@@ -27,10 +27,20 @@ const geistMono = Geist_Mono({
   adjustFontFallback: true,
 });
 
+export const viewport: Viewport = {
+  themeColor: "#FAF8F4",
+};
+
 export const metadata: Metadata = {
   title: "BahayGo",
   description: "Luxury properties with verified agents and licensed brokers.",
   icons: { icon: "/icon.png", shortcut: "/favicon.ico", apple: "/icon.png" },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "BahayGo",
+  },
 };
 
 function SiteFooter() {
@@ -118,15 +128,16 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfair.variable} ${geistMono.variable} h-full bg-[#FAF8F4] antialiased dark:bg-background`}
+      className={`${inter.variable} ${playfair.variable} ${geistMono.variable} min-h-dvh bg-[#FAF8F4] antialiased dark:bg-background`}
     >
       <head>
+        <meta name="theme-color" content="#FAF8F4" />
         {process.env.NEXT_PUBLIC_SUPABASE_URL ? (
           <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
         ) : null}
         <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
       </head>
-      <body className="flex min-h-full flex-col bg-[#FAF8F4] dark:bg-background">
+      <body className="flex min-h-dvh flex-col bg-[#FAF8F4] dark:bg-background">
         <Providers>
           <RootLayoutChrome
             footer={
