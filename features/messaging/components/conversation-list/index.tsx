@@ -5,6 +5,11 @@ import type { ChannelPreviewUIComponentProps } from "stream-chat-react";
 import { ConversationFilter } from "@/features/messaging/components/conversation-list/conversation-filter";
 import { SearchBar } from "@/features/messaging/components/conversation-list/search-bar";
 import { ConversationPreview } from "@/features/messaging/components/conversation-list/conversation-preview";
+import { ChannelListCacheSync } from "@/features/messaging/components/conversation-list/channel-list-cache-sync";
+import {
+  ConversationListChannelSkeleton,
+  ConversationListLoadingShell,
+} from "@/features/messaging/components/conversation-list/conversation-list-loading-shell";
 import { CHANNEL_LIST_OPTIONS, CHANNEL_LIST_SORT, useChannelList } from "@/features/messaging/hooks/use-channel-list";
 import { useEnsureSupportChannel } from "@/features/messaging/hooks/use-ensure-support-channel";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
@@ -47,11 +52,18 @@ export function ConversationListPanel(props: {
   const showLargeHeader = props.variant === "desktop";
 
   if (!filters || !client.userID) {
-    return null;
+    return (
+      <ConversationListLoadingShell
+        selfUserId={props.selfUserId}
+        variant={props.variant}
+        suppressMobileHeader={props.suppressMobileHeader}
+      />
+    );
   }
 
   return (
     <div className="flex h-full min-h-0 w-full shrink-0 flex-col border-b border-subtle md:border-b-0 md:border-r md:border-subtle md:w-[320px] md:min-w-[320px] md:max-w-[320px]">
+      <ChannelListCacheSync selfUserId={props.selfUserId} />
       {showLargeHeader ? (
         <div className="hidden shrink-0 border-b border-subtle bg-surface-page px-4 pb-4 pt-5 md:block">
           <div className="flex items-baseline gap-2">
@@ -108,6 +120,7 @@ export function ConversationListPanel(props: {
           setActiveChannelOnMount={props.setActiveChannelOnMount}
           Preview={Preview}
           channelRenderFilterFn={channelRenderFilterFn}
+          LoadingIndicator={ConversationListChannelSkeleton}
         />
       </div>
     </div>

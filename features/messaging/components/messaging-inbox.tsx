@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
-import type { ChannelFilters, ChannelSort } from "stream-chat";
 import { Chat, useChatContext } from "stream-chat-react";
 
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 import { ConversationListPanel } from "@/features/messaging/components/conversation-list";
+import { ConversationListLoadingShell } from "@/features/messaging/components/conversation-list/conversation-list-loading-shell";
 import { ChatThreadPanel } from "@/features/messaging/components/chat-thread";
 import { ContextPanel } from "@/features/messaging/components/context-panel";
 import { useActiveConversation } from "@/features/messaging/hooks/use-active-conversation";
@@ -36,11 +36,17 @@ export function MessagingInbox({
   const { user } = useAuth();
   const selfUserId = user?.id ?? "";
 
-  if (!client || !selfUserId) {
+  if (!selfUserId) {
+    return null;
+  }
+
+  if (!client || !client.userID) {
     return (
-      <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-fg/10 bg-surface-panel font-sans text-sm font-medium text-fg/55">
-        Loading messages…
-      </div>
+      <MessagingInboxConnectingShell
+        layoutClassName={layoutClassName}
+        selfUserId={selfUserId}
+        suppressMobileListHeader={suppressMobileListHeader}
+      />
     );
   }
 
@@ -55,6 +61,50 @@ export function MessagingInbox({
         selfUserId={selfUserId}
       />
     </Chat>
+  );
+}
+
+function MessagingInboxConnectingShell(props: {
+  layoutClassName?: string;
+  selfUserId: string;
+  suppressMobileListHeader?: boolean;
+}) {
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useLayoutEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mq.matches);
+    const fn = () => setIsDesktop(mq.matches);
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, []);
+
+  const layout = useMemo(
+    () =>
+      cn(
+        props.layoutClassName ??
+          "flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page md:h-full md:max-h-full md:min-h-0 md:grid md:grid-cols-[320px_minmax(0,1fr)_300px]",
+      ),
+    [props.layoutClassName],
+  );
+
+  return (
+    <div className="bahaygo-stream-chat bahaygo-messaging-light flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#FAF8F4]">
+      <div className="flex h-full min-h-0 flex-1 flex-col">
+        <div className={layout}>
+          <ConversationListLoadingShell
+            selfUserId={props.selfUserId}
+            variant={isDesktop ? "desktop" : "mobile"}
+            suppressMobileHeader={props.suppressMobileListHeader}
+          />
+          <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#FAF8F4] max-md:hidden md:flex">
+            <div className="flex min-h-0 flex-1 items-center justify-center px-4">
+              <div className="h-12 w-12 animate-pulse rounded-2xl bg-[#2C2C2C]/8" aria-hidden />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -135,4 +185,3 @@ function MessagingInboxInner(props: MessagingInboxProps & { selfUserId: string }
     </div>
   );
 }
-
