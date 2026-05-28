@@ -149,6 +149,7 @@ export function useActiveConversation(params: UseActiveConversationParams) {
 
     const finish = (ch: Channel) => {
       if (cancelled) return;
+      if (!channelMatchesTarget(ch, target, messagingId)) return;
       if (activeChannelIdRef.current === ch.id) {
         detach();
         return;

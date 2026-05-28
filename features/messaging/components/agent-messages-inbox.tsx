@@ -24,7 +24,7 @@ export function AgentMessagesInbox(props: {
 
   return (
     <MessagingInbox
-      setActiveChannelOnMount={props.setActiveChannelOnMount ?? true}
+      setActiveChannelOnMount={props.setActiveChannelOnMount ?? false}
       initialChannelId={props.initialChannelId ?? null}
       showConversationContextPanel
       suppressMobileListHeader={props.suppressMobileListHeader}

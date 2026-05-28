@@ -1,6 +1,5 @@
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Archive, Pin } from "lucide-react";
 import type { Channel as StreamChannel, LocalMessage } from "stream-chat";
 import { Avatar, useChatContext } from "stream-chat-react";
@@ -27,9 +26,6 @@ export function ConversationPreview(
 ) {
   const { channel, active, displayTitle, latestMessagePreview, lastMessage, onSelect, selfId } = props;
   const { setActiveChannel, channel: activeChannel, client } = useChatContext();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const unreadCount = useChannelUnreadCount(channel, client);
 
   const support = isSupportChannel(channel);
@@ -59,18 +55,12 @@ export function ConversationPreview(
     } catch {
       unreadBefore = 0;
     }
+    // Select immediately so ChannelList / URL sync cannot overwrite with another row.
+    setActiveChannel(channel);
     try {
       await channel.watch();
     } catch {
       // ignore
-    }
-    setActiveChannel(channel);
-    const channelId = (channel.id ?? "").trim();
-    if (channelId) {
-      const path = pathname?.startsWith("/messages") ? pathname : "/messages";
-      const next = new URLSearchParams(searchParams.toString());
-      next.set("channel", channelId);
-      router.replace(`${path}?${next.toString()}`, { scroll: false });
     }
     if (unreadBefore > 0) {
       try {
@@ -79,18 +69,22 @@ export function ConversationPreview(
         console.error("[markRead-failed]", e);
       }
     }
-  }, [activeChannel?.cid, channel, pathname, router, searchParams, setActiveChannel]);
+  }, [activeChannel?.cid, channel, setActiveChannel]);
 
   const handleRowClick = (e: MouseEvent) => {
-    void activateChannel();
-    onSelect?.(e);
+    void (async () => {
+      await activateChannel();
+      onSelect?.(e);
+    })();
   };
 
   const handleRowKeyDown = (e: KeyboardEvent) => {
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
-    void activateChannel();
-    onSelect?.(e as unknown as MouseEvent);
+    void (async () => {
+      await activateChannel();
+      onSelect?.(e as unknown as MouseEvent);
+    })();
   };
 
   const togglePin = async () => {

@@ -27,7 +27,7 @@ export type MessagingInboxProps = {
 
 export function MessagingInbox({
   layoutClassName = "flex h-[calc(100dvh-12rem)] w-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-page md:h-full md:max-h-full md:min-h-0 md:grid md:grid-cols-[320px_minmax(0,1fr)_300px]",
-  setActiveChannelOnMount = true,
+  setActiveChannelOnMount = false,
   initialChannelId = null,
   showConversationContextPanel = false,
   suppressMobileListHeader = false,
@@ -101,7 +101,7 @@ function MessagingInboxInner(props: MessagingInboxProps & { selfUserId: string }
           <div className={mobileView === "thread" ? "max-md:hidden" : ""}>
             <ConversationListPanel
               selfUserId={props.selfUserId}
-              setActiveChannelOnMount={props.setActiveChannelOnMount ?? true}
+              setActiveChannelOnMount={props.setActiveChannelOnMount ?? false}
               variant={isDesktop ? "desktop" : "mobile"}
               suppressMobileHeader={props.suppressMobileListHeader}
             />
