@@ -1,10 +1,10 @@
-import { SearchComingSoonPage } from "@/components/mobile/search-coming-soon-page";
+import { SearchMapPage } from "@/components/search/search-map-page";
 
 export const metadata = {
   title: "Search | BahayGo",
-  description: "Map search and smart filters — coming soon on BahayGo.",
+  description: "Map search across Metro Manila on BahayGo.",
 };
 
 export default function SearchPage() {
-  return <SearchComingSoonPage variant="bahaygo" />;
+  return <SearchMapPage />;
 }
