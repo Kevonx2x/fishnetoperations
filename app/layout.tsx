@@ -29,6 +29,7 @@ const geistMono = Geist_Mono({
 
 export const viewport: Viewport = {
   themeColor: "#FAF8F4",
+  colorScheme: "light",
 };
 
 export const metadata: Metadata = {
@@ -132,6 +133,7 @@ export default function RootLayout({
     >
       <head>
         <meta name="theme-color" content="#FAF8F4" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         {process.env.NEXT_PUBLIC_SUPABASE_URL ? (
           <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
         ) : null}

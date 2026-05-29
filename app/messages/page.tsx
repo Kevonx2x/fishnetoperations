@@ -68,7 +68,7 @@ function MessagesPageContent() {
             setActiveChannelOnMount={false}
           />
         ) : (
-          <ClientMessagesView initialChannelId={channel} />
+          <ClientMessagesView initialChannelId={channel} suppressMobileListHeader />
         )}
       </div>
     </div>
