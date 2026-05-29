@@ -1,26 +1,21 @@
 "use client";
 
-import { memo, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
-  AdvancedMarker,
-  APIProvider,
-  Map,
-  Marker,
-  Pin,
-  useApiIsLoaded,
-  useMap,
-} from "@vis.gl/react-google-maps";
+  MarkerClusterer,
+  MarkerUtils,
+  SuperClusterAlgorithm,
+  type Marker as ClustererMarker,
+} from "@googlemaps/markerclusterer";
+import { APIProvider, Map as GoogleMap, useMap } from "@vis.gl/react-google-maps";
 
 import {
   BAHAYGO_SEARCH_MAP_CENTER,
   BAHAYGO_SEARCH_MAP_DEFAULT_ZOOM,
 } from "@/lib/bahaygo-search-map";
-import {
-  SEARCH_MAP_PIN_SVG,
-  SEARCH_MAP_SAGE,
-  SEARCH_MAP_SAGE_BORDER,
-  type SearchMapMarker,
-} from "@/lib/search-map-markers";
+import { createSearchMapClusterRenderer } from "@/lib/search-map-cluster-renderer";
+import { createSearchMapPropertyMarker } from "@/lib/search-map-imperative-markers";
+import type { SearchMapMarker } from "@/lib/search-map-markers";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -51,77 +46,86 @@ function FitMapToMarkers({ markers }: { markers: SearchMapMarker[] }) {
   return null;
 }
 
-const SearchMapAdvancedMarker = memo(function SearchMapAdvancedMarker({
-  marker,
-}: {
-  marker: SearchMapMarker;
-}) {
-  return (
-    <AdvancedMarker
-      position={{ lat: marker.lat, lng: marker.lng }}
-      title={marker.title}
-      clickable={false}
-    >
-      <Pin
-        background={SEARCH_MAP_SAGE}
-        borderColor={SEARCH_MAP_SAGE_BORDER}
-        glyphColor="#ffffff"
-        scale={0.92}
-      />
-    </AdvancedMarker>
-  );
-});
-
-const SearchMapClassicMarker = memo(function SearchMapClassicMarker({
-  marker,
-}: {
-  marker: SearchMapMarker;
-}) {
-  const mapReady = useApiIsLoaded();
-
-  const icon = useMemo((): google.maps.Icon | undefined => {
-    if (!mapReady || typeof google === "undefined") return undefined;
-    return {
-      url: `data:image/svg+xml;charset=UTF-8,${SEARCH_MAP_PIN_SVG}`,
-      scaledSize: new google.maps.Size(32, 41),
-      anchor: new google.maps.Point(16, 41),
-    };
-  }, [mapReady]);
-
-  return (
-    <Marker
-      position={{ lat: marker.lat, lng: marker.lng }}
-      title={marker.title}
-      clickable={false}
-      {...(icon ? { icon } : {})}
-    />
-  );
-});
-
-const SearchMapPropertyMarkers = memo(function SearchMapPropertyMarkers({
+function SearchMapClusteredMarkers({
   markers,
-  useAdvancedMarker,
+  mapId,
 }: {
   markers: SearchMapMarker[];
-  useAdvancedMarker: boolean;
+  mapId: string;
 }) {
-  return (
-    <>
-      {markers.map((marker) =>
-        useAdvancedMarker ? (
-          <SearchMapAdvancedMarker key={marker.id} marker={marker} />
-        ) : (
-          <SearchMapClassicMarker key={marker.id} marker={marker} />
-        ),
-      )}
-    </>
-  );
-});
+  const map = useMap();
+  const clustererRef = useRef<MarkerClusterer | null>(null);
+  const markerByIdRef = useRef<Map<string, ClustererMarker>>(new Map());
+
+  const markersKey = useMemo(() => markers.map((m) => `${m.id}:${m.lat},${m.lng}`).join("|"), [markers]);
+
+  useEffect(() => {
+    if (!map) return;
+
+    if (!clustererRef.current) {
+      clustererRef.current = new MarkerClusterer({
+        map,
+        markers: [],
+        algorithm: new SuperClusterAlgorithm({}),
+        renderer: createSearchMapClusterRenderer(),
+      });
+    }
+
+    return () => {
+      const clusterer = clustererRef.current;
+      if (!clusterer) return;
+
+      clusterer.clearMarkers(true);
+      for (const marker of markerByIdRef.current.values()) {
+        MarkerUtils.setMap(marker, null);
+      }
+      markerByIdRef.current.clear();
+      clusterer.setMap(null);
+      clustererRef.current = null;
+    };
+  }, [map]);
+
+  useEffect(() => {
+    const clusterer = clustererRef.current;
+    if (!map || !clusterer) return;
+
+    clusterer.clearMarkers(true);
+    for (const marker of markerByIdRef.current.values()) {
+      MarkerUtils.setMap(marker, null);
+    }
+    markerByIdRef.current.clear();
+
+    if (markers.length === 0) {
+      clusterer.render();
+      return;
+    }
+
+    const useAdvancedMarker = Boolean(mapId) && MarkerUtils.isAdvancedMarkerAvailable(map);
+    const googleMarkers: ClustererMarker[] = [];
+
+    for (const property of markers) {
+      const googleMarker = createSearchMapPropertyMarker(property, useAdvancedMarker);
+      markerByIdRef.current.set(property.id, googleMarker);
+      googleMarkers.push(googleMarker);
+    }
+
+    clusterer.addMarkers(googleMarkers);
+
+    return () => {
+      clusterer.clearMarkers(true);
+      for (const marker of markerByIdRef.current.values()) {
+        MarkerUtils.setMap(marker, null);
+      }
+      markerByIdRef.current.clear();
+    };
+  }, [map, mapId, markers, markersKey]);
+
+  return null;
+}
 
 export function SearchMapCanvas({ markers, className }: Props) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API?.trim() ?? "";
   const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID?.trim() ?? "";
-  const useAdvancedMarker = Boolean(mapId);
 
   const stableMarkers = useMemo(() => markers, [markers]);
 
@@ -145,7 +149,7 @@ export function SearchMapCanvas({ markers, className }: Props) {
   return (
     <div className={cn("h-full w-full", className)}>
       <APIProvider apiKey={apiKey}>
-        <Map
+        <GoogleMap
           {...(mapId ? { mapId } : {})}
           defaultCenter={BAHAYGO_SEARCH_MAP_CENTER}
           defaultZoom={BAHAYGO_SEARCH_MAP_DEFAULT_ZOOM}
@@ -154,8 +158,8 @@ export function SearchMapCanvas({ markers, className }: Props) {
           className="h-full w-full"
         >
           <FitMapToMarkers markers={stableMarkers} />
-          <SearchMapPropertyMarkers markers={stableMarkers} useAdvancedMarker={useAdvancedMarker} />
-        </Map>
+          <SearchMapClusteredMarkers markers={stableMarkers} mapId={mapId} />
+        </GoogleMap>
       </APIProvider>
     </div>
   );
