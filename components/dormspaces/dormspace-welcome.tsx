@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 
 import { DormspaceAddListingSplitButton } from "@/components/dormspaces/dormspace-add-listing-split-button";
+import { BahayGoHouseMark } from "@/components/dormspaces/dormspace-welcome-logo";
 import {
   ClientSignedInCard,
   StaffRoleNoticeCard,
@@ -356,6 +357,17 @@ export function DormspaceWelcome() {
             clientCard={clientCard}
             compactMobile
           />
+        </div>
+
+        <div className="flex shrink-0 justify-center pt-4">
+          <Link
+            href="/"
+            className="inline-flex flex-col items-center gap-1.5 px-3 py-1 text-[#888888]/80 transition hover:text-[#6B9E6E]"
+            aria-label="Back to BahayGo main marketplace"
+          >
+            <BahayGoHouseMark className="h-5 w-auto opacity-50" />
+            <span className="text-[11px] font-semibold tracking-wide">Back to BahayGo</span>
+          </Link>
         </div>
       </main>
 
