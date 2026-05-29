@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { SearchMapCanvas } from "@/components/search/search-map-canvas";
+import type { SearchMapMarker } from "@/lib/search-map-markers";
 import { cn } from "@/lib/utils";
 
 /** Matches MobileLayoutChrome bottom-nav clearance (`pb-[80px]`). */
@@ -37,7 +38,7 @@ function useVisualViewportHeight() {
   return { height, isMobile };
 }
 
-export function SearchMapPage() {
+export function SearchMapPage({ markers }: { markers: SearchMapMarker[] }) {
   const { height: viewportHeight, isMobile } = useVisualViewportHeight();
 
   const mobileShellStyle =
@@ -59,7 +60,7 @@ export function SearchMapPage() {
     >
       <MaddenTopNav />
       <div className="relative min-h-0 flex-1">
-        <SearchMapCanvas className="absolute inset-0" />
+        <SearchMapCanvas className="absolute inset-0" markers={markers} />
       </div>
     </div>
   );

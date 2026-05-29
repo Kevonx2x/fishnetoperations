@@ -1,20 +1,129 @@
 "use client";
 
-import { APIProvider, Map } from "@vis.gl/react-google-maps";
+import { memo, useEffect, useMemo } from "react";
+import {
+  AdvancedMarker,
+  APIProvider,
+  Map,
+  Marker,
+  Pin,
+  useApiIsLoaded,
+  useMap,
+} from "@vis.gl/react-google-maps";
 
 import {
   BAHAYGO_SEARCH_MAP_CENTER,
   BAHAYGO_SEARCH_MAP_DEFAULT_ZOOM,
 } from "@/lib/bahaygo-search-map";
+import {
+  SEARCH_MAP_PIN_SVG,
+  SEARCH_MAP_SAGE,
+  SEARCH_MAP_SAGE_BORDER,
+  type SearchMapMarker,
+} from "@/lib/search-map-markers";
 import { cn } from "@/lib/utils";
 
 type Props = {
+  markers: SearchMapMarker[];
   className?: string;
 };
 
-export function SearchMapCanvas({ className }: Props) {
+function FitMapToMarkers({ markers }: { markers: SearchMapMarker[] }) {
+  const map = useMap();
+  const markersKey = useMemo(() => markers.map((m) => `${m.id}:${m.lat},${m.lng}`).join("|"), [markers]);
+
+  useEffect(() => {
+    if (!map || markers.length === 0) return;
+
+    if (markers.length === 1) {
+      map.setCenter({ lat: markers[0]!.lat, lng: markers[0]!.lng });
+      map.setZoom(14);
+      return;
+    }
+
+    const bounds = new google.maps.LatLngBounds();
+    for (const marker of markers) {
+      bounds.extend({ lat: marker.lat, lng: marker.lng });
+    }
+    map.fitBounds(bounds, 56);
+  }, [map, markers, markersKey]);
+
+  return null;
+}
+
+const SearchMapAdvancedMarker = memo(function SearchMapAdvancedMarker({
+  marker,
+}: {
+  marker: SearchMapMarker;
+}) {
+  return (
+    <AdvancedMarker
+      position={{ lat: marker.lat, lng: marker.lng }}
+      title={marker.title}
+      clickable={false}
+    >
+      <Pin
+        background={SEARCH_MAP_SAGE}
+        borderColor={SEARCH_MAP_SAGE_BORDER}
+        glyphColor="#ffffff"
+        scale={0.92}
+      />
+    </AdvancedMarker>
+  );
+});
+
+const SearchMapClassicMarker = memo(function SearchMapClassicMarker({
+  marker,
+}: {
+  marker: SearchMapMarker;
+}) {
+  const mapReady = useApiIsLoaded();
+
+  const icon = useMemo((): google.maps.Icon | undefined => {
+    if (!mapReady || typeof google === "undefined") return undefined;
+    return {
+      url: `data:image/svg+xml;charset=UTF-8,${SEARCH_MAP_PIN_SVG}`,
+      scaledSize: new google.maps.Size(32, 41),
+      anchor: new google.maps.Point(16, 41),
+    };
+  }, [mapReady]);
+
+  return (
+    <Marker
+      position={{ lat: marker.lat, lng: marker.lng }}
+      title={marker.title}
+      clickable={false}
+      {...(icon ? { icon } : {})}
+    />
+  );
+});
+
+const SearchMapPropertyMarkers = memo(function SearchMapPropertyMarkers({
+  markers,
+  useAdvancedMarker,
+}: {
+  markers: SearchMapMarker[];
+  useAdvancedMarker: boolean;
+}) {
+  return (
+    <>
+      {markers.map((marker) =>
+        useAdvancedMarker ? (
+          <SearchMapAdvancedMarker key={marker.id} marker={marker} />
+        ) : (
+          <SearchMapClassicMarker key={marker.id} marker={marker} />
+        ),
+      )}
+    </>
+  );
+});
+
+export function SearchMapCanvas({ markers, className }: Props) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API?.trim() ?? "";
   const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID?.trim() ?? "";
+  const useAdvancedMarker = Boolean(mapId);
+
+  const stableMarkers = useMemo(() => markers, [markers]);
 
   if (!apiKey) {
     return (
@@ -43,7 +152,10 @@ export function SearchMapCanvas({ className }: Props) {
           gestureHandling="greedy"
           disableDefaultUI
           className="h-full w-full"
-        />
+        >
+          <FitMapToMarkers markers={stableMarkers} />
+          <SearchMapPropertyMarkers markers={stableMarkers} useAdvancedMarker={useAdvancedMarker} />
+        </Map>
       </APIProvider>
     </div>
   );
