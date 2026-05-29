@@ -26,6 +26,85 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "bahaygo-locations", label: "BahayGo locations" },
 ];
 
+type BackfillSummary = {
+  total: number;
+  success: number;
+  failed: number;
+  failures: Array<{ id: string; reason: string }>;
+};
+
+function PropertyCoordinatesBackfillPanel() {
+  const [busy, setBusy] = useState(false);
+  const [summary, setSummary] = useState<BackfillSummary | null>(null);
+
+  const runBackfill = async () => {
+    if (
+      !window.confirm(
+        "Geocode all properties missing lat/lng? This calls the Google Geocoding API once per property.",
+      )
+    ) {
+      return;
+    }
+
+    setBusy(true);
+    setSummary(null);
+    try {
+      const res = await fetch("/api/admin/properties/backfill-coordinates", {
+        method: "POST",
+        credentials: "include",
+      });
+      const json = (await res.json()) as
+        | BackfillSummary
+        | { success?: false; error?: { message?: string } };
+      if (!res.ok) {
+        const msg =
+          json && "error" in json && json.error?.message ? json.error.message : "Backfill failed";
+        throw new Error(msg);
+      }
+      setSummary(json as BackfillSummary);
+      toast.success(`Backfill complete: ${(json as BackfillSummary).success}/${(json as BackfillSummary).total} succeeded`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Backfill failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="mb-8 rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
+      <h2 className="font-serif text-lg font-bold text-[#2C2C2C]">Property coordinates</h2>
+      <p className="mt-1 text-sm font-medium text-[#484848]">
+        Backfill missing map coordinates for properties using Google Geocoding and each listing&apos;s address
+        fields.
+      </p>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void runBackfill()}
+        className="mt-4 inline-flex items-center justify-center rounded-xl bg-[#2C2C2C] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#1a1a1a] disabled:opacity-50"
+      >
+        {busy ? "Backfilling…" : "Backfill property coordinates"}
+      </button>
+      {summary ? (
+        <div className="mt-4 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] p-4 text-sm text-[#2C2C2C]">
+          <p className="font-semibold">
+            Total: {summary.total} · Success: {summary.success} · Failed: {summary.failed}
+          </p>
+          {summary.failures.length > 0 ? (
+            <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-xs font-medium text-[#484848]">
+              {summary.failures.map((item) => (
+                <li key={item.id}>
+                  <span className="font-mono text-[#2C2C2C]">{item.id}</span>: {item.reason}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function VisualAssetsManagement() {
   const [tab, setTab] = useState<TabId>("universities");
 
@@ -37,6 +116,8 @@ export function VisualAssetsManagement() {
           Manage homepage images for universities, dormspace neighborhoods, and BahayGo featured locations.
         </p>
       </div>
+
+      <PropertyCoordinatesBackfillPanel />
 
       <div className="mb-6 flex flex-wrap gap-2">
         {TABS.map((item) => (
