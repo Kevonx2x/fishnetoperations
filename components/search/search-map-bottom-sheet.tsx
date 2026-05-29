@@ -87,19 +87,27 @@ export function SearchMapBottomSheet({
   const photoUrl = property ? searchMapPropertyPhotoUrl(property) : "";
   const priceLabel = property ? searchMapPropertyPriceLabel(property) : "";
   const locationLine = property ? searchMapPropertyLocationLine(property) : "";
-  const bedsLabel = property?.beds === 0 ? "Studio" : `${property?.beds ?? 0} beds`;
+  const bedsLabel =
+    property?.beds === 0
+      ? "Studio"
+      : property?.beds === 1
+        ? "1 bed"
+        : `${property?.beds ?? 0} beds`;
+  const bathsLabel =
+    property?.baths === 1 ? "1 bath" : `${property?.baths ?? 0} baths`;
   const floorAreaLabel = property ? formatPropertyFloorAreaDisplay(property.sqft) : "";
   const detailHref = property ? `/properties/${encodeURIComponent(property.id)}` : "#";
 
   return (
     <MobileSheetPortal>
-      <Sheet open={open} onOpenChange={handleOpenChange}>
+      <Sheet open={open} onOpenChange={handleOpenChange} modal={false}>
         <SheetContent
           side="bottom"
           showCloseButton={false}
           showOverlay={false}
           className={cn(
             "z-[100] flex max-h-[min(52dvh,460px)] flex-col gap-0 rounded-t-[18px] border-[#2C2C2C]/10 bg-[#FAF8F4] px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_40px_rgba(44,44,44,0.14)]",
+            "!bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] md:!bottom-0",
             "transition-none duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
             "data-open:animate-in data-closed:animate-out",
             "data-[side=bottom]:data-open:slide-in-from-bottom-full",
@@ -170,7 +178,7 @@ export function SearchMapBottomSheet({
                       <span className="line-clamp-1">{locationLine}</span>
                     </p>
                     <p className="mt-1 text-xs font-medium text-[#888888]">
-                      {bedsLabel} · {property.baths} baths · {floorAreaLabel}
+                      {bedsLabel} · {bathsLabel} · {floorAreaLabel}
                     </p>
                   </div>
                 </Link>

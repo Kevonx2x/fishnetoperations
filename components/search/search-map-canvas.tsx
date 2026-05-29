@@ -21,6 +21,7 @@ import {
   sortPropertiesByDistanceFrom,
 } from "@/lib/search-map-nearby";
 import { createSearchMapClusterRenderer } from "@/lib/search-map-cluster-renderer";
+import { SEARCH_MAP_STYLES } from "@/lib/search-map-styles";
 import {
   attachSearchMapPropertyMarkerClickListener,
   createSearchMapPropertyMarker,
@@ -295,6 +296,7 @@ export function SearchMapCanvas({ properties, className, locationFocus }: Props)
           defaultZoom={BAHAYGO_SEARCH_MAP_DEFAULT_ZOOM}
           gestureHandling="greedy"
           disableDefaultUI
+          styles={SEARCH_MAP_STYLES}
           className="h-full w-full"
         >
           <FitMapToMarkers properties={stableProperties} />

@@ -50,7 +50,7 @@ export function SearchMapHeader({ onLocationFocus }: Props) {
     <>
       <header
         className={cn(
-          "shrink-0 border-b border-[#2C2C2C]/8 bg-[#FAF8F4] shadow-[0_4px_16px_rgba(44,44,44,0.06)]",
+          "relative z-30 shrink-0 border-b border-[#E0DCD4] bg-[#FAF8F4]",
           "pt-[max(0.5rem,env(safe-area-inset-top))]",
         )}
       >
