@@ -249,6 +249,8 @@ function SearchMapMapClickDismiss({
 export function SearchMapCanvas({ properties, className, locationFocus }: Props) {
   const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID?.trim() ?? "";
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  /** Locked when the sheet opens — keeps swipe order stable while browsing nearby listings. */
+  const [swipeAnchorId, setSwipeAnchorId] = useState<string | null>(null);
 
   const stableProperties = useMemo(() => properties, [properties]);
   const { engagement } = usePropertyEngagementForProperties(stableProperties);
@@ -259,9 +261,9 @@ export function SearchMapCanvas({ properties, className, locationFocus }: Props)
   );
 
   const nearbySorted = useMemo(() => {
-    if (!selectedPropertyId) return [];
-    return sortPropertiesByDistanceFrom(stableProperties, selectedPropertyId);
-  }, [selectedPropertyId, stableProperties]);
+    if (!swipeAnchorId) return [];
+    return sortPropertiesByDistanceFrom(stableProperties, swipeAnchorId);
+  }, [swipeAnchorId, stableProperties]);
 
   const { next: nextNearby, previous: previousNearby } = useMemo(
     () =>
@@ -272,11 +274,19 @@ export function SearchMapCanvas({ properties, className, locationFocus }: Props)
   );
 
   const handlePropertyPinClick = useCallback((propertyId: string) => {
-    setSelectedPropertyId((prev) => (prev === propertyId ? null : propertyId));
+    setSelectedPropertyId((prev) => {
+      if (prev === propertyId) {
+        setSwipeAnchorId(null);
+        return null;
+      }
+      setSwipeAnchorId(propertyId);
+      return propertyId;
+    });
   }, []);
 
   const handleDismissSheet = useCallback(() => {
     setSelectedPropertyId(null);
+    setSwipeAnchorId(null);
   }, []);
 
   const handleSwipeNext = useCallback(() => {
@@ -326,6 +336,7 @@ export function SearchMapCanvas({ properties, className, locationFocus }: Props)
         }}
         canSwipeNext={Boolean(nextNearby)}
         canSwipePrevious={Boolean(previousNearby)}
+        showSwipeArrows={nearbySorted.length > 1}
         onSwipeNext={handleSwipeNext}
         onSwipePrevious={handleSwipePrevious}
         isLiked={selectedProperty ? engagement.isLiked(selectedProperty.id) : false}

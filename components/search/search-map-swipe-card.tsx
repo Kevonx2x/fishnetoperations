@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { animate, motion, useMotionValue, type PanInfo } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 const SWIPE_COMMIT_PX = 80;
 const SWIPE_COMMIT_RATIO = 0.25;
+const SWIPE_VELOCITY_COMMIT = 350;
+const SWIPE_INTENT_PX = 12;
 
 type SwipeIntent = "next" | "previous" | null;
 
@@ -17,6 +19,10 @@ type Props = {
   onSwipeNext: () => void;
   onSwipePrevious: () => void;
 };
+
+function commitThreshold(width: number): number {
+  return Math.max(SWIPE_COMMIT_PX, width * SWIPE_COMMIT_RATIO);
+}
 
 export function SearchMapSwipeCard({
   children,
@@ -35,6 +41,16 @@ export function SearchMapSwipeCard({
     if (w && w > 0) setCardWidth(w);
   };
 
+  useEffect(() => {
+    measureWidth();
+    const node = rootRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(measureWidth);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   const resetPosition = () => {
     animate(x, 0, { type: "spring", stiffness: 520, damping: 42 });
     setIntent(null);
@@ -44,9 +60,9 @@ export function SearchMapSwipeCard({
     const width = rootRef.current?.offsetWidth ?? 1;
     const ratio = Math.abs(info.offset.x) / width;
 
-    if (info.offset.x < -12 && canSwipeNext) {
+    if (info.offset.x < -SWIPE_INTENT_PX && canSwipeNext) {
       setIntent("next");
-    } else if (info.offset.x > 12 && canSwipePrevious) {
+    } else if (info.offset.x > SWIPE_INTENT_PX && canSwipePrevious) {
       setIntent("previous");
     } else if (ratio < 0.06) {
       setIntent(null);
@@ -55,15 +71,21 @@ export function SearchMapSwipeCard({
 
   const handleDragEnd = (_: unknown, info: PanInfo) => {
     const width = rootRef.current?.offsetWidth ?? 1;
-    const threshold = Math.max(SWIPE_COMMIT_PX, width * SWIPE_COMMIT_RATIO);
+    const threshold = commitThreshold(width);
 
-    if (info.offset.x <= -threshold && canSwipeNext) {
+    const swipedNext =
+      canSwipeNext && (info.offset.x <= -threshold || info.velocity.x <= -SWIPE_VELOCITY_COMMIT);
+    const swipedPrevious =
+      canSwipePrevious &&
+      (info.offset.x >= threshold || info.velocity.x >= SWIPE_VELOCITY_COMMIT);
+
+    if (swipedNext) {
       onSwipeNext();
       x.set(0);
       setIntent(null);
       return;
     }
-    if (info.offset.x >= threshold && canSwipePrevious) {
+    if (swipedPrevious) {
       onSwipePrevious();
       x.set(0);
       setIntent(null);
@@ -73,7 +95,11 @@ export function SearchMapSwipeCard({
   };
 
   return (
-    <div ref={rootRef} className="relative overflow-hidden" onPointerDown={measureWidth}>
+    <div
+      ref={rootRef}
+      className="relative overflow-hidden overscroll-x-none touch-pan-y"
+      onPointerDown={measureWidth}
+    >
       <div
         className={cn(
           "pointer-events-none absolute inset-0 flex items-center px-3 transition-opacity",
@@ -98,7 +124,7 @@ export function SearchMapSwipeCard({
       </div>
 
       <motion.div
-        style={{ x }}
+        style={{ x, touchAction: "pan-y" }}
         drag="x"
         dragConstraints={{ left: -cardWidth, right: cardWidth }}
         dragElastic={0.14}

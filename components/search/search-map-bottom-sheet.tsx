@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
-import { Heart, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, Heart, MapPin } from "lucide-react";
 
 import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
 import { MobileSheetPortal } from "@/components/mobile/mobile-sheet-portal";
@@ -30,6 +30,7 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   canSwipeNext: boolean;
   canSwipePrevious: boolean;
+  showSwipeArrows: boolean;
   onSwipeNext: () => void;
   onSwipePrevious: () => void;
   isLiked: boolean;
@@ -42,6 +43,7 @@ export function SearchMapBottomSheet({
   onOpenChange,
   canSwipeNext,
   canSwipePrevious,
+  showSwipeArrows,
   onSwipeNext,
   onSwipePrevious,
   isLiked,
@@ -148,6 +150,55 @@ export function SearchMapBottomSheet({
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-[#E8F0E9] to-[#d8e4da]" />
                     )}
+
+                    {showSwipeArrows ? (
+                      <button
+                        type="button"
+                        aria-label="Previous nearby property"
+                        disabled={!canSwipePrevious}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (canSwipePrevious) onSwipePrevious();
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className={cn(
+                          "absolute inset-y-0 left-0 z-20 flex w-10 items-center justify-center pl-0.5 active:opacity-80",
+                          !canSwipePrevious && "pointer-events-none opacity-35",
+                        )}
+                      >
+                        <ChevronLeft
+                          className="size-5 text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)]"
+                          strokeWidth={2.5}
+                          aria-hidden
+                        />
+                      </button>
+                    ) : null}
+
+                    {showSwipeArrows ? (
+                      <button
+                        type="button"
+                        aria-label="Next nearby property"
+                        disabled={!canSwipeNext}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (canSwipeNext) onSwipeNext();
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className={cn(
+                          "absolute inset-y-0 right-0 z-20 flex w-10 items-center justify-center pr-0.5 active:opacity-80",
+                          !canSwipeNext && "pointer-events-none opacity-35",
+                        )}
+                      >
+                        <ChevronRight
+                          className="size-5 text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)]"
+                          strokeWidth={2.5}
+                          aria-hidden
+                        />
+                      </button>
+                    ) : null}
+
                     <button
                       type="button"
                       onClick={(e) => {
