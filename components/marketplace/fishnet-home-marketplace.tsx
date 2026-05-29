@@ -2107,10 +2107,11 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
 
   return (
     <div className="min-h-screen bg-[#FAF8F4]">
-      <MaddenTopNav />
+      <MaddenTopNav compactMobileHome />
 
-      <MobileFixedSearchShell>
+      <MobileFixedSearchShell compactTopOffset>
         <BahayGoHomeMobileStickySearch
+          compact
           search={search}
           onSearchChange={(v) => {
             setNeighborhoodFilter(null);
@@ -2159,6 +2160,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
       ) : null}
 
       <BahayGoHomeMobileTop
+        compactMobileHome
         mode={mode}
         search={search}
         onSearchChange={(v) => {

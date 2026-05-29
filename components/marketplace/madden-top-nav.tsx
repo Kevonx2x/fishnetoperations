@@ -269,7 +269,7 @@ function MessagesUnreadRowDot() {
   return <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />;
 }
 
-export function MaddenTopNav() {
+export function MaddenTopNav({ compactMobileHome = false }: { compactMobileHome?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const isBuyPage = pathname === "/buy";
@@ -510,19 +510,29 @@ export function MaddenTopNav() {
   return (
     <Fragment>
     <header className="sticky top-0 z-40 w-full border-b border-black/[0.06] bg-[#FAF8F4]/95 pt-[env(safe-area-inset-top,0px)] shadow-sm backdrop-blur-sm md:z-50 md:border-[#2C2C2C]/10 md:pt-0 md:shadow-none">
-      <div className="mx-auto grid w-full min-w-0 max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 py-4 md:gap-3">
+      <div
+        className={cn(
+          "mx-auto grid w-full min-w-0 max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 md:gap-3",
+          compactMobileHome ? "py-2.5 md:py-4" : "py-4",
+        )}
+      >
         <div className="flex items-center gap-2 justify-self-start">
           <Link
             href="/"
             className="inline-flex shrink-0 items-center leading-none"
             aria-label="BahayGo home"
           >
-            <span className="inline-flex items-center gap-2 md:hidden">
-              <svg viewBox="0 0 40 36" className="h-7 w-auto shrink-0" aria-hidden>
+            <span className="inline-flex items-center gap-1.5 md:hidden">
+              <svg viewBox="0 0 40 36" className={cn("w-auto shrink-0", compactMobileHome ? "h-6" : "h-7")} aria-hidden>
                 <path fill="#D4A843" d="M20 2 L36 14 L36 32 L4 32 L4 14 Z" />
                 <rect x="16" y="22" width="8" height="10" rx="1" fill="#FAF8F4" />
               </svg>
-              <span className="inline-flex items-baseline gap-0 font-serif text-[1.35rem] font-bold leading-none tracking-tight">
+              <span
+                className={cn(
+                  "inline-flex items-baseline gap-0 font-serif font-bold leading-none tracking-tight",
+                  compactMobileHome ? "text-[1.2rem]" : "text-[1.35rem]",
+                )}
+              >
                 <span className="text-[#2C2C2C]">Bahay</span>
                 <span className="text-[#6B9E6E]">Go</span>
               </span>
@@ -830,7 +840,10 @@ export function MaddenTopNav() {
           ) : (
             <Link
               href="/auth/login"
-              className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-5 py-2 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
+              className={cn(
+                "inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-4 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 md:px-5 md:py-2",
+                compactMobileHome ? "min-h-11 py-1.5" : "px-5 py-2",
+              )}
             >
               Login
             </Link>

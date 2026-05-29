@@ -268,6 +268,7 @@ export type BahayGoHomeMobileStickySearchProps = {
   filters: FiltersState;
   neighborhoodLabel: string | null;
   onLocationChipPress: () => void;
+  compact?: boolean;
 };
 
 export function BahayGoHomeMobileStickySearch({
@@ -280,46 +281,62 @@ export function BahayGoHomeMobileStickySearch({
   filters,
   neighborhoodLabel,
   onLocationChipPress,
+  compact = false,
 }: BahayGoHomeMobileStickySearchProps) {
   return (
-    <div className={cn("space-y-2", PAGE_X, "py-2")}>
+    <div className={cn(compact ? "space-y-1.5 py-1.5" : "space-y-2 py-2", PAGE_X)}>
       <div
         id="bahaygo-hero-search"
-        className="scroll-mt-[10.75rem] rounded-2xl border border-[#2C2C2C]/8 bg-white px-3 py-2 shadow-[0_8px_28px_rgba(44,44,44,0.1)]"
+        className={cn(
+          compact ? "scroll-mt-[10rem]" : "scroll-mt-[10.75rem]",
+          "flex items-center gap-2 border border-[#2C2C2C]/8 bg-white",
+          compact
+            ? "h-11 rounded-xl px-2.5 shadow-[0_6px_20px_rgba(44,44,44,0.08)]"
+            : "rounded-2xl px-3 py-2 shadow-[0_8px_28px_rgba(44,44,44,0.1)]",
+        )}
       >
-        <div className="flex items-center gap-2">
-          <Search className="size-[18px] shrink-0 text-[#888888]" strokeWidth={2} aria-hidden />
-          <PhLocationInput
-            value={search}
-            onChange={onSearchChange}
-            onSubmitSearch={onSearchSubmit}
-            recentSearches={recentSearches}
-            onRecentSearchPick={onRecentSearchPick}
-            placeholder="Where do you want to live?"
-            aria-label="Search location"
-            className="min-w-0 flex-1"
-            inputClassName="w-full border-0 bg-transparent p-0 text-[14px] font-medium text-[#2C2C2C] shadow-none placeholder:text-[#888888] focus-visible:ring-0"
-          />
-          <button
-            type="button"
-            onClick={onOpenFilters}
-            className="flex size-9 shrink-0 items-center justify-center rounded-xl text-[#2C2C2C]/70"
-            aria-label="Filters"
-          >
-            <SlidersHorizontal className="size-[18px]" strokeWidth={2} />
-          </button>
-        </div>
+        <Search className={cn("shrink-0 text-[#888888]", compact ? "size-4" : "size-[18px]")} strokeWidth={2} aria-hidden />
+        <PhLocationInput
+          value={search}
+          onChange={onSearchChange}
+          onSubmitSearch={onSearchSubmit}
+          recentSearches={recentSearches}
+          onRecentSearchPick={onRecentSearchPick}
+          placeholder="Where do you want to live?"
+          aria-label="Search location"
+          className="min-w-0 flex-1"
+          inputClassName="w-full border-0 bg-transparent p-0 text-[14px] font-medium leading-tight text-[#2C2C2C] shadow-none placeholder:text-[#888888] focus-visible:ring-0"
+        />
+        <button
+          type="button"
+          onClick={onOpenFilters}
+          className={cn(
+            "flex shrink-0 items-center justify-center rounded-lg text-[#2C2C2C]/70",
+            compact ? "size-11" : "size-9 rounded-xl",
+          )}
+          aria-label="Filters"
+        >
+          <SlidersHorizontal className={compact ? "size-[17px]" : "size-[18px]"} strokeWidth={2} />
+        </button>
       </div>
 
-      <div className="flex items-center gap-1 text-[13px]">
-        <MapPin className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
+      <div
+        className={cn(
+          "flex items-center gap-1",
+          compact ? "min-h-8 text-[12px]" : "text-[13px]",
+        )}
+      >
+        <MapPin className={cn("shrink-0 text-[#6B9E6E]", compact ? "size-3" : "size-3.5")} aria-hidden />
         <span className="font-semibold text-[#2C2C2C]">
           {locationLineLabel(filters, neighborhoodLabel, search)}
         </span>
         <button
           type="button"
           onClick={onLocationChipPress}
-          className="ml-auto inline-flex items-center text-[13px] font-semibold text-[#6B9E6E]"
+          className={cn(
+            "ml-auto inline-flex items-center font-semibold text-[#6B9E6E]",
+            compact ? "min-h-8 text-[12px]" : "text-[13px]",
+          )}
         >
           Change
           <ChevronRight className="size-3" aria-hidden />
@@ -341,6 +358,7 @@ export type BahayGoHomeMobileTopProps = {
   properties: DbProperty[];
   engagement: PropertyEngagement;
   onScrollToListings: () => void;
+  compactMobileHome?: boolean;
 };
 
 export function BahayGoHomeMobileTop({
@@ -355,6 +373,7 @@ export function BahayGoHomeMobileTop({
   properties,
   engagement,
   onScrollToListings,
+  compactMobileHome = false,
 }: BahayGoHomeMobileTopProps) {
   const [heroIndex, setHeroIndex] = useState(0);
   const heroScrollRef = useRef<HTMLDivElement | null>(null);
@@ -450,19 +469,25 @@ export function BahayGoHomeMobileTop({
   return (
     <div className="md:hidden overflow-x-clip">
       <div className="relative overflow-x-clip bg-[#FAF8F4] pb-2">
-        <section className={cn("relative space-y-2.5 pt-2", PAGE_X)}>
+        <section className={cn("relative", compactMobileHome ? "space-y-2 pt-1" : "space-y-2.5 pt-2", PAGE_X)}>
           <div className="flex justify-center gap-2">
             <FilterChip
               active={mode === "rent"}
               onClick={() => onBuyRentChange("rent")}
-              className="min-w-[7.25rem] justify-center px-6"
+              className={cn(
+                "min-w-[7.25rem] justify-center px-6",
+                compactMobileHome && "py-1.5",
+              )}
             >
               Rent
             </FilterChip>
             <FilterChip
               active={mode === "buy"}
               onClick={() => onBuyRentChange("buy")}
-              className="min-w-[7.25rem] justify-center px-6"
+              className={cn(
+                "min-w-[7.25rem] justify-center px-6",
+                compactMobileHome && "py-1.5",
+              )}
             >
               Buy
             </FilterChip>

@@ -1,7 +1,10 @@
-/** Mobile portal nav: `py-4` + BahayGo lockup (~68px rendered, excluding safe-area inset). */
+/** Mobile portal nav: default ~68px; compact home ~58px (excluding safe-area inset). */
 export const MOBILE_PORTAL_NAV_HEIGHT_PX = 68;
+export const MOBILE_PORTAL_NAV_COMPACT_HEIGHT_PX = 58;
 export const MOBILE_PORTAL_TOP_NAV_OFFSET =
   "top-[calc(68px+env(safe-area-inset-top,0px))]" as const;
+export const MOBILE_PORTAL_TOP_NAV_COMPACT_OFFSET =
+  "top-[calc(58px+env(safe-area-inset-top,0px))]" as const;
 
 /** Dormspacers nav: two-line lockup (BahayGo + dormspacers tag) under the same `py-4` bar. */
 export const MOBILE_DORMSPACE_PORTAL_NAV_HEIGHT_PX = 76;
