@@ -2,10 +2,11 @@
 
 import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
-import { MapPin } from "lucide-react";
+import { Heart, MapPin } from "lucide-react";
 
 import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
 import { MobileSheetPortal } from "@/components/mobile/mobile-sheet-portal";
+import { SearchMapSwipeCard } from "@/components/search/search-map-swipe-card";
 import {
   Sheet,
   SheetContent,
@@ -27,9 +28,25 @@ type Props = {
   property: SearchMapProperty | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canSwipeNext: boolean;
+  canSwipePrevious: boolean;
+  onSwipeNext: () => void;
+  onSwipePrevious: () => void;
+  isLiked: boolean;
+  onToggleLike: () => void;
 };
 
-export function SearchMapBottomSheet({ property, open, onOpenChange }: Props) {
+export function SearchMapBottomSheet({
+  property,
+  open,
+  onOpenChange,
+  canSwipeNext,
+  canSwipePrevious,
+  onSwipeNext,
+  onSwipePrevious,
+  isLiked,
+  onToggleLike,
+}: Props) {
   const [dragOffset, setDragOffset] = useState(0);
   const dragStartY = useRef<number | null>(null);
   const dragging = useRef(false);
@@ -48,18 +65,18 @@ export function SearchMapBottomSheet({ property, open, onOpenChange }: Props) {
     [onOpenChange, resetDrag],
   );
 
-  const onTouchStart = (e: React.TouchEvent) => {
+  const onHandleTouchStart = (e: React.TouchEvent) => {
     dragStartY.current = e.touches[0]?.clientY ?? null;
     dragging.current = true;
   };
 
-  const onTouchMove = (e: React.TouchEvent) => {
+  const onHandleTouchMove = (e: React.TouchEvent) => {
     if (!dragging.current || dragStartY.current == null) return;
     const dy = (e.touches[0]?.clientY ?? dragStartY.current) - dragStartY.current;
     if (dy > 0) setDragOffset(dy);
   };
 
-  const onTouchEnd = () => {
+  const onHandleTouchEnd = () => {
     if (dragOffset >= SWIPE_DISMISS_PX) {
       handleOpenChange(false);
       return;
@@ -89,11 +106,14 @@ export function SearchMapBottomSheet({ property, open, onOpenChange }: Props) {
             "data-[side=bottom]:data-closed:slide-out-to-bottom-full",
           )}
           style={dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
         >
-          <div className="mx-auto mb-2 h-1 w-10 shrink-0 rounded-full bg-[#2C2C2C]/18" aria-hidden />
+          <div
+            className="mx-auto mb-2 h-1 w-10 shrink-0 cursor-grab rounded-full bg-[#2C2C2C]/18 active:cursor-grabbing"
+            aria-hidden
+            onTouchStart={onHandleTouchStart}
+            onTouchMove={onHandleTouchMove}
+            onTouchEnd={onHandleTouchEnd}
+          />
 
           <SheetTitle className="sr-only">
             {property?.title ?? "Property details"}
@@ -103,41 +123,66 @@ export function SearchMapBottomSheet({ property, open, onOpenChange }: Props) {
           </SheetDescription>
 
           {property ? (
-            <div
-              key={property.id}
-              className="flex min-h-0 flex-1 flex-col px-4 pb-1 animate-in fade-in duration-150"
+            <SearchMapSwipeCard
+              canSwipeNext={canSwipeNext}
+              canSwipePrevious={canSwipePrevious}
+              onSwipeNext={onSwipeNext}
+              onSwipePrevious={onSwipePrevious}
             >
-              <Link href={detailHref} className="flex min-h-0 flex-1 flex-col active:opacity-95">
-                <div className="relative h-[150px] w-full shrink-0 overflow-hidden rounded-xl bg-[#F3F0EA]">
-                  {photoUrl ? (
-                    <ListingCardPhoto src={photoUrl} alt="" sizes="92vw" eager priority />
-                  ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#E8F0E9] to-[#d8e4da]" />
-                  )}
-                </div>
-
-                <div className="mt-3 flex min-h-0 flex-1 flex-col">
-                  <p className="text-xl font-bold leading-tight text-[#6B9E6E]">{priceLabel}</p>
-                  <h3 className="mt-1.5 line-clamp-1 font-sans text-[15px] font-medium leading-snug text-[#2C2C2C]">
-                    {property.name?.trim() || property.title}
-                  </h3>
-                  <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-[#888888]">
-                    <MapPin className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
-                    <span className="line-clamp-1">{locationLine}</span>
-                  </p>
-                  <p className="mt-1 text-xs font-medium text-[#888888]">
-                    {bedsLabel} · {property.baths} baths · {floorAreaLabel}
-                  </p>
-                </div>
-              </Link>
-
-              <Link
-                href={detailHref}
-                className="mt-3 flex w-full shrink-0 items-center justify-center rounded-xl bg-[#6B9E6E] px-4 py-3 text-sm font-semibold text-white shadow-sm active:bg-[#5d8a60]"
+              <div
+                key={property.id}
+                className="flex min-h-0 flex-1 flex-col px-4 pb-1 animate-in fade-in duration-150"
               >
-                View details
-              </Link>
-            </div>
+                <Link href={detailHref} className="flex min-h-0 flex-1 flex-col active:opacity-95">
+                  <div className="relative h-[150px] w-full shrink-0 overflow-hidden rounded-xl bg-[#F3F0EA]">
+                    {photoUrl ? (
+                      <ListingCardPhoto src={photoUrl} alt="" sizes="92vw" eager priority />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-[#E8F0E9] to-[#d8e4da]" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onToggleLike();
+                      }}
+                      className="absolute right-2 top-2 z-10 flex size-9 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/[0.06]"
+                      aria-label={isLiked ? "Remove from saved" : "Save property"}
+                    >
+                      <Heart
+                        className={cn(
+                          "size-4",
+                          isLiked ? "fill-red-500 text-red-500" : "text-[#2C2C2C]/80",
+                        )}
+                        strokeWidth={2}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="mt-3 flex min-h-0 flex-1 flex-col">
+                    <p className="text-xl font-bold leading-tight text-[#6B9E6E]">{priceLabel}</p>
+                    <h3 className="mt-1.5 line-clamp-1 font-sans text-[15px] font-medium leading-snug text-[#2C2C2C]">
+                      {property.name?.trim() || property.title}
+                    </h3>
+                    <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-[#888888]">
+                      <MapPin className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
+                      <span className="line-clamp-1">{locationLine}</span>
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-[#888888]">
+                      {bedsLabel} · {property.baths} baths · {floorAreaLabel}
+                    </p>
+                  </div>
+                </Link>
+
+                <Link
+                  href={detailHref}
+                  className="mt-3 flex w-full shrink-0 items-center justify-center rounded-xl bg-[#6B9E6E] px-4 py-3 text-sm font-semibold text-white shadow-sm active:bg-[#5d8a60]"
+                >
+                  View details
+                </Link>
+              </div>
+            </SearchMapSwipeCard>
           ) : null}
         </SheetContent>
       </Sheet>

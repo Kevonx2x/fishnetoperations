@@ -11,8 +11,14 @@ import {
   useApiIsLoaded,
   useMarkerRef,
 } from "@vis.gl/react-google-maps";
-import { normalizeCity } from "@/lib/normalize-city";
+import {
+  attachPlacesAutocomplete,
+  placeResultToPayload,
+  type GooglePlaceSelectedPayload,
+} from "@/lib/google-places-autocomplete";
 import { cn } from "@/lib/utils";
+
+export type { GooglePlaceSelectedPayload };
 
 const SAGE_MAP_PIN_SVG = encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="56" viewBox="0 0 44 56"><path fill="#6B9E6E" stroke="#3d6b40" stroke-width="1.5" d="M22 4C13.2 4 6.3 10.6 6.3 19c0 11.2 15.7 31.8 15.7 31.8S37.7 30.2 37.7 19C37.7 10.6 30.8 4 22 4zm0 24.5a9.5 9.5 0 110-19 9.5 9.5 0 010 19z"/></svg>`,
@@ -77,132 +83,6 @@ function FormAddressMapPreview({
   );
 }
 
-export type GooglePlaceSelectedPayload = {
-  location: string;
-  formatted_address: string | null;
-  place_id: string | null;
-  lat: number;
-  lng: number;
-  /** City label derived from address_components or normalizeCity(location). */
-  city: string;
-  /** Region/province derived from address_components (administrative_area_level_1). */
-  region: string | null;
-  /**
-   * Neighborhood derived from address_components (sublocality/neighborhood).
-   * Null when missing or too generic (e.g. barangay).
-   */
-  neighborhood: string | null;
-};
-
-const MANILA_BIAS_SW = { lat: 14.4, lng: 120.9 };
-const MANILA_BIAS_NE = { lat: 14.8, lng: 121.2 };
-
-function pickCityLongName(components: google.maps.GeocoderAddressComponent[] | undefined): string {
-  if (!components?.length) return "";
-  for (const t of ["locality", "administrative_area_level_2"] as const) {
-    const c = components.find((x) => x.types.includes(t));
-    const n = c?.long_name?.trim();
-    if (n) return n;
-  }
-  return "";
-}
-
-function stripSuffix(s: string, suffix: string) {
-  const t = s.trim();
-  const re = new RegExp(`\\s+${suffix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
-  return t.replace(re, "").trim();
-}
-
-function pickRegionLongName(components: google.maps.GeocoderAddressComponent[] | undefined): string {
-  if (!components?.length) return "";
-  const c = components.find((x) => x.types.includes("administrative_area_level_1"));
-  return c?.long_name?.trim() ?? "";
-}
-
-function normalizeRegion(raw: string): string {
-  const t = raw.trim();
-  if (!t) return "";
-  const lower = t.toLowerCase();
-  if (lower === "national capital region" || lower === "ncr") return "Metro Manila";
-  if (lower.includes("metro manila")) return "Metro Manila";
-  const stripped = stripSuffix(stripSuffix(t, "Region"), "Province");
-  return stripped;
-}
-
-function pickNeighborhoodLongName(
-  components: google.maps.GeocoderAddressComponent[] | undefined,
-): string {
-  if (!components?.length) return "";
-  for (const t of ["sublocality_level_1", "sublocality", "neighborhood"] as const) {
-    const c = components.find((x) => x.types.includes(t));
-    const n = c?.long_name?.trim();
-    if (n) return n;
-  }
-  return "";
-}
-
-function normalizeNeighborhood(raw: string): string {
-  const t = raw.trim();
-  if (!t) return "";
-  // Better omit than clutter: avoid generic barangay labels.
-  if (/(^|\b)(barangay|brgy)\b/i.test(t)) return "";
-  if (/^\d+$/i.test(t)) return "";
-  if (/^barangay\s*\d+$/i.test(t)) return "";
-  return t;
-}
-
-function buildLocationLine(place: google.maps.places.PlaceResult): string {
-  const name = (place.name ?? "").trim();
-  const cityRaw = pickCityLongName(place.address_components);
-  const formatted = (place.formatted_address ?? "").trim();
-
-  if (name && cityRaw && name.toLowerCase() !== cityRaw.toLowerCase()) {
-    return `${name}, ${cityRaw}`;
-  }
-  if (name) return name;
-  if (formatted) {
-    const parts = formatted.split(",").map((s) => s.trim()).filter(Boolean);
-    if (cityRaw && parts[0] && parts[0].toLowerCase() !== cityRaw.toLowerCase()) {
-      return `${parts[0]}, ${cityRaw}`;
-    }
-    if (parts.length >= 2) return `${parts[0]}, ${parts[1]}`;
-    return parts[0] ?? formatted;
-  }
-  return cityRaw;
-}
-
-function placeToPayload(place: google.maps.places.PlaceResult): GooglePlaceSelectedPayload | null {
-  const loc = place.geometry?.location;
-  if (!loc) return null;
-  const lat = loc.lat();
-  const lng = loc.lng();
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-
-  const location = buildLocationLine(place).trim() || (place.formatted_address ?? "").trim();
-  if (!location) return null;
-
-  const cityRaw = pickCityLongName(place.address_components);
-  const cityClean = cityRaw ? stripSuffix(cityRaw, "City") : "";
-  const city = cityClean ? cityClean : normalizeCity(location);
-
-  const regionRaw = pickRegionLongName(place.address_components);
-  const regionClean = regionRaw ? normalizeRegion(regionRaw) : "";
-
-  const neighborhoodRaw = pickNeighborhoodLongName(place.address_components);
-  const neighborhoodClean = neighborhoodRaw ? normalizeNeighborhood(neighborhoodRaw) : "";
-
-  return {
-    location,
-    formatted_address: place.formatted_address?.trim() || null,
-    place_id: place.place_id?.trim() || null,
-    lat,
-    lng,
-    city,
-    region: regionClean || null,
-    neighborhood: neighborhoodClean || null,
-  };
-}
-
 export type GooglePlacesInputProps = {
   value: string;
   onChange: (value: string) => void;
@@ -240,8 +120,7 @@ export function GooglePlacesInput({
   const genId = useId();
   const inputId = idProp ?? genId;
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const acRef = useRef<google.maps.places.Autocomplete | null>(null);
-  const listenerRef = useRef<google.maps.MapsEventListener | null>(null);
+  const detachRef = useRef<(() => void) | null>(null);
   const mapsOptionsKeyRef = useRef<string | null>(null);
 
   const [mode, setMode] = useState<"loading" | "maps" | "fallback">("loading");
@@ -252,30 +131,8 @@ export function GooglePlacesInput({
     const el = inputRef.current;
     if (!el || typeof google === "undefined" || !google.maps?.places) return;
 
-    if (acRef.current) {
-      if (listenerRef.current) {
-        google.maps.event.removeListener(listenerRef.current);
-        listenerRef.current = null;
-      }
-      google.maps.event.clearInstanceListeners(acRef.current);
-      acRef.current = null;
-    }
-
-    const bounds = new google.maps.LatLngBounds(MANILA_BIAS_SW, MANILA_BIAS_NE);
-    const ac = new google.maps.places.Autocomplete(el, {
-      componentRestrictions: { country: "ph" },
-      bounds,
-      strictBounds: false,
-    });
-    ac.setFields(["formatted_address", "geometry", "name", "place_id", "address_components"]);
-
-    listenerRef.current = ac.addListener("place_changed", () => {
-      const place = ac.getPlace();
-      const payload = placeToPayload(place);
-      if (!payload) return;
-      onPlaceSelected(payload);
-    });
-    acRef.current = ac;
+    detachRef.current?.();
+    detachRef.current = attachPlacesAutocomplete(el, onPlaceSelected);
   }, [onPlaceSelected]);
 
   useEffect(() => {
@@ -316,14 +173,8 @@ export function GooglePlacesInput({
     if (mode !== "maps") return;
     bindAutocomplete();
     return () => {
-      if (acRef.current && typeof google !== "undefined" && google.maps?.event) {
-        if (listenerRef.current) {
-          google.maps.event.removeListener(listenerRef.current);
-          listenerRef.current = null;
-        }
-        google.maps.event.clearInstanceListeners(acRef.current);
-      }
-      acRef.current = null;
+      detachRef.current?.();
+      detachRef.current = null;
     };
   }, [mode, bindAutocomplete]);
 
@@ -382,3 +233,6 @@ export function GooglePlacesInput({
     </div>
   );
 }
+
+// Preserve named export used by tests or re-exports
+export { placeResultToPayload as placeToPayload };

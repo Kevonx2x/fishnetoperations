@@ -7,13 +7,19 @@ import {
   SuperClusterAlgorithm,
   type Marker as ClustererMarker,
 } from "@googlemaps/markerclusterer";
-import { APIProvider, Map as GoogleMap, useMap } from "@vis.gl/react-google-maps";
+import { Map as GoogleMap, useMap } from "@vis.gl/react-google-maps";
 
 import { SearchMapBottomSheet } from "@/components/search/search-map-bottom-sheet";
+import type { SearchMapLocationFocus } from "@/components/search/search-map-header";
+import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagement";
 import {
   BAHAYGO_SEARCH_MAP_CENTER,
   BAHAYGO_SEARCH_MAP_DEFAULT_ZOOM,
 } from "@/lib/bahaygo-search-map";
+import {
+  nearbyPropertyNavigation,
+  sortPropertiesByDistanceFrom,
+} from "@/lib/search-map-nearby";
 import { createSearchMapClusterRenderer } from "@/lib/search-map-cluster-renderer";
 import {
   attachSearchMapPropertyMarkerClickListener,
@@ -26,6 +32,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   properties: SearchMapProperty[];
   className?: string;
+  locationFocus: SearchMapLocationFocus | null;
 };
 
 function FitMapToMarkers({ properties }: { properties: SearchMapProperty[] }) {
@@ -34,9 +41,11 @@ function FitMapToMarkers({ properties }: { properties: SearchMapProperty[] }) {
     () => properties.map((m) => `${m.id}:${m.lat},${m.lng}`).join("|"),
     [properties],
   );
+  const didFitRef = useRef(false);
 
   useEffect(() => {
-    if (!map || properties.length === 0) return;
+    if (!map || properties.length === 0 || didFitRef.current) return;
+    didFitRef.current = true;
 
     if (properties.length === 1) {
       map.setCenter({ lat: properties[0]!.lat, lng: properties[0]!.lng });
@@ -50,6 +59,44 @@ function FitMapToMarkers({ properties }: { properties: SearchMapProperty[] }) {
     }
     map.fitBounds(bounds, 56);
   }, [map, properties, markersKey]);
+
+  return null;
+}
+
+function SearchMapViewportControl({
+  locationFocus,
+  selectedPropertyId,
+  properties,
+}: {
+  locationFocus: SearchMapLocationFocus | null;
+  selectedPropertyId: string | null;
+  properties: SearchMapProperty[];
+}) {
+  const map = useMap();
+  const lastSelectedRef = useRef<string | null>(null);
+  const lastFocusTokenRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!map || !locationFocus) return;
+    if (lastFocusTokenRef.current === locationFocus.token) return;
+    lastFocusTokenRef.current = locationFocus.token;
+    map.panTo({ lat: locationFocus.lat, lng: locationFocus.lng });
+    map.setZoom(locationFocus.zoom);
+  }, [locationFocus, map]);
+
+  useEffect(() => {
+    if (!map || !selectedPropertyId) {
+      lastSelectedRef.current = null;
+      return;
+    }
+    if (lastSelectedRef.current === selectedPropertyId) return;
+
+    const property = properties.find((p) => p.id === selectedPropertyId);
+    if (!property) return;
+
+    lastSelectedRef.current = selectedPropertyId;
+    map.panTo({ lat: property.lat, lng: property.lng });
+  }, [map, properties, selectedPropertyId]);
 
   return null;
 }
@@ -198,16 +245,29 @@ function SearchMapMapClickDismiss({
   return null;
 }
 
-export function SearchMapCanvas({ properties, className }: Props) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API?.trim() ?? "";
+export function SearchMapCanvas({ properties, className, locationFocus }: Props) {
   const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID?.trim() ?? "";
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
 
   const stableProperties = useMemo(() => properties, [properties]);
+  const { engagement } = usePropertyEngagementForProperties(stableProperties);
 
   const selectedProperty = useMemo(
     () => stableProperties.find((p) => p.id === selectedPropertyId) ?? null,
     [selectedPropertyId, stableProperties],
+  );
+
+  const nearbySorted = useMemo(() => {
+    if (!selectedPropertyId) return [];
+    return sortPropertiesByDistanceFrom(stableProperties, selectedPropertyId);
+  }, [selectedPropertyId, stableProperties]);
+
+  const { next: nextNearby, previous: previousNearby } = useMemo(
+    () =>
+      selectedPropertyId
+        ? nearbyPropertyNavigation(nearbySorted, selectedPropertyId)
+        : { next: null, previous: null, index: -1 },
+    [nearbySorted, selectedPropertyId],
   );
 
   const handlePropertyPinClick = useCallback((propertyId: string) => {
@@ -218,48 +278,42 @@ export function SearchMapCanvas({ properties, className }: Props) {
     setSelectedPropertyId(null);
   }, []);
 
-  if (!apiKey) {
-    return (
-      <div
-        className={cn(
-          "flex h-full w-full flex-col items-center justify-center bg-[#E8F0E9] px-6 text-center",
-          className,
-        )}
-      >
-        <p className="text-sm font-semibold text-[#2C2C2C]">Map unavailable</p>
-        <p className="mt-1 max-w-xs text-xs font-medium text-[#888888]">
-          Add <code className="rounded bg-white/70 px-1">NEXT_PUBLIC_GOOGLE_MAPS_API</code> to enable
-          the search map.
-        </p>
-      </div>
-    );
-  }
+  const handleSwipeNext = useCallback(() => {
+    if (nextNearby) setSelectedPropertyId(nextNearby.id);
+  }, [nextNearby]);
+
+  const handleSwipePrevious = useCallback(() => {
+    if (previousNearby) setSelectedPropertyId(previousNearby.id);
+  }, [previousNearby]);
 
   return (
     <>
       <div className={cn("h-full w-full", className)}>
-        <APIProvider apiKey={apiKey}>
-          <GoogleMap
-            {...(mapId ? { mapId } : {})}
-            defaultCenter={BAHAYGO_SEARCH_MAP_CENTER}
-            defaultZoom={BAHAYGO_SEARCH_MAP_DEFAULT_ZOOM}
-            gestureHandling="greedy"
-            disableDefaultUI
-            className="h-full w-full"
-          >
-            <FitMapToMarkers properties={stableProperties} />
-            <SearchMapClusteredMarkers
-              properties={stableProperties}
-              mapId={mapId}
-              selectedPropertyId={selectedPropertyId}
-              onPropertyPinClick={handlePropertyPinClick}
-            />
-            <SearchMapMapClickDismiss
-              selectedPropertyId={selectedPropertyId}
-              onDismiss={handleDismissSheet}
-            />
-          </GoogleMap>
-        </APIProvider>
+        <GoogleMap
+          {...(mapId ? { mapId } : {})}
+          defaultCenter={BAHAYGO_SEARCH_MAP_CENTER}
+          defaultZoom={BAHAYGO_SEARCH_MAP_DEFAULT_ZOOM}
+          gestureHandling="greedy"
+          disableDefaultUI
+          className="h-full w-full"
+        >
+          <FitMapToMarkers properties={stableProperties} />
+          <SearchMapViewportControl
+            locationFocus={locationFocus}
+            selectedPropertyId={selectedPropertyId}
+            properties={stableProperties}
+          />
+          <SearchMapClusteredMarkers
+            properties={stableProperties}
+            mapId={mapId}
+            selectedPropertyId={selectedPropertyId}
+            onPropertyPinClick={handlePropertyPinClick}
+          />
+          <SearchMapMapClickDismiss
+            selectedPropertyId={selectedPropertyId}
+            onDismiss={handleDismissSheet}
+          />
+        </GoogleMap>
       </div>
 
       <SearchMapBottomSheet
@@ -267,6 +321,14 @@ export function SearchMapCanvas({ properties, className }: Props) {
         open={selectedPropertyId != null}
         onOpenChange={(open) => {
           if (!open) handleDismissSheet();
+        }}
+        canSwipeNext={Boolean(nextNearby)}
+        canSwipePrevious={Boolean(previousNearby)}
+        onSwipeNext={handleSwipeNext}
+        onSwipePrevious={handleSwipePrevious}
+        isLiked={selectedProperty ? engagement.isLiked(selectedProperty.id) : false}
+        onToggleLike={() => {
+          if (selectedProperty) engagement.toggleLike(selectedProperty.id);
         }}
       />
     </>

@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { APIProvider } from "@vis.gl/react-google-maps";
 
-import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { SearchMapCanvas } from "@/components/search/search-map-canvas";
+import {
+  SearchMapHeader,
+  type SearchMapLocationFocus,
+} from "@/components/search/search-map-header";
 import type { SearchMapProperty } from "@/lib/search-map-markers";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +44,12 @@ function useVisualViewportHeight() {
 
 export function SearchMapPage({ markers: properties }: { markers: SearchMapProperty[] }) {
   const { height: viewportHeight, isMobile } = useVisualViewportHeight();
+  const [locationFocus, setLocationFocus] = useState<SearchMapLocationFocus | null>(null);
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API?.trim() ?? "";
+
+  const handleLocationFocus = useCallback((focus: SearchMapLocationFocus) => {
+    setLocationFocus(focus);
+  }, []);
 
   const mobileShellStyle =
     isMobile && viewportHeight != null
@@ -48,6 +58,30 @@ export function SearchMapPage({ markers: properties }: { markers: SearchMapPrope
           maxHeight: `calc(${viewportHeight}px - ${MOBILE_BOTTOM_NAV_CLEARANCE} - env(safe-area-inset-bottom, 0px))`,
         }
       : undefined;
+
+  const shell = (
+    <>
+      <SearchMapHeader onLocationFocus={handleLocationFocus} />
+      <div className="relative min-h-0 flex-1">
+        {apiKey ? (
+          <SearchMapCanvas
+            className="absolute inset-0"
+            properties={properties}
+            locationFocus={locationFocus}
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center bg-[#E8F0E9] px-6 text-center">
+            <p className="text-sm font-semibold text-[#2C2C2C]">Map unavailable</p>
+            <p className="mt-1 max-w-xs text-xs font-medium text-[#888888]">
+              Add{" "}
+              <code className="rounded bg-white/70 px-1">NEXT_PUBLIC_GOOGLE_MAPS_API</code> to enable
+              the search map.
+            </p>
+          </div>
+        )}
+      </div>
+    </>
+  );
 
   return (
     <div
@@ -58,10 +92,7 @@ export function SearchMapPage({ markers: properties }: { markers: SearchMapPrope
       )}
       style={mobileShellStyle}
     >
-      <MaddenTopNav />
-      <div className="relative min-h-0 flex-1">
-        <SearchMapCanvas className="absolute inset-0" properties={properties} />
-      </div>
+      {apiKey ? <APIProvider apiKey={apiKey}>{shell}</APIProvider> : shell}
     </div>
   );
 }
