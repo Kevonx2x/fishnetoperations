@@ -143,7 +143,13 @@ export async function POST(request: NextRequest) {
               closed_by: uid,
               closure_confirmed_by_client: null,
             }
-          : {}),
+          : {
+              closed_date: null,
+              closed_at: null,
+              closed_by: null,
+              closure_confirmed_by_client: null,
+              closure_note: null,
+            }),
       })
       .eq("id", leadId);
     if (updErr) return fail("DATABASE_ERROR", updErr.message, 500);
