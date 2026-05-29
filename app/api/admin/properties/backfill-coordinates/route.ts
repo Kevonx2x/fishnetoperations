@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSessionProfile } from "@/lib/admin-api-auth";
 import { fail } from "@/lib/api/response";
-import { buildPropertyGeocodeAddress, geocodeAddress } from "@/lib/google-geocoding";
+import { buildPropertyGeocodeAddress, geocodeAddress, resolveGoogleMapsKeySource } from "@/lib/google-geocoding";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 const BACKFILL_PAUSE_MS = 100;
@@ -36,6 +36,14 @@ export async function POST() {
     return fail("SERVER_ERROR", listErr.message, 500);
   }
 
+  const keyInfo = resolveGoogleMapsKeySource();
+  console.log("[admin/backfill-coordinates] starting backfill", {
+    propertyCount: (rows ?? []).length,
+    keySource: keyInfo.source,
+    keyPresent: Boolean(keyInfo.key),
+    keyLength: keyInfo.key?.length ?? 0,
+  });
+
   const properties = (rows ?? []) as PropertyRow[];
   const failures: Array<{ id: string; reason: string }> = [];
   let success = 0;
@@ -48,6 +56,13 @@ export async function POST() {
       failures.push({ id: property.id, reason });
       continue;
     }
+
+    console.log("[admin/backfill-coordinates] geocoding property", {
+      propertyId: property.id,
+      address,
+      keySource: keyInfo.source,
+      keyLength: keyInfo.key?.length ?? 0,
+    });
 
     const geocoded = await geocodeAddress(address);
     if (!geocoded.ok) {
