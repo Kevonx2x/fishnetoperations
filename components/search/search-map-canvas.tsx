@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MarkerClusterer,
   MarkerUtils,
@@ -9,55 +9,88 @@ import {
 } from "@googlemaps/markerclusterer";
 import { APIProvider, Map as GoogleMap, useMap } from "@vis.gl/react-google-maps";
 
+import { SearchMapBottomSheet } from "@/components/search/search-map-bottom-sheet";
 import {
   BAHAYGO_SEARCH_MAP_CENTER,
   BAHAYGO_SEARCH_MAP_DEFAULT_ZOOM,
 } from "@/lib/bahaygo-search-map";
 import { createSearchMapClusterRenderer } from "@/lib/search-map-cluster-renderer";
-import { createSearchMapPropertyMarker } from "@/lib/search-map-imperative-markers";
-import type { SearchMapMarker } from "@/lib/search-map-markers";
+import {
+  attachSearchMapPropertyMarkerClickListener,
+  createSearchMapPropertyMarker,
+  updateSearchMapPropertyMarkerAppearance,
+} from "@/lib/search-map-imperative-markers";
+import type { SearchMapProperty } from "@/lib/search-map-markers";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  markers: SearchMapMarker[];
+  properties: SearchMapProperty[];
   className?: string;
 };
 
-function FitMapToMarkers({ markers }: { markers: SearchMapMarker[] }) {
+function FitMapToMarkers({ properties }: { properties: SearchMapProperty[] }) {
   const map = useMap();
-  const markersKey = useMemo(() => markers.map((m) => `${m.id}:${m.lat},${m.lng}`).join("|"), [markers]);
+  const markersKey = useMemo(
+    () => properties.map((m) => `${m.id}:${m.lat},${m.lng}`).join("|"),
+    [properties],
+  );
 
   useEffect(() => {
-    if (!map || markers.length === 0) return;
+    if (!map || properties.length === 0) return;
 
-    if (markers.length === 1) {
-      map.setCenter({ lat: markers[0]!.lat, lng: markers[0]!.lng });
+    if (properties.length === 1) {
+      map.setCenter({ lat: properties[0]!.lat, lng: properties[0]!.lng });
       map.setZoom(14);
       return;
     }
 
     const bounds = new google.maps.LatLngBounds();
-    for (const marker of markers) {
+    for (const marker of properties) {
       bounds.extend({ lat: marker.lat, lng: marker.lng });
     }
     map.fitBounds(bounds, 56);
-  }, [map, markers, markersKey]);
+  }, [map, properties, markersKey]);
 
   return null;
 }
 
 function SearchMapClusteredMarkers({
-  markers,
+  properties,
   mapId,
+  selectedPropertyId,
+  onPropertyPinClick,
 }: {
-  markers: SearchMapMarker[];
+  properties: SearchMapProperty[];
   mapId: string;
+  selectedPropertyId: string | null;
+  onPropertyPinClick: (propertyId: string) => void;
 }) {
   const map = useMap();
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const markerByIdRef = useRef<Map<string, ClustererMarker>>(new Map());
+  const listenerByIdRef = useRef<Map<string, google.maps.MapsEventListener>>(new Map());
+  const onPinClickRef = useRef(onPropertyPinClick);
+  const selectedPropertyIdRef = useRef(selectedPropertyId);
 
-  const markersKey = useMemo(() => markers.map((m) => `${m.id}:${m.lat},${m.lng}`).join("|"), [markers]);
+  onPinClickRef.current = onPropertyPinClick;
+  selectedPropertyIdRef.current = selectedPropertyId;
+
+  const propertiesKey = useMemo(
+    () => properties.map((m) => `${m.id}:${m.lat},${m.lng}`).join("|"),
+    [properties],
+  );
+
+  const clearImperativeMarkers = useCallback((clusterer: MarkerClusterer) => {
+    clusterer.clearMarkers(true);
+    for (const listener of listenerByIdRef.current.values()) {
+      google.maps.event.removeListener(listener);
+    }
+    listenerByIdRef.current.clear();
+    for (const marker of markerByIdRef.current.values()) {
+      MarkerUtils.setMap(marker, null);
+    }
+    markerByIdRef.current.clear();
+  }, []);
 
   useEffect(() => {
     if (!map) return;
@@ -75,27 +108,19 @@ function SearchMapClusteredMarkers({
       const clusterer = clustererRef.current;
       if (!clusterer) return;
 
-      clusterer.clearMarkers(true);
-      for (const marker of markerByIdRef.current.values()) {
-        MarkerUtils.setMap(marker, null);
-      }
-      markerByIdRef.current.clear();
+      clearImperativeMarkers(clusterer);
       clusterer.setMap(null);
       clustererRef.current = null;
     };
-  }, [map]);
+  }, [clearImperativeMarkers, map]);
 
   useEffect(() => {
     const clusterer = clustererRef.current;
     if (!map || !clusterer) return;
 
-    clusterer.clearMarkers(true);
-    for (const marker of markerByIdRef.current.values()) {
-      MarkerUtils.setMap(marker, null);
-    }
-    markerByIdRef.current.clear();
+    clearImperativeMarkers(clusterer);
 
-    if (markers.length === 0) {
+    if (properties.length === 0) {
       clusterer.render();
       return;
     }
@@ -103,31 +128,95 @@ function SearchMapClusteredMarkers({
     const useAdvancedMarker = Boolean(mapId) && MarkerUtils.isAdvancedMarkerAvailable(map);
     const googleMarkers: ClustererMarker[] = [];
 
-    for (const property of markers) {
-      const googleMarker = createSearchMapPropertyMarker(property, useAdvancedMarker);
+    for (const property of properties) {
+      const googleMarker = createSearchMapPropertyMarker(property, {
+        useAdvancedMarker,
+        selected: property.id === selectedPropertyIdRef.current,
+      });
       markerByIdRef.current.set(property.id, googleMarker);
+
+      const listener = attachSearchMapPropertyMarkerClickListener(
+        googleMarker,
+        property.id,
+        (propertyId) => onPinClickRef.current(propertyId),
+      );
+      listenerByIdRef.current.set(property.id, listener);
+
       googleMarkers.push(googleMarker);
     }
 
     clusterer.addMarkers(googleMarkers);
 
     return () => {
-      clusterer.clearMarkers(true);
-      for (const marker of markerByIdRef.current.values()) {
-        MarkerUtils.setMap(marker, null);
-      }
-      markerByIdRef.current.clear();
+      clearImperativeMarkers(clusterer);
     };
-  }, [map, mapId, markers, markersKey]);
+  }, [clearImperativeMarkers, map, mapId, properties, propertiesKey]);
+
+  useEffect(() => {
+    if (!map) return;
+
+    const useAdvancedMarker = Boolean(mapId) && MarkerUtils.isAdvancedMarkerAvailable(map);
+
+    for (const property of properties) {
+      const marker = markerByIdRef.current.get(property.id);
+      if (!marker) continue;
+
+      updateSearchMapPropertyMarkerAppearance(marker, {
+        useAdvancedMarker,
+        selected: property.id === selectedPropertyId,
+        title: property.title,
+      });
+    }
+  }, [map, mapId, properties, selectedPropertyId]);
 
   return null;
 }
 
-export function SearchMapCanvas({ markers, className }: Props) {
+function SearchMapMapClickDismiss({
+  selectedPropertyId,
+  onDismiss,
+}: {
+  selectedPropertyId: string | null;
+  onDismiss: () => void;
+}) {
+  const map = useMap();
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
+  useEffect(() => {
+    if (!map || !selectedPropertyId) return;
+
+    const listener = map.addListener("click", () => {
+      onDismissRef.current();
+    });
+
+    return () => {
+      google.maps.event.removeListener(listener);
+    };
+  }, [map, selectedPropertyId]);
+
+  return null;
+}
+
+export function SearchMapCanvas({ properties, className }: Props) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API?.trim() ?? "";
   const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID?.trim() ?? "";
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
 
-  const stableMarkers = useMemo(() => markers, [markers]);
+  const stableProperties = useMemo(() => properties, [properties]);
+
+  const selectedProperty = useMemo(
+    () => stableProperties.find((p) => p.id === selectedPropertyId) ?? null,
+    [selectedPropertyId, stableProperties],
+  );
+
+  const handlePropertyPinClick = useCallback((propertyId: string) => {
+    setSelectedPropertyId((prev) => (prev === propertyId ? null : propertyId));
+  }, []);
+
+  const handleDismissSheet = useCallback(() => {
+    setSelectedPropertyId(null);
+  }, []);
 
   if (!apiKey) {
     return (
@@ -147,20 +236,39 @@ export function SearchMapCanvas({ markers, className }: Props) {
   }
 
   return (
-    <div className={cn("h-full w-full", className)}>
-      <APIProvider apiKey={apiKey}>
-        <GoogleMap
-          {...(mapId ? { mapId } : {})}
-          defaultCenter={BAHAYGO_SEARCH_MAP_CENTER}
-          defaultZoom={BAHAYGO_SEARCH_MAP_DEFAULT_ZOOM}
-          gestureHandling="greedy"
-          disableDefaultUI
-          className="h-full w-full"
-        >
-          <FitMapToMarkers markers={stableMarkers} />
-          <SearchMapClusteredMarkers markers={stableMarkers} mapId={mapId} />
-        </GoogleMap>
-      </APIProvider>
-    </div>
+    <>
+      <div className={cn("h-full w-full", className)}>
+        <APIProvider apiKey={apiKey}>
+          <GoogleMap
+            {...(mapId ? { mapId } : {})}
+            defaultCenter={BAHAYGO_SEARCH_MAP_CENTER}
+            defaultZoom={BAHAYGO_SEARCH_MAP_DEFAULT_ZOOM}
+            gestureHandling="greedy"
+            disableDefaultUI
+            className="h-full w-full"
+          >
+            <FitMapToMarkers properties={stableProperties} />
+            <SearchMapClusteredMarkers
+              properties={stableProperties}
+              mapId={mapId}
+              selectedPropertyId={selectedPropertyId}
+              onPropertyPinClick={handlePropertyPinClick}
+            />
+            <SearchMapMapClickDismiss
+              selectedPropertyId={selectedPropertyId}
+              onDismiss={handleDismissSheet}
+            />
+          </GoogleMap>
+        </APIProvider>
+      </div>
+
+      <SearchMapBottomSheet
+        property={selectedProperty}
+        open={selectedPropertyId != null}
+        onOpenChange={(open) => {
+          if (!open) handleDismissSheet();
+        }}
+      />
+    </>
   );
 }

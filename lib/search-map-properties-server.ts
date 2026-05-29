@@ -1,15 +1,18 @@
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import {
-  propertyRowsToSearchMapMarkers,
-  type SearchMapMarker,
+  propertyRowsToSearchMapProperties,
+  type SearchMapProperty,
 } from "@/lib/search-map-markers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
 
-const SEARCH_MAP_PROPERTY_SELECT = "id, lat, lng, name";
+const SEARCH_MAP_PROPERTY_SELECT = `
+  id, lat, lng, name, location, city, neighborhood, price, rent_price, listing_type, sqft, beds, baths, image_url, status,
+  property_photos (url, sort_order, created_at)
+`;
 
 /** Public marketplace listings with coordinates — same discovery filters as homepage. */
-export async function fetchSearchMapPropertyMarkersServer(): Promise<SearchMapMarker[]> {
+export async function fetchSearchMapPropertyMarkersServer(): Promise<SearchMapProperty[]> {
   const supabase = await createSupabaseServerClient();
   const expiryOr = publicListingExpiryOrFilter();
 
@@ -28,5 +31,5 @@ export async function fetchSearchMapPropertyMarkersServer(): Promise<SearchMapMa
     return [];
   }
 
-  return propertyRowsToSearchMapMarkers(data ?? []);
+  return propertyRowsToSearchMapProperties(data ?? []);
 }

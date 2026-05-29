@@ -1,43 +1,91 @@
-import type { Marker } from "@googlemaps/markerclusterer";
+import { MarkerUtils, type Marker } from "@googlemaps/markerclusterer";
 
 import {
+  SEARCH_MAP_GOLD,
   SEARCH_MAP_PIN_SVG,
   SEARCH_MAP_SAGE,
   SEARCH_MAP_SAGE_BORDER,
-  type SearchMapMarker,
+  SEARCH_MAP_SELECTED_PIN_SVG,
+  type SearchMapProperty,
 } from "@/lib/search-map-markers";
+
+function createAdvancedPin(selected: boolean): google.maps.marker.PinElement {
+  return new google.maps.marker.PinElement({
+    background: SEARCH_MAP_SAGE,
+    borderColor: selected ? SEARCH_MAP_GOLD : SEARCH_MAP_SAGE_BORDER,
+    glyphColor: "#ffffff",
+    scale: selected ? 1.08 : 0.92,
+  });
+}
+
+function createClassicIcon(selected: boolean): google.maps.Icon {
+  const width = selected ? 36 : 32;
+  const height = selected ? 46 : 41;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${selected ? SEARCH_MAP_SELECTED_PIN_SVG : SEARCH_MAP_PIN_SVG}`,
+    scaledSize: new google.maps.Size(width, height),
+    anchor: new google.maps.Point(width / 2, height),
+  };
+}
 
 /** Imperative property pin for MarkerClusterer — not a React child. */
 export function createSearchMapPropertyMarker(
-  data: SearchMapMarker,
-  useAdvancedMarker: boolean,
+  data: SearchMapProperty,
+  options: {
+    useAdvancedMarker: boolean;
+    selected: boolean;
+  },
 ): Marker {
   const position = { lat: data.lat, lng: data.lng };
 
-  if (useAdvancedMarker && google.maps.marker) {
-    const pin = new google.maps.marker.PinElement({
-      background: SEARCH_MAP_SAGE,
-      borderColor: SEARCH_MAP_SAGE_BORDER,
-      glyphColor: "#ffffff",
-      scale: 0.92,
-    });
+  if (options.useAdvancedMarker && google.maps.marker) {
+    const pin = createAdvancedPin(options.selected);
 
     return new google.maps.marker.AdvancedMarkerElement({
       position,
       title: data.title,
       content: pin.element,
-      gmpClickable: false,
+      gmpClickable: true,
     });
   }
 
   return new google.maps.Marker({
     position,
     title: data.title,
-    clickable: false,
-    icon: {
-      url: `data:image/svg+xml;charset=UTF-8,${SEARCH_MAP_PIN_SVG}`,
-      scaledSize: new google.maps.Size(32, 41),
-      anchor: new google.maps.Point(16, 41),
-    },
+    clickable: true,
+    icon: createClassicIcon(options.selected),
+  });
+}
+
+export function updateSearchMapPropertyMarkerAppearance(
+  marker: Marker,
+  options: {
+    useAdvancedMarker: boolean;
+    selected: boolean;
+    title: string;
+  },
+): void {
+  if (options.useAdvancedMarker && MarkerUtils.isAdvancedMarker(marker)) {
+    marker.content = createAdvancedPin(options.selected).element;
+    marker.title = options.title;
+    return;
+  }
+
+  if (!MarkerUtils.isAdvancedMarker(marker)) {
+    marker.setIcon(createClassicIcon(options.selected));
+    marker.setTitle(options.title);
+  }
+}
+
+export function attachSearchMapPropertyMarkerClickListener(
+  marker: Marker,
+  propertyId: string,
+  onClick: (propertyId: string) => void,
+): google.maps.MapsEventListener {
+  const eventName =
+    MarkerUtils.isAdvancedMarker(marker) ? "gmp-click" : "click";
+
+  return marker.addListener(eventName, () => {
+    onClick(propertyId);
   });
 }
