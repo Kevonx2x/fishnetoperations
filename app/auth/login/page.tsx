@@ -8,8 +8,13 @@ import {
   ContinueWithGoogleButton,
 } from "@/components/auth/continue-with-google-button";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { AuthSignInButton } from "@/components/auth/auth-sign-in-cta";
 import { pathForRole } from "@/lib/auth-roles";
+import { isSafeAuthNext } from "@/lib/auth-login-path";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+
+const FIELD =
+  "mt-1 w-full min-h-11 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400";
 
 function LoginForm() {
   const router = useRouter();
@@ -51,7 +56,7 @@ function LoginForm() {
           router.replace("/");
         }
         router.refresh();
-      } else if (next && next.startsWith("/") && !next.startsWith("//")) {
+      } else if (isSafeAuthNext(next)) {
         router.replace(next);
         router.refresh();
       } else {
@@ -90,13 +95,13 @@ function LoginForm() {
     <AuthShell
       title="Sign in"
       subtitle="Use your email and password to access your account."
-      largeLogo
       staticBahayGoLogo
+      compactMobile
     >
       <ContinueWithGoogleButton onError={setError} />
-      <AuthGoogleDivider />
-      <form onSubmit={submit} className="space-y-4">
-        <label className="block text-xs font-medium uppercase tracking-wide text-fg-muted">
+      <AuthGoogleDivider compact />
+      <form onSubmit={submit} className="space-y-3">
+        <label className="block text-[11px] font-medium uppercase tracking-wide text-[#525252]">
           Email
           <input
             type="email"
@@ -104,10 +109,10 @@ function LoginForm() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
+            className={FIELD}
           />
         </label>
-        <label className="block text-xs font-medium uppercase tracking-wide text-fg-muted">
+        <label className="block text-[11px] font-medium uppercase tracking-wide text-[#525252]">
           Password
           <input
             type="password"
@@ -115,10 +120,10 @@ function LoginForm() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
+            className={FIELD}
           />
         </label>
-        <div className="-mt-2">
+        <div>
           <Link
             href="/auth/forgot-password"
             className="text-[13px] font-semibold text-[#6B9E6E] hover:underline"
@@ -132,17 +137,11 @@ function LoginForm() {
               (showOauthError ? "Google sign-in could not be completed. Please try again." : "")}
           </p>
         )}
-        <button
-          type="submit"
-          disabled={busy}
-          className="w-full rounded-xl bg-gray-900 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-        >
-          {busy ? "Signing in…" : "Sign in"}
-        </button>
+        <AuthSignInButton disabled={busy}>{busy ? "Signing in…" : "Sign in"}</AuthSignInButton>
       </form>
-      <p className="mt-3 text-center text-sm text-fg-muted">
+      <p className="mt-3 text-center text-[13px] text-[#484848]">
         No account?{" "}
-        <Link href="/auth/signup" className="font-medium text-gray-900 underline">
+        <Link href="/auth/signup" className="font-medium text-[#2C2C2C] underline">
           Create one
         </Link>
       </p>
@@ -154,7 +153,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <AuthShell title="Sign in" subtitle="Loading…" staticBahayGoLogo>
+        <AuthShell title="Sign in" subtitle="Loading…" staticBahayGoLogo compactMobile>
           <div />
         </AuthShell>
       }

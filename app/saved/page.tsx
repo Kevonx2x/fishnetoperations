@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { Heart, Pin } from "lucide-react";
 import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
+import { LoggedOutTabEmptyState } from "@/components/marketplace/logged-out-tab-empty-state";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { useAuth } from "@/contexts/auth-context";
 import { usePinnedPropertyIds, usePropertyLikes } from "@/hooks/use-property-engagement";
@@ -45,18 +46,7 @@ export default function SavedPage() {
 
   const content = useMemo(() => {
     if (!user?.id) {
-      return (
-        <div className="rounded-2xl border border-dashed border-[#2C2C2C]/20 bg-white p-10 text-center">
-          <p className="font-serif text-xl font-bold text-[#2C2C2C]">Sign in to see saved homes</p>
-          <p className="mt-1 text-sm text-[#2C2C2C]/55">Likes and bookmarks sync when you are signed in.</p>
-          <Link
-            href="/auth/login?next=/saved"
-            className="mt-5 inline-flex rounded-full bg-[#2C2C2C] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#6B9E6E]"
-          >
-            Sign in
-          </Link>
-        </div>
-      );
+      return null;
     }
 
     if (!entries.length) {
@@ -205,6 +195,19 @@ export default function SavedPage() {
   useEffect(() => {
     if (user?.id) void mutate();
   }, [engagementKey, mutate, user?.id]);
+
+  if (!authLoading && !user) {
+    return (
+      <div className="min-h-screen bg-[#FAF8F4]">
+        <MaddenTopNav />
+        <LoggedOutTabEmptyState
+          title="Saved"
+          copy="Sign in to save listings you love."
+          nextPath="/saved"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] pb-12">

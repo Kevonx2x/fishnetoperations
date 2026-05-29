@@ -1,34 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
-import { ChevronLeft, Loader2 } from "lucide-react";
 
 import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
 import { ClientMessagesView } from "@/features/messaging/components/client-messages-view";
 import { StreamChatProvider } from "@/features/messaging/components/stream-chat-provider";
+import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
+import { LoggedOutTabEmptyState } from "@/components/marketplace/logged-out-tab-empty-state";
 import { useAuth } from "@/contexts/auth-context";
 
 function MessagesPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { user, role, loading } = useAuth();
   const channel = searchParams.get("channel");
   const showThreadChrome = isMessagesThreadOpen("/messages", channel);
 
-  useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      router.replace(`/auth/login?next=${encodeURIComponent("/messages")}`);
-    }
-  }, [loading, router, user]);
+  if (!loading && !user) {
+    return (
+      <div className="min-h-screen bg-[#FAF8F4]">
+        <MaddenTopNav />
+        <LoggedOutTabEmptyState
+          title="Messages"
+          copy="Sign in to message agents about listings."
+          nextPath="/messages"
+        />
+      </div>
+    );
+  }
 
   if (loading || !user) {
     return (
-      <div className="bahaygo-messaging-light flex min-h-screen items-center justify-center bg-[#FAF8F4]">
-        <Loader2 className="size-8 animate-spin text-[#6B9E6E]" aria-label="Loading" />
+      <div className="min-h-screen bg-[#FAF8F4]">
+        <MaddenTopNav />
       </div>
     );
   }
@@ -45,8 +51,7 @@ function MessagesPageContent() {
               href={isAgentRole ? "/dashboard/agent" : "/"}
               className="mb-2 inline-flex min-h-10 items-center gap-1 rounded-lg pr-2 text-sm font-semibold text-[#6B9E6E] transition-colors hover:text-[#5d8a60] active:opacity-80"
             >
-              <ChevronLeft className="size-5 shrink-0" aria-hidden />
-              {isAgentRole ? "Dashboard" : "Home"}
+              {isAgentRole ? "← Dashboard" : "← Home"}
             </Link>
             <h1 className="font-serif text-2xl font-semibold leading-tight text-[#2C2C2C]">
               Messages
@@ -79,7 +84,13 @@ function MessagesPageContent() {
 export default function MessagesPage() {
   return (
     <StreamChatProvider>
-      <Suspense fallback={null}>
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-[#FAF8F4]">
+            <MaddenTopNav />
+          </div>
+        }
+      >
         <MessagesPageContent />
       </Suspense>
     </StreamChatProvider>

@@ -24,6 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { AuthSignInLinkForPath } from "@/components/auth/auth-sign-in-cta";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
@@ -378,6 +379,12 @@ export default function MorePage() {
   return (
     <div className="min-h-screen bg-[#FAF8F4] font-sans text-[#2C2C2C]">
       <div className="pb-32 pt-[env(safe-area-inset-top,0px)]">
+        {!loading && !isSignedIn ? (
+          <header className="flex items-center justify-end px-4 pb-2 pt-4">
+            <AuthSignInLinkForPath nextPath="/more" nav />
+          </header>
+        ) : null}
+
         {!loading && isSignedIn ? (
           <Link
             href={PATHS.settings}
@@ -406,24 +413,12 @@ export default function MorePage() {
           </Link>
         ) : null}
 
-        {!loading && !isSignedIn ? (
-          <div className="mx-4 mb-4 mt-6 rounded-xl border border-black/[0.06] bg-white p-5">
-            <p className="text-[13px] font-normal text-[#888888]">
-              Access saved homes, pipeline, and account settings.
-            </p>
-            {ROUTES.authLogin ? (
-              <Link
-                href={PATHS.authLogin}
-                className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#6B9E6E] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#5d8a60] active:bg-[#527a55]"
-              >
-                Sign in or create account
-              </Link>
-            ) : null}
-          </div>
-        ) : null}
-
         {sections.map((section, index) => (
-          <MenuSectionBlock key={section.id} section={section} isFirst={index === 0 && !isSignedIn} />
+          <MenuSectionBlock
+            key={section.id}
+            section={section}
+            isFirst={index === 0 && !loading && !isSignedIn}
+          />
         ))}
 
         <footer className="mb-24 mt-8 px-4 text-center">

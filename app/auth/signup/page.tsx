@@ -172,7 +172,6 @@ export default function SignupPage() {
     <AuthShell
       title="Create account"
       subtitle="Register as a client to save searches and work with agents."
-      largeLogo
       staticBahayGoLogo
     >
       <ContinueWithGoogleButton onError={setError} />

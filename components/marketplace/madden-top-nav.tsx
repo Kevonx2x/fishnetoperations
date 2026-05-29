@@ -52,6 +52,7 @@ import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-mes
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { BahayGoWordmark } from "@/components/marketplace/bahaygo-wordmark";
 import { NavNotificationsBell } from "@/components/notifications/nav-notifications-bell";
+import { AuthSignInLinkForPath } from "@/components/auth/auth-sign-in-cta";
 import {
   AGENT_AVAILABILITY_NOW,
   AGENT_AVAILABILITY_OFFLINE,
@@ -838,15 +839,7 @@ export function MaddenTopNav({ compactMobileHome = false }: { compactMobileHome?
               </div>
             </>
           ) : (
-            <Link
-              href="/auth/login"
-              className={cn(
-                "inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-4 text-sm font-semibold text-[#2C2C2C]/80 shadow-sm hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 md:px-5 md:py-2",
-                compactMobileHome ? "min-h-11 py-1.5" : "px-5 py-2",
-              )}
-            >
-              Login
-            </Link>
+            <AuthSignInLinkForPath nextPath={pathname || "/"} nav />
           )}
         </div>
       </div>

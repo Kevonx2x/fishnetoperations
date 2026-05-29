@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ClientMobileBottomNav } from "@/components/client/client-mobile-bottom-nav";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
+import { LoggedOutTabEmptyState } from "@/components/marketplace/logged-out-tab-empty-state";
 import { ClientNotificationsPanel } from "@/components/notifications/client-notifications-panel";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -38,30 +39,23 @@ export default function NotificationsPage() {
     return () => window.removeEventListener("bahaygo:notifications-read", onRead);
   }, [refreshBottomNavUnread]);
 
-  if (authLoading) {
+  if (!authLoading && !user) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-[#FAF8F4]">
         <MaddenTopNav />
-        <div className="flex min-h-[40vh] items-center justify-center text-sm font-semibold text-[#2C2C2C]/50">
-          Loading…
-        </div>
+        <LoggedOutTabEmptyState
+          title="Notifications"
+          copy="Sign in to see your notifications."
+          nextPath="/notifications"
+        />
       </div>
     );
   }
 
-  if (!user) {
+  if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-[#FAF8F4]">
         <MaddenTopNav />
-        <div className="mx-auto max-w-lg px-4 py-16 text-center">
-          <p className="text-sm font-semibold text-[#2C2C2C]/50">Sign in to see notifications.</p>
-          <Link
-            href="/auth/login?next=/notifications"
-            className="mt-4 inline-flex rounded-full bg-[#6B9E6E] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#5d8a60]"
-          >
-            Sign in
-          </Link>
-        </div>
       </div>
     );
   }
