@@ -12,6 +12,7 @@ import {
   SheetDescription,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { formatPropertyFloorAreaDisplay } from "@/lib/format-property-floor-area";
 import {
   searchMapPropertyLocationLine,
   searchMapPropertyPhotoUrl,
@@ -70,6 +71,7 @@ export function SearchMapBottomSheet({ property, open, onOpenChange }: Props) {
   const priceLabel = property ? searchMapPropertyPriceLabel(property) : "";
   const locationLine = property ? searchMapPropertyLocationLine(property) : "";
   const bedsLabel = property?.beds === 0 ? "Studio" : `${property?.beds ?? 0} beds`;
+  const floorAreaLabel = property ? formatPropertyFloorAreaDisplay(property.sqft) : "";
   const detailHref = property ? `/properties/${encodeURIComponent(property.id)}` : "#";
 
   return (
@@ -78,10 +80,13 @@ export function SearchMapBottomSheet({ property, open, onOpenChange }: Props) {
         <SheetContent
           side="bottom"
           showCloseButton={false}
-          overlayClassName="z-[100] bg-black/25"
+          showOverlay={false}
           className={cn(
-            "z-[100] flex max-h-[min(48dvh,420px)] flex-col gap-0 rounded-t-[18px] border-[#2C2C2C]/10 bg-[#FAF8F4] px-0 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_40px_rgba(44,44,44,0.14)]",
-            "transition-transform duration-200 ease-out data-[side=bottom]:data-open:animate-in data-[side=bottom]:data-open:slide-in-from-bottom-10",
+            "z-[100] flex max-h-[min(52dvh,460px)] flex-col gap-0 rounded-t-[18px] border-[#2C2C2C]/10 bg-[#FAF8F4] px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_40px_rgba(44,44,44,0.14)]",
+            "transition-none duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+            "data-open:animate-in data-closed:animate-out",
+            "data-[side=bottom]:data-open:slide-in-from-bottom-full",
+            "data-[side=bottom]:data-closed:slide-out-to-bottom-full",
           )}
           style={dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
           onTouchStart={onTouchStart}
@@ -100,13 +105,10 @@ export function SearchMapBottomSheet({ property, open, onOpenChange }: Props) {
           {property ? (
             <div
               key={property.id}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-2 animate-in fade-in duration-150"
+              className="flex min-h-0 flex-1 flex-col px-4 pb-1 animate-in fade-in duration-150"
             >
-              <Link
-                href={detailHref}
-                className="block w-full text-left active:opacity-95"
-              >
-                <div className="relative h-24 w-full overflow-hidden rounded-xl bg-[#F3F0EA]">
+              <Link href={detailHref} className="flex min-h-0 flex-1 flex-col active:opacity-95">
+                <div className="relative h-[150px] w-full shrink-0 overflow-hidden rounded-xl bg-[#F3F0EA]">
                   {photoUrl ? (
                     <ListingCardPhoto src={photoUrl} alt="" sizes="92vw" eager priority />
                   ) : (
@@ -114,25 +116,26 @@ export function SearchMapBottomSheet({ property, open, onOpenChange }: Props) {
                   )}
                 </div>
 
-                <div className="mt-3 flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-lg font-bold leading-none text-[#6B9E6E]">{priceLabel}</p>
-                    <h3 className="mt-1.5 line-clamp-2 font-sans text-[15px] font-medium leading-snug text-[#2C2C2C]">
-                      {property.name?.trim() || property.title}
-                    </h3>
-                    <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-[#888888]">
-                      <MapPin className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
-                      <span className="line-clamp-1">{locationLine}</span>
-                    </p>
-                    <p className="mt-1 text-xs font-medium text-[#888888]">
-                      {bedsLabel} · {property.baths} baths · {property.sqft} sqft
-                    </p>
-                  </div>
-
-                  <span className="shrink-0 rounded-full border border-[#6B9E6E]/35 bg-white px-3 py-1.5 text-xs font-semibold text-[#6B9E6E] shadow-sm">
-                    View details
-                  </span>
+                <div className="mt-3 flex min-h-0 flex-1 flex-col">
+                  <p className="text-xl font-bold leading-tight text-[#6B9E6E]">{priceLabel}</p>
+                  <h3 className="mt-1.5 line-clamp-1 font-sans text-[15px] font-medium leading-snug text-[#2C2C2C]">
+                    {property.name?.trim() || property.title}
+                  </h3>
+                  <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-[#888888]">
+                    <MapPin className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
+                    <span className="line-clamp-1">{locationLine}</span>
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-[#888888]">
+                    {bedsLabel} · {property.baths} baths · {floorAreaLabel}
+                  </p>
                 </div>
+              </Link>
+
+              <Link
+                href={detailHref}
+                className="mt-3 flex w-full shrink-0 items-center justify-center rounded-xl bg-[#6B9E6E] px-4 py-3 text-sm font-semibold text-white shadow-sm active:bg-[#5d8a60]"
+              >
+                View details
               </Link>
             </div>
           ) : null}
