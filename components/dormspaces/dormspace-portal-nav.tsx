@@ -130,6 +130,8 @@ type Props = {
   minimal?: boolean;
   /** Inside unified mobile home sticky — no separate sticky/safe-area shell. */
   embedded?: boolean;
+  /** Slightly tighter mobile home chrome — desktop unchanged. */
+  compactMobileHome?: boolean;
 };
 
 function ResourcesMenu({ onNavigate }: { onNavigate?: () => void }) {
@@ -187,7 +189,13 @@ function ResourcesMenu({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, minimal, embedded }: Props) {
+export function DormspacePortalNav({
+  variant: variantProp,
+  activeLandlordTab,
+  minimal,
+  embedded,
+  compactMobileHome = false,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -296,9 +304,14 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
   const signInHref = `/auth/login?next=${encodeURIComponent(pathname || "/dormspaces")}`;
 
   const bar = (
-    <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto] items-center gap-3 px-4 py-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-3">
+    <div
+      className={cn(
+        "mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto] items-center gap-3 px-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-3",
+        compactMobileHome ? "py-2.5 md:py-4" : "py-4",
+      )}
+    >
       <div className="flex min-w-0 items-center justify-self-start">
-        <DormspaceWelcomeLogo href={logoHref} />
+        <DormspaceWelcomeLogo href={logoHref} compact={compactMobileHome} />
       </div>
 
       {!minimal ? (
@@ -402,7 +415,10 @@ export function DormspacePortalNav({ variant: variantProp, activeLandlordTab, mi
             </Link>
             <Link
               href="/dormspaces/welcome?intent=signup#get-started"
-              className="inline-flex h-9 items-center justify-center rounded-xl bg-[#1a2e22] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#243828]"
+              className={cn(
+                "inline-flex items-center justify-center rounded-xl bg-[#1a2e22] text-sm font-bold text-white shadow-sm transition hover:bg-[#243828]",
+                compactMobileHome ? "min-h-11 px-3.5 py-1.5 md:h-9 md:px-4 md:py-0" : "h-9 px-4",
+              )}
             >
               Sign Up
             </Link>

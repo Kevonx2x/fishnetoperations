@@ -17,6 +17,7 @@ import {
   roleDisplayLabel,
 } from "@/lib/auth-roles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 
 const FIELD =
   "mt-1.5 w-full rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25";
@@ -250,7 +251,7 @@ export function ClientSignedInCard() {
   );
 }
 
-export function EmailFirstAuthCard() {
+export function EmailFirstAuthCard({ compactMobile = false }: { compactMobile?: boolean }) {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
@@ -407,26 +408,37 @@ export function EmailFirstAuthCard() {
   };
 
   return (
-    <div className="rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_4px_24px_rgba(44,44,44,0.06)] sm:p-8">
+    <div
+      className={cn(
+        compactMobile
+          ? "min-h-0"
+          : "rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_4px_24px_rgba(44,44,44,0.06)] sm:p-8",
+      )}
+    >
       {stage === "email" ? (
         <>
-          <h2 className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]">
+          <h2
+            className={cn(
+              "font-serif font-bold tracking-tight text-[#2C2C2C]",
+              compactMobile ? "text-xl leading-tight" : "text-2xl",
+            )}
+          >
             Get started or sign in
           </h2>
-          <p className="mt-2 text-sm font-medium text-[#484848]">
+          <p className={cn("font-medium text-[#484848]", compactMobile ? "mt-1 text-[13px]" : "mt-2 text-sm")}>
             {"We'll detect your account or help you create one"}
           </p>
 
-          <div className="mt-6">
+          <div className={compactMobile ? "mt-3" : "mt-6"}>
             <ContinueWithGoogleButton
               variant="sage-outline"
               onError={setError}
               callbackPath="/auth/callback?context=landlord"
             />
-            <AuthGoogleDivider />
+            <AuthGoogleDivider compact={compactMobile} />
           </div>
 
-          <form onSubmit={(e) => void handleContinueEmail(e)} className="space-y-4">
+          <form onSubmit={(e) => void handleContinueEmail(e)} className={compactMobile ? "space-y-3" : "space-y-4"}>
             <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
               Email address
               <input
@@ -435,6 +447,7 @@ export function EmailFirstAuthCard() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
                 className={FIELD}
               />
             </label>
@@ -442,7 +455,7 @@ export function EmailFirstAuthCard() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-xl bg-[#6B9E6E] py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-xl bg-[#6B9E6E] py-3 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Checking\u2026" : "Continue"}
             </button>
@@ -564,6 +577,7 @@ export function WelcomeHeroAuthPanel({
   landlordCard,
   staffCard,
   clientCard,
+  compactMobile = false,
 }: {
   loading: boolean;
   intent: "signin" | "signup" | null;
@@ -573,12 +587,17 @@ export function WelcomeHeroAuthPanel({
   landlordCard: ReactNode;
   staffCard: ReactNode | null;
   clientCard: ReactNode | null;
+  compactMobile?: boolean;
 }) {
   if (loading) {
     return (
       <div
         id="get-started"
-        className="rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_4px_24px_rgba(44,44,44,0.06)] sm:p-8"
+        className={cn(
+          compactMobile
+            ? "min-h-0"
+            : "rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_4px_24px_rgba(44,44,44,0.06)] sm:p-8",
+        )}
         aria-busy="true"
       >
         <div className="h-8 w-48 max-w-full animate-pulse rounded bg-[#2C2C2C]/10" />
@@ -602,7 +621,7 @@ export function WelcomeHeroAuthPanel({
 
   return (
     <div id="get-started">
-      <EmailFirstAuthCard />
+      <EmailFirstAuthCard compactMobile={compactMobile} />
     </div>
   );
 }

@@ -18,7 +18,7 @@ import { DormspaceNewThisWeekSection } from "@/components/dormspaces/dormspace-n
 import { DormspacePublicHomeMobile, DormspaceMobileStickySearch } from "@/components/dormspaces/dormspace-public-home-mobile";
 import { DormspacePortalNav } from "@/components/dormspaces/dormspace-portal-nav";
 import {
-  MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN,
+  MOBILE_DORMSPACE_STICKY_CHROME_COMPACT_SCROLL_MARGIN,
   MOBILE_DORMSPACE_UNIFIED_STICKY_CHROME,
 } from "@/lib/bahaygo-mobile/sticky-mobile-search-chrome";
 import { HomepageArticlesSection } from "@/components/marketplace/homepage-articles-section";
@@ -126,13 +126,14 @@ export function DormspacePublicHome({
     <>
       <div className="min-w-0 md:hidden">
         <div className={MOBILE_DORMSPACE_UNIFIED_STICKY_CHROME}>
-          <DormspacePortalNav embedded />
+          <DormspacePortalNav embedded compactMobileHome />
           <DormspaceMobileStickySearch
             locationQuery={locationQuery}
             onLocationChange={setLocationQuery}
             onSearch={applySearch}
             onScrollToListings={scrollToListings}
             locationLabel={dormspaceLocationLabel}
+            compact
           />
         </div>
 
@@ -143,9 +144,10 @@ export function DormspacePublicHome({
             neighborhoods={featuredNeighborhoods}
             onBrowseFilter={applyMobileBrowseFilter}
             onScrollToListings={scrollToListings}
+            compactMobileHome
           />
 
-          <div className={cn("min-w-0", MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN)}>
+          <div className={cn("min-w-0", MOBILE_DORMSPACE_STICKY_CHROME_COMPACT_SCROLL_MARGIN)}>
           <div className="border-t border-black/[0.06] bg-[#FAF8F4] px-5 py-4">
             <h2 className="font-serif text-[18px] font-semibold leading-tight tracking-tight text-[#2C2C2C]">
               All listings

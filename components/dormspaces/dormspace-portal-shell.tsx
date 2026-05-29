@@ -32,6 +32,11 @@ type Props = {
 
   className?: string;
 
+  /** Pin mobile layout to one viewport (welcome). */
+  mobileFillViewport?: boolean;
+
+  compactMobileNav?: boolean;
+
 };
 
 
@@ -50,6 +55,10 @@ export function DormspacePortalShell({
 
   className,
 
+  mobileFillViewport = false,
+
+  compactMobileNav = false,
+
 }: Props) {
 
   const pathname = usePathname() ?? "";
@@ -66,7 +75,9 @@ export function DormspacePortalShell({
 
   return (
 
-    <div className={`relative flex min-h-screen flex-col bg-[#FAF8F4] ${className ?? ""}`}>
+    <div
+      className={`relative flex min-h-screen flex-col bg-[#FAF8F4] ${mobileFillViewport ? "max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:overflow-hidden" : ""} ${className ?? ""}`}
+    >
 
       <DormspacePortalWatermark />
 
@@ -79,10 +90,13 @@ export function DormspacePortalShell({
           variant={variant}
           activeLandlordTab={activeLandlordTab}
           minimal={minimalNav ?? navVisibility === "minimal"}
+          compactMobileHome={compactMobileNav}
         />
       </div>
 
-      <div className="relative z-10 flex min-w-0 max-md:flex-none md:flex-1 flex-col">
+      <div
+        className={`relative z-10 flex min-w-0 flex-col ${mobileFillViewport ? "max-md:min-h-0 max-md:flex-1 max-md:overflow-hidden" : "max-md:flex-none md:flex-1"}`}
+      >
         {children}
       </div>
 

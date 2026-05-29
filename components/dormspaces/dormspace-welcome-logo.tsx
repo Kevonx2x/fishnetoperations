@@ -14,29 +14,41 @@ export function BahayGoHouseMark({ className }: { className?: string }) {
 type Props = {
   className?: string;
   href?: string;
+  compact?: boolean;
 };
 
 /**
  * BahayGo + dormspacers stacked lockup — used only on /dormspaces/* welcome surfaces.
  * Parent wordmark unchanged; sub-brand tag sits beneath "BahayGo", left-aligned.
  */
-export function DormspaceWelcomeLogo({ className, href = "/dormspaces" }: Props) {
+export function DormspaceWelcomeLogo({ className, href = "/dormspaces", compact = false }: Props) {
   return (
     <Link
       href={href}
       className={cn(
-        "inline-flex shrink-0 items-start gap-2 leading-none transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FAF8F4]",
+        "inline-flex shrink-0 items-start leading-none transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FAF8F4]",
+        compact ? "gap-1.5" : "gap-2",
         className,
       )}
       aria-label="BahayGo dormspacers"
     >
-      <BahayGoHouseMark className="h-9 w-auto shrink-0" />
-      <span className="flex flex-col items-start pt-0.5">
-        <span className="inline-flex items-baseline gap-0 font-serif text-[1.35rem] font-bold leading-none tracking-tight">
+      <BahayGoHouseMark className={cn("w-auto shrink-0", compact ? "h-6" : "h-9")} />
+      <span className={cn("flex flex-col items-start", compact ? "pt-0" : "pt-0.5")}>
+        <span
+          className={cn(
+            "inline-flex items-baseline gap-0 font-serif font-bold leading-none tracking-tight",
+            compact ? "text-[1.2rem]" : "text-[1.35rem]",
+          )}
+        >
           <span className="text-[#2C2C2C]">Bahay</span>
           <span className="text-[#6B9E6E]">Go</span>
         </span>
-        <span className="mt-0.5 font-serif text-[0.65rem] font-semibold leading-none tracking-[0.14em] text-[#888888]">
+        <span
+          className={cn(
+            "font-serif font-semibold leading-none tracking-[0.14em] text-[#888888]",
+            compact ? "mt-px text-[0.58rem]" : "mt-0.5 text-[0.65rem]",
+          )}
+        >
           dormspacers
         </span>
       </span>

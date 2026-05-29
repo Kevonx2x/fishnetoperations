@@ -71,6 +71,8 @@ type Props = {
 
   onScrollToListings: () => void;
 
+  compactMobileHome?: boolean;
+
 };
 
 
@@ -86,6 +88,8 @@ export type DormspaceMobileStickySearchProps = {
   onScrollToListings: () => void;
 
   locationLabel?: string;
+
+  compact?: boolean;
 
 };
 
@@ -103,21 +107,33 @@ export function DormspaceMobileStickySearch({
 
   locationLabel = "Near DLSU, Taft Ave.",
 
+  compact = false,
+
 }: DormspaceMobileStickySearchProps) {
 
   return (
 
-    <section className={cn(PAGE_X, "space-y-2 py-2")}>
+    <section className={cn(PAGE_X, compact ? "space-y-1.5 py-1.5" : "space-y-2 py-2")}>
 
       <div
 
         id="dormspace-hero-search"
 
-        className="flex h-12 items-center gap-2.5 rounded-2xl border border-[#2C2C2C]/10 bg-white px-3.5 shadow-[0_2px_14px_rgba(44,44,44,0.06)]"
+        className={cn(
+
+          "flex items-center gap-2 border border-[#2C2C2C]/10 bg-white",
+
+          compact
+
+            ? "h-11 rounded-xl px-2.5 shadow-[0_6px_20px_rgba(44,44,44,0.08)]"
+
+            : "h-12 rounded-2xl px-3.5 shadow-[0_2px_14px_rgba(44,44,44,0.06)]",
+
+        )}
 
       >
 
-        <Search className="size-[18px] shrink-0 text-[#888888]" strokeWidth={2.25} aria-hidden />
+        <Search className={cn("shrink-0 text-[#888888]", compact ? "size-4" : "size-[18px]")} strokeWidth={2.25} aria-hidden />
 
         <input
 
@@ -147,13 +163,19 @@ export function DormspaceMobileStickySearch({
 
           onClick={onScrollToListings}
 
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-[#2C2C2C]/60"
+          className={cn(
+
+            "flex shrink-0 items-center justify-center rounded-lg text-[#2C2C2C]/60",
+
+            compact ? "size-11" : "size-8",
+
+          )}
 
           aria-label="Open filters"
 
         >
 
-          <SlidersHorizontal className="size-[18px]" strokeWidth={2} />
+          <SlidersHorizontal className={compact ? "size-[17px]" : "size-[18px]"} strokeWidth={2} />
 
         </button>
 
@@ -161,9 +183,9 @@ export function DormspaceMobileStickySearch({
 
 
 
-      <div className="flex items-center gap-1 text-[13px]">
+      <div className={cn("flex items-center gap-1", compact ? "min-h-8 text-[12px]" : "text-[13px]")}>
 
-        <MapPin className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
+        <MapPin className={cn("shrink-0 text-[#6B9E6E]", compact ? "size-3" : "size-3.5")} aria-hidden />
 
         <span className="font-semibold text-[#2C2C2C]">{locationLabel}</span>
 
@@ -173,7 +195,13 @@ export function DormspaceMobileStickySearch({
 
           onClick={onScrollToListings}
 
-          className="ml-auto inline-flex items-center text-[13px] font-semibold text-[#6B9E6E]"
+          className={cn(
+
+            "ml-auto inline-flex items-center font-semibold text-[#6B9E6E]",
+
+            compact ? "min-h-8 text-[12px]" : "text-[13px]",
+
+          )}
 
         >
 
@@ -491,11 +519,13 @@ export function DormspacePublicHomeMobile({
 
   onScrollToListings,
 
+  compactMobileHome = false,
+
 }: Props) {
 
   return (
 
-    <div className="min-w-0 pb-6 pt-1 md:hidden">
+    <div className={cn("min-w-0 pb-6 md:hidden", compactMobileHome ? "pt-0" : "pt-1")}>
 
       <section className={SECTION}>
 

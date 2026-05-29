@@ -8,8 +8,12 @@ export const MOBILE_PORTAL_TOP_NAV_COMPACT_OFFSET =
 
 /** Dormspacers nav: two-line lockup (BahayGo + dormspacers tag) under the same `py-4` bar. */
 export const MOBILE_DORMSPACE_PORTAL_NAV_HEIGHT_PX = 76;
+export const MOBILE_DORMSPACE_PORTAL_NAV_COMPACT_HEIGHT_PX = 64;
 export const MOBILE_DORMSPACE_PORTAL_TOP_OFFSET =
   "top-[calc(76px+env(safe-area-inset-top,0px))]" as const;
+
+/** Search input + location row under compact dormspacers nav on mobile home. */
+export const MOBILE_DORMSPACE_SEARCH_STRIP_COMPACT_PX = 100;
 
 /** Search input + location row under the portal nav (fallback for legacy callers). */
 export const MOBILE_SEARCH_STRIP_FALLBACK_PX = 116;
@@ -21,6 +25,8 @@ export const MOBILE_DORMSPACE_UNIFIED_STICKY_CHROME =
 /** Anchor clearance below unified dormspacers sticky chrome on mobile. */
 export const MOBILE_DORMSPACE_STICKY_CHROME_SCROLL_MARGIN =
   "scroll-mt-[calc(76px+116px+env(safe-area-inset-top,0px))]" as const;
+export const MOBILE_DORMSPACE_STICKY_CHROME_COMPACT_SCROLL_MARGIN =
+  "scroll-mt-[calc(64px+100px+env(safe-area-inset-top,0px))]" as const;
 
 /** Sticky search strip — stays in document flow and pins below the portal nav while scrolling. */
 export const MOBILE_FIXED_SEARCH_CHROME =

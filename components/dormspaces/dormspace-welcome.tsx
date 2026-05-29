@@ -38,7 +38,7 @@ import {
 } from "@/lib/landlord-verification";
 import { useAuth } from "@/contexts/auth-context";
 import { isDormspaceSubmitBlockedRole, isLandlordCapable } from "@/lib/auth-roles";
-import { DORMSPACE_HERO_IMAGE } from "@/lib/dormspaces";
+import { DORMSPACE_HERO_IMAGE, DORMSPACE_WELCOME_MOBILE_HERO_IMAGE } from "@/lib/dormspaces";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 /** Cozy dorm/studio — matches welcome mockup featured card. */
@@ -220,6 +220,7 @@ export function DormspaceWelcome() {
 
   useEffect(() => {
     if (!welcomeIntent) return;
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) return;
     const t = window.setTimeout(() => {
       document.getElementById("get-started")?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 120);
@@ -291,9 +292,75 @@ export function DormspaceWelcome() {
 
   const clientCard = isClientSignedIn ? <ClientSignedInCard /> : null;
 
+  const authPanel = (
+    <WelcomeHeroAuthPanel
+      loading={authLoading}
+      intent={welcomeIntent}
+      isLandlordSignedIn={isLandlordSignedIn}
+      isStaffSignedIn={isStaffSignedIn}
+      isClientSignedIn={isClientSignedIn}
+      landlordCard={landlordCard}
+      staffCard={staffCard}
+      clientCard={clientCard}
+    />
+  );
+
   return (
-    <DormspacePortalShell minimalNav>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-6 lg:px-6 lg:pb-16 lg:pt-10">
+    <DormspacePortalShell minimalNav mobileFillViewport compactMobileNav>
+      {/* Mobile — single-screen welcome (no scroll on default sign-in view) */}
+      <main className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:hidden">
+        <div className="shrink-0">
+          <h1 className="font-serif text-[26px] font-semibold leading-[1.12] tracking-tight text-[#2C2C2C]">
+            Find your space.
+            <br />
+            Feel at <span className="text-[#6B9E6E]">dorm.</span>
+          </h1>
+          <p className="mt-2 text-[13px] font-medium leading-snug text-[#484848]">
+            Free to list. Verified landlords only. Reach students, BPO workers, and young professionals
+            across Metro Manila.
+          </p>
+
+          <div className="relative mt-3 overflow-hidden rounded-2xl border border-[#2C2C2C]/8 shadow-[0_8px_28px_rgba(44,44,44,0.1)]">
+            <div className="relative h-[118px] w-full">
+              <Image
+                src={DORMSPACE_WELCOME_MOBILE_HERO_IMAGE}
+                alt="Student smiling from a bunk bed in a dorm"
+                fill
+                className="object-cover object-[center_20%]"
+                sizes="100vw"
+                priority
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1a2e22]/55 via-transparent to-transparent" />
+              <div className="absolute bottom-2.5 left-2.5 flex flex-wrap gap-1.5">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
+                  <BadgeCheck className="size-3 text-[#6B9E6E]" aria-hidden />
+                  Verified landlords
+                </span>
+                <span className="rounded-full bg-[#D4A843]/95 px-2 py-0.5 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
+                  Free to list
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pt-3">
+          <WelcomeHeroAuthPanel
+            loading={authLoading}
+            intent={welcomeIntent}
+            isLandlordSignedIn={isLandlordSignedIn}
+            isStaffSignedIn={isStaffSignedIn}
+            isClientSignedIn={isClientSignedIn}
+            landlordCard={landlordCard}
+            staffCard={staffCard}
+            clientCard={clientCard}
+            compactMobile
+          />
+        </div>
+      </main>
+
+      {/* Desktop — full marketing welcome */}
+      <main className="mx-auto hidden w-full max-w-6xl flex-1 px-4 pb-28 pt-6 md:block lg:px-6 lg:pb-16 lg:pt-10">
         {/* Hero — photo visible above the fold (mockup: headline + image + stats | auth card) */}
         <section className="grid gap-6 lg:grid-cols-[1fr_minmax(0,380px)] lg:items-start lg:gap-10">
           <div className="min-w-0">
@@ -349,16 +416,7 @@ export function DormspaceWelcome() {
           </div>
 
           <div className="lg:sticky lg:top-20">
-            <WelcomeHeroAuthPanel
-              loading={authLoading}
-              intent={welcomeIntent}
-              isLandlordSignedIn={isLandlordSignedIn}
-              isStaffSignedIn={isStaffSignedIn}
-              isClientSignedIn={isClientSignedIn}
-              landlordCard={landlordCard}
-              staffCard={staffCard}
-              clientCard={clientCard}
-            />
+            {authPanel}
           </div>
         </section>
 
