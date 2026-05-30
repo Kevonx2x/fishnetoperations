@@ -1,46 +1,17 @@
 "use client";
 
-
-
+import { useMemo } from "react";
 import Image from "next/image";
-
 import Link from "next/link";
+import { ChevronRight, MapPin, Search, SlidersHorizontal } from "lucide-react";
 
-import {
-
-  ChevronRight,
-
-  Heart,
-
-  MapPin,
-
-  Search,
-
-  SlidersHorizontal,
-
-} from "lucide-react";
-
-
-
+import { DormspaceListingCardCompact } from "@/components/dormspaces/dormspace-listing-card-compact";
 import {
   MOBILE_DORMSPACE_CAROUSEL_TRACK,
   MOBILE_HORIZONTAL_SCROLL_STYLE,
 } from "@/lib/bahaygo-mobile/sticky-mobile-search-chrome";
 import type { DormspaceBrowseFilters } from "@/lib/dormspace-browse-filters";
 import type { DormspacePopularArea } from "@/lib/dormspace-popular-areas";
-
-import {
-
-  DORMSPACE_HOME_DEMO_NEW,
-
-  DORMSPACE_HOME_DEMO_RECOMMENDED,
-
-  formatDemoPrice,
-
-  type DormspaceHomeDemoListing,
-
-} from "@/lib/dormspace-homepage-demo";
-
 import { countListingsInPopularArea } from "@/lib/dormspace-popular-areas";
 
 import type { DormspaceWithPhotos } from "@/lib/dormspaces";
@@ -225,8 +196,6 @@ const PAGE_X = "px-5";
 
 const SECTION = "mt-5";
 
-const PEEK_CARD_W = "w-[calc((100vw-2rem-1rem)/2.5)]";
-
 const UNIVERSITY_SCROLL = cn(MOBILE_DORMSPACE_CAROUSEL_TRACK, "gap-4 pb-1");
 
 
@@ -357,156 +326,6 @@ function UniversityAvatar({ university }: { university: UniversityRow }) {
 
 
 
-function NewThisWeekCard({ listing }: { listing: DormspaceHomeDemoListing }) {
-
-  const details = `${listing.beds} bed • ${listing.baths} bath • ${listing.sqm} sqm`;
-
-
-
-  return (
-
-    <article
-
-      className={cn(
-
-        PEEK_CARD_W,
-
-        "shrink-0 snap-start overflow-hidden rounded-xl bg-white shadow-[0_2px_10px_rgba(44,44,44,0.06)] ring-1 ring-black/[0.04]",
-
-      )}
-
-    >
-
-      <div className="relative aspect-[4/3] w-full bg-[#F3F0EA]">
-
-        <Image src={listing.imageUrl} alt="" fill className="object-cover" sizes="40vw" />
-
-        {listing.badge === "NEW" ? (
-
-          <span className="absolute left-1.5 top-1.5 rounded bg-[#6B9E6E] px-1 py-0.5 text-[8px] font-bold uppercase text-white">
-
-            NEW
-
-          </span>
-
-        ) : null}
-
-        <button
-
-          type="button"
-
-          className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/[0.06]"
-
-          aria-label="Save listing"
-
-        >
-
-          <Heart className="size-3 text-[#2C2C2C]/80" strokeWidth={2} />
-
-        </button>
-
-      </div>
-
-      <div className="px-2 pb-2 pt-1.5">
-
-        <h3 className="line-clamp-2 font-serif text-[12px] font-semibold leading-tight text-[#2C2C2C]">
-
-          {listing.title}
-
-        </h3>
-
-        <p className="mt-0.5 flex items-center gap-0.5 text-[9px] font-medium text-[#888888]">
-
-          <MapPin className="size-2.5 shrink-0 text-[#6B9E6E]" aria-hidden />
-
-          <span className="truncate">{listing.location}</span>
-
-        </p>
-
-        <p className="mt-0.5 text-[12px] font-bold leading-none text-[#6B9E6E]">{formatDemoPrice(listing.price)}</p>
-
-        <p className="mt-0.5 text-[8px] font-medium text-[#888888]">{details}</p>
-
-      </div>
-
-    </article>
-
-  );
-
-}
-
-
-
-function RecommendedRowCard({ listing }: { listing: DormspaceHomeDemoListing }) {
-
-  const details = `${listing.beds} bed • ${listing.baths} bath • ${listing.sqm} sqm`;
-
-
-
-  return (
-
-    <article className="relative flex gap-3 rounded-2xl bg-white p-2.5 shadow-[0_2px_12px_rgba(44,44,44,0.07)] ring-1 ring-black/[0.04]">
-
-      <div className="relative h-[92px] w-[112px] shrink-0 overflow-hidden rounded-xl bg-[#F3F0EA]">
-
-        <Image src={listing.imageUrl} alt="" fill className="object-cover" sizes="112px" />
-
-        {listing.badge === "HOT" ? (
-
-          <span className="absolute left-1.5 top-1.5 rounded bg-[#E07A3A] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
-
-            HOT
-
-          </span>
-
-        ) : null}
-
-      </div>
-
-      <div className="flex min-w-0 flex-1 flex-col pr-7">
-
-        <h3 className="font-serif text-[14px] font-semibold leading-snug text-[#2C2C2C]">{listing.title}</h3>
-
-        <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-[#888888]">
-
-          <MapPin className="size-3 shrink-0 text-[#6B9E6E]" aria-hidden />
-
-          <span className="truncate">{listing.location}</span>
-
-        </p>
-
-        <div className="mt-auto pt-1.5">
-
-          <p className="text-[14px] font-bold leading-none text-[#6B9E6E]">{formatDemoPrice(listing.price)}</p>
-
-          <p className="mt-0.5 text-[10px] font-medium text-[#888888]">{details}</p>
-
-        </div>
-
-      </div>
-
-      <button
-
-        type="button"
-
-        className="absolute right-2.5 top-2.5 text-[#888888]"
-
-        aria-label="Save listing"
-
-      >
-
-        <Heart className="size-[18px]" strokeWidth={2} />
-
-      </button>
-
-    </article>
-
-  );
-
-}
-
-
-
 export function DormspacePublicHomeMobile({
 
   universities,
@@ -522,26 +341,41 @@ export function DormspacePublicHomeMobile({
   compactMobileHome = false,
 
 }: Props) {
+  const newest = useMemo(
+    () =>
+      [...listings]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 12),
+    [listings],
+  );
+
+  const recommended = useMemo(() => {
+    const approved = listings.filter((l) => l.status === "approved");
+    const source = approved.length > 0 ? approved : listings;
+    return source.slice(0, 12);
+  }, [listings]);
 
   return (
 
     <div className={cn("min-w-0 pb-6 md:hidden", compactMobileHome ? "pt-0" : "pt-1")}>
 
+      {newest.length > 0 ? (
       <section className={SECTION}>
 
         <SectionHeader title="New this week" actionLabel="See all" onAction={onScrollToListings} />
 
         <div className={cn(MOBILE_DORMSPACE_CAROUSEL_TRACK, "gap-2")} style={MOBILE_HORIZONTAL_SCROLL_STYLE}>
 
-          {DORMSPACE_HOME_DEMO_NEW.map((listing) => (
+          {newest.map((listing) => (
 
-            <NewThisWeekCard key={listing.id} listing={listing} />
+            <DormspaceListingCardCompact key={listing.id} listing={listing} />
 
           ))}
 
         </div>
 
       </section>
+      ) : null}
 
 
 
@@ -665,21 +499,23 @@ export function DormspacePublicHomeMobile({
 
 
 
+      {recommended.length > 0 ? (
       <section className={SECTION}>
 
         <SectionHeader title="Recommended for you" actionLabel="See all" onAction={onScrollToListings} />
 
-        <div className={cn("mt-2.5 flex flex-col gap-2.5", PAGE_X)}>
+        <div className={cn(MOBILE_DORMSPACE_CAROUSEL_TRACK, "gap-2")} style={MOBILE_HORIZONTAL_SCROLL_STYLE}>
 
-          {DORMSPACE_HOME_DEMO_RECOMMENDED.map((listing) => (
+          {recommended.map((listing) => (
 
-            <RecommendedRowCard key={listing.id} listing={listing} />
+            <DormspaceListingCardCompact key={listing.id} listing={listing} />
 
           ))}
 
         </div>
 
       </section>
+      ) : null}
 
     </div>
 
