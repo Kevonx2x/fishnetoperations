@@ -318,10 +318,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/** Safe defaults when auth context is unavailable during SSR streaming. */
+const SSR_AUTH_FALLBACK: AuthContextValue = {
+  user: null,
+  profile: null,
+  role: null,
+  loading: true,
+  status: "loading",
+  refreshProfile: async () => {},
+};
+
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within AuthProvider");
+  if (ctx) return ctx;
+  if (typeof window === "undefined") {
+    return SSR_AUTH_FALLBACK;
   }
-  return ctx;
+  throw new Error("useAuth must be used within AuthProvider");
 }

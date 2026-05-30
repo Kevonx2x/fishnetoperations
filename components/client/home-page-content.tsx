@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { BahayGoHomeMarketplace } from "@/components/marketplace/fishnet-home-marketplace";
-import { HomepageLoadShell } from "@/components/marketplace/homepage-load-shell";
+import type { HomepagePropertiesResult } from "@/lib/marketplace-home-fetchers";
 
 const PostLoginModal = dynamic(
   () =>
@@ -13,12 +13,21 @@ const PostLoginModal = dynamic(
   { ssr: false },
 );
 
-export function HomePageContent() {
+type Props = {
+  listingMode?: "buy" | "rent" | "all";
+  initialHomepageProperties?: HomepagePropertiesResult | null;
+};
+
+export function HomePageContent({
+  listingMode = "rent",
+  initialHomepageProperties = null,
+}: Props) {
   return (
     <>
-      <Suspense fallback={<HomepageLoadShell />}>
-        <BahayGoHomeMarketplace listingMode="rent" />
-      </Suspense>
+      <BahayGoHomeMarketplace
+        listingMode={listingMode}
+        initialHomepageProperties={initialHomepageProperties}
+      />
       <PostLoginModal gate="client-home" />
     </>
   );

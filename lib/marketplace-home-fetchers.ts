@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { findRentHomepageSpotlightUptownParkSuite } from "@/lib/homepage-spotlight-pin";
 import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketplace-types";
 import type { DbProperty } from "@/lib/marketplace-property";
@@ -75,10 +76,13 @@ function shouldIncludeAgentDirectoryRow(row: unknown): boolean {
   return true;
 }
 
-export async function fetchHomepageProperties(args: {
-  neighborhoodFilter: string | null;
-  listingTypeFilter: "sale" | "rent" | null;
-}): Promise<HomepagePropertiesResult> {
+export async function fetchHomepagePropertiesWithClient(
+  supabase: SupabaseClient,
+  args: {
+    neighborhoodFilter: string | null;
+    listingTypeFilter: "sale" | "rent" | null;
+  },
+): Promise<HomepagePropertiesResult> {
   const { neighborhoodFilter, listingTypeFilter } = args;
 
   return retryOnTransientFetchError(async () => {
@@ -159,6 +163,13 @@ export async function fetchHomepageProperties(args: {
 
     return { list, featured, isAdminFeatured };
   });
+}
+
+export async function fetchHomepageProperties(args: {
+  neighborhoodFilter: string | null;
+  listingTypeFilter: "sale" | "rent" | null;
+}): Promise<HomepagePropertiesResult> {
+  return fetchHomepagePropertiesWithClient(supabase, args);
 }
 
 export async function fetchHomepageAgentsDirectory(): Promise<HomepageAgentsResult> {

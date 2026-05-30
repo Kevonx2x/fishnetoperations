@@ -68,6 +68,7 @@ export function ListingCardPhoto({ src, alt, sizes, priority = false, eager = fa
           quality={75}
           sizes={sizes}
           priority={priority}
+          fetchPriority={priority ? "high" : undefined}
           loading={priority || eager ? "eager" : "lazy"}
           decoding="async"
           className={cn("object-cover", grayscale && "grayscale")}

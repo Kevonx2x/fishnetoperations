@@ -27,7 +27,11 @@ import {
   type FiltersState,
   type HomePropertyKind,
 } from "@/lib/homepage-marketplace-filters";
-import { HOMEPAGE_MOBILE_CAROUSEL_INSET } from "@/lib/homepage-listing-card-layout";
+import { HOMEPAGE_MOBILE_CAROUSEL_INSET, HOMEPAGE_MOBILE_TRENDING_CARD_WIDTH } from "@/lib/homepage-listing-card-layout";
+import {
+  HomepageMobilePeekRowSkeleton,
+  HomepageMobileTrendingSkeleton,
+} from "@/components/marketplace/homepage-load-shell";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { firstRawPropertyPhotoUrl } from "@/lib/marketplace-property";
@@ -42,8 +46,7 @@ import { cn } from "@/lib/utils";
 const PAGE_X = "px-4";
 const CAROUSEL_SCROLL =
   "flex overflow-x-auto gap-2.5 pb-0.5 scrollbar-hide snap-x snap-mandatory";
-/** ~88% viewport width so the next slide peeks like the reference mock. */
-const TRENDING_CARD_W = "w-[calc((100vw-2rem-0.625rem)/1.22)]";
+const TRENDING_CARD_W = HOMEPAGE_MOBILE_TRENDING_CARD_WIDTH;
 
 type QuickCategoryId = "condo" | "house" | "mrt" | "pet" | "furnished" | "new";
 
@@ -198,11 +201,13 @@ function TrendingHeroCard({
   mode,
   heroSrc,
   engagement,
+  priorityImage = false,
 }: {
   property: DbProperty;
   mode: "buy" | "rent" | "all";
   heroSrc: string;
   engagement: PropertyEngagement;
+  priorityImage?: boolean;
 }) {
   const href = `/properties/${encodeURIComponent(property.id)}`;
   const liked = engagement.isLiked(property.id);
@@ -221,7 +226,16 @@ function TrendingHeroCard({
     >
       <div className="relative aspect-[5/3] w-full bg-[#1a1a1a]">
         {heroSrc ? (
-          <Image src={heroSrc} alt="" fill className="object-cover" sizes="88vw" priority />
+          <Image
+            src={heroSrc}
+            alt=""
+            fill
+            className="object-cover"
+            sizes="88vw"
+            priority={priorityImage}
+            fetchPriority={priorityImage ? "high" : undefined}
+            loading={priorityImage ? "eager" : "lazy"}
+          />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#2C2C2C] to-[#4a4a4a]" />
         )}
@@ -359,6 +373,7 @@ export type BahayGoHomeMobileTopProps = {
   engagement: PropertyEngagement;
   onScrollToListings: () => void;
   compactMobileHome?: boolean;
+  listingsLoading?: boolean;
 };
 
 export function BahayGoHomeMobileTop({
@@ -374,6 +389,7 @@ export function BahayGoHomeMobileTop({
   engagement,
   onScrollToListings,
   compactMobileHome = false,
+  listingsLoading = false,
 }: BahayGoHomeMobileTopProps) {
   const [heroIndex, setHeroIndex] = useState(0);
   const heroScrollRef = useRef<HTMLDivElement | null>(null);
@@ -507,7 +523,12 @@ export function BahayGoHomeMobileTop({
           </div>
         </section>
 
-        {heroSlides.length > 0 ? (
+        {listingsLoading ? (
+          <>
+            <HomepageMobileTrendingSkeleton />
+            <HomepageMobilePeekRowSkeleton />
+          </>
+        ) : heroSlides.length > 0 ? (
           <section className="mt-2">
             <SectionHeader
               title={
@@ -531,6 +552,7 @@ export function BahayGoHomeMobileTop({
                       mode={mode}
                       heroSrc={src}
                       engagement={engagement}
+                      priorityImage={i === 0}
                     />
                   </div>
                 );
@@ -559,7 +581,7 @@ export function BahayGoHomeMobileTop({
           </section>
         ) : null}
 
-        {newThisWeek.length > 0 ? (
+        {!listingsLoading && newThisWeek.length > 0 ? (
           <section className="mt-2.5">
             <SectionHeader title="New This Week" onSeeAll={onScrollToListings} />
             <div className={cn(CAROUSEL_SCROLL, HOMEPAGE_MOBILE_CAROUSEL_INSET, "mt-2 gap-2.5")}>

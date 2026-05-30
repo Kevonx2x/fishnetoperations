@@ -1,13 +1,88 @@
 import { HOMEPAGE_INITIAL_CATEGORY_ROWS } from "@/lib/homepage-row-templates";
-import { HOMEPAGE_BROWSE_LISTING_CARD_WIDTH } from "@/lib/homepage-listing-card-layout";
+import {
+  HOMEPAGE_BROWSE_LISTING_CARD_WIDTH,
+  HOMEPAGE_MOBILE_CAROUSEL_INSET,
+  HOMEPAGE_MOBILE_PEEK_LISTING_CARD_WIDTH,
+  HOMEPAGE_MOBILE_TRENDING_CARD_WIDTH,
+} from "@/lib/homepage-listing-card-layout";
+
+const MOBILE_LISTING_CARD_SKELETON_WIDTH = HOMEPAGE_BROWSE_LISTING_CARD_WIDTH;
 
 /** Neutral pulse blocks — layout only, no copy. */
 function Pulse({ className }: { className: string }) {
   return <div className={`animate-pulse rounded bg-[#2C2C2C]/8 ${className}`} aria-hidden />;
 }
 
-const MOBILE_LISTING_CARD_SKELETON_WIDTH =
-  "w-[280px] shrink-0 sm:w-[232px] lg:w-[240px]";
+/** Mobile trending carousel skeleton — matches TrendingHeroCard dimensions. */
+export function HomepageMobileTrendingSkeleton({ cards = 2 }: { cards?: number }) {
+  return (
+    <section className="mt-2 md:hidden" aria-hidden>
+      <Pulse className="mx-4 h-5 w-44" />
+      <div
+        className={`mt-2 flex gap-2.5 overflow-x-hidden pb-0.5 ${HOMEPAGE_MOBILE_CAROUSEL_INSET}`}
+      >
+        {Array.from({ length: cards }).map((_, i) => (
+          <div
+            key={`trending-skel-${i}`}
+            className={`${HOMEPAGE_MOBILE_TRENDING_CARD_WIDTH} overflow-hidden rounded-2xl bg-white shadow-[0_12px_36px_rgba(44,44,44,0.08)] ring-1 ring-black/[0.06]`}
+          >
+            <div className="aspect-[5/3] w-full bg-[#2C2C2C]/8" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Mobile “New this week” peek row skeleton. */
+export function HomepageMobilePeekRowSkeleton({ cards = 3 }: { cards?: number }) {
+  return (
+    <section className="mt-4 md:hidden" aria-hidden>
+      <Pulse className="mx-4 h-5 w-36" />
+      <div
+        className={`mt-2 flex gap-2.5 overflow-x-hidden pb-0.5 ${HOMEPAGE_MOBILE_CAROUSEL_INSET}`}
+      >
+        {Array.from({ length: cards }).map((_, i) => (
+          <div
+            key={`peek-skel-${i}`}
+            className={`${HOMEPAGE_MOBILE_PEEK_LISTING_CARD_WIDTH} overflow-hidden rounded-2xl bg-white shadow-[0_6px_20px_rgba(44,44,44,0.08)] ring-1 ring-black/[0.04]`}
+          >
+            <div className="aspect-[5/4] w-full bg-[#2C2C2C]/8" />
+            <div className="space-y-2 p-2.5">
+              <Pulse className="h-3 w-16" />
+              <Pulse className="h-3 w-full" />
+              <Pulse className="h-2 w-3/4" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Rent/Buy + quick categories + trending skeleton for mobile homepage top. */
+export function HomepageMobileTopSkeleton() {
+  return (
+    <div className="md:hidden" aria-hidden>
+      <div className="space-y-2.5 px-4 pt-2">
+        <div className="flex justify-center gap-2">
+          <Pulse className="h-9 w-[7.25rem] rounded-full" />
+          <Pulse className="h-9 w-[7.25rem] rounded-full" />
+        </div>
+        <div className="flex gap-1.5 pt-0.5">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={`qc-skel-${i}`} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+              <div className="size-[52px] rounded-2xl bg-[#2C2C2C]/8" />
+              <Pulse className="h-2 w-10" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <HomepageMobileTrendingSkeleton />
+      <HomepageMobilePeekRowSkeleton />
+    </div>
+  );
+}
 
 /** Full-width stacked cards for Trulia-style mobile browse. */
 export function HomepageMobileVerticalFeedSkeleton({ count = 4 }: { count?: number }) {
@@ -130,7 +205,9 @@ export function HomepageLoadShell() {
         </div>
       </section>
 
-      <section className="w-full overflow-x-hidden border-b border-[#2C2C2C]/10 py-6 md:py-8">
+      <HomepageMobileTopSkeleton />
+
+      <section className="hidden w-full overflow-x-hidden border-b border-[#2C2C2C]/10 py-6 md:block md:py-8">
         <div className="w-full px-4 md:mx-auto md:max-w-7xl">
           <Pulse className="mx-auto h-8 w-48 sm:mx-0" />
           <Pulse className="mx-auto mt-2 h-4 w-40 sm:mx-0" />
@@ -147,8 +224,13 @@ export function HomepageLoadShell() {
         </div>
       </section>
 
-      <main className="mx-auto min-w-0 w-full max-w-7xl overflow-x-hidden px-4 pb-28 pt-4 md:px-6 md:pb-16 md:pt-10">
-        <HomepageListingRowsSkeleton />
+      <main className="mx-auto min-w-0 w-full max-w-7xl overflow-x-hidden px-4 pb-28 pt-2 md:px-6 md:pb-16 md:pt-10">
+        <div className="hidden md:block">
+          <HomepageListingRowsSkeleton />
+        </div>
+        <div className="md:hidden">
+          <HomepageMobileVerticalFeedSkeleton count={3} />
+        </div>
       </main>
     </div>
   );

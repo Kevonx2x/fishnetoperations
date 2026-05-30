@@ -10,10 +10,13 @@ import {
   type HomepagePropertiesResult,
 } from "@/lib/marketplace-home-fetchers";
 
-export function useHomepageProperties(args: {
-  neighborhoodFilter: string | null;
-  listingTypeFilter: "sale" | "rent" | null;
-}) {
+export function useHomepageProperties(
+  args: {
+    neighborhoodFilter: string | null;
+    listingTypeFilter: "sale" | "rent" | null;
+  },
+  options?: { fallbackData?: HomepagePropertiesResult },
+) {
   const key = ["homepage-properties", args.neighborhoodFilter, args.listingTypeFilter] as const;
   return useSWR<HomepagePropertiesResult>(
     key,
@@ -22,7 +25,11 @@ export function useHomepageProperties(args: {
         neighborhoodFilter: args.neighborhoodFilter,
         listingTypeFilter: args.listingTypeFilter,
       }),
-    { revalidateOnMount: true },
+    {
+      revalidateOnMount: true,
+      fallbackData: options?.fallbackData,
+      keepPreviousData: true,
+    },
   );
 }
 

@@ -7,11 +7,10 @@ import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
 import type { PropertyEngagement } from "@/hooks/use-property-engagement";
+import { HOMEPAGE_MOBILE_PEEK_LISTING_CARD_WIDTH } from "@/lib/homepage-listing-card-layout";
 import { cn } from "@/lib/utils";
 
-/** ~2.5 peek cards per row — matches BahayGo mobile "New This Week" carousel. */
-export const HOMEPAGE_MOBILE_PEEK_LISTING_CARD_WIDTH =
-  "w-[calc((100vw-2rem-1rem)/2.5)] shrink-0 snap-start";
+export { HOMEPAGE_MOBILE_PEEK_LISTING_CARD_WIDTH } from "@/lib/homepage-listing-card-layout";
 
 export function propertyLocationLine(property: DbProperty): string {
   const city = property.city?.trim() || property.neighborhood?.trim();

@@ -123,6 +123,7 @@ import {
   useHomepageAgentsDirectory,
   useHomepageProperties,
 } from "@/hooks/use-homepage-marketplace-data";
+import type { HomepagePropertiesResult } from "@/lib/marketplace-home-fetchers";
 import { useBahaygoFeaturedLocations } from "@/hooks/use-bahaygo-featured-locations";
 import {
   DEFAULT_BAHAYGO_FEATURED_LOCATIONS,
@@ -1214,7 +1215,13 @@ const DynamicHomepageTopAgents = dynamic(
   },
 );
 
-export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" | "all" }) {
+export function BahayGoHomeMarketplace({
+  listingMode,
+  initialHomepageProperties = null,
+}: {
+  listingMode: "buy" | "rent" | "all";
+  initialHomepageProperties?: HomepagePropertiesResult | null;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1291,12 +1298,22 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
   /** When not false, next commit should sync the marketplace URL from a featured-location card click. */
   const pendingFeaturedLocationUrlSyncRef = useRef<string | false>(false);
 
+  const initialHomepageFallback =
+    initialHomepageProperties &&
+    neighborhoodFilter === null &&
+    listingTypeFilter === "rent"
+      ? initialHomepageProperties
+      : undefined;
+
   const {
     data: homepagePropertiesData,
     error: homepagePropertiesError,
     isLoading: homepagePropertiesLoading,
     mutate: mutateHomepageProperties,
-  } = useHomepageProperties({ neighborhoodFilter, listingTypeFilter });
+  } = useHomepageProperties(
+    { neighborhoodFilter, listingTypeFilter },
+    { fallbackData: initialHomepageFallback },
+  );
 
   const { data: homepageAgentsData } = useHomepageAgentsDirectory();
 
@@ -2177,6 +2194,7 @@ export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "
         properties={mobileDiscoveryPool}
         engagement={engagement}
         onScrollToListings={scrollToListings}
+        listingsLoading={loading}
       />
 
       <section className="relative hidden w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4] md:block md:border-b">
