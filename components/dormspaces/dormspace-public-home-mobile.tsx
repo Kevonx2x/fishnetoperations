@@ -1,9 +1,7 @@
 "use client";
 
-
-
+import { useMemo } from "react";
 import Image from "next/image";
-
 import Link from "next/link";
 
 import {
@@ -357,26 +355,44 @@ function UniversityAvatar({ university }: { university: UniversityRow }) {
 
 
 
-function NewThisWeekCard({ listing }: { listing: DormspaceHomeDemoListing }) {
+function demoListingHref(
+  detailHref: string | undefined,
+  fallbackListingId: string | undefined,
+): { href: string; scrollToListings: boolean } {
+  if (detailHref) return { href: detailHref, scrollToListings: false };
+  if (fallbackListingId) return { href: `/dormspaces/${fallbackListingId}`, scrollToListings: false };
+  return { href: "#listings", scrollToListings: true };
+}
 
+function NewThisWeekCard({
+  listing,
+  detailHref,
+  fallbackListingId,
+  onScrollToListings,
+}: {
+  listing: DormspaceHomeDemoListing;
+  detailHref?: string;
+  fallbackListingId?: string;
+  onScrollToListings: () => void;
+}) {
   const details = `${listing.beds} bed • ${listing.baths} bath • ${listing.sqm} sqm`;
-
-
+  const { href, scrollToListings } = demoListingHref(detailHref, fallbackListingId);
 
   return (
-
     <article
-
       className={cn(
-
         PEEK_CARD_W,
-
-        "shrink-0 snap-start overflow-hidden rounded-xl bg-white shadow-[0_2px_10px_rgba(44,44,44,0.06)] ring-1 ring-black/[0.04]",
-
+        "relative shrink-0 touch-manipulation snap-start overflow-hidden rounded-xl bg-white shadow-[0_2px_10px_rgba(44,44,44,0.06)] ring-1 ring-black/[0.04] transition active:scale-[0.99]",
       )}
-
     >
-
+      <Link
+        href={href}
+        prefetch={!scrollToListings}
+        scroll={scrollToListings}
+        onClick={scrollToListings ? onScrollToListings : undefined}
+        className="absolute inset-0 z-[10] rounded-xl"
+        aria-label={`View ${listing.title}`}
+      />
       <div className="relative aspect-[4/3] w-full bg-[#F3F0EA]">
 
         <Image src={listing.imageUrl} alt="" fill className="object-cover" sizes="40vw" />
@@ -392,27 +408,20 @@ function NewThisWeekCard({ listing }: { listing: DormspaceHomeDemoListing }) {
         ) : null}
 
         <button
-
           type="button"
-
-          className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/[0.06]"
-
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          className="absolute right-1.5 top-1.5 z-20 flex size-6 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/[0.06]"
           aria-label="Save listing"
-
         >
-
           <Heart className="size-3 text-[#2C2C2C]/80" strokeWidth={2} />
-
         </button>
-
       </div>
-
       <div className="px-2 pb-2 pt-1.5">
-
         <h3 className="line-clamp-2 font-serif text-[12px] font-semibold leading-tight text-[#2C2C2C]">
-
           {listing.title}
-
         </h3>
 
         <p className="mt-0.5 flex items-center gap-0.5 text-[9px] font-medium text-[#888888]">
@@ -437,16 +446,30 @@ function NewThisWeekCard({ listing }: { listing: DormspaceHomeDemoListing }) {
 
 
 
-function RecommendedRowCard({ listing }: { listing: DormspaceHomeDemoListing }) {
-
+function RecommendedRowCard({
+  listing,
+  detailHref,
+  fallbackListingId,
+  onScrollToListings,
+}: {
+  listing: DormspaceHomeDemoListing;
+  detailHref?: string;
+  fallbackListingId?: string;
+  onScrollToListings: () => void;
+}) {
   const details = `${listing.beds} bed • ${listing.baths} bath • ${listing.sqm} sqm`;
-
-
+  const { href, scrollToListings } = demoListingHref(detailHref, fallbackListingId);
 
   return (
-
-    <article className="relative flex gap-3 rounded-2xl bg-white p-2.5 shadow-[0_2px_12px_rgba(44,44,44,0.07)] ring-1 ring-black/[0.04]">
-
+    <article className="relative flex touch-manipulation gap-3 rounded-2xl bg-white p-2.5 shadow-[0_2px_12px_rgba(44,44,44,0.07)] ring-1 ring-black/[0.04] transition active:scale-[0.99]">
+      <Link
+        href={href}
+        prefetch={!scrollToListings}
+        scroll={scrollToListings}
+        onClick={scrollToListings ? onScrollToListings : undefined}
+        className="absolute inset-0 z-[10] rounded-2xl"
+        aria-label={`View ${listing.title}`}
+      />
       <div className="relative h-[92px] w-[112px] shrink-0 overflow-hidden rounded-xl bg-[#F3F0EA]">
 
         <Image src={listing.imageUrl} alt="" fill className="object-cover" sizes="112px" />
@@ -486,23 +509,18 @@ function RecommendedRowCard({ listing }: { listing: DormspaceHomeDemoListing }) 
       </div>
 
       <button
-
         type="button"
-
-        className="absolute right-2.5 top-2.5 text-[#888888]"
-
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        className="absolute right-2.5 top-2.5 z-20 text-[#888888]"
         aria-label="Save listing"
-
       >
-
         <Heart className="size-[18px]" strokeWidth={2} />
-
       </button>
-
     </article>
-
   );
-
 }
 
 
@@ -522,25 +540,36 @@ export function DormspacePublicHomeMobile({
   compactMobileHome = false,
 
 }: Props) {
+  const newestListingIds = useMemo(
+    () =>
+      [...listings]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, DORMSPACE_HOME_DEMO_NEW.length)
+        .map((row) => row.id),
+    [listings],
+  );
+
+  const recommendedListingIds = useMemo(() => {
+    const approved = listings.filter((row) => row.status === "approved");
+    const source = approved.length > 0 ? approved : listings;
+    return source.slice(0, DORMSPACE_HOME_DEMO_RECOMMENDED.length).map((row) => row.id);
+  }, [listings]);
 
   return (
-
     <div className={cn("min-w-0 pb-6 md:hidden", compactMobileHome ? "pt-0" : "pt-1")}>
-
       <section className={SECTION}>
-
         <SectionHeader title="New this week" actionLabel="See all" onAction={onScrollToListings} />
-
         <div className={cn(MOBILE_DORMSPACE_CAROUSEL_TRACK, "gap-2")} style={MOBILE_HORIZONTAL_SCROLL_STYLE}>
-
-          {DORMSPACE_HOME_DEMO_NEW.map((listing) => (
-
-            <NewThisWeekCard key={listing.id} listing={listing} />
-
+          {DORMSPACE_HOME_DEMO_NEW.map((listing, index) => (
+            <NewThisWeekCard
+              key={listing.id}
+              listing={listing}
+              detailHref={listing.detailHref}
+              fallbackListingId={newestListingIds[index]}
+              onScrollToListings={onScrollToListings}
+            />
           ))}
-
         </div>
-
       </section>
 
 
@@ -671,10 +700,14 @@ export function DormspacePublicHomeMobile({
 
         <div className={cn("mt-2.5 flex flex-col gap-2.5", PAGE_X)}>
 
-          {DORMSPACE_HOME_DEMO_RECOMMENDED.map((listing) => (
-
-            <RecommendedRowCard key={listing.id} listing={listing} />
-
+          {DORMSPACE_HOME_DEMO_RECOMMENDED.map((listing, index) => (
+            <RecommendedRowCard
+              key={listing.id}
+              listing={listing}
+              detailHref={listing.detailHref}
+              fallbackListingId={recommendedListingIds[index]}
+              onScrollToListings={onScrollToListings}
+            />
           ))}
 
         </div>

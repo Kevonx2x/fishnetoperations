@@ -10,6 +10,8 @@ export type DormspaceHomeDemoListing = {
   sqm: number;
   imageUrl: string;
   badge?: "NEW" | "HOT";
+  /** Optional fixed detail route — otherwise homepage maps by index to live listings. */
+  detailHref?: string;
 };
 
 export type DormspaceHomeCampusCard = {
