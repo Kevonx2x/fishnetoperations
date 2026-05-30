@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { BadgeCheck, ChevronLeft, ChevronRight, Heart, MapPin } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -29,11 +29,11 @@ const dormCardListedPillClass =
 
 /** Matches homepage `NewlyListedCard` compact layout — dorm engagement (like only, no pipeline). */
 export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWithPhotos }) {
-  const router = useRouter();
   const { user } = useAuth();
   const { mayEngage, isLiked, toggleLike } = useDormspaceEngagement();
   const hideHeart = isOwnDormspaceListing(user?.id, listing.landlord_user_id);
   const href = `/dormspaces/${listing.id}`;
+  const detailLabel = `View ${listing.title}`;
 
   const photos = sortedDormspacePhotos(listing.dormspace_photos ?? null);
   const urls = photos.map((p) => p.url).filter(Boolean);
@@ -42,15 +42,20 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
   const listedLabel = listingListedCompactLabel(listing.created_at);
   const liked = isLiked(listing.id);
 
-  const openDetail = () => router.push(href);
-
   return (
     <div
       className={cn(
-        "flex h-auto min-h-0 flex-col bg-white max-md:snap-start max-md:overflow-hidden max-md:rounded-2xl max-md:shadow-[0_4px_16px_rgba(44,44,44,0.08)] max-md:ring-1 max-md:ring-black/[0.05] md:min-h-[412px] md:overflow-hidden md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md lg:min-h-[448px]",
+        "relative flex h-auto min-h-0 touch-manipulation flex-col bg-white max-md:snap-start max-md:overflow-visible max-md:rounded-2xl max-md:shadow-[0_4px_16px_rgba(44,44,44,0.08)] max-md:ring-1 max-md:ring-black/[0.05] max-md:transition max-md:active:scale-[0.99] md:min-h-[412px] md:overflow-hidden md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md lg:min-h-[448px]",
         DORMSPACE_LISTING_CARD_WIDTH,
       )}
     >
+      <Link
+        href={href}
+        prefetch
+        className="absolute inset-0 z-[12] rounded-2xl md:hidden"
+        aria-label={detailLabel}
+      />
+
       <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-[#F3F0EA] max-md:rounded-t-2xl md:aspect-auto md:h-44 md:rounded-none lg:h-52">
         {img ? (
           <Image src={img} alt="" fill className="object-cover" sizes="(max-width: 767px) 50vw, 240px" priority={false} />
@@ -58,11 +63,11 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
           <div className="absolute inset-0 bg-gradient-to-br from-[#E8F0E9] to-[#FAF8F4]" aria-hidden />
         )}
 
-        <button
-          type="button"
-          onClick={openDetail}
-          className="absolute inset-0 z-[6] cursor-pointer bg-transparent"
-          aria-label="Open dormspace details"
+        <Link
+          href={href}
+          prefetch
+          className="absolute inset-0 z-[7] max-md:hidden"
+          aria-label={detailLabel}
         />
 
         {urls.length > 1 ? (
@@ -71,6 +76,7 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 setRoomIdx((i) => (i - 1 + urls.length) % urls.length);
               }}
               className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100"
@@ -82,6 +88,7 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 setRoomIdx((i) => (i + 1) % urls.length);
               }}
               className="absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100"
@@ -104,6 +111,7 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 void toggleLike(listing.id, {
                   signInNext: href,
                   landlordUserId: listing.landlord_user_id,
@@ -134,13 +142,16 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
         <p className="truncate text-sm font-semibold leading-tight text-[#D4A843] md:text-base">
           {formatDormspacePrice(listing.monthly_price)}
         </p>
-        <button
-          type="button"
-          onClick={openDetail}
-          className="line-clamp-2 text-left text-[13px] font-semibold leading-snug text-[#2C2C2C] hover:underline md:text-sm"
+        <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-[#2C2C2C] max-md:block md:hidden">
+          {listing.title}
+        </p>
+        <Link
+          href={href}
+          prefetch
+          className="line-clamp-2 hidden text-left text-[13px] font-semibold leading-snug text-[#2C2C2C] hover:underline md:block md:text-sm"
         >
           {listing.title}
-        </button>
+        </Link>
         <p className="truncate text-[11px] text-[#717171] md:text-[11px]">
           {dormspaceRoomTypeLabel(listing.room_type)} · {dormspaceGenderLabel(listing.gender_preference)}
         </p>
