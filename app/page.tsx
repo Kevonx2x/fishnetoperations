@@ -15,6 +15,7 @@ const SSR_LISTINGS_ENABLED = process.env.HOMEPAGE_SSR_LISTINGS !== "false";
 
 export default async function HomePage() {
   let initialHomepageProperties: HomepagePropertiesResult | null = null;
+  let lcpImageUrl: string | null = null;
 
   if (SSR_LISTINGS_ENABLED) {
     try {
@@ -22,7 +23,7 @@ export default async function HomePage() {
         neighborhoodFilter: null,
         listingTypeFilter: "rent",
       });
-      const lcpImageUrl = resolveMobileHomepageLcpImageUrl(initialHomepageProperties);
+      lcpImageUrl = resolveMobileHomepageLcpImageUrl(initialHomepageProperties);
       if (lcpImageUrl) {
         preload(lcpImageUrl, { as: "image", fetchPriority: "high" });
       }
@@ -31,7 +32,7 @@ export default async function HomePage() {
     }
   }
 
-  const hasLcpStrip = Boolean(initialHomepageProperties);
+  const hasLcpStrip = Boolean(lcpImageUrl);
 
   return (
     <HomepageLcpOrchestrator

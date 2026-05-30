@@ -13,14 +13,7 @@ const BahayGoHomeMarketplace = dynamic(
     })),
   {
     ssr: false,
-    loading: () => (
-      <>
-        {/* Mobile: SSR LCP strip already painted — avoid duplicate skeleton */}
-        <div className="hidden md:block">
-          <HomepageLoadShell />
-        </div>
-      </>
-    ),
+    loading: () => <HomepageLoadShell />,
   },
 );
 
