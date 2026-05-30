@@ -10,44 +10,13 @@ const MOBILE_LISTING_CARD_SKELETON_WIDTH =
   "w-[280px] shrink-0 sm:w-[232px] lg:w-[240px]";
 
 /** Full-width stacked cards for Trulia-style mobile browse. */
-export function HomepageMobileVerticalFeedSkeleton() {
+export function HomepageMobileVerticalFeedSkeleton({ count = 4 }: { count?: number }) {
   return (
     <div className="min-w-0 w-full space-y-4" aria-hidden>
-      <div className="flex items-baseline justify-between gap-3">
-        <Pulse className="h-7 w-36" />
-        <Pulse className="h-4 w-14" />
-      </div>
-      {Array.from({ length: 3 }).map((_, i) => (
+      <Pulse className="h-7 w-40" />
+      {Array.from({ length: count }).map((_, i) => (
         <div
-          key={`mobile-vertical-skel-a-${i}`}
-          className="overflow-hidden rounded-2xl bg-white shadow-[0_2px_16px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.06]"
-        >
-          <div className="aspect-[4/3] w-full bg-[#2C2C2C]/8" />
-          <div className="space-y-2 p-3">
-            <Pulse className="h-4 w-3/4" />
-            <Pulse className="h-4 w-1/2" />
-            <Pulse className="mt-2 h-10 w-full rounded-xl" />
-          </div>
-        </div>
-      ))}
-      <Pulse className="h-7 w-32" />
-      <div className="-mx-4 flex gap-2.5 overflow-hidden px-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div
-            key={`mobile-peek-skel-${i}`}
-            className="w-[calc((100vw-2rem-0.75rem)/1.06)] shrink-0 overflow-hidden rounded-2xl bg-white shadow-[0_2px_16px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.06]"
-          >
-            <div className="aspect-[4/3] w-full bg-[#2C2C2C]/8" />
-            <div className="space-y-2 p-3">
-              <Pulse className="h-4 w-2/3" />
-              <Pulse className="h-3 w-1/2" />
-            </div>
-          </div>
-        ))}
-      </div>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div
-          key={`mobile-vertical-skel-b-${i}`}
+          key={`mobile-vertical-skel-${i}`}
           className="overflow-hidden rounded-2xl bg-white shadow-[0_2px_16px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.06]"
         >
           <div className="aspect-[4/3] w-full bg-[#2C2C2C]/8" />

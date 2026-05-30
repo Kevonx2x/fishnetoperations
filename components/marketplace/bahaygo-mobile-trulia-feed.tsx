@@ -182,7 +182,7 @@ function TruliaVerticalBlock({
                 })),
               cardWidthClass: "w-full shrink-0",
               listingImageLoadEager: globalIdx < 4,
-              listingImagePriority: globalIdx === 0,
+              listingImagePriority: globalIdx < 2,
             })}
             <Link
               href={`/properties/${encodeURIComponent(property.id)}`}

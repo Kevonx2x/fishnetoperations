@@ -1,26 +1,16 @@
-import { HomePageContent } from "@/components/client/home-page-content";
-import { homepageFirstHeroImageUrl } from "@/lib/homepage-hero-ssr";
-import { fetchHomepagePropertiesServer } from "@/lib/marketplace-home-fetchers-server";
-import type { HomepagePropertiesResult } from "@/lib/marketplace-home-fetchers";
+"use client";
 
-export default async function HomePage() {
-  let initialHomepageProperties: HomepagePropertiesResult | undefined;
-  let heroPreloadUrl: string | null = null;
+import dynamic from "next/dynamic";
+import { HomepageLoadShell } from "@/components/marketplace/homepage-load-shell";
 
-  try {
-    initialHomepageProperties = await fetchHomepagePropertiesServer({
-      neighborhoodFilter: null,
-      listingTypeFilter: "rent",
-    });
-    heroPreloadUrl = homepageFirstHeroImageUrl(initialHomepageProperties);
-  } catch {
-    /* Client will fetch via SWR if server fetch fails. */
-  }
+const HomePageContent = dynamic(
+  () =>
+    import("@/components/client/home-page-content").then((m) => ({
+      default: m.HomePageContent,
+    })),
+  { ssr: false, loading: () => <HomepageLoadShell /> },
+);
 
-  return (
-    <>
-      {heroPreloadUrl ? <link rel="preload" as="image" href={heroPreloadUrl} /> : null}
-      <HomePageContent initialHomepageProperties={initialHomepageProperties} />
-    </>
-  );
+export default function HomePage() {
+  return <HomePageContent />;
 }

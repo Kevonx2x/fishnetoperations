@@ -1,7 +1,5 @@
 "use client";
 
-import "stream-chat-react/dist/css/v2/index.css";
-
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { StreamChat } from "stream-chat";

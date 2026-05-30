@@ -123,7 +123,6 @@ import {
   useHomepageAgentsDirectory,
   useHomepageProperties,
 } from "@/hooks/use-homepage-marketplace-data";
-import type { HomepagePropertiesResult } from "@/lib/marketplace-home-fetchers";
 import { useBahaygoFeaturedLocations } from "@/hooks/use-bahaygo-featured-locations";
 import {
   DEFAULT_BAHAYGO_FEATURED_LOCATIONS,
@@ -1143,7 +1142,7 @@ function HomepageFaqSection({
 
 const DynamicHomepageFaq = dynamic(() => Promise.resolve({ default: HomepageFaqSection }), {
   ssr: false,
-  loading: () => <HomepageFaqSectionSkeleton />,
+  loading: () => null,
 });
 
 function HomepageTopVerifiedAgentsSection({
@@ -1215,13 +1214,7 @@ const DynamicHomepageTopAgents = dynamic(
   },
 );
 
-export function BahayGoHomeMarketplace({
-  listingMode,
-  initialHomepageProperties,
-}: {
-  listingMode: "buy" | "rent" | "all";
-  initialHomepageProperties?: HomepagePropertiesResult;
-}) {
+export function BahayGoHomeMarketplace({ listingMode }: { listingMode: "buy" | "rent" | "all" }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1303,11 +1296,7 @@ export function BahayGoHomeMarketplace({
     error: homepagePropertiesError,
     isLoading: homepagePropertiesLoading,
     mutate: mutateHomepageProperties,
-  } = useHomepageProperties({
-    neighborhoodFilter,
-    listingTypeFilter,
-    fallbackData: initialHomepageProperties,
-  });
+  } = useHomepageProperties({ neighborhoodFilter, listingTypeFilter });
 
   const { data: homepageAgentsData } = useHomepageAgentsDirectory();
 
@@ -2188,7 +2177,6 @@ export function BahayGoHomeMarketplace({
         properties={mobileDiscoveryPool}
         engagement={engagement}
         onScrollToListings={scrollToListings}
-        listingsLoading={loading}
       />
 
       <section className="relative hidden w-full border-b border-[#2C2C2C]/10 bg-[#FAF8F4] md:block md:border-b">
@@ -2370,7 +2358,7 @@ export function BahayGoHomeMarketplace({
         {loading ? (
           <div className="mt-4 min-h-[280px] min-w-0 w-full max-w-full md:mt-8 md:min-h-[400px]">
             <div className="md:hidden">
-              <HomepageMobileVerticalFeedSkeleton />
+              <HomepageMobileVerticalFeedSkeleton count={4} />
             </div>
             <div className="hidden md:block">
               <HomepageListingRowsSkeleton rows={HOMEPAGE_INITIAL_CATEGORY_ROWS} />
@@ -3820,7 +3808,7 @@ function PropertyRows({
   );
 
   const eagerListingThumbKey = useMemo(() => firstBrowseListingThumbKey(homepageRows), [homepageRows]);
-  const priorityListingThumbKeys = useMemo(() => listingThumbPriorityKeys(homepageRows, 1), [homepageRows]);
+  const priorityListingThumbKeys = useMemo(() => listingThumbPriorityKeys(homepageRows, 4), [homepageRows]);
   const initialRowCount = mobileFeedBrowse
     ? HOMEPAGE_MOBILE_FEED_ROW_COUNT
     : (mobileInitialRows ?? HOMEPAGE_INITIAL_CATEGORY_ROWS);

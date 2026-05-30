@@ -13,13 +13,8 @@ import {
 export function useHomepageProperties(args: {
   neighborhoodFilter: string | null;
   listingTypeFilter: "sale" | "rent" | null;
-  fallbackData?: HomepagePropertiesResult;
 }) {
   const key = ["homepage-properties", args.neighborhoodFilter, args.listingTypeFilter] as const;
-  const useFallback =
-    args.fallbackData &&
-    args.neighborhoodFilter === null &&
-    args.listingTypeFilter === "rent";
   return useSWR<HomepagePropertiesResult>(
     key,
     () =>
@@ -27,10 +22,7 @@ export function useHomepageProperties(args: {
         neighborhoodFilter: args.neighborhoodFilter,
         listingTypeFilter: args.listingTypeFilter,
       }),
-    {
-      revalidateOnMount: true,
-      fallbackData: useFallback ? args.fallbackData : undefined,
-    },
+    { revalidateOnMount: true },
   );
 }
 

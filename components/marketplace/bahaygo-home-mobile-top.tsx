@@ -198,13 +198,11 @@ function TrendingHeroCard({
   mode,
   heroSrc,
   engagement,
-  priority = false,
 }: {
   property: DbProperty;
   mode: "buy" | "rent" | "all";
   heroSrc: string;
   engagement: PropertyEngagement;
-  priority?: boolean;
 }) {
   const href = `/properties/${encodeURIComponent(property.id)}`;
   const liked = engagement.isLiked(property.id);
@@ -223,7 +221,7 @@ function TrendingHeroCard({
     >
       <div className="relative aspect-[5/3] w-full bg-[#1a1a1a]">
         {heroSrc ? (
-          <Image src={heroSrc} alt="" fill className="object-cover" sizes="88vw" priority={priority} />
+          <Image src={heroSrc} alt="" fill className="object-cover" sizes="88vw" priority />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#2C2C2C] to-[#4a4a4a]" />
         )}
@@ -348,48 +346,6 @@ export function BahayGoHomeMobileStickySearch({
   );
 }
 
-function TrendingHeroSkeleton() {
-  return (
-    <section className="mt-2" aria-hidden>
-      <div className={cn("flex items-baseline justify-between", PAGE_X)}>
-        <div className="h-5 w-44 rounded bg-[#2C2C2C]/8" />
-      </div>
-      <div className={cn(CAROUSEL_SCROLL, HOMEPAGE_MOBILE_CAROUSEL_INSET, "mt-2 gap-2.5")}>
-        <div
-          className={cn(
-            TRENDING_CARD_W,
-            "aspect-[5/3] shrink-0 snap-start overflow-hidden rounded-2xl bg-[#2C2C2C]/8",
-          )}
-        />
-      </div>
-    </section>
-  );
-}
-
-function NewThisWeekSkeleton() {
-  return (
-    <section className="mt-2.5" aria-hidden>
-      <div className={cn("flex items-baseline justify-between", PAGE_X)}>
-        <div className="h-5 w-36 rounded bg-[#2C2C2C]/8" />
-      </div>
-      <div className={cn(CAROUSEL_SCROLL, HOMEPAGE_MOBILE_CAROUSEL_INSET, "mt-2 gap-2.5")}>
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div
-            key={`new-week-skel-${i}`}
-            className="w-[calc((100vw-2rem-1rem)/2.5)] shrink-0 snap-start overflow-hidden rounded-2xl bg-[#2C2C2C]/8"
-          >
-            <div className="aspect-[5/4] w-full" />
-            <div className="space-y-1.5 p-2.5">
-              <div className="h-3 w-16 rounded bg-[#2C2C2C]/8" />
-              <div className="h-3 w-full rounded bg-[#2C2C2C]/8" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 export type BahayGoHomeMobileTopProps = {
   mode: "buy" | "rent" | "all";
   search: string;
@@ -403,8 +359,6 @@ export type BahayGoHomeMobileTopProps = {
   engagement: PropertyEngagement;
   onScrollToListings: () => void;
   compactMobileHome?: boolean;
-  /** True while homepage listings are still loading — reserves carousel height. */
-  listingsLoading?: boolean;
 };
 
 export function BahayGoHomeMobileTop({
@@ -420,7 +374,6 @@ export function BahayGoHomeMobileTop({
   engagement,
   onScrollToListings,
   compactMobileHome = false,
-  listingsLoading = false,
 }: BahayGoHomeMobileTopProps) {
   const [heroIndex, setHeroIndex] = useState(0);
   const heroScrollRef = useRef<HTMLDivElement | null>(null);
@@ -578,7 +531,6 @@ export function BahayGoHomeMobileTop({
                       mode={mode}
                       heroSrc={src}
                       engagement={engagement}
-                      priority={i === 0}
                     />
                   </div>
                 );
@@ -605,8 +557,6 @@ export function BahayGoHomeMobileTop({
               </div>
             ) : null}
           </section>
-        ) : listingsLoading ? (
-          <TrendingHeroSkeleton />
         ) : null}
 
         {newThisWeek.length > 0 ? (
@@ -618,8 +568,6 @@ export function BahayGoHomeMobileTop({
               ))}
             </div>
           </section>
-        ) : listingsLoading ? (
-          <NewThisWeekSkeleton />
         ) : null}
       </div>
     </div>
