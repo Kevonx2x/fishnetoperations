@@ -80,12 +80,12 @@ export function DormspaceDetailView({
       : null;
 
   return (
-    <div className="pb-20 md:pb-16">
+    <div className="min-w-0 max-w-full overflow-x-hidden pb-20 md:pb-16">
       <DormspaceDetailBackLink />
 
       {showOwnerPendingBanner ? (
         <div
-          className="mx-4 mb-4 rounded-2xl border border-[#D4A843]/35 bg-[#D4A843]/10 px-4 py-3.5 text-sm font-medium text-[#2C2C2C] md:mx-0"
+          className="mx-4 mb-4 max-w-[calc(100%-2rem)] break-words rounded-2xl border border-[#D4A843]/35 bg-[#D4A843]/10 px-4 py-3.5 text-sm font-medium text-[#2C2C2C] md:mx-0 md:max-w-none"
           role="status"
         >
           Your listing is under review. Tenants will see this listing with a &quot;Pending verification&quot;
@@ -100,9 +100,9 @@ export function DormspaceDetailView({
         landlordUserId={listing.landlord_user_id}
       />
 
-      <div className="mt-4 overflow-hidden border-[#DDDDDD] bg-white md:mt-6 md:rounded-2xl md:border md:shadow-md">
-        <div className="grid gap-8 p-5 md:grid-cols-[1fr_280px] md:p-8">
-          <div>
+      <div className="mt-4 min-w-0 max-w-full overflow-hidden border-[#DDDDDD] bg-white md:mt-6 md:rounded-2xl md:border md:shadow-md">
+        <div className="grid min-w-0 gap-8 p-5 md:grid-cols-[1fr_280px] md:p-8">
+          <div className="min-w-0">
             <div className="flex flex-wrap gap-2">
               <span className="rounded-full bg-[#6B9E6E]/12 px-2.5 py-1 text-xs font-bold text-[#3d5a40]">
                 {dormspaceRoomTypeLabel(listing.room_type)}
@@ -111,8 +111,8 @@ export function DormspaceDetailView({
                 {dormspaceGenderLabel(listing.gender_preference)}
               </span>
             </div>
-            <div className="mt-3 flex flex-wrap items-start gap-3 gap-y-2">
-              <h1 className="min-w-0 flex-1 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">
+            <div className="mt-3 flex min-w-0 flex-wrap items-start gap-3 gap-y-2">
+              <h1 className="min-w-0 flex-1 break-words font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
                 {listing.title}
               </h1>
               <DormspaceEngagementButtons
@@ -237,11 +237,11 @@ export function DormspaceDetailView({
       </div>
 
       {hasMap && mapKey ? (
-        <section className="mt-10 overflow-hidden rounded-2xl border border-[#DDDDDD]">
+        <section className="mt-10 min-w-0 max-w-full overflow-hidden rounded-2xl border border-[#DDDDDD]">
           <h2 className="border-b border-[#2C2C2C]/8 bg-white px-5 py-3 font-serif text-lg font-bold text-[#2C2C2C]">
             Location
           </h2>
-          <div className="h-64 w-full sm:h-80">
+          <div className="h-64 w-full max-w-full overflow-hidden sm:h-80">
             <APIProvider apiKey={mapKey}>
               <Map defaultCenter={{ lat: lat!, lng: lng! }} defaultZoom={15} gestureHandling="cooperative">
                 <Marker position={{ lat: lat!, lng: lng! }} />

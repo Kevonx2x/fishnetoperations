@@ -93,8 +93,8 @@ export function DormspaceDetailGallery({ urls, title, dormspaceId, landlordUserI
   return (
     <>
       {/* Mobile — tall single-image carousel */}
-      <div className="relative md:hidden">
-        <div className="relative aspect-[4/3] w-full bg-[#F3F0EA] sm:aspect-[5/4]">
+      <div className="relative min-w-0 max-w-full overflow-hidden md:hidden">
+        <div className="relative aspect-[4/3] w-full max-w-full overflow-hidden bg-[#F3F0EA] sm:aspect-[5/4]">
           <DormspaceDetailHeroChrome
             dormspaceId={dormspaceId}
             landlordUserId={landlordUserId}
@@ -120,7 +120,7 @@ export function DormspaceDetailGallery({ urls, title, dormspaceId, landlordUserI
               <button
                 type="button"
                 onClick={() => setIdx((i) => (i - 1 + urls.length) % urls.length)}
-                className="absolute left-3 top-1/2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/10"
+                className="absolute bottom-14 left-3 z-10 flex size-9 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/10"
                 aria-label="Previous photo"
               >
                 <ChevronLeft className="size-5 text-[#2C2C2C]" />
@@ -128,7 +128,7 @@ export function DormspaceDetailGallery({ urls, title, dormspaceId, landlordUserI
               <button
                 type="button"
                 onClick={() => setIdx((i) => (i + 1) % urls.length)}
-                className="absolute right-3 top-1/2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/10"
+                className="absolute bottom-14 right-3 z-10 flex size-9 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/10"
                 aria-label="Next photo"
               >
                 <ChevronRight className="size-5 text-[#2C2C2C]" />
@@ -161,28 +161,30 @@ export function DormspaceDetailGallery({ urls, title, dormspaceId, landlordUserI
         </div>
 
         {urls.length > 1 ? (
-          <div className="flex gap-2 overflow-x-auto bg-white px-3 py-3 scrollbar-hide">
-            {urls.map((url, i) => (
-              <button
-                key={`${url}-${i}`}
-                type="button"
-                onClick={() => setIdx(i)}
-                className={cn(
-                  "relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border-2 transition",
-                  i === idx ? "border-[#6B9E6E] ring-2 ring-[#6B9E6E]/25" : "border-transparent opacity-80",
-                )}
-                aria-label={`View photo ${i + 1}`}
-                aria-current={i === idx ? "true" : undefined}
-              >
-                <SupabasePublicImage
-                  src={dormspaceListingPhotoSrc(url)}
-                  alt=""
-                  fill
-                  sizes="96px"
-                  className="object-cover"
-                />
-              </button>
-            ))}
+          <div className="min-w-0 max-w-full overflow-x-auto bg-white px-3 py-3 scrollbar-hide">
+            <div className="flex w-max gap-2">
+              {urls.map((url, i) => (
+                <button
+                  key={`${url}-${i}`}
+                  type="button"
+                  onClick={() => setIdx(i)}
+                  className={cn(
+                    "relative h-16 w-24 flex-none overflow-hidden rounded-xl border-2 transition",
+                    i === idx ? "border-[#6B9E6E] ring-2 ring-[#6B9E6E]/25" : "border-transparent opacity-80",
+                  )}
+                  aria-label={`View photo ${i + 1}`}
+                  aria-current={i === idx ? "true" : undefined}
+                >
+                  <SupabasePublicImage
+                    src={dormspaceListingPhotoSrc(url)}
+                    alt=""
+                    width={96}
+                    height={64}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
           </div>
         ) : null}
       </div>

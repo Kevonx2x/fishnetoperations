@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { dormspaceLogoHref } from "@/lib/dormspace-engagement";
+import { cn } from "@/lib/utils";
 
 /** Subtle Philippine flag — centered, large, low opacity wallpaper. */
 function PhilippineFlagWatermark() {
@@ -34,7 +35,7 @@ function PhilippineFlagWatermark() {
 }
 
 /** Subtle dormspacers brand mark behind all /dormspaces/* content — links to listing home. */
-export function DormspacePortalWatermark() {
+export function DormspacePortalWatermark({ showMobileBrandText = true }: { showMobileBrandText?: boolean }) {
   const homeHref = dormspaceLogoHref();
 
   return (
@@ -55,7 +56,10 @@ export function DormspacePortalWatermark() {
       <Link
         href={homeHref}
         tabIndex={-1}
-        className="pointer-events-none absolute bottom-[12%] left-[4%] max-w-[min(90vw,420px)] md:pointer-events-auto md:transition-opacity md:hover:opacity-100"
+        className={cn(
+          "pointer-events-none absolute bottom-[12%] left-[4%] max-w-[min(90vw,420px)] md:pointer-events-auto md:transition-opacity md:hover:opacity-100",
+          !showMobileBrandText && "max-md:hidden",
+        )}
         aria-hidden
       >
         <span className="font-serif text-[clamp(3.5rem,14vw,7rem)] font-bold leading-none tracking-tight text-[#2C2C2C]/[0.03] select-none hover:text-[#2C2C2C]/[0.05]">

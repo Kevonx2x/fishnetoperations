@@ -65,6 +65,7 @@ export function DormspacePortalShell({
 
   const navVisibility = dormspacePortalNavVisibility(pathname);
   const hideMobilePortalNav = isDormspaceMarketplaceHomePath(pathname);
+  const showMobileBrandText = isDormspaceMarketplaceHomePath(pathname);
 
   const showPortalFooter =
     pathname === "/dormspaces" ||
@@ -79,7 +80,7 @@ export function DormspacePortalShell({
       className={`relative flex min-h-screen flex-col bg-[#FAF8F4] ${mobileFillViewport ? "max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:overflow-hidden" : ""} ${className ?? ""}`}
     >
 
-      <DormspacePortalWatermark />
+      <DormspacePortalWatermark showMobileBrandText={showMobileBrandText} />
 
       <div
         className={
