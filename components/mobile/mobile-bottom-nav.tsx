@@ -110,13 +110,7 @@ function usesDormspacesPublicBottomNav(pathname: string): boolean {
 }
 
 function isDormspacesHomeActive(pathname: string): boolean {
-  if (!pathname.startsWith("/dormspaces")) return false;
-  if (pathname.startsWith("/dormspaces/dashboard")) return false;
-  if (pathname === "/dormspaces/submit" || pathname.startsWith("/dormspaces/submit/")) return false;
-  if (pathname.startsWith("/dormspaces/more")) return false;
-  if (pathname.startsWith("/dormspaces/search")) return false;
-  if (pathname.startsWith("/dormspaces/liked")) return false;
-  return true;
+  return pathname === "/dormspaces";
 }
 
 function isDormspacesPublicTabActive(tabId: string, pathname: string): boolean {
