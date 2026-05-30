@@ -19,7 +19,8 @@ export function HomepageLcpOrchestrator({
 
   useEffect(() => {
     if (!hasLcpStrip) return;
-    setClientReady(true);
+    const timer = window.setTimeout(() => setClientReady(true), 0);
+    return () => window.clearTimeout(timer);
   }, [hasLcpStrip]);
 
   return (
