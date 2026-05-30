@@ -1305,6 +1305,28 @@ export function BahayGoHomeMarketplace({
       ? initialHomepageProperties
       : undefined;
 
+  const [deferSecondaryData, setDeferSecondaryData] = useState(Boolean(initialHomepageFallback));
+
+  useEffect(() => {
+    if (!deferSecondaryData) return;
+    let cancelled = false;
+    const resume = () => {
+      if (!cancelled) setDeferSecondaryData(false);
+    };
+    if (typeof requestIdleCallback !== "undefined") {
+      const id = requestIdleCallback(resume, { timeout: 3000 });
+      return () => {
+        cancelled = true;
+        cancelIdleCallback(id);
+      };
+    }
+    const timer = window.setTimeout(resume, 800);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [deferSecondaryData]);
+
   const {
     data: homepagePropertiesData,
     error: homepagePropertiesError,
@@ -1315,12 +1337,17 @@ export function BahayGoHomeMarketplace({
     { fallbackData: initialHomepageFallback },
   );
 
-  const { data: homepageAgentsData } = useHomepageAgentsDirectory();
-
-  const { data: featuredLocationCounts = {} } = useFeaturedLocationCounts({
-    mode,
-    listingTypeFilter,
+  const { data: homepageAgentsData } = useHomepageAgentsDirectory({
+    isPaused: deferSecondaryData,
   });
+
+  const { data: featuredLocationCounts = {} } = useFeaturedLocationCounts(
+    {
+      mode,
+      listingTypeFilter,
+    },
+    { isPaused: deferSecondaryData },
+  );
 
   const { data: featuredLocationsData } = useBahaygoFeaturedLocations();
   const featuredLocations = featuredLocationsData ?? DEFAULT_BAHAYGO_FEATURED_LOCATIONS;

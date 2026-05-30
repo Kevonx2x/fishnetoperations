@@ -80,6 +80,11 @@ export function supabasePropertyPhotoHeroUrl(url: string): string {
   return supabaseRenderUrl(url, { width: 1280, height: 720, quality: 80, resize: "cover" });
 }
 
+/** Mobile trending carousel LCP — ~88vw card at 5:3, sized for ~2× DPR. */
+export function supabasePropertyPhotoMobileHeroUrl(url: string): string {
+  return supabaseRenderUrl(url, { width: 640, height: 384, quality: 75, resize: "cover" });
+}
+
 /** Homepage spotlight listing — larger hero for the feature card. */
 export function supabasePropertyPhotoSpotlightUrl(url: string): string {
   return supabaseRenderUrl(url, { width: 1600, height: 1000, quality: 85, resize: "cover" });

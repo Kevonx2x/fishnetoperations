@@ -1,4 +1,4 @@
-import { propertyPhotoHeroUrl } from "@/lib/cloudinary-property-photo-url";
+import { propertyPhotoMobileHeroUrl } from "@/lib/cloudinary-property-photo-url";
 import { pickMobileCarouselListings } from "@/lib/homepage-listing-dedupe";
 import type { HomepagePropertiesResult } from "@/lib/marketplace-home-fetchers";
 import { firstRawPropertyPhotoUrl, type DbProperty } from "@/lib/marketplace-property";
@@ -20,5 +20,5 @@ export function resolveMobileHomepageLcpImageUrl(data: HomepagePropertiesResult)
   const lead = pickMobileHomepageTrendingLead(data);
   if (!lead) return null;
   const raw = firstRawPropertyPhotoUrl(lead);
-  return raw ? propertyPhotoHeroUrl(raw) : null;
+  return raw ? propertyPhotoMobileHeroUrl(raw) : null;
 }

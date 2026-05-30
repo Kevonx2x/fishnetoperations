@@ -4,6 +4,7 @@ import {
   isSupabaseRenderUrl,
   supabasePropertyPhotoDisplayUrl,
   supabasePropertyPhotoHeroUrl,
+  supabasePropertyPhotoMobileHeroUrl,
   supabasePropertyPhotoSpotlightUrl,
 } from "@/lib/supabase-image-url";
 
@@ -17,6 +18,12 @@ export function cloudinaryPropertyPhotoDisplayUrl(url: string): string {
 export function cloudinaryPropertyPhotoHeroUrl(url: string): string {
   if (!url || typeof url !== "string") return url;
   return transformCloudinaryUrl(url.trim(), { width: 1280, height: 720 });
+}
+
+/** Mobile trending carousel LCP — matches ~88vw card at 5:3. */
+export function cloudinaryPropertyPhotoMobileHeroUrl(url: string): string {
+  if (!url || typeof url !== "string") return url;
+  return transformCloudinaryUrl(url.trim(), { width: 640, height: 384 });
 }
 
 /** Spotlight hero — higher resolution for the large homepage feature card. */
@@ -40,6 +47,15 @@ export function propertyPhotoHeroUrl(url: string): string {
   if (!t) return t;
   if (isCloudinaryDeliveryUrl(t)) return cloudinaryPropertyPhotoHeroUrl(t);
   if (isSupabasePublicStorageUrl(t)) return supabasePropertyPhotoHeroUrl(t);
+  return t;
+}
+
+/** Mobile trending LCP — smaller transform for first visible carousel slide. */
+export function propertyPhotoMobileHeroUrl(url: string): string {
+  const t = (url ?? "").trim();
+  if (!t) return t;
+  if (isCloudinaryDeliveryUrl(t)) return cloudinaryPropertyPhotoMobileHeroUrl(t);
+  if (isSupabasePublicStorageUrl(t)) return supabasePropertyPhotoMobileHeroUrl(t);
   return t;
 }
 

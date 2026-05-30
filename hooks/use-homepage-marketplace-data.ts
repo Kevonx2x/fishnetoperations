@@ -18,6 +18,7 @@ export function useHomepageProperties(
   options?: { fallbackData?: HomepagePropertiesResult },
 ) {
   const key = ["homepage-properties", args.neighborhoodFilter, args.listingTypeFilter] as const;
+  const hasSeed = options?.fallbackData != null;
   return useSWR<HomepagePropertiesResult>(
     key,
     () =>
@@ -26,21 +27,28 @@ export function useHomepageProperties(
         listingTypeFilter: args.listingTypeFilter,
       }),
     {
-      revalidateOnMount: true,
+      revalidateOnMount: !hasSeed,
       fallbackData: options?.fallbackData,
       keepPreviousData: true,
     },
   );
 }
 
-export function useHomepageAgentsDirectory() {
-  return useSWR<HomepageAgentsResult>("homepage-agents", fetchHomepageAgentsDirectory);
+export function useHomepageAgentsDirectory(options?: { isPaused?: boolean }) {
+  return useSWR<HomepageAgentsResult>("homepage-agents", fetchHomepageAgentsDirectory, {
+    isPaused: () => options?.isPaused ?? false,
+  });
 }
 
-export function useFeaturedLocationCounts(args: {
-  mode: "buy" | "rent" | "all";
-  listingTypeFilter: "sale" | "rent" | null;
-}) {
+export function useFeaturedLocationCounts(
+  args: {
+    mode: "buy" | "rent" | "all";
+    listingTypeFilter: "sale" | "rent" | null;
+  },
+  options?: { isPaused?: boolean },
+) {
   const key = ["homepage-featured-location-counts", args.mode, args.listingTypeFilter] as const;
-  return useSWR<Record<string, number>>(key, () => fetchFeaturedLocationCounts(args));
+  return useSWR<Record<string, number>>(key, () => fetchFeaturedLocationCounts(args), {
+    isPaused: () => options?.isPaused ?? false,
+  });
 }
