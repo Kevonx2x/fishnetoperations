@@ -3,6 +3,7 @@ import { mapRowToMarketplaceAgent, type MarketplaceAgent } from "@/lib/marketpla
 import type { DbProperty } from "@/lib/marketplace-property";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
 import { hideTutorialDemoPropertiesOrFilter } from "@/lib/tutorial-demo-property-filter";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { retryOnTransientFetchError } from "@/lib/transient-fetch-retry";
 import { supabase } from "@/lib/supabase";
 
@@ -75,10 +76,13 @@ function shouldIncludeAgentDirectoryRow(row: unknown): boolean {
   return true;
 }
 
-export async function fetchHomepageProperties(args: {
-  neighborhoodFilter: string | null;
-  listingTypeFilter: "sale" | "rent" | null;
-}): Promise<HomepagePropertiesResult> {
+export async function fetchHomepagePropertiesWithClient(
+  client: SupabaseClient,
+  args: {
+    neighborhoodFilter: string | null;
+    listingTypeFilter: "sale" | "rent" | null;
+  },
+): Promise<HomepagePropertiesResult> {
   const { neighborhoodFilter, listingTypeFilter } = args;
 
   return retryOnTransientFetchError(async () => {
@@ -90,7 +94,7 @@ export async function fetchHomepageProperties(args: {
         ? `city.ilike.%${featuredCityLabel}%,location.ilike.%${featuredCityLabel}%`
         : null;
 
-    let mainQuery = supabase
+    let mainQuery = client
       .from("properties")
       .select(HOMEPAGE_PROPERTY_SELECT)
       .or(expiryOr)
@@ -101,7 +105,7 @@ export async function fetchHomepageProperties(args: {
     if (cityOrClause) mainQuery = mainQuery.or(cityOrClause);
     mainQuery = mainQuery.order("created_at", { ascending: false });
 
-    let featQuery = supabase
+    let featQuery = client
       .from("properties")
       .select(HOMEPAGE_PROPERTY_SELECT)
       .eq("featured", true)
@@ -113,7 +117,7 @@ export async function fetchHomepageProperties(args: {
     if (cityOrClause) featQuery = featQuery.or(cityOrClause);
     featQuery = featQuery.limit(1);
 
-    let rentSpotlightQuery = supabase
+    let rentSpotlightQuery = client
       .from("properties")
       .select(HOMEPAGE_PROPERTY_SELECT)
       .eq("listing_type", "rent")
@@ -159,6 +163,13 @@ export async function fetchHomepageProperties(args: {
 
     return { list, featured, isAdminFeatured };
   });
+}
+
+export async function fetchHomepageProperties(args: {
+  neighborhoodFilter: string | null;
+  listingTypeFilter: "sale" | "rent" | null;
+}): Promise<HomepagePropertiesResult> {
+  return fetchHomepagePropertiesWithClient(supabase, args);
 }
 
 export async function fetchHomepageAgentsDirectory(): Promise<HomepageAgentsResult> {

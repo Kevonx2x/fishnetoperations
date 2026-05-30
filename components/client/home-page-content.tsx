@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { BahayGoHomeMarketplace } from "@/components/marketplace/fishnet-home-marketplace";
 import { HomepageLoadShell } from "@/components/marketplace/homepage-load-shell";
+import type { HomepagePropertiesResult } from "@/lib/marketplace-home-fetchers";
 
 const PostLoginModal = dynamic(
   () =>
@@ -13,11 +14,18 @@ const PostLoginModal = dynamic(
   { ssr: false },
 );
 
-export function HomePageContent() {
+export function HomePageContent({
+  initialHomepageProperties,
+}: {
+  initialHomepageProperties?: HomepagePropertiesResult;
+}) {
   return (
     <>
       <Suspense fallback={<HomepageLoadShell />}>
-        <BahayGoHomeMarketplace listingMode="rent" />
+        <BahayGoHomeMarketplace
+          listingMode="rent"
+          initialHomepageProperties={initialHomepageProperties}
+        />
       </Suspense>
       <PostLoginModal gate="client-home" />
     </>

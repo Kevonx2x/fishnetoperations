@@ -1,9 +1,5 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-@import 'react-datepicker/dist/react-datepicker.css';
-
-@layer stream, stream-overrides;
-@import 'stream-chat-react/dist/css/v2/index.css' layer(stream);
 
 @custom-variant dark (&:is(.dark *));
 
