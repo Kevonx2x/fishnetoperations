@@ -1,9 +1,7 @@
 "use client";
 
-import { Suspense } from "react";
 import dynamic from "next/dynamic";
 
-import { HomepageLoadShell } from "@/components/marketplace/homepage-load-shell";
 import type { HomepagePropertiesResult } from "@/lib/marketplace-home-fetchers";
 
 const BahayGoHomeMarketplace = dynamic(
@@ -11,17 +9,7 @@ const BahayGoHomeMarketplace = dynamic(
     import("@/components/marketplace/fishnet-home-marketplace").then((m) => ({
       default: m.BahayGoHomeMarketplace,
     })),
-  {
-    ssr: false,
-    loading: () => (
-      <>
-        {/* Mobile: SSR LCP strip already painted — avoid duplicate skeleton */}
-        <div className="hidden md:block">
-          <HomepageLoadShell />
-        </div>
-      </>
-    ),
-  },
+  { ssr: false },
 );
 
 const PostLoginModal = dynamic(
@@ -43,12 +31,10 @@ export function HomePageContent({
 }: Props) {
   return (
     <>
-      <Suspense fallback={<HomepageLoadShell />}>
-        <BahayGoHomeMarketplace
-          listingMode={listingMode}
-          initialHomepageProperties={initialHomepageProperties}
-        />
-      </Suspense>
+      <BahayGoHomeMarketplace
+        listingMode={listingMode}
+        initialHomepageProperties={initialHomepageProperties}
+      />
       <PostLoginModal gate="client-home" />
     </>
   );

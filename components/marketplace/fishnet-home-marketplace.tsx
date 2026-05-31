@@ -42,6 +42,7 @@ import {
   propertyPhotoHeroUrl,
 } from "@/lib/cloudinary-property-photo-url";
 import { BahayGoHomeMobileTop, BahayGoHomeMobileStickySearch } from "@/components/marketplace/bahaygo-home-mobile-top";
+import { useReleaseHomepageLcpStrip } from "@/components/client/homepage-lcp-release-context";
 import { MobileFixedSearchShell } from "@/components/marketplace/mobile-fixed-search-shell";
 import { BahayGoMobileTruliaFeed } from "@/components/marketplace/bahaygo-mobile-trulia-feed";
 import { HomepageListingsLoadError } from "@/components/marketplace/homepage-listings-load-error";
@@ -1229,6 +1230,12 @@ export function BahayGoHomeMarketplace({
   const [welcomeBannerVisible, setWelcomeBannerVisible] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [viewerVerifiedListingAgent, setViewerVerifiedListingAgent] = useState(false);
+
+  const releaseLcpStrip = useReleaseHomepageLcpStrip();
+
+  useEffect(() => {
+    releaseLcpStrip?.();
+  }, [releaseLcpStrip]);
 
   useEffect(() => {
     if (!user?.id) {

@@ -1,0 +1,3 @@
+@layer stream, stream-overrides;
+@import "stream-chat-react/dist/css/v2/index.css" layer(stream);
+@import "./stream-chat-overrides.css";

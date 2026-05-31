@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import "react-datepicker/dist/react-datepicker.css";
+
 import DatePicker from "react-datepicker";
 import { Calendar } from "lucide-react";
 

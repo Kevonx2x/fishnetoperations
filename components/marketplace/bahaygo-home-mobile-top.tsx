@@ -35,7 +35,7 @@ import {
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { firstRawPropertyPhotoUrl } from "@/lib/marketplace-property";
-import { propertyPhotoHeroUrl } from "@/lib/cloudinary-property-photo-url";
+import { propertyPhotoHeroUrl, propertyPhotoMobileHeroUrl, isPreOptimizedPropertyPhotoUrl } from "@/lib/cloudinary-property-photo-url";
 import type { PropertyEngagement } from "@/hooks/use-property-engagement";
 import {
   pickMobileCarouselListings,
@@ -226,16 +226,30 @@ function TrendingHeroCard({
     >
       <div className="relative aspect-[5/3] w-full bg-[#1a1a1a]">
         {heroSrc ? (
-          <Image
-            src={heroSrc}
-            alt=""
-            fill
-            className="object-cover"
-            sizes="88vw"
-            priority={priorityImage}
-            fetchPriority={priorityImage ? "high" : undefined}
-            loading={priorityImage ? "eager" : "lazy"}
-          />
+          priorityImage && isPreOptimizedPropertyPhotoUrl(heroSrc) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={heroSrc}
+              alt=""
+              fetchPriority="high"
+              loading="eager"
+              decoding="async"
+              className="absolute inset-0 h-full w-full object-cover"
+              sizes="88vw"
+            />
+          ) : (
+            <Image
+              src={heroSrc}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="88vw"
+              unoptimized={isPreOptimizedPropertyPhotoUrl(heroSrc)}
+              priority={priorityImage}
+              fetchPriority={priorityImage ? "high" : undefined}
+              loading={priorityImage ? "eager" : "lazy"}
+            />
+          )
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#2C2C2C] to-[#4a4a4a]" />
         )}
@@ -544,7 +558,11 @@ export function BahayGoHomeMobileTop({
             >
               {heroSlides.map((p, i) => {
                 const raw = firstRawPropertyPhotoUrl(p);
-                const src = raw ? propertyPhotoHeroUrl(raw) : "";
+                const src = raw
+                  ? i === 0
+                    ? propertyPhotoMobileHeroUrl(raw)
+                    : propertyPhotoHeroUrl(raw)
+                  : "";
                 return (
                   <div key={p.id} data-trending-slide>
                     <TrendingHeroCard

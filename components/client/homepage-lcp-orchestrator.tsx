@@ -1,10 +1,12 @@
 "use client";
 
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
+
+import { HomepageLcpReleaseProvider } from "@/components/client/homepage-lcp-release-context";
 
 /**
- * Keeps the server-rendered LCP strip visible until the client marketplace bundle
- * is ready, then unmounts the strip via React (never imperative DOM removal).
+ * Keeps the server-rendered LCP strip visible until the marketplace client bundle
+ * mounts and calls releaseLcpStrip() — never imperative DOM removal.
  */
 export function HomepageLcpOrchestrator({
   hasLcpStrip,
@@ -16,16 +18,14 @@ export function HomepageLcpOrchestrator({
   children: ReactNode;
 }) {
   const [clientReady, setClientReady] = useState(!hasLcpStrip);
-
-  useEffect(() => {
-    if (!hasLcpStrip) return;
+  const releaseLcpStrip = useCallback(() => {
     setClientReady(true);
-  }, [hasLcpStrip]);
+  }, []);
 
   return (
-    <>
+    <HomepageLcpReleaseProvider releaseLcpStrip={releaseLcpStrip}>
       {hasLcpStrip && !clientReady ? lcpStrip : null}
       <div className={hasLcpStrip && !clientReady ? "max-md:hidden" : undefined}>{children}</div>
-    </>
+    </HomepageLcpReleaseProvider>
   );
 }
