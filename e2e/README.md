@@ -30,6 +30,4 @@ Committed under `e2e/fixtures/`:
 
 No extra image files are required.
 
-## Known breakpoint (current)
-
-If the test fails with **“Could not reach the server”** and the dev server never logs `POST /api/dormspaces/submit`, the submit handler is likely throwing when building `FormData` from `e.currentTarget` after `await compressListingPhotos()` (React nulls `currentTarget` after the first `await` in an event handler). Capture the form element before any `await` in `dormspace-submit-form.tsx` `handleSubmit`.
+The dormspace submit spec uses `test.setTimeout(240_000)` and asserts dashboard redirect before waiting on slow portal fetches (listings API only, not inquiries).
