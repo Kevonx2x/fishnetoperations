@@ -103,6 +103,58 @@ function FileDrop({
 
 const LISTING_PHOTO_MIN = 3;
 const LISTING_PHOTO_MAX = 10;
+const PHOTO_PAYLOAD_TARGET_BYTES = 4 * 1024 * 1024;
+const SUBMIT_FETCH_TIMEOUT_MS = 60_000;
+const COMPRESS_MAX_WIDTH = 1600;
+const COMPRESS_JPEG_QUALITY = 0.8;
+
+function totalPhotoBytes(files: File[]): number {
+  return files.reduce((sum, f) => sum + f.size, 0);
+}
+
+async function compressImageFile(file: File): Promise<File> {
+  if (!file.type.startsWith("image/") || file.type === "image/gif") {
+    return file;
+  }
+
+  const blobUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Could not read image"));
+      el.src = blobUrl;
+    });
+
+    const scale = img.width > COMPRESS_MAX_WIDTH ? COMPRESS_MAX_WIDTH / img.width : 1;
+    const width = Math.max(1, Math.round(img.width * scale));
+    const height = Math.max(1, Math.round(img.height * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", COMPRESS_JPEG_QUALITY);
+    });
+    if (!blob) return file;
+
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "photo";
+    return new File([blob], `${baseName}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+  }
+}
+
+async function preparePhotosForSubmit(files: File[]): Promise<File[]> {
+  if (totalPhotoBytes(files) <= PHOTO_PAYLOAD_TARGET_BYTES) {
+    return files;
+  }
+  return Promise.all(files.map((f) => compressImageFile(f)));
+}
 
 function ListingPhotosDrop({
   photos,
@@ -426,6 +478,21 @@ export function DormspaceSubmitForm() {
       }
     }
 
+    let photosToUpload: File[];
+    try {
+      photosToUpload = await preparePhotosForSubmit(photos);
+    } catch {
+      setError("Could not prepare photos. Try different images or fewer photos.");
+      return;
+    }
+
+    if (totalPhotoBytes(photosToUpload) > PHOTO_PAYLOAD_TARGET_BYTES) {
+      setError(
+        "Photos are still too large after compression. Try fewer images or smaller files (under 4 MB total).",
+      );
+      return;
+    }
+
     const form = e.currentTarget;
     const fd = new FormData(form);
     fd.set("landlord_name", fullName);
@@ -437,7 +504,7 @@ export function DormspaceSubmitForm() {
     if (idFile) fd.set("landlord_id", idFile);
     if (billingFile) fd.set("proof_of_billing", billingFile);
     fd.delete("photos");
-    for (const p of photos) fd.append("photos", p);
+    for (const p of photosToUpload) fd.append("photos", p);
     if (city) fd.set("city", city);
     if (neighborhood) fd.set("neighborhood", neighborhood);
     if (lat != null) fd.set("latitude", String(lat));
@@ -451,8 +518,14 @@ export function DormspaceSubmitForm() {
     }
 
     setBusy(true);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), SUBMIT_FETCH_TIMEOUT_MS);
     try {
-      const res = await fetch("/api/dormspaces/submit", { method: "POST", body: fd });
+      const res = await fetch("/api/dormspaces/submit", {
+        method: "POST",
+        body: fd,
+        signal: controller.signal,
+      });
       const json = (await res.json()) as {
         id?: string;
         error?: string | { code?: string; message?: string };
@@ -474,9 +547,16 @@ export function DormspaceSubmitForm() {
 
       router.replace("/dormspaces/dashboard/listings?welcome=1");
       router.refresh();
-    } catch {
-      setError("Network error. Please try again.");
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError(
+          "Upload timed out — your photos may be too large. Try fewer or smaller images.",
+        );
+      } else {
+        setError("Network error. Please try again.");
+      }
     } finally {
+      window.clearTimeout(timeoutId);
       setBusy(false);
     }
   };
