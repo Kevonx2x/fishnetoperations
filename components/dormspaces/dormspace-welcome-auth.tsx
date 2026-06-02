@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Loader2 } from "lucide-react";
+import { ChevronLeft, Loader2, Lock } from "lucide-react";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import type { Profile } from "@/contexts/auth-context";
 import {
@@ -439,9 +439,10 @@ export function EmailFirstAuthCard({ compactMobile = false }: { compactMobile?: 
           </div>
 
           <form onSubmit={(e) => void handleContinueEmail(e)} className={compactMobile ? "space-y-3" : "space-y-4"}>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
+            <label className="block text-sm font-medium text-[#2C2C2C]">
               Email address
               <input
+                id="welcome-email"
                 type="email"
                 autoComplete="email"
                 required
@@ -455,11 +456,38 @@ export function EmailFirstAuthCard({ compactMobile = false }: { compactMobile?: 
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-xl bg-[#6B9E6E] py-3 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-xl bg-[#6B9E6E] py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Checking\u2026" : "Continue"}
             </button>
           </form>
+
+          <p className="mt-4 flex items-start justify-center gap-1.5 text-center text-xs leading-relaxed text-[#888888]">
+            <Lock className="mt-0.5 size-3.5 shrink-0 text-[#888888]" aria-hidden />
+            <span>
+              By continuing, you agree to our{" "}
+              <Link href="/terms" className="font-semibold text-[#6B9E6E] hover:underline">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="font-semibold text-[#6B9E6E] hover:underline">
+                Privacy Policy
+              </Link>
+              .
+            </span>
+          </p>
+
+          <div className="mt-5 border-t border-[#2C2C2C]/10 pt-5">
+            <p className="text-center text-sm font-medium text-[#484848]">
+              New to BahayGo Dormspacers?{" "}
+              <Link
+                href="#welcome-email"
+                className="font-semibold text-[#6B9E6E] hover:underline"
+              >
+                Create an account
+              </Link>
+            </p>
+          </div>
         </>
       ) : null}
 
@@ -564,6 +592,21 @@ export function EmailFirstAuthCard({ compactMobile = false }: { compactMobile?: 
           </form>
         </>
       ) : null}
+    </div>
+  );
+}
+
+/** Guest browse — below the auth card, matching welcome mockup. */
+export function WelcomeGuestBrowse() {
+  return (
+    <div className="mt-6 w-full">
+      <AuthGoogleDivider pillClassName="bg-[#FAF8F4]" />
+      <Link
+        href="/dormspaces"
+        className="mt-4 block w-full text-center text-base font-bold text-[#6B9E6E] transition hover:text-[#5d8a60] hover:underline md:text-lg"
+      >
+        Browse
+      </Link>
     </div>
   );
 }

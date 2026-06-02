@@ -36,14 +36,27 @@ function GoogleGMark({ className }: { className?: string }) {
   );
 }
 
-export function AuthGoogleDivider({ compact = false }: { compact?: boolean }) {
+export function AuthGoogleDivider({
+  compact = false,
+  lineClassName,
+  pillClassName,
+}: {
+  compact?: boolean;
+  lineClassName?: string;
+  pillClassName?: string;
+}) {
   return (
     <div className={cn("relative", compact ? "my-3" : "my-4")}>
       <div className="absolute inset-0 flex items-center" aria-hidden>
-        <div className="w-full border-t border-[#2C2C2C]/10" />
+        <div className={cn("w-full border-t border-[#2C2C2C]/10", lineClassName)} />
       </div>
       <div className="relative flex justify-center text-xs">
-        <span className={cn("px-2 font-medium text-[#2C2C2C]/45", compact ? "bg-[#FAF8F4]" : "bg-white")}>
+        <span
+          className={cn(
+            "px-2 font-medium text-[#888888]",
+            pillClassName ?? (compact ? "bg-[#FAF8F4]" : "bg-white"),
+          )}
+        >
           or
         </span>
       </div>

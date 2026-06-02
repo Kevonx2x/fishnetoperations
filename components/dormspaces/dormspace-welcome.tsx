@@ -12,6 +12,7 @@ import { DormspaceWelcomeLogo } from "@/components/dormspaces/dormspace-welcome-
 import {
   ClientSignedInCard,
   StaffRoleNoticeCard,
+  WelcomeGuestBrowse,
   WelcomeHeroAuthPanel,
 } from "@/components/dormspaces/dormspace-welcome-auth";
 import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
@@ -332,7 +333,7 @@ export function DormspaceWelcome() {
           >
             <div className="flex w-full max-w-[400px] min-h-0 flex-col items-center">
               <div
-                className={`w-full min-h-0 shrink ${showSignedInPanel ? "" : "rounded-2xl border border-[#DDDDDD] bg-white p-5 shadow-[0_8px_32px_rgba(44,44,44,0.08)] md:p-7"}`}
+                className={`w-full min-h-0 shrink ${showSignedInPanel ? "" : "rounded-2xl border border-[#DDDDDD] bg-white p-6 shadow-[0_8px_32px_rgba(44,44,44,0.08)] md:p-8"}`}
               >
                 <WelcomeHeroAuthPanel
                   loading={authLoading}
@@ -347,17 +348,7 @@ export function DormspaceWelcome() {
                 />
               </div>
 
-              {!showSignedInPanel ? (
-                <div className="mt-5 w-full text-center">
-                  <p className="text-sm font-medium text-[#888888]">or</p>
-                  <Link
-                    href="/dormspaces"
-                    className="mt-2 inline-block text-base font-bold text-[#6B9E6E] transition hover:text-[#5d8a60] hover:underline md:text-lg"
-                  >
-                    Browse
-                  </Link>
-                </div>
-              ) : null}
+              {!showSignedInPanel ? <WelcomeGuestBrowse /> : null}
             </div>
           </div>
         </section>
