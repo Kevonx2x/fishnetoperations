@@ -15,13 +15,20 @@ type Props = {
   className?: string;
   href?: string;
   compact?: boolean;
+  /** Light text on photo hero (welcome split layout). */
+  onHero?: boolean;
 };
 
 /**
  * BahayGo + dormspacers stacked lockup — used only on /dormspaces/* welcome surfaces.
  * Parent wordmark unchanged; sub-brand tag sits beneath "BahayGo", left-aligned.
  */
-export function DormspaceWelcomeLogo({ className, href = "/dormspaces", compact = false }: Props) {
+export function DormspaceWelcomeLogo({
+  className,
+  href = "/dormspaces",
+  compact = false,
+  onHero = false,
+}: Props) {
   return (
     <Link
       href={href}
@@ -40,12 +47,13 @@ export function DormspaceWelcomeLogo({ className, href = "/dormspaces", compact 
             compact ? "text-[1.2rem]" : "text-[1.35rem]",
           )}
         >
-          <span className="text-[#2C2C2C]">Bahay</span>
-          <span className="text-[#6B9E6E]">Go</span>
+          <span className={onHero ? "text-white" : "text-[#2C2C2C]"}>Bahay</span>
+          <span className={onHero ? "text-[#b8e0bb]" : "text-[#6B9E6E]"}>Go</span>
         </span>
         <span
           className={cn(
-            "font-serif font-semibold leading-none tracking-[0.14em] text-[#888888]",
+            "font-serif font-semibold leading-none tracking-[0.14em]",
+            onHero ? "text-white/75" : "text-[#888888]",
             compact ? "mt-px text-[0.58rem]" : "mt-0.5 text-[0.65rem]",
           )}
         >

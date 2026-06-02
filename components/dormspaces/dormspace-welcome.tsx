@@ -4,23 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  BadgeCheck,
-  Bath,
-  BedDouble,
-  Building2,
-  Check,
-  Home,
-  MapPin,
-  Plus,
-  Ruler,
-  Shield,
-  Wifi,
-} from "lucide-react";
+import { BadgeCheck, ChevronLeft, Home, MapPin, Plus, Shield } from "lucide-react";
 import { toast } from "sonner";
 
 import { DormspaceAddListingSplitButton } from "@/components/dormspaces/dormspace-add-listing-split-button";
-import { BahayGoHouseMark } from "@/components/dormspaces/dormspace-welcome-logo";
+import { DormspaceWelcomeLogo } from "@/components/dormspaces/dormspace-welcome-logo";
 import {
   ClientSignedInCard,
   StaffRoleNoticeCard,
@@ -39,23 +27,13 @@ import {
 } from "@/lib/landlord-verification";
 import { useAuth } from "@/contexts/auth-context";
 import { isDormspaceSubmitBlockedRole, isLandlordCapable } from "@/lib/auth-roles";
-import { DORMSPACE_HERO_IMAGE, DORMSPACE_WELCOME_MOBILE_HERO_IMAGE } from "@/lib/dormspaces";
+import { DORMSPACE_WELCOME_HERO_IMAGE } from "@/lib/dormspaces";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-
-/** Cozy dorm/studio — matches welcome mockup featured card. */
-const FEATURED_LISTING_IMAGE =
-  "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80";
 
 const HERO_STATS = [
   { icon: MapPin, value: "17+", label: "Metro Areas" },
   { icon: Shield, value: "₱0", label: "Listing Fees" },
   { icon: Home, value: "100%", label: "Filipino-Built" },
-] as const;
-
-const TRUST_ITEMS = [
-  "Verified landlords and listings only",
-  "Zero listing fees. Always free.",
-  "Made for Filipinos, by Filipinos",
 ] as const;
 
 function WelcomeCardButtonSkeleton() {
@@ -219,15 +197,6 @@ export function DormspaceWelcome() {
     window.history.replaceState({}, "", "/dormspaces/welcome");
   }, []);
 
-  useEffect(() => {
-    if (!welcomeIntent) return;
-    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) return;
-    const t = window.setTimeout(() => {
-      document.getElementById("get-started")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 120);
-    return () => window.clearTimeout(t);
-  }, [welcomeIntent, authLoading]);
-
   const loadLandlordListings = useCallback(async () => {
     if (!isLandlordSignedIn || !user) {
       setListings([]);
@@ -293,254 +262,106 @@ export function DormspaceWelcome() {
 
   const clientCard = isClientSignedIn ? <ClientSignedInCard /> : null;
 
-  const authPanel = (
-    <WelcomeHeroAuthPanel
-      loading={authLoading}
-      intent={welcomeIntent}
-      isLandlordSignedIn={isLandlordSignedIn}
-      isStaffSignedIn={isStaffSignedIn}
-      isClientSignedIn={isClientSignedIn}
-      landlordCard={landlordCard}
-      staffCard={staffCard}
-      clientCard={clientCard}
-    />
-  );
+  const showSignedInPanel =
+    authLoading || isLandlordSignedIn || isStaffSignedIn || isClientSignedIn;
 
   return (
-    <DormspacePortalShell minimalNav mobileFillViewport compactMobileNav>
-      {/* Mobile — single-screen welcome (no scroll on default sign-in view) */}
-      <main className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:hidden">
-        <div className="shrink-0">
-          <h1 className="font-serif text-[26px] font-semibold leading-[1.12] tracking-tight text-[#2C2C2C]">
-            Find your space.
-            <br />
-            Feel at <span className="text-[#6B9E6E]">dorm.</span>
-          </h1>
-          <p className="mt-2 text-[13px] font-medium leading-snug text-[#484848]">
-            Free to list. Verified landlords only. Reach students, BPO workers, and young professionals
-            across Metro Manila.
-          </p>
-
-          <div className="relative mt-3 overflow-hidden rounded-2xl border border-[#2C2C2C]/8 shadow-[0_8px_28px_rgba(44,44,44,0.1)]">
-            <div className="relative h-[118px] w-full">
-              <Image
-                src={DORMSPACE_WELCOME_MOBILE_HERO_IMAGE}
-                alt="Student smiling from a bunk bed in a dorm"
-                fill
-                className="object-cover object-[center_20%]"
-                sizes="100vw"
-                priority
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1a2e22]/55 via-transparent to-transparent" />
-              <div className="absolute bottom-2.5 left-2.5 flex flex-wrap gap-1.5">
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
-                  <BadgeCheck className="size-3 text-[#6B9E6E]" aria-hidden />
-                  Verified landlords
-                </span>
-                <span className="rounded-full bg-[#D4A843]/95 px-2 py-0.5 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
-                  Free to list
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pt-3">
-          <WelcomeHeroAuthPanel
-            loading={authLoading}
-            intent={welcomeIntent}
-            isLandlordSignedIn={isLandlordSignedIn}
-            isStaffSignedIn={isStaffSignedIn}
-            isClientSignedIn={isClientSignedIn}
-            landlordCard={landlordCard}
-            staffCard={staffCard}
-            clientCard={clientCard}
-            compactMobile
+    <DormspacePortalShell mobileFillViewport hidePortalChrome>
+      <div className="grid h-full min-h-0 w-full overflow-hidden max-md:grid-rows-[minmax(0,2fr)_minmax(0,3fr)] md:grid-cols-2 md:grid-rows-1">
+        <section className="relative flex min-h-0 flex-col overflow-hidden">
+          <Image
+            src={DORMSPACE_WELCOME_HERO_IMAGE}
+            alt="Students relaxing together in a shared dorm space"
+            fill
+            className="object-cover object-[center_35%]"
+            sizes="(max-width: 768px) 100vw, 50vw"
+            quality={90}
+            priority
           />
-        </div>
+          <div
+            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1a2e22]/80 via-[#1a2e22]/35 to-black/25"
+            aria-hidden
+          />
 
-        <div className="flex shrink-0 justify-center pt-4">
-          <Link
-            href="/"
-            className="inline-flex flex-col items-center gap-1.5 px-3 py-1 text-[#888888]/80 transition hover:text-[#6B9E6E]"
-            aria-label="Back to BahayGo main marketplace"
-          >
-            <BahayGoHouseMark className="h-5 w-auto opacity-50" />
-            <span className="text-[11px] font-semibold tracking-wide">Back to BahayGo</span>
-          </Link>
-        </div>
-      </main>
-
-      {/* Desktop — full marketing welcome */}
-      <main className="mx-auto hidden w-full max-w-6xl flex-1 px-4 pb-28 pt-6 md:block lg:px-6 lg:pb-16 lg:pt-10">
-        {/* Hero — photo visible above the fold (mockup: headline + image + stats | auth card) */}
-        <section className="grid gap-6 lg:grid-cols-[1fr_minmax(0,380px)] lg:items-start lg:gap-10">
-          <div className="min-w-0">
-            <h1 className="font-serif text-[30px] font-semibold leading-[1.12] tracking-tight text-[#2C2C2C] md:text-[38px] lg:text-[42px]">
-              Find your space.
-              <br />
-              Feel at <span className="text-[#6B9E6E]">dorm.</span>
-            </h1>
-            <p className="mt-3 max-w-xl text-sm font-medium leading-relaxed text-[#484848] md:text-[15px]">
-              Free to list. Verified landlords only. Reach students, BPO workers, and young professionals
-              across Metro Manila.
-            </p>
-
-            <div className="relative mt-5 overflow-hidden rounded-2xl border border-[#2C2C2C]/8 shadow-[0_8px_28px_rgba(44,44,44,0.1)]">
-              <div className="relative h-[168px] w-full sm:h-[190px] lg:h-[200px]">
-                <Image
-                  src={DORMSPACE_HERO_IMAGE}
-                  alt="Bright dorm and bedspace interior"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 640px"
-                  priority
-                />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1a2e22]/55 via-transparent to-transparent" />
-                <div className="absolute bottom-3 left-3 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
-                    <BadgeCheck className="size-3 text-[#6B9E6E]" aria-hidden />
-                    Verified landlords
-                  </span>
-                  <span className="rounded-full bg-[#D4A843]/95 px-2.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
-                    Free to list
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
-              {HERO_STATS.map(({ icon: Icon, value, label }) => (
-                <div
-                  key={label}
-                  className="flex flex-col items-center rounded-xl border border-[#6B9E6E]/15 bg-white px-1.5 py-3 text-center shadow-sm sm:px-2 sm:py-3.5"
-                >
-                  <span className="flex size-9 items-center justify-center rounded-full bg-[#6B9E6E]/12 sm:size-10">
-                    <Icon className="size-4 text-[#6B9E6E] sm:size-5" strokeWidth={2} aria-hidden />
-                  </span>
-                  <p className="mt-1.5 font-serif text-base font-bold text-[#2C2C2C] sm:text-lg">{value}</p>
-                  <p className="mt-0.5 text-[9px] font-semibold uppercase leading-tight tracking-wide text-[#525252] sm:text-[10px]">
-                    {label}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="lg:sticky lg:top-20">
-            {authPanel}
-          </div>
-        </section>
-
-        {/* Trust banner */}
-        <section className="mt-8 rounded-2xl border border-[#DDDDDD] bg-white px-5 py-5 shadow-sm md:mt-10 md:flex md:items-center md:justify-between md:gap-8 md:px-8 md:py-6">
-          <div className="flex items-start gap-3 md:min-w-0 md:shrink-0">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#6B9E6E]/12">
-              <Building2 className="size-6 text-[#6B9E6E]" aria-hidden />
-            </span>
-            <div>
-              <p className="font-serif text-lg font-bold text-[#2C2C2C] md:text-xl">
-                Built for renters. Trusted by landlords.
-              </p>
-            </div>
-          </div>
-          <ul className="mt-4 space-y-2 md:mt-0 md:flex-1">
-            {TRUST_ITEMS.map((item) => (
-              <li key={item} className="flex items-center gap-2 text-sm font-medium text-[#484848]">
-                <Check className="size-4 shrink-0 text-[#6B9E6E]" strokeWidth={2.5} aria-hidden />
-                {item}
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {/* Featured dormspaces */}
-        <section className="mt-8 md:mt-12">
-          <div className="mb-3 flex items-end justify-between gap-4">
-            <h2 className="font-serif text-xl font-bold text-[#2C2C2C] md:text-2xl">Featured dormspaces</h2>
-            <Link
-              href="/dormspaces"
-              className="shrink-0 text-sm font-semibold text-[#6B9E6E] hover:underline"
-            >
-              Browse all →
-            </Link>
-          </div>
-
-          <article className="overflow-hidden rounded-2xl border border-[#DDDDDD] bg-white shadow-[0_4px_24px_rgba(44,44,44,0.08)] sm:flex">
-            <div className="relative h-[160px] w-full shrink-0 sm:h-auto sm:w-[42%] sm:min-h-[200px] sm:max-w-[320px]">
-              <Image
-                src={FEATURED_LISTING_IMAGE}
-                alt="Cozy studio dormspace near Araneta Center"
-                fill
-                className="object-cover"
-                sizes="(max-width: 640px) 100vw, 320px"
-              />
-              <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold text-[#2C2C2C] shadow-sm">
-                <BadgeCheck className="size-3.5 text-[#6B9E6E]" aria-hidden />
-                Verified
-              </span>
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col justify-center p-5 sm:p-6">
-              <span className="inline-flex w-fit rounded-full bg-[#6B9E6E]/12 px-3 py-1 text-xs font-bold text-[#4a7a4d]">
-                Quezon City
-              </span>
-              <h3 className="mt-3 font-serif text-lg font-bold leading-snug text-[#2C2C2C] sm:text-xl">
-                Cozy Studio Unit near Araneta Center
-              </h3>
-              <p className="mt-2 text-lg font-bold text-[#2C2C2C]">
-                ₱8,500 <span className="text-sm font-semibold text-[#888888]">/ month</span>
-              </p>
-              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-[#525252]">
-                <span className="inline-flex items-center gap-1.5">
-                  <BedDouble className="size-4 text-[#6B9E6E]" aria-hidden />
-                  Studio
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Bath className="size-4 text-[#6B9E6E]" aria-hidden />
-                  1 Bath
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Ruler className="size-4 text-[#6B9E6E]" aria-hidden />
-                  18 sqm
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Wifi className="size-4 text-[#6B9E6E]" aria-hidden />
-                  Wi-Fi Included
-                </span>
-              </div>
+          <div className="relative z-10 flex min-h-0 flex-1 flex-col p-4 pt-[max(1rem,env(safe-area-inset-top))] md:p-8">
+            <div className="flex items-center gap-2.5">
               <Link
                 href="/dormspaces"
-                className="mt-4 inline-flex h-10 w-fit items-center justify-center rounded-xl border-2 border-[#1a2e22]/20 px-5 text-sm font-bold text-[#1a2e22] transition hover:border-[#6B9E6E]/40 hover:bg-[#6B9E6E]/5"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/90 text-[#2C2C2C] shadow-sm transition hover:bg-white"
+                aria-label="Back to dormspaces"
               >
-                View details
+                <ChevronLeft className="h-4 w-4" aria-hidden />
               </Link>
+              <DormspaceWelcomeLogo href="/dormspaces" onHero className="drop-shadow-sm" />
             </div>
-          </article>
-        </section>
 
-        {/* List CTA */}
-        <section className="mt-8 rounded-2xl border border-[#6B9E6E]/20 bg-[#6B9E6E]/10 px-5 py-5 md:mt-10 md:flex md:items-center md:justify-between md:gap-8 md:px-6 md:py-6">
-          <div className="flex items-start gap-4">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-[#6B9E6E]/20">
-              <Home className="size-6 text-[#6B9E6E]" aria-hidden />
-            </span>
-            <div>
-              <p className="font-serif text-lg font-bold text-[#2C2C2C] md:text-xl">
-                List your space for free.
+            <div className="mt-auto min-w-0 pt-4 md:pt-8">
+              <h1 className="font-serif text-[26px] font-semibold leading-[1.12] tracking-tight text-white drop-shadow-sm md:text-[40px] lg:text-[44px]">
+                Find your space.
+                <br />
+                Feel at <span className="text-[#b8e0bb]">dorm.</span>
+              </h1>
+              <p className="mt-2 max-w-md text-[13px] font-medium leading-snug text-white/90 md:mt-3 md:text-[15px]">
+                Free to list. Verified landlords only. Reach students, BPO workers, and young professionals
+                across Metro Manila.
               </p>
-              <p className="mt-1 text-sm font-medium leading-relaxed text-[#484848]">
-                Connect with thousands of renters looking for their next dorm.
-              </p>
+
+              <div className="mt-4 grid grid-cols-3 gap-2 md:mt-8 md:gap-3">
+                {HERO_STATS.map(({ icon: Icon, value, label }) => (
+                  <div
+                    key={label}
+                    className="flex flex-col items-center rounded-xl border border-white/20 bg-white/10 px-1 py-2.5 text-center backdrop-blur-sm md:px-2 md:py-3.5"
+                  >
+                    <span className="flex size-8 items-center justify-center rounded-full bg-white/15 md:size-10">
+                      <Icon className="size-3.5 text-[#b8e0bb] md:size-4" strokeWidth={2} aria-hidden />
+                    </span>
+                    <p className="mt-1 font-serif text-sm font-bold text-white md:text-lg">{value}</p>
+                    <p className="mt-0.5 text-[8px] font-semibold uppercase leading-tight tracking-wide text-white/80 md:text-[10px]">
+                      {label}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <Link
-            href={user ? "/dormspaces/submit?from=welcome" : "/dormspaces/welcome?intent=signup#get-started"}
-            className="mt-5 inline-flex h-12 w-full shrink-0 items-center justify-center rounded-xl bg-[#1a2e22] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#243828] md:mt-0 md:w-auto"
-          >
-            List your dormspace
-          </Link>
         </section>
-      </main>
+
+        <section className="flex min-h-0 flex-col overflow-hidden bg-[#FAF8F4]">
+          <div
+            className={`flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-10 md:py-8 ${showSignedInPanel ? "overflow-y-auto overscroll-y-contain" : "overflow-hidden"}`}
+          >
+            <div className="flex w-full max-w-[400px] min-h-0 flex-col items-center">
+              <div
+                className={`w-full min-h-0 shrink ${showSignedInPanel ? "" : "rounded-2xl border border-[#DDDDDD] bg-white p-5 shadow-[0_8px_32px_rgba(44,44,44,0.08)] md:p-7"}`}
+              >
+                <WelcomeHeroAuthPanel
+                  loading={authLoading}
+                  intent={welcomeIntent}
+                  isLandlordSignedIn={isLandlordSignedIn}
+                  isStaffSignedIn={isStaffSignedIn}
+                  isClientSignedIn={isClientSignedIn}
+                  landlordCard={landlordCard}
+                  staffCard={staffCard}
+                  clientCard={clientCard}
+                  compactMobile
+                />
+              </div>
+
+              {!showSignedInPanel ? (
+                <div className="mt-5 w-full text-center">
+                  <p className="text-sm font-medium text-[#888888]">or</p>
+                  <Link
+                    href="/dormspaces"
+                    className="mt-2 inline-block text-base font-bold text-[#6B9E6E] transition hover:text-[#5d8a60] hover:underline md:text-lg"
+                  >
+                    Browse
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      </div>
 
       <UpdateVacancyModal
         open={vacancyModalOpen}

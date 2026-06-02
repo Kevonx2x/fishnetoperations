@@ -52,7 +52,7 @@ import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-mes
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { BahayGoWordmark } from "@/components/marketplace/bahaygo-wordmark";
 import { NavNotificationsBell } from "@/components/notifications/nav-notifications-bell";
-import { AuthSignInLinkForPath } from "@/components/auth/auth-sign-in-cta";
+import { AuthSignInIconLinkForPath } from "@/components/auth/auth-sign-in-cta";
 import {
   AGENT_AVAILABILITY_NOW,
   AGENT_AVAILABILITY_OFFLINE,
@@ -839,7 +839,7 @@ export function MaddenTopNav({ compactMobileHome = false }: { compactMobileHome?
               </div>
             </>
           ) : (
-            <AuthSignInLinkForPath nextPath={pathname || "/"} nav />
+            <AuthSignInIconLinkForPath nextPath={pathname || "/"} />
           )}
         </div>
       </div>

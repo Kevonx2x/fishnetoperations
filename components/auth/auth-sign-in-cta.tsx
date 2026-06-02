@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ButtonHTMLAttributes } from "react";
+import { User } from "lucide-react";
 import { AUTH_SIGN_IN_CTA_LABEL, authLoginHref } from "@/lib/auth-login-path";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +11,10 @@ export const AUTH_SIGN_IN_CTA_CLASS =
 /** Compact variant for top nav (longer label). */
 export const AUTH_SIGN_IN_NAV_CTA_CLASS =
   "inline-flex min-h-11 max-w-[11.5rem] items-center justify-center rounded-full bg-[#2C2C2C] px-3.5 py-1.5 text-center text-[12px] font-medium leading-tight text-white transition-colors hover:bg-[#1f1f1f] active:bg-[#1a1a1a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2C2C2C]/20 sm:max-w-none sm:px-5 sm:text-sm";
+
+/** Circular profile icon — default logged-out control in top nav (BahayGo + dormspacers). */
+export const AUTH_SIGN_IN_ICON_LINK_CLASS =
+  "inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white text-[#2C2C2C]/75 shadow-sm transition hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35";
 
 export function AuthSignInLink({
   href,
@@ -39,6 +44,44 @@ export function AuthSignInLinkForPath({
   nav?: boolean;
 }) {
   return <AuthSignInLink href={authLoginHref(nextPath)} className={className} nav={nav} />;
+}
+
+export function AuthSignInIconLink({
+  href,
+  className,
+  label = AUTH_SIGN_IN_CTA_LABEL,
+}: {
+  href: string;
+  className?: string;
+  label?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(AUTH_SIGN_IN_ICON_LINK_CLASS, className)}
+      aria-label={label}
+    >
+      <User className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+    </Link>
+  );
+}
+
+export function AuthSignInIconLinkForPath({
+  nextPath,
+  className,
+  label,
+}: {
+  nextPath: string;
+  className?: string;
+  label?: string;
+}) {
+  return (
+    <AuthSignInIconLink
+      href={authLoginHref(nextPath)}
+      className={className}
+      label={label}
+    />
+  );
 }
 
 export function AuthSignInButton({

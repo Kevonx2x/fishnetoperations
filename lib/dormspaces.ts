@@ -320,6 +320,10 @@ export const DORMSPACE_HERO_IMAGE =
 /** Welcome mobile hero — student on bunk bed (Pexels, George Pak). */
 export const DORMSPACE_WELCOME_MOBILE_HERO_IMAGE = "/images/dormspace-welcome-hero-mobile.png";
 
+/** Welcome split-layout hero — students in shared living (Unsplash, high-res). */
+export const DORMSPACE_WELCOME_HERO_IMAGE =
+  "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1920&q=85&fm=webp";
+
 /** Community banner — students socializing (Unsplash). */
 export const DORMSPACE_COMMUNITY_BANNER_IMAGE =
   "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1600&q=80";

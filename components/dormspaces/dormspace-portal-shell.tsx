@@ -37,6 +37,9 @@ type Props = {
 
   compactMobileNav?: boolean;
 
+  /** Full-bleed welcome — no portal header or watermark. */
+  hidePortalChrome?: boolean;
+
 };
 
 
@@ -59,6 +62,8 @@ export function DormspacePortalShell({
 
   compactMobileNav = false,
 
+  hidePortalChrome = false,
+
 }: Props) {
 
   const pathname = usePathname() ?? "";
@@ -77,14 +82,20 @@ export function DormspacePortalShell({
   return (
 
     <div
-      className={`relative flex min-h-screen flex-col bg-[#FAF8F4] ${mobileFillViewport ? "max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:overflow-hidden" : ""} ${className ?? ""}`}
+      className={`relative flex min-h-screen flex-col bg-[#FAF8F4] ${mobileFillViewport ? "h-[100dvh] max-h-[100dvh] overflow-hidden" : ""} ${className ?? ""}`}
     >
 
-      <DormspacePortalWatermark showMobileBrandText={showMobileBrandText} />
+      {!hidePortalChrome ? (
+        <DormspacePortalWatermark showMobileBrandText={showMobileBrandText} />
+      ) : null}
 
       <div
         className={
-          navVisibility === "desktop-only" || hideMobilePortalNav ? "hidden md:block" : undefined
+          hidePortalChrome
+            ? "hidden"
+            : navVisibility === "desktop-only" || hideMobilePortalNav
+              ? "hidden md:block"
+              : undefined
         }
       >
         <DormspacePortalNav
@@ -96,7 +107,7 @@ export function DormspacePortalShell({
       </div>
 
       <div
-        className={`relative z-10 flex min-w-0 flex-col ${mobileFillViewport ? "max-md:min-h-0 max-md:flex-1 max-md:overflow-hidden" : "max-md:flex-none md:flex-1"}`}
+        className={`relative z-10 flex min-w-0 flex-col ${mobileFillViewport ? "min-h-0 flex-1 overflow-hidden" : "max-md:flex-none md:flex-1"}`}
       >
         {children}
       </div>

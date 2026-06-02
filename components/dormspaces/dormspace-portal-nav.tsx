@@ -14,6 +14,7 @@ import {
   User,
 } from "lucide-react";
 
+import { AuthSignInIconLink } from "@/components/auth/auth-sign-in-cta";
 import { BahayGoHouseMark, DormspaceWelcomeLogo } from "@/components/dormspaces/dormspace-welcome-logo";
 import { useAuth } from "@/contexts/auth-context";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
@@ -301,8 +302,6 @@ export function DormspacePortalNav({
     );
   };
 
-  const signInHref = `/auth/login?next=${encodeURIComponent(pathname || "/dormspaces")}`;
-
   const bar = (
     <div
       className={cn(
@@ -406,23 +405,7 @@ export function DormspacePortalNav({
             </div>
           </>
         ) : (
-          <>
-            <Link
-              href="/dormspaces/welcome?intent=signin#get-started"
-              className="hidden text-sm font-semibold text-[#404040] transition hover:text-[#2C2C2C] sm:inline"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/dormspaces/welcome?intent=signup#get-started"
-              className={cn(
-                "inline-flex items-center justify-center rounded-xl bg-[#1a2e22] text-sm font-bold text-white shadow-sm transition hover:bg-[#243828]",
-                compactMobileHome ? "min-h-11 px-3.5 py-1.5 md:h-9 md:px-4 md:py-0" : "h-9 px-4",
-              )}
-            >
-              Sign Up
-            </Link>
-          </>
+          <AuthSignInIconLink href="/dormspaces/welcome" />
         )}
       </div>
     </div>
