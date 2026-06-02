@@ -229,7 +229,7 @@ export function DormspacePortalNav({
   }, [accountOpen]);
 
   useEffect(() => {
-    if (!user || !isLandlord) {
+    if (!user?.id || !isLandlord) {
       setInquiryCount(0);
       return;
     }
@@ -248,7 +248,7 @@ export function DormspacePortalNav({
     return () => {
       cancelled = true;
     };
-  }, [user, isLandlord]);
+  }, [user?.id, isLandlord]);
 
   const scrollToListings = () => {
     if (pathname === "/dormspaces") {

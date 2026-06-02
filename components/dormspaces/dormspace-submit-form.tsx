@@ -288,6 +288,7 @@ export function DormspaceSubmitForm() {
   const [roomType, setRoomType] = useState<DormspaceRoomType | "">("");
   const [totalBeds, setTotalBeds] = useState(1);
   const [totalBedsTouched, setTotalBedsTouched] = useState(false);
+  const landlordProfileRefreshUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!roomType || totalBedsTouched) return;
@@ -295,11 +296,12 @@ export function DormspaceSubmitForm() {
   }, [roomType, totalBedsTouched]);
 
   useEffect(() => {
-    if (!user || authLoading) return;
-    if (profile && isLandlordCapable(profile)) {
-      void refreshProfile();
-    }
-  }, [user, authLoading, profile?.id, refreshProfile]);
+    if (!user?.id || authLoading) return;
+    if (!profile || !isLandlordCapable(profile)) return;
+    if (landlordProfileRefreshUserIdRef.current === user.id) return;
+    landlordProfileRefreshUserIdRef.current = user.id;
+    void refreshProfile();
+  }, [user?.id, authLoading, profile?.id, refreshProfile]);
 
   useEffect(() => {
     if (!profile) return;
