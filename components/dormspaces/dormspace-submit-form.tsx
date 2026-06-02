@@ -103,6 +103,64 @@ function FileDrop({
 
 const LISTING_PHOTO_MIN = 3;
 const LISTING_PHOTO_MAX = 10;
+const LISTING_PHOTO_MAX_EDGE_PX = 1600;
+const LISTING_PHOTO_JPEG_QUALITY = 0.8;
+const SUBMIT_PHOTO_TOO_LARGE_MSG =
+  "Your photos are too large. Please use fewer or smaller images.";
+
+async function compressListingPhoto(file: File): Promise<File> {
+  if (!file.type.startsWith("image/") || file.type === "image/gif") {
+    return file;
+  }
+
+  const blobUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Could not read image"));
+      el.src = blobUrl;
+    });
+
+    const longest = Math.max(img.width, img.height);
+    const scale = longest > LISTING_PHOTO_MAX_EDGE_PX ? LISTING_PHOTO_MAX_EDGE_PX / longest : 1;
+    const width = Math.max(1, Math.round(img.width * scale));
+    const height = Math.max(1, Math.round(img.height * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", LISTING_PHOTO_JPEG_QUALITY);
+    });
+    if (!blob) return file;
+
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "photo";
+    return new File([blob], `${baseName}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+  }
+}
+
+async function compressListingPhotos(files: File[]): Promise<File[]> {
+  return Promise.all(files.map((file) => compressListingPhoto(file)));
+}
+
+function submitErrorMessage(
+  res: Response,
+  json: { error?: string | { code?: string; message?: string } },
+): string {
+  if (res.status === 413) return SUBMIT_PHOTO_TOO_LARGE_MSG;
+  const err = json.error;
+  const msg = typeof err === "string" ? err : err?.message;
+  if (msg?.trim()) return msg;
+  if (!res.ok) return `Submission failed (${res.status})`;
+  return "Submission failed";
+}
 
 function ListingPhotosDrop({
   photos,
@@ -428,42 +486,57 @@ export function DormspaceSubmitForm() {
       }
     }
 
-    const form = e.currentTarget;
-    const fd = new FormData(form);
-    fd.set("landlord_name", fullName);
-    fd.set("landlord_email", email);
-    fd.set("landlord_phone", phone);
-    fd.delete("landlord_first_name");
-    fd.delete("landlord_last_name");
-
-    if (idFile) fd.set("landlord_id", idFile);
-    if (billingFile) fd.set("proof_of_billing", billingFile);
-    fd.delete("photos");
-    for (const p of photos) fd.append("photos", p);
-    if (city) fd.set("city", city);
-    if (neighborhood) fd.set("neighborhood", neighborhood);
-    if (lat != null) fd.set("latitude", String(lat));
-    if (lng != null) fd.set("longitude", String(lng));
-    fd.set("address", address);
-    for (const [k, v] of Object.entries(amenities)) {
-      if (v) fd.set(k, "true");
-    }
-    if (needsPasswordOnSubmit && password) {
-      fd.set("landlord_password", password);
-    }
-
     setBusy(true);
     try {
+      let photosToUpload: File[];
+      try {
+        photosToUpload = await compressListingPhotos(photos);
+      } catch {
+        setError("Could not prepare photos. Try different images or fewer photos.");
+        return;
+      }
+
+      const form = e.currentTarget;
+      const fd = new FormData(form);
+      fd.set("landlord_name", fullName);
+      fd.set("landlord_email", email);
+      fd.set("landlord_phone", phone);
+      fd.delete("landlord_first_name");
+      fd.delete("landlord_last_name");
+
+      if (idFile) fd.set("landlord_id", idFile);
+      if (billingFile) fd.set("proof_of_billing", billingFile);
+      fd.delete("photos");
+      for (const p of photosToUpload) fd.append("photos", p);
+      if (city) fd.set("city", city);
+      if (neighborhood) fd.set("neighborhood", neighborhood);
+      if (lat != null) fd.set("latitude", String(lat));
+      if (lng != null) fd.set("longitude", String(lng));
+      fd.set("address", address);
+      for (const [k, v] of Object.entries(amenities)) {
+        if (v) fd.set(k, "true");
+      }
+      if (needsPasswordOnSubmit && password) {
+        fd.set("landlord_password", password);
+      }
+
       const res = await fetch("/api/dormspaces/submit", { method: "POST", body: fd });
-      const json = (await res.json()) as {
+      type SubmitJson = {
         id?: string;
         error?: string | { code?: string; message?: string };
         success?: boolean;
       };
+      let json: SubmitJson = {};
+      try {
+        json = (await res.json()) as SubmitJson;
+      } catch {
+        if (res.status === 413) {
+          setError(SUBMIT_PHOTO_TOO_LARGE_MSG);
+          return;
+        }
+      }
       if (!res.ok) {
-        const err = json.error;
-        const msg = typeof err === "string" ? err : err?.message;
-        setError(msg ?? "Submission failed");
+        setError(submitErrorMessage(res, json));
         return;
       }
       if (needsPasswordOnSubmit && password && email) {
@@ -477,7 +550,7 @@ export function DormspaceSubmitForm() {
       router.replace("/dormspaces/dashboard/listings?welcome=1");
       router.refresh();
     } catch {
-      setError("Network error. Please try again.");
+      setError("Could not reach the server. Check your connection and try again.");
     } finally {
       setBusy(false);
     }
