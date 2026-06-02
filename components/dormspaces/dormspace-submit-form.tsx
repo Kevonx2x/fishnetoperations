@@ -486,6 +486,8 @@ export function DormspaceSubmitForm() {
       }
     }
 
+    const formEl = e.currentTarget;
+
     setBusy(true);
     try {
       let photosToUpload: File[];
@@ -496,8 +498,7 @@ export function DormspaceSubmitForm() {
         return;
       }
 
-      const form = e.currentTarget;
-      const fd = new FormData(form);
+      const fd = new FormData(formEl);
       fd.set("landlord_name", fullName);
       fd.set("landlord_email", email);
       fd.set("landlord_phone", phone);
