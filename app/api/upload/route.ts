@@ -1,7 +1,7 @@
 import { Readable } from "node:stream";
 import { v2 as cloudinary } from "cloudinary";
 import { getSessionProfile } from "@/lib/admin-api-auth";
-import { isAdminPanelRole } from "@/lib/auth-roles";
+import { isAdminPanelRole, isLandlordCapable } from "@/lib/auth-roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const ACCEPT = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -25,7 +25,8 @@ export async function POST(req: Request) {
   }
   const isAdmin = isAdminPanelRole(session.role);
   const isAgentOrBroker = session.role === "agent" || session.role === "broker";
-  if (!isAdmin && !isAgentOrBroker) {
+  const isLandlord = isLandlordCapable(session);
+  if (!isAdmin && !isAgentOrBroker && !isLandlord) {
     return Response.json({ error: "You do not have permission to upload images" }, { status: 403 });
   }
 
@@ -77,15 +78,24 @@ export async function POST(req: Request) {
     return Response.json({ error: "Only admins can upload visual asset images" }, { status: 403 });
   }
 
+  const propertyIdRaw = String(formData.get("property_id") ?? "").trim();
+
+  const isLandlordProfileMedia =
+    isLandlord &&
+    !isArticleUpload &&
+    !isVisualAssetUpload &&
+    !isVerificationUpload &&
+    !propertyIdRaw;
+
   const uploadFolder = isArticleUpload
     ? "bahaygo/articles"
     : isVisualAssetUpload
       ? "bahaygo/visual-assets"
       : isVerificationUpload
         ? "bahaygo/verification"
-        : "bahaygo/properties";
-
-  const propertyIdRaw = String(formData.get("property_id") ?? "").trim();
+        : isLandlordProfileMedia
+          ? "bahaygo/dormspaces/landlords"
+          : "bahaygo/properties";
   if (
     !isVerificationUpload &&
     !isArticleUpload &&
