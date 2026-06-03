@@ -24,6 +24,9 @@ import { defaultTotalBedsFromRoomType } from "@/lib/dormspaces";
 import { calculateAndStoreWalkTimes } from "@/lib/dormspace-walk-times";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
+export const maxDuration = 60;
+export const runtime = "nodejs";
+
 const roomTypes = ["private", "shared_2", "shared_4", "shared_6_plus"] as const;
 const genders = ["any", "male", "female"] as const;
 
@@ -339,7 +342,7 @@ export async function POST(req: Request) {
       const idSigned = await signedVerificationUrl(admin, landlord_id_url);
       const billingSigned = await signedVerificationUrl(admin, proof_of_billing_url);
       const siteBase = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://bahaygo.com";
-      await sendAdminEmail(
+      void sendAdminEmail(
         `<p><strong>New landlord verification</strong> — ${esc(landlord_name)} (${esc(landlord_email)})</p>
           <p>Submitted with listing <strong>${esc(title)}</strong>.</p>
           <p><a href="${esc(`${siteBase}/admin`)}">Open admin</a> → Dormspaces → Landlord Verification</p>
@@ -348,7 +351,7 @@ export async function POST(req: Request) {
             ${billingSigned ? `<li><a href="${esc(billingSigned)}">Proof of billing</a></li>` : "<li>Billing link unavailable</li>"}
           </ul>`,
         `Landlord verification — ${landlord_name}`,
-      );
+      ).catch((err) => console.warn(err));
     }
   } catch (e) {
     console.error("[dormspaces/submit] storage failed", e);
@@ -363,14 +366,14 @@ export async function POST(req: Request) {
   if (!listingApproved) {
     const siteBase = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://bahaygo.com";
     const listingLink = `${siteBase}/dormspaces/${dormspaceId}`;
-    await sendAdminEmail(
+    void sendAdminEmail(
       `<p>New dormspace listing pending review.</p>
         <p><strong>${esc(title)}</strong></p>
         <p>Landlord: ${esc(landlord_name)} · ${esc(landlord_email)} · ${esc(landlord_phone)}</p>
         <p>Monthly: ₱${esc(String(monthly_price))} · Room: ${esc(room_type)}</p>
         <p><a href="${esc(listingLink)}">Preview listing</a> · <a href="${esc(`${siteBase}/admin`)}">Admin — Listings queue</a></p>`,
       `New dormspace listing — ${title}`,
-    );
+    ).catch((err) => console.warn(err));
   }
 
   if (latitude != null && longitude != null) {
