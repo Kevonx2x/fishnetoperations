@@ -76,6 +76,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { normalizeBrowseLocationLabel } from "@/lib/browse-location-label";
+import { MOBILE_BAHAYGO_STICKY_CHROME_COMPACT_SCROLL_MARGIN } from "@/lib/bahaygo-mobile/sticky-mobile-search-chrome";
 import { cn } from "@/lib/utils";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
@@ -1666,7 +1668,8 @@ export function BahayGoHomeMarketplace({
 
   const applyLocationSearch = useCallback(
     (queryOverride?: string) => {
-      const trimmed = (queryOverride ?? search).trim();
+      const trimmed = normalizeBrowseLocationLabel((queryOverride ?? search).trim());
+      if (queryOverride !== undefined) setSearch(trimmed);
       if (!trimmed) {
         setNeighborhoodFilter(null);
         syncMarketplaceUrl("");
@@ -2051,7 +2054,6 @@ export function BahayGoHomeMarketplace({
   const commitMobileLocationPicker = useCallback(
     (query: string) => {
       setNeighborhoodFilter(null);
-      setSearch(query);
       applyLocationSearch(query);
       setLocationPickerOpen(false);
     },
@@ -2068,7 +2070,6 @@ export function BahayGoHomeMarketplace({
     profile,
     onApply: (label) => {
       setNeighborhoodFilter(null);
-      setSearch(label);
       applyLocationSearch(label);
     },
   });
@@ -2505,7 +2506,13 @@ export function BahayGoHomeMarketplace({
         {!loading && !listingsLoadFailed ? (
           <>
             {/* PROPERTY LISTING SECTION (controlled by Buy/Rent toggle) */}
-            <section id="listings" className="min-w-0 w-full max-w-full overflow-x-clip scroll-mt-[10.75rem] md:scroll-mt-24">
+            <section
+              id="listings"
+              className={cn(
+                "min-w-0 w-full max-w-full overflow-x-clip md:scroll-mt-24",
+                MOBILE_BAHAYGO_STICKY_CHROME_COMPACT_SCROLL_MARGIN,
+              )}
+            >
               <HomepageFiltersSheet
                 open={filtersOpen}
                 onOpenChange={setFiltersOpen}

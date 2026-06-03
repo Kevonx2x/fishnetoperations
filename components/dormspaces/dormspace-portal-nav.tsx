@@ -317,7 +317,7 @@ export function DormspacePortalNav({
     <div
       className={cn(
         "relative flex w-full items-center gap-3 px-4 sm:px-6 lg:px-8",
-        compactMobileHome ? "py-2.5 md:py-4" : "py-4",
+        compactMobileHome ? "py-2 md:py-4" : "py-4",
       )}
     >
       <div className="relative z-10 flex shrink-0 items-center">

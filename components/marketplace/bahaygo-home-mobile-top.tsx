@@ -21,6 +21,7 @@ import {
   BahayGoMobilePeekListingCard,
   propertyLocationLine,
 } from "@/components/marketplace/bahaygo-mobile-peek-listing-card";
+import { formatBrowseNearLine } from "@/lib/browse-location-label";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import {
   defaultHomepageFiltersState,
@@ -112,31 +113,39 @@ function QuickCategoryButton({
   icon: Icon,
   active,
   onClick,
+  compact = false,
 }: {
   id: QuickCategoryId;
   label: string;
   icon: typeof Building2;
   active: boolean;
   onClick: () => void;
+  compact?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className="flex min-w-0 flex-1 flex-col items-center gap-1.5"
+      className={cn("flex min-w-0 flex-1 flex-col items-center", compact ? "gap-1" : "gap-1.5")}
     >
       <span
         className={cn(
-          "flex size-[52px] items-center justify-center rounded-2xl bg-white shadow-[0_4px_14px_rgba(0,0,0,0.08),0_1px_3px_rgba(0,0,0,0.04)] ring-1 transition active:scale-[0.97]",
+          "flex items-center justify-center rounded-xl bg-white shadow-[0_3px_10px_rgba(0,0,0,0.07),0_1px_2px_rgba(0,0,0,0.04)] ring-1 transition active:scale-[0.97]",
+          compact ? "size-[44px] rounded-xl" : "size-[52px] rounded-2xl",
           active ? "ring-[#6B9E6E]/50 ring-2" : "ring-black/[0.06]",
         )}
       >
-        <Icon className={cn("size-[22px]", active ? "text-[#3d5240]" : "text-[#6B9E6E]")} strokeWidth={2} aria-hidden />
+        <Icon
+          className={cn(compact ? "size-[18px]" : "size-[22px]", active ? "text-[#3d5240]" : "text-[#6B9E6E]")}
+          strokeWidth={2}
+          aria-hidden
+        />
       </span>
       <span
         className={cn(
-          "line-clamp-2 w-full text-center text-[10px] font-semibold leading-tight",
+          "line-clamp-2 w-full text-center font-semibold leading-tight",
+          compact ? "text-[9px]" : "text-[10px]",
           active ? "text-[#3d5240]" : "text-[#2C2C2C]",
         )}
       >
@@ -180,8 +189,7 @@ function locationLineLabel(
   search: string,
 ): string {
   const place = filters.locationLabel || neighborhoodLabel || search.trim();
-  if (place) return `Near ${place}`;
-  return "Near Metro Manila";
+  return formatBrowseNearLine(place);
 }
 
 function MobileNewCard({
@@ -312,18 +320,18 @@ export function BahayGoHomeMobileStickySearch({
   compact = false,
 }: BahayGoHomeMobileStickySearchProps) {
   return (
-    <div className={cn(compact ? "space-y-1.5 py-1.5" : "space-y-2 py-2", PAGE_X)}>
+    <div className={cn(compact ? "space-y-1 py-1" : "space-y-2 py-2", PAGE_X)}>
       <div
         id="bahaygo-hero-search"
         className={cn(
-          compact ? "scroll-mt-[10rem]" : "scroll-mt-[10.75rem]",
-          "flex items-center gap-2 border border-[#2C2C2C]/8 bg-white",
+          compact ? "scroll-mt-[7.5rem]" : "scroll-mt-[10.75rem]",
+          "flex items-center gap-1.5 border border-[#2C2C2C]/8 bg-white",
           compact
-            ? "h-11 rounded-xl px-2.5 shadow-[0_6px_20px_rgba(44,44,44,0.08)]"
+            ? "h-9 rounded-lg px-2 shadow-[0_4px_14px_rgba(44,44,44,0.07)]"
             : "rounded-2xl px-3 py-2 shadow-[0_8px_28px_rgba(44,44,44,0.1)]",
         )}
       >
-        <Search className={cn("shrink-0 text-[#888888]", compact ? "size-4" : "size-[18px]")} strokeWidth={2} aria-hidden />
+        <Search className={cn("shrink-0 text-[#888888]", compact ? "size-3.5" : "size-[18px]")} strokeWidth={2} aria-hidden />
         <PhLocationInput
           value={search}
           onChange={onSearchChange}
@@ -333,37 +341,40 @@ export function BahayGoHomeMobileStickySearch({
           placeholder="Where do you want to live?"
           aria-label="Search location"
           className="min-w-0 flex-1"
-          inputClassName="w-full border-0 bg-transparent p-0 text-[14px] font-medium leading-tight text-[#2C2C2C] shadow-none placeholder:text-[#888888] focus-visible:ring-0"
+          inputClassName={cn(
+            "w-full border-0 bg-transparent p-0 font-medium leading-tight text-[#2C2C2C] shadow-none placeholder:text-[#888888] focus-visible:ring-0",
+            compact ? "text-[13px]" : "text-[14px]",
+          )}
         />
         <button
           type="button"
           onClick={onOpenFilters}
           className={cn(
-            "flex shrink-0 items-center justify-center rounded-lg text-[#2C2C2C]/70",
-            compact ? "size-11" : "size-9 rounded-xl",
+            "flex shrink-0 items-center justify-center rounded-md text-[#2C2C2C]/70",
+            compact ? "size-8" : "size-9 rounded-xl",
           )}
           aria-label="Filters"
         >
-          <SlidersHorizontal className={compact ? "size-[17px]" : "size-[18px]"} strokeWidth={2} />
+          <SlidersHorizontal className={compact ? "size-4" : "size-[18px]"} strokeWidth={2} />
         </button>
       </div>
 
       <div
         className={cn(
-          "flex items-center gap-1",
-          compact ? "min-h-8 text-[12px]" : "text-[13px]",
+          "flex min-w-0 items-center gap-1",
+          compact ? "min-h-6 text-[11px]" : "text-[13px]",
         )}
       >
-        <MapPin className={cn("shrink-0 text-[#6B9E6E]", compact ? "size-3" : "size-3.5")} aria-hidden />
-        <span className="font-semibold text-[#2C2C2C]">
+        <MapPin className={cn("shrink-0 text-[#6B9E6E]", compact ? "size-2.5" : "size-3.5")} aria-hidden />
+        <span className="min-w-0 truncate font-semibold text-[#2C2C2C]">
           {locationLineLabel(filters, neighborhoodLabel, search)}
         </span>
         <button
           type="button"
           onClick={onLocationChipPress}
           className={cn(
-            "ml-auto inline-flex items-center font-semibold text-[#6B9E6E]",
-            compact ? "min-h-8 text-[12px]" : "text-[13px]",
+            "ml-auto inline-flex shrink-0 items-center font-semibold text-[#6B9E6E]",
+            compact ? "min-h-6 text-[11px]" : "text-[13px]",
           )}
         >
           Change
@@ -498,15 +509,15 @@ export function BahayGoHomeMobileTop({
 
   return (
     <div className="md:hidden overflow-x-clip">
-      <div className="relative overflow-x-clip bg-[#FAF8F4] pb-2">
-        <section className={cn("relative", compactMobileHome ? "space-y-2 pt-1" : "space-y-2.5 pt-2", PAGE_X)}>
-          <div className="flex justify-center gap-2">
+      <div className={cn("relative overflow-x-clip bg-[#FAF8F4]", compactMobileHome ? "pb-1" : "pb-2")}>
+        <section className={cn("relative", compactMobileHome ? "space-y-1.5 pt-0.5" : "space-y-2.5 pt-2", PAGE_X)}>
+          <div className="flex justify-center gap-1.5">
             <FilterChip
               active={mode === "rent"}
               onClick={() => onBuyRentChange("rent")}
               className={cn(
-                "min-w-[7.25rem] justify-center px-6",
-                compactMobileHome && "py-1.5",
+                "min-w-[6.5rem] justify-center px-5",
+                compactMobileHome && "py-1 text-[11px]",
               )}
             >
               Rent
@@ -515,21 +526,22 @@ export function BahayGoHomeMobileTop({
               active={mode === "buy"}
               onClick={() => onBuyRentChange("buy")}
               className={cn(
-                "min-w-[7.25rem] justify-center px-6",
-                compactMobileHome && "py-1.5",
+                "min-w-[6.5rem] justify-center px-5",
+                compactMobileHome && "py-1 text-[11px]",
               )}
             >
               Buy
             </FilterChip>
           </div>
 
-          <div className="flex gap-1.5 pt-0.5">
+          <div className={cn("flex gap-1", compactMobileHome ? "pt-0" : "gap-1.5 pt-0.5")}>
             {QUICK_CATEGORIES.map(({ id, label, icon }) => (
               <QuickCategoryButton
                 key={id}
                 id={id}
                 label={label}
                 icon={icon}
+                compact={compactMobileHome}
                 active={isQuickCategoryActive(id, filters, search)}
                 onClick={() => handleQuickCategory(id)}
               />
@@ -543,7 +555,7 @@ export function BahayGoHomeMobileTop({
             <HomepageMobilePeekRowSkeleton />
           </>
         ) : heroSlides.length > 0 ? (
-          <section className="mt-2">
+          <section className={cn(compactMobileHome ? "mt-1" : "mt-2")}>
             <SectionHeader
               title={
                 <>
@@ -554,7 +566,7 @@ export function BahayGoHomeMobileTop({
             />
             <div
               ref={heroScrollRef}
-              className={cn(CAROUSEL_SCROLL, HOMEPAGE_MOBILE_CAROUSEL_INSET, "mt-2 gap-2.5")}
+              className={cn(CAROUSEL_SCROLL, HOMEPAGE_MOBILE_CAROUSEL_INSET, compactMobileHome ? "mt-1.5 gap-2" : "mt-2 gap-2.5")}
             >
               {heroSlides.map((p, i) => {
                 const raw = firstRawPropertyPhotoUrl(p);

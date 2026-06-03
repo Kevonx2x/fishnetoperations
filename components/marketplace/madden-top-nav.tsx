@@ -514,7 +514,7 @@ export function MaddenTopNav({ compactMobileHome = false }: { compactMobileHome?
       <div
         className={cn(
           "mx-auto grid w-full min-w-0 max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 md:gap-3",
-          compactMobileHome ? "py-2.5 md:py-4" : "py-4",
+          compactMobileHome ? "py-2 md:py-4" : "py-4",
         )}
       >
         <div className="flex items-center gap-2 justify-self-start">
@@ -524,14 +524,14 @@ export function MaddenTopNav({ compactMobileHome = false }: { compactMobileHome?
             aria-label="BahayGo home"
           >
             <span className="inline-flex items-center gap-1.5 md:hidden">
-              <svg viewBox="0 0 40 36" className={cn("w-auto shrink-0", compactMobileHome ? "h-6" : "h-7")} aria-hidden>
+              <svg viewBox="0 0 40 36" className={cn("w-auto shrink-0", compactMobileHome ? "h-5" : "h-7")} aria-hidden>
                 <path fill="#D4A843" d="M20 2 L36 14 L36 32 L4 32 L4 14 Z" />
                 <rect x="16" y="22" width="8" height="10" rx="1" fill="#FAF8F4" />
               </svg>
               <span
                 className={cn(
                   "inline-flex items-baseline gap-0 font-serif font-bold leading-none tracking-tight",
-                  compactMobileHome ? "text-[1.2rem]" : "text-[1.35rem]",
+                  compactMobileHome ? "text-[1.1rem]" : "text-[1.35rem]",
                 )}
               >
                 <span className="text-[#2C2C2C]">Bahay</span>
@@ -596,7 +596,10 @@ export function MaddenTopNav({ compactMobileHome = false }: { compactMobileHome?
                     type="button"
                     data-tour="avatar-button"
                     onClick={() => setAccountOpen((o) => !o)}
-                    className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white shadow-sm ring-2 ring-[#D4A843]/25 hover:bg-[#FAF8F4]"
+                    className={cn(
+                      "flex items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white shadow-sm ring-2 ring-[#D4A843]/25 hover:bg-[#FAF8F4]",
+                      compactMobileHome ? "h-8 w-8" : "h-9 w-9",
+                    )}
                     aria-expanded={accountOpen}
                     aria-haspopup="menu"
                   >

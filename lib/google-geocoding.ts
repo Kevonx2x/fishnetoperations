@@ -1,5 +1,7 @@
 import "server-only";
 
+import { normalizeBrowseLocationLabel } from "@/lib/browse-location-label";
+
 export type GeocodeResult =
   | { ok: true; lat: number; lng: number }
   | { ok: false; reason: string };
@@ -56,13 +58,13 @@ export function formatBrowseLocationFromGeocodeResult(result: GeocodeApiResult):
   const city = pickCityFromComponents(components);
   const neighborhood = pickNeighborhoodFromComponents(components);
   if (neighborhood && city && neighborhood.toLowerCase() !== city.toLowerCase()) {
-    return `${neighborhood}, ${city}`;
+    return normalizeBrowseLocationLabel(`${neighborhood}, ${city}`);
   }
-  if (city) return city;
+  if (city) return normalizeBrowseLocationLabel(city);
   const formatted = result.formatted_address?.trim();
   if (formatted) {
     const parts = formatted.split(",").map((s) => s.trim()).filter(Boolean);
-    if (parts[0]) return parts[0];
+    if (parts[0]) return normalizeBrowseLocationLabel(parts[0]);
   }
   return "Manila";
 }

@@ -39,12 +39,12 @@ export function DormspaceWelcomeLogo({
       )}
       aria-label="BahayGo dormspacers"
     >
-      <BahayGoHouseMark className={cn("w-auto shrink-0", compact ? "h-6" : "h-9")} />
+      <BahayGoHouseMark className={cn("w-auto shrink-0", compact ? "h-5" : "h-9")} />
       <span className={cn("flex flex-col items-start", compact ? "pt-0" : "pt-0.5")}>
         <span
           className={cn(
             "inline-flex items-baseline gap-0 font-serif font-bold leading-none tracking-tight",
-            compact ? "text-[1.2rem]" : "text-[1.35rem]",
+            compact ? "text-[1.1rem]" : "text-[1.35rem]",
           )}
         >
           <span className={onHero ? "text-white" : "text-[#2C2C2C]"}>Bahay</span>
@@ -54,7 +54,7 @@ export function DormspaceWelcomeLogo({
           className={cn(
             "font-serif font-semibold leading-none tracking-[0.14em]",
             onHero ? "text-white/75" : "text-[#888888]",
-            compact ? "mt-px text-[0.58rem]" : "mt-0.5 text-[0.65rem]",
+            compact ? "mt-px text-[0.55rem]" : "mt-0.5 text-[0.65rem]",
           )}
         >
           dormspacers

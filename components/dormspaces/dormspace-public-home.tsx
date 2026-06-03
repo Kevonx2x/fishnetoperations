@@ -41,6 +41,7 @@ import {
 } from "@/lib/dormspaces";
 import type { UniversityRow } from "@/lib/universities";
 import type { DormspacePopularArea } from "@/lib/dormspace-popular-areas";
+import { formatBrowseNearLine, normalizeBrowseLocationLabel } from "@/lib/browse-location-label";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useBrowseClientGpsLocation } from "@/hooks/use-browse-client-gps-location";
@@ -115,8 +116,8 @@ export function DormspacePublicHome({
   }, [locationPickerOpen, locationQuery]);
 
   const applySearch = (queryOverride?: string) => {
-    const q = (queryOverride ?? locationQuery).trim();
-    if (queryOverride !== undefined) setLocationQuery(queryOverride);
+    const q = normalizeBrowseLocationLabel((queryOverride ?? locationQuery).trim());
+    if (queryOverride !== undefined) setLocationQuery(q);
     const city = parseCityFromLocation(q);
     setFilters({
       ...EMPTY_DORMSPACE_BROWSE_FILTERS,
@@ -153,9 +154,9 @@ export function DormspacePublicHome({
   };
 
   const dormspaceLocationLabel = locationQuery.trim()
-    ? `Near ${locationQuery.trim()}`
+    ? formatBrowseNearLine(locationQuery, "Manila")
     : filters.city.trim()
-      ? `Near ${filters.city.trim()}`
+      ? formatBrowseNearLine(filters.city, "Manila")
       : "Near Manila";
 
   return (

@@ -53,6 +53,7 @@ import {
 
 } from "@/lib/universities";
 
+import { formatBrowseNearLine } from "@/lib/browse-location-label";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { cn } from "@/lib/utils";
 
@@ -116,7 +117,7 @@ export function DormspaceMobileStickySearch({
 
   return (
 
-    <section className={cn(PAGE_X, compact ? "space-y-1.5 py-1.5" : "space-y-2 py-2")}>
+    <section className={cn(PAGE_X, compact ? "space-y-1 py-1" : "space-y-2 py-2")}>
 
       <div
 
@@ -124,11 +125,11 @@ export function DormspaceMobileStickySearch({
 
         className={cn(
 
-          "flex items-center gap-2 border border-[#2C2C2C]/10 bg-white",
+          "flex items-center gap-1.5 border border-[#2C2C2C]/10 bg-white",
 
           compact
 
-            ? "h-11 rounded-xl px-2.5 shadow-[0_6px_20px_rgba(44,44,44,0.08)]"
+            ? "h-9 rounded-lg px-2 shadow-[0_4px_14px_rgba(44,44,44,0.07)]"
 
             : "h-12 rounded-2xl px-3.5 shadow-[0_2px_14px_rgba(44,44,44,0.06)]",
 
@@ -136,7 +137,7 @@ export function DormspaceMobileStickySearch({
 
       >
 
-        <Search className={cn("shrink-0 text-[#888888]", compact ? "size-4" : "size-[18px]")} strokeWidth={2.25} aria-hidden />
+        <Search className={cn("shrink-0 text-[#888888]", compact ? "size-3.5" : "size-[18px]")} strokeWidth={2.25} aria-hidden />
 
         <PhLocationInput
 
@@ -152,7 +153,13 @@ export function DormspaceMobileStickySearch({
 
           className="min-w-0 flex-1"
 
-          inputClassName="w-full border-0 bg-transparent p-0 text-[14px] font-medium leading-tight text-[#2C2C2C] shadow-none placeholder:text-[#888888] focus-visible:ring-0"
+          inputClassName={cn(
+
+            "w-full border-0 bg-transparent p-0 font-medium leading-tight text-[#2C2C2C] shadow-none placeholder:text-[#888888] focus-visible:ring-0",
+
+            compact ? "text-[13px]" : "text-[14px]",
+
+          )}
 
         />
 
@@ -164,9 +171,9 @@ export function DormspaceMobileStickySearch({
 
           className={cn(
 
-            "flex shrink-0 items-center justify-center rounded-lg text-[#2C2C2C]/60",
+            "flex shrink-0 items-center justify-center rounded-md text-[#2C2C2C]/60",
 
-            compact ? "size-11" : "size-8",
+            compact ? "size-8" : "size-8",
 
           )}
 
@@ -174,7 +181,7 @@ export function DormspaceMobileStickySearch({
 
         >
 
-          <SlidersHorizontal className={compact ? "size-[17px]" : "size-[18px]"} strokeWidth={2} />
+          <SlidersHorizontal className={compact ? "size-4" : "size-[18px]"} strokeWidth={2} />
 
         </button>
 
@@ -182,11 +189,11 @@ export function DormspaceMobileStickySearch({
 
 
 
-      <div className={cn("flex items-center gap-1", compact ? "min-h-8 text-[12px]" : "text-[13px]")}>
+      <div className={cn("flex min-w-0 items-center gap-1", compact ? "min-h-6 text-[11px]" : "text-[13px]")}>
 
-        <MapPin className={cn("shrink-0 text-[#6B9E6E]", compact ? "size-3" : "size-3.5")} aria-hidden />
+        <MapPin className={cn("shrink-0 text-[#6B9E6E]", compact ? "size-2.5" : "size-3.5")} aria-hidden />
 
-        <span className="font-semibold text-[#2C2C2C]">{locationLabel}</span>
+        <span className="min-w-0 truncate font-semibold text-[#2C2C2C]">{locationLabel}</span>
 
         <button
 
@@ -196,9 +203,9 @@ export function DormspaceMobileStickySearch({
 
           className={cn(
 
-            "ml-auto inline-flex items-center font-semibold text-[#6B9E6E]",
+            "ml-auto inline-flex shrink-0 items-center font-semibold text-[#6B9E6E]",
 
-            compact ? "min-h-8 text-[12px]" : "text-[13px]",
+            compact ? "min-h-6 text-[11px]" : "text-[13px]",
 
           )}
 
