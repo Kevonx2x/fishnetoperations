@@ -71,7 +71,7 @@ export function DormspaceLikedPage() {
             browsing for a dorm.
           </p>
           <Link
-            href="/dormspaces/dashboard"
+            href="/dormspaces/dashboard/listings"
             className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white"
           >
             Go to My Listings

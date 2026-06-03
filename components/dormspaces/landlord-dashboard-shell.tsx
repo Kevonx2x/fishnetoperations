@@ -18,7 +18,7 @@ type Props = {
   variant?: "hub" | "subpage";
 };
 
-export function useLandlordDashboardAuth(loginNext = "/dormspaces/dashboard") {
+export function useLandlordDashboardAuth(loginNext = "/dormspaces/dashboard/listings") {
   const router = useRouter();
   const { user, profile, loading: authLoading } = useAuth();
 
@@ -89,7 +89,7 @@ export function LandlordDashboardShell({ children, loginNext, variant = "subpage
           inquiryCount={inquiryCount}
           className="hidden md:flex"
         />
-        <div className="min-w-0 flex-1 bg-white">{children}</div>
+        <div className="min-w-0 flex-1 bg-[#FAF8F4]">{children}</div>
       </div>
     </DormspacePortalShell>
   );

@@ -2,15 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Bed,
-  Gauge,
-  Inbox,
-  MapPin,
-  Plus,
-  Settings,
-  User,
-} from "lucide-react";
+import { Inbox, MapPin, Plus, Settings, User } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
@@ -18,12 +10,12 @@ import { landlordFirstName } from "@/components/dormspaces/landlord-dashboard-sh
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_LINK =
-  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#525252] transition hover:bg-white hover:text-[#2C2C2C]";
+  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#484848] transition hover:bg-white/80 hover:text-[#2C2C2C]";
 
 type NavItem = {
   href: string;
   label: string;
-  icon: typeof Bed;
+  icon: typeof MapPin;
   match: (path: string) => boolean;
   badge?: number;
 };
@@ -49,12 +41,6 @@ export function LandlordDashboardSidebar({
     : (user?.email?.[0] ?? "L").toUpperCase();
 
   const navItems: NavItem[] = [
-    {
-      href: "/dormspaces/dashboard",
-      label: "Dashboard",
-      icon: Gauge,
-      match: (p) => p === "/dormspaces/dashboard",
-    },
     {
       href: "/dormspaces/dashboard/profile",
       label: "My Profile",
@@ -92,13 +78,13 @@ export function LandlordDashboardSidebar({
   return (
     <aside
       className={cn(
-        "flex w-full shrink-0 flex-col border-r border-[#2C2C2C]/10 bg-[#F0F0F0] md:w-[260px] lg:w-[280px]",
+        "flex w-full shrink-0 flex-col border-r border-[#DDDDDD] bg-[#FAF8F4] md:w-[260px] lg:w-[280px]",
         className,
       )}
     >
-      <div className="border-b border-[#2C2C2C]/8 bg-[#F0F0F0] px-4 py-5">
+      <div className="border-b border-[#DDDDDD] px-4 py-5">
         <div className="flex items-center gap-3">
-          <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#2C2C2C]/10 bg-white shadow-sm">
+          <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#D4A843]/35 bg-white shadow-sm ring-2 ring-[#D4A843]/20">
             {profile?.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={profile.avatar_url} alt="" className="size-full object-cover" />
@@ -109,21 +95,21 @@ export function LandlordDashboardSidebar({
             )}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[#2C2C2C]">Hello, {firstName}</p>
+            <p className="truncate font-serif text-sm font-bold text-[#2C2C2C]">Hello, {firstName}</p>
             <p className="truncate text-xs font-medium text-[#888888]">{displayName}</p>
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-[#2C2C2C]/8 bg-white p-3 shadow-sm">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-[#888888]">Your dormspaces</p>
+        <div className="mt-4 rounded-2xl border border-[#DDDDDD] bg-white p-3 shadow-sm">
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B9E6E]">Your dormspaces</p>
           <dl className="mt-2 grid grid-cols-2 gap-2 text-center">
             <div>
               <dt className="text-[10px] font-semibold uppercase text-[#888888]">Listings</dt>
-              <dd className="text-lg font-bold text-[#2C2C2C]">{listingCount}</dd>
+              <dd className="font-serif text-lg font-bold text-[#2C2C2C]">{listingCount}</dd>
             </div>
             <div>
               <dt className="text-[10px] font-semibold uppercase text-[#888888]">Inquiries</dt>
-              <dd className="text-lg font-bold text-[#2C2C2C]">{inquiryCount}</dd>
+              <dd className="font-serif text-lg font-bold text-[#D4A843]">{inquiryCount}</dd>
             </div>
           </dl>
         </div>
@@ -139,7 +125,8 @@ export function LandlordDashboardSidebar({
               href={item.href}
               className={cn(
                 SIDEBAR_LINK,
-                active && "bg-[#6B9E6E]/12 text-[#2C2C2C] ring-1 ring-[#6B9E6E]/20",
+                active &&
+                  "bg-white text-[#2C2C2C] shadow-sm ring-1 ring-[#6B9E6E]/25",
               )}
               aria-current={active ? "page" : undefined}
             >

@@ -147,7 +147,7 @@ function welcomeProfileInitials(name: string | null | undefined, email: string |
 }
 
 function welcomeDashboardHref(profile: Profile | null): string {
-  if (profile && isLandlordCapable(profile)) return "/dormspaces/dashboard";
+  if (profile && isLandlordCapable(profile)) return "/dormspaces/dashboard/listings";
   if (profile?.role) return pathForRole(profile.role);
   return "/dormspaces";
 }
@@ -334,7 +334,7 @@ export function EmailFirstAuthCard({ compactMobile = false }: { compactMobile?: 
       }
 
       if (isLandlordCapable({ role, is_landlord })) {
-        router.replace("/dormspaces/dashboard");
+        router.replace("/dormspaces/dashboard/listings");
         router.refresh();
         return;
       }

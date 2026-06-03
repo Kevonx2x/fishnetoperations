@@ -76,7 +76,7 @@ function LoginForm() {
         } else if (role === "client") {
           dest = "/";
         } else if (role === "landlord") {
-          dest = "/dormspaces/dashboard";
+          dest = "/dormspaces/dashboard/listings";
         } else if (role === "admin" || role === "ops_admin" || role === "broker") {
           dest = pathForRole(role);
         } else {

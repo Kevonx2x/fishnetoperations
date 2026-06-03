@@ -50,7 +50,7 @@ export function pathForRole(role: string | null | undefined): string {
     case "client":
       return "/dashboard/client";
     case "landlord":
-      return "/dormspaces/dashboard";
+      return "/dormspaces/dashboard/listings";
     default:
       return "/";
   }

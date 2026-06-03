@@ -45,7 +45,7 @@ const PATHS = {
   dormspacesLiked: "/dormspaces/liked",
   search: "/dormspaces/search",
   dormspacesLandlords: "/dormspaces/landlords",
-  dormspacesDashboard: "/dormspaces/dashboard",
+  dormspacesDashboard: "/dormspaces/dashboard/listings",
   dormspacesSubmit: "/dormspaces/submit",
   dormspacesWelcome: "/dormspaces/welcome",
   faq: "/faq",

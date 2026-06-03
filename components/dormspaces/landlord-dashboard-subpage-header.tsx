@@ -16,8 +16,8 @@ type Props = {
 
 export function LandlordDashboardSubpageHeader({
   title,
-  backHref = "/dormspaces/dashboard",
-  backLabel = "Dashboard",
+  backHref = "/dormspaces/dashboard/listings",
+  backLabel = "My Listings",
   className,
   children,
 }: Props) {

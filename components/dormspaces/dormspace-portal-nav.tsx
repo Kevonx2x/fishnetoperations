@@ -316,28 +316,31 @@ export function DormspacePortalNav({
   const bar = (
     <div
       className={cn(
-        "mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto] items-center gap-3 px-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-3",
+        "relative flex w-full items-center gap-3 px-4 sm:px-6 lg:px-8",
         compactMobileHome ? "py-2.5 md:py-4" : "py-4",
       )}
     >
-      <div className="flex min-w-0 items-center justify-self-start">
+      <div className="relative z-10 flex shrink-0 items-center">
         <DormspaceWelcomeLogo href={logoHref} compact={compactMobileHome} />
       </div>
 
       {!minimal ? (
-        <nav className="hidden items-center justify-center gap-6 sm:flex">
+        <nav
+          className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-6 sm:flex"
+          aria-label="Dormspaces"
+        >
           {centerItems.map(renderCenterLink)}
           <ResourcesMenu />
         </nav>
       ) : (
-        <nav className="hidden items-center justify-center gap-6 sm:flex">
+        <nav className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-6 sm:flex">
           <Link href="/dormspaces" className={NAV_LINK}>
             Browse dormspaces
           </Link>
         </nav>
       )}
 
-      <div className="flex items-center gap-2 justify-self-end">
+      <div className="relative z-10 ml-auto flex items-center gap-2">
         {loading ? (
           <div className="h-9 w-24 animate-pulse rounded-full bg-black/5" />
         ) : user ? (

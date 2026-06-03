@@ -110,7 +110,7 @@ function SiteFooter() {
           <div className="flex flex-col gap-1 sm:items-end">
             <span>Safe discovery for luxury homes.</span>
             <a
-              href="/auth/login?next=/dormspaces/dashboard"
+              href="/auth/login?next=/dormspaces/dashboard/listings"
               className="text-[#888888] hover:text-[#484848]"
             >
               Landlord login

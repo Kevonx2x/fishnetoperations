@@ -89,7 +89,7 @@ export function DormspacePortalFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/dormspaces/dashboard" className="hover:text-[#D4A843]">
+                <Link href="/dormspaces/dashboard/listings" className="hover:text-[#D4A843]">
                   Landlord dashboard
                 </Link>
               </li>

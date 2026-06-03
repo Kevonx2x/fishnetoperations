@@ -113,7 +113,7 @@ export function LandlordDashboardInquiries() {
             <Loader2 className="size-4 animate-spin" /> Loading inquiries…
           </p>
         ) : inquiries.length === 0 ? (
-          <p className="rounded-2xl border border-[#DDDDDD] bg-white p-8 text-center text-sm font-medium text-[#484848]">
+          <p className="rounded-2xl border border-[#DDDDDD] bg-white p-8 text-center text-sm font-medium text-[#484848] shadow-sm">
             No inquiries yet. Once tenants contact you about a listing, messages appear here.
           </p>
         ) : (

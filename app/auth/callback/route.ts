@@ -134,7 +134,7 @@ async function finalizeLandlordOAuth(
   }
 
   if (isLandlordCapable({ role, is_landlord })) {
-    return NextResponse.redirect(new URL("/dormspaces/dashboard", requestUrl));
+    return NextResponse.redirect(new URL("/dormspaces/dashboard/listings", requestUrl));
   }
 
   if (canSetLandlordFlagOnSubmit(role)) {

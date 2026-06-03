@@ -98,7 +98,7 @@ function LandlordWelcomeCard({
           ) : (
             <>
               <Link
-                href="/dormspaces/dashboard"
+                href="/dormspaces/dashboard/listings"
                 className="inline-flex h-12 items-center justify-center rounded-xl bg-[#1a2e22] px-6 text-sm font-bold text-white shadow-md transition hover:bg-[#243828]"
               >
                 Go to dashboard

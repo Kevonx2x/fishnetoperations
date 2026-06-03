@@ -45,11 +45,11 @@ export function DormspacePortalWatermark({ showMobileBrandText = true }: { showM
       <Link
         href={homeHref}
         tabIndex={-1}
-        className="pointer-events-none absolute -right-8 top-24 block h-[min(42vw,280px)] w-[min(42vw,280px)] sm:right-4 sm:top-32 md:pointer-events-auto md:transition-opacity md:hover:opacity-100"
+        className="pointer-events-none absolute left-3 top-24 block h-[min(36vw,240px)] w-[min(36vw,240px)] sm:left-6 sm:top-28 md:left-8 md:top-32 md:pointer-events-auto md:transition-opacity md:hover:opacity-100"
         aria-hidden
       >
-        <svg viewBox="0 0 40 36" className="h-full w-full opacity-[0.04] hover:opacity-[0.07]" aria-hidden>
-          <path fill="#6B9E6E" d="M20 2 L36 14 L36 32 L4 32 L4 14 Z" />
+        <svg viewBox="0 0 40 36" className="h-full w-full opacity-[0.045] hover:opacity-[0.08]" aria-hidden>
+          <path fill="#D4A843" d="M20 2 L36 14 L36 32 L4 32 L4 14 Z" />
           <rect x="16" y="22" width="8" height="10" rx="1" fill="#FAF8F4" />
         </svg>
       </Link>

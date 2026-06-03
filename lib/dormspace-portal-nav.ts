@@ -25,7 +25,7 @@ export function dormspaceCenterNavItems(
   _pathname: string,
 ): DormspaceNavLinkItem[] {
   if (variant === "landlord") {
-    return [{ key: "listings", label: "My Listings", href: "/dormspaces/dashboard" }];
+    return [{ key: "listings", label: "My Listings", href: "/dormspaces/dashboard/listings" }];
   }
 
   return [];

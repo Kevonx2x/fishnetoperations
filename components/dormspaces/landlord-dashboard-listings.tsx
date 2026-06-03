@@ -248,13 +248,13 @@ export function LandlordDashboardListings({ welcome }: Props) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by title or area…"
-              className="w-full rounded-lg border border-[#2C2C2C]/15 bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6B9E6E]/35"
+              className="w-full rounded-xl border border-[#DDDDDD] bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-[#2C2C2C] shadow-sm placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25"
             />
           </label>
           <button
             type="button"
             onClick={() => setSearchQuery((s) => s.trim())}
-            className="h-11 shrink-0 rounded-lg bg-[#6B9E6E] px-6 text-sm font-bold text-white transition hover:bg-[#5d8a60] sm:w-auto"
+            className="h-11 shrink-0 rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-[0_4px_14px_rgba(107,158,110,0.35)] transition hover:bg-[#5d8a60] sm:w-auto"
           >
             Search
           </button>
@@ -294,7 +294,7 @@ export function LandlordDashboardListings({ welcome }: Props) {
           </div>
         ) : null}
 
-        <div className="mt-6 overflow-hidden rounded-xl border border-[#2C2C2C]/10 bg-white shadow-sm">
+        <div className="mt-6 overflow-hidden rounded-2xl border border-[#DDDDDD] bg-white shadow-[0_4px_20px_rgba(44,44,44,0.06)]">
           {loadingListings ? (
             <p className="flex items-center gap-2 px-4 py-10 text-sm text-[#484848]">
               <Loader2 className="size-4 animate-spin" /> Loading listings…
@@ -326,7 +326,7 @@ export function LandlordDashboardListings({ welcome }: Props) {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] border-collapse text-left">
                 <thead>
-                  <tr className="border-b border-[#2C2C2C]/10 bg-[#FAF8F4]">
+                  <tr className="border-b border-[#DDDDDD] bg-[#FAF8F4]">
                     <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-[#888888]">
                       Property
                     </th>
