@@ -67,6 +67,13 @@ import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
 import { listingListedCompactLabel } from "@/lib/listing-listed-time";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
@@ -1292,6 +1299,8 @@ export function BahayGoHomeMarketplace({
   const [locationCuratedLoading, setLocationCuratedLoading] = useState(false);
   const [showMoreCategories, setShowMoreCategories] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+  const [locationPickerQuery, setLocationPickerQuery] = useState("");
   const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
   const [filters, setFilters] = useState<FiltersState>(defaultHomepageFiltersState);
   const [cardRoomIdx, setCardRoomIdx] = useState<Record<string, number>>({});
@@ -2031,6 +2040,21 @@ export function BahayGoHomeMarketplace({
     applyLocationSearch();
   };
 
+  useEffect(() => {
+    if (!locationPickerOpen) return;
+    setLocationPickerQuery(search);
+  }, [locationPickerOpen, search]);
+
+  const commitMobileLocationPicker = useCallback(
+    (query: string) => {
+      setNeighborhoodFilter(null);
+      setSearch(query);
+      applyLocationSearch(query);
+      setLocationPickerOpen(false);
+    },
+    [applyLocationSearch],
+  );
+
   const selectCityFilter = (key: string) => {
     if (neighborhoodFilter === key) {
       pendingFeaturedLocationUrlSyncRef.current = "";
@@ -2178,9 +2202,46 @@ export function BahayGoHomeMarketplace({
           onOpenFilters={() => setFiltersOpen(true)}
           filters={filters}
           neighborhoodLabel={neighborhoodLabelForChips}
-          onLocationChipPress={() => setFiltersOpen(true)}
+          onLocationChipPress={() => setLocationPickerOpen(true)}
         />
       </MobileFixedSearchShell>
+
+      <Sheet open={locationPickerOpen} onOpenChange={setLocationPickerOpen}>
+        <SheetContent
+          side="bottom"
+          showCloseButton={false}
+          className="z-[100] rounded-t-2xl border-[#2C2C2C]/10 bg-[#FAF8F4] px-0 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 md:hidden"
+        >
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#2C2C2C]/15" aria-hidden />
+          <SheetHeader className="px-4 text-left">
+            <SheetTitle className="font-sans text-base font-semibold text-[#2C2C2C]">
+              Change location
+            </SheetTitle>
+            <SheetDescription className="text-sm text-[#888888]">
+              Search by city, area, or neighborhood
+            </SheetDescription>
+          </SheetHeader>
+          <div className="px-4 pb-2 pt-4">
+            <PhLocationInput
+              value={locationPickerQuery}
+              onChange={setLocationPickerQuery}
+              onSubmitSearch={() => commitMobileLocationPicker(locationPickerQuery)}
+              onLocationPicked={commitMobileLocationPicker}
+              recentSearches={recentHomepageSearches}
+              placeholder="Where do you want to live?"
+              aria-label="Search location"
+              inputClassName="w-full rounded-xl border border-[#2C2C2C]/12 bg-white px-3.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus:border-[#6B9E6E] focus:outline-none focus:ring-2 focus:ring-[#6B9E6E]/30"
+            />
+            <button
+              type="button"
+              onClick={() => commitMobileLocationPicker(locationPickerQuery)}
+              className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl bg-[#6B9E6E] px-4 text-sm font-semibold text-white active:bg-[#5d8a60]"
+            >
+              Search this area
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {welcomeBannerVisible && user ? (
         <div

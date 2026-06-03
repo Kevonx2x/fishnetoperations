@@ -24,6 +24,13 @@ import {
 import { HomepageArticlesSection } from "@/components/marketplace/homepage-articles-section";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   EMPTY_DORMSPACE_BROWSE_FILTERS,
 } from "@/lib/dormspace-browse-filters";
 import {
@@ -94,9 +101,18 @@ export function DormspacePublicHome({
   const [maxPrice, setMaxPrice] = useState("");
 
   const [filters, setFilters] = useState<DormspaceBrowseFilters>(EMPTY_DORMSPACE_BROWSE_FILTERS);
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+  const [locationPickerQuery, setLocationPickerQuery] = useState("");
 
-  const applySearch = () => {
-    const city = parseCityFromLocation(locationQuery);
+  useEffect(() => {
+    if (!locationPickerOpen) return;
+    setLocationPickerQuery(locationQuery);
+  }, [locationPickerOpen, locationQuery]);
+
+  const applySearch = (queryOverride?: string) => {
+    const q = (queryOverride ?? locationQuery).trim();
+    if (queryOverride !== undefined) setLocationQuery(queryOverride);
+    const city = parseCityFromLocation(q);
     setFilters({
       ...EMPTY_DORMSPACE_BROWSE_FILTERS,
       city,
@@ -105,6 +121,11 @@ export function DormspacePublicHome({
       maxPrice,
     });
     document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const commitMobileLocationPicker = (query: string) => {
+    applySearch(query);
+    setLocationPickerOpen(false);
   };
 
   const scrollToListings = () => {
@@ -130,12 +151,49 @@ export function DormspacePublicHome({
           <DormspaceMobileStickySearch
             locationQuery={locationQuery}
             onLocationChange={setLocationQuery}
-            onSearch={applySearch}
+            onSearch={() => applySearch()}
             onScrollToListings={scrollToListings}
+            onLocationChipPress={() => setLocationPickerOpen(true)}
             locationLabel={dormspaceLocationLabel}
             compact
           />
         </div>
+
+        <Sheet open={locationPickerOpen} onOpenChange={setLocationPickerOpen}>
+          <SheetContent
+            side="bottom"
+            showCloseButton={false}
+            className="z-[100] rounded-t-2xl border-[#2C2C2C]/10 bg-[#FAF8F4] px-0 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3"
+          >
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#2C2C2C]/15" aria-hidden />
+            <SheetHeader className="px-4 text-left">
+              <SheetTitle className="font-sans text-base font-semibold text-[#2C2C2C]">
+                Change location
+              </SheetTitle>
+              <SheetDescription className="text-sm text-[#888888]">
+                Search by city, area, or campus neighborhood
+              </SheetDescription>
+            </SheetHeader>
+            <div className="px-4 pb-2 pt-4">
+              <PhLocationInput
+                value={locationPickerQuery}
+                onChange={setLocationPickerQuery}
+                onSubmitSearch={() => commitMobileLocationPicker(locationPickerQuery)}
+                onLocationPicked={commitMobileLocationPicker}
+                placeholder="Find your space near campus"
+                aria-label="Search location"
+                inputClassName="w-full rounded-xl border border-[#2C2C2C]/12 bg-white px-3.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus:border-[#6B9E6E] focus:outline-none focus:ring-2 focus:ring-[#6B9E6E]/30"
+              />
+              <button
+                type="button"
+                onClick={() => commitMobileLocationPicker(locationPickerQuery)}
+                className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl bg-[#6B9E6E] px-4 text-sm font-semibold text-white active:bg-[#5d8a60]"
+              >
+                Search this area
+              </button>
+            </div>
+          </SheetContent>
+        </Sheet>
 
         <div className="flex min-w-0 w-full flex-col">
           <DormspacePublicHomeMobile
@@ -216,7 +274,7 @@ export function DormspacePublicHome({
                 </select>
                 <button
                   type="button"
-                  onClick={applySearch}
+                  onClick={() => applySearch()}
                   className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#6B9E6E] px-8 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] lg:h-auto lg:min-h-[44px]"
                 >
                   Search

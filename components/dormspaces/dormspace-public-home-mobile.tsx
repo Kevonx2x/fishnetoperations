@@ -53,6 +53,7 @@ import {
 
 } from "@/lib/universities";
 
+import { PhLocationInput } from "@/components/ui/ph-location-input";
 import { cn } from "@/lib/utils";
 
 
@@ -85,6 +86,8 @@ export type DormspaceMobileStickySearchProps = {
 
   onScrollToListings: () => void;
 
+  onLocationChipPress: () => void;
+
   locationLabel?: string;
 
   compact?: boolean;
@@ -102,6 +105,8 @@ export function DormspaceMobileStickySearch({
   onSearch,
 
   onScrollToListings,
+
+  onLocationChipPress,
 
   locationLabel = "Near DLSU, Taft Ave.",
 
@@ -133,25 +138,21 @@ export function DormspaceMobileStickySearch({
 
         <Search className={cn("shrink-0 text-[#888888]", compact ? "size-4" : "size-[18px]")} strokeWidth={2.25} aria-hidden />
 
-        <input
-
-          type="search"
+        <PhLocationInput
 
           value={locationQuery}
 
-          onChange={(e) => onLocationChange(e.target.value)}
+          onChange={onLocationChange}
 
-          onKeyDown={(e) => {
-
-            if (e.key === "Enter") onSearch();
-
-          }}
+          onSubmitSearch={onSearch}
 
           placeholder="Find your space near campus"
 
-          className="min-w-0 flex-1 bg-transparent text-[14px] font-medium text-[#2C2C2C] placeholder:text-[#888888] focus:outline-none"
-
           aria-label="Search location"
+
+          className="min-w-0 flex-1"
+
+          inputClassName="w-full border-0 bg-transparent p-0 text-[14px] font-medium leading-tight text-[#2C2C2C] shadow-none placeholder:text-[#888888] focus-visible:ring-0"
 
         />
 
@@ -191,7 +192,7 @@ export function DormspaceMobileStickySearch({
 
           type="button"
 
-          onClick={onScrollToListings}
+          onClick={onLocationChipPress}
 
           className={cn(
 

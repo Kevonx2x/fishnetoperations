@@ -85,6 +85,8 @@ export type PhLocationInputProps = {
   recentSearches?: string[];
   /** Fired when user picks a recent search row (parent should run search). */
   onRecentSearchPick?: (query: string) => void;
+  /** Fired when user picks a location suggestion or recent row (after value is applied). */
+  onLocationPicked?: (value: string) => void;
   id?: string;
   name?: string;
   placeholder?: string;
@@ -101,6 +103,7 @@ export function PhLocationInput({
   onSubmitSearch,
   recentSearches = [],
   onRecentSearchPick,
+  onLocationPicked,
   id: idProp,
   name,
   placeholder = "City, area, or neighborhood",
@@ -131,11 +134,13 @@ export function PhLocationInput({
 
   const selectLocation = useCallback(
     (o: PhLocationOption) => {
-      onChange(formatPhLocation(o));
+      const value = formatPhLocation(o);
+      onChange(value);
       setOpen(false);
       setHighlighted(-1);
+      onLocationPicked?.(value);
     },
-    [onChange],
+    [onChange, onLocationPicked],
   );
 
   const selectRecent = useCallback(
@@ -144,8 +149,9 @@ export function PhLocationInput({
       setOpen(false);
       setHighlighted(-1);
       onRecentSearchPick?.(query);
+      onLocationPicked?.(query);
     },
-    [onChange, onRecentSearchPick],
+    [onChange, onRecentSearchPick, onLocationPicked],
   );
 
   useEffect(() => {
