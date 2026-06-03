@@ -42,7 +42,10 @@ import {
 import type { UniversityRow } from "@/lib/universities";
 import type { DormspacePopularArea } from "@/lib/dormspace-popular-areas";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
+import { useBrowseClientGpsLocation } from "@/hooks/use-browse-client-gps-location";
 import { useDormspaceFeaturedNeighborhoods } from "@/hooks/use-dormspace-featured-neighborhoods";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const FIELD =
   "rounded-xl border border-[#2C2C2C]/12 bg-white px-3 py-2.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25";
@@ -74,6 +77,8 @@ export function DormspacePublicHome({
 }) {
   const { data: featuredNeighborhoods = initialFeaturedNeighborhoods } =
     useDormspaceFeaturedNeighborhoods(initialFeaturedNeighborhoods);
+  const { profile, status } = useAuth();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (typeof window === "undefined" || window.location.hash !== "#listings") return;
@@ -128,6 +133,16 @@ export function DormspacePublicHome({
     setLocationPickerOpen(false);
   };
 
+  const browseGpsSkip = Boolean(initialUniversityId || initialNeighborhood);
+
+  useBrowseClientGpsLocation({
+    enabled: isMobile,
+    skip: browseGpsSkip,
+    status,
+    profile,
+    onApply: (label) => applySearch(label),
+  });
+
   const scrollToListings = () => {
     document.getElementById("listings")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -141,7 +156,7 @@ export function DormspacePublicHome({
     ? `Near ${locationQuery.trim()}`
     : filters.city.trim()
       ? `Near ${filters.city.trim()}`
-      : "Near DLSU, Taft Ave.";
+      : "Near Manila";
 
   return (
     <>

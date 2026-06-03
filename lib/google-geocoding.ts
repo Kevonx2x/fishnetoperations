@@ -4,17 +4,68 @@ export type GeocodeResult =
   | { ok: true; lat: number; lng: number }
   | { ok: false; reason: string };
 
+type GeocodeAddressComponent = {
+  long_name?: string;
+  short_name?: string;
+  types?: string[];
+};
+
+type GeocodeApiResult = {
+  partial_match?: boolean;
+  formatted_address?: string;
+  address_components?: GeocodeAddressComponent[];
+  geometry?: {
+    location?: { lat?: number; lng?: number };
+    location_type?: string;
+  };
+};
+
 type GeocodeApiResponse = {
   status?: string;
   error_message?: string;
-  results?: Array<{
-    partial_match?: boolean;
-    geometry?: {
-      location?: { lat?: number; lng?: number };
-      location_type?: string;
-    };
-  }>;
+  results?: GeocodeApiResult[];
 };
+
+export type ReverseGeocodeResult =
+  | { ok: true; label: string; city: string; neighborhood: string | null }
+  | { ok: false; reason: string };
+
+function pickCityFromComponents(components: GeocodeAddressComponent[] | undefined): string {
+  if (!components?.length) return "";
+  for (const t of ["locality", "administrative_area_level_2"] as const) {
+    const c = components.find((x) => x.types?.includes(t));
+    const n = c?.long_name?.trim();
+    if (n) return n;
+  }
+  return "";
+}
+
+function pickNeighborhoodFromComponents(components: GeocodeAddressComponent[] | undefined): string {
+  if (!components?.length) return "";
+  for (const t of ["sublocality_level_1", "sublocality", "neighborhood"] as const) {
+    const c = components.find((x) => x.types?.includes(t));
+    const n = c?.long_name?.trim();
+    if (n && !/(^|\b)(barangay|brgy)\b/i.test(n)) return n;
+  }
+  return "";
+}
+
+/** Human-readable label for browse search (area + city when possible). */
+export function formatBrowseLocationFromGeocodeResult(result: GeocodeApiResult): string {
+  const components = result.address_components ?? [];
+  const city = pickCityFromComponents(components);
+  const neighborhood = pickNeighborhoodFromComponents(components);
+  if (neighborhood && city && neighborhood.toLowerCase() !== city.toLowerCase()) {
+    return `${neighborhood}, ${city}`;
+  }
+  if (city) return city;
+  const formatted = result.formatted_address?.trim();
+  if (formatted) {
+    const parts = formatted.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts[0]) return parts[0];
+  }
+  return "Manila";
+}
 
 export type GoogleMapsKeySource = "GOOGLE_MAPS_SERVER_KEY" | "NEXT_PUBLIC_GOOGLE_MAPS_API" | "none";
 
@@ -178,4 +229,62 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult> {
   }
 
   return { ok: true, lat, lng };
+}
+
+export async function reverseGeocodeLatLng(lat: number, lng: number): Promise<ReverseGeocodeResult> {
+  const { key, source } = resolveGoogleMapsKeySource();
+  if (!key) {
+    return { ok: false, reason: "Missing GOOGLE_MAPS_SERVER_KEY or NEXT_PUBLIC_GOOGLE_MAPS_API" };
+  }
+
+  const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+  url.searchParams.set("latlng", `${lat},${lng}`);
+  url.searchParams.set("key", key);
+  url.searchParams.set("region", "ph");
+
+  console.log("[google-geocoding] reverse geocode preparing", {
+    keySource: source,
+    url: maskGeocodeUrl(url),
+    lat,
+    lng,
+  });
+
+  let payload: GeocodeApiResponse;
+  try {
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    const bodyText = await res.text();
+    try {
+      payload = JSON.parse(bodyText) as GeocodeApiResponse;
+    } catch (parseError) {
+      const parseMessage = parseError instanceof Error ? parseError.message : String(parseError);
+      return {
+        ok: false,
+        reason: truncateGeocodeFailureReason(
+          `Reverse geocoding failed: invalid JSON (${parseMessage})`,
+        ),
+      };
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      ok: false,
+      reason: truncateGeocodeFailureReason(`Reverse geocoding request failed: ${message}`),
+    };
+  }
+
+  if (payload.status !== "OK") {
+    const detail = payload.error_message ?? payload.status ?? "UNKNOWN";
+    return { ok: false, reason: `Reverse geocoding API error: ${detail}` };
+  }
+
+  const result = payload.results?.[0];
+  if (!result) {
+    return { ok: false, reason: "No reverse geocoding results" };
+  }
+
+  const city = pickCityFromComponents(result.address_components);
+  const neighborhood = pickNeighborhoodFromComponents(result.address_components) || null;
+  const label = formatBrowseLocationFromGeocodeResult(result);
+
+  return { ok: true, label, city: city || label, neighborhood };
 }

@@ -55,6 +55,8 @@ import {
   type PropertyEngagement,
 } from "@/hooks/use-property-engagement";
 import { useAuth } from "@/contexts/auth-context";
+import { useBrowseClientGpsLocation } from "@/hooks/use-browse-client-gps-location";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   HomepageFaqSectionSkeleton,
   HomepageListingRowsSkeleton,
@@ -1233,7 +1235,8 @@ export function BahayGoHomeMarketplace({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, profile, status } = useAuth();
+  const isMobile = useIsMobile();
   const [welcomeBannerVisible, setWelcomeBannerVisible] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [viewerVerifiedListingAgent, setViewerVerifiedListingAgent] = useState(false);
@@ -2054,6 +2057,21 @@ export function BahayGoHomeMarketplace({
     },
     [applyLocationSearch],
   );
+
+  const browseGpsSkip =
+    Boolean(searchParams.get("q")?.trim()) || Boolean(pathname?.startsWith("/locations/"));
+
+  useBrowseClientGpsLocation({
+    enabled: isMobile,
+    skip: browseGpsSkip,
+    status,
+    profile,
+    onApply: (label) => {
+      setNeighborhoodFilter(null);
+      setSearch(label);
+      applyLocationSearch(label);
+    },
+  });
 
   const selectCityFilter = (key: string) => {
     if (neighborhoodFilter === key) {
