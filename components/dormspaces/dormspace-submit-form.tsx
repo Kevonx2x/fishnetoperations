@@ -313,7 +313,7 @@ export function DormspaceSubmitForm() {
   );
   const showVerificationUpload = needsLandlordVerificationUpload(verificationStatus);
   const isRoleBlocked = Boolean(user && profile?.role && isDormspaceSubmitBlockedRole(profile.role));
-  const showLandlordContact = !isRoleBlocked;
+  const showLandlordContact = !isRoleBlocked && !isLandlordSignedIn;
   const showAccountSection = !user;
   const needsPasswordOnSubmit = showAccountSection;
 
@@ -427,24 +427,40 @@ export function DormspaceSubmitForm() {
       return;
     }
 
-    const first = firstName.trim();
-    const last = lastName.trim();
-    if (!first || !last) {
-      setError("Please enter your first and last name.");
-      return;
-    }
-    const fullName = buildFullName(first, last);
-    const phone = landlordPhone.trim();
-    const email = user
-      ? (user.email?.trim().toLowerCase() ?? "")
-      : landlordEmail.trim().toLowerCase();
-    if (!email) {
-      setError("Please enter your email.");
-      return;
-    }
-    if (!phone) {
-      setError("Please enter your phone number.");
-      return;
+    let fullName = "";
+    let email = "";
+    let phone = "";
+
+    if (isLandlordSignedIn && profile) {
+      fullName = profile.full_name?.trim() ?? "";
+      email = user?.email?.trim().toLowerCase() ?? "";
+      phone = profile.phone?.trim() ?? "";
+      if (!fullName || !email || !phone) {
+        setError(
+          "Your profile is missing name, email, or phone. Update them on My Profile before submitting.",
+        );
+        return;
+      }
+    } else {
+      const first = firstName.trim();
+      const last = lastName.trim();
+      if (!first || !last) {
+        setError("Please enter your first and last name.");
+        return;
+      }
+      fullName = buildFullName(first, last);
+      phone = landlordPhone.trim();
+      email = user
+        ? (user.email?.trim().toLowerCase() ?? "")
+        : landlordEmail.trim().toLowerCase();
+      if (!email) {
+        setError("Please enter your email.");
+        return;
+      }
+      if (!phone) {
+        setError("Please enter your phone number.");
+        return;
+      }
     }
 
     if (photos.length < LISTING_PHOTO_MIN) {
