@@ -10,3 +10,9 @@ export function authLoginHref(nextPath: string): string {
 export function isSafeAuthNext(next: string | null | undefined): next is string {
   return Boolean(next && next.startsWith("/") && !next.startsWith("//"));
 }
+
+/** Dormspaces portal sign-in entry with return path (avoids BahayGo `/auth/login` from landlord flows). */
+export function dormspacesWelcomeAuthHref(nextPath: string): string {
+  const path = nextPath.startsWith("/") ? nextPath : `/${nextPath}`;
+  return `/dormspaces/welcome?next=${encodeURIComponent(path)}`;
+}

@@ -8,6 +8,7 @@ import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dor
 import { LandlordDashboardSidebar } from "@/components/dormspaces/landlord-dashboard-sidebar";
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
 import { useAuth } from "@/contexts/auth-context";
+import { dormspacesWelcomeAuthHref } from "@/lib/auth-login-path";
 import { isLandlordCapable } from "@/lib/auth-roles";
 import { normalizeLandlordVerificationStatus } from "@/lib/landlord-verification";
 
@@ -22,23 +23,31 @@ export function useLandlordDashboardAuth(loginNext = "/dormspaces/dashboard/list
   const router = useRouter();
   const { user, profile, loading: authLoading } = useAuth();
 
+  /** Session user present but profile row not hydrated yet — avoid login bounce. */
+  const profilePending = Boolean(user && !profile && !authLoading);
+
   useEffect(() => {
-    if (authLoading) return;
-    if (!user || !isLandlordCapable(profile)) {
-      router.replace(`/auth/login?next=${encodeURIComponent(loginNext)}`);
+    if (authLoading || profilePending) return;
+    if (!user) {
+      router.replace(dormspacesWelcomeAuthHref(loginNext));
+      return;
     }
-  }, [authLoading, user, profile, router, loginNext]);
+    if (profile && !isLandlordCapable(profile)) {
+      router.replace(dormspacesWelcomeAuthHref(loginNext));
+    }
+  }, [authLoading, profilePending, user, profile, router, loginNext]);
 
   return {
     user,
     profile,
     authLoading,
-    ready: Boolean(user && isLandlordCapable(profile)),
+    profilePending,
+    ready: Boolean(user && profile && isLandlordCapable(profile)),
   };
 }
 
 export function LandlordDashboardShell({ children, loginNext, variant = "subpage" }: Props) {
-  const { profile, authLoading, ready } = useLandlordDashboardAuth(loginNext);
+  const { profile, authLoading, profilePending, ready } = useLandlordDashboardAuth(loginNext);
   const showVerificationBanner = variant === "hub";
   const [listingCount, setListingCount] = useState(0);
   const [inquiryCount, setInquiryCount] = useState(0);
@@ -63,7 +72,7 @@ export function LandlordDashboardShell({ children, loginNext, variant = "subpage
     void loadSidebarCounts();
   }, [ready, loadSidebarCounts]);
 
-  if (authLoading || !ready) {
+  if (authLoading || profilePending || !ready) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center bg-[#FAF8F4]">
         <Loader2 className="size-8 animate-spin text-[#6B9E6E]" aria-label="Loading" />

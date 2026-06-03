@@ -42,6 +42,45 @@ function buildFullName(first: string, last: string): string {
   return `${first.trim()} ${last.trim()}`.trim();
 }
 
+const LANDLORD_AUTH_WAIT_MS = 10_000;
+const LANDLORD_AUTH_POLL_MS = 120;
+
+/** Sync auth context and poll until session + profile are landlord-capable (post-submit / upgrade). */
+async function waitForLandlordCapableSession(
+  refreshProfile: () => Promise<void>,
+  supabase: ReturnType<typeof createSupabaseBrowserClient>,
+): Promise<boolean> {
+  const deadline = Date.now() + LANDLORD_AUTH_WAIT_MS;
+  while (Date.now() < deadline) {
+    await refreshProfile();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const uid = sessionData.session?.user?.id;
+    if (!uid) {
+      await new Promise((r) => setTimeout(r, LANDLORD_AUTH_POLL_MS));
+      continue;
+    }
+    const { data: row } = await supabase
+      .from("profiles")
+      .select("role, is_landlord")
+      .eq("id", uid)
+      .maybeSingle();
+    if (
+      isLandlordCapable(
+        row
+          ? {
+              role: row.role as string | null | undefined,
+              is_landlord: row.is_landlord === true,
+            }
+          : null,
+      )
+    ) {
+      return true;
+    }
+    await new Promise((r) => setTimeout(r, LANDLORD_AUTH_POLL_MS));
+  }
+  return false;
+}
+
 function roleDisplayLabel(role: ProfileRole): string {
   switch (role) {
     case "ops_admin":
@@ -546,6 +585,14 @@ export function DormspaceSubmitForm() {
           setError("Listing saved but sign-in failed. Use Landlord login in the site footer.");
           return;
         }
+      }
+
+      const landlordReady = await waitForLandlordCapableSession(refreshProfile, supabase);
+      if (!landlordReady) {
+        setError(
+          "Listing saved but we couldn't open your dashboard yet. Go to the landlord welcome page and sign in.",
+        );
+        return;
       }
 
       router.replace("/dormspaces/dashboard/listings?welcome=1");

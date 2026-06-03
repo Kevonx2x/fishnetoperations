@@ -27,6 +27,7 @@ import {
   normalizeLandlordVerificationStatus,
 } from "@/lib/landlord-verification";
 import { useAuth } from "@/contexts/auth-context";
+import { isSafeAuthNext } from "@/lib/auth-login-path";
 import { isDormspaceSubmitBlockedRole, isLandlordCapable } from "@/lib/auth-roles";
 import { DORMSPACE_WELCOME_HERO_IMAGE } from "@/lib/dormspaces";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -227,6 +228,13 @@ export function DormspaceWelcome() {
     if (authLoading) return;
     void loadLandlordListings();
   }, [authLoading, loadLandlordListings]);
+
+  useEffect(() => {
+    if (authLoading || !isLandlordSignedIn) return;
+    const next = searchParams.get("next");
+    if (!isSafeAuthNext(next)) return;
+    router.replace(next);
+  }, [authLoading, isLandlordSignedIn, searchParams, router]);
 
   const handleStaffSignOut = async () => {
     setSigningOut(true);

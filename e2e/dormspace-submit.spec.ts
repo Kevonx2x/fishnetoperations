@@ -122,36 +122,10 @@ test.describe("Dormspace landlord submit", () => {
     expect(json.ok, "successful submit should return ok: true").toBe(true);
     expect(json.id, "successful submit should return listing id").toBeTruthy();
 
-    // Guest submit often bounces listings → login before session cookies settle.
-    await page
-      .waitForURL(/\/auth\/login/, { timeout: SUCCESS_NAV_TIMEOUT_MS, waitUntil: "commit" })
-      .catch(() => undefined);
-
     const listingsHeading = page.getByRole("heading", { name: title, level: 2 });
 
-    if (page.url().includes("/auth/login")) {
-      await page.getByRole("textbox", { name: "Email" }).fill(email);
-      await page.getByRole("textbox", { name: "Password" }).fill(password);
-
-      const listingsAfterLogin = page.waitForResponse(
-        (res) =>
-          res.request().method() === "GET" &&
-          res.url().includes("/api/dormspaces/landlord/listings") &&
-          res.ok(),
-        { timeout: LISTINGS_API_TIMEOUT_MS },
-      );
-
-      await Promise.all([
-        page.waitForURL(LISTINGS_URL, { timeout: SUCCESS_NAV_TIMEOUT_MS, waitUntil: "commit" }),
-        page.getByRole("button", { name: "Sign in" }).click(),
-      ]);
-
-      await listingsAfterLogin;
-      await expect(listingsHeading).toBeVisible({ timeout: 15_000 });
-      return;
-    }
-
     await page.waitForURL(LISTINGS_URL, { timeout: SUCCESS_NAV_TIMEOUT_MS, waitUntil: "commit" });
+    expect(page.url(), "post-submit should not bounce to BahayGo login").not.toMatch(/\/auth\/login/);
 
     await page
       .waitForResponse(
