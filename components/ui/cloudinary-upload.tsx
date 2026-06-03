@@ -2,6 +2,7 @@
 
 import { useCallback, useId, useRef, useState } from "react";
 import { ImagePlus, Loader2, Trash2, Upload } from "lucide-react";
+import { compressClientImage } from "@/lib/compress-client-image";
 import { cn } from "@/lib/utils";
 
 function reorderUrls(urls: string[], from: number, to: number): string[] {
@@ -54,58 +55,77 @@ export function CloudinaryUpload({
 
   const canAdd = value.length + uploading.length < maxFiles && !disabled;
 
-  const uploadOne = useCallback((file: File) => {
-      if (!ACCEPT_MIME.has(file.type)) {
-        setLocalError("Use JPG, PNG, or WEBP only.");
-        return;
-      }
-      if (file.size > MAX_BYTES) {
-        setLocalError("Each image must be 12MB or smaller.");
-        return;
-      }
-      setLocalError(null);
-      flightRef.current += 1;
-      const id = crypto.randomUUID();
-      const preview = URL.createObjectURL(file);
-      setUploading((u) => [...u, { id, preview, progress: 0, name: file.name }]);
+  const uploadOne = useCallback(
+    (file: File) => {
+      void (async () => {
+        if (!file.type.startsWith("image/") || file.type === "image/gif") {
+          setLocalError("Use JPG, PNG, or WEBP only.");
+          return;
+        }
 
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/api/upload");
-      xhr.withCredentials = true;
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          const pct = Math.round((e.loaded / e.total) * 100);
-          setUploading((u) => u.map((x) => (x.id === id ? { ...x, progress: pct } : x)));
-        }
-      };
-      xhr.onload = () => {
-        flightRef.current = Math.max(0, flightRef.current - 1);
-        URL.revokeObjectURL(preview);
-        setUploading((u) => u.filter((x) => x.id !== id));
+        let prepared: File;
         try {
-          const json = JSON.parse(xhr.responseText) as { url?: string; error?: string };
-          if (xhr.status >= 200 && xhr.status < 300 && json.url) {
-            onUpload([...valueRef.current, json.url]);
-          } else {
-            setLocalError(json.error ?? "Upload failed.");
-          }
+          prepared = await compressClientImage(file);
         } catch {
-          setLocalError("Upload failed.");
+          setLocalError("Could not prepare image. Try a different photo.");
+          return;
         }
-      };
-      xhr.onerror = () => {
-        flightRef.current = Math.max(0, flightRef.current - 1);
-        URL.revokeObjectURL(preview);
-        setUploading((u) => u.filter((x) => x.id !== id));
-        setLocalError("Network error.");
-      };
-      const fd = new FormData();
-      fd.set("file", file);
-      if (listingPropertyId?.trim()) {
-        fd.set("property_id", listingPropertyId.trim());
-      }
-      xhr.send(fd);
-    }, [onUpload, listingPropertyId]);
+
+        if (!ACCEPT_MIME.has(prepared.type)) {
+          setLocalError("Use JPG, PNG, or WEBP only.");
+          return;
+        }
+        if (prepared.size > MAX_BYTES) {
+          setLocalError("Each image must be 12MB or smaller.");
+          return;
+        }
+
+        setLocalError(null);
+        flightRef.current += 1;
+        const id = crypto.randomUUID();
+        const preview = URL.createObjectURL(prepared);
+        setUploading((u) => [...u, { id, preview, progress: 0, name: prepared.name }]);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/upload");
+        xhr.withCredentials = true;
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            setUploading((u) => u.map((x) => (x.id === id ? { ...x, progress: pct } : x)));
+          }
+        };
+        xhr.onload = () => {
+          flightRef.current = Math.max(0, flightRef.current - 1);
+          URL.revokeObjectURL(preview);
+          setUploading((u) => u.filter((x) => x.id !== id));
+          try {
+            const json = JSON.parse(xhr.responseText) as { url?: string; error?: string };
+            if (xhr.status >= 200 && xhr.status < 300 && json.url) {
+              onUpload([...valueRef.current, json.url]);
+            } else {
+              setLocalError(json.error ?? "Upload failed.");
+            }
+          } catch {
+            setLocalError("Upload failed.");
+          }
+        };
+        xhr.onerror = () => {
+          flightRef.current = Math.max(0, flightRef.current - 1);
+          URL.revokeObjectURL(preview);
+          setUploading((u) => u.filter((x) => x.id !== id));
+          setLocalError("Network error.");
+        };
+        const fd = new FormData();
+        fd.set("file", prepared);
+        if (listingPropertyId?.trim()) {
+          fd.set("property_id", listingPropertyId.trim());
+        }
+        xhr.send(fd);
+      })();
+    },
+    [onUpload, listingPropertyId],
+  );
 
   const processFiles = useCallback(
     (files: FileList | File[]) => {

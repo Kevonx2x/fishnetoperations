@@ -13,6 +13,7 @@ import {
   pathForRole,
   type ProfileRole,
 } from "@/lib/auth-roles";
+import { compressClientImages } from "@/lib/compress-client-image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
 import {
@@ -142,52 +143,8 @@ function FileDrop({
 
 const LISTING_PHOTO_MIN = 3;
 const LISTING_PHOTO_MAX = 10;
-const LISTING_PHOTO_MAX_EDGE_PX = 1600;
-const LISTING_PHOTO_JPEG_QUALITY = 0.8;
 const SUBMIT_PHOTO_TOO_LARGE_MSG =
   "Your photos are too large. Please use fewer or smaller images.";
-
-async function compressListingPhoto(file: File): Promise<File> {
-  if (!file.type.startsWith("image/") || file.type === "image/gif") {
-    return file;
-  }
-
-  const blobUrl = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const el = new Image();
-      el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error("Could not read image"));
-      el.src = blobUrl;
-    });
-
-    const longest = Math.max(img.width, img.height);
-    const scale = longest > LISTING_PHOTO_MAX_EDGE_PX ? LISTING_PHOTO_MAX_EDGE_PX / longest : 1;
-    const width = Math.max(1, Math.round(img.width * scale));
-    const height = Math.max(1, Math.round(img.height * scale));
-
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return file;
-    ctx.drawImage(img, 0, 0, width, height);
-
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, "image/jpeg", LISTING_PHOTO_JPEG_QUALITY);
-    });
-    if (!blob) return file;
-
-    const baseName = file.name.replace(/\.[^.]+$/, "") || "photo";
-    return new File([blob], `${baseName}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
-  } finally {
-    URL.revokeObjectURL(blobUrl);
-  }
-}
-
-async function compressListingPhotos(files: File[]): Promise<File[]> {
-  return Promise.all(files.map((file) => compressListingPhoto(file)));
-}
 
 function submitErrorMessage(
   res: Response,
@@ -519,7 +476,7 @@ export function DormspaceSubmitForm() {
     try {
       let photosToUpload: File[];
       try {
-        photosToUpload = await compressListingPhotos(photos);
+        photosToUpload = await compressClientImages(photos);
       } catch {
         setError("Could not prepare photos. Try different images or fewer photos.");
         return;
