@@ -24,8 +24,7 @@ export const DORMSPACE_ROW_ITEM_LIMIT = 12;
 export const DORMSPACE_ROW_MIN_CARDS = 5;
 
 /** Matches `NewlyListedCard` compact / `DormspaceListingCardCompact` widths. */
-export const DORMSPACE_LISTING_CARD_WIDTH =
-  "w-[calc((100vw-2rem-0.625rem)/2)] shrink-0 md:w-[232px] lg:w-[240px]";
+export { DORMSPACE_LISTING_CARD_WIDTH } from "@/lib/dormspace-listing-card-layout";
 
 type RowTemplate = {
   id: string;

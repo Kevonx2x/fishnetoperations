@@ -8,10 +8,18 @@ import { BadgeCheck, ChevronLeft, ChevronRight, Heart, MapPin } from "lucide-rea
 import { useAuth } from "@/contexts/auth-context";
 import { useDormspaceEngagement } from "@/hooks/use-dormspace-engagement";
 import { isOwnDormspaceListing } from "@/lib/dormspace-engagement";
+import {
+  DORMSPACE_DESKTOP_CARD_BODY_CLASS,
+  DORMSPACE_DESKTOP_CARD_HEIGHT_CLASS,
+  DORMSPACE_DESKTOP_CARD_IMAGE_HEIGHT_CLASS,
+  DORMSPACE_DESKTOP_SLOT,
+  DORMSPACE_DESKTOP_WALK_PLACEHOLDER,
+  DORMSPACE_LISTING_CARD_WIDTH,
+} from "@/lib/dormspace-listing-card-layout";
 import { listingListedCompactLabel } from "@/lib/listing-listed-time";
 import { DormspaceWalkTimesLine } from "@/components/dormspaces/dormspace-walk-times-line";
 import { DormspaceBedAvailability } from "@/components/dormspaces/dormspace-bed-availability";
-import { DORMSPACE_LISTING_CARD_WIDTH } from "@/lib/dormspace-browse-rows";
+import { closestWalkTimes } from "@/lib/dormspace-walk-times-display";
 import {
   dormspaceGenderLabel,
   dormspaceLocationLine,
@@ -41,11 +49,15 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
   const img = urls[roomIdx] ?? urls[0] ?? "";
   const listedLabel = listingListedCompactLabel(listing.created_at);
   const liked = isLiked(listing.id);
+  const locationLine = dormspaceLocationLine(listing);
+  const hasWalkTimes = closestWalkTimes(listing.dormspace_walk_times).length > 0;
 
   return (
     <div
       className={cn(
-        "relative flex h-auto min-h-0 touch-manipulation flex-col bg-white max-md:snap-start max-md:overflow-visible max-md:rounded-2xl max-md:shadow-[0_4px_16px_rgba(44,44,44,0.08)] max-md:ring-1 max-md:ring-black/[0.05] max-md:transition max-md:active:scale-[0.99] md:min-h-[412px] md:overflow-hidden md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md lg:min-h-[448px]",
+        "relative flex touch-manipulation flex-col bg-white max-md:h-auto max-md:min-h-0 max-md:snap-start max-md:overflow-visible max-md:rounded-2xl max-md:shadow-[0_4px_16px_rgba(44,44,44,0.08)] max-md:ring-1 max-md:ring-black/[0.05] max-md:transition max-md:active:scale-[0.99]",
+        "md:flex md:flex-col md:overflow-hidden md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md",
+        DORMSPACE_DESKTOP_CARD_HEIGHT_CLASS,
         DORMSPACE_LISTING_CARD_WIDTH,
       )}
     >
@@ -56,9 +68,14 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
         aria-label={detailLabel}
       />
 
-      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-[#F3F0EA] max-md:rounded-t-2xl md:aspect-auto md:h-44 md:rounded-none lg:h-52">
+      <div
+        className={cn(
+          "relative w-full shrink-0 overflow-hidden bg-[#F3F0EA] max-md:aspect-[4/3] max-md:rounded-t-2xl md:aspect-auto md:rounded-none",
+          DORMSPACE_DESKTOP_CARD_IMAGE_HEIGHT_CLASS,
+        )}
+      >
         {img ? (
-          <Image src={img} alt="" fill className="object-cover" sizes="(max-width: 767px) 50vw, 240px" priority={false} />
+          <Image src={img} alt="" fill className="object-cover" sizes="(max-width: 767px) 50vw, 208px" priority={false} />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#E8F0E9] to-[#FAF8F4]" aria-hidden />
         )}
@@ -101,12 +118,12 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-16 bg-gradient-to-t from-black/25 to-transparent" />
 
-        <div className="absolute left-2 top-2 z-20 flex flex-wrap gap-1 md:left-3 md:top-3">
+        <div className="absolute left-2 top-2 z-20 flex flex-wrap gap-1 md:left-2.5 md:top-2.5">
           <span className={dormCardStatusPillClass}>{dormspaceRoomTypeLabel(listing.room_type)}</span>
         </div>
 
         {mayEngage && !hideHeart ? (
-          <div className="absolute right-2 top-2 z-20 flex items-center gap-1 md:right-3 md:top-3">
+          <div className="absolute right-2 top-2 z-20 flex items-center gap-1 md:right-2.5 md:top-2.5">
             <button
               type="button"
               onClick={(e) => {
@@ -133,13 +150,24 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
           </div>
         ) : null}
 
-        <div className="absolute bottom-2 left-2 z-20 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1 md:bottom-3 md:left-3 md:max-w-[calc(100%-5rem)]">
+        <div className="absolute bottom-2 left-2 z-20 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1 md:bottom-2.5 md:left-2.5 md:max-w-[calc(100%-5rem)]">
           <span className={dormCardListedPillClass}>{listedLabel}</span>
         </div>
       </div>
 
-      <div className="flex flex-col gap-0.5 border-t border-[#2C2C2C]/10 bg-white max-md:rounded-b-2xl max-md:border-0 max-md:px-2.5 max-md:pb-2.5 max-md:pt-2 px-3 py-2">
-        <p className="truncate text-sm font-semibold leading-tight text-[#D4A843] md:text-base">
+      <div
+        className={cn(
+          "flex flex-col gap-0.5 border-t border-[#2C2C2C]/10 bg-white max-md:rounded-b-2xl max-md:border-0 max-md:px-2.5 max-md:pb-2 max-md:pt-2 px-3 py-2",
+          "md:gap-0 md:border-t md:border-[#2C2C2C]/10 md:px-2 md:pt-1.5 md:pb-1",
+          DORMSPACE_DESKTOP_CARD_BODY_CLASS,
+        )}
+      >
+        <p
+          className={cn(
+            "truncate text-sm font-semibold leading-tight text-[#D4A843] md:text-sm",
+            DORMSPACE_DESKTOP_SLOT.price,
+          )}
+        >
           {formatDormspacePrice(listing.monthly_price)}
         </p>
         <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-[#2C2C2C] max-md:block md:hidden">
@@ -148,32 +176,68 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
         <Link
           href={href}
           prefetch
-          className="line-clamp-2 hidden text-left text-[13px] font-semibold leading-snug text-[#2C2C2C] hover:underline md:block md:text-sm"
+          className={cn(
+            "line-clamp-2 hidden text-left text-[13px] font-semibold leading-snug text-[#2C2C2C] hover:underline md:block",
+            DORMSPACE_DESKTOP_SLOT.title,
+          )}
         >
           {listing.title}
         </Link>
-        <p className="truncate text-[11px] text-[#717171] md:text-[11px]">
+        <p className={cn("truncate text-[11px] text-[#717171]", DORMSPACE_DESKTOP_SLOT.meta)}>
           {dormspaceRoomTypeLabel(listing.room_type)} · {dormspaceGenderLabel(listing.gender_preference)}
         </p>
-        <DormspaceBedAvailability
-          listing={listing}
-          variant="inline"
-          className="block truncate text-[11px] text-[#717171] md:text-[11px]"
-        />
-        <p className="flex items-center gap-1 text-[11px] text-[#717171]">
+        <div className={cn("min-h-0 truncate", DORMSPACE_DESKTOP_SLOT.meta)}>
+          <DormspaceBedAvailability
+            listing={listing}
+            variant="inline"
+            className="block truncate text-[11px] text-[#717171]"
+          />
+        </div>
+        <p
+          className={cn(
+            "flex items-center gap-1 text-[11px] text-[#717171]",
+            DORMSPACE_DESKTOP_SLOT.location,
+          )}
+        >
           <MapPin className="h-3 w-3 shrink-0 text-[#8E8E8E]" aria-hidden />
-          <span className="min-w-0 flex-1 truncate">{dormspaceLocationLine(listing)}</span>
+          <span className="min-w-0 flex-1 truncate">
+            {locationLine ? (
+              locationLine
+            ) : (
+              <span className="invisible select-none" aria-hidden>
+                {"\u00a0"}
+              </span>
+            )}
+          </span>
         </p>
-        <DormspaceWalkTimesLine listing={listing} className="mt-0.5" />
+        <div className={cn("max-md:mt-0.5", DORMSPACE_DESKTOP_SLOT.walk, "md:flex md:items-center")}>
+          {hasWalkTimes ? (
+            <DormspaceWalkTimesLine listing={listing} className="truncate text-[11px] md:text-[11px]" />
+          ) : (
+            <span className="hidden truncate text-[11px] md:inline md:invisible" aria-hidden>
+              {DORMSPACE_DESKTOP_WALK_PLACEHOLDER}
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="relative z-10 mt-auto hidden min-h-[56px] max-h-[76px] shrink-0 flex-col justify-center overflow-hidden bg-white px-3 py-1.5 md:flex">
-        <div className="flex min-h-[40px] flex-1 items-center gap-2">
+      <div
+        className={cn(
+          "relative z-10 mt-auto hidden shrink-0 flex-col justify-center overflow-hidden bg-white md:flex",
+          DORMSPACE_DESKTOP_SLOT.landlord,
+          "px-2 pb-1.5 pt-0",
+        )}
+      >
+        <div className="flex h-full min-h-0 items-center gap-2">
           <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/12 ring-1 ring-[#6B9E6E]/20">
             <BadgeCheck className="size-4 text-[#D4A843]" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-[#2C2C2C]/85">{listing.landlord_name}</p>
+            <p className="truncate text-xs font-medium text-[#2C2C2C]/85">
+              {listing.landlord_name?.trim() || (
+                <span className="text-gray-400">Landlord</span>
+              )}
+            </p>
             <p className="truncate text-[10px] text-gray-400">
               {listing.status === "approved" ? "Verified landlord" : "Landlord · pending review"}
             </p>

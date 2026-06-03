@@ -8,11 +8,11 @@ export const HOMEPAGE_MOBILE_CAROUSEL_INSET =
 
 /** Two listing cards visible on ~375px mobile browse carousels (Airbnb-style). */
 export const HOMEPAGE_BROWSE_LISTING_CARD_WIDTH =
-  "w-[calc((100vw-2rem-0.625rem)/2)] shrink-0 md:w-[220px] lg:w-[228px]";
+  "w-[calc((100vw-2rem-0.625rem)/2)] shrink-0 md:w-[200px] lg:w-[208px]";
 
 /** Trulia-style mobile feed: one large card per row with a peek of the next. */
 export const HOMEPAGE_MOBILE_FEED_CARD_WIDTH =
-  "w-[calc((100vw-2rem-0.75rem)/1.06)] shrink-0 snap-start md:w-[220px] lg:w-[228px]";
+  "w-[calc((100vw-2rem-0.75rem)/1.06)] shrink-0 snap-start md:w-[200px] lg:w-[208px]";
 
 /** Mobile “Trending Near You” hero carousel — ~88% viewport with next-slide peek. */
 export const HOMEPAGE_MOBILE_TRENDING_CARD_WIDTH =
@@ -29,10 +29,10 @@ export const HOMEPAGE_MOBILE_FEED_ROW_COUNT = 6;
  * Desktop homepage carousel — fixed card geometry (layout stability).
  * Content may truncate or show placeholders; slots never collapse.
  */
-export const HOMEPAGE_DESKTOP_CARD_HEIGHT_CLASS = "md:h-[23.75rem]" as const;
+export const HOMEPAGE_DESKTOP_CARD_HEIGHT_CLASS = "md:h-[21.25rem]" as const;
 
 export const HOMEPAGE_DESKTOP_CARD_IMAGE_HEIGHT_CLASS =
-  "md:h-[9.25rem] md:max-h-[9.25rem] md:min-h-[9.25rem] md:shrink-0" as const;
+  "md:h-[8.25rem] md:max-h-[8.25rem] md:min-h-[8.25rem] md:shrink-0" as const;
 
 export const HOMEPAGE_DESKTOP_CARD_BODY_CLASS = "md:min-h-0 md:flex-1 md:flex md:flex-col" as const;
 
@@ -40,10 +40,10 @@ export const HOMEPAGE_DESKTOP_CARD_BODY_CLASS = "md:min-h-0 md:flex-1 md:flex md
 export const HOMEPAGE_DESKTOP_SLOT = {
   price: "md:h-5 md:shrink-0",
   meta: "md:h-4 md:shrink-0",
-  title: "md:min-h-[2.5rem] md:shrink-0",
+  title: "md:min-h-[2.25rem] md:shrink-0",
   city: "md:h-4 md:shrink-0",
-  agentFooter: "md:h-[3.25rem] md:shrink-0",
-  agentRow: "md:h-9",
+  agentFooter: "md:h-[3rem] md:shrink-0",
+  agentRow: "md:h-8",
   listedRow: "md:h-4",
 } as const;
 

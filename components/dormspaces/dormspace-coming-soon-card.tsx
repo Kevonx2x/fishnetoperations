@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Home } from "lucide-react";
 
+import { DORMSPACE_DESKTOP_CARD_HEIGHT_CLASS } from "@/lib/dormspace-listing-card-layout";
 import { cn } from "@/lib/utils";
 
 export function DormspaceComingSoonCard({ cardWidthClass }: { cardWidthClass: string }) {
@@ -16,7 +17,8 @@ export function DormspaceComingSoonCard({ cardWidthClass }: { cardWidthClass: st
       <Link
         href="/dormspaces/submit"
         className={cn(
-          "flex aspect-[4/5] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-3 py-5 text-center shadow-sm transition hover:bg-[#F4F1EA] max-md:min-h-0 md:aspect-auto md:min-h-[412px] md:px-4 md:py-8 lg:min-h-[448px]",
+          "flex aspect-[4/5] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-3 py-5 text-center shadow-sm transition hover:bg-[#F4F1EA] max-md:min-h-0 md:aspect-auto md:px-4 md:py-6",
+          DORMSPACE_DESKTOP_CARD_HEIGHT_CLASS,
           cardWidthClass,
         )}
       >

@@ -3109,7 +3109,7 @@ function CategorySection({
   return (
     <>
       <div>
-        <h2 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl md:text-2xl">
+        <h2 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl md:text-xl">
           {title}
         </h2>
         <p className="mt-0.5 hidden text-xs font-normal text-[#717171] md:block md:font-medium md:text-[#484848]">
@@ -3584,7 +3584,7 @@ export function NewlyListedCard({
             ? cn(
                 "max-md:gap-1.5 max-md:rounded-b-2xl max-md:border-0 max-md:px-3 max-md:pb-2.5 max-md:pt-2",
                 mobileEqualHeightRow && "max-md:flex-1",
-                "md:gap-1 md:border-t md:border-[#2C2C2C]/10 md:px-2.5 md:pt-2 md:pb-0",
+                "md:gap-0.5 md:border-t md:border-[#2C2C2C]/10 md:px-2 md:pt-1.5 md:pb-0",
                 HOMEPAGE_DESKTOP_CARD_BODY_CLASS,
               )
             : "border-t border-[#2C2C2C]/10 px-3 py-3 sm:px-4 md:py-2.5",
@@ -3718,7 +3718,7 @@ export function NewlyListedCard({
         className={cn(
           "relative z-10 mt-auto hidden min-h-0 shrink-0 flex-col overflow-hidden bg-white md:flex",
           browseCompact
-            ? cn(HOMEPAGE_DESKTOP_SLOT.agentFooter, "justify-between px-2.5 pb-2")
+            ? cn(HOMEPAGE_DESKTOP_SLOT.agentFooter, "justify-between px-2 pb-1.5")
             : "justify-start px-2.5 py-1",
         )}
       >
