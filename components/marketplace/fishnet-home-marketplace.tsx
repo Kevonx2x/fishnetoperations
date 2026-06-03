@@ -127,9 +127,16 @@ import {
 import { buildMobileDiscoveryPool, dedupeMobileHomepageRows, propertyListingLocationKey } from "@/lib/homepage-listing-dedupe";
 import {
   HOMEPAGE_BROWSE_LISTING_CARD_WIDTH,
+  HOMEPAGE_DESKTOP_CARD_BODY_CLASS,
+  HOMEPAGE_DESKTOP_CARD_HEIGHT_CLASS,
+  HOMEPAGE_DESKTOP_CARD_IMAGE_HEIGHT_CLASS,
+  HOMEPAGE_DESKTOP_SLOT,
+  HOMEPAGE_DESKTOP_SQFT_PLACEHOLDER,
   HOMEPAGE_MOBILE_CAROUSEL_TRACK,
   HOMEPAGE_MOBILE_FEED_CARD_WIDTH,
   HOMEPAGE_MOBILE_FEED_ROW_COUNT,
+  homepageListingCardCityLabel,
+  homepageListingCardSqftLabel,
 } from "@/lib/homepage-listing-card-layout";
 import {
   useFeaturedLocationCounts,
@@ -2529,11 +2536,11 @@ export function BahayGoHomeMarketplace({
               />
 
               {!filtersActive ? (
-                <div className="mt-2 hidden md:mt-3 md:block">
+                <div className="mt-1 hidden md:mt-2 md:block">
                   <button
                     type="button"
                     onClick={() => setFiltersOpen(true)}
-                    className="relative inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-[#6B9E6E] bg-white px-4 py-2.5 text-sm font-semibold text-[#6B9E6E] shadow-sm transition hover:bg-[#6B9E6E]/5 sm:w-auto"
+                    className="relative inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-[#6B9E6E] bg-white px-4 py-2 text-sm font-semibold text-[#6B9E6E] shadow-sm transition hover:bg-[#6B9E6E]/5 sm:w-auto"
                   >
                     <Filter className="h-4 w-4" aria-hidden />
                     Filters
@@ -2593,7 +2600,7 @@ export function BahayGoHomeMarketplace({
                 </div>
               ) : null}
 
-              <div className={cn("mt-1 max-md:mt-2 md:mt-8", filtersActive && "max-md:mt-2 md:mt-6")}>
+              <div className={cn("mt-1 max-md:mt-2 md:mt-5", filtersActive && "max-md:mt-2 md:mt-5")}>
                 {homepageRows.length === 0 && filtersActive ? (
                   <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center shadow-sm">
                     <p className="font-serif text-xl font-semibold text-[#2C2C2C]">
@@ -3102,15 +3109,15 @@ function CategorySection({
   return (
     <>
       <div>
-        <h2 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl md:text-3xl">
+        <h2 className="font-serif text-xl font-semibold tracking-tight text-[#2C2C2C] sm:text-2xl md:text-2xl">
           {title}
         </h2>
-        <p className="mt-1 hidden text-sm font-normal text-[#717171] md:block md:font-semibold md:text-[#484848]">
+        <p className="mt-0.5 hidden text-xs font-normal text-[#717171] md:block md:font-medium md:text-[#484848]">
           {subtitle}
         </p>
       </div>
 
-      <div className="mt-3 flex min-w-0 w-full max-w-full items-stretch gap-1 md:mx-0 md:mt-4 md:gap-2">
+      <div className="mt-3 flex min-w-0 w-full max-w-full items-stretch gap-1 md:mx-0 md:mt-2.5 md:gap-2">
         <button
           type="button"
           onClick={() => scrollRow(sectionRef, "prev")}
@@ -3274,6 +3281,8 @@ export function NewlyListedCard({
   const showEngagementRow = showEng || agentEngagementLocked;
 
   const titleLine = property.name?.trim() || property.location;
+  const cityLine = homepageListingCardCityLabel(property);
+  const sqftLabel = homepageListingCardSqftLabel(property.sqft);
   const canRequestCoList =
     profile?.role === "agent" &&
     !!verifiedListingAgent &&
@@ -3303,9 +3312,10 @@ export function NewlyListedCard({
           ? cn(
               "min-h-0 max-md:snap-start max-md:overflow-visible max-md:rounded-2xl max-md:bg-white max-md:shadow-[0_2px_16px_rgba(0,0,0,0.08)] max-md:ring-1 max-md:ring-black/[0.06] max-md:transition max-md:active:scale-[0.99]",
               mobileEqualHeightRow && "max-md:h-full",
-              "md:min-h-[412px] md:overflow-hidden md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md lg:min-h-[448px]",
+              "md:flex md:flex-col md:overflow-hidden md:rounded-xl md:border md:border-[#2C2C2C]/10 md:shadow-sm",
+              HOMEPAGE_DESKTOP_CARD_HEIGHT_CLASS,
             )
-          : "min-h-[300px] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 shadow-md md:min-h-[412px] lg:min-h-[448px]",
+          : "min-h-[300px] overflow-hidden rounded-2xl border border-[#2C2C2C]/10 shadow-md md:min-h-0",
         grid
           ? gridCardClassName ?? HOMEPAGE_BROWSE_LISTING_CARD_WIDTH
           : cn(cardWidthClass ?? HOMEPAGE_BROWSE_LISTING_CARD_WIDTH, "shrink-0"),
@@ -3323,8 +3333,11 @@ export function NewlyListedCard({
         className={cn(
           "relative w-full shrink-0 overflow-hidden bg-[#F3F0EA]",
           browseCompact
-            ? "aspect-[5/4] max-md:rounded-t-2xl md:aspect-auto md:h-44 md:rounded-none lg:h-52"
-            : "h-44 lg:h-52",
+            ? cn(
+                "aspect-[5/4] max-md:rounded-t-2xl md:aspect-auto md:rounded-none",
+                HOMEPAGE_DESKTOP_CARD_IMAGE_HEIGHT_CLASS,
+              )
+            : "h-44 md:h-40 lg:h-[10.5rem]",
         )}
       >
         {img ? (
@@ -3414,7 +3427,7 @@ export function NewlyListedCard({
 
             {browseCompact ? (
               <div
-                className="pointer-events-none absolute inset-x-0 bottom-2.5 z-[25] flex items-center justify-center gap-[6px] md:hidden"
+                className="pointer-events-none absolute inset-x-0 bottom-2.5 z-[25] flex items-center justify-center gap-[6px]"
                 aria-hidden
               >
                 {Array.from({ length: photoDotCount }).map((_, i) => (
@@ -3464,7 +3477,9 @@ export function NewlyListedCard({
             browseCompact && "max-md:hidden",
           )}
         >
-          <span className={browseCardListedPillClass}>{listedLabel}</span>
+          <span className={cn(browseCardListedPillClass, browseCompact && "md:hidden")}>
+            {listedLabel}
+          </span>
           {showYourListingBadge ? (
             <Link
               href="/dashboard/agent"
@@ -3569,9 +3584,10 @@ export function NewlyListedCard({
             ? cn(
                 "max-md:gap-1.5 max-md:rounded-b-2xl max-md:border-0 max-md:px-3 max-md:pb-2.5 max-md:pt-2",
                 mobileEqualHeightRow && "max-md:flex-1",
-                "md:border-t md:border-[#2C2C2C]/10 md:px-3 md:py-2",
+                "md:gap-1 md:border-t md:border-[#2C2C2C]/10 md:px-2.5 md:pt-2 md:pb-0",
+                HOMEPAGE_DESKTOP_CARD_BODY_CLASS,
               )
-            : "border-t border-[#2C2C2C]/10 px-3 py-3 sm:px-4",
+            : "border-t border-[#2C2C2C]/10 px-3 py-3 sm:px-4 md:py-2.5",
         )}
       >
         {isDualListing ? (
@@ -3579,6 +3595,7 @@ export function NewlyListedCard({
             className={cn(
               "shrink-0 space-y-0.5",
               browseCompact && "max-md:space-y-1",
+              browseCompact && "md:min-h-[2.5rem] md:shrink-0",
               mobileEqualHeightRow && "max-md:min-h-[3.25rem]",
             )}
           >
@@ -3603,7 +3620,7 @@ export function NewlyListedCard({
           <p
             className={cn(
               "shrink-0 truncate font-bold tracking-tight text-[#2C2C2C]",
-              browseCompact ? "text-[18px] leading-tight md:text-base md:text-[#D4A843]" : "text-lg text-[#D4A843] sm:text-xl",
+              browseCompact ? cn("text-[18px] leading-tight md:text-sm md:text-[#D4A843]", HOMEPAGE_DESKTOP_SLOT.price) : "text-lg text-[#D4A843] sm:text-xl",
               mobileEqualHeightRow && "max-md:min-h-[3.25rem]",
             )}
           >
@@ -3613,7 +3630,7 @@ export function NewlyListedCard({
         <div
           className={cn(
             "flex shrink-0 items-center gap-2.5 text-[#484848]",
-            browseCompact ? "max-md:text-[13px] md:gap-3 md:text-xs" : "gap-3 text-xs",
+            browseCompact ? cn("max-md:text-[13px] md:gap-3 md:text-xs", HOMEPAGE_DESKTOP_SLOT.meta) : "gap-3 text-xs",
           )}
         >
           <span className="inline-flex items-center gap-1.5 font-medium">
@@ -3625,15 +3642,31 @@ export function NewlyListedCard({
             {property.baths === 1 ? "1 Bath" : `${property.baths} Baths`}
           </span>
           {browseCompact ? (
-            <span className="max-md:hidden font-medium text-[#717171]">{property.sqft} sqft</span>
+            <span className="max-md:hidden font-medium text-[#717171]">
+              {sqftLabel ? (
+                sqftLabel
+              ) : (
+                <span aria-hidden className="invisible">
+                  {HOMEPAGE_DESKTOP_SQFT_PLACEHOLDER}
+                </span>
+              )}
+            </span>
           ) : (
-            <span className="font-medium text-[#717171]">{property.sqft} sqft</span>
+            <span className="font-medium text-[#717171]">
+              {sqftLabel || (
+                <span aria-hidden className="invisible">
+                  {HOMEPAGE_DESKTOP_SQFT_PLACEHOLDER}
+                </span>
+              )}
+            </span>
           )}
         </div>
         <p
           className={cn(
             "shrink-0 font-semibold text-[#2C2C2C]",
-            browseCompact ? "line-clamp-2 text-[14px] leading-snug md:text-sm" : "line-clamp-2 text-base",
+            browseCompact
+              ? cn("line-clamp-2 text-[14px] leading-snug md:text-[13px]", HOMEPAGE_DESKTOP_SLOT.title)
+              : "line-clamp-2 text-base md:text-sm",
             mobileEqualHeightRow && "max-md:min-h-[2.75rem]",
           )}
         >
@@ -3642,13 +3675,34 @@ export function NewlyListedCard({
         <p
           className={cn(
             "flex shrink-0 items-start gap-1 text-[#717171]",
-            browseCompact ? "text-[12px] leading-snug md:gap-1.5 md:text-xs" : "gap-1.5 text-xs",
+            browseCompact && "md:hidden",
+            browseCompact ? "text-[12px] leading-snug" : "gap-1.5 text-xs",
             mobileEqualHeightRow && "max-md:min-h-[2.5rem]",
           )}
         >
-          <MapPin className="mt-0.5 size-3.5 shrink-0 text-[#8E8E8E] md:size-3.5" aria-hidden />
+          <MapPin className="mt-0.5 size-3.5 shrink-0 text-[#8E8E8E]" aria-hidden />
           <span className="min-w-0 line-clamp-2">{property.location}</span>
         </p>
+        {browseCompact ? (
+          <p
+            className={cn(
+              "hidden shrink-0 items-center gap-1.5 text-[#717171] md:flex",
+              HOMEPAGE_DESKTOP_SLOT.city,
+              "text-[11px]",
+            )}
+          >
+            <MapPin className="size-3 shrink-0 text-[#8E8E8E]" aria-hidden />
+            <span className="min-w-0 truncate">
+              {cityLine ? (
+                cityLine
+              ) : (
+                <span className="invisible select-none" aria-hidden>
+                  {"\u00a0"}
+                </span>
+              )}
+            </span>
+          </p>
+        ) : null}
 
         {browseCompact && !listingRemoved ? (
           <BahayGoMobileCheckAvailabilityCta
@@ -3660,45 +3714,62 @@ export function NewlyListedCard({
         ) : null}
       </div>
 
-      <div className="relative z-10 mt-auto hidden min-h-[56px] max-h-[76px] shrink-0 flex-col justify-start overflow-hidden bg-white px-3 py-1.5 md:flex">
-        {connectedAgents.length === 0 ? (
-          <div className="flex min-h-[40px] flex-1 items-center justify-center">
-            <p className="text-center text-xs text-gray-400">No agent assigned</p>
-          </div>
-        ) : (
-          <div className="flex shrink-0 flex-col items-stretch justify-start gap-0">
-            {firstAgent ? (
-              <div className="shrink-0">
-                <Link
-                  href={`/agents/${encodeURIComponent(firstAgent.id)}`}
-                  title={firstAgent.name}
-                  onClick={(e) => e.stopPropagation()}
-                  className="group flex min-w-0 cursor-pointer items-start gap-2 rounded-lg transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
-                >
-                  <div className="relative aspect-square h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
-                    <AgentAvatarFill name={firstAgent.name} imageUrl={firstAgent.image} sizes="28px" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex w-full items-center justify-between gap-1">
-                      <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                        <span className="truncate text-xs font-medium text-[#2C2C2C]/85">
-                          {firstAgent.name}
-                        </span>
-                        <BadgeCheck className="h-3 w-3 shrink-0 text-[#D4A843]" aria-label="Verified" />
-                      </div>
-                      {firstAgent.score > 0 ? (
-                        <span className="ml-1 flex shrink-0 items-center gap-0.5 text-xs text-gray-400">
-                          ★ {Number(firstAgent.score).toFixed(1)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="truncate text-[10px] text-gray-400">
-                      {listingCardBrokerageSubtitle(firstAgent)}
-                    </p>
-                  </div>
-                </Link>
+      <div
+        className={cn(
+          "relative z-10 mt-auto hidden min-h-0 shrink-0 flex-col overflow-hidden bg-white md:flex",
+          browseCompact
+            ? cn(HOMEPAGE_DESKTOP_SLOT.agentFooter, "justify-between px-2.5 pb-2")
+            : "justify-start px-2.5 py-1",
+        )}
+      >
+        <div
+          className={cn(
+            browseCompact ? cn(HOMEPAGE_DESKTOP_SLOT.agentRow, "flex items-center") : "min-h-0",
+          )}
+        >
+          {connectedAgents.length === 0 ? (
+            <p className="w-full truncate text-center text-[11px] text-gray-400 md:text-left">
+              No agent assigned
+            </p>
+          ) : firstAgent ? (
+            <Link
+              href={`/agents/${encodeURIComponent(firstAgent.id)}`}
+              title={firstAgent.name}
+              onClick={(e) => e.stopPropagation()}
+              className="group flex min-h-0 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
+            >
+              <div className="relative aspect-square h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+                <AgentAvatarFill name={firstAgent.name} imageUrl={firstAgent.image} sizes="28px" />
               </div>
-            ) : null}
+              <div className="min-w-0 flex-1">
+                <div className="flex w-full items-center justify-between gap-1">
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <span className="truncate text-xs font-medium text-[#2C2C2C]/85">
+                      {firstAgent.name}
+                    </span>
+                    <BadgeCheck className="h-3 w-3 shrink-0 text-[#D4A843]" aria-label="Verified" />
+                  </div>
+                  <span
+                    className={cn(
+                      "ml-1 flex min-w-[2.25rem] shrink-0 items-center justify-end gap-0.5 text-xs text-gray-400 tabular-nums",
+                      firstAgent.score <= 0 && browseCompact && "invisible",
+                    )}
+                    aria-hidden={firstAgent.score <= 0 && browseCompact}
+                  >
+                    ★ {firstAgent.score > 0 ? Number(firstAgent.score).toFixed(1) : "0.0"}
+                  </span>
+                </div>
+                {!browseCompact ? (
+                  <p className="truncate text-[10px] text-gray-400">
+                    {listingCardBrokerageSubtitle(firstAgent)}
+                  </p>
+                ) : null}
+              </div>
+            </Link>
+          ) : null}
+        </div>
+        {!browseCompact && connectedAgents.length > 0 ? (
+          <div className="flex shrink-0 flex-col items-stretch justify-start gap-0">
             {moreAgentCount > 0 ? (
               <button
                 type="button"
@@ -3724,7 +3795,18 @@ export function NewlyListedCard({
               </button>
             ) : null}
           </div>
-        )}
+        ) : null}
+        {browseCompact ? (
+          <div
+            className={cn(
+              HOMEPAGE_DESKTOP_SLOT.listedRow,
+              "flex shrink-0 items-center gap-1.5 text-[10px] font-medium text-[#717171]",
+            )}
+          >
+            <span className="size-1.5 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />
+            <span className="truncate">{listedLabel}</span>
+          </div>
+        ) : null}
       </div>
       <CoListRequestModal
         open={coListOpen}
@@ -4007,7 +4089,7 @@ function PropertyRows({
   return (
     <div
       className={cn(
-        "min-w-0 w-full max-w-full overflow-x-clip md:space-y-6",
+        "min-w-0 w-full max-w-full overflow-x-clip md:space-y-4",
         mobileFeedBrowse ? "max-md:space-y-4" : "max-md:space-y-1",
       )}
     >
@@ -4104,7 +4186,8 @@ function ListingsComingSoonPlaceholderCard({
       <Link
         href={href}
         className={cn(
-          "flex min-h-[220px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-3 py-6 text-center shadow-sm transition hover:bg-[#F4F1EA] max-md:min-h-[200px] md:min-h-[300px] md:rounded-2xl md:py-8",
+          "flex min-h-[220px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#6B9E6E] bg-[#FAF8F4] px-3 py-6 text-center shadow-sm transition hover:bg-[#F4F1EA] max-md:min-h-[200px] md:rounded-xl md:py-5",
+          HOMEPAGE_DESKTOP_CARD_HEIGHT_CLASS,
           cardWidthClass,
         )}
       >
@@ -4323,7 +4406,7 @@ function RowCarousel({
         isFeaturedPicksRow ? "md:px-10" : "flex-1",
       )}
     >
-      <div className="flex w-max flex-nowrap items-stretch gap-3.5 md:gap-3">
+      <div className="flex w-max flex-nowrap items-stretch gap-3.5 md:gap-2.5">
         {list.map((p, idx) => (
           <div key={`${rowKey}-${p.id}`} className="flex self-stretch max-md:items-stretch">
             <NewlyListedCard
@@ -4374,22 +4457,22 @@ function RowCarousel({
     <div
       className={cn(
         featuredClasses,
-        reserveBrowseSectionMinH && "md:min-h-[400px]",
-        "max-md:py-1 md:py-4",
+        reserveBrowseSectionMinH && "md:min-h-0",
+        "max-md:py-1 md:py-2.5",
       )}
     >
-      <div className="mb-2 max-md:mb-2 md:mb-3">
+      <div className="mb-2 max-md:mb-2 md:mb-2">
         <div className="flex flex-wrap items-center gap-2">
           {featured ? <Star className="h-4 w-4 shrink-0 text-[#D4A843]" /> : null}
           {titleHref ? (
             <Link
               href={titleHref}
-              className="min-w-0 max-md:px-0 px-4 font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] hover:underline sm:text-2xl md:px-0 md:text-3xl"
+              className="min-w-0 max-md:px-0 px-4 font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] hover:underline sm:text-2xl md:px-0 md:text-2xl"
             >
               {title}
             </Link>
           ) : (
-            <h2 className="min-w-0 max-md:px-0 px-4 font-serif text-[18px] font-semibold leading-tight tracking-tight text-[#2C2C2C] sm:text-2xl md:px-0 md:text-3xl">
+            <h2 className="min-w-0 max-md:px-0 px-4 font-serif text-[18px] font-semibold leading-tight tracking-tight text-[#2C2C2C] sm:text-2xl md:px-0 md:text-2xl">
               {title}
             </h2>
           )}
@@ -4404,18 +4487,18 @@ function RowCarousel({
           <button
             type="button"
             onClick={() => scroll("prev")}
-            className="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow-md md:flex"
+            className="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-1.5 shadow-md md:flex"
             aria-label="Scroll left"
           >
-            <ChevronLeft className="h-5 w-5 text-[#2C2C2C]" />
+            <ChevronLeft className="h-4 w-4 text-[#2C2C2C]" />
           </button>
           <button
             type="button"
             onClick={() => scroll("next")}
-            className="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow-md md:flex"
+            className="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-1.5 shadow-md md:flex"
             aria-label="Scroll right"
           >
-            <ChevronRight className="h-5 w-5 text-[#2C2C2C]" />
+            <ChevronRight className="h-4 w-4 text-[#2C2C2C]" />
           </button>
           {scrollTrack}
         </div>
@@ -4424,7 +4507,7 @@ function RowCarousel({
           <button
             type="button"
             onClick={() => scroll("prev")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pl-2"
+            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-1.5 shadow-sm hover:bg-neutral-50 md:flex md:pl-1.5"
             aria-label="Scroll left"
           >
             <ChevronLeft className="h-4 w-4 text-[#2C2C2C]" strokeWidth={2.25} aria-hidden />
@@ -4433,7 +4516,7 @@ function RowCarousel({
           <button
             type="button"
             onClick={() => scroll("next")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pr-2"
+            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-1.5 shadow-sm hover:bg-neutral-50 md:flex md:pr-1.5"
             aria-label="Scroll right"
           >
             <ChevronRight className="h-4 w-4 text-[#2C2C2C]" strokeWidth={2.25} aria-hidden />
