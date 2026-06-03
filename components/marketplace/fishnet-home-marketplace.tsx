@@ -44,6 +44,7 @@ import {
 import { BahayGoHomeMobileTop, BahayGoHomeMobileStickySearch } from "@/components/marketplace/bahaygo-home-mobile-top";
 import { useReleaseHomepageLcpStrip } from "@/components/client/homepage-lcp-release-context";
 import { MobileFixedSearchShell } from "@/components/marketplace/mobile-fixed-search-shell";
+import { BahayGoMobileCheckAvailabilityCta } from "@/components/marketplace/bahaygo-mobile-check-availability-cta";
 import { BahayGoMobileTruliaFeed } from "@/components/marketplace/bahaygo-mobile-trulia-feed";
 import { HomepageListingsLoadError } from "@/components/marketplace/homepage-listings-load-error";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
@@ -2541,13 +2542,13 @@ export function BahayGoHomeMarketplace({
               ) : null}
 
               {filtersActive ? (
-                <div className="sticky top-16 z-40 -mx-6 mt-4 border-b border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-6 py-3 backdrop-blur-md md:mx-0 md:rounded-b-xl md:shadow-sm">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="z-20 mt-2 border-b border-[#2C2C2C]/10 bg-[#FAF8F4] py-2 max-md:static max-md:-mx-0 max-md:px-0 md:sticky md:top-16 md:-mx-6 md:mt-4 md:rounded-b-xl md:bg-[#FAF8F4]/95 md:px-6 md:py-3 md:backdrop-blur-md md:shadow-sm">
+                  <div className="flex flex-col gap-2 max-md:gap-2 lg:flex-row lg:items-start lg:justify-between lg:gap-3">
                     <div className="min-w-0 flex-1">
-                      <h2 className="font-serif text-lg font-semibold tracking-tight text-[#2C2C2C] sm:text-xl">
+                      <h2 className="font-serif text-base font-semibold leading-tight tracking-tight text-[#2C2C2C] max-md:text-[17px] sm:text-xl">
                         {resultsHeading}
                       </h2>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 max-md:mt-1 md:mt-2 md:gap-2">
                         {activeFilterChips(filters, filterChipActions, {
                           search: neighborhoodLabelForChips ? undefined : search,
                           neighborhoodLabel: neighborhoodLabelForChips,
@@ -2578,7 +2579,7 @@ export function BahayGoHomeMarketplace({
                     <button
                       type="button"
                       onClick={() => setFiltersOpen(true)}
-                      className="relative inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-full border-2 border-[#6B9E6E] bg-white px-4 py-2.5 text-sm font-semibold text-[#6B9E6E] shadow-sm transition hover:bg-[#6B9E6E]/5 lg:w-auto"
+                      className="relative inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-full border-2 border-[#6B9E6E] bg-white px-4 py-2 text-sm font-semibold text-[#6B9E6E] shadow-sm transition hover:bg-[#6B9E6E]/5 max-md:py-2 max-md:text-[13px] lg:w-auto md:py-2.5"
                     >
                       <Filter className="h-4 w-4" aria-hidden />
                       Filters
@@ -2592,7 +2593,7 @@ export function BahayGoHomeMarketplace({
                 </div>
               ) : null}
 
-              <div className={cn("mt-1 max-md:mt-3 md:mt-8", filtersActive && "mt-4 md:mt-6")}>
+              <div className={cn("mt-1 max-md:mt-2 md:mt-8", filtersActive && "max-md:mt-2 md:mt-6")}>
                 {homepageRows.length === 0 && filtersActive ? (
                   <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-8 text-center shadow-sm">
                     <p className="font-serif text-xl font-semibold text-[#2C2C2C]">
@@ -2607,6 +2608,44 @@ export function BahayGoHomeMarketplace({
                   </div>
                 ) : (
                   <>
+                    {filtersActive ? (
+                      <div className="flex flex-col gap-3 md:hidden">
+                        {mobileVerticalListings.map((property, idx) => {
+                          const urls = roomUrlsFor(property);
+                          return (
+                            <NewlyListedCard
+                              key={property.id}
+                              property={property}
+                              roomUrls={urls}
+                              roomIdx={cardRoomIdx[property.id] ?? 0}
+                              onRoomPrev={() =>
+                                setCardRoomIdx((s) => ({
+                                  ...s,
+                                  [property.id]:
+                                    (urls.length + (s[property.id] ?? 0) - 1) % Math.max(1, urls.length),
+                                }))
+                              }
+                              onRoomNext={() =>
+                                setCardRoomIdx((s) => ({
+                                  ...s,
+                                  [property.id]: ((s[property.id] ?? 0) + 1) % Math.max(1, urls.length),
+                                }))
+                              }
+                              engagement={engagement}
+                              connectedAgents={
+                                allConnectedAgentsByPropertyId.get(property.id) ?? []
+                              }
+                              cardWidthClass="w-full shrink-0"
+                              viewerUserId={user?.id ?? null}
+                              compact
+                              verifiedListingAgent={viewerVerifiedListingAgent}
+                              listingImageLoadEager={idx < 4}
+                              listingImagePriority={idx < 2}
+                            />
+                          );
+                        })}
+                      </div>
+                    ) : null}
                     {!filtersActive ? (
                       <div className="md:hidden">
                         <BahayGoMobileTruliaFeed
@@ -2638,7 +2677,7 @@ export function BahayGoHomeMarketplace({
                         />
                       </div>
                     ) : null}
-                    <div className={cn(!filtersActive && "hidden md:block")}>
+                    <div className={cn(filtersActive && "max-md:hidden", !filtersActive && "hidden md:block")}>
                       <PropertyRows
                         rows={homepageRows}
                         showMore={showMoreCategories}
@@ -3284,7 +3323,7 @@ export function NewlyListedCard({
         className={cn(
           "relative w-full shrink-0 overflow-hidden bg-[#F3F0EA]",
           browseCompact
-            ? "aspect-[4/3] max-md:rounded-t-2xl md:aspect-auto md:h-44 md:rounded-none lg:h-52"
+            ? "aspect-[5/4] max-md:rounded-t-2xl md:aspect-auto md:h-44 md:rounded-none lg:h-52"
             : "h-44 lg:h-52",
         )}
       >
@@ -3528,7 +3567,7 @@ export function NewlyListedCard({
           "flex flex-col gap-0 bg-white",
           browseCompact
             ? cn(
-                "max-md:gap-2 max-md:rounded-b-2xl max-md:border-0 max-md:px-4 max-md:pb-4 max-md:pt-3",
+                "max-md:gap-1.5 max-md:rounded-b-2xl max-md:border-0 max-md:px-3 max-md:pb-2.5 max-md:pt-2",
                 mobileEqualHeightRow && "max-md:flex-1",
                 "md:border-t md:border-[#2C2C2C]/10 md:px-3 md:py-2",
               )
@@ -3564,7 +3603,7 @@ export function NewlyListedCard({
           <p
             className={cn(
               "shrink-0 truncate font-bold tracking-tight text-[#2C2C2C]",
-              browseCompact ? "text-[20px] leading-tight md:text-base md:text-[#D4A843]" : "text-lg text-[#D4A843] sm:text-xl",
+              browseCompact ? "text-[18px] leading-tight md:text-base md:text-[#D4A843]" : "text-lg text-[#D4A843] sm:text-xl",
               mobileEqualHeightRow && "max-md:min-h-[3.25rem]",
             )}
           >
@@ -3573,8 +3612,8 @@ export function NewlyListedCard({
         )}
         <div
           className={cn(
-            "flex shrink-0 items-center gap-3 text-[#484848]",
-            browseCompact ? "max-md:text-sm md:text-xs" : "text-xs",
+            "flex shrink-0 items-center gap-2.5 text-[#484848]",
+            browseCompact ? "max-md:text-[13px] md:gap-3 md:text-xs" : "gap-3 text-xs",
           )}
         >
           <span className="inline-flex items-center gap-1.5 font-medium">
@@ -3594,7 +3633,7 @@ export function NewlyListedCard({
         <p
           className={cn(
             "shrink-0 font-semibold text-[#2C2C2C]",
-            browseCompact ? "line-clamp-2 text-[15px] leading-snug md:text-sm" : "line-clamp-2 text-base",
+            browseCompact ? "line-clamp-2 text-[14px] leading-snug md:text-sm" : "line-clamp-2 text-base",
             mobileEqualHeightRow && "max-md:min-h-[2.75rem]",
           )}
         >
@@ -3602,14 +3641,23 @@ export function NewlyListedCard({
         </p>
         <p
           className={cn(
-            "flex shrink-0 items-start gap-1.5 text-[#717171]",
-            browseCompact ? "text-sm leading-snug md:text-xs" : "text-xs",
+            "flex shrink-0 items-start gap-1 text-[#717171]",
+            browseCompact ? "text-[12px] leading-snug md:gap-1.5 md:text-xs" : "gap-1.5 text-xs",
             mobileEqualHeightRow && "max-md:min-h-[2.5rem]",
           )}
         >
-          <MapPin className="mt-0.5 size-4 shrink-0 text-[#8E8E8E] md:size-3.5" aria-hidden />
+          <MapPin className="mt-0.5 size-3.5 shrink-0 text-[#8E8E8E] md:size-3.5" aria-hidden />
           <span className="min-w-0 line-clamp-2">{property.location}</span>
         </p>
+
+        {browseCompact && !listingRemoved ? (
+          <BahayGoMobileCheckAvailabilityCta
+            propertyHref={propertyHref}
+            propertyTitle={titleLine}
+            agent={firstAgent}
+            className="max-md:mt-0.5 md:hidden"
+          />
+        ) : null}
       </div>
 
       <div className="relative z-10 mt-auto hidden min-h-[56px] max-h-[76px] shrink-0 flex-col justify-start overflow-hidden bg-white px-3 py-1.5 md:flex">

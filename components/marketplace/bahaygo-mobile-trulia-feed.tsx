@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { BAHAYGO_FEED_SPACING } from "@/lib/bahaygo-design-tokens";
@@ -164,7 +163,7 @@ function TruliaVerticalBlock({
         const urls = getRoomUrls(property);
         const globalIdx = imagePriorityStart + idx;
         return (
-          <div key={property.id} className="flex flex-col gap-2.5">
+          <div key={property.id}>
             {renderListingCard({
               property,
               roomUrls: urls,
@@ -184,12 +183,6 @@ function TruliaVerticalBlock({
               listingImageLoadEager: globalIdx < 4,
               listingImagePriority: globalIdx < 2,
             })}
-            <Link
-              href={`/properties/${encodeURIComponent(property.id)}`}
-              className="inline-flex w-full items-center justify-center rounded-full border-2 border-[#6B9E6E] bg-white px-4 py-2.5 text-sm font-semibold text-[#6B9E6E] shadow-sm transition hover:bg-[#6B9E6E]/5"
-            >
-              Check availability
-            </Link>
           </div>
         );
       })}
