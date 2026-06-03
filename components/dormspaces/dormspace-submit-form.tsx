@@ -356,7 +356,7 @@ export function DormspaceSubmitForm() {
   );
   const showVerificationUpload = needsLandlordVerificationUpload(verificationStatus);
   const isRoleBlocked = Boolean(user && profile?.role && isDormspaceSubmitBlockedRole(profile.role));
-  const showPersonalInfo = !isLandlordSignedIn && !isRoleBlocked;
+  const showLandlordContact = !isRoleBlocked;
   const showAccountSection = !user;
   const needsPasswordOnSubmit = showAccountSection;
 
@@ -409,10 +409,10 @@ export function DormspaceSubmitForm() {
   }, [profile?.full_name, profile?.phone, profile?.id]);
 
   useEffect(() => {
-    if (user?.email && showPersonalInfo) {
+    if (user?.email && showLandlordContact) {
       setLandlordEmail(user.email);
     }
-  }, [user?.email, showPersonalInfo]);
+  }, [user?.email, showLandlordContact]);
 
   const onPlace = useCallback((p: GooglePlaceSelectedPayload) => {
     setAddress(p.location);
@@ -470,36 +470,24 @@ export function DormspaceSubmitForm() {
       return;
     }
 
-    let email = "";
-    let phone = "";
-    let fullName = "";
-
-    if (isLandlordSignedIn && profile) {
-      fullName = profile.full_name?.trim() ?? "";
-      email = user?.email?.trim().toLowerCase() ?? "";
-      phone = profile.phone?.trim() ?? "";
-      if (!fullName || !email || !phone) {
-        setError("Your profile is missing name, email, or phone. Update your account in the dashboard first.");
-        return;
-      }
-    } else {
-      const first = firstName.trim();
-      const last = lastName.trim();
-      if (!first || !last) {
-        setError("Please enter your first and last name.");
-        return;
-      }
-      fullName = buildFullName(first, last);
-      email = landlordEmail.trim().toLowerCase();
-      phone = landlordPhone.trim();
-      if (!email) {
-        setError("Please enter your email.");
-        return;
-      }
-      if (!phone) {
-        setError("Please enter your phone number.");
-        return;
-      }
+    const first = firstName.trim();
+    const last = lastName.trim();
+    if (!first || !last) {
+      setError("Please enter your first and last name.");
+      return;
+    }
+    const fullName = buildFullName(first, last);
+    const phone = landlordPhone.trim();
+    const email = user
+      ? (user.email?.trim().toLowerCase() ?? "")
+      : landlordEmail.trim().toLowerCase();
+    if (!email) {
+      setError("Please enter your email.");
+      return;
+    }
+    if (!phone) {
+      setError("Please enter your phone number.");
+      return;
     }
 
     if (photos.length < LISTING_PHOTO_MIN) {
@@ -662,8 +650,13 @@ export function DormspaceSubmitForm() {
         />
       ) : null}
 
-      {showPersonalInfo ? (
+      {showLandlordContact ? (
         <Section title={`${sectionNum++}. Landlord info`}>
+          {isLandlordSignedIn ? (
+            <p className="text-sm font-medium text-[#484848]">
+              Confirm your contact details below. We&apos;ll save them to your profile for future listings.
+            </p>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
               First name *
@@ -695,15 +688,19 @@ export function DormspaceSubmitForm() {
               type="email"
               className={FIELD}
               required
+              readOnly={Boolean(user)}
               value={landlordEmail}
               onChange={(e) => {
+                if (user) return;
                 setLandlordEmail(e.target.value);
                 setEmailExists(null);
               }}
-              onBlur={() => void checkEmail(landlordEmail)}
+              onBlur={() => {
+                if (!user) void checkEmail(landlordEmail);
+              }}
               autoComplete="email"
             />
-            {checkingEmail ? (
+            {checkingEmail && !user ? (
               <span className="mt-1 block text-xs text-[#888888]">Checking email…</span>
             ) : null}
           </label>

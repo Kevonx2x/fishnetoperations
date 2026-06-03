@@ -165,7 +165,11 @@ export async function POST(req: Request) {
       if (session && session.userId === existingProfile.id) {
         landlordUserId = session.userId;
         if (canSetLandlordFlagOnSubmit(existingProfile.role as string)) {
-          await admin.from("profiles").update({ is_landlord: true }).eq("id", session.userId);
+          await admin.from("profiles").update({
+            is_landlord: true,
+            full_name: landlord_name,
+            phone: landlord_phone,
+          }).eq("id", session.userId);
         }
       } else {
         return fail(
@@ -220,7 +224,28 @@ export async function POST(req: Request) {
     landlordUserId = session.userId;
     const sessionEmail = session.email?.trim().toLowerCase();
     if (sessionEmail && sessionEmail === emailLower && canSetLandlordFlagOnSubmit(session.role)) {
-      await admin.from("profiles").update({ is_landlord: true }).eq("id", session.userId);
+      await admin.from("profiles").update({
+        is_landlord: true,
+        full_name: landlord_name,
+        phone: landlord_phone,
+      }).eq("id", session.userId);
+    }
+  }
+
+  if (landlordUserId && landlord_name && landlord_phone.length >= 7) {
+    const profilePatch: { full_name: string; phone: string; is_landlord?: boolean } = {
+      full_name: landlord_name,
+      phone: landlord_phone,
+    };
+    if (session?.userId === landlordUserId && canSetLandlordFlagOnSubmit(session.role)) {
+      profilePatch.is_landlord = true;
+    }
+    const { error: contactErr } = await admin
+      .from("profiles")
+      .update(profilePatch)
+      .eq("id", landlordUserId);
+    if (contactErr) {
+      console.error("[dormspaces/submit] profile contact sync failed", contactErr);
     }
   }
 
