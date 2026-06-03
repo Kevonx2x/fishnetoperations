@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
+import { LandlordDashboardSidebar } from "@/components/dormspaces/landlord-dashboard-sidebar";
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
 import { useAuth } from "@/contexts/auth-context";
 import { isLandlordCapable } from "@/lib/auth-roles";
@@ -39,6 +40,28 @@ export function useLandlordDashboardAuth(loginNext = "/dormspaces/dashboard") {
 export function LandlordDashboardShell({ children, loginNext, variant = "subpage" }: Props) {
   const { profile, authLoading, ready } = useLandlordDashboardAuth(loginNext);
   const showVerificationBanner = variant === "hub";
+  const [listingCount, setListingCount] = useState(0);
+  const [inquiryCount, setInquiryCount] = useState(0);
+
+  const loadSidebarCounts = useCallback(async () => {
+    try {
+      const [listingsRes, inquiriesRes] = await Promise.all([
+        fetch("/api/dormspaces/landlord/listings", { credentials: "include" }),
+        fetch("/api/dormspaces/landlord/inquiries?status=new", { credentials: "include" }),
+      ]);
+      const listingsJson = (await listingsRes.json()) as { data?: { items?: unknown[] } };
+      const inquiriesJson = (await inquiriesRes.json()) as { data?: { items?: unknown[] } };
+      if (listingsRes.ok) setListingCount(listingsJson.data?.items?.length ?? 0);
+      if (inquiriesRes.ok) setInquiryCount(inquiriesJson.data?.items?.length ?? 0);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    void loadSidebarCounts();
+  }, [ready, loadSidebarCounts]);
 
   if (authLoading || !ready) {
     return (
@@ -60,7 +83,14 @@ export function LandlordDashboardShell({ children, loginNext, variant = "subpage
           />
         </div>
       ) : null}
-      {children}
+      <div className="flex min-h-0 flex-1 flex-col md:min-h-[calc(100dvh-4rem)] md:flex-row">
+        <LandlordDashboardSidebar
+          listingCount={listingCount}
+          inquiryCount={inquiryCount}
+          className="hidden md:flex"
+        />
+        <div className="min-w-0 flex-1 bg-white">{children}</div>
+      </div>
     </DormspacePortalShell>
   );
 }

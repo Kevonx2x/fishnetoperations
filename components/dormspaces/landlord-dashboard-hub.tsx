@@ -95,13 +95,11 @@ export function LandlordDashboardHub() {
 
   return (
     <LandlordDashboardShell variant="hub">
-      <div className="pb-32">
-        <h1 className="px-4 pt-4 pb-2 font-serif text-[28px] font-semibold leading-tight text-[#2C2C2C] md:text-[32px]">
-          Landlord Dashboard
-        </h1>
-        <p className="mb-6 px-4 text-sm text-[#888888]">Welcome back, {firstName}</p>
+      <div className="px-4 py-6 pb-32 md:px-8 md:py-8">
+        <h1 className="font-serif text-2xl font-bold text-[#2C2C2C] md:text-3xl">Dashboard</h1>
+        <p className="mt-1 text-sm text-[#888888]">Welcome back, {firstName}</p>
 
-        <div className="grid grid-cols-1 gap-4 px-4 md:grid-cols-2">
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           <HubCard
             href="/dormspaces/dashboard/listings"
             icon={Bed}
@@ -130,7 +128,7 @@ export function LandlordDashboardHub() {
           />
         </div>
 
-        <div className="mt-4 px-4">
+        <div className="mt-4">
           <Link
             href="/dormspaces/submit"
             className={cn(

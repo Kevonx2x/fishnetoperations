@@ -28,7 +28,7 @@ export function dormspaceCenterNavItems(
     return [{ key: "listings", label: "My Listings", href: "/dormspaces/dashboard" }];
   }
 
-  return [{ key: "list", label: "List your space", href: "/dormspaces/welcome" }];
+  return [];
 }
 
 export function isDormspaceNavLinkActive(

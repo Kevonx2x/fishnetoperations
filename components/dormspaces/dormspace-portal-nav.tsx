@@ -11,6 +11,7 @@ import {
   Home,
   Inbox,
   LogOut,
+  Plus,
   User,
 } from "lucide-react";
 
@@ -60,6 +61,16 @@ function AccountDropdownMenu({
 
   return (
     <>
+      <Link
+        href="/dormspaces/submit?from=welcome"
+        className={DROPDOWN_ITEM}
+        onClick={onNavigate}
+        role="menuitem"
+      >
+        <Plus className="h-4 w-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+        List your space
+      </Link>
+      <div className={DROPDOWN_DIVIDER} role="separator" />
       {isLandlord ? (
         <>
           <Link
@@ -341,14 +352,6 @@ export function DormspacePortalNav({
                 <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#6B9E6E] px-1 text-[10px] font-bold text-white">
                   {dbIds.length > 9 ? "9+" : dbIds.length}
                 </span>
-              </Link>
-            ) : null}
-            {isLandlord ? (
-              <Link
-                href="/dormspaces/submit?from=welcome"
-                className="hidden h-9 items-center justify-center rounded-xl bg-[#6B9E6E] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#5d8a60] sm:inline-flex"
-              >
-                List Your Space
               </Link>
             ) : null}
             <button

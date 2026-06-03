@@ -83,11 +83,14 @@ export function LandlordDashboardInquiries() {
 
   return (
     <LandlordDashboardShell loginNext="/dormspaces/dashboard/inquiries">
-      <LandlordDashboardSubpageHeader title="Inquiries" />
-      <div className="mx-auto max-w-5xl px-4 pb-32">
+      <div className="md:hidden">
+        <LandlordDashboardSubpageHeader title="Inquiries" />
+      </div>
+      <div className="px-4 py-6 pb-32 md:px-8 md:py-8">
+        <h1 className="hidden font-serif text-2xl font-bold text-[#2C2C2C] md:block md:text-3xl">Inquiries</h1>
         {error ? <p className="mb-4 text-sm font-medium text-red-600">{error}</p> : null}
 
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-4 mt-6 flex flex-wrap gap-2 md:mt-8">
           {(["all", "new", "responded", "archived"] as const).map((f) => (
             <button
               key={f}

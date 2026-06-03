@@ -13,8 +13,13 @@ export function LandlordDashboardProfile() {
 
   return (
     <LandlordDashboardShell loginNext="/dormspaces/dashboard/profile">
-      <LandlordDashboardSubpageHeader title="My Profile" />
-      <div className="mx-auto max-w-5xl px-4 pb-32">
+      <div className="md:hidden">
+        <LandlordDashboardSubpageHeader title="My Profile" />
+      </div>
+      <div className="mx-auto max-w-3xl px-4 py-6 pb-32 md:px-8 md:py-8">
+        <h1 className="mb-6 hidden font-serif text-2xl font-bold text-[#2C2C2C] md:block md:text-3xl">
+          My Profile
+        </h1>
         {error ? <p className="mb-4 text-sm font-medium text-red-600">{error}</p> : null}
         <DormspaceLandlordProfileTab
           onError={setError}
