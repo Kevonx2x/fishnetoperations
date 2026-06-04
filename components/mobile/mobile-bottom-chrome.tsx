@@ -12,7 +12,7 @@ import {
   MOBILE_BOTTOM_NAV_HEIGHT_VAR,
 } from "@/lib/mobile-bottom-nav-layout";
 
-const HIDDEN_PATH_PREFIXES = ["/auth", "/admin"] as const;
+const HIDDEN_PATH_PREFIXES = ["/auth", "/admin", "/messenger"] as const;
 const HIDDEN_PATHS = ["/dormspaces/submit", "/dormspaces/welcome"] as const;
 
 function isMobileBottomChromeHidden(

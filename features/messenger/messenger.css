@@ -1,0 +1,29 @@
+@keyframes bhg-typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+.bhg-typing-dot {
+  display: inline-block;
+  height: 6px;
+  width: 6px;
+  border-radius: 9999px;
+  background-color: #888888;
+  animation: bhg-typing-bounce 1.2s ease-in-out infinite;
+}
+
+.bhg-typing-dot--delay-1 {
+  animation-delay: 0.15s;
+}
+
+.bhg-typing-dot--delay-2 {
+  animation-delay: 0.3s;
+}
