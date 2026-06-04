@@ -178,11 +178,34 @@
   .bahaygo-stream-chat .str-chat__list {
     box-sizing: border-box;
     flex: 1;
+    max-width: 100%;
     min-height: 0;
+    min-width: 0;
     overflow-x: hidden;
     overflow-y: auto;
-    /* Keep scrollbar on the right rail; pad inner content instead. */
-    padding: 8px 0;
+    /* Horizontal inset on the real scroll root (Stream no longer renders list--main / list-content). */
+    padding: 8px 24px;
+    width: 100%;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-list-scroll {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .bahaygo-stream-chat .str-chat__ul {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .bahaygo-stream-chat .str-chat__ul .str-chat__li {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .bahaygo-stream-chat .str-chat__main-panel {
@@ -206,21 +229,12 @@
     min-width: 0;
   }
 
-  /* —— CHAT LAYOUT: 680px message column, left-anchored (no centered blog column) —— */
-  .bahaygo-stream-chat .str-chat__list .str-chat__list--main,
-  .bahaygo-stream-chat .str-chat__list-content,
   .bahaygo-stream-chat .str-chat__virtual-list {
     box-sizing: border-box;
     margin-left: 0;
     margin-right: 0;
     max-width: none;
     width: 100%;
-  }
-
-  .bahaygo-stream-chat .str-chat__list .str-chat__list--main,
-  .bahaygo-stream-chat .str-chat__list-content {
-    padding-left: 24px;
-    padding-right: 24px;
   }
 
   .bahaygo-stream-chat .str-chat__message-list-main-panel {
@@ -237,12 +251,6 @@
     padding-left: 0;
     padding-right: 0;
     width: 100%;
-  }
-
-  /* Keep messages in a readable column while the scroll rail stays full-width. */
-  .bahaygo-stream-chat .str-chat__list-content {
-    margin-right: auto;
-    max-width: 680px;
   }
 
   .bahaygo-stream-chat .str-chat__virtual-list {
@@ -506,6 +514,10 @@
     margin-bottom: 0;
   }
   .bahaygo-stream-chat .str-chat__li {
+    box-sizing: border-box;
+    margin-inline: 0;
+    max-width: 100%;
+    min-width: 0;
     padding: 0;
   }
   .bahaygo-stream-chat .str-chat__send-button {
@@ -561,7 +573,7 @@
     padding-bottom: 0;
   }
   .bahaygo-stream-chat .bhg-msg--mine {
-    flex-direction: row-reverse;
+    flex-direction: row;
     justify-content: flex-start;
     max-width: 100%;
   }
@@ -574,9 +586,11 @@
     flex-direction: column;
     gap: 2px;
     max-width: 80%;
+    min-width: 0;
   }
   .bahaygo-stream-chat .bhg-msg--mine .bhg-msg__body {
     align-items: flex-end;
+    margin-left: auto;
   }
   .bahaygo-stream-chat .bhg-msg--other .bhg-msg__body {
     align-items: flex-start;
@@ -661,8 +675,7 @@
   }
 
   @media (max-width: 767px) {
-    .bahaygo-stream-chat .str-chat__list .str-chat__list--main,
-    .bahaygo-stream-chat .str-chat__list-content {
+    .bahaygo-stream-chat .str-chat__list {
       padding-left: 12px;
       padding-right: 12px;
     }

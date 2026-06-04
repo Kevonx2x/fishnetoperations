@@ -96,7 +96,7 @@ export function CustomMessage() {
           />
         </div>
       ) : null}
-      <div className="bhg-msg__body">
+      <div className="bhg-msg__body min-w-0">
         {showRoleLabel ? <span className="mb-0.5 block text-xs text-[#888888] md:hidden">{roleLabel}</span> : null}
         {showName ? <span className="bhg-msg__name">{message.user?.name}</span> : null}
         <div className="bhg-msg__bubble">
