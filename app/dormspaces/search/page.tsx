@@ -1,17 +1,18 @@
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
-import { SearchComingSoonPage } from "@/components/mobile/search-coming-soon-page";
+import { DormspaceSearchMapPage } from "@/components/dormspaces/dormspace-search-map-page";
+import { fetchDormspaceSearchMapMarkersServer } from "@/lib/search-map-dormspaces-server";
 
 export const metadata = {
   title: "Search | BahayGo Dormspaces",
-  description: "Campus map search for student housing — coming soon.",
+  description: "Map search for verified student housing near campus.",
 };
 
-export default function DormspacesSearchPage() {
+export default async function DormspacesSearchPage() {
+  const markers = await fetchDormspaceSearchMapMarkersServer();
+
   return (
-    <DormspacePortalShell variant="browse">
-      <main>
-        <SearchComingSoonPage variant="dormspaces" />
-      </main>
+    <DormspacePortalShell variant="browse" mobileFillViewport>
+      <DormspaceSearchMapPage markers={markers} />
     </DormspacePortalShell>
   );
 }

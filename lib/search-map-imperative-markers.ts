@@ -9,6 +9,12 @@ import {
   type SearchMapProperty,
 } from "@/lib/search-map-markers";
 
+export type SearchMapGeoPin = {
+  lat: number;
+  lng: number;
+  title: string;
+};
+
 function createAdvancedPin(selected: boolean): google.maps.marker.PinElement {
   return new google.maps.marker.PinElement({
     background: SEARCH_MAP_SAGE,
@@ -28,9 +34,9 @@ function createClassicIcon(selected: boolean): google.maps.Icon {
   };
 }
 
-/** Imperative property pin for MarkerClusterer — not a React child. */
-export function createSearchMapPropertyMarker(
-  data: SearchMapProperty,
+/** Imperative map pin for MarkerClusterer — not a React child. */
+export function createSearchMapGeoMarker(
+  data: SearchMapGeoPin,
   options: {
     useAdvancedMarker: boolean;
     selected: boolean;
@@ -55,6 +61,20 @@ export function createSearchMapPropertyMarker(
     clickable: true,
     icon: createClassicIcon(options.selected),
   });
+}
+
+/** @deprecated Alias — BahayGo /search property pins. */
+export function createSearchMapPropertyMarker(
+  data: SearchMapProperty,
+  options: {
+    useAdvancedMarker: boolean;
+    selected: boolean;
+  },
+): Marker {
+  return createSearchMapGeoMarker(
+    { lat: data.lat, lng: data.lng, title: data.title },
+    options,
+  );
 }
 
 export function updateSearchMapPropertyMarkerAppearance(
