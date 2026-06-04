@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { Heart, Pin } from "lucide-react";
 import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
-import { LoggedOutTabEmptyState } from "@/components/marketplace/logged-out-tab-empty-state";
+import {
+  DesktopLoggedOutTabEmpty,
+  MobileLoggedOutSavedTeaser,
+} from "@/components/marketplace/mobile-logged-out-tab-teaser";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { useAuth } from "@/contexts/auth-context";
 import { usePinnedPropertyIds, usePropertyLikes } from "@/hooks/use-property-engagement";
@@ -198,14 +201,18 @@ export default function SavedPage() {
 
   if (!authLoading && !user) {
     return (
-      <div className="min-h-screen bg-[#FAF8F4]">
-        <MaddenTopNav />
-        <LoggedOutTabEmptyState
-          title="Saved"
-          copy="Sign in to save listings you love."
-          nextPath="/saved"
-        />
-      </div>
+      <>
+        <div className="md:hidden">
+          <MobileLoggedOutSavedTeaser />
+        </div>
+        <div className="hidden md:block">
+          <DesktopLoggedOutTabEmpty
+            title="Saved"
+            copy="Sign in to save and organize your favorite properties."
+            nextPath="/saved"
+          />
+        </div>
+      </>
     );
   }
 

@@ -9,7 +9,10 @@ import { AgentMessagesInbox } from "@/features/messaging/components/agent-messag
 import { ClientMessagesView } from "@/features/messaging/components/client-messages-view";
 import { StreamChatProvider } from "@/features/messaging/components/stream-chat-provider";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
-import { LoggedOutTabEmptyState } from "@/components/marketplace/logged-out-tab-empty-state";
+import {
+  DesktopLoggedOutTabEmpty,
+  MobileLoggedOutMessagesTeaser,
+} from "@/components/marketplace/mobile-logged-out-tab-teaser";
 import { useAuth } from "@/contexts/auth-context";
 
 function MessagesPageContent() {
@@ -20,14 +23,18 @@ function MessagesPageContent() {
 
   if (!loading && !user) {
     return (
-      <div className="min-h-screen bg-[#FAF8F4]">
-        <MaddenTopNav />
-        <LoggedOutTabEmptyState
-          title="Messages"
-          copy="Sign in to message agents about listings."
-          nextPath="/messages"
-        />
-      </div>
+      <>
+        <div className="max-md:min-h-0 max-md:overflow-hidden md:hidden">
+          <MobileLoggedOutMessagesTeaser />
+        </div>
+        <div className="hidden md:block">
+          <DesktopLoggedOutTabEmpty
+            title="Messages"
+            copy="Sign in to message agents about listings."
+            nextPath="/messages"
+          />
+        </div>
+      </>
     );
   }
 
