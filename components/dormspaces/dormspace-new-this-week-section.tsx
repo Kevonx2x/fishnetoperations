@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { RowScrollNavButton } from "@/components/ui/gallery-nav-button";
 
 import { DormspaceHomeSectionHeader } from "@/components/dormspaces/dormspace-home-section-header";
 import { DormspaceListingCardCompact } from "@/components/dormspaces/dormspace-listing-card-compact";
@@ -38,14 +38,12 @@ export function DormspaceNewThisWeekSection({ listings }: { listings: DormspaceW
         <DormspaceHomeSectionHeader title="New this week" />
 
         <div className="-mx-4 mt-5 flex items-stretch gap-1 md:mt-6 lg:gap-2">
-          <button
-            type="button"
+          <RowScrollNavButton
+            direction="prev"
+            className="hidden lg:flex"
             onClick={() => scroll("prev")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2.5 shadow-sm hover:bg-neutral-50 lg:flex"
             aria-label="Scroll left"
-          >
-            <ChevronLeft className="size-5 text-[#2C2C2C]" />
-          </button>
+          />
           <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto px-1 pb-2 scrollbar-hide lg:px-2">
             <div className="flex w-max flex-nowrap gap-4">
               {newest.map((listing) => (
@@ -53,14 +51,12 @@ export function DormspaceNewThisWeekSection({ listings }: { listings: DormspaceW
               ))}
             </div>
           </div>
-          <button
-            type="button"
+          <RowScrollNavButton
+            direction="next"
+            className="hidden lg:flex"
             onClick={() => scroll("next")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2.5 shadow-sm hover:bg-neutral-50 lg:flex"
             aria-label="Scroll right"
-          >
-            <ChevronRight className="size-5 text-[#2C2C2C]" />
-          </button>
+          />
         </div>
 
         <div className="mt-4 text-center lg:hidden">

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useRef } from "react";
-import { Bath, Bed, ChevronRight, Heart, Maximize2 } from "lucide-react";
+import { Bath, Bed, Heart, Maximize2 } from "lucide-react";
+import { RowScrollNavButton } from "@/components/ui/gallery-nav-button";
 
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { usePinnedPropertyIds } from "@/hooks/use-property-engagement";
@@ -111,14 +112,12 @@ export function ClientDashboardRecommendedClient(props: { items: RecommendedProp
             );
           })}
         </div>
-        <button
-          type="button"
+        <RowScrollNavButton
+          direction="next"
+          className="absolute right-0 top-1/2 z-[1] -translate-y-1/2 md:flex"
           aria-label="Scroll recommendations right"
           onClick={() => scrollBy(1)}
-          className="absolute right-0 top-1/2 z-[1] flex size-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#2C2C2C]/10 bg-white text-[#404040] shadow-sm transition hover:bg-[#FAF8F4]"
-        >
-          <ChevronRight className="size-5" aria-hidden />
-        </button>
+        />
       </div>
     </section>
   );

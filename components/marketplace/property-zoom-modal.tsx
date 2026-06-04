@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { BadgeCheck, ChevronLeft, ChevronRight, Heart, MapPin, Pin, X } from "lucide-react";
+import { BadgeCheck, Heart, MapPin, Pin, X } from "lucide-react";
+import { GalleryNavButton } from "@/components/ui/gallery-nav-button";
 import type { MarketplaceAgent } from "@/lib/marketplace-types";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { propertyEngagementLooksUnavailable } from "@/lib/property-availability";
@@ -93,22 +94,18 @@ function ZoomGallery({
         </AnimatePresence>
         {photos.length > 1 ? (
           <>
-            <button
-              type="button"
+            <GalleryNavButton
+              direction="prev"
+              className="z-10"
               onClick={() => go(-1)}
-              className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/95 p-2 shadow-md transition hover:bg-white"
               aria-label="Previous photo"
-            >
-              <ChevronLeft className="h-5 w-5 text-[#2C2C2C]" />
-            </button>
-            <button
-              type="button"
+            />
+            <GalleryNavButton
+              direction="next"
+              className="z-10"
               onClick={() => go(1)}
-              className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/95 p-2 shadow-md transition hover:bg-white"
               aria-label="Next photo"
-            >
-              <ChevronRight className="h-5 w-5 text-[#2C2C2C]" />
-            </button>
+            />
             <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
               {photos.map((_, i) => (
                 <button

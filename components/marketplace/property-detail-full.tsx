@@ -7,7 +7,6 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Calendar,
-  ChevronLeft,
   ChevronRight,
   HeartHandshake,
   Mail,
@@ -16,6 +15,7 @@ import {
   User as UserIcon,
   X,
 } from "lucide-react";
+import { GalleryNavButton } from "@/components/ui/gallery-nav-button";
 import { supabase } from "@/lib/supabase";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { resolveListingAgentUserId } from "@/lib/resolve-listing-agent-user-id";
@@ -187,22 +187,20 @@ export function PropertyDetailFull({
 
                 {imgs.length > 1 && (
                   <>
-                    <button
-                      type="button"
+                    <GalleryNavButton
+                      direction="prev"
+                      className="left-3 z-10"
+                      size="sm"
                       onClick={() => setIdx((i) => (i - 1 + imgs.length) % imgs.length)}
-                      className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-black/10 bg-white/90 p-2 shadow-md"
                       aria-label="Previous image"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
+                    />
+                    <GalleryNavButton
+                      direction="next"
+                      className="right-3 z-10"
+                      size="sm"
                       onClick={() => setIdx((i) => (i + 1) % imgs.length)}
-                      className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-black/10 bg-white/90 p-2 shadow-md"
                       aria-label="Next image"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
+                    />
                   </>
                 )}
 

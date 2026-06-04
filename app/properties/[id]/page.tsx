@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Heart, LayoutGrid, MapPin, Pin as LucidePin, X } from "lucide-react";
+import { Heart, LayoutGrid, MapPin, Pin as LucidePin, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { coListLimitForTier, listingLimitForTier } from "@/lib/agent-listing-limits";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
+import { GalleryNavButton } from "@/components/ui/gallery-nav-button";
 import { cn } from "@/lib/utils";
 import {
   propertyDetailAvailabilityBanner,
@@ -771,30 +772,26 @@ export default function PropertyPage() {
                         </button>
                         {allPhotos.length > 1 ? (
                           <>
-                            <button
-                              type="button"
+                            <GalleryNavButton
+                              direction="prev"
+                              className="left-4 z-20"
                               aria-label="Previous photo"
                               disabled={heroIndex <= 0}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 goPrevPhoto();
                               }}
-                              className="absolute left-4 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-[#2C2C2C]/12 transition hover:scale-105 hover:bg-[#FAF8F4] disabled:pointer-events-none disabled:opacity-30 md:h-10 md:w-10"
-                            >
-                              <ChevronLeft className="h-5 w-5 text-[#2C2C2C]" aria-hidden strokeWidth={2} />
-                            </button>
-                            <button
-                              type="button"
+                            />
+                            <GalleryNavButton
+                              direction="next"
+                              className="right-4 z-20"
                               aria-label="Next photo"
                               disabled={heroIndex >= allPhotos.length - 1}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 goNextPhoto();
                               }}
-                              className="absolute right-4 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-[#2C2C2C]/12 transition hover:scale-105 hover:bg-[#FAF8F4] disabled:pointer-events-none disabled:opacity-30 md:h-10 md:w-10"
-                            >
-                              <ChevronRight className="h-5 w-5 text-[#2C2C2C]" aria-hidden strokeWidth={2} />
-                            </button>
+                            />
                           </>
                         ) : null}
                         {allPhotos.length > 0 ? (
@@ -1533,28 +1530,26 @@ function PropertyPhotoLightbox({
 
         {photos.length > 1 ? (
           <>
-            <button
-              type="button"
+            <GalleryNavButton
+              direction="prev"
+              size="lg"
+              className="left-2 z-20 sm:left-4"
               onClick={(e) => {
                 e.stopPropagation();
                 goPrev();
               }}
-              className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/95 p-3 text-[#2C2C2C] shadow-lg ring-1 ring-black/15 hover:bg-white sm:left-4 sm:p-4"
               aria-label="Previous photo"
-            >
-              <ChevronLeft className="h-8 w-8 sm:h-10 sm:w-10" strokeWidth={2} />
-            </button>
-            <button
-              type="button"
+            />
+            <GalleryNavButton
+              direction="next"
+              size="lg"
+              className="right-2 z-20 sm:right-4"
               onClick={(e) => {
                 e.stopPropagation();
                 goNext();
               }}
-              className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/95 p-3 text-[#2C2C2C] shadow-lg ring-1 ring-black/15 hover:bg-white sm:right-4 sm:p-4"
               aria-label="Next photo"
-            >
-              <ChevronRight className="h-8 w-8 sm:h-10 sm:w-10" strokeWidth={2} />
-            </button>
+            />
           </>
         ) : null}
       </div>

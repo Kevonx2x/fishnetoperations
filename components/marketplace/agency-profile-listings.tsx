@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { RowScrollNavButton } from "@/components/ui/gallery-nav-button";
 import { NewlyListedCard } from "@/components/marketplace/fishnet-home-marketplace";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
@@ -83,14 +83,11 @@ export function AgencyProfileListings({
 
       {!loading && properties.length > 0 ? (
         <div className="-mx-4 flex items-stretch gap-1 md:gap-2">
-          <button
-            type="button"
+          <RowScrollNavButton
+            direction="prev"
             onClick={() => scrollRow(rowRef, "prev")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
             aria-label="Scroll listings left"
-          >
-            <ChevronLeft className="h-4 w-4 text-[#2C2C2C]" />
-          </button>
+          />
           <div
             ref={rowRef}
             className="min-w-0 flex-1 overflow-x-auto px-1 pb-2 scrollbar-hide"
@@ -127,14 +124,11 @@ export function AgencyProfileListings({
               ))}
             </div>
           </div>
-          <button
-            type="button"
+          <RowScrollNavButton
+            direction="next"
             onClick={() => scrollRow(rowRef, "next")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
             aria-label="Scroll listings right"
-          >
-            <ChevronRight className="h-4 w-4 text-[#2C2C2C]" />
-          </button>
+          />
         </div>
       ) : null}
     </section>

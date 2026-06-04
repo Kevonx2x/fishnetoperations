@@ -2,7 +2,8 @@
 
 import { useRef } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { Star } from "lucide-react";
+import { RowScrollNavButton } from "@/components/ui/gallery-nav-button";
 
 import { DormspaceComingSoonCard } from "@/components/dormspaces/dormspace-coming-soon-card";
 import { DormspaceListingCardCompact } from "@/components/dormspaces/dormspace-listing-card-compact";
@@ -92,23 +93,17 @@ export function DormspaceRowCarousel({
       </div>
 
       <div className="-mx-4 flex items-stretch gap-1 md:gap-2">
-        <button
-          type="button"
+        <RowScrollNavButton
+          direction="prev"
           onClick={() => scroll("prev")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pl-2"
           aria-label={`Scroll ${title} left`}
-        >
-          <ChevronLeft className="h-4 w-4 text-[#2C2C2C]" />
-        </button>
+        />
         {track}
-        <button
-          type="button"
+        <RowScrollNavButton
+          direction="next"
           onClick={() => scroll("next")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 pr-2 shadow-sm hover:bg-neutral-50 md:flex"
           aria-label={`Scroll ${title} right`}
-        >
-          <ChevronRight className="h-4 w-4 text-[#2C2C2C]" />
-        </button>
+        />
       </div>
     </section>
   );

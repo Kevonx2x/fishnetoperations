@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useMemo, useRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { RowScrollNavButton } from "@/components/ui/gallery-nav-button";
 import { getTopCondosSectionData, type TopCondoPlaceholder } from "@/lib/top-condos-placeholder-data";
 
 const CARD_CLASS = "w-[168px] shrink-0 sm:w-[180px]";
@@ -74,14 +74,7 @@ export function TopCondosRow({ locationLabel }: TopCondosRowProps) {
       </div>
 
       <div className="-mx-4 mt-4 flex items-stretch gap-1 md:gap-2 lg:mt-5">
-        <button
-          type="button"
-          onClick={() => scroll("prev")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
-          aria-label="Scroll left"
-        >
-          <ChevronLeft className="h-4 w-4 text-[#2C2C2C]" strokeWidth={2.25} aria-hidden />
-        </button>
+        <RowScrollNavButton direction="prev" onClick={() => scroll("prev")} aria-label="Scroll left" />
         <div
           ref={scrollRef}
           className="min-w-0 flex-1 overflow-x-auto px-1 pb-2 scrollbar-hide"
@@ -93,14 +86,7 @@ export function TopCondosRow({ locationLabel }: TopCondosRowProps) {
             ))}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => scroll("next")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
-          aria-label="Scroll right"
-        >
-          <ChevronRight className="h-4 w-4 text-[#2C2C2C]" strokeWidth={2.25} aria-hidden />
-        </button>
+        <RowScrollNavButton direction="next" onClick={() => scroll("next")} aria-label="Scroll right" />
       </div>
     </section>
   );

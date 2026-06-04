@@ -8,13 +8,12 @@ import {
   BadgeCheck,
   Bath,
   BedDouble,
-  ChevronLeft,
-  ChevronRight,
   MapPin,
   Maximize2,
   Star,
 } from "lucide-react";
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
+import { GalleryNavButton } from "@/components/ui/gallery-nav-button";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import type { DbProperty } from "@/lib/marketplace-property";
@@ -203,22 +202,18 @@ export function HomepageSpotlightListing({
 
             {photoUrls.length > 1 ? (
               <>
-                <button
-                  type="button"
+                <GalleryNavButton
+                  direction="prev"
+                  className="left-3 z-10"
                   onClick={goPrev}
-                  className="absolute left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-[#2C2C2C] shadow-md ring-1 ring-black/5 transition hover:bg-white"
                   aria-label="Previous photo"
-                >
-                  <ChevronLeft className="h-5 w-5" aria-hidden />
-                </button>
-                <button
-                  type="button"
+                />
+                <GalleryNavButton
+                  direction="next"
+                  className="right-3 z-10"
                   onClick={goNext}
-                  className="absolute right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-[#2C2C2C] shadow-md ring-1 ring-black/5 transition hover:bg-white"
                   aria-label="Next photo"
-                >
-                  <ChevronRight className="h-5 w-5" aria-hidden />
-                </button>
+                />
               </>
             ) : null}
 

@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { GalleryNavButton } from "@/components/ui/gallery-nav-button";
 
 import { DormspaceHomeSectionHeader } from "@/components/dormspaces/dormspace-home-section-header";
 import { DormspaceUniversityBrowseSubtitle } from "@/components/dormspaces/dormspace-university-browse-subtitle";
@@ -66,22 +66,18 @@ export function DormspaceBrowseBySchoolSection({
         />
 
         <div className="relative -mx-4 mt-5 md:mt-6">
-          <button
-            type="button"
+          <GalleryNavButton
+            direction="prev"
+            className="left-1 z-10 hidden lg:flex"
             onClick={() => scroll("prev")}
-            className="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2.5 shadow-md lg:flex"
             aria-label="Scroll universities left"
-          >
-            <ChevronLeft className="size-5 text-[#2C2C2C]" />
-          </button>
-          <button
-            type="button"
+          />
+          <GalleryNavButton
+            direction="next"
+            className="right-1 z-10 hidden lg:flex"
             onClick={() => scroll("next")}
-            className="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2.5 shadow-md lg:flex"
             aria-label="Scroll universities right"
-          >
-            <ChevronRight className="size-5 text-[#2C2C2C]" />
-          </button>
+          />
 
           <div
             ref={scrollRef}

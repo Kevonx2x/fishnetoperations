@@ -3,13 +3,12 @@
 import { useCallback, useRef } from "react";
 import {
   BedDouble,
-  ChevronLeft,
-  ChevronRight,
   GraduationCap,
   Sparkles,
   Users,
   Wallet,
 } from "lucide-react";
+import { RowScrollNavButton } from "@/components/ui/gallery-nav-button";
 
 import type { DormspaceBrowseFilters } from "@/lib/dormspace-browse-filters";
 import { EMPTY_DORMSPACE_BROWSE_FILTERS } from "@/lib/dormspace-browse-filters";
@@ -65,22 +64,18 @@ export function DormspaceCategoryChips({ activeChipId, filters, onSelectChip }: 
   return (
     <section className="bg-[#FAF8F4] py-3 sm:py-4">
       <div className="relative mx-auto max-w-7xl px-4 sm:px-5">
-        <button
-          type="button"
+        <RowScrollNavButton
+          direction="prev"
+          className="absolute left-0 top-1/2 z-10 -translate-y-1/2"
           onClick={() => scroll("prev")}
-          className="absolute left-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow-md md:flex"
           aria-label="Scroll categories left"
-        >
-          <ChevronLeft className="size-5 text-[#2C2C2C]" />
-        </button>
-        <button
-          type="button"
+        />
+        <RowScrollNavButton
+          direction="next"
+          className="absolute right-0 top-1/2 z-10 -translate-y-1/2"
           onClick={() => scroll("next")}
-          className="absolute right-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow-md md:flex"
           aria-label="Scroll categories right"
-        >
-          <ChevronRight className="size-5 text-[#2C2C2C]" />
-        </button>
+        />
         <div
           ref={scrollRef}
           className="flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide md:px-10"

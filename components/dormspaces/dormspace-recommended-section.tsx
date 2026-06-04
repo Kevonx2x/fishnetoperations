@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { RowScrollNavButton } from "@/components/ui/gallery-nav-button";
 
 import { DormspaceHomeSectionHeader } from "@/components/dormspaces/dormspace-home-section-header";
 import { DormspaceListingCardCompact } from "@/components/dormspaces/dormspace-listing-card-compact";
@@ -50,14 +50,7 @@ export function DormspaceRecommendedSection({ listings }: { listings: DormspaceW
         </div>
       ) : (
         <div className="-mx-4 mt-5 flex items-stretch gap-1 md:mt-6 lg:gap-2">
-          <button
-            type="button"
-            onClick={() => scroll("prev")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pl-2"
-            aria-label="Scroll left"
-          >
-            <ChevronLeft className="h-4 w-4 text-[#2C2C2C]" />
-          </button>
+          <RowScrollNavButton direction="prev" onClick={() => scroll("prev")} aria-label="Scroll left" />
           <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto px-1 pb-2 scrollbar-hide">
             <div className="flex w-max flex-nowrap gap-3">
               {recommended.map((listing) => (
@@ -65,14 +58,7 @@ export function DormspaceRecommendedSection({ listings }: { listings: DormspaceW
               ))}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => scroll("next")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 pr-2 shadow-sm hover:bg-neutral-50 md:flex md:pr-2"
-            aria-label="Scroll right"
-          >
-            <ChevronRight className="h-4 w-4 text-[#2C2C2C]" />
-          </button>
+          <RowScrollNavButton direction="next" onClick={() => scroll("next")} aria-label="Scroll right" />
         </div>
       )}
     </section>

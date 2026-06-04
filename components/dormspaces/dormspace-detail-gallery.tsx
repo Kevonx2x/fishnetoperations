@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Images, LayoutGrid, Share2 } from "lucide-react";
+import { Images, LayoutGrid, Share2 } from "lucide-react";
+import { GalleryNavButton } from "@/components/ui/gallery-nav-button";
 import { toast } from "sonner";
 
 import { SupabasePublicImage } from "@/components/supabase-public-image";
@@ -117,22 +118,18 @@ export function DormspaceDetailGallery({ urls, title, dormspaceId, landlordUserI
           </button>
           {urls.length > 1 ? (
             <>
-              <button
-                type="button"
+              <GalleryNavButton
+                direction="prev"
+                className="bottom-14 left-3 top-auto z-10 -translate-y-0"
                 onClick={() => setIdx((i) => (i - 1 + urls.length) % urls.length)}
-                className="absolute bottom-14 left-3 z-10 flex size-9 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/10"
                 aria-label="Previous photo"
-              >
-                <ChevronLeft className="size-5 text-[#2C2C2C]" />
-              </button>
-              <button
-                type="button"
+              />
+              <GalleryNavButton
+                direction="next"
+                className="bottom-14 right-3 top-auto z-10 -translate-y-0"
                 onClick={() => setIdx((i) => (i + 1) % urls.length)}
-                className="absolute bottom-14 right-3 z-10 flex size-9 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/10"
                 aria-label="Next photo"
-              >
-                <ChevronRight className="size-5 text-[#2C2C2C]" />
-              </button>
+              />
               <button
                 type="button"
                 onClick={() => openLightbox(idx)}

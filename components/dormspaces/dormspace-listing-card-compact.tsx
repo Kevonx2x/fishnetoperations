@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { BadgeCheck, ChevronLeft, ChevronRight, Heart, MapPin } from "lucide-react";
+import { BadgeCheck, Heart, MapPin } from "lucide-react";
+import { GalleryNavButton } from "@/components/ui/gallery-nav-button";
 
 import { useAuth } from "@/contexts/auth-context";
 import { useDormspaceEngagement } from "@/hooks/use-dormspace-engagement";
@@ -89,30 +90,26 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
 
         {urls.length > 1 ? (
           <>
-            <button
-              type="button"
+            <GalleryNavButton
+              direction="prev"
+              className="left-1 z-[25]"
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 setRoomIdx((i) => (i - 1 + urls.length) % urls.length);
               }}
-              className="absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100"
               aria-label="Previous photo"
-            >
-              <ChevronLeft className="h-5 w-5 text-[#2C2C2C]" />
-            </button>
-            <button
-              type="button"
+            />
+            <GalleryNavButton
+              direction="next"
+              className="right-1 z-[25]"
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 setRoomIdx((i) => (i + 1) % urls.length);
               }}
-              className="absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100"
               aria-label="Next photo"
-            >
-              <ChevronRight className="h-5 w-5 text-[#2C2C2C]" />
-            </button>
+            />
           </>
         ) : null}
 

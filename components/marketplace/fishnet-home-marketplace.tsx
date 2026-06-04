@@ -79,6 +79,7 @@ import {
 } from "@/components/ui/sheet";
 import { normalizeBrowseLocationLabel } from "@/lib/browse-location-label";
 import { MOBILE_BAHAYGO_STICKY_CHROME_COMPACT_SCROLL_MARGIN } from "@/lib/bahaygo-mobile/sticky-mobile-search-chrome";
+import { GalleryNavButton, RowScrollNavButton } from "@/components/ui/gallery-nav-button";
 import { cn } from "@/lib/utils";
 import { formatAgentScore } from "@/lib/format-agent-score";
 import { publicListingExpiryOrFilter } from "@/lib/listing-expiry-public-filter";
@@ -1185,14 +1186,11 @@ function HomepageTopVerifiedAgentsSection({
       </div>
       <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-4">
         <div className="flex min-w-0 flex-1 items-stretch gap-1 sm:gap-2">
-          <button
-            type="button"
+          <RowScrollNavButton
+            direction="prev"
             onClick={() => scrollRow(topAgentsRef, "prev")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
             aria-label="Scroll left"
-          >
-            <ChevronLeft className="h-4 w-4 text-[#2C2C2C]" />
-          </button>
+          />
           <div
             ref={topAgentsRef}
             className={cn(
@@ -1209,14 +1207,11 @@ function HomepageTopVerifiedAgentsSection({
               {topAgents.length < 4 ? <MoreAgentsComingSoonCard /> : null}
             </div>
           </div>
-          <button
-            type="button"
+          <RowScrollNavButton
+            direction="next"
             onClick={() => scrollRow(topAgentsRef, "next")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex"
             aria-label="Scroll right"
-          >
-            <ChevronRight className="h-4 w-4 text-[#2C2C2C]" />
-          </button>
+          />
         </div>
         <div className="hidden w-full max-w-[320px] shrink-0 lg:block">
           <AgentScoreTutorialCard />
@@ -2379,22 +2374,18 @@ export function BahayGoHomeMarketplace({
             ) : null}
           </div>
           <div className="relative -mx-4 mt-4 min-w-0 w-full max-w-full md:mt-6">
-            <button
-              type="button"
+            <GalleryNavButton
+              direction="prev"
+              className="left-1 z-10 hidden md:flex"
               onClick={() => scrollFeaturedLocations("prev")}
-              className="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow-md md:flex"
               aria-label="Scroll left"
-            >
-              <ChevronLeft className="h-5 w-5 text-[#2C2C2C]" />
-            </button>
-            <button
-              type="button"
+            />
+            <GalleryNavButton
+              direction="next"
+              className="right-1 z-10 hidden md:flex"
               onClick={() => scrollFeaturedLocations("next")}
-              className="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow-md md:flex"
               aria-label="Scroll right"
-            >
-              <ChevronRight className="h-5 w-5 text-[#2C2C2C]" />
-            </button>
+            />
             <div
               ref={featuredLocationsScrollRef}
               className="min-w-0 overflow-x-auto overflow-y-hidden px-1 pb-2 scrollbar-hide md:px-10"
@@ -3118,14 +3109,11 @@ function CategorySection({
       </div>
 
       <div className="mt-3 flex min-w-0 w-full max-w-full items-stretch gap-1 md:mx-0 md:mt-2.5 md:gap-2">
-        <button
-          type="button"
+        <RowScrollNavButton
+          direction="prev"
           onClick={() => scrollRow(sectionRef, "prev")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 shadow-sm hover:bg-neutral-50 md:flex md:pl-2"
           aria-label="Scroll left"
-        >
-          <ChevronLeft className="h-4 w-4 text-[#2C2C2C]" />
-        </button>
+        />
         <div
           ref={sectionRef}
           className={cn(
@@ -3172,14 +3160,11 @@ function CategorySection({
                 ))}
           </div>
         </div>
-        <button
-          type="button"
+        <RowScrollNavButton
+          direction="next"
           onClick={() => scrollRow(sectionRef, "next")}
-          className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-2 pr-2 shadow-sm hover:bg-neutral-50 md:flex md:pr-2"
           aria-label="Scroll right"
-        >
-          <ChevronRight className="h-4 w-4 text-[#2C2C2C]" />
-        </button>
+        />
       </div>
 
       {items.length > 12 ? (
@@ -3372,58 +3357,34 @@ export function NewlyListedCard({
 
         {roomUrls.length > 1 ? (
           <>
-            <button
-              type="button"
+            <GalleryNavButton
+              direction="prev"
               disabled={listingRemoved}
+              className={cn(
+                "z-[25]",
+                browseCompact ? "left-2 max-md:left-2 md:left-1" : "left-1",
+              )}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 onRoomPrev();
               }}
-              className={cn(
-                "absolute top-1/2 z-[25] -translate-y-1/2 disabled:pointer-events-none disabled:opacity-30",
-                browseCompact
-                  ? "left-2 p-0.5 max-md:left-2 md:left-1 md:rounded-full md:bg-white/90 md:p-1 md:opacity-60 md:shadow-sm md:ring-1 md:ring-black/5 md:hover:opacity-100"
-                  : "left-1 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100",
-              )}
               aria-label="Previous photo"
-            >
-              <ChevronLeft
-                className={cn(
-                  "h-5 w-5",
-                  browseCompact
-                    ? "max-md:h-6 max-md:w-6 max-md:text-white max-md:drop-shadow-[0_1px_4px_rgba(0,0,0,0.65)] md:text-[#2C2C2C]"
-                    : "text-[#2C2C2C]",
-                )}
-                strokeWidth={2.5}
-              />
-            </button>
-            <button
-              type="button"
+            />
+            <GalleryNavButton
+              direction="next"
               disabled={listingRemoved}
+              className={cn(
+                "z-[25]",
+                browseCompact ? "right-2 max-md:right-2 md:right-1" : "right-1",
+              )}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 onRoomNext();
               }}
-              className={cn(
-                "absolute top-1/2 z-[25] -translate-y-1/2 disabled:pointer-events-none disabled:opacity-30",
-                browseCompact
-                  ? "right-2 p-0.5 max-md:right-2 md:right-1 md:rounded-full md:bg-white/90 md:p-1 md:opacity-60 md:shadow-sm md:ring-1 md:ring-black/5 md:hover:opacity-100"
-                  : "right-1 rounded-full bg-white/90 p-1 opacity-60 shadow-sm ring-1 ring-black/5 hover:opacity-100",
-              )}
               aria-label="Next photo"
-            >
-              <ChevronRight
-                className={cn(
-                  "h-5 w-5",
-                  browseCompact
-                    ? "max-md:h-6 max-md:w-6 max-md:text-white max-md:drop-shadow-[0_1px_4px_rgba(0,0,0,0.65)] md:text-[#2C2C2C]"
-                    : "text-[#2C2C2C]",
-                )}
-                strokeWidth={2.5}
-              />
-            </button>
+            />
 
             {browseCompact ? (
               <div
@@ -4484,43 +4445,25 @@ function RowCarousel({
 
       {isFeaturedPicksRow ? (
         <div className="relative max-md:mx-0 md:-mx-4">
-          <button
-            type="button"
+          <GalleryNavButton
+            direction="prev"
+            className="left-1 z-10 hidden md:flex"
             onClick={() => scroll("prev")}
-            className="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-1.5 shadow-md md:flex"
             aria-label="Scroll left"
-          >
-            <ChevronLeft className="h-4 w-4 text-[#2C2C2C]" />
-          </button>
-          <button
-            type="button"
+          />
+          <GalleryNavButton
+            direction="next"
+            className="right-1 z-10 hidden md:flex"
             onClick={() => scroll("next")}
-            className="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-1.5 shadow-md md:flex"
             aria-label="Scroll right"
-          >
-            <ChevronRight className="h-4 w-4 text-[#2C2C2C]" />
-          </button>
+          />
           {scrollTrack}
         </div>
       ) : (
         <div className="flex min-w-0 w-full max-w-full items-stretch gap-1 md:mx-0 md:gap-2">
-          <button
-            type="button"
-            onClick={() => scroll("prev")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-1.5 shadow-sm hover:bg-neutral-50 md:flex md:pl-1.5"
-            aria-label="Scroll left"
-          >
-            <ChevronLeft className="h-4 w-4 text-[#2C2C2C]" strokeWidth={2.25} aria-hidden />
-          </button>
+          <RowScrollNavButton direction="prev" onClick={() => scroll("prev")} aria-label="Scroll left" />
           {scrollTrack}
-          <button
-            type="button"
-            onClick={() => scroll("next")}
-            className="hidden shrink-0 self-center rounded-full border border-black/10 bg-white p-1.5 shadow-sm hover:bg-neutral-50 md:flex md:pr-1.5"
-            aria-label="Scroll right"
-          >
-            <ChevronRight className="h-4 w-4 text-[#2C2C2C]" strokeWidth={2.25} aria-hidden />
-          </button>
+          <RowScrollNavButton direction="next" onClick={() => scroll("next")} aria-label="Scroll right" />
         </div>
       )}
     </div>

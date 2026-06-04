@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type TouchEvent } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { X } from "lucide-react";
+import { GalleryNavButton } from "@/components/ui/gallery-nav-button";
 
 import { dormspaceListingPhotoSrc } from "@/lib/dormspaces";
 
@@ -127,28 +128,26 @@ export function DormspacePhotoLightbox({
 
         {photos.length > 1 ? (
           <>
-            <button
-              type="button"
+            <GalleryNavButton
+              direction="prev"
+              size="lg"
+              className="left-2 z-20 sm:left-4"
               onClick={(e) => {
                 e.stopPropagation();
                 goPrev();
               }}
-              className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/95 p-3 text-[#2C2C2C] shadow-lg ring-1 ring-black/15 hover:bg-white sm:left-4 sm:p-4"
               aria-label="Previous photo"
-            >
-              <ChevronLeft className="h-8 w-8 sm:h-10 sm:w-10" strokeWidth={2} />
-            </button>
-            <button
-              type="button"
+            />
+            <GalleryNavButton
+              direction="next"
+              size="lg"
+              className="right-2 z-20 sm:right-4"
               onClick={(e) => {
                 e.stopPropagation();
                 goNext();
               }}
-              className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/95 p-3 text-[#2C2C2C] shadow-lg ring-1 ring-black/15 hover:bg-white sm:right-4 sm:p-4"
               aria-label="Next photo"
-            >
-              <ChevronRight className="h-8 w-8 sm:h-10 sm:w-10" strokeWidth={2} />
-            </button>
+            />
           </>
         ) : null}
       </div>

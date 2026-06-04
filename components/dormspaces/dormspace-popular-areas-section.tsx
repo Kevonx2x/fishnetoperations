@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { GalleryNavButton } from "@/components/ui/gallery-nav-button";
 
 import type { DormspaceBrowseFilters } from "@/components/dormspaces/dormspace-browse";
 import {
@@ -135,22 +135,18 @@ export function DormspacePopularAreasSection({
         </div>
 
         <div className="relative -mx-4 mt-6">
-          <button
-            type="button"
+          <GalleryNavButton
+            direction="prev"
+            className="left-1 z-10 hidden md:flex"
             onClick={() => scroll("prev")}
-            className="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow-md md:flex"
             aria-label="Scroll left"
-          >
-            <ChevronLeft className="h-5 w-5 text-[#2C2C2C]" />
-          </button>
-          <button
-            type="button"
+          />
+          <GalleryNavButton
+            direction="next"
+            className="right-1 z-10 hidden md:flex"
             onClick={() => scroll("next")}
-            className="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow-md md:flex"
             aria-label="Scroll right"
-          >
-            <ChevronRight className="h-5 w-5 text-[#2C2C2C]" />
-          </button>
+          />
           <div
             ref={scrollRef}
             className="min-w-0 overflow-x-auto overflow-y-hidden px-1 pb-2 scrollbar-hide md:px-10"
