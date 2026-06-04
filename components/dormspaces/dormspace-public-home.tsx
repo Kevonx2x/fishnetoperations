@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   ChevronDown,
+  ChevronRight,
   MapPin,
   Sparkles,
   Wifi,
@@ -190,6 +191,42 @@ export function DormspacePublicHome({
 
   return (
     <>
+      <Sheet open={locationPickerOpen} onOpenChange={setLocationPickerOpen}>
+        <SheetContent
+          side="bottom"
+          showCloseButton={false}
+          className="z-[100] rounded-t-2xl border-[#2C2C2C]/10 bg-[#FAF8F4] px-0 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 md:mx-auto md:max-w-lg md:rounded-2xl md:border md:pb-6"
+        >
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#2C2C2C]/15 md:hidden" aria-hidden />
+          <SheetHeader className="px-4 text-left">
+            <SheetTitle className="font-sans text-base font-semibold text-[#2C2C2C]">
+              Change location
+            </SheetTitle>
+            <SheetDescription className="font-sans text-sm text-[#888888]">
+              Search by city, area, or campus neighborhood
+            </SheetDescription>
+          </SheetHeader>
+          <div className="px-4 pb-2 pt-4">
+            <PhLocationInput
+              value={locationPickerQuery}
+              onChange={setLocationPickerQuery}
+              onSubmitSearch={() => commitMobileLocationPicker(locationPickerQuery)}
+              onLocationPicked={commitMobileLocationPicker}
+              placeholder="Find your space near campus"
+              aria-label="Search location"
+              inputClassName="w-full rounded-xl border border-[#2C2C2C]/12 bg-white px-3.5 font-sans text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus:border-[#6B9E6E] focus:outline-none focus:ring-2 focus:ring-[#6B9E6E]/30"
+            />
+            <button
+              type="button"
+              onClick={() => commitMobileLocationPicker(locationPickerQuery)}
+              className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl bg-[#6B9E6E] px-4 font-sans text-sm font-semibold text-white transition hover:bg-[#5d8a60] active:bg-[#5d8a60]"
+            >
+              Search this area
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <div className="min-w-0 md:hidden">
         <div className={MOBILE_DORMSPACE_UNIFIED_STICKY_CHROME}>
           <DormspacePortalNav embedded compactMobileHome />
@@ -204,42 +241,6 @@ export function DormspacePublicHome({
             compact
           />
         </div>
-
-        <Sheet open={locationPickerOpen} onOpenChange={setLocationPickerOpen}>
-          <SheetContent
-            side="bottom"
-            showCloseButton={false}
-            className="z-[100] rounded-t-2xl border-[#2C2C2C]/10 bg-[#FAF8F4] px-0 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3"
-          >
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#2C2C2C]/15" aria-hidden />
-            <SheetHeader className="px-4 text-left">
-              <SheetTitle className="font-sans text-base font-semibold text-[#2C2C2C]">
-                Change location
-              </SheetTitle>
-              <SheetDescription className="text-sm text-[#888888]">
-                Search by city, area, or campus neighborhood
-              </SheetDescription>
-            </SheetHeader>
-            <div className="px-4 pb-2 pt-4">
-              <PhLocationInput
-                value={locationPickerQuery}
-                onChange={setLocationPickerQuery}
-                onSubmitSearch={() => commitMobileLocationPicker(locationPickerQuery)}
-                onLocationPicked={commitMobileLocationPicker}
-                placeholder="Find your space near campus"
-                aria-label="Search location"
-                inputClassName="w-full rounded-xl border border-[#2C2C2C]/12 bg-white px-3.5 text-sm font-medium text-[#2C2C2C] placeholder:text-[#888888] focus:border-[#6B9E6E] focus:outline-none focus:ring-2 focus:ring-[#6B9E6E]/30"
-              />
-              <button
-                type="button"
-                onClick={() => commitMobileLocationPicker(locationPickerQuery)}
-                className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl bg-[#6B9E6E] px-4 text-sm font-semibold text-white active:bg-[#5d8a60]"
-              >
-                Search this area
-              </button>
-            </div>
-          </SheetContent>
-        </Sheet>
 
         <div className="flex min-w-0 w-full flex-col">
           <DormspacePublicHomeMobile
@@ -332,6 +333,19 @@ export function DormspacePublicHome({
                   className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#6B9E6E] px-8 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60] lg:h-auto lg:min-h-[44px]"
                 >
                   Search
+                </button>
+              </div>
+
+              <div className="mt-3 flex min-w-0 items-center gap-1.5 font-sans text-sm">
+                <MapPin className="size-3.5 shrink-0 text-[#6B9E6E]" aria-hidden />
+                <span className="min-w-0 truncate font-semibold text-[#2C2C2C]">{dormspaceLocationLabel}</span>
+                <button
+                  type="button"
+                  onClick={() => setLocationPickerOpen(true)}
+                  className="ml-auto inline-flex shrink-0 items-center gap-0.5 font-semibold text-[#6B9E6E] hover:underline"
+                >
+                  Change
+                  <ChevronRight className="size-3.5" aria-hidden />
                 </button>
               </div>
 
