@@ -58,7 +58,7 @@ export function DormspaceRowCarousel({
       className="min-w-0 flex-1 overflow-x-auto overflow-y-visible px-1 pb-2 scrollbar-hide snap-x snap-proximity"
       style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
     >
-      <div className="flex w-max flex-nowrap items-start gap-3">
+      <div className="flex w-max flex-nowrap items-stretch gap-3">
         {list.map((listing) => (
           <DormspaceListingCardCompact key={`${rowKey}-${listing.id}`} listing={listing} />
         ))}

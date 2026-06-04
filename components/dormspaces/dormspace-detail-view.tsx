@@ -17,7 +17,8 @@ import {
 import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 
 import { DormspaceWalkTimesLine } from "@/components/dormspaces/dormspace-walk-times-line";
-import { DormspaceBedAvailability } from "@/components/dormspaces/dormspace-bed-availability";
+import { DormspaceGenderBedDetail } from "@/components/dormspaces/dormspace-gender-bed-detail";
+import { dormspaceCardFromPrice, isDormspaceFullyBooked } from "@/lib/dormspace-gender-beds";
 import { DormspaceContactModal } from "@/components/dormspaces/dormspace-contact-modal";
 import { DormspaceDetailBackLink } from "@/components/dormspaces/dormspace-detail-hero-chrome";
 import { DormspaceDetailGallery } from "@/components/dormspaces/dormspace-detail-gallery";
@@ -27,8 +28,6 @@ import { DormspaceVerificationBadge } from "@/components/dormspaces/dormspace-ve
 import type { LandlordProfileTrust, LandlordPublicProfile } from "@/lib/dormspace-landlord-profile";
 import {
   activeDormspaceAmenities,
-  dormspaceBedAvailability,
-  dormspaceGenderLabel,
   dormspaceLocationLine,
   dormspaceRoomTypeLabel,
   formatDormspacePrice,
@@ -65,7 +64,8 @@ export function DormspaceDetailView({
   const { user } = useAuth();
   const [contactOpen, setContactOpen] = useState(false);
   const [notifyWhenAvailable, setNotifyWhenAvailable] = useState(false);
-  const bedInfo = dormspaceBedAvailability(listing);
+  const fromPrice = dormspaceCardFromPrice(listing);
+  const fullyBooked = isDormspaceFullyBooked(listing);
   const isOwnListing =
     !!user?.id && !!listing.landlord_user_id && user.id === listing.landlord_user_id;
 
@@ -107,9 +107,6 @@ export function DormspaceDetailView({
               <span className="rounded-full bg-[#6B9E6E]/12 px-2.5 py-1 text-xs font-bold text-[#3d5a40]">
                 {dormspaceRoomTypeLabel(listing.room_type)}
               </span>
-              <span className="rounded-full bg-[#FAF8F4] px-2.5 py-1 text-xs font-bold text-[#484848] ring-1 ring-[#2C2C2C]/10">
-                {dormspaceGenderLabel(listing.gender_preference)}
-              </span>
             </div>
             <div className="mt-3 flex min-w-0 flex-wrap items-start gap-3 gap-y-2">
               <h1 className="min-w-0 flex-1 break-words font-serif text-2xl font-bold tracking-tight text-[#2C2C2C] md:text-3xl">
@@ -132,13 +129,19 @@ export function DormspaceDetailView({
             {listing.near_school?.trim() ? (
               <p className="mt-2 text-sm font-medium text-[#525252]">Near: {listing.near_school.trim()}</p>
             ) : null}
-            <p className="mt-4 text-2xl font-bold text-[#D4A843]">{formatDormspacePrice(listing.monthly_price)}</p>
+            {fromPrice != null ? (
+              <p className="mt-4 text-2xl font-bold text-[#D4A843]">
+                From {formatDormspacePrice(fromPrice)}
+              </p>
+            ) : (
+              <p className="mt-4 text-2xl font-bold text-[#D4A843]">{formatDormspacePrice(listing.monthly_price)}</p>
+            )}
             {deposit ? <p className="text-sm font-medium text-[#484848]">{deposit}</p> : null}
-            <DormspaceBedAvailability listing={listing} variant="detail" />
+            <DormspaceGenderBedDetail listing={listing} className="mt-6" />
             {listing.vacancy_notes?.trim() ? (
               <p className="mt-2 text-sm font-medium text-[#525252]">{listing.vacancy_notes.trim()}</p>
             ) : null}
-            {bedInfo.status === "full" && !isOwnListing ? (
+            {fullyBooked && !isOwnListing ? (
               <button
                 type="button"
                 onClick={() => {

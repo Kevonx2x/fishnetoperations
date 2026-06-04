@@ -8,14 +8,14 @@ import { ImagePlus, Loader2, Upload, X } from "lucide-react";
 
 import { GooglePlacesInput, type GooglePlaceSelectedPayload } from "@/components/forms/google-places-input";
 import {
-  DORMSPACE_AMENITIES,
-  DORMSPACE_GENDER_OPTIONS,
-  DORMSPACE_ROOM_TYPE_OPTIONS,
-  defaultTotalBedsFromRoomType,
-  type DormspacePhotoRow,
-  type DormspaceRoomType,
-  type DormspaceWithPhotos,
-} from "@/lib/dormspaces";
+  bedInventoryFromListing,
+  bedInventoryToFormFields,
+  DormspaceBedInventoryFields,
+  defaultBedInventoryForRoomType,
+  validateBedInventory,
+  type BedInventoryFormValue,
+} from "@/components/dormspaces/dormspace-bed-inventory-fields";
+import { DORMSPACE_AMENITIES, type DormspacePhotoRow, type DormspaceWithPhotos } from "@/lib/dormspaces";
 import { cn } from "@/lib/utils";
 
 const FIELD =
@@ -174,11 +174,10 @@ export function DormspaceEditForm({ listingId }: { listingId: string }) {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [monthlyPrice, setMonthlyPrice] = useState("");
   const [depositMonths, setDepositMonths] = useState("1");
-  const [roomType, setRoomType] = useState<DormspaceRoomType | "">("");
-  const [totalBeds, setTotalBeds] = useState(1);
-  const [genderPreference, setGenderPreference] = useState("any");
+  const [bedInventory, setBedInventory] = useState<BedInventoryFormValue>(
+    defaultBedInventoryForRoomType("shared_2"),
+  );
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
@@ -214,11 +213,8 @@ export function DormspaceEditForm({ listingId }: { listingId: string }) {
 
         setTitle(item.title);
         setDescription(item.description ?? "");
-        setMonthlyPrice(String(item.monthly_price ?? ""));
         setDepositMonths(String(item.deposit_months ?? 1));
-        setRoomType(item.room_type);
-        setTotalBeds(Math.max(1, Number(item.total_beds) || 1));
-        setGenderPreference(item.gender_preference ?? "any");
+        setBedInventory(bedInventoryFromListing(item));
         setAddress(item.address);
         setCity(item.city ?? "");
         setNeighborhood(item.neighborhood ?? "");
@@ -258,8 +254,14 @@ export function DormspaceEditForm({ listingId }: { listingId: string }) {
     e.preventDefault();
     setError("");
 
-    if (!title.trim() || !roomType || !address.trim() || !monthlyPrice) {
+    if (!title.trim() || !address.trim()) {
       setError("Please fill in all required fields.");
+      return;
+    }
+
+    const bedErr = validateBedInventory(bedInventory);
+    if (bedErr) {
+      setError(bedErr);
       return;
     }
 
@@ -272,11 +274,10 @@ export function DormspaceEditForm({ listingId }: { listingId: string }) {
     const fd = new FormData();
     fd.set("title", title.trim());
     fd.set("description", description.trim());
-    fd.set("monthly_price", monthlyPrice);
     fd.set("deposit_months", depositMonths);
-    fd.set("room_type", roomType);
-    fd.set("total_beds", String(totalBeds));
-    fd.set("gender_preference", genderPreference);
+    for (const [key, value] of Object.entries(bedInventoryToFormFields(bedInventory))) {
+      fd.set(key, value);
+    }
     fd.set("address", address.trim());
     fd.set("city", city);
     fd.set("neighborhood", neighborhood);
@@ -360,77 +361,18 @@ export function DormspaceEditForm({ listingId }: { listingId: string }) {
             onChange={(e) => setDescription(e.target.value)}
           />
         </label>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-            Monthly price (₱) *
-            <input
-              type="number"
-              min={500}
-              className={FIELD}
-              required
-              value={monthlyPrice}
-              onChange={(e) => setMonthlyPrice(e.target.value)}
-            />
-          </label>
-          <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-            Deposit (months)
-            <input
-              type="number"
-              min={0}
-              step={0.5}
-              className={FIELD}
-              value={depositMonths}
-              onChange={(e) => setDepositMonths(e.target.value)}
-            />
-          </label>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-            Room type *
-            <select
-              className={FIELD}
-              required
-              value={roomType}
-              onChange={(e) => {
-                const v = e.target.value as DormspaceRoomType;
-                setRoomType(v);
-                setTotalBeds(defaultTotalBedsFromRoomType(v));
-              }}
-            >
-              {DORMSPACE_ROOM_TYPE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-            Total beds *
-            <input
-              type="number"
-              min={1}
-              max={50}
-              className={FIELD}
-              required
-              value={totalBeds}
-              onChange={(e) => setTotalBeds(Math.min(50, Math.max(1, Number(e.target.value) || 1)))}
-            />
-          </label>
-          <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-            Gender preference
-            <select
-              className={FIELD}
-              value={genderPreference}
-              onChange={(e) => setGenderPreference(e.target.value)}
-            >
-              {DORMSPACE_GENDER_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
+          Deposit (months)
+          <input
+            type="number"
+            min={0}
+            step={0.5}
+            className={FIELD}
+            value={depositMonths}
+            onChange={(e) => setDepositMonths(e.target.value)}
+          />
+        </label>
+        <DormspaceBedInventoryFields value={bedInventory} onChange={setBedInventory} fieldClassName={FIELD} />
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-[#525252]">Address *</p>
           <GooglePlacesInput

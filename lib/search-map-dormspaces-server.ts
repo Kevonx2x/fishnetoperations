@@ -1,3 +1,4 @@
+import { isDormspaceVisibleOnBrowse, type DormspaceGenderBedInput } from "@/lib/dormspace-gender-beds";
 import {
   dormspaceRowsToSearchMapDormspaces,
   type SearchMapDormspace,
@@ -17,6 +18,12 @@ const SEARCH_MAP_DORMSPACE_SELECT = `
   longitude,
   total_beds,
   available_beds,
+  male_beds_total,
+  male_beds_available,
+  female_beds_total,
+  female_beds_available,
+  gender_preference,
+  hidden_from_browse,
   status,
   dormspace_photos(id, url, display_order, created_at)
 `;
@@ -28,7 +35,7 @@ export async function fetchDormspaceSearchMapMarkersServer(): Promise<SearchMapD
   const { data, error } = await supabase
     .from("dormspaces")
     .select(SEARCH_MAP_DORMSPACE_SELECT)
-    .in("status", ["pending", "approved"])
+    .eq("status", "approved")
     .not("latitude", "is", null)
     .not("longitude", "is", null);
 
@@ -37,5 +44,8 @@ export async function fetchDormspaceSearchMapMarkersServer(): Promise<SearchMapD
     return [];
   }
 
-  return dormspaceRowsToSearchMapDormspaces(data ?? []);
+  const visible = (data ?? []).filter((row) =>
+    isDormspaceVisibleOnBrowse(row as DormspaceGenderBedInput),
+  );
+  return dormspaceRowsToSearchMapDormspaces(visible);
 }

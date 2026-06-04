@@ -62,9 +62,9 @@ test.describe("Dormspace landlord submit", () => {
     }
 
     await form.locator('input[name="title"]').fill(title);
-    await form.locator('input[name="monthly_price"]').fill("5500");
     await form.locator('select[name="room_type"]').selectOption("shared_2");
-    await form.locator('input[name="total_beds"]').fill("2");
+    await form.locator('input[name="male_enabled"]').check();
+    await form.locator('input[name="male_monthly_price"]').fill("5500");
 
     const addressInput = form.getByPlaceholder(/Search address/i);
     await addressInput.fill("Taft Avenue, Manila, Metro Manila, Philippines");

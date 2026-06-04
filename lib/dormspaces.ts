@@ -1,3 +1,9 @@
+import {
+  dormspaceCardAvailabilityText,
+  isDormspaceFullyBooked,
+  resolveDormspaceGenderBedCounts,
+  type DormspaceGenderBedInput,
+} from "@/lib/dormspace-gender-beds";
 import { isSupabaseRenderUrl, supabaseObjectUrlFromRenderUrl } from "@/lib/supabase-image-url";
 
 export type DormspaceRoomType = "private" | "shared_2" | "shared_4" | "shared_6_plus";
@@ -42,6 +48,13 @@ export type DormspaceRow = {
   total_beds: number | null;
   available_beds: number | null;
   vacancy_notes: string | null;
+  male_beds_total: number | null;
+  male_beds_available: number | null;
+  female_beds_total: number | null;
+  female_beds_available: number | null;
+  male_monthly_price: number | string | null;
+  female_monthly_price: number | string | null;
+  hidden_from_browse: boolean | null;
 };
 
 export type DormspacePhotoRow = {
@@ -220,33 +233,40 @@ export type DormspaceBedAvailabilityDisplay = {
 };
 
 export function dormspaceBedAvailability(
-  row: Pick<DormspaceRow, "room_type" | "total_beds" | "available_beds">,
+  row: DormspaceGenderBedInput & { room_type: DormspaceRoomType },
 ): DormspaceBedAvailabilityDisplay {
-  const { total, available } = resolveDormspaceBedCounts(row);
-  const roomLine = dormspaceRoomCapacityLabel(row.room_type, total);
+  const counts = resolveDormspaceGenderBedCounts(row);
+  const cardLine = dormspaceCardAvailabilityText(row);
+  const roomLine =
+    row.room_type === "private"
+      ? counts.maleTotal > 0
+        ? "Private · Male"
+        : counts.femaleTotal > 0
+          ? "Private · Female"
+          : "Private room"
+      : dormspaceRoomCapacityLabel(row.room_type, counts.maleTotal + counts.femaleTotal);
 
-  if (available <= 0) {
+  if (isDormspaceFullyBooked(row)) {
     return {
       roomLine,
-      detailLine: `${roomLine} · Currently full`,
+      detailLine: "Currently full",
       shortLine: "Currently full",
       status: "full",
     };
   }
-  if (available >= total) {
+  if (cardLine) {
     return {
       roomLine,
-      detailLine: `${roomLine} · All beds available`,
-      shortLine: "All beds available",
-      status: "all",
+      detailLine: cardLine,
+      shortLine: cardLine,
+      status: "partial",
     };
   }
-  const ofY = `${available} of ${total} beds available`;
   return {
     roomLine,
-    detailLine: `${roomLine} · ${available} available`,
-    shortLine: ofY,
-    status: "partial",
+    detailLine: "Beds available",
+    shortLine: "Available",
+    status: "all",
   };
 }
 

@@ -20,7 +20,10 @@ import {
   uploadLandlordProfileVerificationFile,
 } from "@/lib/dormspace-storage";
 import { RESEND_FROM } from "@/lib/resend-from";
-import { defaultTotalBedsFromRoomType } from "@/lib/dormspaces";
+import {
+  buildGenderBedDbFields,
+  parseBedInventoryFromFormData,
+} from "@/components/dormspaces/dormspace-bed-inventory-fields";
 import { calculateAndStoreWalkTimes } from "@/lib/dormspace-walk-times";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -28,7 +31,6 @@ export const maxDuration = 60;
 export const runtime = "nodejs";
 
 const roomTypes = ["private", "shared_2", "shared_4", "shared_6_plus"] as const;
-const genders = ["any", "male", "female"] as const;
 
 function parseBool(v: FormDataEntryValue | null): boolean {
   return v === "true" || v === "on" || v === "1";
@@ -83,8 +85,6 @@ export async function POST(req: Request) {
   }
   const title = String(form.get("title") ?? "").trim();
   const description = String(form.get("description") ?? "").trim() || null;
-  const room_type = String(form.get("room_type") ?? "").trim();
-  const gender_preference = String(form.get("gender_preference") ?? "any").trim() || "any";
   const address = String(form.get("address") ?? "").trim();
   const city = String(form.get("city") ?? "").trim() || null;
   const neighborhood = String(form.get("neighborhood") ?? "").trim() || null;
@@ -92,9 +92,7 @@ export async function POST(req: Request) {
   const curfew = String(form.get("curfew") ?? "").trim() || null;
   const rules_notes = String(form.get("rules_notes") ?? "").trim() || null;
 
-  const monthly_price = parseNum(form.get("monthly_price"));
   const deposit_months = parseNum(form.get("deposit_months")) ?? 1;
-  const total_beds_raw = parseNum(form.get("total_beds"));
   const latitude = parseNum(form.get("latitude"));
   const longitude = parseNum(form.get("longitude"));
 
@@ -102,15 +100,24 @@ export async function POST(req: Request) {
   const billingFile = form.get("proof_of_billing");
   const photoFiles = form.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
 
+  const bedInventory = parseBedInventoryFromFormData(form);
+  if (!bedInventory) {
+    return fail("BAD_REQUEST", "Invalid room type or bed setup", 400);
+  }
+  const bedFields = buildGenderBedDbFields(bedInventory);
+  if (bedFields.error) {
+    return fail("BAD_REQUEST", bedFields.error, 400);
+  }
+
+  const room_type = bedFields.payload.room_type as string;
+
   const baseSchema = z.object({
     landlord_name: z.string().min(1).max(200),
     landlord_email: z.string().email().max(320),
     landlord_phone: z.string().min(7).max(40),
     title: z.string().min(3).max(300),
     room_type: z.enum(roomTypes),
-    gender_preference: z.enum(genders),
     address: z.string().min(5).max(500),
-    monthly_price: z.number().positive().max(9999999),
   });
 
   const parsed = baseSchema.safeParse({
@@ -119,9 +126,7 @@ export async function POST(req: Request) {
     landlord_phone,
     title,
     room_type,
-    gender_preference,
     address,
-    monthly_price: monthly_price ?? NaN,
   });
 
   if (!parsed.success) {
@@ -275,12 +280,6 @@ export async function POST(req: Request) {
   const listingApproved = isVerifiedLandlordProfile(verificationStatus);
   const nowIso = new Date().toISOString();
 
-  const roomTypeParsed = room_type as (typeof roomTypes)[number];
-  let total_beds =
-    total_beds_raw != null && total_beds_raw >= 1
-      ? Math.min(50, Math.round(total_beds_raw))
-      : defaultTotalBedsFromRoomType(roomTypeParsed);
-
   const { data: inserted, error: insertErr } = await admin
     .from("dormspaces")
     .insert({
@@ -290,10 +289,7 @@ export async function POST(req: Request) {
       landlord_phone,
       title,
       description,
-      monthly_price,
       deposit_months,
-      room_type,
-      gender_preference,
       address,
       city,
       neighborhood,
@@ -309,8 +305,7 @@ export async function POST(req: Request) {
       has_security: parseBool(form.get("has_security")),
       curfew,
       rules_notes,
-      total_beds,
-      available_beds: total_beds,
+      ...bedFields.payload,
       status: listingApproved ? "approved" : "pending",
       ...(listingApproved
         ? { approved_at: nowIso, approved_by: null, rejection_reason: null }
@@ -395,7 +390,7 @@ export async function POST(req: Request) {
       `<p>New dormspace listing pending review.</p>
         <p><strong>${esc(title)}</strong></p>
         <p>Landlord: ${esc(landlord_name)} · ${esc(landlord_email)} · ${esc(landlord_phone)}</p>
-        <p>Monthly: ₱${esc(String(monthly_price))} · Room: ${esc(room_type)}</p>
+        <p>From ₱${esc(String(bedFields.payload.monthly_price ?? ""))} · Room: ${esc(room_type)}</p>
         <p><a href="${esc(listingLink)}">Preview listing</a> · <a href="${esc(`${siteBase}/admin`)}">Admin — Listings queue</a></p>`,
       `New dormspace listing — ${title}`,
     ).catch((err) => console.warn(err));

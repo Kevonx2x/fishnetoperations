@@ -17,12 +17,12 @@ import { compressClientImages } from "@/lib/compress-client-image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
 import {
-  defaultTotalBedsFromRoomType,
-  DORMSPACE_AMENITIES,
-  DORMSPACE_GENDER_OPTIONS,
-  DORMSPACE_ROOM_TYPE_OPTIONS,
-  type DormspaceRoomType,
-} from "@/lib/dormspaces";
+  DormspaceBedInventoryFields,
+  defaultBedInventoryForRoomType,
+  type BedInventoryFormValue,
+} from "@/components/dormspaces/dormspace-bed-inventory-fields";
+import { validateBedInventory } from "@/components/dormspaces/dormspace-bed-inventory-fields";
+import { DORMSPACE_AMENITIES } from "@/lib/dormspaces";
 import {
   needsLandlordVerificationUpload,
   normalizeLandlordVerificationStatus,
@@ -339,15 +339,10 @@ export function DormspaceSubmitForm() {
   const [emailExists, setEmailExists] = useState<boolean | null>(null);
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const [roomType, setRoomType] = useState<DormspaceRoomType | "">("");
-  const [totalBeds, setTotalBeds] = useState(1);
-  const [totalBedsTouched, setTotalBedsTouched] = useState(false);
+  const [bedInventory, setBedInventory] = useState<BedInventoryFormValue>(
+    defaultBedInventoryForRoomType("shared_2"),
+  );
   const landlordProfileRefreshUserIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!roomType || totalBedsTouched) return;
-    setTotalBeds(defaultTotalBedsFromRoomType(roomType));
-  }, [roomType, totalBedsTouched]);
 
   useEffect(() => {
     if (!user?.id || authLoading) return;
@@ -461,6 +456,12 @@ export function DormspaceSubmitForm() {
         setError("Please enter your phone number.");
         return;
       }
+    }
+
+    const bedErr = validateBedInventory(bedInventory);
+    if (bedErr) {
+      setError(bedErr);
+      return;
     }
 
     if (photos.length < LISTING_PHOTO_MIN) {
@@ -726,73 +727,11 @@ export function DormspaceSubmitForm() {
           Description
           <textarea name="description" className={cnFieldTextarea()} rows={4} />
         </label>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-            Monthly price (₱) *
-            <input name="monthly_price" type="number" min={500} className={FIELD} required />
-          </label>
-          <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-            Deposit (months)
-            <input name="deposit_months" type="number" min={0} step={0.5} defaultValue={1} className={FIELD} />
-          </label>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-            Room type *
-            <select
-              name="room_type"
-              className={FIELD}
-              required
-              value={roomType}
-              onChange={(e) => {
-                const v = e.target.value as DormspaceRoomType | "";
-                setRoomType(v);
-                if (v && !totalBedsTouched) {
-                  setTotalBeds(defaultTotalBedsFromRoomType(v));
-                }
-              }}
-            >
-              <option value="" disabled>
-                Select…
-              </option>
-              {DORMSPACE_ROOM_TYPE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-            Total beds *
-            <input
-              name="total_beds"
-              type="number"
-              min={1}
-              max={50}
-              className={FIELD}
-              required
-              value={totalBeds}
-              onChange={(e) => {
-                setTotalBedsTouched(true);
-                const n = parseInt(e.target.value, 10);
-                setTotalBeds(Number.isFinite(n) ? Math.min(50, Math.max(1, n)) : 1);
-              }}
-            />
-            <span className="mt-1 block text-[11px] font-medium text-[#888888]">
-              Defaults from room type; adjust if your space has a different capacity.
-            </span>
-          </label>
-          <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
-            Gender preference
-            <select name="gender_preference" className={FIELD} defaultValue="any">
-              {DORMSPACE_GENDER_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <label className="block text-xs font-semibold uppercase tracking-wide text-[#525252]">
+          Deposit (months)
+          <input name="deposit_months" type="number" min={0} step={0.5} defaultValue={1} className={FIELD} />
+        </label>
+        <DormspaceBedInventoryFields value={bedInventory} onChange={setBedInventory} fieldClassName={FIELD} />
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-[#525252]">Address *</p>
           <GooglePlacesInput

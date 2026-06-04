@@ -5,7 +5,7 @@ import {
 import { cn } from "@/lib/utils";
 
 type Props = {
-  listing: Pick<DormspaceRow, "room_type" | "total_beds" | "available_beds">;
+  listing: Parameters<typeof dormspaceBedAvailability>[0];
   /** inline = "Room · 2 available"; badge = full/all chips; detail = larger block */
   variant?: "inline" | "badge" | "detail";
   className?: string;

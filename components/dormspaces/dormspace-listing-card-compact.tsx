@@ -16,15 +16,18 @@ import {
   DORMSPACE_DESKTOP_SLOT,
   DORMSPACE_DESKTOP_WALK_PLACEHOLDER,
   DORMSPACE_LISTING_CARD_WIDTH,
+  DORMSPACE_MOBILE_SLOT,
 } from "@/lib/dormspace-listing-card-layout";
 import { listingListedCompactLabel } from "@/lib/listing-listed-time";
 import { DormspaceWalkTimesLine } from "@/components/dormspaces/dormspace-walk-times-line";
-import { DormspaceBedAvailability } from "@/components/dormspaces/dormspace-bed-availability";
 import { closestWalkTimes } from "@/lib/dormspace-walk-times-display";
 import {
-  dormspaceGenderLabel,
+  dormspaceCardAvailabilityText,
+  dormspaceCardFromPrice,
+  dormspaceImagePillLabel,
+} from "@/lib/dormspace-gender-beds";
+import {
   dormspaceLocationLine,
-  dormspaceRoomTypeLabel,
   formatDormspacePrice,
   sortedDormspacePhotos,
   type DormspaceWithPhotos,
@@ -52,11 +55,14 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
   const liked = isLiked(listing.id);
   const locationLine = dormspaceLocationLine(listing);
   const hasWalkTimes = closestWalkTimes(listing.dormspace_walk_times).length > 0;
+  const cardPrice = dormspaceCardFromPrice(listing);
+  const availabilityLine = dormspaceCardAvailabilityText(listing);
+  const imagePill = dormspaceImagePillLabel(listing);
 
   return (
     <div
       className={cn(
-        "relative flex touch-manipulation flex-col bg-white max-md:h-auto max-md:min-h-0 max-md:snap-start max-md:overflow-visible max-md:rounded-2xl max-md:shadow-[0_4px_16px_rgba(44,44,44,0.08)] max-md:ring-1 max-md:ring-black/[0.05] max-md:transition max-md:active:scale-[0.99]",
+        "relative flex h-full touch-manipulation flex-col bg-white max-md:min-h-0 max-md:snap-start max-md:overflow-hidden max-md:rounded-2xl max-md:shadow-[0_4px_16px_rgba(44,44,44,0.08)] max-md:ring-1 max-md:ring-black/[0.05] max-md:transition max-md:active:scale-[0.99]",
         "md:flex md:flex-col md:overflow-hidden md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md",
         DORMSPACE_DESKTOP_CARD_HEIGHT_CLASS,
         DORMSPACE_LISTING_CARD_WIDTH,
@@ -116,7 +122,7 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-16 bg-gradient-to-t from-black/25 to-transparent" />
 
         <div className="absolute left-2 top-2 z-20 flex flex-wrap gap-1 md:left-2.5 md:top-2.5">
-          <span className={dormCardStatusPillClass}>{dormspaceRoomTypeLabel(listing.room_type)}</span>
+          <span className={dormCardStatusPillClass}>{imagePill}</span>
         </div>
 
         {mayEngage && !hideHeart ? (
@@ -154,7 +160,7 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
 
       <div
         className={cn(
-          "flex flex-col gap-0.5 border-t border-[#2C2C2C]/10 bg-white max-md:rounded-b-2xl max-md:border-0 max-md:px-2.5 max-md:pb-2 max-md:pt-2 px-3 py-2",
+          "flex flex-1 flex-col gap-0.5 border-t border-[#2C2C2C]/10 bg-white max-md:rounded-b-2xl max-md:border-0 max-md:px-2.5 max-md:pb-2 max-md:pt-2 px-3 py-2",
           "md:gap-0 md:border-t md:border-[#2C2C2C]/10 md:px-2 md:pt-1.5 md:pb-1",
           DORMSPACE_DESKTOP_CARD_BODY_CLASS,
         )}
@@ -165,9 +171,14 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
             DORMSPACE_DESKTOP_SLOT.price,
           )}
         >
-          {formatDormspacePrice(listing.monthly_price)}
+          {cardPrice != null ? `From ${formatDormspacePrice(cardPrice)}` : formatDormspacePrice(listing.monthly_price)}
         </p>
-        <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-[#2C2C2C] max-md:block md:hidden">
+        <p
+          className={cn(
+            "line-clamp-2 text-[13px] font-semibold leading-snug text-[#2C2C2C] max-md:block md:hidden",
+            DORMSPACE_MOBILE_SLOT.title,
+          )}
+        >
           {listing.title}
         </p>
         <Link
@@ -180,20 +191,32 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
         >
           {listing.title}
         </Link>
-        <p className={cn("truncate text-[11px] text-[#717171]", DORMSPACE_DESKTOP_SLOT.meta)}>
-          {dormspaceRoomTypeLabel(listing.room_type)} · {dormspaceGenderLabel(listing.gender_preference)}
-        </p>
-        <div className={cn("min-h-0 truncate", DORMSPACE_DESKTOP_SLOT.meta)}>
-          <DormspaceBedAvailability
-            listing={listing}
-            variant="inline"
-            className="block truncate text-[11px] text-[#717171]"
-          />
-        </div>
+        {availabilityLine ? (
+          <p
+            className={cn(
+              "truncate text-[11px] font-medium text-[#6B9E6E]",
+              DORMSPACE_DESKTOP_SLOT.meta,
+              DORMSPACE_MOBILE_SLOT.beds,
+            )}
+          >
+            {availabilityLine}
+          </p>
+        ) : (
+          <p
+            className={cn(
+              "truncate text-[11px] text-[#888888]",
+              DORMSPACE_DESKTOP_SLOT.meta,
+              DORMSPACE_MOBILE_SLOT.beds,
+            )}
+          >
+            Currently full
+          </p>
+        )}
         <p
           className={cn(
             "flex items-center gap-1 text-[11px] text-[#717171]",
             DORMSPACE_DESKTOP_SLOT.location,
+            DORMSPACE_MOBILE_SLOT.location,
           )}
         >
           <MapPin className="h-3 w-3 shrink-0 text-[#8E8E8E]" aria-hidden />
@@ -207,11 +230,18 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
             )}
           </span>
         </p>
-        <div className={cn("max-md:mt-0.5", DORMSPACE_DESKTOP_SLOT.walk, "md:flex md:items-center")}>
+        <div
+          className={cn(
+            "max-md:mt-0.5",
+            DORMSPACE_DESKTOP_SLOT.walk,
+            DORMSPACE_MOBILE_SLOT.walk,
+            "md:flex md:items-center",
+          )}
+        >
           {hasWalkTimes ? (
             <DormspaceWalkTimesLine listing={listing} className="truncate text-[11px] md:text-[11px]" />
           ) : (
-            <span className="hidden truncate text-[11px] md:inline md:invisible" aria-hidden>
+            <span className="truncate text-[11px] max-md:invisible md:inline" aria-hidden>
               {DORMSPACE_DESKTOP_WALK_PLACEHOLDER}
             </span>
           )}

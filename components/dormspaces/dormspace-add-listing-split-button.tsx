@@ -130,9 +130,14 @@ export function DormspaceAddListingSplitButton({
                           id: row.id,
                           title: row.title,
                           room_type: row.room_type,
+                          male_beds_total: row.male_beds_total,
+                          male_beds_available: row.male_beds_available,
+                          female_beds_total: row.female_beds_total,
+                          female_beds_available: row.female_beds_available,
                           total_beds: row.total_beds,
                           available_beds: row.available_beds,
                           vacancy_notes: row.vacancy_notes,
+                          hidden_from_browse: row.hidden_from_browse,
                         });
                       }}
                       className="shrink-0 rounded-lg border border-[#6B9E6E]/30 px-2.5 py-1 text-[11px] font-bold text-[#4a7a4d] hover:bg-[#6B9E6E]/10"

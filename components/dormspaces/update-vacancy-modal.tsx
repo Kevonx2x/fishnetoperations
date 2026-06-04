@@ -5,16 +5,22 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 
-import { resolveDormspaceBedCounts } from "@/lib/dormspaces";
+import { resolveDormspaceGenderBedCounts } from "@/lib/dormspace-gender-beds";
+import type { DormspaceRoomType } from "@/lib/dormspaces";
 import { cn } from "@/lib/utils";
 
 export type VacancyModalListing = {
   id: string;
   title: string;
-  room_type: import("@/lib/dormspaces").DormspaceRoomType;
-  total_beds: number | null;
-  available_beds: number | null;
+  room_type: DormspaceRoomType;
+  male_beds_total: number | null;
+  male_beds_available: number | null;
+  female_beds_total: number | null;
+  female_beds_available: number | null;
+  total_beds?: number | null;
+  available_beds?: number | null;
   vacancy_notes?: string | null;
+  hidden_from_browse?: boolean | null;
 };
 
 type Props = {
@@ -26,16 +32,20 @@ type Props = {
 
 export function UpdateVacancyModal({ open, onOpenChange, listing, onSaved }: Props) {
   const titleId = useId();
-  const [available, setAvailable] = useState(0);
+  const [maleAvail, setMaleAvail] = useState(0);
+  const [femaleAvail, setFemaleAvail] = useState(0);
   const [notes, setNotes] = useState("");
+  const [hiddenFromBrowse, setHiddenFromBrowse] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reset = useCallback(() => {
     if (!listing) return;
-    const { total, available: avail } = resolveDormspaceBedCounts(listing);
-    setAvailable(avail);
+    const counts = resolveDormspaceGenderBedCounts(listing);
+    setMaleAvail(counts.maleAvailable);
+    setFemaleAvail(counts.femaleAvailable);
     setNotes(listing.vacancy_notes?.trim() ?? "");
+    setHiddenFromBrowse(Boolean(listing.hidden_from_browse));
     setError(null);
   }, [listing]);
 
@@ -55,11 +65,11 @@ export function UpdateVacancyModal({ open, onOpenChange, listing, onSaved }: Pro
 
   if (!open || !listing) return null;
 
-  const { total } = resolveDormspaceBedCounts(listing);
+  const counts = resolveDormspaceGenderBedCounts(listing);
+  const hasMale = counts.maleTotal > 0;
+  const hasFemale = counts.femaleTotal > 0;
 
-  const handleClose = () => {
-    onOpenChange(false);
-  };
+  const handleClose = () => onOpenChange(false);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,22 +81,25 @@ export function UpdateVacancyModal({ open, onOpenChange, listing, onSaved }: Pro
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          available_beds: available,
+          male_beds_available: hasMale ? maleAvail : undefined,
+          female_beds_available: hasFemale ? femaleAvail : undefined,
           vacancy_notes: notes.trim() || null,
+          hidden_from_browse: hiddenFromBrowse,
         }),
       });
       const json = (await res.json()) as {
         success?: boolean;
-        data?: { available_beds: number; total_beds: number };
+        data?: {
+          male_beds_available: number;
+          female_beds_available: number;
+        };
         error?: { message?: string };
       };
       if (!res.ok) {
         setError(json.error?.message ?? "Could not save changes");
         return;
       }
-      const avail = json.data?.available_beds ?? available;
-      const tot = json.data?.total_beds ?? total;
-      toast.success(`Vacancy updated. ${avail} of ${tot} beds now available.`);
+      toast.success("Vacancy updated.");
       onSaved?.();
       handleClose();
     } catch {
@@ -110,7 +123,7 @@ export function UpdateVacancyModal({ open, onOpenChange, listing, onSaved }: Pro
       >
         <div className="flex items-center justify-between border-b border-[#2C2C2C]/8 px-5 py-4">
           <h2 id={titleId} className="font-serif text-lg font-bold text-[#2C2C2C]">
-            Update vacancy
+            Update beds & visibility
           </h2>
           <button type="button" onClick={handleClose} className="rounded-lg p-1.5 hover:bg-black/5" aria-label="Close">
             <X className="size-5" />
@@ -118,35 +131,54 @@ export function UpdateVacancyModal({ open, onOpenChange, listing, onSaved }: Pro
         </div>
 
         <form onSubmit={(e) => void handleSave(e)} className="overflow-y-auto px-5 py-4">
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Property</span>
-            <p className="mt-1.5 rounded-xl border border-[#2C2C2C]/10 bg-white/80 px-3 py-2.5 text-sm font-semibold text-[#2C2C2C]">
-              {listing.title}
-            </p>
-          </label>
+          <p className="text-sm font-semibold text-[#2C2C2C]">{listing.title}</p>
+          <p className="mt-1 text-xs text-[#888888]">
+            Set how many beds are open. Full sides stay on your dashboard but won&apos;t show on the homepage.
+          </p>
 
-          <label className="mt-4 block">
-            <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Total beds</span>
-            <p className="mt-1.5 rounded-xl border border-[#2C2C2C]/10 bg-[#FAF8F4] px-3 py-2.5 text-sm font-semibold text-[#484848]">
-              {total} {total === 1 ? "bed" : "beds"} (set when listing was created)
-            </p>
-          </label>
+          {hasMale ? (
+            <label className="mt-4 block">
+              <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Male beds available (of {counts.maleTotal})
+              </span>
+              <input
+                type="number"
+                min={0}
+                max={counts.maleTotal}
+                className={inputCls}
+                value={maleAvail}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  setMaleAvail(
+                    Number.isFinite(n) ? Math.min(counts.maleTotal, Math.max(0, n)) : 0,
+                  );
+                }}
+                required
+              />
+            </label>
+          ) : null}
 
-          <label className="mt-4 block">
-            <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">Available beds</span>
-            <input
-              type="number"
-              min={0}
-              max={total}
-              className={inputCls}
-              value={available}
-              onChange={(e) => {
-                const n = parseInt(e.target.value, 10);
-                setAvailable(Number.isFinite(n) ? Math.min(total, Math.max(0, n)) : 0);
-              }}
-              required
-            />
-          </label>
+          {hasFemale ? (
+            <label className="mt-4 block">
+              <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
+                Female beds available (of {counts.femaleTotal})
+              </span>
+              <input
+                type="number"
+                min={0}
+                max={counts.femaleTotal}
+                className={inputCls}
+                value={femaleAvail}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  setFemaleAvail(
+                    Number.isFinite(n) ? Math.min(counts.femaleTotal, Math.max(0, n)) : 0,
+                  );
+                }}
+                required
+              />
+            </label>
+          ) : null}
 
           <label className="mt-4 block">
             <span className="text-xs font-bold uppercase tracking-wide text-[#2C2C2C]/45">
@@ -157,9 +189,24 @@ export function UpdateVacancyModal({ open, onOpenChange, listing, onSaved }: Pro
               className={inputCls}
               value={notes}
               onChange={(e) => setNotes(e.target.value.slice(0, 300))}
-              placeholder='e.g. "2 beds opening June 15th"'
+              placeholder='e.g. "2 male beds opening June 15th"'
               maxLength={300}
             />
+          </label>
+
+          <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#2C2C2C]/10 bg-white px-3 py-3">
+            <input
+              type="checkbox"
+              checked={hiddenFromBrowse}
+              onChange={(e) => setHiddenFromBrowse(e.target.checked)}
+              className="mt-0.5 size-4 rounded border-[#2C2C2C]/20 text-[#6B9E6E]"
+            />
+            <span className="text-sm font-medium text-[#2C2C2C]">
+              Hide from homepage browse
+              <span className="mt-0.5 block text-xs font-normal text-[#888888]">
+                Still visible in your landlord listings. Use anytime — not only when full.
+              </span>
+            </span>
           </label>
 
           {error ? <p className="mt-3 text-sm font-medium text-red-600">{error}</p> : null}
@@ -170,15 +217,13 @@ export function UpdateVacancyModal({ open, onOpenChange, listing, onSaved }: Pro
               disabled={busy}
               className="h-10 flex-1 rounded-full bg-[#6B9E6E] px-5 text-sm font-bold text-white disabled:opacity-60 sm:flex-none"
             >
-              {busy ? "Saving…" : "Save changes"}
+              {busy ? "Saving…" : "Save"}
             </button>
             <button
               type="button"
               disabled={busy}
               onClick={handleClose}
-              className={cn(
-                "h-10 rounded-full border border-[#2C2C2C]/15 px-5 text-sm font-bold text-[#484848]",
-              )}
+              className="h-10 rounded-full border border-[#2C2C2C]/15 px-5 text-sm font-bold text-[#484848]"
             >
               Cancel
             </button>

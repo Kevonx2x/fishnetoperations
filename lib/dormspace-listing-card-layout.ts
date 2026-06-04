@@ -24,3 +24,12 @@ export const DORMSPACE_DESKTOP_SLOT = {
 
 /** Keeps walk-times row width when no universities are linked. */
 export const DORMSPACE_DESKTOP_WALK_PLACEHOLDER = "0 min walk";
+
+/** Mobile browse row — reserve text lines so paired cards in a row align. */
+export const DORMSPACE_MOBILE_SLOT = {
+  title: "max-md:min-h-[2.5rem]",
+  meta: "max-md:min-h-4",
+  beds: "max-md:min-h-4",
+  location: "max-md:min-h-4",
+  walk: "max-md:min-h-4",
+} as const;

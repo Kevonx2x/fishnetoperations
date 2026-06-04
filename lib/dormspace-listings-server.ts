@@ -1,3 +1,4 @@
+import { filterDormspacesForPublicBrowse } from "@/lib/dormspace-browse-visibility";
 import { DORMSPACE_LISTING_SELECT } from "@/lib/dormspace-listing-select";
 import type { DormspaceWithPhotos } from "@/lib/dormspaces";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -10,14 +11,14 @@ export async function fetchDormspaceListingsServer(): Promise<DormspaceWithPhoto
   let { data, error } = await supabase
     .from("dormspaces")
     .select(DORMSPACE_LISTING_SELECT)
-    .in("status", ["pending", "approved"])
+    .eq("status", "approved")
     .order("created_at", { ascending: false });
 
   if (error) {
     ({ data, error } = await supabase
       .from("dormspaces")
       .select(FALLBACK_SELECT)
-      .in("status", ["pending", "approved"])
+      .eq("status", "approved")
       .order("created_at", { ascending: false }));
   }
 
@@ -26,7 +27,7 @@ export async function fetchDormspaceListingsServer(): Promise<DormspaceWithPhoto
     return [];
   }
 
-  return (data ?? []) as DormspaceWithPhotos[];
+  return filterDormspacesForPublicBrowse((data ?? []) as DormspaceWithPhotos[]);
 }
 
 export async function fetchDormspaceListingByIdServer(id: string): Promise<DormspaceWithPhotos | null> {
