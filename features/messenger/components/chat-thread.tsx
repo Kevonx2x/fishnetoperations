@@ -8,20 +8,21 @@ import {
   Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { MockConversation } from "../types";
+import type { MessengerConversation } from "../types";
 import { MessengerAvatar } from "./avatar";
 import { Composer } from "./composer";
 import { MessageBubble } from "./message-bubble";
 import { TypingIndicator } from "./typing-indicator";
 
 type Props = {
-  conversation: MockConversation | null;
+  conversation: MessengerConversation | null;
   showBack?: boolean;
   onBack?: () => void;
+  onSend?: (text: string) => void;
   className?: string;
 };
 
-export function ChatThread({ conversation, showBack, onBack, className }: Props) {
+export function ChatThread({ conversation, showBack, onBack, onSend, className }: Props) {
   if (!conversation) {
     return (
       <section
@@ -98,7 +99,7 @@ export function ChatThread({ conversation, showBack, onBack, className }: Props)
         {typing ? <TypingIndicator /> : null}
       </div>
 
-      <Composer />
+      <Composer onSend={onSend} />
     </section>
   );
 }

@@ -2,7 +2,7 @@
 
 import { PenSquare, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ConversationTab, MockConversation } from "../types";
+import type { ConversationTab, MessengerConversation } from "../types";
 import { ConversationRow } from "./conversation-row";
 
 const TABS: { id: ConversationTab; label: string }[] = [
@@ -12,7 +12,7 @@ const TABS: { id: ConversationTab; label: string }[] = [
 ];
 
 type Props = {
-  conversations: MockConversation[];
+  conversations: MessengerConversation[];
   activeId: string;
   tab: ConversationTab;
   searchQuery: string;
@@ -23,10 +23,10 @@ type Props = {
 };
 
 function filterConversations(
-  list: MockConversation[],
+  list: MessengerConversation[],
   tab: ConversationTab,
   searchQuery: string,
-): MockConversation[] {
+): MessengerConversation[] {
   const q = searchQuery.trim().toLowerCase();
   return list.filter((c) => {
     if (tab === "unread" && c.unread === 0) return false;
