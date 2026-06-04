@@ -1,3 +1,9 @@
+/*
+ * Cascade layer order (later layers win). Stream Chat docs: place stream-overrides after stream.
+ * Listing stream layers here ensures overrides beat Tailwind utilities when stream-chat.css loads.
+ */
+@layer theme, base, components, utilities, stream, stream-overrides;
+
 @import 'tailwindcss';
 @import 'tw-animate-css';
 

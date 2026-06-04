@@ -3,7 +3,6 @@ import { useMemo } from "react";
 import { Home } from "lucide-react";
 import { Attachment, Avatar, MessageText, useChannelStateContext, useMessageContext } from "stream-chat-react";
 
-import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import { messageGapForIndex } from "@/features/messaging/lib/message-grouping";
@@ -12,7 +11,6 @@ import type { ChannelPropertyMetadata } from "@/features/messaging/types";
 export function CustomMessage() {
   const { messages: channelMessages, channel } = useChannelStateContext("CustomMessage");
   const { isMyMessage, message, groupStyles, firstOfGroup, readBy, deliveredTo } = useMessageContext();
-  const { profile } = useAuth();
   const mine = isMyMessage();
 
   const createdAt = message.created_at
@@ -51,9 +49,6 @@ export function CustomMessage() {
     else if (othersDelivered || message.status === "received" || message.status === "sent") readReceipt = "✓";
   }
 
-  const roleLabel = mine ? (profile?.role === "agent" ? "Agent" : "Client") : profile?.role === "agent" ? "Client" : "Agent";
-  const showRoleLabel = Boolean(firstOfGroup || groupStyles?.includes("top") || groupStyles?.includes("single"));
-
   const channelMeta = (channel?.data ?? {}) as ChannelPropertyMetadata;
   const propertyIdFromMeta = String((message as Record<string, unknown>).property_id ?? "").trim();
   const propertyNameFromMeta = String((message as Record<string, unknown>).property_name ?? "").trim();
@@ -83,8 +78,7 @@ export function CustomMessage() {
         gap === "start" && "bhg-msg--gap-start",
         gap === "same" && "bhg-msg--gap-same",
         gap === "turn" && "bhg-msg--gap-turn",
-        !mine && "max-md:pl-1",
-        "w-full max-md:px-1",
+        "w-full min-w-0",
       )}
     >
       {!mine && showAvatar ? (
@@ -97,8 +91,7 @@ export function CustomMessage() {
         </div>
       ) : null}
       <div className="bhg-msg__body min-w-0">
-        {showRoleLabel ? <span className="mb-0.5 block text-xs text-[#888888] md:hidden">{roleLabel}</span> : null}
-        {showName ? <span className="bhg-msg__name">{message.user?.name}</span> : null}
+        {showName ? <span className="bhg-msg__name max-md:hidden">{message.user?.name}</span> : null}
         <div className="bhg-msg__bubble">
           {finalAttachments.length > 0 && !message.quoted_message ? (
             <Attachment attachments={finalAttachments} />

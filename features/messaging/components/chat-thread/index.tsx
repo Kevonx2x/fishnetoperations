@@ -172,7 +172,7 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
   }
 
   return (
-    <div className="bhg-chat-panel flex h-full min-h-0 w-full min-w-0 flex-col bg-[#FAF8F4] max-lg:min-h-0 max-lg:flex-1">
+    <div className="bhg-chat-panel flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden bg-[#FAF8F4] max-lg:min-h-0 max-lg:flex-1">
       <header className="hidden shrink-0 items-center justify-between border-b border-subtle bg-surface-page px-4 py-4 md:flex">
         <ChatHeader className="min-w-0 flex-1 border-b-0 bg-transparent px-0 py-0" />
         {!supportThread ? (
@@ -209,10 +209,10 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
         </div>
       ) : null}
       {/* Scroll lives on Stream's `.str-chat__list`; wrapping with overflow-y-auto here nests scrollers and breaks flex height + composer placement on mobile. */}
-      <div className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col max-lg:min-h-0 lg:min-h-0">
+      <div className="bhg-chat-scroll flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden max-lg:min-h-0 lg:min-h-0">
         <MessageList />
       </div>
-      <div className="relative z-10 max-lg:shrink-0 max-lg:border-t max-lg:border-[#2C2C2C]/10 max-lg:bg-white max-lg:pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="bhg-composer-shell relative z-10 box-border w-full max-w-full min-w-0 shrink-0 overflow-hidden max-lg:border-t max-lg:border-[#2C2C2C]/10 max-lg:bg-white max-lg:px-4 max-lg:pb-[env(safe-area-inset-bottom,0px)]">
         <MessageInput />
       </div>
     </div>
