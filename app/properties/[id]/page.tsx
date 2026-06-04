@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Heart, LayoutGrid, MapPin, Pin as LucidePin, X } from "lucide-react";
@@ -42,6 +42,14 @@ import {
 } from "@vis.gl/react-google-maps";
 import { toast } from "sonner";
 import { resolveListingAgentUserId } from "@/lib/resolve-listing-agent-user-id";
+import { agentMessagesHref } from "@/lib/agent-messages-path";
+import type {
+  CreateMessagingChannelErrorBody,
+  CreateMessagingChannelResponse,
+} from "@/features/messaging/types";
+import { PropertyMobileStickyActions } from "@/components/marketplace/property-mobile-sticky-actions";
+import { useMobileStickyFooter } from "@/contexts/mobile-chrome-context";
+import { MOBILE_CONTENT_PAD_WITH_STICKY_ACTIONS_CLASS } from "@/lib/mobile-bottom-nav-layout";
 
 type ListingAgentProfile = {
   id: string;
@@ -111,6 +119,7 @@ function isValidMapCoordinate(n: unknown): n is number {
 export default function PropertyPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
+  const router = useRouter();
   const { user, profile, loading: authLoading } = useAuth();
   const isAdminViewer = profile?.role === "admin" || profile?.role === "ops_admin";
 
@@ -146,6 +155,7 @@ export default function PropertyPage() {
   const [presaleUnit, setPresaleUnit] = useState("");
   const [presaleBusy, setPresaleBusy] = useState(false);
   const [presaleMsg, setPresaleMsg] = useState<string | null>(null);
+  const [messageBusy, setMessageBusy] = useState(false);
 
   useEffect(() => {
     if (showVerificationModal) {
@@ -512,7 +522,7 @@ export default function PropertyPage() {
     [property],
   );
 
-  const onRequestViewing = () => {
+  const onRequestViewing = useCallback(() => {
     if (authLoading) return;
     if (!user) {
       setSignInPromptOpen(true);
@@ -525,7 +535,103 @@ export default function PropertyPage() {
       return;
     }
     setShowAgentPicker(true);
-  };
+  }, [authLoading, connectedAgents, user]);
+
+  const showMobileStickyActions = Boolean(
+    property &&
+      !isListingAgentUser &&
+      !property.is_presale &&
+      !hideListingClientActions,
+  );
+
+  const { setStickyFooter } = useMobileStickyFooter();
+
+  const onMessageAgent = useCallback(async () => {
+    if (authLoading || messageBusy) return;
+    if (!user) {
+      setSignInPromptOpen(true);
+      return;
+    }
+    if (connectedAgents.length === 0) return;
+
+    const agentUserId = listingAgentUserId(property!, connectedAgents);
+    if (!agentUserId || user.id === agentUserId) return;
+
+    if (profile?.role === "agent") {
+      const agent = listingAgent ?? connectedAgents[0];
+      if (agent) {
+        setContactModalAgent(agent);
+        setShowContactModal(true);
+      }
+      return;
+    }
+
+    setMessageBusy(true);
+    try {
+      const heroImage = allPhotos[0] ?? property!.image_url ?? "";
+      const res = await fetch("/api/stream/channel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          agent_user_id: agentUserId,
+          client_user_id: user.id,
+          metadata: {
+            property_id: property!.id,
+            property_name: property!.name?.trim() || property!.location,
+            property_price: property!.price,
+            property_image: heroImage,
+          },
+        }),
+      });
+      const data: unknown = await res.json().catch(() => ({}));
+      const ok = data as CreateMessagingChannelResponse;
+      const err = data as CreateMessagingChannelErrorBody;
+      if (!res.ok || typeof ok.channel_id !== "string" || !ok.channel_id) {
+        toast.error(typeof err.error === "string" ? err.error : "Could not start chat");
+        return;
+      }
+      router.push(agentMessagesHref(ok.channel_id));
+    } finally {
+      setMessageBusy(false);
+    }
+  }, [
+    allPhotos,
+    authLoading,
+    connectedAgents,
+    listingAgent,
+    messageBusy,
+    profile?.role,
+    property,
+    router,
+    user,
+  ]);
+
+  useEffect(() => {
+    if (!showMobileStickyActions) {
+      setStickyFooter(null);
+      return;
+    }
+    setStickyFooter(
+      <PropertyMobileStickyActions
+        onMessageAgent={() => void onMessageAgent()}
+        onScheduleViewing={onRequestViewing}
+        messageBusy={messageBusy}
+        messageDisabled={connectedAgents.length === 0}
+        scheduleDisabled={authLoading || connectedAgents.length === 0}
+      />,
+    );
+  }, [
+    authLoading,
+    connectedAgents.length,
+    messageBusy,
+    onMessageAgent,
+    onRequestViewing,
+    setStickyFooter,
+    showMobileStickyActions,
+  ]);
+
+  useEffect(() => () => setStickyFooter(null), [setStickyFooter]);
 
   useEffect(() => {
     if (!property?.is_presale || typeof window === "undefined") return;
@@ -583,11 +689,16 @@ export default function PropertyPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-12">
-      <MaddenTopNav />
+    <div className="min-h-screen bg-white pb-12 max-md:pb-0">
+      <MaddenTopNav compactMobileHome />
 
-      <main className="mx-auto max-w-6xl px-4 pb-24 pt-4 md:pb-12">
-        <div className="mb-4 text-sm font-semibold text-[#2C2C2C]/65">
+      <main
+        className={cn(
+          "mx-auto max-w-6xl px-4 pb-12 pt-2 md:pt-4",
+          showMobileStickyActions ? MOBILE_CONTENT_PAD_WITH_STICKY_ACTIONS_CLASS : "max-md:pb-20",
+        )}
+      >
+        <div className="mb-2 text-xs font-semibold text-[#2C2C2C]/65 max-md:mb-1 md:mb-4 md:text-sm">
           <Link href="/" className="hover:text-[#2C2C2C]">Home</Link> <span>·</span>{" "}
           <span className="text-[#2C2C2C]">Property</span>
         </div>
@@ -685,6 +796,11 @@ export default function PropertyPage() {
                               <ChevronRight className="h-5 w-5 text-[#2C2C2C]" aria-hidden strokeWidth={2} />
                             </button>
                           </>
+                        ) : null}
+                        {allPhotos.length > 0 ? (
+                          <span className="absolute right-3 top-3 z-20 rounded-full bg-white/95 px-2.5 py-1 text-xs font-semibold text-[#2C2C2C] shadow-sm ring-1 ring-black/5">
+                            {heroIndex + 1} / {allPhotos.length}
+                          </span>
                         ) : null}
                         {!hideListingClientActions ? (
                           <div
@@ -986,7 +1102,7 @@ export default function PropertyPage() {
                       Viewing requests and saves are not available for this listing right now.
                     </p>
                   ) : (
-                    <>
+                    <div className="max-md:hidden">
                       <p className="font-serif text-base font-bold text-[#2C2C2C]">Request a viewing</p>
                       <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
                         Pick a date and time. We’ll notify the listing agent by SMS and email.
@@ -1021,7 +1137,7 @@ export default function PropertyPage() {
                       >
                         {authLoading ? "Loading…" : "Request viewing"}
                       </button>
-                    </>
+                    </div>
                   )}
 
                   {showCoAgentPendingBanner ? (

@@ -12,8 +12,7 @@ import {
 import type { SearchMapProperty } from "@/lib/search-map-markers";
 import { cn } from "@/lib/utils";
 
-/** Matches MobileBottomNav height (h-14 + py-2 = 5rem). */
-const MOBILE_BOTTOM_NAV_OFFSET = "calc(5rem + env(safe-area-inset-bottom, 0px))";
+import { MOBILE_BOTTOM_NAV_OFFSET_CSS } from "@/lib/mobile-bottom-nav-layout";
 
 export function SearchMapPage({ markers: properties }: { markers: SearchMapProperty[] }) {
   const [locationFocus, setLocationFocus] = useState<SearchMapLocationFocus | null>(null);
@@ -58,7 +57,7 @@ export function SearchMapPage({ markers: properties }: { markers: SearchMapPrope
       )}
       style={
         {
-          "--search-map-bottom-offset": MOBILE_BOTTOM_NAV_OFFSET,
+          "--search-map-bottom-offset": MOBILE_BOTTOM_NAV_OFFSET_CSS,
         } as CSSProperties
       }
     >

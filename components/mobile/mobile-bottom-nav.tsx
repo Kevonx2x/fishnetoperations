@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useSoftKeyboardOpen } from "@/hooks/use-soft-keyboard-open";
 import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
 import {
@@ -24,6 +24,7 @@ import { isDormspaceDashboardPath } from "@/lib/dormspace-portal-chrome";
 import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { isPublicDormspaceMarketplacePath } from "@/lib/dormspace-portal-chrome";
 import { useMobileChromeOverlay } from "@/contexts/mobile-chrome-context";
+import { MOBILE_BOTTOM_NAV_HEIGHT_VAR } from "@/lib/mobile-bottom-nav-layout";
 import { cn } from "@/lib/utils";
 
 export type MobileBottomNavTabConfig = {
@@ -273,7 +274,13 @@ function NavTab({
   );
 }
 
-export function MobileBottomNav() {
+type MobileBottomNavProps = {
+  /** Render inside `MobileBottomChrome` stack (not separately `fixed`). */
+  embedded?: boolean;
+};
+
+export function MobileBottomNav({ embedded = false }: MobileBottomNavProps) {
+  const navRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -297,14 +304,43 @@ export function MobileBottomNav() {
     );
   }, [pathname, role, messagesUnread]);
 
-  if (hidden) {
+  useEffect(() => {
+    if (embedded || hidden) {
+      if (!embedded) {
+        document.documentElement.style.removeProperty(MOBILE_BOTTOM_NAV_HEIGHT_VAR);
+      }
+      return;
+    }
+    const el = navRef.current;
+    if (!el) return;
+    const syncHeight = () => {
+      document.documentElement.style.setProperty(
+        MOBILE_BOTTOM_NAV_HEIGHT_VAR,
+        `${el.offsetHeight}px`,
+      );
+    };
+    syncHeight();
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty(MOBILE_BOTTOM_NAV_HEIGHT_VAR);
+    };
+  }, [embedded, hidden]);
+
+  if (hidden && !embedded) {
     return null;
   }
 
   return (
     // TODO: Stray "N" circle on Explore tab in dev is likely the Next.js dev indicator overlay, not this nav.
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-black/[0.06] bg-white py-2 md:hidden pb-[env(safe-area-inset-bottom,0px)]"
+      ref={navRef}
+      className={cn(
+        "border-t border-black/[0.06] bg-white py-2 pb-[env(safe-area-inset-bottom,0px)]",
+        embedded ? "relative w-full" : "fixed bottom-0 left-0 right-0 z-50 md:hidden",
+        !embedded && "md:hidden",
+      )}
       aria-label="Main navigation"
     >
       <div className="mx-auto flex h-14 max-w-lg items-stretch px-0">

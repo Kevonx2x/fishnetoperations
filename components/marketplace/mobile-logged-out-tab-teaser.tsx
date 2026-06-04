@@ -12,7 +12,7 @@ export const GUEST_MESSAGES_TEASER_IMAGE = "/marketing/mobile-guest-messages-tea
 /** Full mobile design — guest Saved tab (title, saved homes card, benefits). */
 export const GUEST_SAVED_TEASER_IMAGE = "/marketing/mobile-guest-saved-teaser.png";
 
-const MOBILE_BOTTOM_NAV_OFFSET = "calc(3.25rem + env(safe-area-inset-bottom, 0px))";
+import { MOBILE_BOTTOM_NAV_OFFSET_CSS } from "@/lib/mobile-bottom-nav-layout";
 
 function useLockMobileDocumentScroll(active: boolean) {
   useEffect(() => {
@@ -50,7 +50,7 @@ function MobileLoggedOutTabTeaserImage({
   return (
     <div
       className="fixed inset-x-0 top-0 z-20 flex max-md:max-h-[100dvh] flex-col overflow-hidden bg-[#FAF8F4] max-md:bottom-[var(--mobile-tab-offset)] md:relative md:inset-auto md:z-auto md:min-h-screen md:max-h-none"
-      style={{ "--mobile-tab-offset": MOBILE_BOTTOM_NAV_OFFSET } as CSSProperties}
+      style={{ "--mobile-tab-offset": MOBILE_BOTTOM_NAV_OFFSET_CSS } as CSSProperties}
     >
       <MaddenTopNav compactMobileHome />
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-2 pt-0">
