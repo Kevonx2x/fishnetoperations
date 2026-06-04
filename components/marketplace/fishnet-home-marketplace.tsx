@@ -2076,7 +2076,7 @@ export function BahayGoHomeMarketplace({
     skip: browseGpsSkip,
     status,
     profile,
-    onApply: (label) => {
+    onApply: ({ label }) => {
       setNeighborhoodFilter(null);
       applyLocationSearch(label);
     },

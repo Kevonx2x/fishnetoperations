@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import type { AuthStatus } from "@/contexts/auth-context";
 import type { Profile } from "@/contexts/auth-context";
 import {
+  BROWSE_GPS_MANILA_COORDS,
   BROWSE_GPS_MANILA_LABEL,
   fetchReverseGeocodeLabel,
   getCurrentPositionWithTimeout,
@@ -12,6 +13,13 @@ import {
   isBrowseClientGpsAudience,
   markBrowseGpsAttempted,
 } from "@/lib/browse-client-gps";
+import type { GeoPoint } from "@/lib/geo-point";
+
+export type BrowseLocationApplyPayload = {
+  label: string;
+  latitude?: number;
+  longitude?: number;
+};
 
 type Options = {
   /** Mobile browse surfaces only. */
@@ -20,7 +28,7 @@ type Options = {
   skip: boolean;
   status: AuthStatus;
   profile: Profile | null | undefined;
-  onApply: (label: string) => void;
+  onApply: (payload: BrowseLocationApplyPayload) => void;
 };
 
 /**
@@ -43,7 +51,11 @@ export function useBrowseClientGpsLocation({
     if (hasAttemptedBrowseGps()) return;
 
     markBrowseGpsAttempted();
-    onApplyRef.current(BROWSE_GPS_MANILA_LABEL);
+    onApplyRef.current({
+      label: BROWSE_GPS_MANILA_LABEL,
+      latitude: BROWSE_GPS_MANILA_COORDS.latitude,
+      longitude: BROWSE_GPS_MANILA_COORDS.longitude,
+    });
 
     let cancelled = false;
 
@@ -51,13 +63,11 @@ export function useBrowseClientGpsLocation({
       const position = await getCurrentPositionWithTimeout();
       if (cancelled || !position) return;
 
-      const label = await fetchReverseGeocodeLabel(
-        position.coords.latitude,
-        position.coords.longitude,
-      );
+      const { latitude, longitude } = position.coords;
+      const label = await fetchReverseGeocodeLabel(latitude, longitude);
       if (cancelled || !label) return;
 
-      onApplyRef.current(label);
+      onApplyRef.current({ label, latitude, longitude });
     })();
 
     return () => {

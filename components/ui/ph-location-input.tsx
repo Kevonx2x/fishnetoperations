@@ -2,62 +2,17 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Clock } from "lucide-react";
+import {
+  formatPhLocation,
+  PH_LOCATION_OPTIONS,
+  phLocationToGeoPoint,
+  type PhLocationOption,
+} from "@/lib/ph-location-options";
+import type { GeoPoint } from "@/lib/geo-point";
 import { cn } from "@/lib/utils";
 
-export type PhLocationOption = {
-  area: string;
-  city: string;
-};
-
-/** Hardcoded Philippine locations for listing/search autocomplete (Area, City). */
-export const PH_LOCATION_OPTIONS: PhLocationOption[] = [
-  { area: "BGC", city: "Taguig" },
-  { area: "Makati CBD", city: "Makati" },
-  { area: "Ortigas Center", city: "Pasig" },
-  { area: "Mandaluyong", city: "Mandaluyong" },
-  { area: "Eastwood", city: "Quezon City" },
-  { area: "Cubao", city: "Quezon City" },
-  { area: "Katipunan", city: "Quezon City" },
-  { area: "Commonwealth", city: "Quezon City" },
-  { area: "Quezon City", city: "Quezon City" },
-  { area: "Greenhills", city: "San Juan" },
-  { area: "San Juan", city: "San Juan" },
-  { area: "Marikina", city: "Marikina" },
-  { area: "Pasay", city: "Pasay" },
-  { area: "Paranaque", city: "Paranaque" },
-  { area: "Las Pinas", city: "Las Pinas" },
-  { area: "Muntinlupa", city: "Muntinlupa" },
-  { area: "Valenzuela", city: "Valenzuela" },
-  { area: "Malabon", city: "Malabon" },
-  { area: "Navotas", city: "Navotas" },
-  { area: "Caloocan", city: "Caloocan" },
-  { area: "Manila", city: "Manila" },
-  { area: "Intramuros", city: "Manila" },
-  { area: "Cebu City", city: "Cebu City" },
-  { area: "Lapu-Lapu", city: "Lapu-Lapu" },
-  { area: "Mandaue", city: "Mandaue" },
-  { area: "Talisay", city: "Talisay" },
-  { area: "Minglanilla", city: "Minglanilla" },
-  { area: "Davao City", city: "Davao City" },
-  { area: "Tagum", city: "Tagum" },
-  { area: "Digos", city: "Digos" },
-  { area: "Iloilo City", city: "Iloilo City" },
-  { area: "Bacolod", city: "Bacolod" },
-  { area: "Cagayan de Oro", city: "Cagayan de Oro" },
-  { area: "Zamboanga", city: "Zamboanga" },
-  { area: "Baguio", city: "Baguio" },
-  { area: "Clark", city: "Pampanga" },
-  { area: "Angeles", city: "Pampanga" },
-  { area: "Cavite", city: "Cavite" },
-  { area: "Laguna", city: "Laguna" },
-  { area: "Batangas", city: "Batangas" },
-  { area: "Antipolo", city: "Rizal" },
-  { area: "Taytay", city: "Rizal" },
-];
-
-export function formatPhLocation(o: PhLocationOption): string {
-  return `${o.area}, ${o.city}`;
-}
+export type { PhLocationOption } from "@/lib/ph-location-options";
+export { formatPhLocation, PH_LOCATION_OPTIONS } from "@/lib/ph-location-options";
 
 function filterLocations(query: string): PhLocationOption[] {
   const q = query.trim().toLowerCase();
@@ -86,7 +41,7 @@ export type PhLocationInputProps = {
   /** Fired when user picks a recent search row (parent should run search). */
   onRecentSearchPick?: (query: string) => void;
   /** Fired when user picks a location suggestion or recent row (after value is applied). */
-  onLocationPicked?: (value: string) => void;
+  onLocationPicked?: (value: string, origin?: GeoPoint) => void;
   id?: string;
   name?: string;
   placeholder?: string;
@@ -138,7 +93,7 @@ export function PhLocationInput({
       onChange(value);
       setOpen(false);
       setHighlighted(-1);
-      onLocationPicked?.(value);
+      onLocationPicked?.(value, phLocationToGeoPoint(o));
     },
     [onChange, onLocationPicked],
   );

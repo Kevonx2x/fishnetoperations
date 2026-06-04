@@ -3,72 +3,22 @@
 import { useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Car, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { DormspaceHomeSectionHeader } from "@/components/dormspaces/dormspace-home-section-header";
+import { DormspaceUniversityBrowseSubtitle } from "@/components/dormspaces/dormspace-university-browse-subtitle";
 import type { DormspaceBrowseFilters } from "@/lib/dormspace-browse-filters";
-import { formatReachTimeDisplay } from "@/lib/dormspace-walk-times-display";
 import type { DormspaceWithPhotos } from "@/lib/dormspaces";
-import {
-  formatUniversityListingCount,
-  universityInitials,
-  type UniversityRow,
-} from "@/lib/universities";
+import type { GeoPoint } from "@/lib/geo-point";
+import { universityInitials, type UniversityRow } from "@/lib/universities";
 
 type Props = {
   universities: UniversityRow[];
   listings: DormspaceWithPhotos[];
   onSelectUniversity: (partial: Partial<DormspaceBrowseFilters>) => void;
+  searchOrigin?: GeoPoint | null;
+  searchPlaceLabel?: string | null;
 };
-
-function fastestWalkToUniversity(
-  listings: DormspaceWithPhotos[],
-  universityId: string,
-): { walkSeconds: number; walkMeters: number } | null {
-  let fastest: { walkSeconds: number; walkMeters: number } | null = null;
-  for (const listing of listings) {
-    for (const walkTime of listing.dormspace_walk_times ?? []) {
-      if (walkTime.university_id !== universityId) continue;
-      if (
-        fastest == null ||
-        walkTime.walk_duration_seconds < fastest.walkSeconds
-      ) {
-        fastest = {
-          walkSeconds: walkTime.walk_duration_seconds,
-          walkMeters: walkTime.walk_distance_meters,
-        };
-      }
-    }
-  }
-  return fastest;
-}
-
-function UniversityWalkLabel({
-  university,
-  listings,
-}: {
-  university: UniversityRow;
-  listings: DormspaceWithPhotos[];
-}) {
-  const fastest = fastestWalkToUniversity(listings, university.id);
-  if (fastest != null) {
-    const reach = formatReachTimeDisplay(fastest.walkSeconds, fastest.walkMeters);
-    return (
-      <p className="mt-1 flex items-center justify-center gap-1 text-xs font-semibold text-[#6B9E6E] lg:text-sm">
-        {reach.mode === "drive" ? (
-          <Car className="size-3.5 shrink-0" aria-hidden />
-        ) : null}
-        <span>{reach.label}</span>
-      </p>
-    );
-  }
-
-  return (
-    <p className="mt-1 text-xs font-medium text-[#888888] lg:text-sm">
-      {formatUniversityListingCount(university.listing_count)}
-    </p>
-  );
-}
 
 function UniversityAvatar({ university }: { university: UniversityRow }) {
   const initials = universityInitials(university.short_name);
@@ -90,6 +40,8 @@ export function DormspaceBrowseBySchoolSection({
   universities,
   listings,
   onSelectUniversity,
+  searchOrigin = null,
+  searchPlaceLabel = null,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -156,7 +108,12 @@ export function DormspaceBrowseBySchoolSection({
                   <p className="mt-3 line-clamp-2 text-sm font-semibold leading-tight text-[#2C2C2C]">
                     {university.short_name}
                   </p>
-                  <UniversityWalkLabel university={university} listings={listings} />
+                  <DormspaceUniversityBrowseSubtitle
+                    university={university}
+                    listings={listings}
+                    searchOrigin={searchOrigin}
+                    searchPlaceLabel={searchPlaceLabel}
+                  />
                 </Link>
               ))}
             </div>

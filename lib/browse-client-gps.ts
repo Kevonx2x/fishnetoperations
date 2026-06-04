@@ -13,6 +13,12 @@ export const BROWSE_GPS_SESSION_KEY = "fishnet:browse-client-gps-v1";
 /** Default browse location when GPS is pending, denied, or unavailable. */
 export const BROWSE_GPS_MANILA_LABEL = "Manila";
 
+/** Approximate center for default Manila browse (matches `PH_LOCATION_OPTIONS` Manila). */
+export const BROWSE_GPS_MANILA_COORDS = {
+  latitude: 14.5995,
+  longitude: 120.9842,
+} as const;
+
 export const BROWSE_GPS_TIMEOUT_MS = 8_000;
 
 const STAFF_ROLES = new Set(["broker", "agent", "team_member", "landlord"]);

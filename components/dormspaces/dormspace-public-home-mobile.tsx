@@ -43,15 +43,9 @@ import { countListingsInPopularArea } from "@/lib/dormspace-popular-areas";
 
 import type { DormspaceWithPhotos } from "@/lib/dormspaces";
 
-import {
-
-  formatUniversityListingCount,
-
-  universityInitials,
-
-  type UniversityRow,
-
-} from "@/lib/universities";
+import { DormspaceUniversityBrowseSubtitle } from "@/components/dormspaces/dormspace-university-browse-subtitle";
+import type { GeoPoint } from "@/lib/geo-point";
+import { universityInitials, type UniversityRow } from "@/lib/universities";
 
 import { formatBrowseNearLine } from "@/lib/browse-location-label";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
@@ -70,6 +64,10 @@ type Props = {
   onBrowseFilter: (partial: Partial<DormspaceBrowseFilters>) => void;
 
   onScrollToListings: () => void;
+
+  searchOrigin?: GeoPoint | null;
+
+  searchPlaceLabel?: string | null;
 
   compactMobileHome?: boolean;
 
@@ -545,6 +543,10 @@ export function DormspacePublicHomeMobile({
 
   onScrollToListings,
 
+  searchOrigin = null,
+
+  searchPlaceLabel = null,
+
   compactMobileHome = false,
 
 }: Props) {
@@ -624,11 +626,13 @@ export function DormspacePublicHomeMobile({
 
                 </p>
 
-                <p className="mt-0.5 text-[11px] font-medium text-[#888888]">
-
-                  {formatUniversityListingCount(university.listing_count)}
-
-                </p>
+                <DormspaceUniversityBrowseSubtitle
+                  university={university}
+                  listings={listings}
+                  searchOrigin={searchOrigin}
+                  searchPlaceLabel={searchPlaceLabel}
+                  compact
+                />
 
               </Link>
 
