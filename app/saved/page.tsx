@@ -202,7 +202,7 @@ export default function SavedPage() {
   if (!authLoading && !user) {
     return (
       <>
-        <div className="md:hidden">
+        <div className="max-md:min-h-0 max-md:overflow-hidden md:hidden">
           <MobileLoggedOutSavedTeaser />
         </div>
         <div className="hidden md:block">
