@@ -1,10 +1,4 @@
-import type { MockConversation, MockCurrentUser } from "./types";
-
-export const MOCK_CURRENT_USER: MockCurrentUser = {
-  name: "Maria Santos",
-  initials: "MS",
-  online: true,
-};
+import type { MockConversation } from "./types";
 
 export const MOCK_CONVERSATIONS: MockConversation[] = [
   {

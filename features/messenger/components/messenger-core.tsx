@@ -3,26 +3,34 @@
 import "../messenger.css";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import {
-  DEFAULT_CONVERSATION_ID,
-  MOCK_CONVERSATIONS,
-  MOCK_CURRENT_USER,
-} from "../mock-data";
-import type { ConversationTab, MessengerNavId } from "../types";
+import type { ConversationTab, MockConversation } from "../types";
 import { ChatThread } from "./chat-thread";
 import { ConversationList } from "./conversation-list";
-import { NavRail } from "./nav-rail";
 
-export function MessengerShell() {
-  const [activeNav, setActiveNav] = useState<MessengerNavId>("messages");
-  const [activeId, setActiveId] = useState(DEFAULT_CONVERSATION_ID);
+export type MessengerCoreProps = {
+  conversations: MockConversation[];
+  defaultConversationId?: string;
+  className?: string;
+};
+
+export function MessengerCore({
+  conversations,
+  defaultConversationId,
+  className,
+}: MessengerCoreProps) {
+  const initialId =
+    defaultConversationId && conversations.some((c) => c.id === defaultConversationId)
+      ? defaultConversationId
+      : (conversations[0]?.id ?? "");
+
+  const [activeId, setActiveId] = useState(initialId);
   const [tab, setTab] = useState<ConversationTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [mobilePane, setMobilePane] = useState<"list" | "thread">("list");
 
   const activeConversation = useMemo(
-    () => MOCK_CONVERSATIONS.find((c) => c.id === activeId) ?? null,
-    [activeId],
+    () => conversations.find((c) => c.id === activeId) ?? null,
+    [conversations, activeId],
   );
 
   const handleSelectConversation = (id: string) => {
@@ -33,15 +41,14 @@ export function MessengerShell() {
   const handleBack = () => setMobilePane("list");
 
   return (
-    <div className="flex h-[100dvh] min-h-0 w-full min-w-0 overflow-hidden bg-[#FAF8F4]">
-      <NavRail
-        activeNav={activeNav}
-        onNavChange={setActiveNav}
-        currentUser={MOCK_CURRENT_USER}
-      />
-
+    <div
+      className={cn(
+        "flex h-full min-h-0 w-full min-w-0 flex-1 overflow-hidden bg-[#FAF8F4]",
+        className,
+      )}
+    >
       <ConversationList
-        conversations={MOCK_CONVERSATIONS}
+        conversations={conversations}
         activeId={activeId}
         tab={tab}
         searchQuery={searchQuery}

@@ -1,31 +1,18 @@
 "use client";
 
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { ClientMessagesView } from "@/features/messaging/components/client-messages-view";
-import { StreamChatProvider } from "@/features/messaging/components/stream-chat-provider";
-
-function MessagesInner() {
-  const searchParams = useSearchParams();
-  return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <ClientMessagesView initialChannelId={searchParams.get("channel")} />
-    </div>
-  );
-}
+import { MessengerCore } from "@/features/messenger/components/messenger-core";
+import {
+  DEFAULT_CONVERSATION_ID,
+  MOCK_CONVERSATIONS,
+} from "@/features/messenger/mock-data";
 
 export default function ClientDashboardMessagesPage() {
   return (
-    <StreamChatProvider>
-      <Suspense
-        fallback={
-          <div className="flex min-h-[320px] flex-1 items-center justify-center rounded-2xl border border-[#2C2C2C]/10 bg-white text-sm text-[#2C2C2C]/50">
-            Loading messages…
-          </div>
-        }
-      >
-        <MessagesInner />
-      </Suspense>
-    </StreamChatProvider>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <MessengerCore
+        conversations={MOCK_CONVERSATIONS}
+        defaultConversationId={DEFAULT_CONVERSATION_ID}
+      />
+    </div>
   );
 }

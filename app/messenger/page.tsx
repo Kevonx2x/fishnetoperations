@@ -1,10 +1,6 @@
-import { MessengerShell } from "@/features/messenger/components/messenger-shell";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "Messenger | BahayGo",
-  description: "BahayGo in-house messenger",
-};
-
+/** Legacy preview route — messenger lives in the client dashboard shell. */
 export default function MessengerPage() {
-  return <MessengerShell />;
+  redirect("/dashboard/client/messages");
 }

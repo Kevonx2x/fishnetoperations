@@ -1,12 +1,3 @@
-export type MessengerNavId =
-  | "messages"
-  | "groups"
-  | "calls"
-  | "contacts"
-  | "notifications"
-  | "saved"
-  | "settings";
-
 export type ConversationTab = "all" | "unread" | "favorites";
 
 export type MockParticipant = {
@@ -40,10 +31,4 @@ export type MockConversation = {
   favorite: boolean;
   typing?: boolean;
   messages: MockMessage[];
-};
-
-export type MockCurrentUser = {
-  name: string;
-  initials: string;
-  online: boolean;
 };
