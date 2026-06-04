@@ -360,25 +360,42 @@
   }
 
   /*
-   * Mobile: dashboard shell already reserves space above the fixed tab bar (`pb-[calc(4rem+safe-area)]`).
-   * Extra margin + panel padding stacked gap between composer and nav ("floating" input).
+   * Mobile: inset composer (ThreadInner footer px) + bottom gap above gesture bar / tab chrome.
    */
   @media (max-width: 767px) {
     .bahaygo-stream-chat .str-chat__message-input {
-      margin-bottom: 0;
-      margin-left: 16px;
-      margin-right: 16px;
-      max-width: none;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+      margin-left: 0;
+      margin-right: 0;
+      max-width: 100%;
+      min-width: 0;
       padding-right: 0;
-      width: auto;
+      width: 100%;
     }
 
     .bahaygo-stream-chat .bhg-chat-panel {
-      padding-bottom: 0;
+      padding-bottom: 10px;
     }
 
     .bahaygo-stream-chat .str-chat__main-panel .str-chat__message-input {
-      margin-bottom: 0;
+      margin-bottom: 10px;
+    }
+
+    .bahaygo-stream-chat .str-chat__message-input .str-chat__message-input-inner {
+      box-shadow: 0 2px 12px rgba(44, 44, 44, 0.08);
+      padding: 4px 12px;
+    }
+
+    .bahaygo-stream-chat .str-chat__message-input .str-chat__message-textarea-container {
+      flex: 1 1 0%;
+      min-width: 0;
+    }
+
+    .bahaygo-stream-chat .str-chat__message-input .str-chat__message-textarea {
+      min-width: 0;
+      overflow-wrap: break-word;
+      word-break: break-word;
     }
   }
 
@@ -574,6 +591,9 @@
     flex-direction: column;
     gap: 2px;
     max-width: 80%;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
   .bahaygo-stream-chat .bhg-msg--mine .bhg-msg__body {
     align-items: flex-end;
@@ -593,6 +613,10 @@
     border-radius: var(--str-chat__message-bubble-border-radius, 18px);
     font-size: var(--str-chat__font-size-md, 15px);
     line-height: 1.4;
+    max-width: 100%;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
     padding: 10px 14px;
   }
   .bahaygo-stream-chat .bhg-msg--mine .bhg-msg__bubble {
@@ -608,6 +632,15 @@
   }
   .bahaygo-stream-chat .bhg-msg__bubble p {
     margin: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .bahaygo-stream-chat .str-chat__message-text-inner,
+  .bahaygo-stream-chat .str-chat__message-text--inner {
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
   .bahaygo-stream-chat .bhg-msg__time {
     align-items: center;
@@ -663,8 +696,20 @@
   @media (max-width: 767px) {
     .bahaygo-stream-chat .str-chat__list .str-chat__list--main,
     .bahaygo-stream-chat .str-chat__list-content {
-      padding-left: 12px;
-      padding-right: 12px;
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    .bahaygo-stream-chat .bhg-msg {
+      min-width: 0;
+    }
+
+    .bahaygo-stream-chat .bhg-msg--gap-same {
+      margin-top: 3px;
+    }
+
+    .bahaygo-stream-chat .bhg-msg--gap-turn {
+      margin-top: 14px;
     }
   }
 

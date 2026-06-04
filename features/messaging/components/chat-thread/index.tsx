@@ -212,7 +212,7 @@ function ThreadInner(props: { channelLoading: boolean; onLoaded: () => void }) {
       <div className="bhg-chat-scroll flex min-h-0 min-w-0 flex-1 flex-col max-lg:min-h-0 lg:min-h-0">
         <MessageList />
       </div>
-      <div className="relative z-10 max-lg:shrink-0 max-lg:border-t max-lg:border-[#2C2C2C]/10 max-lg:bg-white max-lg:pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="relative z-10 max-lg:shrink-0 max-lg:bg-[#FAF8F4] max-lg:px-3 max-lg:pt-2 max-lg:pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
         <MessageInput />
       </div>
     </div>
