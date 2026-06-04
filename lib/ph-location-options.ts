@@ -68,12 +68,40 @@ export function phLocationToGeoPoint(option: PhLocationOption): GeoPoint {
   return { latitude: option.latitude, longitude: option.longitude };
 }
 
+/** Common search aliases → canonical `formatPhLocation` label. */
+const BROWSE_LOCATION_ALIASES: Record<string, string> = {
+  bgc: "BGC, Taguig",
+  "bonifacio global city": "BGC, Taguig",
+  "fort bonifacio": "BGC, Taguig",
+  makati: "Makati CBD, Makati",
+  "makati city": "Makati CBD, Makati",
+  cbd: "Makati CBD, Makati",
+  taft: "Taft, Manila",
+  "taft ave": "Taft, Manila",
+  "taft avenue": "Taft, Manila",
+  espana: "España, Manila",
+  "españa": "España, Manila",
+  up: "UP Diliman, Quezon City",
+  "up diliman": "UP Diliman, Quezon City",
+  ateneo: "Loyola Heights, Quezon City",
+  katipunan: "Katipunan, Quezon City",
+  ust: "Sampaloc, Manila",
+  dlsu: "Taft, Manila",
+  feu: "España, Manila",
+};
+
 /** Resolve browse search text to a fixed PH area center (no geocoding API). */
 export function resolveGeoPointFromBrowseLabel(label: string): GeoPoint | null {
   const normalized = normalizeBrowseLocationLabel(label);
   if (!normalized) return null;
 
   const lower = normalized.toLowerCase();
+  const aliasKey = BROWSE_LOCATION_ALIASES[lower];
+  if (aliasKey) {
+    const fromAlias = resolveGeoPointFromBrowseLabel(aliasKey);
+    if (fromAlias) return fromAlias;
+  }
+
   const exact = PH_LOCATION_OPTIONS.find(
     (o) => formatPhLocation(o).toLowerCase() === lower,
   );
@@ -93,6 +121,19 @@ export function resolveGeoPointFromBrowseLabel(label: string): GeoPoint | null {
       (o) => o.area.toLowerCase() === areaPart && o.city.toLowerCase() === cityPart,
     );
     if (match) return phLocationToGeoPoint(match);
+  }
+
+  if (parts.length === 1) {
+    const token = parts[0]!.toLowerCase();
+    const tokenAlias = BROWSE_LOCATION_ALIASES[token];
+    if (tokenAlias) return resolveGeoPointFromBrowseLabel(tokenAlias);
+    const partial = PH_LOCATION_OPTIONS.find(
+      (o) =>
+        o.area.toLowerCase().includes(token) ||
+        token.includes(o.area.toLowerCase()) ||
+        o.city.toLowerCase().includes(token),
+    );
+    if (partial) return phLocationToGeoPoint(partial);
   }
 
   return null;

@@ -32,15 +32,26 @@ export function formatStraightLineDistanceFromOrigin(
   return formatApproxStraightLineDistance(haversineMeters(origin, point));
 }
 
-/** e.g. "~1.2 km from Makati" when a search place label is known. */
+/** e.g. "1.2 km from Makati" when a search place label is known. */
 export function formatStraightLineDistanceWithPlace(
   origin: GeoPoint,
   point: GeoPoint,
   placeLabel: string | null | undefined,
+  options?: { approximate?: boolean },
 ): string {
-  const distance = formatApproxStraightLineDistance(haversineMeters(origin, point));
+  const distance = formatApproxStraightLineDistance(haversineMeters(origin, point), options);
   const place = placeLabel?.trim();
   if (!distance) return "";
   if (!place) return distance;
   return `${distance} from ${place}`;
+}
+
+/** School / POI cards: "3.6 km from" (no place name, no ~). */
+export function formatStraightLineDistanceFrom(
+  origin: GeoPoint,
+  point: GeoPoint,
+): string {
+  const distance = formatApproxStraightLineDistance(haversineMeters(origin, point));
+  if (!distance) return "";
+  return `${distance} from`;
 }

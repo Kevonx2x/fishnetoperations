@@ -6,8 +6,8 @@ import { Car } from "lucide-react";
 import { formatReachTimeDisplay } from "@/lib/dormspace-walk-times-display";
 import type { DormspaceWithPhotos } from "@/lib/dormspaces";
 import type { GeoPoint } from "@/lib/geo-point";
-import { isValidGeoPoint } from "@/lib/geo-point";
-import { formatStraightLineDistanceWithPlace } from "@/lib/points-of-interest-distance";
+import { coerceGeoPoint, isValidGeoPoint } from "@/lib/geo-point";
+import { formatStraightLineDistanceFrom } from "@/lib/points-of-interest-distance";
 import { formatUniversityListingCount, type UniversityRow } from "@/lib/universities";
 
 function fastestWalkToUniversity(
@@ -37,7 +37,6 @@ type Props = {
   listings: DormspaceWithPhotos[];
   /** Active browse search origin — straight-line distance to each school (no API). */
   searchOrigin: GeoPoint | null;
-  searchPlaceLabel?: string | null;
   className?: string;
   compact?: boolean;
 };
@@ -50,18 +49,15 @@ export function DormspaceUniversityBrowseSubtitle({
   university,
   listings,
   searchOrigin,
-  searchPlaceLabel,
   className,
   compact = false,
 }: Props) {
   const approxLabel = useMemo(() => {
     if (!isValidGeoPoint(searchOrigin)) return null;
-    return formatStraightLineDistanceWithPlace(
-      searchOrigin,
-      { latitude: university.latitude, longitude: university.longitude },
-      searchPlaceLabel,
-    );
-  }, [searchOrigin, searchPlaceLabel, university.latitude, university.longitude]);
+    const campus = coerceGeoPoint(university.latitude, university.longitude);
+    if (!campus) return null;
+    return formatStraightLineDistanceFrom(searchOrigin, campus);
+  }, [searchOrigin, university.latitude, university.longitude]);
 
   if (approxLabel) {
     return (

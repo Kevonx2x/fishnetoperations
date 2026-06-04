@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   ChevronDown,
@@ -42,9 +42,9 @@ import {
 import type { UniversityRow } from "@/lib/universities";
 import type { DormspacePopularArea } from "@/lib/dormspace-popular-areas";
 import { formatBrowseNearLine, normalizeBrowseLocationLabel } from "@/lib/browse-location-label";
-import { browseSearchPlaceLabel } from "@/lib/browse-search-place-label";
 import type { GeoPoint } from "@/lib/geo-point";
 import { isValidGeoPoint } from "@/lib/geo-point";
+import { resolveBrowseSchoolSearchOrigin } from "@/lib/browse-school-search-origin";
 import { resolveGeoPointFromBrowseLabel } from "@/lib/ph-location-options";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -112,25 +112,29 @@ export function DormspacePublicHome({
 
   const [filters, setFilters] = useState<DormspaceBrowseFilters>(EMPTY_DORMSPACE_BROWSE_FILTERS);
   const [searchOrigin, setSearchOrigin] = useState<GeoPoint | null>(null);
+  const [committedBrowseLocation, setCommittedBrowseLocation] = useState("");
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const [locationPickerQuery, setLocationPickerQuery] = useState("");
 
   useEffect(() => {
     if (!locationPickerOpen) return;
-    setLocationPickerQuery(locationQuery);
-  }, [locationPickerOpen, locationQuery]);
+    setLocationPickerQuery(committedBrowseLocation || locationQuery);
+  }, [locationPickerOpen, committedBrowseLocation, locationQuery]);
 
   const applySearch = (queryOverride?: string, originOverride?: GeoPoint | null) => {
     const q = normalizeBrowseLocationLabel((queryOverride ?? locationQuery).trim());
-    if (queryOverride !== undefined) setLocationQuery(q);
     const city = parseCityFromLocation(q);
 
     if (!q) {
       setSearchOrigin(null);
-    } else if (originOverride !== undefined) {
-      setSearchOrigin(isValidGeoPoint(originOverride) ? originOverride : null);
+      setCommittedBrowseLocation("");
+      setLocationQuery("");
     } else {
-      setSearchOrigin(resolveGeoPointFromBrowseLabel(q));
+      const resolved =
+        isValidGeoPoint(originOverride) ? originOverride : resolveGeoPointFromBrowseLabel(q);
+      setSearchOrigin(resolved);
+      setCommittedBrowseLocation(q);
+      setLocationQuery("");
     }
 
     setFilters({
@@ -144,9 +148,7 @@ export function DormspacePublicHome({
   };
 
   const commitMobileLocationPicker = (query: string, origin?: GeoPoint) => {
-    const resolved =
-      origin ?? (query.trim() ? resolveGeoPointFromBrowseLabel(query) : null);
-    applySearch(query, resolved ?? null);
+    applySearch(query, origin);
     setLocationPickerOpen(false);
   };
 
@@ -175,11 +177,13 @@ export function DormspacePublicHome({
     if (partial.city) setLocationQuery(partial.city);
   };
 
-  const schoolSearchPlaceLabel = browseSearchPlaceLabel(locationQuery, filters.city);
-  const schoolSearchOrigin = searchOrigin;
+  const schoolSearchOrigin = useMemo(
+    () => resolveBrowseSchoolSearchOrigin(searchOrigin, committedBrowseLocation, filters.city),
+    [searchOrigin, committedBrowseLocation, filters.city],
+  );
 
-  const dormspaceLocationLabel = locationQuery.trim()
-    ? formatBrowseNearLine(locationQuery, "Manila")
+  const dormspaceLocationLabel = committedBrowseLocation.trim()
+    ? formatBrowseNearLine(committedBrowseLocation, "Manila")
     : filters.city.trim()
       ? formatBrowseNearLine(filters.city, "Manila")
       : "Near Manila";
@@ -193,6 +197,7 @@ export function DormspacePublicHome({
             locationQuery={locationQuery}
             onLocationChange={setLocationQuery}
             onSearch={() => applySearch()}
+            onLocationPicked={(value, origin) => applySearch(value, origin)}
             onScrollToListings={scrollToListings}
             onLocationChipPress={() => setLocationPickerOpen(true)}
             locationLabel={dormspaceLocationLabel}
@@ -244,7 +249,6 @@ export function DormspacePublicHome({
             onBrowseFilter={applyMobileBrowseFilter}
             onScrollToListings={scrollToListings}
             searchOrigin={schoolSearchOrigin}
-            searchPlaceLabel={schoolSearchPlaceLabel}
             compactMobileHome
           />
 
@@ -264,7 +268,10 @@ export function DormspacePublicHome({
             }}
             syncLocationToHero={(loc) => {
               setLocationQuery(loc);
-              if (!loc.trim()) setSearchOrigin(null);
+              if (!loc.trim()) {
+                setSearchOrigin(null);
+                setCommittedBrowseLocation("");
+              }
             }}
           />
           </div>
@@ -427,7 +434,6 @@ export function DormspacePublicHome({
         universities={universities}
         listings={listings}
         searchOrigin={schoolSearchOrigin}
-        searchPlaceLabel={schoolSearchPlaceLabel}
         onSelectUniversity={(partial) => {
           setFilters((f) => ({ ...f, ...partial }));
         }}
@@ -454,7 +460,10 @@ export function DormspacePublicHome({
         }}
         syncLocationToHero={(loc) => {
           setLocationQuery(loc);
-          if (!loc.trim()) setSearchOrigin(null);
+          if (!loc.trim()) {
+            setSearchOrigin(null);
+            setCommittedBrowseLocation("");
+          }
         }}
         part="filters"
       />
@@ -468,7 +477,10 @@ export function DormspacePublicHome({
         }}
         syncLocationToHero={(loc) => {
           setLocationQuery(loc);
-          if (!loc.trim()) setSearchOrigin(null);
+          if (!loc.trim()) {
+            setSearchOrigin(null);
+            setCommittedBrowseLocation("");
+          }
         }}
         part="grids"
       />

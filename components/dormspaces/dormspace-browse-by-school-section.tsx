@@ -17,7 +17,6 @@ type Props = {
   listings: DormspaceWithPhotos[];
   onSelectUniversity: (partial: Partial<DormspaceBrowseFilters>) => void;
   searchOrigin?: GeoPoint | null;
-  searchPlaceLabel?: string | null;
 };
 
 function UniversityAvatar({ university }: { university: UniversityRow }) {
@@ -41,7 +40,6 @@ export function DormspaceBrowseBySchoolSection({
   listings,
   onSelectUniversity,
   searchOrigin = null,
-  searchPlaceLabel = null,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -112,7 +110,6 @@ export function DormspaceBrowseBySchoolSection({
                     university={university}
                     listings={listings}
                     searchOrigin={searchOrigin}
-                    searchPlaceLabel={searchPlaceLabel}
                   />
                 </Link>
               ))}

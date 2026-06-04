@@ -67,8 +67,6 @@ type Props = {
 
   searchOrigin?: GeoPoint | null;
 
-  searchPlaceLabel?: string | null;
-
   compactMobileHome?: boolean;
 
 };
@@ -82,6 +80,8 @@ export type DormspaceMobileStickySearchProps = {
   onLocationChange: (value: string) => void;
 
   onSearch: () => void;
+
+  onLocationPicked?: (value: string, origin?: GeoPoint) => void;
 
   onScrollToListings: () => void;
 
@@ -102,6 +102,8 @@ export function DormspaceMobileStickySearch({
   onLocationChange,
 
   onSearch,
+
+  onLocationPicked,
 
   onScrollToListings,
 
@@ -144,6 +146,8 @@ export function DormspaceMobileStickySearch({
           onChange={onLocationChange}
 
           onSubmitSearch={onSearch}
+
+          onLocationPicked={onLocationPicked}
 
           placeholder="Find your space near campus"
 
@@ -545,8 +549,6 @@ export function DormspacePublicHomeMobile({
 
   searchOrigin = null,
 
-  searchPlaceLabel = null,
-
   compactMobileHome = false,
 
 }: Props) {
@@ -630,7 +632,6 @@ export function DormspacePublicHomeMobile({
                   university={university}
                   listings={listings}
                   searchOrigin={searchOrigin}
-                  searchPlaceLabel={searchPlaceLabel}
                   compact
                 />
 
