@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -22,6 +22,7 @@ import {
   Loader2,
   MapPin,
   MessageSquare,
+  MessagesSquare,
   MoreHorizontal,
   Pencil,
   Settings,
@@ -46,6 +47,8 @@ import {
 } from "@/components/dashboard/agent-pipeline-tab";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AGENT_MOBILE_PIPELINE_PATH } from "@/lib/agent-dashboard-routes";
+import { MessengerHost } from "@/features/messenger/components/messenger-host";
+import { AGENT_INHOUSE_MESSENGER_PATH } from "@/lib/messenger/agent-messages-path";
 import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
 import { streamDmChannelId } from "@/features/messaging/lib/stream-dm-channel-id";
 import { useAgentPipelineTabAttentionCount } from "@/features/messaging/hooks/use-agent-pipeline-tab-attention-count";
@@ -131,6 +134,7 @@ type Tab =
   | "overview"
   | "pipeline"
   | "messages"
+  | "messenger"
   | "documents"
   | "listings"
   | "profile"
@@ -142,6 +146,7 @@ const URL_TAB_QUERY_ALLOWED: Tab[] = [
   "overview",
   "pipeline",
   "messages",
+  "messenger",
   "documents",
   "listings",
   "profile",
@@ -163,6 +168,7 @@ function tabFromSearchParamsString(queryString: string): Tab {
 
 function tabFromPathnameAndSearch(pathname: string, queryString: string): Tab {
   if (pathname === "/dashboard/agent/pipeline") return "pipeline";
+  if (pathname === AGENT_INHOUSE_MESSENGER_PATH) return "messenger";
   return tabFromSearchParamsString(queryString);
 }
 
@@ -996,6 +1002,21 @@ export function AgentDashboard() {
         if (pathname !== AGENT_MOBILE_PIPELINE_PATH) {
           router.replace(AGENT_MOBILE_PIPELINE_PATH, { scroll: false });
         }
+        return;
+      }
+      if (next === "messenger") {
+        if (pathname !== AGENT_INHOUSE_MESSENGER_PATH) {
+          const sp = new URLSearchParams(searchQueryString);
+          sp.delete("tab");
+          const qs = sp.toString();
+          router.replace(`${AGENT_INHOUSE_MESSENGER_PATH}${qs ? `?${qs}` : ""}`, { scroll: false });
+        }
+        return;
+      }
+      if (pathname === AGENT_INHOUSE_MESSENGER_PATH) {
+        const sp = new URLSearchParams();
+        sp.set("tab", next);
+        router.replace(`/dashboard/agent?${sp.toString()}`, { scroll: false });
         return;
       }
       if (pathname === AGENT_MOBILE_PIPELINE_PATH) {
@@ -2727,18 +2748,30 @@ export function AgentDashboard() {
     );
   }
 
-  const allTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  const allTabs: { id: Tab; label: string; icon: React.ReactNode; navBadge?: string }[] = [
     { id: "overview", label: "Overview", icon: <House className="h-[18px] w-[18px]" /> },
     { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-[18px] w-[18px]" /> },
-    { id: "messages", label: "Messages", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
+    { id: "messages", label: "Messages (Stream)", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
+    {
+      id: "messenger",
+      label: "BahayGo Messenger",
+      icon: <MessagesSquare className="h-[18px] w-[18px]" />,
+      navBadge: "New",
+    },
     { id: "listings", label: "Listings", icon: <LayoutList className="h-[18px] w-[18px]" /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-[18px] w-[18px]" /> },
     { id: "billing", label: "Billing", icon: <CreditCard className="h-[18px] w-[18px]" /> },
     { id: "profile", label: "My Profile", icon: <UserCircle className="h-[18px] w-[18px]" /> },
   ];
-  const teamMemberNavTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  const teamMemberNavTabs: { id: Tab; label: string; icon: React.ReactNode; navBadge?: string }[] = [
     { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-[18px] w-[18px]" /> },
-    { id: "messages", label: "Messages", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
+    { id: "messages", label: "Messages (Stream)", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
+    {
+      id: "messenger",
+      label: "BahayGo Messenger",
+      icon: <MessagesSquare className="h-[18px] w-[18px]" />,
+      navBadge: "New",
+    },
     { id: "documents", label: "Documents", icon: <FileText className="h-[18px] w-[18px]" /> },
   ];
   const tabs = isTeamMemberView
@@ -2759,13 +2792,14 @@ export function AgentDashboard() {
       : ["listings", "analytics", "billing", "profile"];
 
   const viewingsAgentUserId = isTeamMemberView ? agent.user_id : user.id;
+  const isFullHeightMessagingTab = tab === "messages" || tab === "messenger";
 
   return (
     <div
       className={cn(
         "min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0",
         showMobilePipelineUi && "pb-0",
-        tab === "messages" &&
+        isFullHeightMessagingTab &&
           "max-md:flex max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:min-h-0 max-md:flex-col max-md:overflow-hidden",
       )}
     >
@@ -2797,7 +2831,7 @@ export function AgentDashboard() {
       <div
         className={cn(
           "flex w-full min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden",
-          tab === "messages" && "max-md:min-h-0 max-md:flex-1",
+          isFullHeightMessagingTab && "max-md:min-h-0 max-md:flex-1",
         )}
       >
         {/* Desktop sidebar */}
@@ -2805,7 +2839,7 @@ export function AgentDashboard() {
           data-tour="agent-sidebar"
           className={cn(
             "hidden shrink-0 border-r border-[rgba(0,0,0,0.06)] bg-[#FAF8F4] md:sticky md:top-0 md:flex md:h-full md:max-h-full md:min-h-0 md:flex-col md:overflow-hidden md:px-2 md:py-5",
-            tab === "messages" ? "w-[208px]" : "w-[180px]",
+            isFullHeightMessagingTab ? "w-[208px]" : "w-[180px]",
           )}
         >
           <div className="flex flex-col min-h-0">
@@ -2848,6 +2882,11 @@ export function AgentDashboard() {
                     >
                       <span className="shrink-0 text-[#6B9E6E]">{t.icon}</span>
                       <span className="min-w-0 flex-1 truncate">{t.label}</span>
+                      {t.navBadge ? (
+                        <span className="shrink-0 rounded-full bg-[#D4A843]/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#8a6d32]">
+                          {t.navBadge}
+                        </span>
+                      ) : null}
                       <span className="flex h-2 w-3 shrink-0 items-center justify-end" aria-hidden>
                         {showUnreadDot ? (
                           <span className="h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]" />
@@ -2876,6 +2915,11 @@ export function AgentDashboard() {
                     >
                       <span className="shrink-0 text-[#6B9E6E]">{t.icon}</span>
                       <span className="min-w-0 flex-1 truncate">{t.label}</span>
+                      {t.navBadge ? (
+                        <span className="shrink-0 rounded-full bg-[#D4A843]/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#8a6d32]">
+                          {t.navBadge}
+                        </span>
+                      ) : null}
                       <span className="flex h-2 w-3 shrink-0 items-center justify-end" aria-hidden>
                         {showUnreadDot ? (
                           <span className="h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]" />
@@ -2903,7 +2947,7 @@ export function AgentDashboard() {
         <main
           className={cn(
             "min-w-0 flex-1 md:flex md:h-full md:min-h-0 md:flex-col",
-            tab === "messages"
+            isFullHeightMessagingTab
               ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-0 py-0 md:overflow-hidden md:px-0 md:py-0"
               : tab === "pipeline"
                 ? "min-h-0 max-md:px-0 max-md:py-0 md:overflow-y-auto md:px-8 md:py-5 md:pb-5"
@@ -2942,7 +2986,23 @@ export function AgentDashboard() {
                 <AgentMessagesInbox initialChannelId={streamChannelId} />
               </div>
             ) : null}
-            {tab !== "messages" ? (
+            {tab === "messenger" ? (
+              <div
+                data-tour="inhouse-messenger-panel"
+                className="relative z-20 flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#FAF8F4]"
+              >
+                <Suspense
+                  fallback={
+                    <div className="flex h-full min-h-0 flex-1 items-center justify-center bg-[#FAF8F4]">
+                      <Loader2 className="size-8 animate-spin text-[#6B9E6E]" aria-label="Loading messenger" />
+                    </div>
+                  }
+                >
+                  <MessengerHost signedOutMessage="Sign in as an agent to view your messages." />
+                </Suspense>
+              </div>
+            ) : null}
+            {tab !== "messages" && tab !== "messenger" ? (
               <AnimatePresence mode="sync">
                 <motion.div
                   key={tab}
@@ -3168,7 +3228,7 @@ export function AgentDashboard() {
       </div>
 
       {/* Mobile bottom bar — hidden on mobile pipeline (global MobileBottomNav) and messages thread */}
-      {!showMobilePipelineUi && tab !== "messages" ? (
+      {!showMobilePipelineUi && !isFullHeightMessagingTab ? (
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-1 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
         <button
           type="button"
