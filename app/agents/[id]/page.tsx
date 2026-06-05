@@ -58,7 +58,8 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { shouldPulseEngagement, writeSeenEngagementCount } from "@/lib/engagement-seen-storage";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
-import type { CreateMessagingChannelErrorBody, CreateMessagingChannelResponse } from "@/features/messaging/types";
+import { clientMessagesHref } from "@/lib/messenger/client-messages-path";
+import { startMessengerConversation } from "@/lib/messenger/start-conversation-client";
 import { usePropertyEngagementForProperties } from "@/hooks/use-property-engagement";
 import { ReportProfileButton } from "@/components/report-profile-button";
 import { canAgentMessageAgent, type AgentToAgentDealContext } from "@/lib/messaging-permissions";
@@ -1047,37 +1048,20 @@ export default function AgentProfilePage() {
     if (viewerIsAgent && !agentToAgentCtx.allowed) return;
     setMessageBusy(true);
     try {
-      const metadata = {
-        property_id: opts?.propertyId ?? null,
-        property_name: opts?.propertyName ?? null,
-        property_price: opts?.propertyPrice ?? null,
-        property_image: opts?.propertyImage ?? null,
-      };
-      const res = await fetch("/api/stream/channel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          agent_user_id: agent.user_id,
-          client_user_id: user.id,
-          metadata:
-            viewerIsAgent && agentToAgentCtx.allowed
-              ? {
-                  ...metadata,
-                  property_id: agentToAgentCtx.property_id,
-                  property_name: agentToAgentCtx.property_name,
-                }
-              : metadata,
-        }),
+      const propertyId =
+        viewerIsAgent && agentToAgentCtx.allowed
+          ? agentToAgentCtx.property_id ?? undefined
+          : opts?.propertyId ?? undefined;
+
+      const result = await startMessengerConversation({
+        otherUserId: agent.user_id,
+        propertyId,
       });
-      const data: unknown = await res.json().catch(() => ({}));
-      const ok = data as CreateMessagingChannelResponse;
-      const err = data as CreateMessagingChannelErrorBody;
-      if (!res.ok || typeof ok.channel_id !== "string" || !ok.channel_id) {
-        toast.error(typeof err.error === "string" ? err.error : "Could not start chat");
+      if ("error" in result) {
+        toast.error(result.error);
         return;
       }
-      router.push(`/dashboard/client/messages?channel=${encodeURIComponent(ok.channel_id)}`);
+      router.push(clientMessagesHref(result.conversationId));
     } finally {
       setMessageBusy(false);
     }

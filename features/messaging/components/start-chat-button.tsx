@@ -7,10 +7,11 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/auth-context";
 import type { CreateMessagingChannelErrorBody, CreateMessagingChannelResponse } from "@/features/messaging/types";
+import { clientMessagesHref } from "@/lib/messenger/client-messages-path";
+import { startMessengerConversation } from "@/lib/messenger/start-conversation-client";
 import { cn } from "@/lib/utils";
 
 const STREAM_CHANNEL_ENDPOINT = "/api/stream/channel";
-const CLIENT_MESSAGES_PATH = "/dashboard/client/messages";
 const AGENT_DASHBOARD_PATH = "/dashboard/agent";
 const DEFAULT_LABEL = "Message";
 
@@ -22,7 +23,9 @@ export type StreamChannelPropertyMetadata = {
 };
 
 type Props = {
+  /** Agent auth user id (profiles.id / auth.users id), NOT agents table row id. */
   agentId: string;
+  /** Client auth user id when the viewer is the agent. */
   clientId: string;
   className?: string;
   label?: string;
@@ -32,8 +35,9 @@ type Props = {
 };
 
 /**
- * Starts (or opens) a Stream Chat channel between a client and agent,
- * then routes to the correct messaging UI with that channel selected.
+ * Opens a conversation between a client and agent.
+ * Clients → in-house messenger (`/dashboard/client/messages?c=`).
+ * Agents → legacy Stream inbox on the agent dashboard.
  */
 export function StartChatButton({
   agentId,
@@ -52,33 +56,43 @@ export function StartChatButton({
       toast.error("Sign in to send a message.");
       return;
     }
+
     setBusy(true);
     try {
-      const res = await fetch(STREAM_CHANNEL_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agent_id: agentId,
-          client_id: clientId,
-          ...(metadata ? { metadata } : {}),
-        }),
-        credentials: "include",
-      });
-      const data: unknown = await res.json().catch(() => ({}));
-      const okBody = data as CreateMessagingChannelResponse;
-      const errBody = data as CreateMessagingChannelErrorBody;
-      if (!res.ok || typeof okBody.channel_id !== "string" || !okBody.channel_id) {
-        toast.error(typeof errBody.error === "string" ? errBody.error : "Could not open chat.");
-        return;
-      }
-      const q = new URLSearchParams();
-      q.set("channel", okBody.channel_id);
       if (profile?.role === "agent") {
+        const res = await fetch(STREAM_CHANNEL_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            agent_user_id: user.id,
+            client_user_id: clientId,
+            ...(metadata ? { metadata } : {}),
+          }),
+          credentials: "include",
+        });
+        const data: unknown = await res.json().catch(() => ({}));
+        const okBody = data as CreateMessagingChannelResponse;
+        const errBody = data as CreateMessagingChannelErrorBody;
+        if (!res.ok || typeof okBody.channel_id !== "string" || !okBody.channel_id) {
+          toast.error(typeof errBody.error === "string" ? errBody.error : "Could not open chat.");
+          return;
+        }
+        const q = new URLSearchParams();
+        q.set("channel", okBody.channel_id);
         q.set("tab", "messages");
         router.push(`${AGENT_DASHBOARD_PATH}?${q.toString()}`);
-      } else {
-        router.push(`${CLIENT_MESSAGES_PATH}?${q.toString()}`);
+        return;
       }
+
+      const result = await startMessengerConversation({
+        otherUserId: agentId,
+        propertyId: metadata?.property_id ?? undefined,
+      });
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      router.push(clientMessagesHref(result.conversationId));
     } finally {
       setBusy(false);
     }
@@ -108,4 +122,3 @@ export function StartChatButton({
     </button>
   );
 }
-

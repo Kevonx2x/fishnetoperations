@@ -913,9 +913,7 @@ function ClientPublicProfilePageInner() {
   useEffect(() => {
     if (searchParams.get("tab") !== "messages") return;
     if (!isOwn || profile?.role !== "client" || isMobile) return;
-    const ch = searchParams.get("channel");
-    const q = ch ? `?channel=${encodeURIComponent(ch)}` : "";
-    router.replace(`/dashboard/client/messages${q}`);
+    router.replace("/dashboard/client/messages");
   }, [isMobile, isOwn, profile?.role, router, searchParams]);
 
   if (!profileLoading && !clientProfile) {
