@@ -1,9 +1,9 @@
 import { CheckCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { MockMessage } from "../types";
+import type { MessengerMessage } from "../types";
 
 type Props = {
-  message: MockMessage;
+  message: MessengerMessage;
 };
 
 export function MessageBubble({ message }: Props) {

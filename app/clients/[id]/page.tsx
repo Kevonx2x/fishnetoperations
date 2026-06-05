@@ -27,7 +27,6 @@ import {
   type ClientPreferenceFields,
 } from "@/lib/client-profile-preferences";
 import { MobileClientDashboard } from "@/components/client/mobile-client-dashboard";
-import { ClientMessagesView } from "@/features/messaging/components/client-messages-view";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import {
@@ -913,9 +912,7 @@ function ClientPublicProfilePageInner() {
   useEffect(() => {
     if (searchParams.get("tab") !== "messages") return;
     if (!isOwn || profile?.role !== "client" || isMobile) return;
-    const ch = searchParams.get("channel");
-    const q = ch ? `?channel=${encodeURIComponent(ch)}` : "";
-    router.replace(`/dashboard/client/messages${q}`);
+    router.replace("/dashboard/client/messages");
   }, [isMobile, isOwn, profile?.role, router, searchParams]);
 
   if (!profileLoading && !clientProfile) {
@@ -925,13 +922,6 @@ function ClientPublicProfilePageInner() {
   if (clientProfile && isOwn && profile?.role === "client" && isMobile) {
     return <MobileClientDashboard />;
   }
-
-  const desktopMessagesTab =
-    Boolean(clientProfile) &&
-    isOwn &&
-    profile?.role === "client" &&
-    !isMobile &&
-    searchParams.get("tab") === "messages";
 
   const displayName = clientProfile?.full_name?.trim() || "Member";
   const memberSince = clientProfile?.created_at
@@ -1492,11 +1482,7 @@ function ClientPublicProfilePageInner() {
                   : "My Home Wishlist"}
               </h2>
 
-              {desktopMessagesTab ? (
-                <div className="mt-4 h-[600px] w-full">
-                  <ClientMessagesView initialChannelId={searchParams.get("channel")} />
-                </div>
-              ) : !isOwn && !canSeeWishlist ? (
+              {!isOwn && !canSeeWishlist ? (
                 <div className="mt-8 rounded-2xl border border-[#D4A843]/40 bg-gradient-to-br from-[#FAF8F4] to-white p-8 text-center shadow-sm">
                   <Lock className="mx-auto h-10 w-10 text-[#D4A843]" aria-hidden />
                   <p className="mt-4 font-serif text-lg font-bold text-[#2C2C2C]">

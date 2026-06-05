@@ -4,7 +4,6 @@ import { Suspense, useEffect, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { AGENT_LEGACY_TAB_REDIRECTS } from "@/lib/agent-dashboard-routes";
-import { StreamChatProvider } from "@/features/messaging/components/stream-chat-provider";
 
 function AgentDashboardTabRedirect() {
   const pathname = usePathname();
@@ -37,11 +36,11 @@ function AgentDashboardTabRedirect() {
 
 export default function AgentDashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <StreamChatProvider>
+    <>
       <Suspense fallback={null}>
         <AgentDashboardTabRedirect />
       </Suspense>
       {children}
-    </StreamChatProvider>
+    </>
   );
 }

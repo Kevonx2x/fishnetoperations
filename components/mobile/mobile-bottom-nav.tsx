@@ -21,7 +21,8 @@ import {
   type MobileNavIconId,
 } from "@/components/mobile/mobile-nav-animated-icon";
 import { isDormspaceDashboardPath } from "@/lib/dormspace-portal-chrome";
-import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
+import { useMessengerUnreadTotal } from "@/features/messenger/hooks/use-messenger-unread-total";
+import { pathForMessagesNav } from "@/lib/bahaygo-mobile/navigation";
 import { isPublicDormspaceMarketplacePath } from "@/lib/dormspace-portal-chrome";
 import { useMobileChromeOverlay } from "@/contexts/mobile-chrome-context";
 import { MOBILE_BOTTOM_NAV_HEIGHT_VAR } from "@/lib/mobile-bottom-nav-layout";
@@ -47,6 +48,8 @@ function isMobileBottomNavHidden(
   if (HIDDEN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return true;
   if (pathname.startsWith("/messages/")) return true;
   if (pathname === "/messages" && hasActiveChannel) return true;
+  if (pathname.startsWith("/dashboard/client/messages") && hasActiveChannel) return true;
+  if (pathname === "/dashboard/agent" && hasActiveChannel) return true;
   if (keyboardOpenOnMessagesThread) return true;
   if (pathname === "/properties/submit" || pathname.startsWith("/properties/submit/")) return true;
   if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) return true;
@@ -143,6 +146,8 @@ function isMarketplaceTabActive(
   }
 
   if (tabId === "inbox") {
+    if (pathname.startsWith("/dashboard/client/messages")) return true;
+    if (pathname === "/dashboard/agent" && searchParams?.get("tab") === "messages") return true;
     return pathname.startsWith("/messages");
   }
 
@@ -284,25 +289,27 @@ export function MobileBottomNav({ embedded = false }: MobileBottomNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { role } = useAuth();
-  const messagesUnread = useUnreadMessageCount();
+  const { role, user } = useAuth();
+  const messagesUnread = useMessengerUnreadTotal(user?.id);
   const { overlayOpen } = useMobileChromeOverlay();
 
   const path = pathname ?? "/";
-  const channelParam = searchParams.get("channel");
-  const messagesThreadOpen = isMessagesThreadOpen(path, channelParam);
+  const threadParam = searchParams.get("c") ?? searchParams.get("channel");
+  const messagesThreadOpen = isMessagesThreadOpen(path, threadParam);
   const keyboardOpen = useSoftKeyboardOpen();
   const keyboardOnMessagesThread = keyboardOpen && messagesThreadOpen;
   const hidden =
     overlayOpen || isMobileBottomNavHidden(path, messagesThreadOpen, keyboardOnMessagesThread);
   const tabs = useMemo(() => {
-    const base = resolveTabs(pathname ?? "/", role);
+    const base = resolveTabs(pathname ?? "/", role).map((t) =>
+      t.id === "inbox" ? { ...t, href: pathForMessagesNav(role, Boolean(user?.id)) } : t,
+    );
     return base.map((t) =>
       t.id === "inbox" && messagesUnread > 0
         ? { ...t, badgeCount: messagesUnread }
         : t,
     );
-  }, [pathname, role, messagesUnread]);
+  }, [pathname, role, messagesUnread, user?.id]);
 
   useEffect(() => {
     if (embedded || hidden) {

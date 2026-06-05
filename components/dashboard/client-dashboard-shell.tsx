@@ -7,7 +7,7 @@ import type { LucideIcon } from "lucide-react";
 import { Bell, GitBranch, Home, LayoutDashboard, Loader2, MessageSquare, Settings } from "lucide-react";
 import { ClientAvatar } from "@/components/client/client-avatar";
 import { BahayGoWordmarkHomeLink } from "@/components/marketplace/bahaygo-wordmark";
-import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
+import { useMessengerUnreadTotal } from "@/features/messenger/hooks/use-messenger-unread-total";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -67,7 +67,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
   const { user, profile, role, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [notifUnread, setNotifUnread] = useState(0);
-  const streamMessagesUnreadTotal = useUnreadMessageCount();
+  const messagesUnreadTotal = useMessengerUnreadTotal(user?.id);
   const isMessagesRoute = pathname.startsWith("/dashboard/client/messages");
 
   const refreshUnread = useCallback(async () => {
@@ -168,7 +168,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                       ) : null}
                       <span className={cn("relative inline-flex", active ? "text-[#6B9E6E]" : "text-[#525252]")}>
                         <Icon className="h-[17px] w-[17px]" aria-hidden />
-                        {t.segment === "dashboard" && streamMessagesUnreadTotal > 0 ? (
+                        {t.segment === "dashboard" && messagesUnreadTotal > 0 ? (
                           <span
                             className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]"
                             aria-hidden
@@ -176,9 +176,9 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                         ) : null}
                       </span>
                       {t.label}
-                      {t.segment === "messages" && streamMessagesUnreadTotal > 0 ? (
+                      {t.segment === "messages" && messagesUnreadTotal > 0 ? (
                         <span className="ml-auto rounded-full bg-[#D4A843]/25 px-2 py-0.5 text-xs font-bold text-[#8a6d32]">
-                          {streamMessagesUnreadTotal > 99 ? "99+" : streamMessagesUnreadTotal}
+                          {messagesUnreadTotal > 99 ? "99+" : messagesUnreadTotal}
                         </span>
                       ) : null}
                       {t.segment === "notifications" && notifUnread > 0 ? (
@@ -223,9 +223,9 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                     active ? "text-[#6B9E6E]" : "text-[#525252]",
                   )}
                 >
-                  {t.segment === "messages" && streamMessagesUnreadTotal > 0 ? (
+                  {t.segment === "messages" && messagesUnreadTotal > 0 ? (
                     <span className="absolute right-1 top-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#D4A843] px-0.5 text-[8px] font-bold text-[#2C2C2C]">
-                      {streamMessagesUnreadTotal > 9 ? "9+" : streamMessagesUnreadTotal}
+                      {messagesUnreadTotal > 9 ? "9+" : messagesUnreadTotal}
                     </span>
                   ) : null}
                   {t.segment === "notifications" && notifUnread > 0 ? (
@@ -237,7 +237,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
                     <span className={active ? "text-[#6B9E6E]" : "text-[#525252]"}>
                       <Icon className="h-5 w-5" aria-hidden />
                     </span>
-                    {t.segment === "home" && streamMessagesUnreadTotal > 0 ? (
+                    {t.segment === "home" && messagesUnreadTotal > 0 ? (
                       <span
                         className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]/95"
                         aria-hidden

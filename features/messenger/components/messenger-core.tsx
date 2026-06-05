@@ -3,19 +3,27 @@
 import "../messenger.css";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import type { ConversationTab, MockConversation } from "../types";
+import type { ConversationTab, MessengerConversation } from "../types";
 import { ChatThread } from "./chat-thread";
 import { ConversationList } from "./conversation-list";
 
 export type MessengerCoreProps = {
-  conversations: MockConversation[];
+  conversations: MessengerConversation[];
+  /** Uncontrolled initial selection (ignored when `activeConversationId` is set). */
   defaultConversationId?: string;
+  /** Controlled active conversation id. */
+  activeConversationId?: string;
+  onActiveConversationChange?: (id: string) => void;
+  onSend?: (conversationId: string, text: string) => void;
   className?: string;
 };
 
 export function MessengerCore({
   conversations,
   defaultConversationId,
+  activeConversationId,
+  onActiveConversationChange,
+  onSend,
   className,
 }: MessengerCoreProps) {
   const initialId =
@@ -23,7 +31,11 @@ export function MessengerCore({
       ? defaultConversationId
       : (conversations[0]?.id ?? "");
 
-  const [activeId, setActiveId] = useState(initialId);
+  const [internalActiveId, setInternalActiveId] = useState(initialId);
+  const activeId =
+    activeConversationId !== undefined
+      ? activeConversationId
+      : internalActiveId;
   const [tab, setTab] = useState<ConversationTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [mobilePane, setMobilePane] = useState<"list" | "thread">("list");
@@ -34,7 +46,10 @@ export function MessengerCore({
   );
 
   const handleSelectConversation = (id: string) => {
-    setActiveId(id);
+    if (activeConversationId === undefined) {
+      setInternalActiveId(id);
+    }
+    onActiveConversationChange?.(id);
     setMobilePane("thread");
   };
 
@@ -65,6 +80,7 @@ export function MessengerCore({
         conversation={activeConversation}
         showBack
         onBack={handleBack}
+        onSend={activeConversation ? (text) => onSend?.(activeConversation.id, text) : undefined}
         className={cn(
           "min-h-0 flex-1",
           mobilePane === "list" ? "hidden md:flex" : "flex",

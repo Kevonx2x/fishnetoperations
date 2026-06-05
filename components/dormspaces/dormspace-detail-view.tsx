@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   AirVent,
   BadgeCheck,
@@ -34,6 +36,8 @@ import {
   sortedDormspacePhotos,
   type DormspaceWithPhotos,
 } from "@/lib/dormspaces";
+import { clientMessagesHref } from "@/lib/messenger/client-messages-path";
+import { startMessengerConversation } from "@/lib/messenger/start-conversation-client";
 
 function AmenityIcon({ label }: { label: string }) {
   const cls = "size-5 text-[#6B9E6E]";
@@ -62,12 +66,43 @@ export function DormspaceDetailView({
   const photos = sortedDormspacePhotos(listing.dormspace_photos ?? null);
   const urls = photos.map((p) => p.url).filter(Boolean);
   const { user } = useAuth();
+  const router = useRouter();
   const [contactOpen, setContactOpen] = useState(false);
   const [notifyWhenAvailable, setNotifyWhenAvailable] = useState(false);
+  const [messageHostBusy, setMessageHostBusy] = useState(false);
   const fromPrice = dormspaceCardFromPrice(listing);
   const fullyBooked = isDormspaceFullyBooked(listing);
   const isOwnListing =
     !!user?.id && !!listing.landlord_user_id && user.id === listing.landlord_user_id;
+
+  const onMessageHost = useCallback(async () => {
+    if (messageHostBusy || isOwnListing) return;
+    const hostId = listing.landlord_user_id?.trim();
+    if (!hostId) {
+      toast.error("Host profile is not available yet.");
+      return;
+    }
+    if (!user?.id) {
+      setContactOpen(true);
+      return;
+    }
+    if (user.id === hostId) return;
+
+    setMessageHostBusy(true);
+    try {
+      const result = await startMessengerConversation({
+        otherUserId: hostId,
+        dormspaceId: listing.id,
+      });
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      router.push(clientMessagesHref(result.conversationId));
+    } finally {
+      setMessageHostBusy(false);
+    }
+  }, [isOwnListing, listing.id, listing.landlord_user_id, messageHostBusy, router, user?.id]);
 
   const lat = listing.latitude != null ? Number(listing.latitude) : null;
   const lng = listing.longitude != null ? Number(listing.longitude) : null;
@@ -213,6 +248,8 @@ export function DormspaceDetailView({
                 }
               }
               onContact={() => setContactOpen(true)}
+              onMessageHost={() => void onMessageHost()}
+              messageHostBusy={messageHostBusy}
             />
           ) : (
             <aside className="h-fit rounded-2xl border border-[#DDDDDD] bg-[#FAF8F4] p-5">
@@ -227,10 +264,20 @@ export function DormspaceDetailView({
                 )}
               </div>
               <p className="mt-2 text-sm font-medium text-[#484848]">{listing.landlord_name}</p>
+              {!isOwnListing && listing.landlord_user_id ? (
+                <button
+                  type="button"
+                  onClick={() => void onMessageHost()}
+                  disabled={messageHostBusy}
+                  className="mt-5 w-full rounded-xl border border-[#6B9E6E]/35 bg-white py-3 text-sm font-bold text-[#4a7a4d] shadow-sm transition hover:bg-[#6B9E6E]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {messageHostBusy ? "Opening…" : "Message host"}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setContactOpen(true)}
-                className="mt-5 w-full rounded-xl bg-[#6B9E6E] py-3 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
+                className="mt-3 w-full rounded-xl bg-[#6B9E6E] py-3 text-sm font-bold text-white shadow-md transition hover:bg-[#5d8a60]"
               >
                 Contact landlord
               </button>

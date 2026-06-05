@@ -24,6 +24,8 @@ function isMobileBottomChromeHidden(
   if (HIDDEN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return true;
   if (pathname.startsWith("/messages/")) return true;
   if (pathname === "/messages" && hasActiveChannel) return true;
+  if (pathname.startsWith("/dashboard/client/messages") && hasActiveChannel) return true;
+  if (pathname === "/dashboard/agent" && hasActiveChannel) return true;
   if (keyboardOpenOnMessagesThread) return true;
   if (pathname === "/properties/submit" || pathname.startsWith("/properties/submit/")) return true;
   if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) return true;
@@ -40,8 +42,8 @@ export function MobileBottomChrome({ stickyFooter }: Props) {
   const pathname = usePathname() ?? "/";
   const searchParams = useSearchParams();
   const { overlayOpen } = useMobileChromeOverlay();
-  const channelParam = searchParams.get("channel");
-  const messagesThreadOpen = isMessagesThreadOpen(pathname, channelParam);
+  const threadParam = searchParams.get("c") ?? searchParams.get("channel");
+  const messagesThreadOpen = isMessagesThreadOpen(pathname, threadParam);
   const keyboardOpen = useSoftKeyboardOpen();
   const keyboardOnMessagesThread = keyboardOpen && messagesThreadOpen;
   const hidden =

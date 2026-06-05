@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 
 type Props = {
-  searchParams: Promise<{ c?: string; channel?: string }>;
+  searchParams: Promise<{ c?: string }>;
 };
 
-/** Legacy path → canonical agent in-house messenger tab. */
-export default async function AgentDashboardMessagesRedirectPage({ searchParams }: Props) {
+/** Legacy path → canonical agent messages tab (`?tab=messages`). */
+export default async function AgentInhouseMessengerRedirectPage({ searchParams }: Props) {
   const sp = await searchParams;
   const conversationId = sp.c?.trim();
   const params = new URLSearchParams({ tab: "messages" });

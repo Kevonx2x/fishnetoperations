@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils";
-import type { MockConversation } from "../types";
+import type { MessengerConversation } from "../types";
 import { MessengerAvatar } from "./avatar";
 
 type Props = {
-  conversation: MockConversation;
+  conversation: MessengerConversation;
   active: boolean;
   onSelect: () => void;
 };

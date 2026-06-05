@@ -96,7 +96,7 @@ import {
   manilaTimeStringFromInstant,
   normalizeTimeHmForInput,
 } from "@/lib/manila-datetime";
-import { useLeadStreamUnreadMap } from "@/features/messaging/hooks/use-lead-stream-unread-map";
+import { useLeadMessengerUnreadMap } from "@/features/messenger/hooks/use-lead-messenger-unread-map";
 
 /** When no client/request time is known, pre-fill time so Confirm is one step faster (24h `HH:mm`). */
 const DEFAULT_VIEWING_CONFIRM_TIME = "10:00";
@@ -2431,7 +2431,7 @@ export function AgentPipelineTab({
   const [filterStages, setFilterStages] = useState<PipelineStageId[] | null>(null);
   const [filterCities, setFilterCities] = useState<string[]>([]);
 
-  const streamUnreadByLeadId = useLeadStreamUnreadMap(
+  const streamUnreadByLeadId = useLeadMessengerUnreadMap(
     messagingAgentUserId ?? null,
     useMemo(() => leads.map((l) => ({ id: l.id, client_id: l.client_id ?? null })), [leads]),
   );
