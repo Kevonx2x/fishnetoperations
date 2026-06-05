@@ -23,7 +23,7 @@ import { RESEND_FROM } from "@/lib/resend-from";
 import {
   buildGenderBedDbFields,
   parseBedInventoryFromFormData,
-} from "@/components/dormspaces/dormspace-bed-inventory-fields";
+} from "@/lib/dormspace-bed-inventory-form";
 import { calculateAndStoreWalkTimes } from "@/lib/dormspace-walk-times";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -62,6 +62,15 @@ async function sendAdminEmail(html: string, subject: string) {
 }
 
 export async function POST(req: Request) {
+  try {
+    return await handleDormspaceSubmit(req);
+  } catch (e) {
+    console.error("[dormspaces/submit] unhandled", e);
+    return fail("SERVER_ERROR", "Could not save submission", 500);
+  }
+}
+
+async function handleDormspaceSubmit(req: Request) {
   const session = await getSessionProfile();
 
   if (session && isDormspaceSubmitBlockedRole(session.role)) {

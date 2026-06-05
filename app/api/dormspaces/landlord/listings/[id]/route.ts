@@ -6,7 +6,7 @@ import { uploadDormspaceListingPhoto } from "@/lib/dormspace-storage";
 import {
   buildGenderBedDbFields,
   parseBedInventoryFromFormData,
-} from "@/components/dormspaces/dormspace-bed-inventory-fields";
+} from "@/lib/dormspace-bed-inventory-form";
 import { resolveDormspaceGenderBedCounts } from "@/lib/dormspace-gender-beds";
 import { sortedDormspacePhotos } from "@/lib/dormspaces";
 import { requireLandlordSession } from "@/lib/landlord-api-auth";

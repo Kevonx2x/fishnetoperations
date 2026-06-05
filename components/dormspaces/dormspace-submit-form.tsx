@@ -16,12 +16,13 @@ import {
 import { compressClientImage, compressClientImages, shouldCompressClientImage } from "@/lib/compress-client-image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
+import { DormspaceBedInventoryFields } from "@/components/dormspaces/dormspace-bed-inventory-fields";
 import {
-  DormspaceBedInventoryFields,
+  bedInventoryToFormFields,
   defaultBedInventoryForRoomType,
+  validateBedInventory,
   type BedInventoryFormValue,
-} from "@/components/dormspaces/dormspace-bed-inventory-fields";
-import { validateBedInventory } from "@/components/dormspaces/dormspace-bed-inventory-fields";
+} from "@/lib/dormspace-bed-inventory-form";
 import { DORMSPACE_AMENITIES } from "@/lib/dormspaces";
 import {
   needsLandlordVerificationUpload,
@@ -106,14 +107,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function FileDrop({
   label,
-  name,
   accept,
   file,
   onFile,
   required,
 }: {
   label: string;
-  name: string;
   accept: string;
   file: File | null;
   onFile: (f: File | null) => void;
@@ -130,7 +129,6 @@ function FileDrop({
         </span>
         <input
           type="file"
-          name={name}
           accept={accept}
           className="sr-only"
           required={required && !file}
@@ -143,19 +141,28 @@ function FileDrop({
 
 const LISTING_PHOTO_MIN = 3;
 const LISTING_PHOTO_MAX = 10;
-const SUBMIT_PHOTO_TOO_LARGE_MSG =
-  "Your photos are too large. Please use fewer or smaller images.";
+/** Vercel serverless request body limit is ~4.5MB; stay under with headroom. */
+const SUBMIT_PAYLOAD_LIMIT_BYTES = 4.2 * 1024 * 1024;
+const SUBMIT_PAYLOAD_TOO_LARGE_MSG =
+  "Total upload is too large (over 4MB). Use fewer photos, smaller JPG/PNG images, or PDFs under 2MB each for ID/billing.";
 
 function submitErrorMessage(
   res: Response,
   json: { error?: string | { code?: string; message?: string } },
 ): string {
-  if (res.status === 413) return SUBMIT_PHOTO_TOO_LARGE_MSG;
+  if (res.status === 413) return SUBMIT_PAYLOAD_TOO_LARGE_MSG;
   const err = json.error;
   const msg = typeof err === "string" ? err : err?.message;
   if (msg?.trim()) return msg;
+  if (res.status === 500) {
+    return "Submission failed (server error). If this keeps happening, confirm the database migration for gender-beds was applied.";
+  }
   if (!res.ok) return `Submission failed (${res.status})`;
   return "Submission failed";
+}
+
+function totalUploadBytes(files: File[]): number {
+  return files.reduce((sum, f) => sum + f.size, 0);
 }
 
 function ListingPhotosDrop({
@@ -503,16 +510,32 @@ export function DormspaceSubmitForm() {
         return;
       }
 
+      const uploadFiles = [
+        ...photosToUpload,
+        ...(idToUpload ? [idToUpload] : []),
+        ...(billingToUpload ? [billingToUpload] : []),
+      ];
+      if (totalUploadBytes(uploadFiles) > SUBMIT_PAYLOAD_LIMIT_BYTES) {
+        setError(SUBMIT_PAYLOAD_TOO_LARGE_MSG);
+        return;
+      }
+
       const fd = new FormData(formEl);
       fd.set("landlord_name", fullName);
       fd.set("landlord_email", email);
       fd.set("landlord_phone", phone);
       fd.delete("landlord_first_name");
       fd.delete("landlord_last_name");
+      fd.delete("landlord_id");
+      fd.delete("proof_of_billing");
+      fd.delete("photos");
+
+      for (const [k, v] of Object.entries(bedInventoryToFormFields(bedInventory))) {
+        fd.set(k, v);
+      }
 
       if (idToUpload) fd.set("landlord_id", idToUpload);
       if (billingToUpload) fd.set("proof_of_billing", billingToUpload);
-      fd.delete("photos");
       for (const p of photosToUpload) fd.append("photos", p);
       if (city) fd.set("city", city);
       if (neighborhood) fd.set("neighborhood", neighborhood);
@@ -537,7 +560,7 @@ export function DormspaceSubmitForm() {
         json = (await res.json()) as SubmitJson;
       } catch {
         if (res.status === 413) {
-          setError(SUBMIT_PHOTO_TOO_LARGE_MSG);
+          setError(SUBMIT_PAYLOAD_TOO_LARGE_MSG);
           return;
         }
       }
@@ -705,7 +728,6 @@ export function DormspaceSubmitForm() {
           </p>
           <FileDrop
             label="Valid ID"
-            name="landlord_id"
             accept="image/*,application/pdf"
             file={idFile}
             onFile={setIdFile}
@@ -713,7 +735,6 @@ export function DormspaceSubmitForm() {
           />
           <FileDrop
             label="Proof of billing"
-            name="proof_of_billing"
             accept="image/*,application/pdf"
             file={billingFile}
             onFile={setBillingFile}

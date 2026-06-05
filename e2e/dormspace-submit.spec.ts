@@ -55,10 +55,9 @@ test.describe("Dormspace landlord submit", () => {
 
     const verificationSection = form.locator("section").filter({ hasText: "Verification" });
     if (await verificationSection.isVisible().catch(() => false)) {
-      await verificationSection.locator('input[name="landlord_id"]').setInputFiles(VALID_ID);
-      await verificationSection
-        .locator('input[name="proof_of_billing"]')
-        .setInputFiles(PROOF_BILLING);
+      const verificationInputs = verificationSection.locator('input[type="file"]');
+      await verificationInputs.nth(0).setInputFiles(VALID_ID);
+      await verificationInputs.nth(1).setInputFiles(PROOF_BILLING);
     }
 
     await form.locator('input[name="title"]').fill(title);
