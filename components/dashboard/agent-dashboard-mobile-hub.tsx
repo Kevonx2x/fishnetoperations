@@ -18,6 +18,7 @@ import {
 
 import { useAuth } from "@/contexts/auth-context";
 import { UNIFIED_MESSAGES_PATH } from "@/lib/agent-messages-path";
+import { AGENT_INHOUSE_MESSENGER_PATH } from "@/lib/messenger/agent-messages-path";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -215,8 +216,15 @@ export function AgentDashboardMobileHub() {
               <HubCard
                 href={UNIFIED_MESSAGES_PATH}
                 icon={MessageSquare}
-                title="Messages"
-                description="Conversations with clients"
+                title="Messages (Stream)"
+                description="Legacy Stream inbox"
+              />
+              <HubCard
+                href={AGENT_INHOUSE_MESSENGER_PATH}
+                icon={MessageSquare}
+                title="BahayGo Messenger"
+                description="New in-house messenger (beta)"
+                primary
               />
               <HubCard
                 href={tabHref("documents")}
@@ -230,8 +238,15 @@ export function AgentDashboardMobileHub() {
               <HubCard
                 href={UNIFIED_MESSAGES_PATH}
                 icon={MessageSquare}
-                title="Messages"
-                description="Conversations with clients"
+                title="Messages (Stream)"
+                description="Legacy Stream inbox"
+              />
+              <HubCard
+                href={AGENT_INHOUSE_MESSENGER_PATH}
+                icon={MessageSquare}
+                title="BahayGo Messenger"
+                description="New in-house messenger (beta)"
+                primary
               />
               <HubCard
                 href={tabHref("listings")}
