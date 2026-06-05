@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -13,21 +14,36 @@ import { MessengerCore } from "./messenger-core";
 export function MessengerClientHost() {
   const { user, loading: authLoading } = useAuth();
   const userId = user?.id;
+  const searchParams = useSearchParams();
+  const deepLinkId = searchParams.get("c")?.trim() || undefined;
+  const deepLinkRefreshDone = useRef(false);
 
   const { conversations, loading, error, refresh, patchConversation } = useConversations(userId);
   const markRead = useMarkConversationRead(userId);
 
-  const [activeId, setActiveId] = useState<string | undefined>();
+  const [activeId, setActiveId] = useState<string | undefined>(deepLinkId);
+
+  useEffect(() => {
+    if (!deepLinkId || !userId || deepLinkRefreshDone.current) return;
+    deepLinkRefreshDone.current = true;
+    void refresh();
+  }, [deepLinkId, userId, refresh]);
 
   useEffect(() => {
     if (!conversations.length) {
-      setActiveId(undefined);
+      if (!deepLinkId) setActiveId(undefined);
       return;
     }
-    if (!activeId || !conversations.some((c) => c.id === activeId)) {
-      setActiveId(conversations[0]!.id);
+
+    if (deepLinkId && conversations.some((c) => c.id === deepLinkId)) {
+      setActiveId(deepLinkId);
+      return;
     }
-  }, [conversations, activeId]);
+
+    if (!activeId || !conversations.some((c) => c.id === activeId)) {
+      setActiveId(deepLinkId ?? conversations[0]!.id);
+    }
+  }, [conversations, activeId, deepLinkId]);
 
   const activeMeta = useMemo(
     () => conversations.find((c) => c.id === activeId),

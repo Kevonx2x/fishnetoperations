@@ -43,11 +43,8 @@ import {
 } from "@vis.gl/react-google-maps";
 import { toast } from "sonner";
 import { resolveListingAgentUserId } from "@/lib/resolve-listing-agent-user-id";
-import { agentMessagesHref } from "@/lib/agent-messages-path";
-import type {
-  CreateMessagingChannelErrorBody,
-  CreateMessagingChannelResponse,
-} from "@/features/messaging/types";
+import { clientMessagesHref } from "@/lib/messenger/client-messages-path";
+import { startMessengerConversation } from "@/lib/messenger/start-conversation-client";
 import { PropertyMobileStickyActions } from "@/components/marketplace/property-mobile-sticky-actions";
 import { useMobileStickyFooter } from "@/contexts/mobile-chrome-context";
 import { MOBILE_CONTENT_PAD_WITH_STICKY_ACTIONS_CLASS } from "@/lib/mobile-bottom-nav-layout";
@@ -569,35 +566,19 @@ export default function PropertyPage() {
 
     setMessageBusy(true);
     try {
-      const heroImage = allPhotos[0] ?? property!.image_url ?? "";
-      const res = await fetch("/api/stream/channel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          agent_user_id: agentUserId,
-          client_user_id: user.id,
-          metadata: {
-            property_id: property!.id,
-            property_name: property!.name?.trim() || property!.location,
-            property_price: property!.price,
-            property_image: heroImage,
-          },
-        }),
+      const result = await startMessengerConversation({
+        otherUserId: agentUserId,
+        propertyId: property!.id,
       });
-      const data: unknown = await res.json().catch(() => ({}));
-      const ok = data as CreateMessagingChannelResponse;
-      const err = data as CreateMessagingChannelErrorBody;
-      if (!res.ok || typeof ok.channel_id !== "string" || !ok.channel_id) {
-        toast.error(typeof err.error === "string" ? err.error : "Could not start chat");
+      if ("error" in result) {
+        toast.error(result.error);
         return;
       }
-      router.push(agentMessagesHref(ok.channel_id));
+      router.push(clientMessagesHref(result.conversationId));
     } finally {
       setMessageBusy(false);
     }
   }, [
-    allPhotos,
     authLoading,
     connectedAgents,
     listingAgent,
@@ -1124,6 +1105,19 @@ export default function PropertyPage() {
                               updatedAt={listingAgent.updatedAt}
                             />
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => void onMessageAgent()}
+                            disabled={
+                              authLoading ||
+                              messageBusy ||
+                              connectedAgents.length === 0 ||
+                              user?.id === listingAgentUserId(property, connectedAgents)
+                            }
+                            className="mt-3 w-full rounded-full border border-[#6B9E6E]/35 bg-white px-5 py-2.5 text-sm font-semibold text-[#4a7a4d] shadow-sm transition-colors hover:bg-[#6B9E6E]/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {messageBusy ? "Opening…" : "Message agent"}
+                          </button>
                         </div>
                       ) : null}
                       <button

@@ -21,6 +21,8 @@ type Props = {
   listingTitle: string;
   isOwnListing?: boolean;
   onContact: () => void;
+  onMessageHost?: () => void;
+  messageHostBusy?: boolean;
 };
 
 export function DormspaceLandlordPublicCard({
@@ -30,6 +32,8 @@ export function DormspaceLandlordPublicCard({
   listingTitle,
   isOwnListing = false,
   onContact,
+  onMessageHost,
+  messageHostBusy = false,
 }: Props) {
   const name = landlord.full_name?.trim() || "Landlord";
   const initials = agentAvatarInitials(name);
@@ -148,13 +152,25 @@ export function DormspaceLandlordPublicCard({
             Edit this listing
           </Link>
         ) : (
-          <button
-            type="button"
-            onClick={onContact}
-            className="mt-5 w-full rounded-full bg-[#6B9E6E] px-4 py-2.5 text-xs font-semibold text-white shadow-md transition-colors hover:bg-[#5d8a60] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
-          >
-            Contact landlord
-          </button>
+          <>
+            {onMessageHost ? (
+              <button
+                type="button"
+                onClick={onMessageHost}
+                disabled={messageHostBusy}
+                className="mt-5 w-full rounded-full border border-[#6B9E6E]/35 bg-white px-4 py-2.5 text-xs font-semibold text-[#4a7a4d] shadow-sm transition-colors hover:bg-[#6B9E6E]/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {messageHostBusy ? "Opening…" : "Message host"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onContact}
+              className="mt-3 w-full rounded-full bg-[#6B9E6E] px-4 py-2.5 text-xs font-semibold text-white shadow-md transition-colors hover:bg-[#5d8a60] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
+            >
+              Contact landlord
+            </button>
+          </>
         )}
 
         {!isOwnListing ? (
