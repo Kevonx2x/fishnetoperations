@@ -6,13 +6,11 @@ import { Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/auth-context";
-import type { CreateMessagingChannelErrorBody, CreateMessagingChannelResponse } from "@/features/messaging/types";
+import { agentMessagesHref } from "@/lib/agent-messages-path";
 import { clientMessagesHref } from "@/lib/messenger/client-messages-path";
 import { startMessengerConversation } from "@/lib/messenger/start-conversation-client";
 import { cn } from "@/lib/utils";
 
-const STREAM_CHANNEL_ENDPOINT = "/api/stream/channel";
-const AGENT_DASHBOARD_PATH = "/dashboard/agent";
 const DEFAULT_LABEL = "Message";
 
 export type StreamChannelPropertyMetadata = {
@@ -35,9 +33,7 @@ type Props = {
 };
 
 /**
- * Opens a conversation between a client and agent.
- * Clients → in-house messenger (`/dashboard/client/messages?c=`).
- * Agents → legacy Stream inbox on the agent dashboard.
+ * Opens an in-house messenger conversation between a client and agent.
  */
 export function StartChatButton({
   agentId,
@@ -59,40 +55,21 @@ export function StartChatButton({
 
     setBusy(true);
     try {
-      if (profile?.role === "agent") {
-        const res = await fetch(STREAM_CHANNEL_ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            agent_user_id: user.id,
-            client_user_id: clientId,
-            ...(metadata ? { metadata } : {}),
-          }),
-          credentials: "include",
-        });
-        const data: unknown = await res.json().catch(() => ({}));
-        const okBody = data as CreateMessagingChannelResponse;
-        const errBody = data as CreateMessagingChannelErrorBody;
-        if (!res.ok || typeof okBody.channel_id !== "string" || !okBody.channel_id) {
-          toast.error(typeof errBody.error === "string" ? errBody.error : "Could not open chat.");
-          return;
-        }
-        const q = new URLSearchParams();
-        q.set("channel", okBody.channel_id);
-        q.set("tab", "messages");
-        router.push(`${AGENT_DASHBOARD_PATH}?${q.toString()}`);
-        return;
-      }
-
+      const otherUserId = profile?.role === "agent" ? clientId : agentId;
       const result = await startMessengerConversation({
-        otherUserId: agentId,
+        otherUserId,
         propertyId: metadata?.property_id ?? undefined,
       });
       if ("error" in result) {
         toast.error(result.error);
         return;
       }
-      router.push(clientMessagesHref(result.conversationId));
+
+      if (profile?.role === "agent") {
+        router.push(agentMessagesHref(result.conversationId));
+      } else {
+        router.push(clientMessagesHref(result.conversationId));
+      }
     } finally {
       setBusy(false);
     }

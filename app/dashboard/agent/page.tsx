@@ -9,7 +9,6 @@ import { AgentDashboardMobileHub } from "@/components/dashboard/agent-dashboard-
 const MOBILE_TAB_SECTIONS = new Set([
   "pipeline",
   "messages",
-  "messenger",
   "listings",
   "analytics",
   "billing",

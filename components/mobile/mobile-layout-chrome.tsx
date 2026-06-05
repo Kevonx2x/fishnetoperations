@@ -44,8 +44,9 @@ function MobileLayoutContent({
 
 function MobileLayoutChromeInner({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "/";
-  const channel = useSearchParams().get("channel");
-  const messagesThreadOpen = isMessagesThreadOpen(pathname, channel);
+  const sp = useSearchParams();
+  const threadParam = sp.get("c") ?? sp.get("channel");
+  const messagesThreadOpen = isMessagesThreadOpen(pathname, threadParam);
   const stickyFooter = useMobileStickyFooterContent();
 
   return (

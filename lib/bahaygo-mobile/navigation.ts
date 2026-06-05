@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Heart, Home, MessageSquare, Search, User } from "lucide-react";
-import { UNIFIED_MESSAGES_PATH } from "@/lib/agent-messages-path";
+import { AGENT_MESSENGER_TAB_PATH } from "@/lib/agent-messages-path";
+import { CLIENT_MESSENGER_PATH } from "@/lib/messenger/client-messages-path";
 
 /** Anchor id on homepage hero search card. */
 export const BAHAYGO_HERO_SEARCH_ID = "bahaygo-hero-search";
@@ -27,14 +28,21 @@ export const MARKETPLACE_BOTTOM_NAV_TABS: MarketplaceBottomNavTab[] = [
   { id: "profile", label: "Profile", href: "/profile", Icon: User },
 ];
 
+function isAgentRole(role: string | null | undefined): boolean {
+  return role === "agent" || role === "broker" || role === "team_member";
+}
+
 export function pathForMessagesNav(
   role: string | null | undefined,
   signedIn: boolean,
 ): string {
   if (!signedIn) {
-    return `/auth/login?next=${encodeURIComponent(UNIFIED_MESSAGES_PATH)}`;
+    return `/auth/login?next=${encodeURIComponent("/messages")}`;
   }
-  return UNIFIED_MESSAGES_PATH;
+  if (isAgentRole(role)) {
+    return AGENT_MESSENGER_TAB_PATH;
+  }
+  return CLIENT_MESSENGER_PATH;
 }
 
 export function resolveMarketplaceBottomNavTabs(

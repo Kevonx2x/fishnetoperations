@@ -1,105 +1,63 @@
 "use client";
 
-import Link from "next/link";
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
-import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
-import { ClientMessagesView } from "@/features/messaging/components/client-messages-view";
-import { StreamChatProvider } from "@/features/messaging/components/stream-chat-provider";
-import { MaddenTopNav } from "@/components/marketplace/madden-top-nav";
-import {
-  DesktopLoggedOutTabEmpty,
-  MobileLoggedOutMessagesTeaser,
-} from "@/components/marketplace/mobile-logged-out-tab-teaser";
 import { useAuth } from "@/contexts/auth-context";
+import { AGENT_MESSENGER_TAB_PATH } from "@/lib/agent-messages-path";
+import { CLIENT_MESSENGER_PATH } from "@/lib/messenger/client-messages-path";
 
-function MessagesPageContent() {
+function isAgentRole(role: string | null | undefined): boolean {
+  return role === "agent" || role === "broker" || role === "team_member";
+}
+
+function MessagesRedirectInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { user, role, loading } = useAuth();
-  const channel = searchParams.get("channel");
-  const showThreadChrome = isMessagesThreadOpen("/messages", channel);
 
-  if (!loading && !user) {
-    return (
-      <>
-        <div className="max-md:min-h-0 max-md:overflow-hidden md:hidden">
-          <MobileLoggedOutMessagesTeaser />
-        </div>
-        <div className="hidden md:block">
-          <DesktopLoggedOutTabEmpty
-            title="Messages"
-            copy="Sign in to message agents about listings."
-            nextPath="/messages"
-          />
-        </div>
-      </>
-    );
-  }
+  useEffect(() => {
+    if (loading) return;
 
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen bg-[#FAF8F4]">
-        <MaddenTopNav />
-      </div>
-    );
-  }
+    const conversationId = searchParams.get("c")?.trim();
+    const buildHref = (base: string) => {
+      if (!conversationId) return base;
+      const sep = base.includes("?") ? "&" : "?";
+      return `${base}${sep}c=${encodeURIComponent(conversationId)}`;
+    };
 
-  const isAgentRole =
-    role === "agent" || role === "broker" || role === "team_member";
+    if (!user) {
+      router.replace(`/auth/login?next=${encodeURIComponent("/messages")}`);
+      return;
+    }
+
+    if (isAgentRole(role)) {
+      router.replace(buildHref(AGENT_MESSENGER_TAB_PATH));
+      return;
+    }
+
+    router.replace(buildHref(CLIENT_MESSENGER_PATH));
+  }, [loading, role, router, searchParams, user]);
 
   return (
-    <div className="bahaygo-messaging-light flex min-h-[100vh] min-h-dvh h-dvh max-h-dvh flex-col overflow-hidden bg-[#FAF8F4] md:min-h-screen md:h-dvh md:max-h-dvh">
-      {!showThreadChrome ? (
-        <header className="shrink-0 border-b border-black/[0.06] bg-[#FAF8F4]/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur-sm md:hidden">
-          <div className="px-4 py-3">
-            <Link
-              href={isAgentRole ? "/dashboard/agent" : "/"}
-              className="mb-2 inline-flex min-h-10 items-center gap-1 rounded-lg pr-2 text-sm font-semibold text-[#6B9E6E] transition-colors hover:text-[#5d8a60] active:opacity-80"
-            >
-              {isAgentRole ? "← Dashboard" : "← Home"}
-            </Link>
-            <h1 className="font-serif text-2xl font-semibold leading-tight text-[#2C2C2C]">
-              Messages
-            </h1>
-          </div>
-        </header>
-      ) : null}
-      <div
-        className={
-          showThreadChrome
-            ? "flex min-h-0 flex-1 flex-col overflow-hidden max-md:pb-0"
-            : "flex min-h-0 flex-1 flex-col overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]"
-        }
-      >
-        {isAgentRole ? (
-          <AgentMessagesInbox
-            initialChannelId={channel}
-            suppressMobileListHeader
-            setActiveChannelOnMount={false}
-          />
-        ) : (
-          <ClientMessagesView initialChannelId={channel} suppressMobileListHeader />
-        )}
-      </div>
+    <div className="flex min-h-screen items-center justify-center bg-[#FAF8F4]">
+      <Loader2 className="size-8 animate-spin text-[#6B9E6E]" aria-label="Redirecting to messages" />
     </div>
   );
 }
 
-/** Unified BahayGo inbox — agents, clients, and bottom-nav Inbox tab. */
-export default function MessagesPage() {
+/** Legacy `/messages` → in-house messenger (client or agent dashboard). */
+export default function MessagesRedirectPage() {
   return (
-    <StreamChatProvider>
-      <Suspense
-        fallback={
-          <div className="min-h-screen bg-[#FAF8F4]">
-            <MaddenTopNav />
-          </div>
-        }
-      >
-        <MessagesPageContent />
-      </Suspense>
-    </StreamChatProvider>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#FAF8F4]">
+          <Loader2 className="size-8 animate-spin text-[#6B9E6E]" aria-label="Redirecting to messages" />
+        </div>
+      }
+    >
+      <MessagesRedirectInner />
+    </Suspense>
   );
 }

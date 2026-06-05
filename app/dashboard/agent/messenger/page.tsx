@@ -1,14 +1,14 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { Suspense } from "react";
+type Props = {
+  searchParams: Promise<{ c?: string }>;
+};
 
-import { AgentDashboard } from "@/components/dashboard/agent-dashboard";
-
-/** In-house messenger route — renders inside the real agent dashboard shell (see `tabFromPathnameAndSearch`). */
-export default function AgentInhouseMessengerPage() {
-  return (
-    <Suspense fallback={null}>
-      <AgentDashboard />
-    </Suspense>
-  );
+/** Legacy path → canonical agent messages tab (`?tab=messages`). */
+export default async function AgentInhouseMessengerRedirectPage({ searchParams }: Props) {
+  const sp = await searchParams;
+  const conversationId = sp.c?.trim();
+  const params = new URLSearchParams({ tab: "messages" });
+  if (conversationId) params.set("c", conversationId);
+  redirect(`/dashboard/agent?${params.toString()}`);
 }

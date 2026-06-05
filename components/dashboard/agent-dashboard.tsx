@@ -22,7 +22,6 @@ import {
   Loader2,
   MapPin,
   MessageSquare,
-  MessagesSquare,
   MoreHorizontal,
   Pencil,
   Settings,
@@ -48,11 +47,11 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AGENT_MOBILE_PIPELINE_PATH } from "@/lib/agent-dashboard-routes";
 import { MessengerHost } from "@/features/messenger/components/messenger-host";
+import { useMessengerUnreadTotal } from "@/features/messenger/hooks/use-messenger-unread-total";
 import { AGENT_INHOUSE_MESSENGER_PATH } from "@/lib/messenger/agent-messages-path";
-import { AgentMessagesInbox } from "@/features/messaging/components/agent-messages-inbox";
-import { streamDmChannelId } from "@/features/messaging/lib/stream-dm-channel-id";
+import { agentMessagesHref } from "@/lib/agent-messages-path";
+import { startMessengerConversation } from "@/lib/messenger/start-conversation-client";
 import { useAgentPipelineTabAttentionCount } from "@/features/messaging/hooks/use-agent-pipeline-tab-attention-count";
-import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";
@@ -134,7 +133,6 @@ type Tab =
   | "overview"
   | "pipeline"
   | "messages"
-  | "messenger"
   | "documents"
   | "listings"
   | "profile"
@@ -146,7 +144,6 @@ const URL_TAB_QUERY_ALLOWED: Tab[] = [
   "overview",
   "pipeline",
   "messages",
-  "messenger",
   "documents",
   "listings",
   "profile",
@@ -162,13 +159,14 @@ function tabFromSearchParamsString(queryString: string): Tab {
   if (raw === "dashboard") return "overview";
   /** Legacy bookmarks */
   if (raw === "team") return "profile";
+  if (raw === "messenger") return "messages";
   if (raw && URL_TAB_QUERY_ALLOWED.includes(raw as Tab)) return raw as Tab;
   return "overview";
 }
 
 function tabFromPathnameAndSearch(pathname: string, queryString: string): Tab {
   if (pathname === "/dashboard/agent/pipeline") return "pipeline";
-  if (pathname === AGENT_INHOUSE_MESSENGER_PATH) return "messenger";
+  if (pathname === AGENT_INHOUSE_MESSENGER_PATH) return "messages";
   return tabFromSearchParamsString(queryString);
 }
 
@@ -984,7 +982,7 @@ export function AgentDashboard() {
   const searchParams = useSearchParams();
   const searchQueryString = searchParams.toString();
   const { user, profile, loading: authLoading, role: authProfileRole } = useAuth();
-  const streamMessagesUnreadTotal = useUnreadMessageCount();
+  const messagesUnreadTotal = useMessengerUnreadTotal(user?.id);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const agentViewingsRefetchRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -1004,22 +1002,7 @@ export function AgentDashboard() {
         }
         return;
       }
-      if (next === "messenger") {
-        if (pathname !== AGENT_INHOUSE_MESSENGER_PATH) {
-          const sp = new URLSearchParams(searchQueryString);
-          sp.delete("tab");
-          const qs = sp.toString();
-          router.replace(`${AGENT_INHOUSE_MESSENGER_PATH}${qs ? `?${qs}` : ""}`, { scroll: false });
-        }
-        return;
-      }
-      if (pathname === AGENT_INHOUSE_MESSENGER_PATH) {
-        const sp = new URLSearchParams();
-        sp.set("tab", next);
-        router.replace(`/dashboard/agent?${sp.toString()}`, { scroll: false });
-        return;
-      }
-      if (pathname === AGENT_MOBILE_PIPELINE_PATH) {
+      if (pathname === AGENT_INHOUSE_MESSENGER_PATH || pathname === AGENT_MOBILE_PIPELINE_PATH) {
         const sp = new URLSearchParams();
         sp.set("tab", next);
         router.replace(`/dashboard/agent?${sp.toString()}`, { scroll: false });
@@ -1033,25 +1016,29 @@ export function AgentDashboard() {
     [isMobilePipeline, pathname, router, searchQueryString],
   );
 
-  const [streamChannelId, setStreamChannelId] = useState<string | null>(null);
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [paymentBannerTier, setPaymentBannerTier] = useState<string | null>(null);
   /** Set from `?editProperty=` on /dashboard/agent; applied after listings load (see propertiesLoadVersion). */
   const pendingEditPropertyIdRef = useRef<string | null>(null);
-  /** After first visit, keep Stream inbox mounted (hidden off-tab) to avoid remount lag when switching back. */
-  const messagesInboxKeepAliveRef = useRef(false);
-  if (tab === "messages") {
-    messagesInboxKeepAliveRef.current = true;
-  }
+
+  const openClientMessenger = useCallback(
+    async (clientUserId: string) => {
+      const result = await startMessengerConversation({ otherUserId: clientUserId });
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      router.push(agentMessagesHref(result.conversationId));
+    },
+    [router],
+  );
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
       const editProp = sp.get("editProperty");
       if (editProp) pendingEditPropertyIdRef.current = editProp;
-      const ch = sp.get("channel");
-      if (ch) setStreamChannelId(ch);
 
       if (sp.get("payment") === "success") {
         const tier = sp.get("tier");
@@ -1065,6 +1052,14 @@ export function AgentDashboard() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (!searchParams.get("channel")?.trim()) return;
+    const sp = new URLSearchParams(searchQueryString);
+    sp.delete("channel");
+    if (!sp.get("tab")) sp.set("tab", "messages");
+    router.replace(`/dashboard/agent?${sp.toString()}`, { scroll: false });
+  }, [router, searchParams, searchQueryString]);
 
   const { showAlert } = useGlobalAlert();
   const paymentAlertShownRef = useRef(false);
@@ -2748,30 +2743,18 @@ export function AgentDashboard() {
     );
   }
 
-  const allTabs: { id: Tab; label: string; icon: React.ReactNode; navBadge?: string }[] = [
+  const allTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "overview", label: "Overview", icon: <House className="h-[18px] w-[18px]" /> },
     { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-[18px] w-[18px]" /> },
-    { id: "messages", label: "Messages (Stream)", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
-    {
-      id: "messenger",
-      label: "BahayGo Messenger",
-      icon: <MessagesSquare className="h-[18px] w-[18px]" />,
-      navBadge: "New",
-    },
+    { id: "messages", label: "Messages", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
     { id: "listings", label: "Listings", icon: <LayoutList className="h-[18px] w-[18px]" /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-[18px] w-[18px]" /> },
     { id: "billing", label: "Billing", icon: <CreditCard className="h-[18px] w-[18px]" /> },
     { id: "profile", label: "My Profile", icon: <UserCircle className="h-[18px] w-[18px]" /> },
   ];
-  const teamMemberNavTabs: { id: Tab; label: string; icon: React.ReactNode; navBadge?: string }[] = [
+  const teamMemberNavTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "pipeline", label: "Pipeline", icon: <GitBranch className="h-[18px] w-[18px]" /> },
-    { id: "messages", label: "Messages (Stream)", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
-    {
-      id: "messenger",
-      label: "BahayGo Messenger",
-      icon: <MessagesSquare className="h-[18px] w-[18px]" />,
-      navBadge: "New",
-    },
+    { id: "messages", label: "Messages", icon: <MessageSquare className="h-[18px] w-[18px]" /> },
     { id: "documents", label: "Documents", icon: <FileText className="h-[18px] w-[18px]" /> },
   ];
   const tabs = isTeamMemberView
@@ -2792,7 +2775,7 @@ export function AgentDashboard() {
       : ["listings", "analytics", "billing", "profile"];
 
   const viewingsAgentUserId = isTeamMemberView ? agent.user_id : user.id;
-  const isFullHeightMessagingTab = tab === "messages" || tab === "messenger";
+  const isFullHeightMessagingTab = tab === "messages";
 
   return (
     <div
@@ -2866,7 +2849,7 @@ export function AgentDashboard() {
                 tabs.map((t) => {
                   const showUnreadDot =
                     (t.id === "pipeline" && showPipelineSidebarAttentionDot) ||
-                    (t.id === "messages" && streamMessagesUnreadTotal > 0);
+                    (t.id === "messages" && messagesUnreadTotal > 0);
                   return (
                     <button
                       key={t.id}
@@ -2882,11 +2865,6 @@ export function AgentDashboard() {
                     >
                       <span className="shrink-0 text-[#6B9E6E]">{t.icon}</span>
                       <span className="min-w-0 flex-1 truncate">{t.label}</span>
-                      {t.navBadge ? (
-                        <span className="shrink-0 rounded-full bg-[#D4A843]/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#8a6d32]">
-                          {t.navBadge}
-                        </span>
-                      ) : null}
                       <span className="flex h-2 w-3 shrink-0 items-center justify-end" aria-hidden>
                         {showUnreadDot ? (
                           <span className="h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]" />
@@ -2899,7 +2877,7 @@ export function AgentDashboard() {
                 tabs.map((t) => {
                   const showUnreadDot =
                     (t.id === "pipeline" && showPipelineSidebarAttentionDot) ||
-                    (t.id === "messages" && streamMessagesUnreadTotal > 0);
+                    (t.id === "messages" && messagesUnreadTotal > 0);
                   return (
                     <button
                       key={t.id}
@@ -2915,11 +2893,6 @@ export function AgentDashboard() {
                     >
                       <span className="shrink-0 text-[#6B9E6E]">{t.icon}</span>
                       <span className="min-w-0 flex-1 truncate">{t.label}</span>
-                      {t.navBadge ? (
-                        <span className="shrink-0 rounded-full bg-[#D4A843]/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#8a6d32]">
-                          {t.navBadge}
-                        </span>
-                      ) : null}
                       <span className="flex h-2 w-3 shrink-0 items-center justify-end" aria-hidden>
                         {showUnreadDot ? (
                           <span className="h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]" />
@@ -2972,23 +2945,9 @@ export function AgentDashboard() {
               tab === "pipeline" ? "min-h-0" : "min-h-0 flex-1",
             )}
           >
-            {user && messagesInboxKeepAliveRef.current ? (
+            {tab === "messages" ? (
               <div
                 data-tour="messages-panel"
-                aria-hidden={tab !== "messages"}
-                className={cn(
-                  "bahaygo-messaging-light flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#FAF8F4]",
-                  tab === "messages"
-                    ? "relative z-20 flex h-full min-h-0 flex-1"
-                    : "hidden",
-                )}
-              >
-                <AgentMessagesInbox initialChannelId={streamChannelId} />
-              </div>
-            ) : null}
-            {tab === "messenger" ? (
-              <div
-                data-tour="inhouse-messenger-panel"
                 className="relative z-20 flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#FAF8F4]"
               >
                 <Suspense
@@ -3002,7 +2961,7 @@ export function AgentDashboard() {
                 </Suspense>
               </div>
             ) : null}
-            {tab !== "messages" && tab !== "messenger" ? (
+            {tab !== "messages" ? (
               <AnimatePresence mode="sync">
                 <motion.div
                   key={tab}
@@ -3077,8 +3036,7 @@ export function AgentDashboard() {
                     viewingRequestMetaByLeadId={viewingRequestMetaByLeadId}
                     onOpenMessagesForClient={(clientUserId) => {
                       if (!user?.id) return;
-                      setStreamChannelId(streamDmChannelId(user.id, clientUserId));
-                      navigateAgentTab("messages");
+                      void openClientMessenger(clientUserId);
                     }}
                     onUnarchiveArchivedLead={onUnarchiveArchivedLead}
                     onRefresh={loadData}
@@ -3092,7 +3050,7 @@ export function AgentDashboard() {
                     agentAvatarUrl={agent.image_url ?? null}
                     agentName={agent.name}
                     unreadNotifications={unreadNotificationsCount}
-                    messagesUnread={streamMessagesUnreadTotal}
+                    messagesUnread={messagesUnreadTotal}
                     properties={mobilePipelineProperties}
                     isLoading={authLoading || !loaded || !pipelineDataReady}
                     onOpenMenu={() => setMoreDrawerOpen(true)}
@@ -3136,8 +3094,7 @@ export function AgentDashboard() {
                     viewingRequestMetaByLeadId={viewingRequestMetaByLeadId}
                     onOpenMessagesForClient={(clientUserId) => {
                       if (!user?.id) return;
-                      setStreamChannelId(streamDmChannelId(user.id, clientUserId));
-                      navigateAgentTab("messages");
+                      void openClientMessenger(clientUserId);
                     }}
                     onUnarchiveArchivedLead={onUnarchiveArchivedLead}
                     onRefresh={loadData}
@@ -3264,7 +3221,7 @@ export function AgentDashboard() {
                   aria-hidden
                 />
               ) : null}
-              {t.id === "messages" && streamMessagesUnreadTotal > 0 ? (
+              {t.id === "messages" && messagesUnreadTotal > 0 ? (
                 <span
                   className="pointer-events-none absolute right-2 top-0.5 h-2 w-2 rounded-full bg-[#6B9E6E] ring-[1.5px] ring-[#FAF8F4]/95"
                   aria-hidden

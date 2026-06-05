@@ -10,7 +10,7 @@ import {
   leadNeedsPipelineAttention,
 } from "@/lib/agent-pipeline-attention";
 import { coerceLeadId } from "@/lib/viewings";
-import { useLeadStreamUnreadMap } from "@/features/messaging/hooks/use-lead-stream-unread-map";
+import { useLeadMessengerUnreadMap } from "@/features/messenger/hooks/use-lead-messenger-unread-map";
 
 export type AgentPipelineAttentionLead = {
   id: number;
@@ -35,7 +35,7 @@ export function useAgentPipelineTabAttentionCount(
     () => leads.map((l) => ({ id: l.id, client_id: l.client_id ?? null })),
     [leads],
   );
-  const streamUnreadByLeadId = useLeadStreamUnreadMap(streamAgentUserId, leadPeers);
+  const messengerUnreadByLeadId = useLeadMessengerUnreadMap(streamAgentUserId, leadPeers);
 
   const leadIdsKey = useMemo(
     () =>
@@ -109,12 +109,12 @@ export function useAgentPipelineTabAttentionCount(
           deal,
           reschedulePending: reschedulePendingByLeadId[id] ?? null,
           unviewedUploadedDocCount: unviewedUploadedByLeadId[id] ?? 0,
-          messageUnreadCount: streamUnreadByLeadId[id] ?? 0,
+          messageUnreadCount: messengerUnreadByLeadId[id] ?? 0,
         })
       ) {
         n += 1;
       }
     }
     return n;
-  }, [leads, reschedulePendingByLeadId, streamUnreadByLeadId, unviewedUploadedByLeadId]);
+  }, [leads, reschedulePendingByLeadId, messengerUnreadByLeadId, unviewedUploadedByLeadId]);
 }

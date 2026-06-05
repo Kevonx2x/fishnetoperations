@@ -48,7 +48,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { isAdminPanelRole, pathForDormspacesNav } from "@/lib/auth-roles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { useUnreadMessageCount } from "@/features/messaging/hooks/use-unread-message-count";
+import { useMessengerUnreadTotal } from "@/features/messenger/hooks/use-messenger-unread-total";
 import { agentAvatarInitials } from "@/components/marketplace/agent-avatar";
 import { BahayGoWordmark } from "@/components/marketplace/bahaygo-wordmark";
 import { NavNotificationsBell } from "@/components/notifications/nav-notifications-bell";
@@ -263,9 +263,9 @@ function NavDropdownMenu({ label, entries }: { label: string; entries: NavDropdo
   );
 }
 
-/** Stream `client.user.total_unread_count` via `useUnreadMessageCount` — same source as messaging inbox. */
 function MessagesUnreadRowDot() {
-  const n = useUnreadMessageCount();
+  const { user } = useAuth();
+  const n = useMessengerUnreadTotal(user?.id);
   if (n <= 0) return null;
   return <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />;
 }

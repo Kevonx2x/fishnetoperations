@@ -17,8 +17,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
-import { UNIFIED_MESSAGES_PATH } from "@/lib/agent-messages-path";
-import { AGENT_INHOUSE_MESSENGER_PATH } from "@/lib/messenger/agent-messages-path";
+import { AGENT_MESSENGER_TAB_PATH } from "@/lib/agent-messages-path";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -214,17 +213,10 @@ export function AgentDashboardMobileHub() {
           {isTeamMember ? (
             <>
               <HubCard
-                href={UNIFIED_MESSAGES_PATH}
+                href={AGENT_MESSENGER_TAB_PATH}
                 icon={MessageSquare}
-                title="Messages (Stream)"
-                description="Legacy Stream inbox"
-              />
-              <HubCard
-                href={AGENT_INHOUSE_MESSENGER_PATH}
-                icon={MessageSquare}
-                title="BahayGo Messenger"
-                description="New in-house messenger (beta)"
-                primary
+                title="Messages"
+                description="Conversations with clients"
               />
               <HubCard
                 href={tabHref("documents")}
@@ -236,17 +228,10 @@ export function AgentDashboardMobileHub() {
           ) : (
             <>
               <HubCard
-                href={UNIFIED_MESSAGES_PATH}
+                href={AGENT_MESSENGER_TAB_PATH}
                 icon={MessageSquare}
-                title="Messages (Stream)"
-                description="Legacy Stream inbox"
-              />
-              <HubCard
-                href={AGENT_INHOUSE_MESSENGER_PATH}
-                icon={MessageSquare}
-                title="BahayGo Messenger"
-                description="New in-house messenger (beta)"
-                primary
+                title="Messages"
+                description="Conversations with clients"
               />
               <HubCard
                 href={tabHref("listings")}
