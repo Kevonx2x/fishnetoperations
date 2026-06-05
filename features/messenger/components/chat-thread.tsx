@@ -39,7 +39,7 @@ export function ChatThread({ conversation, showBack, onBack, onSend, className }
     );
   }
 
-  const { participant, messages, typing } = conversation;
+  const { participant, messages, typing, messagesLoading } = conversation;
 
   return (
     <section
@@ -93,10 +93,12 @@ export function ChatThread({ conversation, showBack, onBack, onSend, className }
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4">
-        {messages.map((m) => (
-          <MessageBubble key={m.id} message={m} />
-        ))}
-        {typing ? <TypingIndicator /> : null}
+        {messagesLoading ? (
+          <p className="py-8 text-center text-sm font-medium text-[#888888]">Loading messages…</p>
+        ) : (
+          messages.map((m) => <MessageBubble key={m.id} message={m} />)
+        )}
+        {!messagesLoading && typing ? <TypingIndicator /> : null}
       </div>
 
       <Composer onSend={onSend} />

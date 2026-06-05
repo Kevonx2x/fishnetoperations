@@ -65,7 +65,7 @@ export function MessengerHost({
     void refresh();
   }, [refresh]);
 
-  const { messages, sendMessage } = useMessages({
+  const { messages, loading: messagesLoading, sendMessage } = useMessages({
     conversationId: activeId,
     userId,
     peerLastReadAt: activeMeta?.peerLastReadAt,
@@ -83,8 +83,9 @@ export function MessengerHost({
       conversations.map((c) => ({
         ...c,
         messages: c.id === activeId ? messages : [],
+        messagesLoading: c.id === activeId ? messagesLoading : false,
       })),
-    [conversations, activeId, messages],
+    [conversations, activeId, messages, messagesLoading],
   );
 
   const handleActiveChange = useCallback((id: string) => {

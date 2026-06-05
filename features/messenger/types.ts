@@ -31,6 +31,8 @@ export type MessengerConversation = {
   favorite: boolean;
   typing?: boolean;
   messages: MessengerMessage[];
+  /** True while the active thread's messages are being fetched. */
+  messagesLoading?: boolean;
   /** Other participant's last_read_at (for sent-message read ticks). */
   peerLastReadAt?: string | null;
   /** Current user's last_read_at on this thread. */

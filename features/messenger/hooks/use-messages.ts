@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { DbMessage } from "../lib/db-types";
@@ -28,6 +28,18 @@ export function useMessages({
   const [optimistic, setOptimistic] = useState<MessengerMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const conversationIdRef = useRef(conversationId);
+  conversationIdRef.current = conversationId;
+
+  useLayoutEffect(() => {
+    setRawMessages([]);
+    setOptimistic([]);
+    if (conversationId && userId) {
+      setLoading(true);
+    } else {
+      setLoading(false);
+    }
+  }, [conversationId, userId]);
 
   const mapped = useMemo(() => {
     if (!userId) return [];
@@ -38,11 +50,11 @@ export function useMessages({
 
   const load = useCallback(async () => {
     if (!conversationId || !userId) {
-      setRawMessages([]);
-      setOptimistic([]);
+      setLoading(false);
       return;
     }
 
+    const requestedId = conversationId;
     setLoading(true);
     const supabase = createSupabaseBrowserClient();
 
@@ -50,17 +62,22 @@ export function useMessages({
       const { data, error } = await supabase
         .from("messages")
         .select("id, conversation_id, sender_id, body, created_at")
-        .eq("conversation_id", conversationId)
+        .eq("conversation_id", requestedId)
         .order("created_at", { ascending: true });
 
       if (error) throw error;
+      if (conversationIdRef.current !== requestedId) return;
       setRawMessages((data ?? []) as DbMessage[]);
       setOptimistic([]);
     } catch (e) {
       console.error("[useMessages] load failed", e);
-      setRawMessages([]);
+      if (conversationIdRef.current === requestedId) {
+        setRawMessages([]);
+      }
     } finally {
-      setLoading(false);
+      if (conversationIdRef.current === requestedId) {
+        setLoading(false);
+      }
     }
   }, [conversationId, userId]);
 
