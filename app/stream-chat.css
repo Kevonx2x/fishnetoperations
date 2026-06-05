@@ -1,3 +1,0 @@
-/* Stream Chat v2 base + BahayGo overrides — layer order is declared in app/globals.css */
-@import "stream-chat-react/dist/css/v2/index.css" layer(stream);
-@import "./stream-chat-overrides.css" layer(stream-overrides);

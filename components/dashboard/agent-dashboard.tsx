@@ -51,7 +51,7 @@ import { useMessengerUnreadTotal } from "@/features/messenger/hooks/use-messenge
 import { AGENT_INHOUSE_MESSENGER_PATH } from "@/lib/messenger/agent-messages-path";
 import { agentMessagesHref } from "@/lib/agent-messages-path";
 import { startMessengerConversation } from "@/lib/messenger/start-conversation-client";
-import { useAgentPipelineTabAttentionCount } from "@/features/messaging/hooks/use-agent-pipeline-tab-attention-count";
+import { useAgentPipelineTabAttentionCount } from "@/features/messenger/hooks/use-agent-pipeline-tab-attention-count";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalAlert } from "@/contexts/global-alert-context";
 import { VerifiedAgentBadge } from "@/components/marketplace/verified-agent-badge";

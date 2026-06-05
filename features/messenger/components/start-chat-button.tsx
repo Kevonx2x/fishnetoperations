@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 const DEFAULT_LABEL = "Message";
 
-export type StreamChannelPropertyMetadata = {
+export type MessagePropertyMetadata = {
   property_id: string | null;
   property_name: string | null;
   property_price: string | null;
@@ -27,7 +27,7 @@ type Props = {
   clientId: string;
   className?: string;
   label?: string;
-  metadata?: StreamChannelPropertyMetadata;
+  metadata?: MessagePropertyMetadata;
   /** When true, shows a message bubble icon before the label (e.g. client pipeline). */
   showMessageIcon?: boolean;
 };

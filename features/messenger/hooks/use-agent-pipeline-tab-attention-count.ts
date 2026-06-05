@@ -29,13 +29,13 @@ export type AgentPipelineAttentionLead = {
 export function useAgentPipelineTabAttentionCount(
   supabase: SupabaseClient,
   leads: AgentPipelineAttentionLead[],
-  streamAgentUserId: string | null,
+  agentUserId: string | null,
 ): number {
   const leadPeers = useMemo(
     () => leads.map((l) => ({ id: l.id, client_id: l.client_id ?? null })),
     [leads],
   );
-  const messengerUnreadByLeadId = useLeadMessengerUnreadMap(streamAgentUserId, leadPeers);
+  const messengerUnreadByLeadId = useLeadMessengerUnreadMap(agentUserId, leadPeers);
 
   const leadIdsKey = useMemo(
     () =>

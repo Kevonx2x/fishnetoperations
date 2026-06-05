@@ -29,7 +29,7 @@ import {
   Star,
 } from "lucide-react";
 import { toast } from "sonner";
-import { StartChatButton } from "@/features/messaging/components/start-chat-button";
+import { StartChatButton } from "@/features/messenger/components/start-chat-button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
 import { formatListingPricePhp } from "@/lib/format-listing-price";

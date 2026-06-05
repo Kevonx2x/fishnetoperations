@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { StartChatButton } from "@/features/messaging/components/start-chat-button";
+import { StartChatButton } from "@/features/messenger/components/start-chat-button";
 import { formatListingPricePhp } from "@/lib/format-listing-price";
 import { formatActivityTimelineRelative } from "@/lib/lead-activity-timeline";
 import { cn } from "@/lib/utils";
