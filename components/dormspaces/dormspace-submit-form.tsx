@@ -13,7 +13,7 @@ import {
   pathForRole,
   type ProfileRole,
 } from "@/lib/auth-roles";
-import { compressClientImages } from "@/lib/compress-client-image";
+import { compressClientImage, compressClientImages, shouldCompressClientImage } from "@/lib/compress-client-image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DormspaceLandlordVerificationBanner } from "@/components/dormspaces/dormspace-landlord-verification-banner";
 import {
@@ -181,7 +181,7 @@ function ListingPhotosDrop({
 
   const mergeFiles = useCallback(
     (list: FileList | File[]) => {
-      const incoming = Array.from(list).filter((f) => f.type.startsWith("image/"));
+      const incoming = Array.from(list).filter((f) => shouldCompressClientImage(f));
       if (!incoming.length) return;
       onPhotos([...photos, ...incoming].slice(0, LISTING_PHOTO_MAX));
     },
@@ -492,8 +492,12 @@ export function DormspaceSubmitForm() {
     setBusy(true);
     try {
       let photosToUpload: File[];
+      let idToUpload: File | null = null;
+      let billingToUpload: File | null = null;
       try {
         photosToUpload = await compressClientImages(photos);
+        if (idFile) idToUpload = await compressClientImage(idFile);
+        if (billingFile) billingToUpload = await compressClientImage(billingFile);
       } catch {
         setError("Could not prepare photos. Try different images or fewer photos.");
         return;
@@ -506,8 +510,8 @@ export function DormspaceSubmitForm() {
       fd.delete("landlord_first_name");
       fd.delete("landlord_last_name");
 
-      if (idFile) fd.set("landlord_id", idFile);
-      if (billingFile) fd.set("proof_of_billing", billingFile);
+      if (idToUpload) fd.set("landlord_id", idToUpload);
+      if (billingToUpload) fd.set("proof_of_billing", billingToUpload);
       fd.delete("photos");
       for (const p of photosToUpload) fd.append("photos", p);
       if (city) fd.set("city", city);
