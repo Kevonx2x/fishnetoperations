@@ -129,7 +129,8 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
             isMessagesRoute &&
               "max-md:flex max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:min-h-0 max-md:flex-col max-md:overflow-hidden",
             /* Open thread: full 100dvh — no reserved bottom band (mirrors agent messages tab). */
-            isMessagesThreadFullscreenMobile && "max-md:pb-0 max-md:min-h-0",
+            isMessagesThreadFullscreenMobile &&
+              "max-md:min-h-0 max-md:pb-0 max-md:overscroll-none",
           )}
         >
           <div

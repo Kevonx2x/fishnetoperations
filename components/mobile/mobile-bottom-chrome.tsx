@@ -26,6 +26,7 @@ function isMobileBottomChromeHidden(
   if (pathname === "/messages" && hasActiveChannel) return true;
   if (pathname.startsWith("/dashboard/client/messages") && hasActiveChannel) return true;
   if (pathname === "/dashboard/agent" && hasActiveChannel) return true;
+  if (pathname === "/dashboard/agent/messenger" && hasActiveChannel) return true;
   if (keyboardOpenOnMessagesThread) return true;
   if (pathname === "/properties/submit" || pathname.startsWith("/properties/submit/")) return true;
   if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) return true;

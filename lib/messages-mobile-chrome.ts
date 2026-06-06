@@ -11,6 +11,7 @@ export function isMessagesThreadOpen(
 
   if (path.startsWith("/dashboard/client/messages") && open) return true;
   if (path === "/dashboard/agent" && open) return true;
+  if (path === "/dashboard/agent/messenger" && open) return true;
 
   return false;
 }

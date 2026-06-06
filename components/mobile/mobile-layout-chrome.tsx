@@ -8,6 +8,7 @@ import {
   MobileChromeProvider,
   useMobileStickyFooterContent,
 } from "@/contexts/mobile-chrome-context";
+import { useLockMobileDocumentScroll } from "@/hooks/use-lock-mobile-document-scroll";
 import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
 import { cn } from "@/lib/utils";
 
@@ -20,17 +21,17 @@ function MobileLayoutContent({
   messagesThreadOpen: boolean;
   stickyFooter: ReactNode | null;
 }) {
+  useLockMobileDocumentScroll(messagesThreadOpen);
+
   return (
     <>
       <div
         className={cn(
           "flex min-w-0 flex-col",
-          /* Mobile: let the document scroll (flex-1 + min-h-0 traps content inside 100vh). */
-          "max-md:h-auto max-md:min-h-0 max-md:flex-none",
-          "md:min-h-0 md:flex-1",
           messagesThreadOpen
-            ? "max-md:pb-0"
-            : "max-md:pb-[var(--bahaygo-mobile-bottom-chrome-height,calc(4rem+env(safe-area-inset-bottom)))] md:pb-0",
+            ? "max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:overflow-hidden max-md:pb-0"
+            : "max-md:h-auto max-md:min-h-0 max-md:flex-none max-md:pb-[var(--bahaygo-mobile-bottom-chrome-height,calc(4rem+env(safe-area-inset-bottom)))]",
+          "md:min-h-0 md:flex-1 md:pb-0",
         )}
       >
         {children}

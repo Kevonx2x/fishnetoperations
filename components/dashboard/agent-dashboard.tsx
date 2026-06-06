@@ -46,6 +46,7 @@ import {
 } from "@/components/dashboard/agent-pipeline-tab";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AGENT_MOBILE_PIPELINE_PATH } from "@/lib/agent-dashboard-routes";
+import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
 import { MessengerHost } from "@/features/messenger/components/messenger-host";
 import { useMessengerUnreadTotal } from "@/features/messenger/hooks/use-messenger-unread-total";
 import { AGENT_INHOUSE_MESSENGER_PATH } from "@/lib/messenger/agent-messages-path";
@@ -991,6 +992,11 @@ export function AgentDashboard() {
     [pathname, searchQueryString],
   );
   const isMobilePipeline = useIsMobile();
+  const threadParam = searchParams.get("c") ?? searchParams.get("channel");
+  const isAgentMessagesThreadMobile =
+    isMobilePipeline &&
+    tab === "messages" &&
+    isMessagesThreadOpen(pathname, threadParam);
   const showMobilePipelineUi =
     isMobilePipeline && (tab === "pipeline" || pathname === AGENT_MOBILE_PIPELINE_PATH);
 
@@ -2784,6 +2790,7 @@ export function AgentDashboard() {
         showMobilePipelineUi && "pb-0",
         isFullHeightMessagingTab &&
           "max-md:flex max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:min-h-0 max-md:flex-col max-md:overflow-hidden",
+        isAgentMessagesThreadMobile && "max-md:pb-0",
       )}
     >
       {hasTutorialDemoData && !isTeamMemberView ? (

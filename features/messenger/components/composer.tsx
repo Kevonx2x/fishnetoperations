@@ -95,7 +95,7 @@ export function Composer({ onSend }: Props) {
   const openCamera = () => cameraInputRef.current?.click();
 
   return (
-    <footer className="shrink-0 border-t border-[#2C2C2C]/8 bg-[#FAF8F4] px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <footer className="shrink-0 touch-manipulation overscroll-none border-t border-[#2C2C2C]/8 bg-[#FAF8F4] px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       {pendingImage ? (
         <div className="mb-2 flex items-start gap-2">
           <div className="relative shrink-0">

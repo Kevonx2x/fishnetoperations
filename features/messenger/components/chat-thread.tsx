@@ -11,6 +11,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
 } from "react";
 
@@ -54,18 +55,19 @@ export function ChatThread({ conversation, showBack, onBack, onSend, className }
   const messages = conversation?.messages ?? [];
   const messagesLoading = Boolean(conversation?.messagesLoading);
 
+  const displayMessages = useMemo(() => [...messages].reverse(), [messages]);
+
   const isNearBottom = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return true;
-    return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_THRESHOLD_PX;
+    return el.scrollTop <= NEAR_BOTTOM_THRESHOLD_PX;
   }, []);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
     const run = () => {
       const el = scrollRef.current;
       if (!el) return;
-      const maxScrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
-      el.scrollTo({ top: maxScrollTop, behavior });
+      el.scrollTo({ top: 0, behavior });
     };
     requestAnimationFrame(run);
   }, []);
@@ -158,7 +160,10 @@ export function ChatThread({ conversation, showBack, onBack, onSend, className }
 
   return (
     <section
-      className={cn("flex min-h-0 min-w-0 flex-1 flex-col bg-[#FAF8F4]", className)}
+      className={cn(
+        "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#FAF8F4] touch-manipulation",
+        className,
+      )}
       aria-label={`Chat with ${participant.name}`}
     >
       <header className="flex shrink-0 items-center gap-3 border-b border-[#2C2C2C]/8 bg-[#FAF8F4] px-3 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3">
@@ -215,22 +220,21 @@ export function ChatThread({ conversation, showBack, onBack, onSend, className }
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        className="flex min-h-0 flex-1 flex-col-reverse overflow-y-auto overscroll-y-contain pt-4 touch-pan-y"
       >
-        <div className="flex min-h-full w-full flex-col justify-end pt-4">
-          {messagesLoading ? (
-            <p className="py-8 text-center text-sm font-medium text-[#888888]">Loading messages…</p>
-          ) : (
-            messages.map((m) => (
+        {!messagesLoading && typing ? <TypingIndicator /> : null}
+        {!messagesLoading
+          ? displayMessages.map((m) => (
               <MessageBubble
                 key={m.id}
                 message={m}
                 onAttachmentImageLoad={handleAttachmentImageLoad}
               />
             ))
-          )}
-          {!messagesLoading && typing ? <TypingIndicator /> : null}
-        </div>
+          : null}
+        {messagesLoading ? (
+          <p className="py-8 text-center text-sm font-medium text-[#888888]">Loading messages…</p>
+        ) : null}
       </div>
 
       <Composer onSend={handleSend} />
