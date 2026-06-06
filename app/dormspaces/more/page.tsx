@@ -1,7 +1,7 @@
 "use client";
 
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
-import { DormspaceBrandIcon } from "@/components/dormspaces/dormspace-welcome-logo";
+import { BahayGoHouseMark, DormspaceBrandIcon } from "@/components/dormspaces/dormspace-welcome-logo";
 import {
   MobileMoreSectionedGrid,
   type MobileMoreGridSection,
@@ -11,7 +11,6 @@ import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, type ReactNode } from "react";
 import {
-  ArrowRight,
   ChevronRight,
   Flag,
   Heart,
@@ -61,6 +60,7 @@ const PATHS = {
 type MenuItem = {
   id: string;
   label: string;
+  description?: string;
   icon?: LucideIcon;
   iconMarkup?: ReactNode;
   href?: string;
@@ -73,6 +73,7 @@ type MenuItem = {
 type MenuSection = {
   id: string;
   title: string;
+  featuredItem?: MenuItem;
   items: MenuItem[];
 };
 
@@ -145,19 +146,81 @@ function MenuRow({ item }: { item: MenuItem }) {
   );
 }
 
+function FeaturedMenuRow({ item }: { item: MenuItem }) {
+  const iconClass = item.destructive ? "text-red-500" : "text-[#6B9E6E]";
+  const labelClass = item.destructive ? "text-red-500" : "text-[#2C2C2C]";
+
+  const inner = (
+    <>
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+        {item.iconMarkup ??
+          (item.icon ? (
+            <item.icon className={cn("h-6 w-6", iconClass)} strokeWidth={2} aria-hidden />
+          ) : null)}
+      </span>
+      <span className={cn("min-w-0 flex-1 font-serif text-base font-semibold", labelClass)}>{item.label}</span>
+      {item.badge ? (
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+            item.badgeGold ? "bg-[#D4A843] text-white" : "bg-[#6B9E6E]/10 text-[#6B9E6E]",
+          )}
+        >
+          {item.badge}
+        </span>
+      ) : null}
+      {!item.destructive ? (
+        <ChevronRight className="h-5 w-5 shrink-0 text-[#888888]" aria-hidden />
+      ) : null}
+    </>
+  );
+
+  const rowClass =
+    "flex min-h-[3.5rem] w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]";
+
+  if (item.onClick) {
+    return (
+      <button type="button" onClick={item.onClick} className={rowClass}>
+        {inner}
+      </button>
+    );
+  }
+
+  if (item.href?.startsWith("mailto:")) {
+    return (
+      <a href={item.href} className={rowClass}>
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={item.href ?? "/"} className={rowClass}>
+      {inner}
+    </Link>
+  );
+}
+
 function MenuSectionBlock({ section }: { section: MenuSection }) {
-  if (section.items.length === 0) return null;
+  if (!section.featuredItem && section.items.length === 0) return null;
 
   return (
     <section>
       <h2 className="mb-2 mt-6 px-4 text-xs font-medium uppercase tracking-wide text-[#888888]">
         {section.title}
       </h2>
-      <div className="mx-4 divide-y divide-black/[0.06] overflow-hidden rounded-xl border border-black/[0.06] bg-white">
-        {section.items.map((item) => (
-          <MenuRow key={item.id} item={item} />
-        ))}
-      </div>
+      {section.featuredItem ? (
+        <div className="mx-4 mb-2 overflow-hidden rounded-xl border border-black/[0.06] bg-white shadow-[0_1px_4px_rgba(44,44,44,0.05)]">
+          <FeaturedMenuRow item={section.featuredItem} />
+        </div>
+      ) : null}
+      {section.items.length > 0 ? (
+        <div className="mx-4 divide-y divide-black/[0.06] overflow-hidden rounded-xl border border-black/[0.06] bg-white">
+          {section.items.map((item) => (
+            <MenuRow key={item.id} item={item} />
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -176,6 +239,13 @@ export default function DormspacesMorePage() {
   }, [router]);
 
   const sections = useMemo((): MenuSection[] => {
+    const bahaygoFeatured: MenuItem = {
+      id: "bahaygo",
+      label: "BahayGo",
+      iconMarkup: <BahayGoHouseMark className="h-6 w-6" />,
+      href: PATHS.bahaygoHome,
+    };
+
     const browseItems: MenuItem[] = [];
     if (ROUTES.dormspaces) {
       browseItems.push({
@@ -255,15 +325,6 @@ export default function DormspacesMorePage() {
       },
     ];
 
-    const switchItems: MenuItem[] = [
-      {
-        id: "switch-bahaygo",
-        label: "Switch to BahayGo",
-        icon: ArrowRight,
-        href: PATHS.bahaygoHome,
-      },
-    ];
-
     const accountItems: MenuItem[] = [];
     if (isSignedIn) {
       if (ROUTES.settings) {
@@ -284,17 +345,12 @@ export default function DormspacesMorePage() {
     }
 
     const result: MenuSection[] = [];
-    if (browseItems.length > 0) {
-      result.push({ id: "browse", title: "Browse", items: browseItems });
-    }
+    result.push({ id: "browse", title: "Browse", featuredItem: bahaygoFeatured, items: browseItems });
     if (landlordItems.length > 0) {
       result.push({ id: "landlord", title: "Landlord", items: landlordItems });
     }
     if (helpItems.length > 0) {
       result.push({ id: "help", title: "Help and information", items: helpItems });
-    }
-    if (switchItems.length > 0) {
-      result.push({ id: "switch", title: "Switch context", items: switchItems });
     }
     if (accountItems.length > 0) {
       result.push({ id: "account", title: "Account", items: accountItems });
@@ -311,6 +367,20 @@ export default function DormspacesMorePage() {
       sections.map((section) => ({
         id: section.id,
         title: section.title,
+        featuredItem: section.featuredItem
+          ? {
+              id: section.featuredItem.id,
+              label: section.featuredItem.label,
+              description: section.featuredItem.description,
+              icon: section.featuredItem.icon,
+              iconMarkup: section.featuredItem.iconMarkup,
+              href: section.featuredItem.href,
+              onClick: section.featuredItem.onClick,
+              destructive: section.featuredItem.destructive,
+              badge: section.featuredItem.badge,
+              badgeGold: section.featuredItem.badgeGold,
+            }
+          : undefined,
         items: section.items.map((item) => ({
           id: item.id,
           label: item.label,

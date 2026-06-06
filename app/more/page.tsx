@@ -88,6 +88,7 @@ type MenuItem = {
 type MenuSection = {
   id: string;
   title: string;
+  featuredItem?: MenuItem;
   items: MenuItem[];
 };
 
@@ -182,8 +183,79 @@ function MenuRow({
   );
 }
 
+function FeaturedMenuRow({ item }: { item: MenuItem }) {
+  const iconClass = item.destructive ? "text-red-500" : "text-[#6B9E6E]";
+
+  const inner = (
+    <>
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+        {item.iconMarkup ??
+          (item.icon ? (
+            <item.icon className={cn("h-6 w-6", iconClass)} strokeWidth={1.5} aria-hidden />
+          ) : null)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p
+          className={cn(
+            "truncate font-serif text-base font-semibold leading-tight",
+            item.destructive ? "text-red-500" : "text-[#2C2C2C]",
+          )}
+        >
+          {item.label}
+        </p>
+        {item.description ? (
+          <p className="mt-0.5 truncate text-[13px] font-normal leading-tight text-[#888888]">
+            {item.description}
+          </p>
+        ) : null}
+      </div>
+      {item.badge ? (
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+            item.badgeGold ? "bg-[#D4A843] text-white" : "bg-[#6B9E6E]/10 text-[#6B9E6E]",
+          )}
+        >
+          {item.badge}
+        </span>
+      ) : null}
+      {!item.destructive ? (
+        <ChevronRight className="h-4 w-4 shrink-0 text-[#BBBBBB]" aria-hidden />
+      ) : null}
+    </>
+  );
+
+  const rowClass = cn(
+    "flex w-full items-center gap-3 px-5 py-4 text-left transition-colors",
+    "hover:bg-black/[0.02] active:bg-black/[0.04]",
+    item.primaryAccent && "border-l-[3px] border-l-[#6B9E6E] pl-[17px]",
+  );
+
+  if (item.onClick) {
+    return (
+      <button type="button" onClick={item.onClick} className={rowClass}>
+        {inner}
+      </button>
+    );
+  }
+
+  if (item.href?.startsWith("mailto:")) {
+    return (
+      <a href={item.href} className={rowClass}>
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={item.href ?? "/"} className={rowClass}>
+      {inner}
+    </Link>
+  );
+}
+
 function MenuSectionBlock({ section, isFirst }: { section: MenuSection; isFirst?: boolean }) {
-  if (section.items.length === 0) return null;
+  if (!section.featuredItem && section.items.length === 0) return null;
 
   return (
     <section className={cn(isFirst ? "mt-6" : "mt-8")}>
@@ -193,11 +265,18 @@ function MenuSectionBlock({ section, isFirst }: { section: MenuSection; isFirst?
       >
         {section.title}
       </h2>
-      <div className="mx-4 overflow-hidden rounded-xl border border-black/[0.06] bg-white">
-        {section.items.map((item, index) => (
-          <MenuRow key={item.id} item={item} showDivider={index > 0} />
-        ))}
-      </div>
+      {section.featuredItem ? (
+        <div className="mx-4 mb-2 overflow-hidden rounded-xl border border-black/[0.06] bg-white shadow-[0_1px_4px_rgba(44,44,44,0.05)]">
+          <FeaturedMenuRow item={section.featuredItem} />
+        </div>
+      ) : null}
+      {section.items.length > 0 ? (
+        <div className="mx-4 overflow-hidden rounded-xl border border-black/[0.06] bg-white">
+          {section.items.map((item, index) => (
+            <MenuRow key={item.id} item={item} showDivider={index > 0} />
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -216,19 +295,20 @@ export default function MorePage() {
   }, [router]);
 
   const sections = useMemo((): MenuSection[] => {
+    const dormspacersFeatured: MenuItem | undefined = ROUTES.dormspacesWelcome
+      ? {
+          id: "dormspaces",
+          label: "Dormspacers",
+          description: "Find dormmates and explore student housing",
+          iconMarkup: <DormspaceBrandIcon className="h-6 w-6" />,
+          href: PATHS.dormspacesWelcome,
+          badge: "NEW",
+          badgeGold: true,
+          primaryAccent: true,
+        }
+      : undefined;
+
     const discoverItems: MenuItem[] = [];
-    if (ROUTES.dormspacesWelcome) {
-      discoverItems.push({
-        id: "dormspaces",
-        label: "Dormspaces",
-        description: "Find dormmates and explore student housing",
-        iconMarkup: <DormspaceBrandIcon />,
-        href: PATHS.dormspacesWelcome,
-        badge: "NEW",
-        badgeGold: true,
-        primaryAccent: true,
-      });
-    }
     if (ROUTES.search) {
       discoverItems.push({
         id: "browse-map",
@@ -390,8 +470,13 @@ export default function MorePage() {
     }
 
     const result: MenuSection[] = [];
-    if (discoverItems.length > 0) {
-      result.push({ id: "discover", title: "Discover", items: discoverItems });
+    if (dormspacersFeatured || discoverItems.length > 0) {
+      result.push({
+        id: "discover",
+        title: "Discover",
+        featuredItem: dormspacersFeatured,
+        items: discoverItems,
+      });
     }
     if (activityItems.length > 0) {
       result.push({ id: "activity", title: "Your activity", items: activityItems });
@@ -416,6 +501,20 @@ export default function MorePage() {
       sections.map((section) => ({
         id: section.id,
         title: section.title,
+        featuredItem: section.featuredItem
+          ? {
+              id: section.featuredItem.id,
+              label: section.featuredItem.label,
+              description: section.featuredItem.description,
+              icon: section.featuredItem.icon,
+              iconMarkup: section.featuredItem.iconMarkup,
+              href: section.featuredItem.href,
+              onClick: section.featuredItem.onClick,
+              destructive: section.featuredItem.destructive,
+              badge: section.featuredItem.badge,
+              badgeGold: section.featuredItem.badgeGold,
+            }
+          : undefined,
         items: section.items.map((item) => ({
           id: item.id,
           label: item.label,

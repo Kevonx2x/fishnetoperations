@@ -15,6 +15,7 @@ const TILE_H = "h-11";
 export type MobileMoreGridItem = {
   id: string;
   label: string;
+  description?: string;
   icon?: LucideIcon;
   iconMarkup?: ReactNode;
   href?: string;
@@ -27,6 +28,8 @@ export type MobileMoreGridItem = {
 export type MobileMoreGridSection = {
   id: string;
   title: string;
+  /** Full-width prominent row above the two-up grid (e.g. cross-product link). */
+  featuredItem?: MobileMoreGridItem;
   items: MobileMoreGridItem[];
 };
 
@@ -103,8 +106,69 @@ function GridCell({ item }: { item: MobileMoreGridItem }) {
   );
 }
 
+function FeaturedGridRow({ item }: { item: MobileMoreGridItem }) {
+  const iconClass = item.destructive ? "text-red-500" : "text-[#6B9E6E]";
+  const labelClass = item.destructive ? "text-red-500" : "text-[#2C2C2C]";
+
+  const inner = (
+    <div className="flex h-full w-full min-w-0 items-center gap-3 px-4">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+        {item.iconMarkup ??
+          (item.icon ? (
+            <item.icon className={cn("h-6 w-6", iconClass)} strokeWidth={1.75} aria-hidden />
+          ) : null)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className={cn("truncate text-[15px] font-semibold leading-tight", labelClass)}>{item.label}</p>
+        {item.description ? (
+          <p className="mt-0.5 truncate text-[12px] font-normal leading-tight text-[#888888]">{item.description}</p>
+        ) : null}
+      </div>
+      {item.badge ? (
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+            item.badgeGold ? "bg-[#D4A843] text-white" : "bg-[#6B9E6E]/10 text-[#6B9E6E]",
+          )}
+        >
+          {item.badge}
+        </span>
+      ) : null}
+      {!item.destructive ? <ChevronRight className="h-4 w-4 shrink-0 text-[#BBBBBB]" aria-hidden /> : null}
+    </div>
+  );
+
+  const rowClass = cn(
+    "flex min-h-[3.5rem] w-full items-stretch text-left transition-colors",
+    "rounded-2xl border border-black/[0.06] bg-white shadow-[0_1px_4px_rgba(44,44,44,0.05)]",
+    "hover:bg-black/[0.02] active:bg-black/[0.04]",
+  );
+
+  if (item.onClick) {
+    return (
+      <button type="button" onClick={item.onClick} className={rowClass}>
+        {inner}
+      </button>
+    );
+  }
+
+  if (item.href?.startsWith("mailto:")) {
+    return (
+      <a href={item.href} className={rowClass}>
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={item.href ?? "/"} className={rowClass}>
+      {inner}
+    </Link>
+  );
+}
+
 function SectionGrid({ section }: { section: MobileMoreGridSection }) {
-  if (section.items.length === 0) return null;
+  if (!section.featuredItem && section.items.length === 0) return null;
 
   const needsPlaceholder = section.items.length % 2 === 1;
 
@@ -113,17 +177,22 @@ function SectionGrid({ section }: { section: MobileMoreGridSection }) {
       <h2 className="mb-1 px-0.5 text-[11px] font-medium uppercase tracking-[0.08em] text-[#888888]">
         {section.title}
       </h2>
-      <div
-        className={cn(
-          "grid grid-cols-2 overflow-hidden rounded-2xl border border-black/[0.06] bg-white",
-          "divide-x divide-y divide-black/[0.06]",
-        )}
-        style={{ gridAutoRows: "2.75rem" }}
-      >
-        {section.items.map((item) => (
-          <GridCell key={item.id} item={item} />
-        ))}
-        {needsPlaceholder ? <div className={cn(TILE_H, "bg-white")} aria-hidden /> : null}
+      <div className="flex flex-col gap-2">
+        {section.featuredItem ? <FeaturedGridRow item={section.featuredItem} /> : null}
+        {section.items.length > 0 ? (
+          <div
+            className={cn(
+              "grid grid-cols-2 overflow-hidden rounded-2xl border border-black/[0.06] bg-white",
+              "divide-x divide-y divide-black/[0.06]",
+            )}
+            style={{ gridAutoRows: "2.75rem" }}
+          >
+            {section.items.map((item) => (
+              <GridCell key={item.id} item={item} />
+            ))}
+            {needsPlaceholder ? <div className={cn(TILE_H, "bg-white")} aria-hidden /> : null}
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -143,7 +212,7 @@ export function MobileMoreSectionedGrid({
   profileBadge,
   showFlagWatermark = true,
 }: Props) {
-  const visibleSections = sections.filter((s) => s.items.length > 0);
+  const visibleSections = sections.filter((s) => s.featuredItem || s.items.length > 0);
 
   return (
     <div
