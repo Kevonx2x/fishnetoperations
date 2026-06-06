@@ -143,6 +143,7 @@ export async function fetchConversationsForUser(
         name,
         initials: initialsFromName(name),
         online: false,
+        avatarUrl: profile?.avatar_url?.trim() || null,
       },
       lastMessage: lastMessagePreview(lastMsg),
       timestamp: formatConversationListTime(conv.last_message_at ?? lastMsg?.created_at),

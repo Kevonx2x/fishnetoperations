@@ -58,7 +58,12 @@ export function ChatThread({ conversation, showBack, onBack, onSend, className }
           </button>
         ) : null}
 
-        <MessengerAvatar initials={participant.initials} online={participant.online} size="md" />
+        <MessengerAvatar
+          initials={participant.initials}
+          imageUrl={participant.avatarUrl}
+          online={participant.online}
+          size="md"
+        />
 
         <div className="min-w-0 flex-1">
           <h2 className="truncate font-serif text-[17px] font-semibold text-[#2C2C2C]">

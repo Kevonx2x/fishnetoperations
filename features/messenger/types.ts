@@ -5,6 +5,7 @@ export type MessengerParticipant = {
   name: string;
   initials: string;
   online: boolean;
+  avatarUrl?: string | null;
 };
 
 export type MessengerReaction = {

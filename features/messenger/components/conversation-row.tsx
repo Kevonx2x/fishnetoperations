@@ -22,6 +22,7 @@ export function ConversationRow({ conversation, active, onSelect }: Props) {
     >
       <MessengerAvatar
         initials={participant.initials}
+        imageUrl={participant.avatarUrl}
         online={participant.online}
         size="md"
       />

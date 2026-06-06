@@ -1,7 +1,12 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 import { cn } from "@/lib/utils";
 
 type Props = {
   initials: string;
+  imageUrl?: string | null;
   size?: "sm" | "md" | "lg";
   online?: boolean;
   className?: string;
@@ -13,17 +18,43 @@ const sizeMap = {
   lg: "h-12 w-12 text-sm",
 };
 
-export function MessengerAvatar({ initials, size = "md", online, className }: Props) {
+export function MessengerAvatar({
+  initials,
+  imageUrl,
+  size = "md",
+  online,
+  className,
+}: Props) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const url = imageUrl?.trim() ?? "";
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [url]);
+
+  const showImage = Boolean(url) && !imageFailed;
+
   return (
     <div className={cn("relative shrink-0", className)}>
       <div
         className={cn(
-          "flex items-center justify-center rounded-full bg-[#E8E6E1] font-semibold text-[#5C5C5C]",
+          "overflow-hidden rounded-full bg-[#E8E6E1]",
           sizeMap[size],
+          !showImage && "flex items-center justify-center font-semibold text-[#5C5C5C]",
         )}
-        aria-hidden
+        aria-hidden={showImage}
       >
-        {initials}
+        {showImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={url}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          initials
+        )}
       </div>
       {online !== undefined ? (
         <span
