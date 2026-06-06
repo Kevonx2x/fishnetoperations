@@ -49,6 +49,43 @@ function listingSearchHaystack(row: ListingItem): string {
     .toLowerCase();
 }
 
+function ListingMobileCard({ row }: { row: ListingItem }) {
+  const thumb = row.thumbnail_url ?? dormspacePrimaryPhotoUrl(row.dormspace_photos ?? null);
+  const editHref = `/dormspaces/dashboard/listings/${row.id}/edit`;
+
+  return (
+    <Link
+      href={editHref}
+      className="flex gap-3 px-4 py-3.5 transition-colors active:bg-[#FAF8F4]"
+    >
+      <div className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-[#F3F0EA]">
+        {thumb ? (
+          <Image src={thumb} alt="" fill className="object-cover" sizes="56px" />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-[#E8F0E9] to-[#FAF8F4]" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-semibold text-[#2C2C2C]">{row.title}</p>
+        <p className="mt-0.5 text-xs font-medium text-[#888888]">
+          {dormspaceRoomTypeLabel(row.room_type)}
+          {row.total_beds != null ? ` · ${row.total_beds} beds` : ""}
+        </p>
+        <p className="mt-0.5 truncate text-xs text-[#484848]">{dormspaceLocationLine(row)}</p>
+        <span
+          className={cn(
+            "mt-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
+            statusBadgeClass(row.status),
+          )}
+        >
+          {dormspaceStatusLabel(row.status)}
+        </span>
+      </div>
+      <Pencil className="mt-1 size-4 shrink-0 text-[#888888]" aria-hidden />
+    </Link>
+  );
+}
+
 function ListingTableRow({
   row,
   onArchive,
@@ -230,13 +267,15 @@ export function LandlordDashboardListings({ welcome }: Props) {
   return (
     <LandlordDashboardShell loginNext="/dormspaces/dashboard/listings">
       <div className="md:hidden">
-        <LandlordDashboardSubpageHeader title="My Listings" />
+        <LandlordDashboardSubpageHeader title="My Listings" showBack={false} />
       </div>
 
-      <div className="px-4 py-6 md:px-8 md:py-8">
-        <h1 className="font-serif text-2xl font-bold text-[#2C2C2C] md:text-3xl">My Listings</h1>
+      <div className="px-4 py-4 md:px-8 md:py-8">
+        <h1 className="hidden font-serif text-2xl font-bold text-[#2C2C2C] md:block md:text-3xl">
+          My Listings
+        </h1>
 
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 md:mt-5 md:flex-row md:items-center">
           <label className="relative min-w-0 flex-1">
             <span className="sr-only">Search listings</span>
             <Search
@@ -251,20 +290,15 @@ export function LandlordDashboardListings({ welcome }: Props) {
               className="w-full rounded-xl border border-[#DDDDDD] bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-[#2C2C2C] shadow-sm placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6B9E6E]/25"
             />
           </label>
-          <button
-            type="button"
-            onClick={() => setSearchQuery((s) => s.trim())}
-            className="h-11 shrink-0 rounded-xl bg-[#6B9E6E] px-6 text-sm font-bold text-white shadow-[0_4px_14px_rgba(107,158,110,0.35)] transition hover:bg-[#5d8a60] sm:w-auto"
-          >
-            Search
-          </button>
-          <Link
-            href="/dormspaces/submit"
-            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-[#6B9E6E]/30 bg-[#6B9E6E]/10 px-5 text-sm font-bold text-[#4a7a4d] transition hover:bg-[#6B9E6E]/15 md:hidden"
-          >
-            <Plus className="size-4" aria-hidden />
-            Add listing
-          </Link>
+          <div className="hidden shrink-0 md:block">
+            <DormspaceAddListingSplitButton
+              listings={listings}
+              onUpdateVacancy={(listing) => {
+                setVacancyListing(listing);
+                setVacancyModalOpen(true);
+              }}
+            />
+          </div>
         </div>
 
         {error ? (
@@ -282,7 +316,7 @@ export function LandlordDashboardListings({ welcome }: Props) {
         ) : null}
 
         {!loadingListings ? (
-          <div className="mt-4 md:hidden">
+          <div className="mt-3 md:hidden">
             <DormspaceAddListingSplitButton
               listings={listings}
               onUpdateVacancy={(listing) => {
@@ -294,7 +328,7 @@ export function LandlordDashboardListings({ welcome }: Props) {
           </div>
         ) : null}
 
-        <div className="mt-6 overflow-hidden rounded-2xl border border-[#DDDDDD] bg-white shadow-[0_4px_20px_rgba(44,44,44,0.06)]">
+        <div className="mt-4 overflow-hidden rounded-2xl border border-[#DDDDDD] bg-white shadow-[0_4px_20px_rgba(44,44,44,0.06)] md:mt-6">
           {loadingListings ? (
             <p className="flex items-center gap-2 px-4 py-10 text-sm text-[#484848]">
               <Loader2 className="size-4 animate-spin" /> Loading listings…
@@ -323,7 +357,15 @@ export function LandlordDashboardListings({ welcome }: Props) {
               ) : null}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <ul className="divide-y divide-[#2C2C2C]/8 md:hidden">
+              {filteredListings.map((row) => (
+                <li key={row.id}>
+                  <ListingMobileCard row={row} />
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[640px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-[#DDDDDD] bg-[#FAF8F4]">
@@ -354,6 +396,7 @@ export function LandlordDashboardListings({ welcome }: Props) {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       </div>
