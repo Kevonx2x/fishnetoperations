@@ -37,34 +37,63 @@ async function sharedConversationIds(
   return (rowsB ?? []).map((r) => r.conversation_id as string);
 }
 
+/** Find the oldest 1-to-1 thread between two users (property/dormspace ignored). */
 async function findExistingConversation(
   supabase: SupabaseClient,
-  input: StartConversationInput,
+  currentUserId: string,
+  otherUserId: string,
 ): Promise<string | null> {
-  const sharedIds = await sharedConversationIds(supabase, input.currentUserId, input.otherUserId);
+  const sharedIds = await sharedConversationIds(supabase, currentUserId, otherUserId);
   if (sharedIds.length === 0) return null;
 
-  let query = supabase
+  const { data, error } = await supabase
     .from("conversations")
     .select("id")
     .in("id", sharedIds)
-    .eq("is_group", false);
+    .eq("is_group", false)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
 
-  if (input.propertyId) {
-    query = query.eq("property_id", input.propertyId);
-  } else {
-    query = query.is("property_id", null);
-  }
-
-  if (input.dormspaceId) {
-    query = query.eq("dormspace_id", input.dormspaceId);
-  } else {
-    query = query.is("dormspace_id", null);
-  }
-
-  const { data, error } = await query.order("created_at", { ascending: true }).limit(1).maybeSingle();
   if (error) throw error;
   return (data?.id as string | undefined) ?? null;
+}
+
+/** Backfill property/dormspace context on an existing thread when still unset. */
+async function maybeSetConversationContext(
+  supabase: SupabaseClient,
+  conversationId: string,
+  propertyId?: string | null,
+  dormspaceId?: string | null,
+): Promise<void> {
+  if (!propertyId && !dormspaceId) return;
+
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("property_id, dormspace_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (error || !data) return;
+
+  const updates: { property_id?: string; dormspace_id?: string } = {};
+  if (propertyId && !data.property_id) updates.property_id = propertyId;
+  if (dormspaceId && !data.dormspace_id) updates.dormspace_id = dormspaceId;
+  if (Object.keys(updates).length === 0) return;
+
+  const { error: updateErr } = await supabase
+    .from("conversations")
+    .update(updates)
+    .eq("id", conversationId);
+
+  if (!updateErr) return;
+
+  const admin = createSupabaseAdmin();
+  const { error: adminErr } = await admin
+    .from("conversations")
+    .update(updates)
+    .eq("id", conversationId);
+  if (adminErr) throw adminErr;
 }
 
 async function insertParticipants(
@@ -117,8 +146,9 @@ export async function startConversation(
   }
 
   try {
-    const existingId = await findExistingConversation(supabase, input);
+    const existingId = await findExistingConversation(supabase, currentUserId, otherUserId);
     if (existingId) {
+      await maybeSetConversationContext(supabase, existingId, propertyId, dormspaceId);
       return { ok: true, conversationId: existingId, created: false };
     }
 
