@@ -23,23 +23,29 @@ export async function POST(req: Request) {
   if (!session?.userId) {
     return Response.json({ error: "Sign in required" }, { status: 401 });
   }
-  const isAdmin = isAdminPanelRole(session.role);
-  const isAgentOrBroker = session.role === "agent" || session.role === "broker";
-  const isLandlord = isLandlordCapable(session);
-  if (!isAdmin && !isAgentOrBroker && !isLandlord) {
-    return Response.json({ error: "You do not have permission to upload images" }, { status: 403 });
-  }
-
-  const cfg = configureCloudinary();
-  if (!("ok" in cfg && cfg.ok)) {
-    return Response.json({ error: cfg.error }, { status: 500 });
-  }
 
   let formData: FormData;
   try {
     formData = await req.formData();
   } catch {
     return Response.json({ error: "Invalid form data" }, { status: 400 });
+  }
+
+  const purposeRaw = String(formData.get("purpose") ?? "").trim().toLowerCase();
+  const folderRaw = String(formData.get("folder") ?? "").trim();
+  const isMessengerUpload =
+    purposeRaw === "messenger" || folderRaw === "bahaygo/messenger";
+
+  const isAdmin = isAdminPanelRole(session.role);
+  const isAgentOrBroker = session.role === "agent" || session.role === "broker";
+  const isLandlord = isLandlordCapable(session);
+  if (!isMessengerUpload && !isAdmin && !isAgentOrBroker && !isLandlord) {
+    return Response.json({ error: "You do not have permission to upload images" }, { status: 403 });
+  }
+
+  const cfg = configureCloudinary();
+  if (!("ok" in cfg && cfg.ok)) {
+    return Response.json({ error: cfg.error }, { status: 500 });
   }
 
   const file = formData.get("file");
@@ -56,8 +62,6 @@ export async function POST(req: Request) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const purposeRaw = String(formData.get("purpose") ?? "").trim().toLowerCase();
-  const folderRaw = String(formData.get("folder") ?? "").trim();
   const isArticleUpload =
     purposeRaw === "article" || folderRaw === "bahaygo/articles";
 
@@ -85,6 +89,7 @@ export async function POST(req: Request) {
     !isArticleUpload &&
     !isVisualAssetUpload &&
     !isVerificationUpload &&
+    !isMessengerUpload &&
     !propertyIdRaw;
 
   const uploadFolder = isArticleUpload
@@ -93,13 +98,16 @@ export async function POST(req: Request) {
       ? "bahaygo/visual-assets"
       : isVerificationUpload
         ? "bahaygo/verification"
-        : isLandlordProfileMedia
-          ? "bahaygo/dormspaces/landlords"
-          : "bahaygo/properties";
+        : isMessengerUpload
+          ? "bahaygo/messenger"
+          : isLandlordProfileMedia
+            ? "bahaygo/dormspaces/landlords"
+            : "bahaygo/properties";
   if (
     !isVerificationUpload &&
     !isArticleUpload &&
     !isVisualAssetUpload &&
+    !isMessengerUpload &&
     uploadFolder === "bahaygo/properties" &&
     propertyIdRaw
   ) {

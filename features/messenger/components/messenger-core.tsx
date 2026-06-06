@@ -3,7 +3,7 @@
 import "../messenger.css";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import type { ConversationTab, MessengerConversation } from "../types";
+import type { ConversationTab, MessengerConversation, MessengerSendPayload } from "../types";
 import { ChatThread } from "./chat-thread";
 import { ConversationList } from "./conversation-list";
 
@@ -14,7 +14,7 @@ export type MessengerCoreProps = {
   /** Controlled active conversation id. */
   activeConversationId?: string;
   onActiveConversationChange?: (id: string) => void;
-  onSend?: (conversationId: string, text: string) => void;
+  onSend?: (conversationId: string, payload: MessengerSendPayload) => void;
   className?: string;
 };
 
@@ -80,7 +80,11 @@ export function MessengerCore({
         conversation={activeConversation}
         showBack
         onBack={handleBack}
-        onSend={activeConversation ? (text) => onSend?.(activeConversation.id, text) : undefined}
+        onSend={
+          activeConversation
+            ? (payload) => onSend?.(activeConversation.id, payload)
+            : undefined
+        }
         className={cn(
           "min-h-0 flex-1",
           mobilePane === "list" ? "hidden md:flex" : "flex",

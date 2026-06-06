@@ -8,7 +8,7 @@ import {
   Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { MessengerConversation } from "../types";
+import type { MessengerConversation, MessengerSendPayload } from "../types";
 import { MessengerAvatar } from "./avatar";
 import { Composer } from "./composer";
 import { MessageBubble } from "./message-bubble";
@@ -18,7 +18,7 @@ type Props = {
   conversation: MessengerConversation | null;
   showBack?: boolean;
   onBack?: () => void;
-  onSend?: (text: string) => void;
+  onSend?: (payload: MessengerSendPayload) => void;
   className?: string;
 };
 

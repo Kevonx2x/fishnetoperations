@@ -12,6 +12,14 @@ function profileFromJoin(
   return profiles;
 }
 
+function lastMessagePreview(msg: DbMessage | undefined): string {
+  if (!msg) return "No messages yet";
+  const body = msg.body?.trim();
+  if (body) return body;
+  if (msg.attachment_url?.trim()) return "📷 Photo";
+  return "No messages yet";
+}
+
 function latestMessageByConversation(messages: DbMessage[]): Map<string, DbMessage> {
   const map = new Map<string, DbMessage>();
   for (const m of messages) {
@@ -90,7 +98,7 @@ export async function fetchConversationsForUser(
 
   const { data: messageRows, error: msgErr } = await supabase
     .from("messages")
-    .select("id, conversation_id, sender_id, body, created_at")
+    .select("id, conversation_id, sender_id, body, attachment_url, created_at")
     .in("conversation_id", convIds)
     .order("created_at", { ascending: false });
 
@@ -136,7 +144,7 @@ export async function fetchConversationsForUser(
         initials: initialsFromName(name),
         online: false,
       },
-      lastMessage: lastMsg?.body?.trim() ?? "No messages yet",
+      lastMessage: lastMessagePreview(lastMsg),
       timestamp: formatConversationListTime(conv.last_message_at ?? lastMsg?.created_at),
       unread: unreadByConv.get(conv.id) ?? 0,
       favorite: mine?.is_favorite ?? false,

@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useConversations } from "../hooks/use-conversations";
 import { useMarkConversationRead } from "../hooks/use-mark-conversation-read";
 import { useMessages } from "../hooks/use-messages";
-import type { MessengerConversation, MessengerMessage } from "../types";
+import type { MessengerConversation, MessengerMessage, MessengerSendPayload } from "../types";
 import { MessengerCore } from "./messenger-core";
 
 const MARK_READ_DEBOUNCE_MS = 400;
@@ -143,9 +143,9 @@ export function MessengerHost({
   }, []);
 
   const handleSend = useCallback(
-    (conversationId: string, text: string) => {
+    (conversationId: string, payload: MessengerSendPayload) => {
       if (conversationId !== activeId) return;
-      void sendMessage(text);
+      void sendMessage(payload);
     },
     [activeId, sendMessage],
   );

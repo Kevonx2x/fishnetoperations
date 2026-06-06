@@ -17,7 +17,8 @@ export type DbMessage = {
   id: string;
   conversation_id: string;
   sender_id: string;
-  body: string;
+  body: string | null;
+  attachment_url: string | null;
   created_at: string;
 };
 

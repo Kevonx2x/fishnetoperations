@@ -12,12 +12,20 @@ export type MessengerReaction = {
   count: number;
 };
 
+export type MessengerSendPayload = {
+  text?: string;
+  attachmentUrl?: string;
+};
+
 export type MessengerMessage = {
   id: string;
   text: string;
   sent: boolean;
   time: string;
   read?: boolean;
+  attachmentUrl?: string | null;
+  /** Optimistic outbound message awaiting DB confirmation. */
+  pending?: boolean;
   reactions?: MessengerReaction[];
   dateDivider?: string;
 };
