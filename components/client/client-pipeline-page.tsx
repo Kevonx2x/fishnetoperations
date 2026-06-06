@@ -17,7 +17,9 @@ import {
   Calendar,
   Check,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
+  ClipboardList,
   Clock,
   ExternalLink,
   FileText,
@@ -25,6 +27,7 @@ import {
   LayoutGrid,
   LayoutList,
   Loader2,
+  MapPin,
   MoreHorizontal,
   Star,
 } from "lucide-react";
@@ -622,6 +625,119 @@ function awaitingWaitDays(iso: string): number {
   return Math.floor(Math.max(0, Date.now() - t) / 86400000);
 }
 
+type MobileCardAccent = "sage" | "gold";
+
+type MobileCardTheme = {
+  shell: string;
+  accent: MobileCardAccent;
+};
+
+function mobileCardTheme(cardIndex: number, stageLc: string): MobileCardTheme {
+  const goldStage = stageLc === "offer" || stageLc === "reservation";
+  const accent: MobileCardAccent = goldStage ? "gold" : "sage";
+  if (cardIndex % 2 === 0) {
+    return {
+      shell:
+        "bg-gradient-to-b from-[#F6FAF7] via-[#EDF4EF] to-[#E4EBE6] ring-1 ring-[#6B9E6E]/[0.14] shadow-[0_10px_28px_rgba(44,44,44,0.09),0_2px_6px_rgba(44,44,44,0.05)]",
+      accent,
+    };
+  }
+  return {
+    shell:
+      "bg-gradient-to-b from-[#FCF9F4] via-[#F5EFE6] to-[#EBE4DA] ring-1 ring-[#C4B49A]/25 shadow-[0_10px_28px_rgba(44,44,44,0.09),0_2px_6px_rgba(44,44,44,0.05)]",
+    accent,
+  };
+}
+
+const MOBILE_CARD_ACCENT: Record<
+  MobileCardAccent,
+  { price: string; iconText: string; heading: string; nextHeading: string }
+> = {
+  sage: {
+    price: "text-[#2F5232]",
+    iconText: "text-[#5A8F5D]",
+    heading: "text-[#2F5232]",
+    nextHeading: "text-[#3D6B40]",
+  },
+  gold: {
+    price: "text-[#8A6B22]",
+    iconText: "text-[#B8942E]",
+    heading: "text-[#7A5F1A]",
+    nextHeading: "text-[#8A6B22]",
+  },
+};
+
+const MOBILE_STATUS_INSET =
+  "rounded-xl bg-white px-3 py-2.5 shadow-[0_3px_10px_rgba(44,44,44,0.07),0_1px_2px_rgba(44,44,44,0.04)] ring-1 ring-[#2C2C2C]/[0.06]";
+
+const MOBILE_STATUS_ICON =
+  "flex size-9 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_2px_6px_rgba(44,44,44,0.08)] ring-1 ring-[#2C2C2C]/[0.05]";
+
+function propertyLocationLine(deal: PipelineDeal): string {
+  const loc = (deal.property.location ?? "").trim();
+  const city = (deal.property.city ?? "").trim();
+  if (loc && city && !loc.toLowerCase().includes(city.toLowerCase())) {
+    return `${loc}, ${city}`;
+  }
+  return loc || city || "Philippines";
+}
+
+function deriveCurrentStatusHighlight(deal: PipelineDeal): PipelineNextStep {
+  const viewingConfirmed = deal.viewing?.status === "confirmed";
+  const stage = String(deal.pipeline_stage ?? "").toLowerCase();
+  const hasPendingOffer = (deal.offers ?? []).some(
+    (o) => String(o.status).toLowerCase() === "pending",
+  );
+
+  if (deal.property.listing_removed) {
+    return {
+      icon: Home,
+      title: "Unavailable",
+      description: "This listing is no longer on the market.",
+      dueLabel: null,
+    };
+  }
+  if (viewingConfirmed && deal.viewing?.scheduled_at) {
+    const when = formatViewingWhen(deal.viewing.scheduled_at);
+    return {
+      icon: Calendar,
+      title: "Viewing Scheduled",
+      description: when ? `Confirmed for ${when}` : "Your viewing is confirmed.",
+      dueLabel: null,
+    };
+  }
+  if (hasPendingOffer || stage === "offer") {
+    return {
+      icon: FileText,
+      title: "Offer Submitted",
+      description: deal.status_label || "Review the offer with your agent.",
+      dueLabel: null,
+    };
+  }
+  if (stage === "reservation") {
+    return {
+      icon: ClipboardList,
+      title: "Reservation in progress",
+      description: deal.status_label || "Complete reservation steps with your agent.",
+      dueLabel: null,
+    };
+  }
+  if (stage === "closed") {
+    return {
+      icon: Check,
+      title: "Completed",
+      description: deal.status_label || "This inquiry is complete.",
+      dueLabel: null,
+    };
+  }
+  return {
+    icon: Star,
+    title: deal.status_label || "Inquiry sent",
+    description: "Your agent will follow up about next steps.",
+    dueLabel: null,
+  };
+}
+
 function derivePipelineNextStep(deal: PipelineDeal, pendingDocCount: number): PipelineNextStep {
   const stage = String(deal.pipeline_stage ?? "").toLowerCase();
   const viewingConfirmed = deal.viewing?.status === "confirmed";
@@ -1174,6 +1290,219 @@ function PipelineRowMenu({
   );
 }
 
+/** Mobile pipeline property card — pastel contrast per property (mockup-aligned). */
+function ClientPipelineMobileDealCard({
+  deal,
+  cardIndex,
+  clientUserId,
+  listingRemovedUi,
+  photosBadge,
+  nextStep,
+  pendingCount,
+  onOpenDetail,
+  onRequestRemove,
+  menu,
+}: {
+  deal: PipelineDeal;
+  cardIndex: number;
+  clientUserId: string;
+  listingRemovedUi: boolean;
+  photosBadge: string | null;
+  nextStep: PipelineNextStep;
+  pendingCount: number;
+  onOpenDetail?: () => void;
+  onRequestRemove?: () => void;
+  menu: ReactNode;
+}) {
+  const [agentAvatarFailed, setAgentAvatarFailed] = useState(false);
+  const stageLc = String(deal.pipeline_stage ?? "").toLowerCase();
+  const theme = mobileCardTheme(cardIndex, stageLc);
+  const accent = MOBILE_CARD_ACCENT[theme.accent];
+  const currentStatus = deriveCurrentStatusHighlight(deal);
+  const CurrentIcon = currentStatus.icon;
+  const NextIcon = nextStep.icon;
+  const initials = pipelineAgentInitials(deal.agent.name);
+  const lastUpdateIso =
+    deal.viewing?.updated_at ?? deal.viewing?.created_at ?? deal.lead_created_at;
+  const lastUpdate = formatRelativeTime(lastUpdateIso);
+
+  return (
+    <div
+      className={cn(
+        "relative isolate overflow-hidden rounded-[1.25rem] p-4 font-sans before:pointer-events-none before:absolute before:inset-x-4 before:top-0 before:z-10 before:h-px before:bg-white/75",
+        theme.shell,
+      )}
+      role={onOpenDetail ? "button" : undefined}
+      tabIndex={onOpenDetail ? 0 : undefined}
+      onClick={
+        onOpenDetail
+          ? (e) => {
+              if ((e.target as HTMLElement).closest("[data-pipeline-card-action]")) return;
+              onOpenDetail();
+            }
+          : undefined
+      }
+      onKeyDown={
+        onOpenDetail
+          ? (e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              if ((e.target as HTMLElement).closest("[data-pipeline-card-action]")) return;
+              e.preventDefault();
+              onOpenDetail();
+            }
+          : undefined
+      }
+    >
+      <div className="relative z-0 mb-4 aspect-[16/10] w-full overflow-hidden rounded-2xl bg-[#FAF8F4] shadow-[0_8px_22px_rgba(44,44,44,0.14),0_2px_6px_rgba(44,44,44,0.06)] ring-1 ring-[#2C2C2C]/[0.08]">
+        {deal.property.hero_image ? (
+          <Image
+            src={deal.property.hero_image}
+            alt=""
+            fill
+            className={cn("object-cover", listingRemovedUi && "grayscale")}
+            sizes="(max-width: 1024px) 100vw, 360px"
+            unoptimized
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs font-medium text-[#2C2C2C]/38">
+            No photo
+          </div>
+        )}
+        {listingRemovedUi ? (
+          <div className="pointer-events-none absolute inset-0 z-[8] flex items-center justify-center bg-black/25 px-2">
+            <span className="rounded-full bg-gray-900/85 px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-gray-100">
+              No longer available
+            </span>
+          </div>
+        ) : null}
+        {photosBadge ? (
+          <div className="pointer-events-none absolute left-2.5 top-2.5 z-10 rounded-full bg-[#2C2C2C]/75 px-2.5 py-0.5 text-[10px] font-semibold text-white">
+            {photosBadge}
+          </div>
+        ) : null}
+        <div className="absolute right-2 top-2 z-20" data-pipeline-card-action onClick={(e) => e.stopPropagation()}>
+          {menu}
+        </div>
+      </div>
+
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <h2 className="min-w-0 flex-1 font-serif text-[1.05rem] font-semibold leading-snug tracking-tight text-[#2C2C2C]">
+          {deal.property.title}
+        </h2>
+        <p className={cn("shrink-0 text-[15px] font-bold tabular-nums", accent.price)}>
+          {formatPipelineCardPrice(deal.property.price)}
+        </p>
+      </div>
+
+      <p className="mb-4 flex items-center gap-1.5 text-xs font-medium text-[#5C5C5C]">
+        <MapPin className="size-3.5 shrink-0 text-[#8A8A8A]" aria-hidden />
+        <span className="truncate">{propertyLocationLine(deal)}</span>
+      </p>
+
+      {!listingRemovedUi ? (
+        <div className="mb-3.5 space-y-2.5">
+          <div className={cn("flex items-center gap-3", MOBILE_STATUS_INSET)}>
+            <span className={MOBILE_STATUS_ICON}>
+              <CurrentIcon className={cn("size-4", accent.iconText)} strokeWidth={2.25} aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className={cn("text-sm font-bold", accent.heading)}>{currentStatus.title}</p>
+              <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-[#5C5C5C]">
+                {currentStatus.description}
+              </p>
+            </div>
+            {onOpenDetail ? (
+              <ChevronRight className="size-4 shrink-0 text-[#C8C8C8]" aria-hidden />
+            ) : null}
+          </div>
+          <div className={cn("flex items-center gap-3", MOBILE_STATUS_INSET)}>
+            <span className={MOBILE_STATUS_ICON}>
+              <NextIcon className={cn("size-4", accent.iconText)} strokeWidth={2.25} aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className={cn("text-sm font-bold", accent.nextHeading)}>Next step</p>
+              <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-[#5C5C5C]">
+                {pendingCount > 0
+                  ? `Upload ${pendingCount} requested document${pendingCount === 1 ? "" : "s"}.`
+                  : nextStep.description}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className={cn("mb-3.5 text-xs leading-snug text-[#5C5C5C]", MOBILE_STATUS_INSET)}>
+          This property is no longer available. The agent has closed the inquiry.
+        </p>
+      )}
+
+      <div className="mb-3.5 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="relative inline-flex size-8 shrink-0 overflow-hidden rounded-full bg-white shadow-[0_2px_6px_rgba(44,44,44,0.08)] ring-1 ring-[#2C2C2C]/08">
+            {deal.agent.image_url?.trim() && !agentAvatarFailed ? (
+              <Image
+                src={deal.agent.image_url}
+                alt=""
+                fill
+                sizes="32px"
+                className="object-cover"
+                unoptimized
+                onError={() => setAgentAvatarFailed(true)}
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center text-[9px] font-semibold text-[#2C2C2C]/50">
+                {initials}
+              </span>
+            )}
+          </span>
+          <span className="truncate text-sm font-semibold text-[#2C2C2C]">{deal.agent.name}</span>
+          {deal.agent.verified ? (
+            <BadgeCheck className="size-4 shrink-0 text-[#6B9E6E]" aria-label="Verified agent" />
+          ) : null}
+        </div>
+        <p className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-[#888888]">
+          <Clock className="size-3.5" aria-hidden />
+          {lastUpdate}
+        </p>
+      </div>
+
+      <div className="flex gap-2.5" data-pipeline-card-action onClick={(e) => e.stopPropagation()}>
+        {deal.agent.user_id && !listingRemovedUi ? (
+          <StartChatButton
+            agentId={deal.agent.user_id}
+            clientId={clientUserId}
+            label="Message Agent"
+            showMessageIcon
+            metadata={{
+              property_id: deal.property.id ?? null,
+              property_name: deal.property.title ?? null,
+              property_price: deal.property.price ?? null,
+              property_image: deal.property.hero_image ?? null,
+            }}
+            className="h-11 min-h-0 flex-1 justify-center gap-2 rounded-xl border border-[#2C2C2C]/10 bg-white px-3 text-[13px] font-semibold text-[#2C2C2C] shadow-[0_3px_10px_rgba(44,44,44,0.07)] hover:bg-[#FAF8F4]"
+          />
+        ) : (
+          <span className="flex h-11 flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white/80 text-[12px] font-semibold text-gray-400">
+            Messaging unavailable
+          </span>
+        )}
+        {deal.property.id && !listingRemovedUi ? (
+          <Link
+            href={`/properties/${encodeURIComponent(deal.property.id)}`}
+            className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#78AB7B] to-[#5F9162] px-3 text-[13px] font-bold text-white shadow-[0_6px_18px_rgba(95,145,98,0.38),0_2px_4px_rgba(44,44,44,0.08)] transition hover:from-[#6fa072] hover:to-[#568658]"
+          >
+            <Home className="size-4 shrink-0" aria-hidden />
+            View Property
+          </Link>
+        ) : (
+          <span className="flex h-11 flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white/80 text-[12px] font-semibold text-gray-400">
+            Unavailable
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Cards view only — fixed vertical slots so rows align across short/long titles. */
 function PipelineDealCardBody({
   deal,
@@ -1393,6 +1722,7 @@ function DealCard({
   onOpenDetail,
   onUnarchive,
   viewMode = "list",
+  cardIndex = 0,
 }: {
   deal: PipelineDeal;
   clientUserId: string;
@@ -1407,6 +1737,7 @@ function DealCard({
   onOpenDetail?: () => void;
   onUnarchive?: () => void;
   viewMode?: PipelineViewMode;
+  cardIndex?: number;
 }) {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -1587,15 +1918,28 @@ function DealCard({
     );
   }
 
+  const mobileRowMenu =
+    onOpenDetail || onRequestRemove ? (
+      <PipelineRowMenu
+        deal={deal}
+        clientUserId={clientUserId}
+        listingRemovedUi={listingRemovedUi}
+        onToggleDocs={onToggleDocs}
+        onRequestRemove={onRequestRemove}
+        onOpenDetail={onOpenDetail}
+        menuLayout="list"
+      />
+    ) : null;
+
   return (
     <article
       id={`lead-${deal.lead_id}`}
       className={cn(
-        "relative isolate overflow-hidden bg-white transition-[box-shadow,opacity] duration-150",
+        "relative isolate overflow-hidden transition-[box-shadow,opacity] duration-150",
         viewMode === "list"
-          ? "border-b border-stone-200 last:border-b-0 max-lg:rounded-xl max-lg:border max-lg:border-[#2C2C2C]/[0.06] max-lg:shadow-[0_1px_2px_rgba(44,44,44,0.04)] max-lg:transition-[box-shadow,background-color] max-lg:duration-150 max-lg:hover:bg-stone-50/60 max-lg:hover:shadow-sm lg:border-x-0 lg:border-t-0 lg:shadow-none lg:transition-[box-shadow,background-color,transform] lg:duration-150 lg:hover:-translate-y-px lg:hover:bg-stone-50/60 lg:hover:shadow-sm"
+          ? "max-lg:overflow-visible max-lg:bg-transparent lg:border-b lg:border-stone-200 lg:bg-white lg:last:border-b-0 lg:shadow-none lg:transition-[box-shadow,background-color,transform] lg:duration-150 lg:hover:-translate-y-px lg:hover:bg-stone-50/60 lg:hover:shadow-sm"
           : "flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm ring-1 ring-[#2C2C2C]/[0.04]",
-        highlight && "ring-2 ring-[#D4A843]/50",
+        highlight && "max-lg:ring-2 max-lg:ring-[#D4A843]/40 lg:ring-2 lg:ring-[#D4A843]/50",
         listingRemovedUi && "opacity-60",
       )}
     >
@@ -1607,18 +1951,6 @@ function DealCard({
             listingRemovedUi={listingRemovedUi}
             onToggleDocs={onToggleDocs}
             onRequestRemove={onRequestRemove}
-          />
-        </div>
-      ) : viewMode === "list" && (onOpenDetail || onRequestRemove) ? (
-        <div className="absolute right-3 top-0 z-20 sm:right-4 sm:top-1 lg:hidden" onClick={(e) => e.stopPropagation()}>
-          <PipelineRowMenu
-            deal={deal}
-            clientUserId={clientUserId}
-            listingRemovedUi={listingRemovedUi}
-            onToggleDocs={onToggleDocs}
-            onRequestRemove={onRequestRemove}
-            onOpenDetail={onOpenDetail}
-            menuLayout="list"
           />
         </div>
       ) : null}
@@ -1639,125 +1971,18 @@ function DealCard({
             onOpenDetail={onOpenDetail}
           />
         ) : (
-        <div
-          className={cn(
-            "space-y-3 px-4 py-4 font-sans transition-colors duration-150",
-            onOpenDetail && "cursor-pointer hover:bg-stone-50/60",
-          )}
-          role={onOpenDetail ? "button" : undefined}
-          tabIndex={onOpenDetail ? 0 : undefined}
-          onClick={
-            onOpenDetail
-              ? (e) => {
-                  if ((e.target as HTMLElement).closest("[data-pipeline-card-action]")) return;
-                  onOpenDetail();
-                }
-              : undefined
-          }
-          onKeyDown={
-            onOpenDetail
-              ? (e) => {
-                  if (e.key !== "Enter" && e.key !== " ") return;
-                  if ((e.target as HTMLElement).closest("[data-pipeline-card-action]")) return;
-                  e.preventDefault();
-                  onOpenDetail();
-                }
-              : undefined
-          }
-        >
-          <div className="relative z-0 h-[100px] w-full shrink-0 overflow-hidden rounded-lg bg-[#FAF8F4] ring-1 ring-[#2C2C2C]/[0.05]">
-            {deal.property.hero_image ? (
-              <Image
-                src={deal.property.hero_image}
-                alt=""
-                fill
-                className={cn("object-cover", listingRemovedUi && "grayscale")}
-                sizes="(max-width: 1024px) 100vw, 120px"
-                unoptimized
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs font-medium text-[#2C2C2C]/38">
-                No photo
-              </div>
-            )}
-            {listingRemovedUi ? (
-              <div className="pointer-events-none absolute inset-0 z-[8] flex items-center justify-center bg-black/25 px-2">
-                <span className="rounded-full bg-gray-900/85 px-3 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-gray-100">
-                  No longer available
-                </span>
-              </div>
-            ) : null}
-            {photosBadge ? (
-              <div className="pointer-events-none absolute bottom-1 left-1 z-10 rounded-full bg-[#2C2C2C]/80 px-1.5 py-0.5 font-sans text-[9px] font-medium text-white">
-                {photosBadge}
-              </div>
-            ) : null}
-          </div>
-          <div className="min-w-0">
-            <h2 className="break-words font-serif text-lg font-semibold leading-snug tracking-tight text-[#2C2C2C]">
-              {deal.property.title}
-            </h2>
-            <p className="mt-1 text-base font-semibold tracking-tight text-[#2C2C2C] tabular-nums">
-              {formatPipelineCardPrice(deal.property.price)}
-            </p>
-          </div>
-          <div>
-            <ClientPipelineStepper deal={deal} muted={listingRemovedUi} />
-            <div className="text-xs leading-snug text-[#6B728E]">
-              <DealStatusBanner deal={deal} />
-            </div>
-          </div>
-          <div
-            className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-20 -mx-4 flex shrink-0 gap-2.5 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-[#FAF8F4]/90"
-            data-pipeline-card-action
-            onClick={(e) => e.stopPropagation()}
-          >
-            {deal.agent.user_id && !listingRemovedUi ? (
-              <StartChatButton
-                agentId={deal.agent.user_id}
-                clientId={clientUserId}
-                label="Message Agent"
-                showMessageIcon
-                metadata={{
-                  property_id: deal.property.id ?? null,
-                  property_name: deal.property.title ?? null,
-                  property_price: deal.property.price ?? null,
-                  property_image: deal.property.hero_image ?? null,
-                }}
-                className="h-11 min-h-[44px] flex-1 justify-center rounded-xl border-0 bg-[#2C2C2C] px-3 text-[13px] font-semibold text-white hover:bg-[#6B9E6E]"
-              />
-            ) : (
-              <span className="flex h-11 min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-[12px] font-semibold text-gray-400">
-                Messaging unavailable
-              </span>
-            )}
-            {deal.property.id && !listingRemovedUi ? (
-              <Link
-                href={`/properties/${encodeURIComponent(deal.property.id)}`}
-                className="inline-flex h-11 min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border-2 border-[#6B9E6E] bg-white px-3 text-[13px] font-bold text-[#6B9E6E] transition hover:bg-[#6B9E6E]/10"
-              >
-                <Home className="h-4 w-4 shrink-0" aria-hidden />
-                View Property
-              </Link>
-            ) : listingRemovedUi ? (
-              <span className="flex h-11 min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-[12px] font-semibold text-gray-400">
-                Unavailable
-              </span>
-            ) : null}
-          </div>
-          {onOpenDetail ? (
-            <button
-              type="button"
-              className="w-full text-center text-xs font-semibold text-[#6B9E6E] hover:underline"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenDetail();
-              }}
-            >
-              View details
-            </button>
-          ) : null}
-        </div>
+          <ClientPipelineMobileDealCard
+            deal={deal}
+            cardIndex={cardIndex}
+            clientUserId={clientUserId}
+            listingRemovedUi={listingRemovedUi}
+            photosBadge={photosBadge}
+            nextStep={nextStep}
+            pendingCount={pendingCount}
+            onOpenDetail={onOpenDetail}
+            onRequestRemove={onRequestRemove}
+            menu={mobileRowMenu}
+          />
         )}
       </div>
 
@@ -2298,6 +2523,7 @@ function ClientPipelineToolbar({
   setSortKey,
   viewMode,
   setViewMode,
+  dealCount,
 }: {
   pipelineListTab: "active" | "archived";
   setPipelineListTab: (tab: "active" | "archived") => void;
@@ -2305,10 +2531,51 @@ function ClientPipelineToolbar({
   setSortKey: (key: PipelineSortKey) => void;
   viewMode: PipelineViewMode;
   setViewMode: (mode: PipelineViewMode) => void;
+  dealCount: number;
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-[#2C2C2C]/[0.06] bg-[#FAF8F4]/35 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-3 border-b border-[#2C2C2C]/[0.06] bg-[#FAF8F4]/35 px-0 py-3 max-lg:border-0 max-lg:bg-transparent lg:px-7 lg:py-4">
+      <div className="flex flex-wrap items-center gap-2 lg:hidden">
+        <button
+          type="button"
+          onClick={() => setPipelineListTab("active")}
+          className={cn(
+            "rounded-full px-4 py-2 text-sm font-semibold transition",
+            pipelineListTab === "active"
+              ? "bg-[#6B9E6E] text-white shadow-sm"
+              : "border border-[#2C2C2C]/10 bg-white text-[#484848]",
+          )}
+        >
+          Active{pipelineListTab === "active" && dealCount > 0 ? ` (${dealCount})` : ""}
+        </button>
+        <button
+          type="button"
+          onClick={() => setPipelineListTab("archived")}
+          className={cn(
+            "rounded-full px-4 py-2 text-sm font-semibold transition",
+            pipelineListTab === "archived"
+              ? "bg-[#6B9E6E] text-white shadow-sm"
+              : "border border-[#2C2C2C]/10 bg-white text-[#484848]",
+          )}
+        >
+          Archived{pipelineListTab === "archived" && dealCount > 0 ? ` (${dealCount})` : ""}
+        </button>
+        <label className="sr-only" htmlFor="pipeline-sort-mobile">
+          Sort properties
+        </label>
+        <select
+          id="pipeline-sort-mobile"
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as PipelineSortKey)}
+          className="ml-auto min-w-0 rounded-full border border-[#2C2C2C]/10 bg-white px-3 py-2 text-sm font-medium text-[#484848] shadow-sm outline-none focus:border-[#6B9E6E]/40"
+        >
+          <option value="recent">Most recent</option>
+          <option value="stage">Stage</option>
+          <option value="name">Property name</option>
+        </select>
+      </div>
+
+      <div className="hidden flex-wrap items-center gap-2 lg:flex">
         <button
           type="button"
           onClick={() => setPipelineListTab("active")}
@@ -2334,7 +2601,7 @@ function ClientPipelineToolbar({
           Archived
         </button>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="hidden flex-wrap items-center gap-2 lg:flex lg:justify-end">
         <label className="sr-only" htmlFor="pipeline-sort">
           Sort properties
         </label>
@@ -2503,7 +2770,13 @@ export function ClientPipelineInner() {
 
   return (
     <div className="w-full min-w-0 font-sans text-[#2C2C2C]">
-      <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.07] bg-white shadow-[0_2px_16px_rgba(44,44,44,0.06),0_1px_3px_rgba(44,44,44,0.04)]">
+      <div
+        className={cn(
+          isBelowLg
+            ? "space-y-4"
+            : "overflow-hidden rounded-2xl border border-[#2C2C2C]/[0.07] bg-white shadow-[0_2px_16px_rgba(44,44,44,0.06),0_1px_3px_rgba(44,44,44,0.04)]",
+        )}
+      >
         <ClientPipelineToolbar
             pipelineListTab={pipelineListTab}
             setPipelineListTab={setPipelineListTab}
@@ -2511,6 +2784,7 @@ export function ClientPipelineInner() {
             setSortKey={setSortKey}
             viewMode={viewMode}
             setViewMode={setViewMode}
+            dealCount={deals.length}
         />
         {loading ? (
           <div className="flex justify-center py-20">
@@ -2551,11 +2825,13 @@ export function ClientPipelineInner() {
             className={cn(
               viewMode === "card" &&
                 "grid items-stretch gap-5 p-5 sm:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0",
+              viewMode === "list" && isBelowLg && "space-y-6",
             )}
           >
-            {sortedDeals.map((deal) => (
+            {sortedDeals.map((deal, cardIndex) => (
               <DealCard
                 key={deal.lead_id}
+                cardIndex={cardIndex}
                 deal={deal}
                 clientUserId={user.id}
                 clientDisplayName={profile?.full_name}
