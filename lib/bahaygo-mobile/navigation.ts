@@ -35,7 +35,14 @@ function isAgentRole(role: string | null | undefined): boolean {
 export function pathForMessagesNav(
   role: string | null | undefined,
   signedIn: boolean,
+  authLoading = false,
 ): string {
+  if (authLoading) {
+    if (isAgentRole(role)) {
+      return AGENT_MESSENGER_TAB_PATH;
+    }
+    return CLIENT_MESSENGER_PATH;
+  }
   if (!signedIn) {
     return `/auth/login?next=${encodeURIComponent("/messages")}`;
   }
@@ -48,16 +55,21 @@ export function pathForMessagesNav(
 export function resolveMarketplaceBottomNavTabs(
   role: string | null | undefined,
   signedIn: boolean,
+  authLoading = false,
 ): MarketplaceBottomNavTab[] {
   return MARKETPLACE_BOTTOM_NAV_TABS.map((tab) => {
     if (tab.id === "messages") {
-      return { ...tab, href: pathForMessagesNav(role, signedIn) };
+      return { ...tab, href: pathForMessagesNav(role, signedIn, authLoading) };
     }
     if (tab.id === "profile") {
       return {
         ...tab,
         label: signedIn ? "Profile" : "Sign In",
-        href: signedIn ? "/profile" : "/auth/login?next=/profile",
+        href: authLoading
+          ? "/profile"
+          : signedIn
+            ? "/profile"
+            : "/auth/login?next=/profile",
       };
     }
     return tab;

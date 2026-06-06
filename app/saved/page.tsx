@@ -27,7 +27,7 @@ function sourceChipLabel(source: EngagementSource): string {
 }
 
 export default function SavedPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, status } = useAuth();
   const likes = usePropertyLikes();
   const pins = usePinnedPropertyIds();
 
@@ -199,7 +199,7 @@ export default function SavedPage() {
     if (user?.id) void mutate();
   }, [engagementKey, mutate, user?.id]);
 
-  if (!authLoading && !user) {
+  if (status === "unauthenticated") {
     return (
       <>
         <div className="max-md:min-h-0 max-md:overflow-hidden md:hidden">

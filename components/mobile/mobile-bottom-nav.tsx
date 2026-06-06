@@ -286,7 +286,7 @@ export function MobileBottomNav({ embedded = false }: MobileBottomNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { role, user } = useAuth();
+  const { role, user, loading: authLoading } = useAuth();
   const messagesUnread = useMessengerUnreadTotal(user?.id);
   const { overlayOpen } = useMobileChromeOverlay();
 
@@ -298,14 +298,16 @@ export function MobileBottomNav({ embedded = false }: MobileBottomNavProps) {
     overlayOpen || isMobileBottomNavHidden(path, messagesThreadOpen, keyboardOnMessagesThread);
   const tabs = useMemo(() => {
     const base = resolveTabs(pathname ?? "/", role).map((t) =>
-      t.id === "inbox" ? { ...t, href: pathForMessagesNav(role, Boolean(user?.id)) } : t,
+      t.id === "inbox"
+        ? { ...t, href: pathForMessagesNav(role, Boolean(user?.id), authLoading) }
+        : t,
     );
     return base.map((t) =>
       t.id === "inbox" && messagesUnread > 0
         ? { ...t, badgeCount: messagesUnread }
         : t,
     );
-  }, [pathname, role, messagesUnread, user?.id]);
+  }, [pathname, role, messagesUnread, user?.id, authLoading]);
 
   useEffect(() => {
     if (embedded || hidden) {

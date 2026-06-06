@@ -68,7 +68,7 @@ function agentRepresentsListing(
 
 /** Heart / like — `property_likes` when signed-in client only. */
 export function usePropertyLikes() {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, status: authStatus } = useAuth();
   const openSignIn = useOpenEngagementSignIn();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [dbIds, setDbIds] = useState<string[]>([]);
@@ -105,7 +105,9 @@ export function usePropertyLikes() {
       pendingRef.current.add(propertyId);
       try {
         if (!user?.id) {
-          openSignIn();
+          if (authStatus === "unauthenticated") {
+            openSignIn();
+          }
           return false;
         }
         if (authLoading || !profile) return false;
@@ -155,7 +157,7 @@ export function usePropertyLikes() {
         pendingRef.current.delete(propertyId);
       }
     },
-    [user?.id, supabase, dbIds, profile, profile?.full_name, profile?.role, authLoading, openSignIn],
+    [user?.id, supabase, dbIds, profile, profile?.full_name, profile?.role, authLoading, authStatus, openSignIn],
   );
 
   return { has, toggle, dbIds };
@@ -163,7 +165,7 @@ export function usePropertyLikes() {
 
 /** Pin / wishlist — `saved_properties` only; clients only. */
 export function usePinnedPropertyIds() {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, status: authStatus } = useAuth();
   const openSignIn = useOpenEngagementSignIn();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [ids, setIds] = useState<string[]>([]);
@@ -200,7 +202,9 @@ export function usePinnedPropertyIds() {
       pendingRef.current.add(propertyId);
       try {
         if (!user?.id) {
-          openSignIn();
+          if (authStatus === "unauthenticated") {
+            openSignIn();
+          }
           return false;
         }
         if (authLoading || !profile) return false;
@@ -250,7 +254,7 @@ export function usePinnedPropertyIds() {
         pendingRef.current.delete(propertyId);
       }
     },
-    [user?.id, supabase, ids, profile, profile?.full_name, profile?.role, authLoading, openSignIn],
+    [user?.id, supabase, ids, profile, profile?.full_name, profile?.role, authLoading, authStatus, openSignIn],
   );
 
   return { has, toggle, ids };

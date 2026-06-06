@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 export default function NotificationsPage() {
   const pathname = usePathname();
-  const { user, profile, role, loading: authLoading } = useAuth();
+  const { user, profile, role, loading: authLoading, status } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [bottomNavUnread, setBottomNavUnread] = useState(0);
 
@@ -39,7 +39,7 @@ export default function NotificationsPage() {
     return () => window.removeEventListener("bahaygo:notifications-read", onRead);
   }, [refreshBottomNavUnread]);
 
-  if (!authLoading && !user) {
+  if (status === "unauthenticated") {
     return (
       <div className="min-h-screen bg-[#FAF8F4]">
         <MaddenTopNav />

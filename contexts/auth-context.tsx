@@ -127,6 +127,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const userRef = useRef<User | null>(null);
   const statusRef = useRef<AuthStatus>("loading");
   const resolveGenerationRef = useRef(0);
+  /** Set when Supabase fires INITIAL_SESSION — authoritative hydration boundary. */
+  const initialSessionResolvedRef = useRef(false);
 
   useEffect(() => {
     userRef.current = user;
@@ -164,9 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const resume = options?.resume === true;
       const hadUser = userRef.current != null;
 
-      if (!resume) {
-        setStatus("loading");
-      }
+      setStatus("loading");
 
       const finishIfCurrent = () => generation === resolveGenerationRef.current;
 
@@ -227,7 +227,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      applyUnauthenticated();
+      // Stay in "loading" until INITIAL_SESSION confirms absence (avoids false logged-out).
+      if (initialSessionResolvedRef.current) {
+        applyUnauthenticated();
+      }
     },
     [applyAuthenticated, applyUnauthenticated, loadProfileForUser, supabase],
   );
@@ -250,11 +253,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [resolveAuth]);
 
   useEffect(() => {
-    void resolveAuth();
-
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      // Initial hydration is handled by resolveAuth() — avoid racing to unauthenticated.
-      if (event === "INITIAL_SESSION") return;
+      if (event === "INITIAL_SESSION") {
+        initialSessionResolvedRef.current = true;
+        void syncFromSession(session);
+        return;
+      }
       if (event === "SIGNED_OUT") {
         applyUnauthenticated();
         return;
@@ -268,6 +272,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         void syncFromSession(session);
       }
     });
+
+    void resolveAuth();
 
     return () => sub.subscription.unsubscribe();
   }, [applyUnauthenticated, resolveAuth, supabase, syncFromSession]);
@@ -296,10 +302,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       if (statusRef.current !== "loading") return;
+      if (!initialSessionResolvedRef.current) {
+        initialSessionResolvedRef.current = true;
+        if (!userRef.current) {
+          applyUnauthenticated();
+        }
+        return;
+      }
       void resolveAuth({ resume: userRef.current != null });
     }, AUTH_RESOLVE_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
-  }, [resolveAuth]);
+  }, [applyUnauthenticated, resolveAuth]);
 
   const loading = status === "loading";
 

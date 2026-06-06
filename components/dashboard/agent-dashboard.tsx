@@ -982,7 +982,7 @@ export function AgentDashboard() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchQueryString = searchParams.toString();
-  const { user, profile, loading: authLoading, role: authProfileRole } = useAuth();
+  const { user, profile, loading: authLoading, status: authStatus, role: authProfileRole } = useAuth();
   const messagesUnreadTotal = useMessengerUnreadTotal(user?.id);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const agentViewingsRefetchRef = useRef<(() => Promise<void>) | null>(null);
@@ -1841,13 +1841,13 @@ export function AgentDashboard() {
   }, [authLoading, user?.id, tab, loadData]);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
+    if (authStatus === "loading") return;
+    if (authStatus === "unauthenticated") {
       router.replace("/auth/login?next=/dashboard/agent");
       return;
     }
     void loadData();
-  }, [authLoading, user, router, loadData]);
+  }, [authStatus, router, loadData]);
 
   useEffect(() => {
     if (paymentBannerTier) {

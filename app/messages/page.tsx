@@ -15,10 +15,10 @@ function isAgentRole(role: string | null | undefined): boolean {
 function MessagesRedirectInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, role, loading } = useAuth();
+  const { user, role, loading, status } = useAuth();
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || status === "loading") return;
 
     const conversationId = searchParams.get("c")?.trim();
     const buildHref = (base: string) => {
@@ -27,7 +27,7 @@ function MessagesRedirectInner() {
       return `${base}${sep}c=${encodeURIComponent(conversationId)}`;
     };
 
-    if (!user) {
+    if (status === "unauthenticated" || !user) {
       router.replace(`/auth/login?next=${encodeURIComponent("/messages")}`);
       return;
     }
@@ -38,7 +38,7 @@ function MessagesRedirectInner() {
     }
 
     router.replace(buildHref(CLIENT_MESSENGER_PATH));
-  }, [loading, role, router, searchParams, user]);
+  }, [loading, status, role, router, searchParams, user]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#FAF8F4]">

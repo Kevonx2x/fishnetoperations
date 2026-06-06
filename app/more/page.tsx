@@ -204,9 +204,9 @@ function MenuSectionBlock({ section, isFirst }: { section: MenuSection; isFirst?
 
 export default function MorePage() {
   const router = useRouter();
-  const { user, profile, role, loading } = useAuth();
+  const { user, profile, role, loading, status } = useAuth();
 
-  const isSignedIn = Boolean(user);
+  const isSignedIn = status === "authenticated" && Boolean(user);
   const isAgentUser = role === "agent" || role === "broker";
 
   const handleSignOut = useCallback(async () => {
@@ -447,13 +447,13 @@ export default function MorePage() {
 
       <div className="hidden min-h-screen bg-[#FAF8F4] font-sans text-[#2C2C2C] md:block">
       <div className="pb-32 pt-[env(safe-area-inset-top,0px)]">
-        {!loading && !isSignedIn ? (
+        {status === "unauthenticated" ? (
           <header className="flex items-center justify-end px-4 pb-2 pt-4">
             <AuthSignInLinkForPath nextPath="/more" nav />
           </header>
         ) : null}
 
-        {!loading && isSignedIn ? (
+        {status === "authenticated" && isSignedIn ? (
           <Link
             href={PATHS.settings}
             className="mx-4 mb-4 mt-6 flex items-center gap-3 rounded-xl border border-black/[0.06] bg-white p-5 transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]"
@@ -485,7 +485,7 @@ export default function MorePage() {
           <MenuSectionBlock
             key={section.id}
             section={section}
-            isFirst={index === 0 && !loading && !isSignedIn}
+            isFirst={index === 0 && status === "unauthenticated"}
           />
         ))}
 

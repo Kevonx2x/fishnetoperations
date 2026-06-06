@@ -65,7 +65,7 @@ function isMobileBottomActivePath(pathname: string, segment: string) {
 export function ClientDashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, profile, role, loading: authLoading } = useAuth();
+  const { user, profile, role, loading: authLoading, status } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [notifUnread, setNotifUnread] = useState(0);
   const messagesUnreadTotal = useMessengerUnreadTotal(user?.id);
@@ -97,17 +97,17 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
   }, [refreshUnread]);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user?.id) {
+    if (status === "loading") return;
+    if (status === "unauthenticated") {
       router.replace(`/auth/login?next=${encodeURIComponent("/dashboard/client")}`);
       return;
     }
     if (role && role !== "client") {
       router.replace("/");
     }
-  }, [authLoading, user?.id, role, router]);
+  }, [status, role, router]);
 
-  const gateLoading = authLoading || !user?.id || role !== "client";
+  const gateLoading = status === "loading" || !user?.id || role !== "client";
 
   const displayName = profile?.full_name?.trim() || user?.email?.trim() || "Client";
   const avatarUrl = profile?.avatar_url?.trim() || null;
