@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
+
+const LOCK_CLASS = "bahaygo-mobile-thread-scroll-lock";
 
 /** Prevent page-level scroll on mobile (e.g. messenger thread fullscreen). */
 export function useLockMobileDocumentScroll(active: boolean) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!active) return;
 
     const mq = window.matchMedia("(max-width: 767px)");
@@ -24,6 +26,7 @@ export function useLockMobileDocumentScroll(active: boolean) {
       bodyWidth: body.style.width,
     };
 
+    html.classList.add(LOCK_CLASS);
     html.style.overflow = "hidden";
     body.style.overflow = "hidden";
     html.style.height = "100%";
@@ -33,6 +36,7 @@ export function useLockMobileDocumentScroll(active: boolean) {
     body.style.width = "100%";
 
     return () => {
+      html.classList.remove(LOCK_CLASS);
       html.style.overflow = prev.htmlOverflow;
       body.style.overflow = prev.bodyOverflow;
       html.style.height = prev.htmlHeight;

@@ -2,6 +2,8 @@
 
 import "../messenger.css";
 import { useEffect, useMemo, useState } from "react";
+import { useMessengerMobileThreadPane } from "@/contexts/mobile-chrome-context";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import type { ConversationTab, MessengerConversation, MessengerSendPayload } from "../types";
 import { ChatThread } from "./chat-thread";
@@ -45,10 +47,21 @@ export function MessengerCore({
   const [tab, setTab] = useState<ConversationTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [mobilePane, setMobilePane] = useState<"list" | "thread">(defaultMobilePane);
+  const isMobile = useIsMobile();
+  const { setMessengerMobileThreadPaneOpen } = useMessengerMobileThreadPane();
 
   useEffect(() => {
     setMobilePane(defaultMobilePane);
   }, [defaultMobilePane]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setMessengerMobileThreadPaneOpen(false);
+      return;
+    }
+    setMessengerMobileThreadPaneOpen(mobilePane === "thread");
+    return () => setMessengerMobileThreadPaneOpen(false);
+  }, [isMobile, mobilePane, setMessengerMobileThreadPaneOpen]);
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeId) ?? null,

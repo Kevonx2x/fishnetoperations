@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 import { MobileBottomNav } from "@/components/mobile/mobile-bottom-nav";
 import { useSoftKeyboardOpen } from "@/hooks/use-soft-keyboard-open";
 import { useMobileChromeOverlay } from "@/contexts/mobile-chrome-context";
-import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
+import { useMobileMessagesThreadLocked } from "@/hooks/use-mobile-messages-thread-locked";
 import {
   MOBILE_BOTTOM_CHROME_HEIGHT_VAR,
   MOBILE_BOTTOM_NAV_HEIGHT_VAR,
@@ -41,10 +41,8 @@ type Props = {
 export function MobileBottomChrome({ stickyFooter }: Props) {
   const chromeRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname() ?? "/";
-  const searchParams = useSearchParams();
   const { overlayOpen } = useMobileChromeOverlay();
-  const threadParam = searchParams.get("c") ?? searchParams.get("channel");
-  const messagesThreadOpen = isMessagesThreadOpen(pathname, threadParam);
+  const messagesThreadOpen = useMobileMessagesThreadLocked();
   const keyboardOpen = useSoftKeyboardOpen();
   const keyboardOnMessagesThread = keyboardOpen && messagesThreadOpen;
   const hidden =

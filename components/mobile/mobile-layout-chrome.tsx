@@ -2,14 +2,14 @@
 
 import type { ReactNode } from "react";
 import { Suspense } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
 import { MobileBottomChrome } from "@/components/mobile/mobile-bottom-chrome";
 import {
   MobileChromeProvider,
+  useMessengerMobileThreadPane,
   useMobileStickyFooterContent,
 } from "@/contexts/mobile-chrome-context";
 import { useLockMobileDocumentScroll } from "@/hooks/use-lock-mobile-document-scroll";
-import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
+import { useMobileMessagesThreadLocked } from "@/hooks/use-mobile-messages-thread-locked";
 import { cn } from "@/lib/utils";
 
 function MobileLayoutContent({
@@ -44,10 +44,7 @@ function MobileLayoutContent({
 }
 
 function MobileLayoutChromeInner({ children }: { children: ReactNode }) {
-  const pathname = usePathname() ?? "/";
-  const sp = useSearchParams();
-  const threadParam = sp.get("c") ?? sp.get("channel");
-  const messagesThreadOpen = isMessagesThreadOpen(pathname, threadParam);
+  const messagesThreadOpen = useMobileMessagesThreadLocked();
   const stickyFooter = useMobileStickyFooterContent();
 
   return (
@@ -57,17 +54,26 @@ function MobileLayoutChromeInner({ children }: { children: ReactNode }) {
   );
 }
 
+/** Suspense fallback: pane context may be set before searchParams resolve. */
+function MobileLayoutChromeSuspenseFallback({ children }: { children: ReactNode }) {
+  const { messengerMobileThreadPaneOpen } = useMessengerMobileThreadPane();
+  const stickyFooter = useMobileStickyFooterContent();
+
+  return (
+    <MobileLayoutContent
+      messagesThreadOpen={messengerMobileThreadPaneOpen}
+      stickyFooter={stickyFooter}
+    >
+      {children}
+    </MobileLayoutContent>
+  );
+}
+
 /** Wraps page content with mobile bottom-nav clearance and mounts global mobile nav. */
 export function MobileLayoutChrome({ children }: { children: ReactNode }) {
   return (
     <MobileChromeProvider>
-      <Suspense
-        fallback={
-          <MobileLayoutContent messagesThreadOpen={false} stickyFooter={null}>
-            {children}
-          </MobileLayoutContent>
-        }
-      >
+      <Suspense fallback={<MobileLayoutChromeSuspenseFallback>{children}</MobileLayoutChromeSuspenseFallback>}>
         <MobileLayoutChromeInner>{children}</MobileLayoutChromeInner>
       </Suspense>
     </MobileChromeProvider>

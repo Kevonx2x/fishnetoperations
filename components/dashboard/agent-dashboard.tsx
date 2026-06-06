@@ -46,7 +46,7 @@ import {
 } from "@/components/dashboard/agent-pipeline-tab";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AGENT_MOBILE_PIPELINE_PATH } from "@/lib/agent-dashboard-routes";
-import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
+import { useMobileMessagesThreadLocked } from "@/hooks/use-mobile-messages-thread-locked";
 import { MessengerHost } from "@/features/messenger/components/messenger-host";
 import { useMessengerUnreadTotal } from "@/features/messenger/hooks/use-messenger-unread-total";
 import { AGENT_INHOUSE_MESSENGER_PATH } from "@/lib/messenger/agent-messages-path";
@@ -992,11 +992,9 @@ export function AgentDashboard() {
     [pathname, searchQueryString],
   );
   const isMobilePipeline = useIsMobile();
-  const threadParam = searchParams.get("c") ?? searchParams.get("channel");
+  const messagesThreadOpen = useMobileMessagesThreadLocked();
   const isAgentMessagesThreadMobile =
-    isMobilePipeline &&
-    tab === "messages" &&
-    isMessagesThreadOpen(pathname, threadParam);
+    isMobilePipeline && tab === "messages" && messagesThreadOpen;
   const showMobilePipelineUi =
     isMobilePipeline && (tab === "pipeline" || pathname === AGENT_MOBILE_PIPELINE_PATH);
 
@@ -2786,11 +2784,12 @@ export function AgentDashboard() {
   return (
     <div
       className={cn(
-        "min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0",
+        "bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0",
+        !isFullHeightMessagingTab && "min-h-screen",
         showMobilePipelineUi && "pb-0",
         isFullHeightMessagingTab &&
           "max-md:flex max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:min-h-0 max-md:flex-col max-md:overflow-hidden",
-        isAgentMessagesThreadMobile && "max-md:pb-0",
+        isAgentMessagesThreadMobile && "max-md:pb-0 max-md:overscroll-none",
       )}
     >
       {hasTutorialDemoData && !isTeamMemberView ? (

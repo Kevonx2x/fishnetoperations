@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
 import { useSoftKeyboardOpen } from "@/hooks/use-soft-keyboard-open";
-import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
+import { useMobileMessagesThreadLocked } from "@/hooks/use-mobile-messages-thread-locked";
 import {
   Activity,
   Heart,
@@ -291,8 +291,7 @@ export function MobileBottomNav({ embedded = false }: MobileBottomNavProps) {
   const { overlayOpen } = useMobileChromeOverlay();
 
   const path = pathname ?? "/";
-  const threadParam = searchParams.get("c") ?? searchParams.get("channel");
-  const messagesThreadOpen = isMessagesThreadOpen(path, threadParam);
+  const messagesThreadOpen = useMobileMessagesThreadLocked();
   const keyboardOpen = useSoftKeyboardOpen();
   const keyboardOnMessagesThread = keyboardOpen && messagesThreadOpen;
   const hidden =

@@ -14,6 +14,9 @@ import {
 type MobileChromeDispatchValue = {
   overlayOpen: boolean;
   setOverlayOpen: (open: boolean) => void;
+  /** Mobile messenger thread pane open (independent of URL `?c=`). */
+  messengerMobileThreadPaneOpen: boolean;
+  setMessengerMobileThreadPaneOpen: (open: boolean) => void;
   setStickyFooter: Dispatch<SetStateAction<ReactNode | null>>;
 };
 
@@ -22,11 +25,22 @@ const MobileChromeStickyFooterContext = createContext<ReactNode | null>(null);
 
 export function MobileChromeProvider({ children }: { children: ReactNode }) {
   const [overlayOpen, setOverlayOpenState] = useState(false);
+  const [messengerMobileThreadPaneOpen, setMessengerMobileThreadPaneOpenState] = useState(false);
   const [stickyFooter, setStickyFooter] = useState<ReactNode | null>(null);
   const setOverlayOpen = useCallback((open: boolean) => setOverlayOpenState(open), []);
+  const setMessengerMobileThreadPaneOpen = useCallback(
+    (open: boolean) => setMessengerMobileThreadPaneOpenState(open),
+    [],
+  );
   const dispatch = useMemo(
-    () => ({ overlayOpen, setOverlayOpen, setStickyFooter }),
-    [overlayOpen],
+    () => ({
+      overlayOpen,
+      setOverlayOpen,
+      messengerMobileThreadPaneOpen,
+      setMessengerMobileThreadPaneOpen,
+      setStickyFooter,
+    }),
+    [overlayOpen, messengerMobileThreadPaneOpen],
   );
 
   return (
@@ -62,4 +76,19 @@ export function useMobileStickyFooter() {
 /** Read sticky footer slot content (layout chrome only). */
 export function useMobileStickyFooterContent() {
   return useContext(MobileChromeStickyFooterContext);
+}
+
+/** Signal / read mobile messenger thread pane (MessengerCore → layout chrome). */
+export function useMessengerMobileThreadPane() {
+  const ctx = useMobileChromeDispatch();
+  if (!ctx) {
+    return {
+      messengerMobileThreadPaneOpen: false,
+      setMessengerMobileThreadPaneOpen: () => {},
+    };
+  }
+  return {
+    messengerMobileThreadPaneOpen: ctx.messengerMobileThreadPaneOpen,
+    setMessengerMobileThreadPaneOpen: ctx.setMessengerMobileThreadPaneOpen,
+  };
 }

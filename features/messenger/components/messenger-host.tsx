@@ -5,6 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
+import { agentMessagesHref } from "@/lib/agent-messages-path";
+import { AGENT_INHOUSE_MESSENGER_PATH } from "@/lib/messenger/agent-messages-path";
 import { useConversations } from "../hooks/use-conversations";
 import { useMarkConversationRead } from "../hooks/use-mark-conversation-read";
 import { useMessages } from "../hooks/use-messages";
@@ -32,6 +34,7 @@ function isMobileViewport(): boolean {
 }
 
 const CLIENT_MESSAGES_PATH = "/dashboard/client/messages";
+const AGENT_DASHBOARD_PATH = "/dashboard/agent";
 
 type Props = {
   /** Shown when signed out. Defaults to client copy. */
@@ -151,18 +154,30 @@ export function MessengerHost({
     [conversations, activeId, messages, messagesLoading],
   );
 
-  const replaceClientThreadParam = useCallback(
+  const replaceMobileThreadParam = useCallback(
     (conversationId: string | undefined) => {
-      if (!pathname.startsWith(CLIENT_MESSAGES_PATH) || !isMobileViewport()) return;
-      const params = new URLSearchParams(searchParams.toString());
-      if (conversationId) {
-        params.set("c", conversationId);
-      } else {
-        params.delete("c");
-        params.delete("channel");
+      if (!isMobileViewport()) return;
+
+      if (pathname.startsWith(CLIENT_MESSAGES_PATH)) {
+        const params = new URLSearchParams(searchParams.toString());
+        if (conversationId) {
+          params.set("c", conversationId);
+        } else {
+          params.delete("c");
+          params.delete("channel");
+        }
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname);
+        return;
       }
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname);
+
+      const onAgentMessages =
+        pathname === AGENT_INHOUSE_MESSENGER_PATH ||
+        (pathname === AGENT_DASHBOARD_PATH && searchParams.get("tab") === "messages");
+
+      if (onAgentMessages) {
+        router.replace(agentMessagesHref(conversationId));
+      }
     },
     [pathname, router, searchParams],
   );
@@ -170,14 +185,14 @@ export function MessengerHost({
   const handleActiveChange = useCallback(
     (id: string) => {
       setActiveId(id);
-      replaceClientThreadParam(id);
+      replaceMobileThreadParam(id);
     },
-    [replaceClientThreadParam],
+    [replaceMobileThreadParam],
   );
 
   const handleMobileThreadBack = useCallback(() => {
-    replaceClientThreadParam(undefined);
-  }, [replaceClientThreadParam]);
+    replaceMobileThreadParam(undefined);
+  }, [replaceMobileThreadParam]);
 
   const handleSend = useCallback(
     (conversationId: string, payload: MessengerSendPayload) => {
