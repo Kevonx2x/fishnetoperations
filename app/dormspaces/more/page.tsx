@@ -1,6 +1,10 @@
 "use client";
 
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
+import {
+  MobileMoreTruliaGrid,
+  type MobileMoreGridItem,
+} from "@/components/mobile/mobile-more-trulia-grid";
 import Link from "next/link";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { useRouter } from "next/navigation";
@@ -297,9 +301,38 @@ export default function DormspacesMorePage() {
   const email = user?.email ?? "";
   const showLandlordBadge = isLandlordUser;
 
+  const mobileGridItems = useMemo(
+    (): MobileMoreGridItem[] =>
+      sections.flatMap((section) =>
+        section.items.map((item) => ({
+          id: item.id,
+          label: item.label,
+          icon: item.icon,
+          href: item.href,
+          onClick: item.onClick,
+          destructive: item.destructive,
+        })),
+      ),
+    [sections],
+  );
+
   return (
-    <DormspacePortalShell variant="browse">
-      <div className="min-h-screen font-sans text-[#2C2C2C]">
+    <DormspacePortalShell variant="browse" className="max-md:overflow-hidden">
+      <MobileMoreTruliaGrid
+        items={mobileGridItems}
+        loading={loading}
+        signedIn={isSignedIn}
+        signInHref={PATHS.authLogin}
+        signInLabel="Sign in or create account"
+        profileHref={PATHS.settings}
+        profileName={displayName}
+        profileEmail={email}
+        profileAvatarUrl={profile?.avatar_url}
+        profileInitials={profileInitials(profile?.full_name, email)}
+        profileBadge={showLandlordBadge ? "Landlord" : undefined}
+      />
+
+      <div className="hidden min-h-screen font-sans text-[#2C2C2C] md:block">
       <div className="pb-32 pt-[env(safe-area-inset-top,0px)] md:pt-4">
         {!loading && isSignedIn ? (
           <Link
@@ -356,7 +389,7 @@ export default function DormspacesMorePage() {
           <MenuSectionBlock key={section.id} section={section} />
         ))}
 
-        <footer className="mb-24 mt-8 hidden px-4 text-center md:block">
+        <footer className="mb-24 mt-8 px-4 text-center">
           <p className="text-xs text-[#888888]">BahayGo Realty Services</p>
           <p className="mt-1 text-xs text-[#888888]">Made in the Philippines</p>
           <p className="mt-1 text-xs text-[#888888]">v1.0</p>

@@ -25,6 +25,10 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { AuthSignInLinkForPath } from "@/components/auth/auth-sign-in-cta";
+import {
+  MobileMoreTruliaGrid,
+  type MobileMoreGridItem,
+} from "@/components/mobile/mobile-more-trulia-grid";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
@@ -376,8 +380,36 @@ export default function MorePage() {
   const displayName = profile?.full_name?.trim() || "Your account";
   const email = user?.email ?? "";
 
+  const mobileGridItems = useMemo(
+    (): MobileMoreGridItem[] =>
+      sections.flatMap((section) =>
+        section.items.map((item) => ({
+          id: item.id,
+          label: item.label,
+          icon: item.icon,
+          href: item.href,
+          onClick: item.onClick,
+          destructive: item.destructive,
+        })),
+      ),
+    [sections],
+  );
+
   return (
-    <div className="min-h-screen bg-[#FAF8F4] font-sans text-[#2C2C2C]">
+    <>
+      <MobileMoreTruliaGrid
+        items={mobileGridItems}
+        loading={loading}
+        signedIn={isSignedIn}
+        signInHref={PATHS.authLogin}
+        profileHref={PATHS.settings}
+        profileName={displayName}
+        profileEmail={email}
+        profileAvatarUrl={profile?.avatar_url}
+        profileInitials={profileInitials(profile?.full_name, email)}
+      />
+
+      <div className="hidden min-h-screen bg-[#FAF8F4] font-sans text-[#2C2C2C] md:block">
       <div className="pb-32 pt-[env(safe-area-inset-top,0px)]">
         {!loading && !isSignedIn ? (
           <header className="flex items-center justify-end px-4 pb-2 pt-4">
@@ -427,6 +459,7 @@ export default function MorePage() {
           <p className="mt-1 text-xs text-[#888888]">v1.0</p>
         </footer>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
