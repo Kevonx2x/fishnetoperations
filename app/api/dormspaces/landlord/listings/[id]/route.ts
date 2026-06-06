@@ -16,7 +16,7 @@ const patchSchema = z.object({
   action: z.enum(["archive", "restore", "delete"]),
 });
 
-const roomTypes = ["private", "shared_2", "shared_4", "shared_6_plus"] as const;
+const roomTypes = ["private", "shared_2", "shared_4", "shared_6_plus", "mixed"] as const;
 
 function parseBool(v: FormDataEntryValue | null): boolean {
   return v === "true" || v === "on" || v === "1";

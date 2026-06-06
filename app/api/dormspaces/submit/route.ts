@@ -30,7 +30,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin";
 export const maxDuration = 60;
 export const runtime = "nodejs";
 
-const roomTypes = ["private", "shared_2", "shared_4", "shared_6_plus"] as const;
+const roomTypes = ["private", "shared_2", "shared_4", "shared_6_plus", "mixed"] as const;
 
 function parseBool(v: FormDataEntryValue | null): boolean {
   return v === "true" || v === "on" || v === "1";

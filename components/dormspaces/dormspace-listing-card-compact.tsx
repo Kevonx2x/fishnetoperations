@@ -24,6 +24,7 @@ import { closestWalkTimes } from "@/lib/dormspace-walk-times-display";
 import {
   dormspaceCardAvailabilityText,
   dormspaceCardFromPrice,
+  dormspaceCardPriceLabel,
   dormspaceImagePillLabel,
 } from "@/lib/dormspace-gender-beds";
 import {
@@ -55,7 +56,11 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
   const liked = isLiked(listing.id);
   const locationLine = dormspaceLocationLine(listing);
   const hasWalkTimes = closestWalkTimes(listing.dormspace_walk_times).length > 0;
-  const cardPrice = dormspaceCardFromPrice(listing);
+  const cardPriceLine =
+    dormspaceCardPriceLabel(listing, formatDormspacePrice) ??
+    (dormspaceCardFromPrice(listing) != null
+      ? `From ${formatDormspacePrice(dormspaceCardFromPrice(listing)!)}`
+      : null);
   const availabilityLine = dormspaceCardAvailabilityText(listing);
   const imagePill = dormspaceImagePillLabel(listing);
 
@@ -171,7 +176,7 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
             DORMSPACE_DESKTOP_SLOT.price,
           )}
         >
-          {cardPrice != null ? `From ${formatDormspacePrice(cardPrice)}` : formatDormspacePrice(listing.monthly_price)}
+          {cardPriceLine ?? formatDormspacePrice(listing.monthly_price)}
         </p>
         <p
           className={cn(

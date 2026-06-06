@@ -20,7 +20,11 @@ import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 
 import { DormspaceWalkTimesLine } from "@/components/dormspaces/dormspace-walk-times-line";
 import { DormspaceGenderBedDetail } from "@/components/dormspaces/dormspace-gender-bed-detail";
-import { dormspaceCardFromPrice, isDormspaceFullyBooked } from "@/lib/dormspace-gender-beds";
+import {
+  dormspaceCardFromPrice,
+  dormspaceCardPriceLabel,
+  isDormspaceFullyBooked,
+} from "@/lib/dormspace-gender-beds";
 import { DormspaceContactModal } from "@/components/dormspaces/dormspace-contact-modal";
 import { DormspaceDetailBackLink } from "@/components/dormspaces/dormspace-detail-hero-chrome";
 import { DormspaceDetailGallery } from "@/components/dormspaces/dormspace-detail-gallery";
@@ -70,7 +74,11 @@ export function DormspaceDetailView({
   const [contactOpen, setContactOpen] = useState(false);
   const [notifyWhenAvailable, setNotifyWhenAvailable] = useState(false);
   const [messageHostBusy, setMessageHostBusy] = useState(false);
-  const fromPrice = dormspaceCardFromPrice(listing);
+  const priceHeadline =
+    dormspaceCardPriceLabel(listing, formatDormspacePrice) ??
+    (dormspaceCardFromPrice(listing) != null
+      ? `From ${formatDormspacePrice(dormspaceCardFromPrice(listing)!)}`
+      : null);
   const fullyBooked = isDormspaceFullyBooked(listing);
   const isOwnListing =
     !!user?.id && !!listing.landlord_user_id && user.id === listing.landlord_user_id;
@@ -164,13 +172,9 @@ export function DormspaceDetailView({
             {listing.near_school?.trim() ? (
               <p className="mt-2 text-sm font-medium text-[#525252]">Near: {listing.near_school.trim()}</p>
             ) : null}
-            {fromPrice != null ? (
-              <p className="mt-4 text-2xl font-bold text-[#D4A843]">
-                From {formatDormspacePrice(fromPrice)}
-              </p>
-            ) : (
-              <p className="mt-4 text-2xl font-bold text-[#D4A843]">{formatDormspacePrice(listing.monthly_price)}</p>
-            )}
+            <p className="mt-4 text-2xl font-bold text-[#D4A843]">
+              {priceHeadline ?? formatDormspacePrice(listing.monthly_price)}
+            </p>
             {deposit ? <p className="text-sm font-medium text-[#484848]">{deposit}</p> : null}
             <DormspaceGenderBedDetail listing={listing} className="mt-6" />
             {listing.vacancy_notes?.trim() ? (

@@ -186,6 +186,28 @@ export function dormspaceCardFromPrice(row: DormspaceGenderBedInput): number | n
   return parsePrice(row.monthly_price);
 }
 
+/** Compact per-gender "from" pricing for browse cards (mixed / dual-gender listings). */
+export function dormspaceCardPriceLabel(
+  row: DormspaceGenderBedInput,
+  formatPrice: (n: number | string) => string,
+): string | null {
+  const lines = dormspaceOpenGenderLines(row);
+  if (lines.length === 0) {
+    const fallback = dormspaceCardFromPrice(row);
+    return fallback != null ? `From ${formatPrice(fallback)}` : null;
+  }
+  if (lines.length === 1) {
+    const l = lines[0]!;
+    return l.price != null ? `From ${formatPrice(l.price)}` : null;
+  }
+  const male = lines.find((l) => l.gender === "male");
+  const female = lines.find((l) => l.gender === "female");
+  const parts: string[] = [];
+  if (male?.price != null) parts.push(`Male from ${formatPrice(male.price)}`);
+  if (female?.price != null) parts.push(`Female from ${formatPrice(female.price)}`);
+  return parts.length > 0 ? parts.join(" / ") : null;
+}
+
 export function dormspaceImagePillLabel(row: DormspaceGenderBedInput): string {
   const counts = resolveDormspaceGenderBedCounts(row);
   const isPrivate = row.room_type === "private";
@@ -199,7 +221,7 @@ export function dormspaceImagePillLabel(row: DormspaceGenderBedInput): string {
     const l = open[0]!;
     return `${l.available} ${l.gender} ${l.available === 1 ? "bed" : "beds"}`;
   }
-  if (open.length === 2) {
+  if (open.length === 2 || row.room_type === "mixed") {
     return "Male & female beds";
   }
   return isPrivate ? "Private room" : "Shared room";

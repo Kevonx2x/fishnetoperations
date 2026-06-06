@@ -1,3 +1,4 @@
+import type { DormspaceBedTypeEntry } from "@/lib/dormspace-bed-types";
 import {
   dormspaceCardAvailabilityText,
   isDormspaceFullyBooked,
@@ -6,7 +7,12 @@ import {
 } from "@/lib/dormspace-gender-beds";
 import { isSupabaseRenderUrl, supabaseObjectUrlFromRenderUrl } from "@/lib/supabase-image-url";
 
-export type DormspaceRoomType = "private" | "shared_2" | "shared_4" | "shared_6_plus";
+export type DormspaceRoomType =
+  | "private"
+  | "shared_2"
+  | "shared_4"
+  | "shared_6_plus"
+  | "mixed";
 export type DormspaceGenderPreference = "any" | "male" | "female";
 export type DormspaceStatus = "pending" | "approved" | "rejected" | "archived";
 
@@ -55,6 +61,7 @@ export type DormspaceRow = {
   male_monthly_price: number | string | null;
   female_monthly_price: number | string | null;
   hidden_from_browse: boolean | null;
+  bed_types?: DormspaceBedTypeEntry[] | null;
 };
 
 export type DormspacePhotoRow = {
@@ -141,6 +148,7 @@ export function dormspaceInquiryStatusLabel(status: DormspaceInquiryStatus): str
 
 export const DORMSPACE_ROOM_TYPE_OPTIONS: { value: DormspaceRoomType; label: string }[] = [
   { value: "private", label: "Private room" },
+  { value: "mixed", label: "Mixed (Male & Female)" },
   { value: "shared_2", label: "Shared (2 beds)" },
   { value: "shared_4", label: "Shared (4 beds)" },
   { value: "shared_6_plus", label: "Shared (6+ beds)" },
@@ -183,6 +191,8 @@ export function defaultTotalBedsFromRoomType(roomType: DormspaceRoomType): numbe
       return 4;
     case "shared_6_plus":
       return 6;
+    case "mixed":
+      return 4;
     default:
       return 1;
   }
