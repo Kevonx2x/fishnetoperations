@@ -8,8 +8,23 @@ import { useAuth } from "@/contexts/auth-context";
 import { useConversations } from "../hooks/use-conversations";
 import { useMarkConversationRead } from "../hooks/use-mark-conversation-read";
 import { useMessages } from "../hooks/use-messages";
-import type { MessengerConversation } from "../types";
+import type { MessengerConversation, MessengerMessage } from "../types";
 import { MessengerCore } from "./messenger-core";
+
+const MARK_READ_DEBOUNCE_MS = 400;
+
+function threadMessageSignature(messages: MessengerMessage[]): string {
+  const rows = messages.filter(
+    (m) => !m.dateDivider && !m.id.startsWith("optimistic-"),
+  );
+  const last = rows[rows.length - 1];
+  return last ? last.id : "";
+}
+
+function isThreadFocused(): boolean {
+  if (typeof document === "undefined") return true;
+  return document.hasFocus() && document.visibilityState === "visible";
+}
 
 type Props = {
   /** Shown when signed out. Defaults to client copy. */
@@ -28,6 +43,7 @@ export function MessengerHost({
   const searchParams = useSearchParams();
   const deepLinkId = searchParams.get("c")?.trim() || undefined;
   const deepLinkRefreshDone = useRef(false);
+  const markReadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { conversations, loading, error, refresh, patchConversation } = useConversations(userId);
   const markRead = useMarkConversationRead(userId);
@@ -72,11 +88,45 @@ export function MessengerHost({
     onMessageInserted: handleMessageInserted,
   });
 
+  const applyMarkRead = useCallback(
+    (conversationId: string) => {
+      void markRead(conversationId).then((watermark) => {
+        if (watermark) {
+          patchConversation(conversationId, { unread: 0, myLastReadAt: watermark });
+        }
+      });
+    },
+    [markRead, patchConversation],
+  );
+
   useEffect(() => {
     if (!activeId) return;
-    void markRead(activeId);
-    patchConversation(activeId, { unread: 0, myLastReadAt: new Date().toISOString() });
-  }, [activeId, markRead, patchConversation]);
+    applyMarkRead(activeId);
+  }, [activeId, applyMarkRead]);
+
+  const activeMessageSignature = useMemo(
+    () => threadMessageSignature(messages),
+    [messages],
+  );
+
+  useEffect(() => {
+    if (!activeId || messagesLoading || !activeMessageSignature) return;
+    if (!isThreadFocused()) return;
+
+    if (markReadDebounceRef.current) {
+      clearTimeout(markReadDebounceRef.current);
+    }
+
+    markReadDebounceRef.current = setTimeout(() => {
+      applyMarkRead(activeId);
+    }, MARK_READ_DEBOUNCE_MS);
+
+    return () => {
+      if (markReadDebounceRef.current) {
+        clearTimeout(markReadDebounceRef.current);
+      }
+    };
+  }, [activeId, activeMessageSignature, messagesLoading, applyMarkRead]);
 
   const conversationsForCore: MessengerConversation[] = useMemo(
     () =>

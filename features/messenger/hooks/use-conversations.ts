@@ -69,6 +69,13 @@ export function useConversations(userId: string | undefined) {
           void load(supabase);
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "conversation_participants" },
+        () => {
+          void load(supabase);
+        },
+      )
       .subscribe();
 
     return () => {

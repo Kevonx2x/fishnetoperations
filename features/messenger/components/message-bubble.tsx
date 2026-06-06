@@ -1,4 +1,4 @@
-import { CheckCheck } from "lucide-react";
+import { Check, CheckCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MessengerMessage } from "../types";
 
@@ -63,8 +63,12 @@ export function MessageBubble({ message }: Props) {
           )}
         >
           <span>{message.time}</span>
-          {sent && message.read ? (
-            <CheckCheck className="h-3.5 w-3.5 text-[#6B9E6E]" aria-label="Read" />
+          {sent ? (
+            message.read ? (
+              <CheckCheck className="h-3.5 w-3.5 text-[#6B9E6E]" aria-label="Read" />
+            ) : (
+              <Check className="h-3.5 w-3.5 text-[#888888]" aria-label="Sent" />
+            )
           ) : null}
         </div>
       </div>
