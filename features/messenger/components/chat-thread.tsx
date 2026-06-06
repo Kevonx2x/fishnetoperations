@@ -45,7 +45,6 @@ function lastRealMessage(messages: MessengerMessage[]): MessengerMessage | undef
 
 export function ChatThread({ conversation, showBack, onBack, onSend, className }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const bottomAnchorRef = useRef<HTMLDivElement>(null);
   const nearBottomRef = useRef(true);
   const pendingThreadScrollRef = useRef(false);
   const forceScrollOnSendRef = useRef(false);
@@ -61,30 +60,19 @@ export function ChatThread({ conversation, showBack, onBack, onSend, className }
     return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_THRESHOLD_PX;
   }, []);
 
-  const clampScrollPosition = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const maxScrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
-    if (el.scrollTop > maxScrollTop) {
-      el.scrollTop = maxScrollTop;
-    }
-  }, []);
-
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
     const run = () => {
       const el = scrollRef.current;
       if (!el) return;
       const maxScrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
       el.scrollTo({ top: maxScrollTop, behavior });
-      clampScrollPosition();
     };
     requestAnimationFrame(run);
-  }, [clampScrollPosition]);
+  }, []);
 
   const handleScroll = useCallback(() => {
-    clampScrollPosition();
     nearBottomRef.current = isNearBottom();
-  }, [clampScrollPosition, isNearBottom]);
+  }, [isNearBottom]);
 
   const handleAttachmentImageLoad = useCallback(() => {
     if (nearBottomRef.current || isNearBottom()) {
@@ -227,9 +215,9 @@ export function ChatThread({ conversation, showBack, onBack, onSend, className }
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
       >
-        <div className="mt-auto w-full pt-4">
+        <div className="flex min-h-full w-full flex-col justify-end pt-4">
           {messagesLoading ? (
             <p className="py-8 text-center text-sm font-medium text-[#888888]">Loading messages…</p>
           ) : (
@@ -242,7 +230,6 @@ export function ChatThread({ conversation, showBack, onBack, onSend, className }
             ))
           )}
           {!messagesLoading && typing ? <TypingIndicator /> : null}
-          <div ref={bottomAnchorRef} className="h-px w-full shrink-0" aria-hidden />
         </div>
       </div>
 
