@@ -124,7 +124,7 @@ function isDormspacesPublicTabActive(tabId: string, pathname: string): boolean {
     return pathname.startsWith("/dormspaces/liked");
   }
   if (tabId === "more") {
-    return pathname.startsWith("/dormspaces/more") || pathname.startsWith("/dormspaces/dashboard");
+    return pathname === "/dormspaces/more" || pathname.startsWith("/dormspaces/more/");
   }
   return false;
 }
@@ -135,14 +135,7 @@ function isMarketplaceTabActive(
   searchParams: URLSearchParams | null,
 ): boolean {
   if (tabId === "more") {
-    if (isAgentLeadsPathActive(pathname, searchParams)) return false;
-    return (
-      pathname.startsWith("/more") ||
-      pathname.startsWith("/settings") ||
-      pathname.startsWith("/profile") ||
-      pathname.startsWith("/dashboard/client") ||
-      pathname.startsWith("/dashboard/agent")
-    );
+    return pathname === "/more" || pathname.startsWith("/more/");
   }
 
   if (tabId === "inbox") {
@@ -247,6 +240,10 @@ function NavTab({
       scroll
       onClick={(e) => {
         e.preventDefault();
+        if (tab.id === "more") {
+          onNavigate(href);
+          return;
+        }
         if (active) {
           window.scrollTo({ top: 0, behavior: "smooth" });
           return;

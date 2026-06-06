@@ -7,21 +7,25 @@ import { useCallback, useMemo, type ReactNode } from "react";
 import {
   Activity,
   BadgeCheck,
+  BarChart3,
   ChevronRight,
   Clock,
+  CreditCard,
   Flag,
   Heart,
   HelpCircle,
   Info,
-  LayoutDashboard,
+  LayoutList,
   LogOut,
   Mail,
   Map,
   Plus,
   Settings,
+  UserCircle,
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { AGENT_MORE_TAB_PATHS } from "@/lib/agent-dashboard-routes";
 import { useAuth } from "@/contexts/auth-context";
 import { AuthSignInLinkForPath } from "@/components/auth/auth-sign-in-cta";
 import { DormspaceBrandIcon } from "@/components/dormspaces/dormspace-welcome-logo";
@@ -255,7 +259,7 @@ export default function MorePage() {
           href: PATHS.pipeline,
         });
       }
-      if (ROUTES.saved) {
+      if (ROUTES.saved && !isAgentUser) {
         activityItems.push({
           id: "saved",
           label: "Saved listings",
@@ -277,13 +281,36 @@ export default function MorePage() {
 
     const agentItems: MenuItem[] = [];
     if (isAgentUser && ROUTES.agentDashboard) {
-      agentItems.push({
-        id: "agent-dashboard",
-        label: "Agent dashboard",
-        description: "Pipeline, listings, and client conversations",
-        icon: LayoutDashboard,
-        href: PATHS.agentDashboard,
-      });
+      agentItems.push(
+        {
+          id: "agent-listings",
+          label: "My Listings",
+          description: "Manage your active property listings",
+          icon: LayoutList,
+          href: AGENT_MORE_TAB_PATHS.listings,
+        },
+        {
+          id: "agent-analytics",
+          label: "Analytics",
+          description: "Views, leads, and performance",
+          icon: BarChart3,
+          href: AGENT_MORE_TAB_PATHS.analytics,
+        },
+        {
+          id: "agent-billing",
+          label: "Billing",
+          description: "Subscription and payments",
+          icon: CreditCard,
+          href: AGENT_MORE_TAB_PATHS.billing,
+        },
+        {
+          id: "agent-profile",
+          label: "My Profile",
+          description: "Your public agent profile",
+          icon: UserCircle,
+          href: AGENT_MORE_TAB_PATHS.profile,
+        },
+      );
     } else if (!isAgentUser && ROUTES.agentSignup) {
       agentItems.push({
         id: "become-agent",

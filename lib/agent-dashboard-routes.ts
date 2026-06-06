@@ -11,3 +11,11 @@ export const AGENT_LEGACY_TAB_REDIRECTS: Record<string, string> = {
   /** Legacy separate messenger route → unified `?tab=messages`. */
   messenger: AGENT_INHOUSE_MESSENGER_PATH,
 };
+
+/** Deep links from marketplace mobile More → agent dashboard tabs. */
+export const AGENT_MORE_TAB_PATHS = {
+  listings: "/dashboard/agent?tab=listings",
+  analytics: "/dashboard/agent?tab=analytics",
+  billing: "/dashboard/agent?tab=billing",
+  profile: "/dashboard/agent?tab=profile",
+} as const;

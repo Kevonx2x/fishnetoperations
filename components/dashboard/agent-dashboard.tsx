@@ -3059,7 +3059,7 @@ export function AgentDashboard() {
                       else navigateAgentTab(next);
                     }}
                     onViewDocuments={() => {}}
-                    onMore={() => setMoreDrawerOpen(true)}
+                    onMore={() => router.push("/more")}
                     onHome={() => router.push("/")}
                   />
                 ) : (
@@ -3237,14 +3237,14 @@ export function AgentDashboard() {
         {mobileMoreTabIds.length > 0 ? (
           <button
             type="button"
-            onClick={() => setMoreDrawerOpen(true)}
+            onClick={() => router.push("/more")}
             className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-0.5 text-[10px] font-bold ${
-              moreDrawerOpen || mobileMoreTabIds.includes(tab) ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
+              pathname === "/more" || pathname.startsWith("/more/") ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
             }`}
           >
             <span
               className={
-                moreDrawerOpen || mobileMoreTabIds.includes(tab) ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
+                pathname === "/more" || pathname.startsWith("/more/") ? "text-[#6B9E6E]" : "text-[#2C2C2C]/45"
               }
             >
               <MoreHorizontal className="h-5 w-5" />
