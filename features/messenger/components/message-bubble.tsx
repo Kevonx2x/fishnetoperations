@@ -8,9 +8,10 @@ import type { MessengerMessage } from "../types";
 
 type Props = {
   message: MessengerMessage;
+  onAttachmentImageLoad?: () => void;
 };
 
-export function MessageBubble({ message }: Props) {
+export function MessageBubble({ message, onAttachmentImageLoad }: Props) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   if (message.dateDivider) {
@@ -55,6 +56,7 @@ export function MessageBubble({ message }: Props) {
                   src={attachmentUrl!}
                   alt={hasText ? "Message attachment" : "Photo"}
                   className="max-h-64 w-full max-w-[240px] object-cover"
+                  onLoad={() => onAttachmentImageLoad?.()}
                 />
               </button>
             ) : null}

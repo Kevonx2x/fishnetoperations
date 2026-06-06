@@ -7,12 +7,25 @@ import {
   Search,
   Video,
 } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
+
 import { cn } from "@/lib/utils";
-import type { MessengerConversation, MessengerSendPayload } from "../types";
+import type {
+  MessengerConversation,
+  MessengerMessage,
+  MessengerSendPayload,
+} from "../types";
 import { MessengerAvatar } from "./avatar";
 import { Composer } from "./composer";
 import { MessageBubble } from "./message-bubble";
 import { TypingIndicator } from "./typing-indicator";
+
+const NEAR_BOTTOM_THRESHOLD_PX = 100;
 
 type Props = {
   conversation: MessengerConversation | null;
@@ -22,7 +35,115 @@ type Props = {
   className?: string;
 };
 
+function lastRealMessage(messages: MessengerMessage[]): MessengerMessage | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (!m.dateDivider) return m;
+  }
+  return undefined;
+}
+
 export function ChatThread({ conversation, showBack, onBack, onSend, className }: Props) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomAnchorRef = useRef<HTMLDivElement>(null);
+  const nearBottomRef = useRef(true);
+  const pendingThreadScrollRef = useRef(false);
+  const forceScrollOnSendRef = useRef(false);
+  const prevLastMessageIdRef = useRef<string | undefined>(undefined);
+
+  const conversationId = conversation?.id;
+  const messages = conversation?.messages ?? [];
+  const messagesLoading = Boolean(conversation?.messagesLoading);
+
+  const isNearBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_THRESHOLD_PX;
+  }, []);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    const run = () => {
+      const anchor = bottomAnchorRef.current;
+      if (anchor) {
+        anchor.scrollIntoView({ block: "end", behavior });
+        return;
+      }
+      const el = scrollRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    };
+    requestAnimationFrame(run);
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    nearBottomRef.current = isNearBottom();
+  }, [isNearBottom]);
+
+  const handleAttachmentImageLoad = useCallback(() => {
+    if (nearBottomRef.current || isNearBottom()) {
+      scrollToBottom("auto");
+      nearBottomRef.current = true;
+    }
+  }, [isNearBottom, scrollToBottom]);
+
+  const handleSend = useCallback(
+    (payload: MessengerSendPayload) => {
+      forceScrollOnSendRef.current = true;
+      nearBottomRef.current = true;
+      onSend?.(payload);
+    },
+    [onSend],
+  );
+
+  useEffect(() => {
+    if (!conversationId) return;
+    pendingThreadScrollRef.current = true;
+    nearBottomRef.current = true;
+    prevLastMessageIdRef.current = undefined;
+  }, [conversationId]);
+
+  useLayoutEffect(() => {
+    if (!conversationId || messagesLoading) return;
+
+    if (pendingThreadScrollRef.current) {
+      pendingThreadScrollRef.current = false;
+      scrollToBottom("auto");
+      nearBottomRef.current = true;
+      prevLastMessageIdRef.current = lastRealMessage(messages)?.id;
+      return;
+    }
+
+    const last = lastRealMessage(messages);
+    const lastId = last?.id;
+    if (!lastId) return;
+
+    const prevLastId = prevLastMessageIdRef.current;
+    if (prevLastId === lastId) return;
+
+    prevLastMessageIdRef.current = lastId;
+
+    if (prevLastId === undefined) return;
+
+    if (forceScrollOnSendRef.current) {
+      forceScrollOnSendRef.current = false;
+      scrollToBottom("auto");
+      nearBottomRef.current = true;
+      return;
+    }
+
+    if (last.sent) {
+      scrollToBottom("smooth");
+      nearBottomRef.current = true;
+      return;
+    }
+
+    if (nearBottomRef.current || isNearBottom()) {
+      scrollToBottom("smooth");
+      nearBottomRef.current = true;
+    }
+  }, [conversationId, messagesLoading, messages, scrollToBottom, isNearBottom]);
+
   if (!conversation) {
     return (
       <section
@@ -39,7 +160,7 @@ export function ChatThread({ conversation, showBack, onBack, onSend, className }
     );
   }
 
-  const { participant, messages, typing, messagesLoading } = conversation;
+  const { participant, typing } = conversation;
 
   return (
     <section
@@ -97,16 +218,27 @@ export function ChatThread({ conversation, showBack, onBack, onSend, className }
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4"
+      >
         {messagesLoading ? (
           <p className="py-8 text-center text-sm font-medium text-[#888888]">Loading messages…</p>
         ) : (
-          messages.map((m) => <MessageBubble key={m.id} message={m} />)
+          messages.map((m) => (
+            <MessageBubble
+              key={m.id}
+              message={m}
+              onAttachmentImageLoad={handleAttachmentImageLoad}
+            />
+          ))
         )}
         {!messagesLoading && typing ? <TypingIndicator /> : null}
+        <div ref={bottomAnchorRef} className="h-px w-full shrink-0" aria-hidden />
       </div>
 
-      <Composer onSend={onSend} />
+      <Composer onSend={handleSend} />
     </section>
   );
 }
