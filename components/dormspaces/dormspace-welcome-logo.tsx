@@ -11,6 +11,11 @@ export function BahayGoHouseMark({ className }: { className?: string }) {
   );
 }
 
+/** Branded dormspace listing icon for menus (replaces generic bed icon). */
+export function DormspaceBrandIcon({ className }: { className?: string }) {
+  return <BahayGoHouseMark className={cn("h-[18px] w-[18px] shrink-0", className)} />;
+}
+
 type Props = {
   className?: string;
   href?: string;

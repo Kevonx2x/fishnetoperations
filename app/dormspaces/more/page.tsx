@@ -1,17 +1,17 @@
 "use client";
 
 import { DormspacePortalShell } from "@/components/dormspaces/dormspace-portal-shell";
+import { DormspaceBrandIcon } from "@/components/dormspaces/dormspace-welcome-logo";
 import {
-  MobileMoreTruliaGrid,
-  type MobileMoreGridItem,
-} from "@/components/mobile/mobile-more-trulia-grid";
+  MobileMoreSectionedGrid,
+  type MobileMoreGridSection,
+} from "@/components/mobile/mobile-more-sectioned-grid";
 import Link from "next/link";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import {
   ArrowRight,
-  Bed,
   ChevronRight,
   Flag,
   Heart,
@@ -61,9 +61,11 @@ const PATHS = {
 type MenuItem = {
   id: string;
   label: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
+  iconMarkup?: ReactNode;
   href?: string;
   badge?: string;
+  badgeGold?: boolean;
   destructive?: boolean;
   onClick?: () => void;
 };
@@ -102,7 +104,10 @@ function MenuRow({ item }: { item: MenuItem }) {
 
   const inner = (
     <>
-      <item.icon className={cn("h-5 w-5 shrink-0", iconClass)} strokeWidth={2} aria-hidden />
+      {item.iconMarkup ??
+        (item.icon ? (
+          <item.icon className={cn("h-5 w-5 shrink-0", iconClass)} strokeWidth={2} aria-hidden />
+        ) : null)}
       <span className={cn("min-w-0 flex-1 text-[15px] font-medium", labelClass)}>{item.label}</span>
       {item.badge ? (
         <span className="rounded-full bg-[#6B9E6E]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#6B9E6E]">
@@ -176,7 +181,7 @@ export default function DormspacesMorePage() {
       browseItems.push({
         id: "all-dormspaces",
         label: "All dormspaces",
-        icon: Bed,
+        iconMarkup: <DormspaceBrandIcon />,
         href: PATHS.dormspaces,
       });
     }
@@ -301,25 +306,30 @@ export default function DormspacesMorePage() {
   const email = user?.email ?? "";
   const showLandlordBadge = isLandlordUser;
 
-  const mobileGridItems = useMemo(
-    (): MobileMoreGridItem[] =>
-      sections.flatMap((section) =>
-        section.items.map((item) => ({
+  const mobileSections = useMemo(
+    (): MobileMoreGridSection[] =>
+      sections.map((section) => ({
+        id: section.id,
+        title: section.title,
+        items: section.items.map((item) => ({
           id: item.id,
           label: item.label,
           icon: item.icon,
+          iconMarkup: item.iconMarkup,
           href: item.href,
           onClick: item.onClick,
           destructive: item.destructive,
+          badge: item.badge,
+          badgeGold: item.badgeGold,
         })),
-      ),
+      })),
     [sections],
   );
 
   return (
     <DormspacePortalShell variant="browse" className="max-md:overflow-hidden">
-      <MobileMoreTruliaGrid
-        items={mobileGridItems}
+      <MobileMoreSectionedGrid
+        sections={mobileSections}
         loading={loading}
         signedIn={isSignedIn}
         signInHref={PATHS.authLogin}
@@ -330,6 +340,7 @@ export default function DormspacesMorePage() {
         profileAvatarUrl={profile?.avatar_url}
         profileInitials={profileInitials(profile?.full_name, email)}
         profileBadge={showLandlordBadge ? "Landlord" : undefined}
+        showFlagWatermark={false}
       />
 
       <div className="hidden min-h-screen font-sans text-[#2C2C2C] md:block">

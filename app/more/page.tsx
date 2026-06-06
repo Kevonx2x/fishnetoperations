@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import {
   Activity,
   BadgeCheck,
-  Bed,
   ChevronRight,
   Clock,
   Flag,
@@ -25,10 +24,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { AuthSignInLinkForPath } from "@/components/auth/auth-sign-in-cta";
+import { DormspaceBrandIcon } from "@/components/dormspaces/dormspace-welcome-logo";
 import {
-  MobileMoreTruliaGrid,
-  type MobileMoreGridItem,
-} from "@/components/mobile/mobile-more-trulia-grid";
+  MobileMoreSectionedGrid,
+  type MobileMoreGridSection,
+} from "@/components/mobile/mobile-more-sectioned-grid";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
@@ -71,7 +71,8 @@ type MenuItem = {
   id: string;
   label: string;
   description?: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
+  iconMarkup?: ReactNode;
   href?: string;
   badge?: string;
   badgeGold?: boolean;
@@ -111,7 +112,10 @@ function MenuRow({
   const inner = (
     <>
       <span className="flex w-[22px] shrink-0 items-center justify-center">
-        <item.icon className={cn("h-[22px] w-[22px]", iconClass)} strokeWidth={1.5} aria-hidden />
+        {item.iconMarkup ??
+          (item.icon ? (
+            <item.icon className={cn("h-[22px] w-[22px]", iconClass)} strokeWidth={1.5} aria-hidden />
+          ) : null)}
       </span>
       <div className="min-w-0 flex-1">
         <p
@@ -214,7 +218,7 @@ export default function MorePage() {
         id: "dormspaces",
         label: "Dormspaces",
         description: "Find dormmates and explore student housing",
-        icon: Bed,
+        iconMarkup: <DormspaceBrandIcon />,
         href: PATHS.dormspacesWelcome,
         badge: "NEW",
         badgeGold: true,
@@ -380,25 +384,30 @@ export default function MorePage() {
   const displayName = profile?.full_name?.trim() || "Your account";
   const email = user?.email ?? "";
 
-  const mobileGridItems = useMemo(
-    (): MobileMoreGridItem[] =>
-      sections.flatMap((section) =>
-        section.items.map((item) => ({
+  const mobileSections = useMemo(
+    (): MobileMoreGridSection[] =>
+      sections.map((section) => ({
+        id: section.id,
+        title: section.title,
+        items: section.items.map((item) => ({
           id: item.id,
           label: item.label,
           icon: item.icon,
+          iconMarkup: item.iconMarkup,
           href: item.href,
           onClick: item.onClick,
           destructive: item.destructive,
+          badge: item.badge,
+          badgeGold: item.badgeGold,
         })),
-      ),
+      })),
     [sections],
   );
 
   return (
     <>
-      <MobileMoreTruliaGrid
-        items={mobileGridItems}
+      <MobileMoreSectionedGrid
+        sections={mobileSections}
         loading={loading}
         signedIn={isSignedIn}
         signInHref={PATHS.authLogin}
