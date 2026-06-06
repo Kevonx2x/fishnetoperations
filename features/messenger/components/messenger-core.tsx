@@ -1,7 +1,7 @@
 "use client";
 
 import "../messenger.css";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { ConversationTab, MessengerConversation, MessengerSendPayload } from "../types";
 import { ChatThread } from "./chat-thread";
@@ -14,6 +14,10 @@ export type MessengerCoreProps = {
   /** Controlled active conversation id. */
   activeConversationId?: string;
   onActiveConversationChange?: (id: string) => void;
+  /** Mobile: back from thread pane (e.g. clear URL thread param). */
+  onMobileThreadBack?: () => void;
+  /** Mobile: initial list vs thread pane (sync with URL `?c=`). */
+  defaultMobilePane?: "list" | "thread";
   onSend?: (conversationId: string, payload: MessengerSendPayload) => void;
   className?: string;
 };
@@ -23,6 +27,8 @@ export function MessengerCore({
   defaultConversationId,
   activeConversationId,
   onActiveConversationChange,
+  onMobileThreadBack,
+  defaultMobilePane = "list",
   onSend,
   className,
 }: MessengerCoreProps) {
@@ -38,7 +44,11 @@ export function MessengerCore({
       : internalActiveId;
   const [tab, setTab] = useState<ConversationTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [mobilePane, setMobilePane] = useState<"list" | "thread">("list");
+  const [mobilePane, setMobilePane] = useState<"list" | "thread">(defaultMobilePane);
+
+  useEffect(() => {
+    setMobilePane(defaultMobilePane);
+  }, [defaultMobilePane]);
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeId) ?? null,
@@ -53,7 +63,10 @@ export function MessengerCore({
     setMobilePane("thread");
   };
 
-  const handleBack = () => setMobilePane("list");
+  const handleBack = () => {
+    setMobilePane("list");
+    onMobileThreadBack?.();
+  };
 
   return (
     <div

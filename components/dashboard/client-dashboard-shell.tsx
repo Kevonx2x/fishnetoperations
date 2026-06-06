@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Bell, GitBranch, Home, LayoutDashboard, Loader2, MessageSquare, Settings } from "lucide-react";
@@ -10,6 +10,7 @@ import { BahayGoWordmarkHomeLink } from "@/components/marketplace/bahaygo-wordma
 import { useMessengerUnreadTotal } from "@/features/messenger/hooks/use-messenger-unread-total";
 import { useAuth } from "@/contexts/auth-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { isMessagesThreadOpen } from "@/lib/messages-mobile-chrome";
 import { cn } from "@/lib/utils";
 
 /** Desktop / tablet sidebar (md+) — unchanged labels and routes. */
@@ -63,12 +64,16 @@ function isMobileBottomActivePath(pathname: string, segment: string) {
 
 export function ClientDashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { user, profile, role, loading: authLoading } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [notifUnread, setNotifUnread] = useState(0);
   const messagesUnreadTotal = useMessengerUnreadTotal(user?.id);
   const isMessagesRoute = pathname.startsWith("/dashboard/client/messages");
+  const threadParam = searchParams.get("c") ?? searchParams.get("channel");
+  const messagesThreadOpen = isMessagesThreadOpen(pathname, threadParam);
+  const isMessagesThreadFullscreenMobile = isMessagesRoute && messagesThreadOpen;
 
   const refreshUnread = useCallback(async () => {
     if (!user?.id) {
@@ -120,9 +125,11 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
         <div
           className={cn(
             "min-h-screen bg-[#FAF8F4] pb-[calc(4rem+env(safe-area-inset-bottom))] font-sans text-[#2C2C2C] md:flex md:h-[100dvh] md:max-h-[100dvh] md:flex-col md:overflow-hidden md:pb-0",
-            /* Mobile messages: bounded viewport height so flex + min-h-0 chains resolve; avoids composer pushed below fold on long threads. */
+            /* Mobile messages: bounded viewport height so flex + min-h-0 chains resolve. */
             isMessagesRoute &&
               "max-md:flex max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:min-h-0 max-md:flex-col max-md:overflow-hidden",
+            /* Open thread: full 100dvh — no reserved bottom band (mirrors agent messages tab). */
+            isMessagesThreadFullscreenMobile && "max-md:pb-0 max-md:min-h-0",
           )}
         >
           <div
@@ -210,6 +217,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
             </main>
           </div>
 
+          {!isMessagesThreadFullscreenMobile ? (
           <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4]/95 px-0.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
             {MOBILE_BOTTOM_NAV.map((t) => {
               const active = isMobileBottomActivePath(pathname, t.segment);
@@ -249,6 +257,7 @@ export function ClientDashboardShell({ children }: { children: React.ReactNode }
               );
             })}
           </nav>
+          ) : null}
         </div>
       )}
     </>

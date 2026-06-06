@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -26,6 +26,13 @@ function isThreadFocused(): boolean {
   return document.hasFocus() && document.visibilityState === "visible";
 }
 
+function isMobileViewport(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(max-width: 767px)").matches;
+}
+
+const CLIENT_MESSAGES_PATH = "/dashboard/client/messages";
+
 type Props = {
   /** Shown when signed out. Defaults to client copy. */
   signedOutMessage?: string;
@@ -40,8 +47,14 @@ export function MessengerHost({
 }: Props) {
   const { user, loading: authLoading } = useAuth();
   const userId = user?.id;
+  const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const deepLinkId = searchParams.get("c")?.trim() || undefined;
+  const urlThreadOpen = Boolean(
+    deepLinkId || searchParams.get("channel")?.trim(),
+  );
+  const defaultMobilePane = urlThreadOpen ? "thread" : "list";
   const deepLinkRefreshDone = useRef(false);
   const markReadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -138,9 +151,33 @@ export function MessengerHost({
     [conversations, activeId, messages, messagesLoading],
   );
 
-  const handleActiveChange = useCallback((id: string) => {
-    setActiveId(id);
-  }, []);
+  const replaceClientThreadParam = useCallback(
+    (conversationId: string | undefined) => {
+      if (!pathname.startsWith(CLIENT_MESSAGES_PATH) || !isMobileViewport()) return;
+      const params = new URLSearchParams(searchParams.toString());
+      if (conversationId) {
+        params.set("c", conversationId);
+      } else {
+        params.delete("c");
+        params.delete("channel");
+      }
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    },
+    [pathname, router, searchParams],
+  );
+
+  const handleActiveChange = useCallback(
+    (id: string) => {
+      setActiveId(id);
+      replaceClientThreadParam(id);
+    },
+    [replaceClientThreadParam],
+  );
+
+  const handleMobileThreadBack = useCallback(() => {
+    replaceClientThreadParam(undefined);
+  }, [replaceClientThreadParam]);
 
   const handleSend = useCallback(
     (conversationId: string, payload: MessengerSendPayload) => {
@@ -178,7 +215,9 @@ export function MessengerHost({
     <MessengerCore
       conversations={conversationsForCore}
       activeConversationId={activeId}
+      defaultMobilePane={defaultMobilePane}
       onActiveConversationChange={handleActiveChange}
+      onMobileThreadBack={handleMobileThreadBack}
       onSend={handleSend}
     />
   );
