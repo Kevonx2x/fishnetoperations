@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { BadgeCheck, Heart, MapPin } from "lucide-react";
+import { Bed, Heart, MapPin, Shield, User, Users, Wallet } from "lucide-react";
 import { GalleryNavButton } from "@/components/ui/gallery-nav-button";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -13,34 +13,112 @@ import {
   DORMSPACE_DESKTOP_CARD_BODY_CLASS,
   DORMSPACE_DESKTOP_CARD_HEIGHT_CLASS,
   DORMSPACE_DESKTOP_CARD_IMAGE_HEIGHT_CLASS,
-  DORMSPACE_DESKTOP_SLOT,
-  DORMSPACE_DESKTOP_WALK_PLACEHOLDER,
   DORMSPACE_LISTING_CARD_WIDTH,
-  DORMSPACE_MOBILE_SLOT,
 } from "@/lib/dormspace-listing-card-layout";
 import { listingListedCompactLabel } from "@/lib/listing-listed-time";
-import { DormspaceWalkTimesLine } from "@/components/dormspaces/dormspace-walk-times-line";
-import { closestWalkTimes } from "@/lib/dormspace-walk-times-display";
 import {
-  dormspaceCardAvailabilityText,
+  dormspaceCardBedDisplay,
+  dormspaceCardDepositAmount,
   dormspaceCardFromPrice,
-  dormspaceCardPriceLabel,
-  dormspaceImagePillLabel,
+  dormspaceCardGenderTag,
+  isDormspaceFullyBooked,
 } from "@/lib/dormspace-gender-beds";
 import {
   dormspaceLocationLine,
-  formatDormspacePrice,
   sortedDormspacePhotos,
   type DormspaceWithPhotos,
 } from "@/lib/dormspaces";
 import { cn } from "@/lib/utils";
 
-const dormCardStatusPillClass =
-  "inline-flex w-fit shrink-0 items-center rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-xs font-medium text-[#2C2C2C] shadow-sm";
 const dormCardListedPillClass =
-  "inline-flex w-fit shrink-0 items-center rounded-full bg-white/90 px-1.5 py-px text-[10px] font-medium leading-tight text-[#2C2C2C] shadow-sm ring-1 ring-black/5 md:px-2 md:py-0.5 md:text-[10px]";
+  "inline-flex w-fit shrink-0 items-center rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-medium leading-tight text-[#2C2C2C] shadow-sm ring-1 ring-black/5";
 
-/** Matches homepage `NewlyListedCard` compact layout — dorm engagement (like only, no pipeline). */
+function dormspaceCardSubtitle(listing: DormspaceWithPhotos): string | null {
+  const school = listing.near_school?.trim();
+  if (!school) return null;
+  if (/^near\s/i.test(school)) return school;
+  return `Near ${school}`;
+}
+
+function formatCardPeso(amount: number): string {
+  return new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 }).format(Math.round(amount));
+}
+
+function dormspaceCardGenderBadgeClass(tag: string): string {
+  if (tag === "MALE ONLY") {
+    return "border-[#6B8FC4]/30 bg-[#E8EEF8] text-[#2E5A8C]";
+  }
+  if (tag === "FEMALE ONLY") {
+    return "border-[#C46B9E]/25 bg-[#F8E8F0] text-[#8C2E5A]";
+  }
+  return "border-[#6B9E6E]/25 bg-[#E8F0E9] text-[#3D6B40]";
+}
+
+function DormspaceCardGenderBadge({ tag }: { tag: string }) {
+  const Icon = tag === "MIXED" ? Users : User;
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wide md:text-[8px]",
+        dormspaceCardGenderBadgeClass(tag),
+      )}
+    >
+      <Icon className="h-2.5 w-2.5" aria-hidden />
+      {tag}
+    </span>
+  );
+}
+
+function DormspaceCardBedBox({ label, available }: { label: string; available: boolean }) {
+  const isFull = !available;
+  return (
+    <div className="flex min-h-[2.125rem] min-w-0 flex-1 items-center gap-1.5 rounded-lg bg-[#F3F3F3] px-2 py-1.5 ring-1 ring-black/[0.04]">
+      <Bed
+        className={cn("h-3.5 w-3.5 shrink-0", available ? "text-[#6B9E6E]" : "text-[#BBBBBB]")}
+        aria-hidden
+      />
+      <div className="min-w-0">
+        <p
+          className={cn(
+            "truncate text-[10px] font-semibold leading-tight",
+            isFull ? "text-[#2C2C2C]" : "text-[#2C2C2C]",
+          )}
+        >
+          {label}
+        </p>
+        {isFull ? <p className="text-[8px] font-medium leading-tight text-[#999999]">No slots</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function DormspaceCardPriceCell({
+  icon: Icon,
+  amount,
+  caption,
+  empty,
+}: {
+  icon: typeof Wallet;
+  amount: string | null;
+  caption: string;
+  empty?: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5 px-0.5">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E]" strokeWidth={1.75} aria-hidden />
+      {empty || !amount ? (
+        <span className="text-[11px] font-bold leading-none text-[#AAAAAA]">—</span>
+      ) : (
+        <>
+          <span className="truncate text-[11px] font-bold leading-none text-[#2C2C2C]">{amount}</span>
+          <span className="truncate text-[9px] font-medium leading-none text-[#888888]">{caption}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Dormspacers browse card — photo overlays + premium stacked body under the image. */
 export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWithPhotos }) {
   const { user } = useAuth();
   const { mayEngage, isLiked, toggleLike } = useDormspaceEngagement();
@@ -55,19 +133,17 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
   const listedLabel = listingListedCompactLabel(listing.created_at);
   const liked = isLiked(listing.id);
   const locationLine = dormspaceLocationLine(listing);
-  const hasWalkTimes = closestWalkTimes(listing.dormspace_walk_times).length > 0;
-  const cardPriceLine =
-    dormspaceCardPriceLabel(listing, formatDormspacePrice) ??
-    (dormspaceCardFromPrice(listing) != null
-      ? `From ${formatDormspacePrice(dormspaceCardFromPrice(listing)!)}`
-      : null);
-  const availabilityLine = dormspaceCardAvailabilityText(listing);
-  const imagePill = dormspaceImagePillLabel(listing);
+  const subtitle = dormspaceCardSubtitle(listing);
+  const genderTag = dormspaceCardGenderTag(listing);
+  const bedDisplay = dormspaceCardBedDisplay(listing);
+  const fullyBooked = isDormspaceFullyBooked(listing);
+  const pricePerBed = dormspaceCardFromPrice(listing);
+  const depositAmount = dormspaceCardDepositAmount(listing);
 
   return (
     <div
       className={cn(
-        "relative flex h-full touch-manipulation flex-col bg-white max-md:min-h-0 max-md:snap-start max-md:overflow-hidden max-md:rounded-2xl max-md:shadow-[0_4px_16px_rgba(44,44,44,0.08)] max-md:ring-1 max-md:ring-black/[0.05] max-md:transition max-md:active:scale-[0.99]",
+        "relative flex touch-manipulation flex-col bg-white max-md:h-auto max-md:snap-start max-md:overflow-hidden max-md:rounded-2xl max-md:shadow-[0_4px_16px_rgba(44,44,44,0.08)] max-md:ring-1 max-md:ring-black/[0.05] max-md:transition max-md:active:scale-[0.99]",
         "md:flex md:flex-col md:overflow-hidden md:rounded-2xl md:border md:border-[#2C2C2C]/10 md:shadow-md",
         DORMSPACE_DESKTOP_CARD_HEIGHT_CLASS,
         DORMSPACE_LISTING_CARD_WIDTH,
@@ -82,7 +158,7 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
 
       <div
         className={cn(
-          "relative w-full shrink-0 overflow-hidden bg-[#F3F0EA] max-md:aspect-[4/3] max-md:rounded-t-2xl md:aspect-auto md:rounded-none",
+          "relative w-full shrink-0 overflow-hidden bg-[#F3F0EA] max-md:aspect-[5/4] max-md:rounded-t-2xl md:aspect-auto md:rounded-none",
           DORMSPACE_DESKTOP_CARD_IMAGE_HEIGHT_CLASS,
         )}
       >
@@ -124,10 +200,10 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
           </>
         ) : null}
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-16 bg-gradient-to-t from-black/25 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-20 bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
 
-        <div className="absolute left-2 top-2 z-20 flex flex-wrap gap-1 md:left-2.5 md:top-2.5">
-          <span className={dormCardStatusPillClass}>{imagePill}</span>
+        <div className="absolute left-2 top-2 z-20 md:left-2.5 md:top-2.5">
+          <span className={dormCardListedPillClass}>{listedLabel}</span>
         </div>
 
         {mayEngage && !hideHeart ? (
@@ -143,136 +219,102 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
                 });
               }}
               className={cn(
-                "inline-flex flex-row items-center gap-1 rounded-full border bg-white/80 p-1 shadow-sm transition hover:bg-[#FAF8F4] max-md:border-0 max-md:bg-white/95 max-md:shadow-md md:p-1.5",
-                liked ? "border-red-200 bg-white" : "border-gray-200",
+                "inline-flex flex-row items-center gap-1 rounded-full border bg-white/95 p-1 shadow-md transition hover:bg-[#FAF8F4] max-md:border-0 md:border-gray-200 md:p-1.5",
+                liked ? "border-red-200" : "",
               )}
               aria-label={liked ? "Remove from liked" : "Add to liked"}
             >
               <Heart
                 className={cn(
                   "h-4 w-4 shrink-0 md:h-3.5 md:w-3.5",
-                  liked ? "fill-red-500 text-red-500" : "fill-none text-[#222] md:text-red-400",
+                  liked ? "fill-red-500 text-red-500" : "fill-none text-red-400",
                 )}
               />
             </button>
           </div>
         ) : null}
 
-        <div className="absolute bottom-2 left-2 z-20 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1 md:bottom-2.5 md:left-2.5 md:max-w-[calc(100%-5rem)]">
-          <span className={dormCardListedPillClass}>{listedLabel}</span>
-        </div>
+        {locationLine ? (
+          <div className="absolute bottom-2 left-2 z-20 flex max-w-[calc(100%-1rem)] items-center gap-1 md:bottom-2.5 md:left-2.5">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-white drop-shadow-sm" aria-hidden />
+            <span className="min-w-0 truncate text-xs font-medium text-white drop-shadow-sm">{locationLine}</span>
+          </div>
+        ) : null}
       </div>
 
       <div
         className={cn(
-          "flex flex-1 flex-col gap-0.5 border-t border-[#2C2C2C]/10 bg-white max-md:rounded-b-2xl max-md:border-0 max-md:px-2.5 max-md:pb-2 max-md:pt-2 px-3 py-2",
-          "md:gap-0 md:border-t md:border-[#2C2C2C]/10 md:px-2 md:pt-1.5 md:pb-1",
+          "border-t border-[#2C2C2C]/8 bg-white max-md:rounded-b-2xl max-md:border-0 max-md:px-2.5 max-md:pb-2.5 max-md:pt-2",
+          "md:border-t md:border-[#2C2C2C]/10 md:px-2 md:pb-2 md:pt-1.5",
           DORMSPACE_DESKTOP_CARD_BODY_CLASS,
         )}
       >
-        <p
-          className={cn(
-            "truncate text-sm font-semibold leading-tight text-[#D4A843] md:text-sm",
-            DORMSPACE_DESKTOP_SLOT.price,
-          )}
-        >
-          {cardPriceLine ?? formatDormspacePrice(listing.monthly_price)}
-        </p>
-        <p
-          className={cn(
-            "line-clamp-2 text-[13px] font-semibold leading-snug text-[#2C2C2C] max-md:block md:hidden",
-            DORMSPACE_MOBILE_SLOT.title,
-          )}
-        >
-          {listing.title}
-        </p>
-        <Link
-          href={href}
-          prefetch
-          className={cn(
-            "line-clamp-2 hidden text-left text-[13px] font-semibold leading-snug text-[#2C2C2C] hover:underline md:block",
-            DORMSPACE_DESKTOP_SLOT.title,
-          )}
-        >
-          {listing.title}
-        </Link>
-        {availabilityLine ? (
-          <p
-            className={cn(
-              "truncate text-[11px] font-medium text-[#6B9E6E]",
-              DORMSPACE_DESKTOP_SLOT.meta,
-              DORMSPACE_MOBILE_SLOT.beds,
-            )}
+        <div className="shrink-0 space-y-1.5">
+          <Link
+            href={href}
+            prefetch
+            className="line-clamp-2 text-left text-[12px] font-bold leading-snug text-[#2C2C2C] hover:underline max-md:pointer-events-none md:text-[13px]"
           >
-            {availabilityLine}
-          </p>
-        ) : (
-          <p
-            className={cn(
-              "truncate text-[11px] text-[#888888]",
-              DORMSPACE_DESKTOP_SLOT.meta,
-              DORMSPACE_MOBILE_SLOT.beds,
-            )}
-          >
-            Currently full
-          </p>
-        )}
-        <p
-          className={cn(
-            "flex items-center gap-1 text-[11px] text-[#717171]",
-            DORMSPACE_DESKTOP_SLOT.location,
-            DORMSPACE_MOBILE_SLOT.location,
-          )}
-        >
-          <MapPin className="h-3 w-3 shrink-0 text-[#8E8E8E]" aria-hidden />
-          <span className="min-w-0 flex-1 truncate">
-            {locationLine ? (
-              locationLine
-            ) : (
-              <span className="invisible select-none" aria-hidden>
-                {"\u00a0"}
-              </span>
-            )}
-          </span>
-        </p>
-        <div
-          className={cn(
-            "max-md:mt-0.5",
-            DORMSPACE_DESKTOP_SLOT.walk,
-            DORMSPACE_MOBILE_SLOT.walk,
-            "md:flex md:items-center",
-          )}
-        >
-          {hasWalkTimes ? (
-            <DormspaceWalkTimesLine listing={listing} className="truncate text-[11px] md:text-[11px]" />
-          ) : (
-            <span className="truncate text-[11px] max-md:invisible md:inline" aria-hidden>
-              {DORMSPACE_DESKTOP_WALK_PLACEHOLDER}
-            </span>
-          )}
-        </div>
-      </div>
+            {listing.title}
+          </Link>
 
-      <div
-        className={cn(
-          "relative z-10 mt-auto hidden shrink-0 flex-col justify-center overflow-hidden bg-white md:flex",
-          DORMSPACE_DESKTOP_SLOT.landlord,
-          "px-2 pb-1.5 pt-0",
-        )}
-      >
-        <div className="flex h-full min-h-0 items-center gap-2">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#6B9E6E]/12 ring-1 ring-[#6B9E6E]/20">
-            <BadgeCheck className="size-4 text-[#D4A843]" aria-hidden />
+          <div className="flex items-center justify-between gap-1.5">
+            {subtitle ? (
+              <p className="min-w-0 flex-1 truncate text-[10px] font-semibold text-[#5C5C5C] md:text-[11px]">
+                {subtitle}
+              </p>
+            ) : (
+              <p className="min-w-0 flex-1 truncate text-[10px] font-semibold text-transparent select-none" aria-hidden>
+                {"\u00a0"}
+              </p>
+            )}
+            <DormspaceCardGenderBadge tag={genderTag} />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-[#2C2C2C]/85">
-              {listing.landlord_name?.trim() || (
-                <span className="text-gray-400">Landlord</span>
-              )}
-            </p>
-            <p className="truncate text-[10px] text-gray-400">
-              {listing.status === "approved" ? "Verified landlord" : "Landlord · pending review"}
-            </p>
+        </div>
+
+        <div className="mt-1.5 flex min-h-0 flex-1 flex-col border-t border-[#E5E5E5] pt-2">
+          <div className="shrink-0 space-y-1.5">
+            {bedDisplay.mode === "dual" ? (
+              <div className="flex gap-1.5">
+                <DormspaceCardBedBox {...bedDisplay.columns[0]} />
+                <DormspaceCardBedBox {...bedDisplay.columns[1]} />
+              </div>
+            ) : bedDisplay.mode === "single" ? (
+              <DormspaceCardBedBox {...bedDisplay.column} />
+            ) : (
+              <div className="rounded-lg bg-[#F3F3F3] px-2 py-1.5 ring-1 ring-black/[0.04]">
+                <div className="flex min-w-0 items-start gap-1.5">
+                  <Bed className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#BBBBBB]" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-[#2C2C2C]">Fully booked</p>
+                    <p className="text-[9px] leading-snug text-[#717171]">
+                      Join the waitlist to get notified when a slot opens.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-auto shrink-0 px-0.5 py-1">
+            <div className="grid grid-cols-2 divide-x divide-[#D8DED8]">
+              <div className="pr-2">
+                <DormspaceCardPriceCell
+                  icon={Wallet}
+                  amount={fullyBooked || pricePerBed == null ? null : `₱${formatCardPeso(pricePerBed)}`}
+                  caption="/ bed"
+                  empty={fullyBooked || pricePerBed == null}
+                />
+              </div>
+              <div className="pl-2">
+                <DormspaceCardPriceCell
+                  icon={Shield}
+                  amount={fullyBooked || depositAmount == null ? null : `₱${formatCardPeso(depositAmount)}`}
+                  caption="Deposit"
+                  empty={fullyBooked || depositAmount == null}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -51,8 +51,11 @@ export function DormspaceRecommendedSection({ listings }: { listings: DormspaceW
       ) : (
         <div className="-mx-4 mt-5 flex items-stretch gap-1 md:mt-6 lg:gap-2">
           <RowScrollNavButton direction="prev" onClick={() => scroll("prev")} aria-label="Scroll left" />
-          <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto px-1 pb-2 scrollbar-hide">
-            <div className="flex w-max flex-nowrap gap-3">
+          <div
+            ref={scrollRef}
+            className="min-w-0 flex-1 overflow-x-auto overflow-y-visible px-1 pb-4 scrollbar-hide"
+          >
+            <div className="flex w-max flex-nowrap items-stretch gap-3">
               {recommended.map((listing) => (
                 <DormspaceListingCardCompact key={listing.id} listing={listing} />
               ))}

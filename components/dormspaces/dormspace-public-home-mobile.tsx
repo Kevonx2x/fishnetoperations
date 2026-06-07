@@ -27,9 +27,8 @@ import {
 import type { DormspaceBrowseFilters } from "@/lib/dormspace-browse-filters";
 import type { DormspacePopularArea } from "@/lib/dormspace-popular-areas";
 
+import { DormspaceListingCardCompact } from "@/components/dormspaces/dormspace-listing-card-compact";
 import {
-
-  DORMSPACE_HOME_DEMO_NEW,
 
   DORMSPACE_HOME_DEMO_RECOMMENDED,
 
@@ -552,12 +551,11 @@ export function DormspacePublicHomeMobile({
   compactMobileHome = false,
 
 }: Props) {
-  const newestListingIds = useMemo(
+  const newestListings = useMemo(
     () =>
       [...listings]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, DORMSPACE_HOME_DEMO_NEW.length)
-        .map((row) => row.id),
+        .slice(0, 12),
     [listings],
   );
 
@@ -569,20 +567,19 @@ export function DormspacePublicHomeMobile({
 
   return (
     <div className={cn("min-w-0 pb-6 md:hidden", compactMobileHome ? "pt-0" : "pt-1")}>
-      <section className={SECTION}>
-        <SectionHeader title="New this week" actionLabel="See all" onAction={onScrollToListings} />
-        <div className={cn(MOBILE_DORMSPACE_CAROUSEL_TRACK, "gap-2")} style={MOBILE_HORIZONTAL_SCROLL_STYLE}>
-          {DORMSPACE_HOME_DEMO_NEW.map((listing, index) => (
-            <NewThisWeekCard
-              key={listing.id}
-              listing={listing}
-              detailHref={listing.detailHref}
-              fallbackListingId={newestListingIds[index]}
-              onScrollToListings={onScrollToListings}
-            />
-          ))}
-        </div>
-      </section>
+      {newestListings.length > 0 ? (
+        <section className={SECTION}>
+          <SectionHeader title="New this week" actionLabel="See all" onAction={onScrollToListings} />
+          <div
+            className={cn(MOBILE_DORMSPACE_CAROUSEL_TRACK, "items-stretch gap-2 pb-1")}
+            style={MOBILE_HORIZONTAL_SCROLL_STYLE}
+          >
+            {newestListings.map((listing) => (
+              <DormspaceListingCardCompact key={listing.id} listing={listing} />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
 
 

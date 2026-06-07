@@ -186,6 +186,108 @@ export function dormspaceCardFromPrice(row: DormspaceGenderBedInput): number | n
   return parsePrice(row.monthly_price);
 }
 
+export type DormspaceCardBedColumn = {
+  label: string;
+  available: boolean;
+};
+
+export type DormspaceCardBedDisplay =
+  | { mode: "dual"; columns: [DormspaceCardBedColumn, DormspaceCardBedColumn] }
+  | { mode: "single"; column: DormspaceCardBedColumn }
+  | { mode: "fully_booked" };
+
+function dormspaceCardGenderBedLabel(available: number, gender: "male" | "female"): string {
+  const bedWord = available === 1 ? "bed" : "beds";
+  return `${available} ${gender} ${bedWord}`;
+}
+
+function dormspaceCardGenderFullLabel(gender: "male" | "female"): string {
+  return gender === "male" ? "Male full" : "Female full";
+}
+
+/** Browse card bed availability — green/gray icon columns per mockup. */
+export function dormspaceCardBedDisplay(row: DormspaceGenderBedInput): DormspaceCardBedDisplay {
+  const counts = resolveDormspaceGenderBedCounts(row);
+  const hasMale = counts.maleTotal > 0;
+  const hasFemale = counts.femaleTotal > 0;
+
+  if (hasMale && hasFemale) {
+    const maleCol: DormspaceCardBedColumn =
+      counts.maleAvailable > 0
+        ? { label: dormspaceCardGenderBedLabel(counts.maleAvailable, "male"), available: true }
+        : { label: dormspaceCardGenderFullLabel("male"), available: false };
+    const femaleCol: DormspaceCardBedColumn =
+      counts.femaleAvailable > 0
+        ? { label: dormspaceCardGenderBedLabel(counts.femaleAvailable, "female"), available: true }
+        : { label: dormspaceCardGenderFullLabel("female"), available: false };
+    return { mode: "dual", columns: [maleCol, femaleCol] };
+  }
+
+  if (isDormspaceFullyBooked(row)) {
+    return { mode: "fully_booked" };
+  }
+
+  if (hasMale) {
+    return {
+      mode: "single",
+      column:
+        counts.maleAvailable > 0
+          ? { label: dormspaceCardGenderBedLabel(counts.maleAvailable, "male"), available: true }
+          : { label: dormspaceCardGenderFullLabel("male"), available: false },
+    };
+  }
+
+  if (hasFemale) {
+    return {
+      mode: "single",
+      column:
+        counts.femaleAvailable > 0
+          ? { label: dormspaceCardGenderBedLabel(counts.femaleAvailable, "female"), available: true }
+          : { label: dormspaceCardGenderFullLabel("female"), available: false },
+    };
+  }
+
+  return { mode: "fully_booked" };
+}
+
+export function dormspaceCardGenderTag(row: DormspaceGenderBedInput): string {
+  const counts = resolveDormspaceGenderBedCounts(row);
+  if (counts.maleTotal > 0 && counts.femaleTotal > 0) return "MIXED";
+  if (counts.maleTotal > 0) return "MALE ONLY";
+  if (counts.femaleTotal > 0) return "FEMALE ONLY";
+  const g = row.gender_preference;
+  if (g === "male") return "MALE ONLY";
+  if (g === "female") return "FEMALE ONLY";
+  return "MIXED";
+}
+
+export function formatDormspacePricePerBed(amount: number): string {
+  const formatted = new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 }).format(Math.round(amount));
+  return `₱${formatted} / bed`;
+}
+
+export function dormspaceCardDepositAmount(
+  row: DormspaceGenderBedInput & { deposit_months?: number | string | null },
+): number | null {
+  const price = dormspaceCardFromPrice(row);
+  if (price == null) return null;
+  const raw = row.deposit_months;
+  const months = typeof raw === "number" ? raw : Number(raw);
+  const m = Number.isFinite(months) && months > 0 ? Math.round(months) : 1;
+  return Math.round(price * m);
+}
+
+export function formatDormspaceDeposit(amount: number): string {
+  const formatted = new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 }).format(amount);
+  return `₱${formatted} Deposit`;
+}
+
+/** Narrow browse cards — shorter label so the deposit column does not truncate. */
+export function formatDormspaceDepositCompact(amount: number): string {
+  const formatted = new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 }).format(amount);
+  return `₱${formatted} dep.`;
+}
+
 /** Compact per-gender "from" pricing for browse cards (mixed / dual-gender listings). */
 export function dormspaceCardPriceLabel(
   row: DormspaceGenderBedInput,

@@ -44,8 +44,11 @@ export function DormspaceNewThisWeekSection({ listings }: { listings: DormspaceW
             onClick={() => scroll("prev")}
             aria-label="Scroll left"
           />
-          <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto px-1 pb-2 scrollbar-hide lg:px-2">
-            <div className="flex w-max flex-nowrap gap-4">
+          <div
+            ref={scrollRef}
+            className="min-w-0 flex-1 overflow-x-auto overflow-y-visible px-1 pb-4 scrollbar-hide lg:px-2"
+          >
+            <div className="flex w-max flex-nowrap items-stretch gap-4">
               {newest.map((listing) => (
                 <DormspaceListingCardCompact key={listing.id} listing={listing} />
               ))}
