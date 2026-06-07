@@ -33,13 +33,6 @@ import { cn } from "@/lib/utils";
 const dormCardListedPillClass =
   "inline-flex w-fit shrink-0 items-center rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-medium leading-tight text-[#2C2C2C] shadow-sm ring-1 ring-black/5";
 
-function dormspaceCardSubtitle(listing: DormspaceWithPhotos): string | null {
-  const school = listing.near_school?.trim();
-  if (!school) return null;
-  if (/^near\s/i.test(school)) return school;
-  return `Near ${school}`;
-}
-
 function formatCardPeso(amount: number): string {
   return new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 }).format(Math.round(amount));
 }
@@ -72,21 +65,23 @@ function DormspaceCardGenderBadge({ tag }: { tag: string }) {
 function DormspaceCardBedBox({ label, available }: { label: string; available: boolean }) {
   const isFull = !available;
   return (
-    <div className="flex min-h-[2.125rem] min-w-0 flex-1 items-center gap-1.5 rounded-lg bg-[#F3F3F3] px-2 py-1.5 ring-1 ring-black/[0.04]">
+    <div
+      className={cn(
+        "flex min-h-[2.125rem] min-w-0 flex-1 basis-0 gap-1.5 rounded-lg bg-[#F3F3F3] px-2 py-1.5 ring-1 ring-black/[0.04]",
+        isFull ? "items-start" : "items-center",
+      )}
+    >
       <Bed
-        className={cn("h-3.5 w-3.5 shrink-0", available ? "text-[#6B9E6E]" : "text-[#BBBBBB]")}
+        className={cn(
+          "h-3.5 w-3.5 shrink-0",
+          available ? "text-[#6B9E6E]" : "text-[#BBBBBB]",
+          isFull && "mt-0.5",
+        )}
         aria-hidden
       />
-      <div className="min-w-0">
-        <p
-          className={cn(
-            "truncate text-[10px] font-semibold leading-tight",
-            isFull ? "text-[#2C2C2C]" : "text-[#2C2C2C]",
-          )}
-        >
-          {label}
-        </p>
-        {isFull ? <p className="text-[8px] font-medium leading-tight text-[#999999]">No slots</p> : null}
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold leading-tight text-[#2C2C2C]">{label}</p>
+        {isFull ? <p className="text-[9px] font-normal leading-tight text-[#999999]">No slots</p> : null}
       </div>
     </div>
   );
@@ -104,14 +99,14 @@ function DormspaceCardPriceCell({
   empty?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5 px-0.5">
+    <div className="flex min-w-0 flex-col items-center gap-0.5 text-center">
       <Icon className="h-3.5 w-3.5 shrink-0 text-[#6B9E6E]" strokeWidth={1.75} aria-hidden />
       {empty || !amount ? (
         <span className="text-[11px] font-bold leading-none text-[#AAAAAA]">—</span>
       ) : (
         <>
-          <span className="truncate text-[11px] font-bold leading-none text-[#2C2C2C]">{amount}</span>
-          <span className="truncate text-[9px] font-medium leading-none text-[#888888]">{caption}</span>
+          <span className="max-w-full truncate text-[11px] font-bold leading-none text-[#2C2C2C]">{amount}</span>
+          <span className="max-w-full truncate text-[9px] font-medium leading-none text-[#888888]">{caption}</span>
         </>
       )}
     </div>
@@ -133,7 +128,6 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
   const listedLabel = listingListedCompactLabel(listing.created_at);
   const liked = isLiked(listing.id);
   const locationLine = dormspaceLocationLine(listing);
-  const subtitle = dormspaceCardSubtitle(listing);
   const genderTag = dormspaceCardGenderTag(listing);
   const bedDisplay = dormspaceCardBedDisplay(listing);
   const fullyBooked = isDormspaceFullyBooked(listing);
@@ -249,27 +243,15 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
           DORMSPACE_DESKTOP_CARD_BODY_CLASS,
         )}
       >
-        <div className="shrink-0 space-y-1.5">
+        <div className="flex shrink-0 items-start justify-between gap-1.5">
           <Link
             href={href}
             prefetch
-            className="line-clamp-2 text-left text-[12px] font-bold leading-snug text-[#2C2C2C] hover:underline max-md:pointer-events-none md:text-[13px]"
+            className="line-clamp-2 min-w-0 flex-1 text-left text-[12px] font-bold leading-snug text-[#2C2C2C] hover:underline max-md:pointer-events-none md:text-[13px]"
           >
             {listing.title}
           </Link>
-
-          <div className="flex items-center justify-between gap-1.5">
-            {subtitle ? (
-              <p className="min-w-0 flex-1 truncate text-[10px] font-semibold text-[#5C5C5C] md:text-[11px]">
-                {subtitle}
-              </p>
-            ) : (
-              <p className="min-w-0 flex-1 truncate text-[10px] font-semibold text-transparent select-none" aria-hidden>
-                {"\u00a0"}
-              </p>
-            )}
-            <DormspaceCardGenderBadge tag={genderTag} />
-          </div>
+          <DormspaceCardGenderBadge tag={genderTag} />
         </div>
 
         <div className="mt-1.5 flex min-h-0 flex-1 flex-col border-t border-[#E5E5E5] pt-2">
@@ -296,23 +278,26 @@ export function DormspaceListingCardCompact({ listing }: { listing: DormspaceWit
             )}
           </div>
 
-          <div className="mt-auto shrink-0 px-0.5 py-1">
-            <div className="grid grid-cols-2 divide-x divide-[#D8DED8]">
-              <div className="pr-2">
-                <DormspaceCardPriceCell
-                  icon={Wallet}
-                  amount={fullyBooked || pricePerBed == null ? null : `₱${formatCardPeso(pricePerBed)}`}
-                  caption="/ bed"
-                  empty={fullyBooked || pricePerBed == null}
-                />
-              </div>
-              <div className="pl-2">
-                <DormspaceCardPriceCell
-                  icon={Shield}
-                  amount={fullyBooked || depositAmount == null ? null : `₱${formatCardPeso(depositAmount)}`}
-                  caption="Deposit"
-                  empty={fullyBooked || depositAmount == null}
-                />
+          <div className="mt-auto shrink-0 pt-2">
+            <div className="mx-2 border-t border-[#E5E5E5]" aria-hidden />
+            <div className="mt-3">
+              <div className="grid grid-cols-2 divide-x divide-[#D8DED8]">
+                <div className="flex justify-center px-1.5">
+                  <DormspaceCardPriceCell
+                    icon={Wallet}
+                    amount={fullyBooked || pricePerBed == null ? null : `₱${formatCardPeso(pricePerBed)}`}
+                    caption="/ bed"
+                    empty={fullyBooked || pricePerBed == null}
+                  />
+                </div>
+                <div className="flex justify-center px-1.5">
+                  <DormspaceCardPriceCell
+                    icon={Shield}
+                    amount={fullyBooked || depositAmount == null ? null : `₱${formatCardPeso(depositAmount)}`}
+                    caption="Deposit"
+                    empty={fullyBooked || depositAmount == null}
+                  />
+                </div>
               </div>
             </div>
           </div>

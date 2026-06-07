@@ -1,6 +1,6 @@
 /** Dormspacers browse carousel — aligned with BahayGo compact widths. */
 export const DORMSPACE_LISTING_CARD_WIDTH =
-  "w-[calc((100vw-2rem-0.625rem)/2)] shrink-0 md:w-[200px] lg:w-[208px]";
+  "w-[calc((100vw-2rem-0.5rem)/2)] shrink-0 md:w-[216px] lg:w-[224px]";
 
 /** Natural card height — content-driven; carousel stretch fills via body footer panel. */
 export const DORMSPACE_DESKTOP_CARD_HEIGHT_CLASS = "md:h-full" as const;
