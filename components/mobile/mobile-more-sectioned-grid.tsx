@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronRight, User, type LucideIcon } from "lucide-react";
 
@@ -9,11 +9,8 @@ import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { MOBILE_BOTTOM_NAV_OFFSET_CSS } from "@/lib/mobile-bottom-nav-layout";
 import { cn } from "@/lib/utils";
 
-/** Compact two-up grid tile height (mockup density). */
+/** Fixed tile height — compact 2-col grid rows (mockup density). */
 const TILE_H = "h-11";
-
-/** Full-width featured row — slightly taller than grid cells. */
-const FEATURED_H = "min-h-[3.25rem]";
 
 export type MobileMoreGridItem = {
   id: string;
@@ -31,7 +28,7 @@ export type MobileMoreGridItem = {
 export type MobileMoreGridSection = {
   id: string;
   title: string;
-  /** Full-width prominent row above the two-up grid (e.g. cross-product link). */
+  /** Full-width first row inside the section grid (e.g. cross-product link). */
   featuredItem?: MobileMoreGridItem;
   items: MobileMoreGridItem[];
 };
@@ -50,14 +47,13 @@ type Props = {
   profileBadge?: string;
   /** When false, parent shell already renders the flag (e.g. dormspaces portal). */
   showFlagWatermark?: boolean;
-  showFooter?: boolean;
 };
 
-function GridCell({ item }: { item: MobileMoreGridItem }) {
+function gridCellInner(item: MobileMoreGridItem, options?: { showChevron?: boolean }) {
   const iconClass = item.destructive ? "text-red-500" : "text-[#6B9E6E]";
   const labelClass = item.destructive ? "text-red-500" : "text-[#2C2C2C]";
 
-  const inner = (
+  return (
     <div className="flex h-full w-full min-w-0 items-center gap-2.5 px-3">
       <span className="flex h-5 w-5 shrink-0 items-center justify-center">
         {item.iconMarkup ??
@@ -78,9 +74,15 @@ function GridCell({ item }: { item: MobileMoreGridItem }) {
           {item.badge}
         </span>
       ) : null}
+      {options?.showChevron && !item.destructive ? (
+        <ChevronRight className="h-4 w-4 shrink-0 text-[#BBBBBB]" aria-hidden />
+      ) : null}
     </div>
   );
+}
 
+function GridCell({ item }: { item: MobileMoreGridItem }) {
+  const inner = gridCellInner(item);
   const cellClass = cn(
     TILE_H,
     "flex min-w-0 items-stretch text-left transition-colors",
@@ -111,38 +113,10 @@ function GridCell({ item }: { item: MobileMoreGridItem }) {
 }
 
 function FeaturedGridRow({ item }: { item: MobileMoreGridItem }) {
-  const iconClass = item.destructive ? "text-red-500" : "text-[#6B9E6E]";
-  const labelClass = item.destructive ? "text-red-500" : "text-[#2C2C2C]";
-
-  const inner = (
-    <div className="flex h-full w-full min-w-0 items-center gap-2.5 px-3.5">
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-        {item.iconMarkup ??
-          (item.icon ? (
-            <item.icon className={cn("h-5 w-5", iconClass)} strokeWidth={1.75} aria-hidden />
-          ) : null)}
-      </span>
-      <span className={cn("min-w-0 flex-1 truncate text-[13px] font-medium leading-none", labelClass)}>
-        {item.label}
-      </span>
-      {item.badge ? (
-        <span
-          className={cn(
-            "shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide",
-            item.badgeGold ? "bg-[#D4A843] text-white" : "bg-[#6B9E6E]/10 text-[#6B9E6E]",
-          )}
-        >
-          {item.badge}
-        </span>
-      ) : null}
-      {!item.destructive ? <ChevronRight className="h-4 w-4 shrink-0 text-[#BBBBBB]" aria-hidden /> : null}
-    </div>
-  );
-
+  const inner = gridCellInner(item, { showChevron: true });
   const rowClass = cn(
-    FEATURED_H,
-    "flex w-full items-stretch text-left transition-colors",
-    "rounded-2xl border border-black/[0.06] bg-white",
+    TILE_H,
+    "col-span-2 flex min-w-0 items-stretch text-left transition-colors",
     "hover:bg-black/[0.02] active:bg-black/[0.04]",
   );
 
@@ -179,22 +153,18 @@ function SectionGrid({ section }: { section: MobileMoreGridSection }) {
       <h2 className="mb-1 px-0.5 text-[11px] font-medium uppercase tracking-[0.08em] text-[#888888]">
         {section.title}
       </h2>
-      <div className="flex flex-col gap-2">
+      <div
+        className={cn(
+          "grid grid-cols-2 overflow-hidden rounded-2xl border border-black/[0.06] bg-white",
+          "divide-x divide-y divide-black/[0.06]",
+        )}
+        style={{ gridAutoRows: "2.75rem" }}
+      >
         {section.featuredItem ? <FeaturedGridRow item={section.featuredItem} /> : null}
-        {section.items.length > 0 ? (
-          <div
-            className={cn(
-              "grid grid-cols-2 overflow-hidden rounded-2xl border border-black/[0.06] bg-white",
-              "divide-x divide-y divide-black/[0.06]",
-            )}
-            style={{ gridAutoRows: "2.75rem" }}
-          >
-            {section.items.map((item) => (
-              <GridCell key={item.id} item={item} />
-            ))}
-            {needsPlaceholder ? <div className={cn(TILE_H, "bg-white")} aria-hidden /> : null}
-          </div>
-        ) : null}
+        {section.items.map((item) => (
+          <GridCell key={item.id} item={item} />
+        ))}
+        {needsPlaceholder ? <div className={cn(TILE_H, "bg-white")} aria-hidden /> : null}
       </div>
     </section>
   );
@@ -213,22 +183,16 @@ export function MobileMoreSectionedGrid({
   profileInitials = "?",
   profileBadge,
   showFlagWatermark = true,
-  showFooter = false,
 }: Props) {
   const visibleSections = sections.filter((s) => s.featuredItem || s.items.length > 0);
 
   return (
     <div
-      className={cn(
-        "relative flex flex-col bg-[#FAF8F4] font-sans text-[#2C2C2C]",
-        "max-md:h-[calc(100dvh-var(--more-viewport-offset))] max-md:max-h-[calc(100dvh-var(--more-viewport-offset))]",
-        "max-md:overflow-hidden md:min-h-screen",
-      )}
-      style={
-        {
-          "--more-viewport-offset": MOBILE_BOTTOM_NAV_OFFSET_CSS,
-        } as CSSProperties
-      }
+      className="relative flex flex-col overflow-hidden bg-[#FAF8F4] font-sans text-[#2C2C2C] md:hidden"
+      style={{
+        height: `calc(100dvh - ${MOBILE_BOTTOM_NAV_OFFSET_CSS})`,
+        maxHeight: `calc(100dvh - ${MOBILE_BOTTOM_NAV_OFFSET_CSS})`,
+      }}
     >
       {showFlagWatermark ? (
         <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
@@ -236,19 +200,14 @@ export function MobileMoreSectionedGrid({
         </div>
       ) : null}
 
-      <div
-        className={cn(
-          "relative z-10 flex min-h-0 flex-1 flex-col px-4 pb-1.5 pt-[max(0.5rem,env(safe-area-inset-top))]",
-          "md:mx-auto md:max-w-lg md:w-full md:flex-none md:pb-8 md:pt-8",
-        )}
-      >
-        <header className="mb-1.5 shrink-0 md:mb-3">
-          <h1 className="font-serif text-[1.35rem] font-bold leading-none tracking-tight text-[#2C2C2C] md:text-[1.75rem]">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col px-4 pb-1.5 pt-[max(0.5rem,env(safe-area-inset-top))]">
+        <header className="mb-1.5 shrink-0">
+          <h1 className="font-serif text-[1.35rem] font-bold leading-none tracking-tight text-[#2C2C2C]">
             More
           </h1>
         </header>
 
-        <div className="mb-2.5 shrink-0 md:mb-4">
+        <div className="mb-2.5 shrink-0">
           {loading ? (
             <div className="h-14 animate-pulse rounded-2xl bg-white/80" aria-hidden />
           ) : signedIn ? (
@@ -301,24 +260,11 @@ export function MobileMoreSectionedGrid({
           )}
         </div>
 
-        <div
-          className={cn(
-            "flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto",
-            "max-md:overscroll-contain md:flex-none md:overflow-visible md:gap-3",
-          )}
-        >
+        <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden">
           {visibleSections.map((section) => (
             <SectionGrid key={section.id} section={section} />
           ))}
         </div>
-
-        {showFooter ? (
-          <footer className="mt-6 shrink-0 px-0.5 pb-4 text-center md:mt-8">
-            <p className="text-xs text-[#888888]">BahayGo Realty Services</p>
-            <p className="mt-1 text-xs text-[#888888]">Made in the Philippines</p>
-            <p className="mt-1 text-xs text-[#888888]">v1.0</p>
-          </footer>
-        ) : null}
       </div>
     </div>
   );

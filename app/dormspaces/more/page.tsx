@@ -6,9 +6,12 @@ import {
   MobileMoreSectionedGrid,
   type MobileMoreGridSection,
 } from "@/components/mobile/mobile-more-sectioned-grid";
+import Link from "next/link";
+import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, type ReactNode } from "react";
 import {
+  ChevronRight,
   Flag,
   Heart,
   HelpCircle,
@@ -24,6 +27,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { isLandlordCapable } from "@/lib/auth-roles";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 
 /** Routes verified against the app directory — hide rows when false. */
 const ROUTES = {
@@ -95,6 +99,132 @@ function isDormspaceLandlordUser(
   return status === "approved" || status === "pending";
 }
 
+function MenuRow({ item }: { item: MenuItem }) {
+  const iconClass = item.destructive ? "text-red-500" : "text-[#6B9E6E]";
+  const labelClass = item.destructive ? "text-red-500" : "text-[#2C2C2C]";
+
+  const inner = (
+    <>
+      {item.iconMarkup ??
+        (item.icon ? (
+          <item.icon className={cn("h-5 w-5 shrink-0", iconClass)} strokeWidth={2} aria-hidden />
+        ) : null)}
+      <span className={cn("min-w-0 flex-1 text-[15px] font-medium", labelClass)}>{item.label}</span>
+      {item.badge ? (
+        <span className="rounded-full bg-[#6B9E6E]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#6B9E6E]">
+          {item.badge}
+        </span>
+      ) : item.destructive ? null : (
+        <ChevronRight className="h-5 w-5 shrink-0 text-[#888888]" aria-hidden />
+      )}
+    </>
+  );
+
+  const rowClass =
+    "flex min-h-12 w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]";
+
+  if (item.onClick) {
+    return (
+      <button type="button" onClick={item.onClick} className={rowClass}>
+        {inner}
+      </button>
+    );
+  }
+
+  if (item.href?.startsWith("mailto:")) {
+    return (
+      <a href={item.href} className={rowClass}>
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={item.href ?? "/"} className={rowClass}>
+      {inner}
+    </Link>
+  );
+}
+
+function FeaturedMenuRow({ item }: { item: MenuItem }) {
+  const iconClass = item.destructive ? "text-red-500" : "text-[#6B9E6E]";
+  const labelClass = item.destructive ? "text-red-500" : "text-[#2C2C2C]";
+
+  const inner = (
+    <>
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+        {item.iconMarkup ??
+          (item.icon ? (
+            <item.icon className={cn("h-6 w-6", iconClass)} strokeWidth={2} aria-hidden />
+          ) : null)}
+      </span>
+      <span className={cn("min-w-0 flex-1 font-serif text-base font-semibold", labelClass)}>{item.label}</span>
+      {item.badge ? (
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+            item.badgeGold ? "bg-[#D4A843] text-white" : "bg-[#6B9E6E]/10 text-[#6B9E6E]",
+          )}
+        >
+          {item.badge}
+        </span>
+      ) : null}
+      {!item.destructive ? (
+        <ChevronRight className="h-5 w-5 shrink-0 text-[#888888]" aria-hidden />
+      ) : null}
+    </>
+  );
+
+  const rowClass =
+    "flex min-h-[3.5rem] w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]";
+
+  if (item.onClick) {
+    return (
+      <button type="button" onClick={item.onClick} className={rowClass}>
+        {inner}
+      </button>
+    );
+  }
+
+  if (item.href?.startsWith("mailto:")) {
+    return (
+      <a href={item.href} className={rowClass}>
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={item.href ?? "/"} className={rowClass}>
+      {inner}
+    </Link>
+  );
+}
+
+function MenuSectionBlock({ section }: { section: MenuSection }) {
+  if (!section.featuredItem && section.items.length === 0) return null;
+
+  return (
+    <section>
+      <h2 className="mb-2 mt-6 px-4 text-xs font-medium uppercase tracking-wide text-[#888888]">
+        {section.title}
+      </h2>
+      {section.featuredItem ? (
+        <div className="mx-4 mb-2 overflow-hidden rounded-xl border border-black/[0.06] bg-white shadow-[0_1px_4px_rgba(44,44,44,0.05)]">
+          <FeaturedMenuRow item={section.featuredItem} />
+        </div>
+      ) : null}
+      {section.items.length > 0 ? (
+        <div className="mx-4 divide-y divide-black/[0.06] overflow-hidden rounded-xl border border-black/[0.06] bg-white">
+          {section.items.map((item) => (
+            <MenuRow key={item.id} item={item} />
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export default function DormspacesMorePage() {
   const router = useRouter();
   const { user, profile, loading } = useAuth();
@@ -112,7 +242,7 @@ export default function DormspacesMorePage() {
     const bahaygoFeatured: MenuItem = {
       id: "bahaygo",
       label: "BahayGo",
-      iconMarkup: <BahayGoHouseMark className="h-5 w-5" />,
+      iconMarkup: <BahayGoHouseMark className="h-6 w-6" />,
       href: PATHS.bahaygoHome,
     };
 
@@ -281,8 +411,72 @@ export default function DormspacesMorePage() {
         profileInitials={profileInitials(profile?.full_name, email)}
         profileBadge={showLandlordBadge ? "Landlord" : undefined}
         showFlagWatermark={false}
-        showFooter
       />
+
+      <div className="hidden min-h-screen font-sans text-[#2C2C2C] md:block">
+      <div className="pb-32 pt-[env(safe-area-inset-top,0px)] md:pt-4">
+        {!loading && isSignedIn ? (
+          <Link
+            href={PATHS.settings}
+            className="mx-4 mb-4 mt-6 flex items-center gap-3 rounded-xl border border-black/[0.06] bg-white p-4 transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]"
+          >
+            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#6B9E6E]">
+              {profile?.avatar_url ? (
+                <SupabasePublicImage
+                  src={profile.avatar_url}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="56px"
+                />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-base font-semibold text-white">
+                  {profileInitials(profile?.full_name, email)}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <p className="truncate text-base font-semibold text-[#2C2C2C]">{displayName}</p>
+                {showLandlordBadge ? (
+                  <span className="shrink-0 rounded-full bg-[#6B9E6E]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#6B9E6E]">
+                    Landlord
+                  </span>
+                ) : null}
+              </div>
+              {email ? <p className="truncate text-xs text-[#888888]">{email}</p> : null}
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-[#888888]" aria-hidden />
+          </Link>
+        ) : null}
+
+        {!loading && !isSignedIn ? (
+          <div className="mx-4 mb-4 mt-6 rounded-xl border border-black/[0.06] bg-white p-4">
+            <p className="text-sm text-[#2C2C2C]/70">
+              Sign in to save dormspaces, manage listings, and access your account.
+            </p>
+            {ROUTES.authLogin ? (
+              <Link
+                href={PATHS.authLogin}
+                className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#6B9E6E] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#5d8a60] active:bg-[#527a55]"
+              >
+                Sign in or create account
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
+
+        {sections.map((section) => (
+          <MenuSectionBlock key={section.id} section={section} />
+        ))}
+
+        <footer className="mb-24 mt-8 px-4 text-center">
+          <p className="text-xs text-[#888888]">BahayGo Realty Services</p>
+          <p className="mt-1 text-xs text-[#888888]">Made in the Philippines</p>
+          <p className="mt-1 text-xs text-[#888888]">v1.0</p>
+        </footer>
+      </div>
+      </div>
     </DormspacePortalShell>
   );
 }
