@@ -1,14 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, type ReactNode } from "react";
 import {
   Activity,
   BadgeCheck,
   BarChart3,
-  ChevronRight,
   Clock,
   CreditCard,
   Flag,
@@ -27,14 +24,12 @@ import {
 } from "lucide-react";
 import { AGENT_MORE_TAB_PATHS } from "@/lib/agent-dashboard-routes";
 import { useAuth } from "@/contexts/auth-context";
-import { AuthSignInLinkForPath } from "@/components/auth/auth-sign-in-cta";
 import { DormspaceBrandIcon } from "@/components/dormspaces/dormspace-welcome-logo";
 import {
   MobileMoreSectionedGrid,
   type MobileMoreGridSection,
 } from "@/components/mobile/mobile-more-sectioned-grid";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
 
 /** Routes verified against the app directory — hide rows when false. */
 const ROUTES = {
@@ -105,182 +100,6 @@ function profileInitials(name: string | null | undefined, email: string | null |
   return "?";
 }
 
-function MenuRow({
-  item,
-  showDivider,
-}: {
-  item: MenuItem;
-  showDivider?: boolean;
-}) {
-  const iconClass = item.destructive ? "text-red-500" : "text-[#6B9E6E]";
-
-  const inner = (
-    <>
-      <span className="flex w-[22px] shrink-0 items-center justify-center">
-        {item.iconMarkup ??
-          (item.icon ? (
-            <item.icon className={cn("h-[22px] w-[22px]", iconClass)} strokeWidth={1.5} aria-hidden />
-          ) : null)}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "truncate text-[15px] font-medium leading-tight",
-            item.destructive ? "text-red-500" : "text-[#2C2C2C]",
-          )}
-        >
-          {item.label}
-        </p>
-        {item.description ? (
-          <p className="mt-0.5 truncate text-[13px] font-normal leading-tight text-[#888888]">
-            {item.description}
-          </p>
-        ) : null}
-      </div>
-      {item.badge ? (
-        <span
-          className={cn(
-            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-            item.badgeGold ? "bg-[#D4A843] text-white" : "bg-[#6B9E6E]/10 text-[#6B9E6E]",
-          )}
-        >
-          {item.badge}
-        </span>
-      ) : null}
-      {!item.destructive ? (
-        <ChevronRight className="h-4 w-4 shrink-0 text-[#BBBBBB]" aria-hidden />
-      ) : null}
-    </>
-  );
-
-  const rowClass = cn(
-    "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
-    "hover:bg-black/[0.02] active:bg-black/[0.04]",
-    item.primaryAccent && "border-l-[3px] border-l-[#6B9E6E] pl-[13px]",
-    showDivider && "border-t border-black/[0.06]",
-  );
-
-  if (item.onClick) {
-    return (
-      <button type="button" onClick={item.onClick} className={rowClass}>
-        {inner}
-      </button>
-    );
-  }
-
-  if (item.href?.startsWith("mailto:")) {
-    return (
-      <a href={item.href} className={rowClass}>
-        {inner}
-      </a>
-    );
-  }
-
-  return (
-    <Link href={item.href ?? "/"} className={rowClass}>
-      {inner}
-    </Link>
-  );
-}
-
-function FeaturedMenuRow({ item }: { item: MenuItem }) {
-  const iconClass = item.destructive ? "text-red-500" : "text-[#6B9E6E]";
-
-  const inner = (
-    <>
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center">
-        {item.iconMarkup ??
-          (item.icon ? (
-            <item.icon className={cn("h-6 w-6", iconClass)} strokeWidth={1.5} aria-hidden />
-          ) : null)}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "truncate font-serif text-base font-semibold leading-tight",
-            item.destructive ? "text-red-500" : "text-[#2C2C2C]",
-          )}
-        >
-          {item.label}
-        </p>
-        {item.description ? (
-          <p className="mt-0.5 truncate text-[13px] font-normal leading-tight text-[#888888]">
-            {item.description}
-          </p>
-        ) : null}
-      </div>
-      {item.badge ? (
-        <span
-          className={cn(
-            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-            item.badgeGold ? "bg-[#D4A843] text-white" : "bg-[#6B9E6E]/10 text-[#6B9E6E]",
-          )}
-        >
-          {item.badge}
-        </span>
-      ) : null}
-      {!item.destructive ? (
-        <ChevronRight className="h-4 w-4 shrink-0 text-[#BBBBBB]" aria-hidden />
-      ) : null}
-    </>
-  );
-
-  const rowClass = cn(
-    "flex w-full items-center gap-3 px-5 py-4 text-left transition-colors",
-    "hover:bg-black/[0.02] active:bg-black/[0.04]",
-    item.primaryAccent && "border-l-[3px] border-l-[#6B9E6E] pl-[17px]",
-  );
-
-  if (item.onClick) {
-    return (
-      <button type="button" onClick={item.onClick} className={rowClass}>
-        {inner}
-      </button>
-    );
-  }
-
-  if (item.href?.startsWith("mailto:")) {
-    return (
-      <a href={item.href} className={rowClass}>
-        {inner}
-      </a>
-    );
-  }
-
-  return (
-    <Link href={item.href ?? "/"} className={rowClass}>
-      {inner}
-    </Link>
-  );
-}
-
-function MenuSectionBlock({ section, isFirst }: { section: MenuSection; isFirst?: boolean }) {
-  if (!section.featuredItem && section.items.length === 0) return null;
-
-  return (
-    <section className={cn(isFirst ? "mt-6" : "mt-8")}>
-      <h2
-        className="mb-2 px-4 text-xs font-medium uppercase tracking-wider text-[#888888]"
-        style={{ letterSpacing: "0.08em" }}
-      >
-        {section.title}
-      </h2>
-      {section.featuredItem ? (
-        <div className="mx-4 mb-2 overflow-hidden rounded-xl border border-black/[0.06] bg-white shadow-[0_1px_4px_rgba(44,44,44,0.05)]">
-          <FeaturedMenuRow item={section.featuredItem} />
-        </div>
-      ) : null}
-      {section.items.length > 0 ? (
-        <div className="mx-4 overflow-hidden rounded-xl border border-black/[0.06] bg-white">
-          {section.items.map((item, index) => (
-            <MenuRow key={item.id} item={item} showDivider={index > 0} />
-          ))}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
 export default function MorePage() {
   const router = useRouter();
   const { user, profile, role, loading, status } = useAuth();
@@ -299,12 +118,10 @@ export default function MorePage() {
       ? {
           id: "dormspaces",
           label: "Dormspacers",
-          description: "Find dormmates and explore student housing",
-          iconMarkup: <DormspaceBrandIcon className="h-6 w-6" />,
+          iconMarkup: <DormspaceBrandIcon className="h-5 w-5" />,
           href: PATHS.dormspacesWelcome,
           badge: "NEW",
           badgeGold: true,
-          primaryAccent: true,
         }
       : undefined;
 
@@ -531,70 +348,17 @@ export default function MorePage() {
   );
 
   return (
-    <>
-      <MobileMoreSectionedGrid
-        sections={mobileSections}
-        loading={loading}
-        signedIn={isSignedIn}
-        signInHref={PATHS.authLogin}
-        profileHref={PATHS.settings}
-        profileName={displayName}
-        profileEmail={email}
-        profileAvatarUrl={profile?.avatar_url}
-        profileInitials={profileInitials(profile?.full_name, email)}
-      />
-
-      <div className="hidden min-h-screen bg-[#FAF8F4] font-sans text-[#2C2C2C] md:block">
-      <div className="pb-32 pt-[env(safe-area-inset-top,0px)]">
-        {status === "unauthenticated" ? (
-          <header className="flex items-center justify-end px-4 pb-2 pt-4">
-            <AuthSignInLinkForPath nextPath="/more" nav />
-          </header>
-        ) : null}
-
-        {status === "authenticated" && isSignedIn ? (
-          <Link
-            href={PATHS.settings}
-            className="mx-4 mb-4 mt-6 flex items-center gap-3 rounded-xl border border-black/[0.06] bg-white p-5 transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]"
-          >
-            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#6B9E6E]">
-              {profile?.avatar_url ? (
-                <SupabasePublicImage
-                  src={profile.avatar_url}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  sizes="56px"
-                />
-              ) : (
-                <span className="flex h-full w-full items-center justify-center text-base font-semibold text-white">
-                  {profileInitials(profile?.full_name, email)}
-                </span>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-serif text-lg font-semibold text-[#2C2C2C]">{displayName}</p>
-              {email ? <p className="truncate text-[13px] font-normal text-[#888888]">{email}</p> : null}
-            </div>
-            <ChevronRight className="h-5 w-5 shrink-0 text-[#888888]" aria-hidden />
-          </Link>
-        ) : null}
-
-        {sections.map((section, index) => (
-          <MenuSectionBlock
-            key={section.id}
-            section={section}
-            isFirst={index === 0 && status === "unauthenticated"}
-          />
-        ))}
-
-        <footer className="mb-24 mt-8 px-4 text-center">
-          <p className="text-xs text-[#888888]">BahayGo Realty Services</p>
-          <p className="mt-1 text-xs text-[#888888]">Made in the Philippines</p>
-          <p className="mt-1 text-xs text-[#888888]">v1.0</p>
-        </footer>
-      </div>
-      </div>
-    </>
+    <MobileMoreSectionedGrid
+      sections={mobileSections}
+      loading={loading}
+      signedIn={isSignedIn}
+      signInHref={PATHS.authLogin}
+      profileHref={PATHS.settings}
+      profileName={displayName}
+      profileEmail={email}
+      profileAvatarUrl={profile?.avatar_url}
+      profileInitials={profileInitials(profile?.full_name, email)}
+      showFooter
+    />
   );
 }

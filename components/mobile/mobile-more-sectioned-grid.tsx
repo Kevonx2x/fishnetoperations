@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { ChevronRight, User, type LucideIcon } from "lucide-react";
 
@@ -9,8 +9,11 @@ import { SupabasePublicImage } from "@/components/supabase-public-image";
 import { MOBILE_BOTTOM_NAV_OFFSET_CSS } from "@/lib/mobile-bottom-nav-layout";
 import { cn } from "@/lib/utils";
 
-/** Fixed tile height — compact 2-col grid rows (mockup density). */
+/** Compact two-up grid tile height (mockup density). */
 const TILE_H = "h-11";
+
+/** Full-width featured row — slightly taller than grid cells. */
+const FEATURED_H = "min-h-[3.25rem]";
 
 export type MobileMoreGridItem = {
   id: string;
@@ -47,6 +50,7 @@ type Props = {
   profileBadge?: string;
   /** When false, parent shell already renders the flag (e.g. dormspaces portal). */
   showFlagWatermark?: boolean;
+  showFooter?: boolean;
 };
 
 function GridCell({ item }: { item: MobileMoreGridItem }) {
@@ -111,19 +115,16 @@ function FeaturedGridRow({ item }: { item: MobileMoreGridItem }) {
   const labelClass = item.destructive ? "text-red-500" : "text-[#2C2C2C]";
 
   const inner = (
-    <div className="flex h-full w-full min-w-0 items-center gap-3 px-4">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+    <div className="flex h-full w-full min-w-0 items-center gap-2.5 px-3.5">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
         {item.iconMarkup ??
           (item.icon ? (
-            <item.icon className={cn("h-6 w-6", iconClass)} strokeWidth={1.75} aria-hidden />
+            <item.icon className={cn("h-5 w-5", iconClass)} strokeWidth={1.75} aria-hidden />
           ) : null)}
       </span>
-      <div className="min-w-0 flex-1">
-        <p className={cn("truncate text-[15px] font-semibold leading-tight", labelClass)}>{item.label}</p>
-        {item.description ? (
-          <p className="mt-0.5 truncate text-[12px] font-normal leading-tight text-[#888888]">{item.description}</p>
-        ) : null}
-      </div>
+      <span className={cn("min-w-0 flex-1 truncate text-[13px] font-medium leading-none", labelClass)}>
+        {item.label}
+      </span>
       {item.badge ? (
         <span
           className={cn(
@@ -139,8 +140,9 @@ function FeaturedGridRow({ item }: { item: MobileMoreGridItem }) {
   );
 
   const rowClass = cn(
-    "flex min-h-[3.5rem] w-full items-stretch text-left transition-colors",
-    "rounded-2xl border border-black/[0.06] bg-white shadow-[0_1px_4px_rgba(44,44,44,0.05)]",
+    FEATURED_H,
+    "flex w-full items-stretch text-left transition-colors",
+    "rounded-2xl border border-black/[0.06] bg-white",
     "hover:bg-black/[0.02] active:bg-black/[0.04]",
   );
 
@@ -211,16 +213,22 @@ export function MobileMoreSectionedGrid({
   profileInitials = "?",
   profileBadge,
   showFlagWatermark = true,
+  showFooter = false,
 }: Props) {
   const visibleSections = sections.filter((s) => s.featuredItem || s.items.length > 0);
 
   return (
     <div
-      className="relative flex flex-col overflow-hidden bg-[#FAF8F4] font-sans text-[#2C2C2C] md:hidden"
-      style={{
-        height: `calc(100dvh - ${MOBILE_BOTTOM_NAV_OFFSET_CSS})`,
-        maxHeight: `calc(100dvh - ${MOBILE_BOTTOM_NAV_OFFSET_CSS})`,
-      }}
+      className={cn(
+        "relative flex flex-col bg-[#FAF8F4] font-sans text-[#2C2C2C]",
+        "max-md:h-[calc(100dvh-var(--more-viewport-offset))] max-md:max-h-[calc(100dvh-var(--more-viewport-offset))]",
+        "max-md:overflow-hidden md:min-h-screen",
+      )}
+      style={
+        {
+          "--more-viewport-offset": MOBILE_BOTTOM_NAV_OFFSET_CSS,
+        } as CSSProperties
+      }
     >
       {showFlagWatermark ? (
         <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
@@ -228,14 +236,19 @@ export function MobileMoreSectionedGrid({
         </div>
       ) : null}
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col px-4 pb-1.5 pt-[max(0.5rem,env(safe-area-inset-top))]">
-        <header className="mb-1.5 shrink-0">
-          <h1 className="font-serif text-[1.35rem] font-bold leading-none tracking-tight text-[#2C2C2C]">
+      <div
+        className={cn(
+          "relative z-10 flex min-h-0 flex-1 flex-col px-4 pb-1.5 pt-[max(0.5rem,env(safe-area-inset-top))]",
+          "md:mx-auto md:max-w-lg md:w-full md:flex-none md:pb-8 md:pt-8",
+        )}
+      >
+        <header className="mb-1.5 shrink-0 md:mb-3">
+          <h1 className="font-serif text-[1.35rem] font-bold leading-none tracking-tight text-[#2C2C2C] md:text-[1.75rem]">
             More
           </h1>
         </header>
 
-        <div className="mb-2.5 shrink-0">
+        <div className="mb-2.5 shrink-0 md:mb-4">
           {loading ? (
             <div className="h-14 animate-pulse rounded-2xl bg-white/80" aria-hidden />
           ) : signedIn ? (
@@ -288,11 +301,24 @@ export function MobileMoreSectionedGrid({
           )}
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden">
+        <div
+          className={cn(
+            "flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto",
+            "max-md:overscroll-contain md:flex-none md:overflow-visible md:gap-3",
+          )}
+        >
           {visibleSections.map((section) => (
             <SectionGrid key={section.id} section={section} />
           ))}
         </div>
+
+        {showFooter ? (
+          <footer className="mt-6 shrink-0 px-0.5 pb-4 text-center md:mt-8">
+            <p className="text-xs text-[#888888]">BahayGo Realty Services</p>
+            <p className="mt-1 text-xs text-[#888888]">Made in the Philippines</p>
+            <p className="mt-1 text-xs text-[#888888]">v1.0</p>
+          </footer>
+        ) : null}
       </div>
     </div>
   );
