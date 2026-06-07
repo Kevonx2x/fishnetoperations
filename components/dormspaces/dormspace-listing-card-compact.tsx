@@ -62,25 +62,54 @@ function DormspaceCardGenderBadge({ tag }: { tag: string }) {
   );
 }
 
-function DormspaceCardBedBox({ label, available }: { label: string; available: boolean }) {
+function dormspaceCardAvailableBedBoxClass(gender: "male" | "female" | "mixed"): string {
+  switch (gender) {
+    case "male":
+      return "bg-[#EEF4FB] ring-black/[0.04]";
+    case "female":
+      return "bg-[#FDF0F5] ring-black/[0.04]";
+    case "mixed":
+      return "bg-[#E8F0E9] ring-black/[0.04]";
+  }
+}
+
+function DormspaceCardBedBox({
+  label,
+  available,
+  gender,
+}: {
+  label: string;
+  available: boolean;
+  gender: "male" | "female";
+}) {
   const isFull = !available;
+
   return (
     <div
       className={cn(
-        "flex min-h-[2.125rem] min-w-0 flex-1 basis-0 gap-1.5 rounded-lg bg-[#F3F3F3] px-2 py-1.5 ring-1 ring-black/[0.04]",
-        isFull ? "items-start" : "items-center",
+        "flex min-h-[2.125rem] min-w-0 flex-1 basis-0 gap-1.5 rounded-lg px-2 py-1.5 ring-1",
+        isFull
+          ? "items-start bg-[#F3F3F3] ring-black/[0.04]"
+          : cn("items-center", dormspaceCardAvailableBedBoxClass(gender)),
       )}
     >
       <Bed
         className={cn(
           "h-3.5 w-3.5 shrink-0",
-          available ? "text-[#6B9E6E]" : "text-[#BBBBBB]",
+          isFull ? "text-[#BBBBBB]" : "text-[#2C2C2C]",
           isFull && "mt-0.5",
         )}
         aria-hidden
       />
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-bold leading-tight text-[#2C2C2C]">{label}</p>
+        <p
+          className={cn(
+            "text-[10px] font-bold leading-tight",
+            isFull ? "text-[#888888]" : "text-[#2C2C2C]",
+          )}
+        >
+          {label}
+        </p>
         {isFull ? <p className="text-[9px] font-normal leading-tight text-[#999999]">No slots</p> : null}
       </div>
     </div>

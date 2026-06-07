@@ -189,6 +189,7 @@ export function dormspaceCardFromPrice(row: DormspaceGenderBedInput): number | n
 export type DormspaceCardBedColumn = {
   label: string;
   available: boolean;
+  gender: "male" | "female";
 };
 
 export type DormspaceCardBedDisplay =
@@ -214,12 +215,12 @@ export function dormspaceCardBedDisplay(row: DormspaceGenderBedInput): Dormspace
   if (hasMale && hasFemale) {
     const maleCol: DormspaceCardBedColumn =
       counts.maleAvailable > 0
-        ? { label: dormspaceCardGenderBedLabel(counts.maleAvailable, "male"), available: true }
-        : { label: dormspaceCardGenderFullLabel("male"), available: false };
+        ? { label: dormspaceCardGenderBedLabel(counts.maleAvailable, "male"), available: true, gender: "male" }
+        : { label: dormspaceCardGenderFullLabel("male"), available: false, gender: "male" };
     const femaleCol: DormspaceCardBedColumn =
       counts.femaleAvailable > 0
-        ? { label: dormspaceCardGenderBedLabel(counts.femaleAvailable, "female"), available: true }
-        : { label: dormspaceCardGenderFullLabel("female"), available: false };
+        ? { label: dormspaceCardGenderBedLabel(counts.femaleAvailable, "female"), available: true, gender: "female" }
+        : { label: dormspaceCardGenderFullLabel("female"), available: false, gender: "female" };
     return { mode: "dual", columns: [maleCol, femaleCol] };
   }
 
@@ -232,8 +233,8 @@ export function dormspaceCardBedDisplay(row: DormspaceGenderBedInput): Dormspace
       mode: "single",
       column:
         counts.maleAvailable > 0
-          ? { label: dormspaceCardGenderBedLabel(counts.maleAvailable, "male"), available: true }
-          : { label: dormspaceCardGenderFullLabel("male"), available: false },
+          ? { label: dormspaceCardGenderBedLabel(counts.maleAvailable, "male"), available: true, gender: "male" }
+          : { label: dormspaceCardGenderFullLabel("male"), available: false, gender: "male" },
     };
   }
 
@@ -242,8 +243,8 @@ export function dormspaceCardBedDisplay(row: DormspaceGenderBedInput): Dormspace
       mode: "single",
       column:
         counts.femaleAvailable > 0
-          ? { label: dormspaceCardGenderBedLabel(counts.femaleAvailable, "female"), available: true }
-          : { label: dormspaceCardGenderFullLabel("female"), available: false },
+          ? { label: dormspaceCardGenderBedLabel(counts.femaleAvailable, "female"), available: true, gender: "female" }
+          : { label: dormspaceCardGenderFullLabel("female"), available: false, gender: "female" },
     };
   }
 
