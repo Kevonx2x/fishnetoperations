@@ -42,6 +42,7 @@ import {
   isPreOptimizedPropertyPhotoUrl,
   propertyPhotoHeroUrl,
 } from "@/lib/cloudinary-property-photo-url";
+import { BahayGoMobileCheckAvailabilityCta } from "@/components/marketplace/bahaygo-mobile-check-availability-cta";
 import { BahayGoHomeMobileTop, BahayGoHomeMobileStickySearch } from "@/components/marketplace/bahaygo-home-mobile-top";
 import { useReleaseHomepageLcpStrip } from "@/components/client/homepage-lcp-release-context";
 import { MobileFixedSearchShell } from "@/components/marketplace/mobile-fixed-search-shell";
@@ -2636,6 +2637,7 @@ export function BahayGoHomeMarketplace({
                               cardWidthClass="w-full shrink-0"
                               viewerUserId={user?.id ?? null}
                               compact
+                              mobileFeedFullWidth
                               verifiedListingAgent={viewerVerifiedListingAgent}
                               listingImageLoadEager={idx < 4}
                               listingImagePriority={idx < 2}
@@ -2667,6 +2669,7 @@ export function BahayGoHomeMarketplace({
                               cardWidthClass={cardProps.cardWidthClass}
                               viewerUserId={user?.id ?? null}
                               compact
+                              mobileFeedFullWidth
                               verifiedListingAgent={viewerVerifiedListingAgent}
                               listingImageLoadEager={cardProps.listingImageLoadEager}
                               listingImagePriority={cardProps.listingImagePriority}
@@ -3209,6 +3212,7 @@ export function NewlyListedCard({
   listingImageLoadEager,
   listingImagePriority = false,
   equalHeightRow = false,
+  mobileFeedFullWidth = false,
 }: {
   property: DbProperty;
   roomUrls: string[];
@@ -3232,6 +3236,8 @@ export function NewlyListedCard({
   listingImagePriority?: boolean;
   /** Horizontal carousel rows on mobile: reserve text block height so cards align. */
   equalHeightRow?: boolean;
+  /** Full-width cards in the mobile BahayGo vertical feed (not horizontal peek rows). */
+  mobileFeedFullWidth?: boolean;
 }) {
   const listedLabel = listingListedCompactLabel(property.created_at);
   const photoListedLabel = listingListedPhotoOverlayLabel(property.created_at);
@@ -3278,6 +3284,24 @@ export function NewlyListedCard({
     viewerUserId !== property.listed_by;
   const browseCompact = !!compact;
   const mobileEqualHeightRow = browseCompact && equalHeightRow;
+  const mobileBigFeedCard = browseCompact && mobileFeedFullWidth;
+  const photoTouchStartX = useRef<number | null>(null);
+
+  const handleMobilePhotoTouchStart = (e: React.TouchEvent) => {
+    photoTouchStartX.current = e.touches[0]?.clientX ?? null;
+  };
+
+  const handleMobilePhotoTouchEnd = (e: React.TouchEvent) => {
+    const start = photoTouchStartX.current;
+    photoTouchStartX.current = null;
+    if (start == null || listingRemoved || roomUrls.length <= 1) return;
+    const end = e.changedTouches[0]?.clientX ?? start;
+    const dx = end - start;
+    if (Math.abs(dx) < 40) return;
+    e.stopPropagation();
+    if (dx > 0) onRoomPrev();
+    else onRoomNext();
+  };
 
   const browseCardStatusPillClass =
     "inline-flex w-fit shrink-0 items-center rounded-full border border-black/10 bg-white/90 px-2 py-0.5 text-xs font-medium text-[#2C2C2C] shadow-sm";
@@ -3288,6 +3312,8 @@ export function NewlyListedCard({
 
   const propertyHref = `/properties/${encodeURIComponent(property.id)}`;
   const propertyDetailLabel = `View ${titleLine}`;
+  const photoDotCount = Math.min(roomUrls.length, 5);
+  const activePhotoDot = Math.min(roomIdx, photoDotCount - 1);
 
   return (
     <div
@@ -3307,7 +3333,7 @@ export function NewlyListedCard({
         listingRemoved && "pointer-events-none opacity-50",
       )}
     >
-      {!listingRemoved && browseCompact ? (
+      {!listingRemoved && browseCompact && !mobileFeedFullWidth ? (
         <Link
           href={propertyHref}
           className="absolute inset-0 z-[12] rounded-2xl md:hidden"
@@ -3363,7 +3389,9 @@ export function NewlyListedCard({
               className={cn(
                 "z-[25]",
                 browseCompact ? "left-2 max-md:left-2 md:left-1" : "left-1",
+                mobileBigFeedCard && "max-md:opacity-100",
               )}
+              iconClassName={mobileBigFeedCard ? "max-md:h-6 max-md:w-6" : undefined}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -3377,7 +3405,9 @@ export function NewlyListedCard({
               className={cn(
                 "z-[25]",
                 browseCompact ? "right-2 max-md:right-2 md:right-1" : "right-1",
+                mobileBigFeedCard && "max-md:opacity-100",
               )}
+              iconClassName={mobileBigFeedCard ? "max-md:h-6 max-md:w-6" : undefined}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -3386,18 +3416,47 @@ export function NewlyListedCard({
               aria-label="Next photo"
             />
 
+            {mobileBigFeedCard && !listingRemoved ? (
+              <div
+                className="absolute inset-0 z-[18] touch-pan-x md:hidden"
+                onTouchStart={handleMobilePhotoTouchStart}
+                onTouchEnd={handleMobilePhotoTouchEnd}
+                aria-hidden
+              />
+            ) : null}
+
+            {browseCompact && !mobileFeedFullWidth ? (
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-2.5 z-[25] flex items-center justify-center gap-[6px] md:hidden"
+                aria-hidden
+              >
+                {Array.from({ length: photoDotCount }).map((_, i) => (
+                  <span
+                    key={`photo-dot-${i}`}
+                    className={cn(
+                      "rounded-full bg-white transition-all duration-200",
+                      i === activePhotoDot ? "size-2 opacity-100" : "size-[5px] opacity-50",
+                    )}
+                  />
+                ))}
+              </div>
+            ) : null}
           </>
         ) : null}
 
         <div
           className={cn(
             "pointer-events-none absolute inset-x-0 bottom-0 z-[10] bg-gradient-to-t from-black/45 via-black/15 to-transparent",
-            browseCompact ? "h-12 max-md:block md:h-12" : "h-16",
+            browseCompact
+              ? roomUrls.length > 1 && !mobileFeedFullWidth
+                ? "h-14 max-md:block md:h-12"
+                : "h-16 max-md:hidden md:block md:h-12"
+              : "h-16",
           )}
         />
 
         {locationOverlayLine ? (
-          <div className="absolute bottom-2 left-2 z-20 flex max-w-[calc(100%-1rem)] items-center gap-1 md:bottom-2.5 md:left-2.5">
+          <div className="absolute bottom-2 left-2 z-20 hidden max-w-[calc(100%-1rem)] items-center gap-1 md:bottom-2.5 md:left-2.5 md:flex">
             <MapPin className="h-3.5 w-3.5 shrink-0 text-white drop-shadow-sm" aria-hidden />
             <span className="min-w-0 truncate text-xs font-medium text-white drop-shadow-sm">
               {locationOverlayLine}
@@ -3408,6 +3467,12 @@ export function NewlyListedCard({
         {browseCompact && photoListedLabel ? (
           <div className="absolute bottom-2 right-2 z-20 max-md:hidden md:bottom-2.5 md:right-2.5">
             <span className="text-xs font-medium text-white drop-shadow-sm">{photoListedLabel}</span>
+          </div>
+        ) : null}
+
+        {mobileBigFeedCard && photoListedLabel ? (
+          <div className="absolute left-2 top-2 z-20 md:hidden">
+            <span className={browseCardListedPillClass}>{photoListedLabel}</span>
           </div>
         ) : null}
 
@@ -3538,7 +3603,7 @@ export function NewlyListedCard({
           "flex flex-col bg-white",
           browseCompact
             ? cn(
-                "max-md:gap-1 max-md:rounded-b-2xl max-md:border-0 max-md:px-3 max-md:pb-2 max-md:pt-1.5",
+                "relative max-md:gap-1.5 max-md:rounded-b-2xl max-md:border-0 max-md:px-3 max-md:pb-2.5 max-md:pt-2",
                 mobileEqualHeightRow && "max-md:flex-1",
                 "md:gap-1 md:border-t md:border-[#2C2C2C]/10 md:px-2.5 md:pt-1.5 md:pb-2",
                 HOMEPAGE_DESKTOP_CARD_BODY_CLASS,
@@ -3546,12 +3611,20 @@ export function NewlyListedCard({
             : "gap-0 border-t border-[#2C2C2C]/10 px-3 py-3 sm:px-4 md:py-2.5",
         )}
       >
+        {!listingRemoved && mobileFeedFullWidth ? (
+          <Link
+            href={propertyHref}
+            className="absolute inset-0 z-[1] rounded-b-2xl md:hidden"
+            aria-label={propertyDetailLabel}
+          />
+        ) : null}
         {isDualListing ? (
           <div
             className={cn(
               "shrink-0 space-y-0.5",
-              browseCompact && "max-md:space-y-0.5",
-              mobileEqualHeightRow && "max-md:min-h-0",
+              browseCompact && "max-md:space-y-1",
+              browseCompact && "md:shrink-0",
+              mobileEqualHeightRow && "max-md:min-h-[3.25rem]",
             )}
           >
             <p
@@ -3575,115 +3648,169 @@ export function NewlyListedCard({
           <p
             className={cn(
               "shrink-0 truncate font-bold tracking-tight text-[#2C2C2C]",
-              browseCompact ? cn("text-[17px] leading-tight md:text-sm md:text-[#D4A843]", HOMEPAGE_DESKTOP_SLOT.price) : "text-lg text-[#D4A843] sm:text-xl",
+              browseCompact
+                ? cn("text-[18px] leading-tight md:text-sm md:text-[#D4A843]", HOMEPAGE_DESKTOP_SLOT.price)
+                : "text-lg text-[#D4A843] sm:text-xl",
+              mobileEqualHeightRow && browseCompact && "max-md:min-h-[3.25rem]",
             )}
           >
             {formatPropertyPriceDisplay(property.price, property.status)}
           </p>
         )}
-        <p
-          className={cn(
-            "shrink-0 font-semibold text-[#2C2C2C]",
-            browseCompact
-              ? cn(
-                  "line-clamp-2 min-h-[2.75rem] text-[13px] leading-snug md:min-h-[2.625rem] md:text-[12px]",
-                  HOMEPAGE_DESKTOP_SLOT.title,
-                )
-              : "line-clamp-2 text-base md:text-sm",
-          )}
-        >
-          {titleLine}
-        </p>
-        <div
-          className={cn(
-            "flex shrink-0 flex-nowrap items-center whitespace-nowrap text-[#484848]",
-            browseCompact
-              ? cn("mt-2 justify-center gap-2 text-[11px] md:mt-2.5 md:gap-0 md:text-[10px]", HOMEPAGE_DESKTOP_SLOT.meta)
-              : "gap-3 text-xs",
-          )}
-        >
-          <span className="inline-flex shrink-0 items-center gap-1 font-medium md:pr-1.5">
-            <BedDouble className="size-3.5 shrink-0 text-[#6B9E6E] md:size-3" aria-hidden />
-            {property.beds === 0 ? "Studio" : property.beds === 1 ? "1 Bed" : `${property.beds} Beds`}
-          </span>
-          {browseCompact ? (
-            <span className="mx-1 hidden h-3 w-px shrink-0 bg-[#2C2C2C]/15 md:inline-block" aria-hidden />
-          ) : null}
-          <span className="inline-flex shrink-0 items-center gap-1 font-medium md:px-1.5">
-            <Bath className="size-3.5 shrink-0 text-[#6B9E6E] md:size-3" aria-hidden />
-            {property.baths === 1 ? "1 Bath" : `${property.baths} Baths`}
-          </span>
-          {browseCompact ? (
-            <span className="mx-1 hidden h-3 w-px shrink-0 bg-[#2C2C2C]/15 md:inline-block" aria-hidden />
-          ) : null}
-          <span className="shrink-0 font-medium text-[#717171] md:pl-1.5">
-            {sqftLabel ? (
-              sqftLabel
-            ) : browseCompact ? (
-              <span aria-hidden className="invisible max-md:hidden">
-                {HOMEPAGE_DESKTOP_SQFT_PLACEHOLDER}
-              </span>
-            ) : (
-              <span aria-hidden className="invisible">
-                {HOMEPAGE_DESKTOP_SQFT_PLACEHOLDER}
-              </span>
-            )}
-          </span>
-        </div>
-        <div
-          className={cn(
-            "relative z-[15] shrink-0",
-            browseCompact ? cn(HOMEPAGE_DESKTOP_SLOT.agentInBody, "mt-3 md:mt-auto") : "mt-1",
-          )}
-        >
-          {firstAgent ? (
-            <Link
-              href={`/agents/${encodeURIComponent(firstAgent.id)}`}
-              title={firstAgent.name}
-              onClick={(e) => e.stopPropagation()}
-              className="group flex min-w-0 cursor-pointer items-center gap-1.5 rounded-lg transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
+
+        {browseCompact ? (
+          <>
+            <div
+              className={cn(
+                "flex shrink-0 items-center gap-2.5 text-[#484848] md:hidden",
+                "text-[13px]",
+              )}
             >
-              <div className="relative aspect-square h-6 w-6 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10 md:h-7 md:w-7">
-                <AgentAvatarFill name={firstAgent.name} imageUrl={firstAgent.image} sizes="28px" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate text-[11px] font-medium text-[#2C2C2C]/85 md:text-xs">
-                    {firstAgent.name}
-                  </span>
-                  {!browseCompact ? (
-                    <BadgeCheck className="h-3 w-3 shrink-0 text-[#D4A843]" aria-label="Verified" />
-                  ) : null}
-                </div>
-                {!browseCompact ? (
-                  <p className="truncate text-[10px] text-gray-400">
-                    {listingCardBrokerageSubtitle(firstAgent)}
-                  </p>
-                ) : null}
-              </div>
-            </Link>
-          ) : (
-            <div className="flex min-w-0 items-center gap-1.5">
-              <div className="relative flex aspect-square h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F3F3F3] ring-1 ring-black/10 md:h-7 md:w-7">
-                <User className="size-3.5 text-[#BBBBBB]" strokeWidth={2} aria-hidden />
-              </div>
-              <span className="truncate text-[11px] font-medium text-[#888888] md:text-xs">
-                {browseCompact ? "No agent available" : "No agent assigned"}
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <BedDouble className="size-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                {property.beds === 0 ? "Studio" : property.beds === 1 ? "1 Bed" : `${property.beds} Beds`}
+              </span>
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <Bath className="size-4 shrink-0 text-[#6B9E6E]" aria-hidden />
+                {property.baths === 1 ? "1 Bath" : `${property.baths} Baths`}
               </span>
             </div>
-          )}
-        </div>
-        {browseCompact ? (
-          <p
-            className={cn(
-              HOMEPAGE_DESKTOP_SLOT.listedRow,
-              "mt-0.5 flex shrink-0 items-center gap-1.5 text-[10px] font-medium text-[#717171] md:hidden",
-            )}
-          >
-            <span className="size-1.5 shrink-0 rounded-full bg-[#6B9E6E]" aria-hidden />
-            <span className="truncate">{listedLabel}</span>
-          </p>
+            <p
+              className={cn(
+                "shrink-0 font-semibold text-[#2C2C2C] md:hidden",
+                "line-clamp-2 text-[14px] leading-snug",
+                mobileEqualHeightRow && "max-md:min-h-[2.75rem]",
+              )}
+            >
+              {titleLine}
+            </p>
+            <p
+              className={cn(
+                "flex shrink-0 items-start gap-1 text-[#717171] md:hidden",
+                "text-[12px] leading-snug",
+                mobileEqualHeightRow && "max-md:min-h-[2.5rem]",
+              )}
+            >
+              <MapPin className="mt-0.5 size-3.5 shrink-0 text-[#8E8E8E]" aria-hidden />
+              <span className="min-w-0 line-clamp-2">{property.location}</span>
+            </p>
+            {!listingRemoved ? (
+              <BahayGoMobileCheckAvailabilityCta
+                propertyHref={propertyHref}
+                propertyTitle={titleLine}
+                agent={firstAgent}
+                className="max-md:mt-0.5 md:hidden"
+              />
+            ) : null}
+          </>
         ) : null}
+
+        {browseCompact ? (
+          <>
+            <p
+              className={cn(
+                "hidden shrink-0 font-semibold text-[#2C2C2C] md:block",
+                "line-clamp-2 text-[12px] leading-snug",
+                HOMEPAGE_DESKTOP_SLOT.title,
+              )}
+            >
+              {titleLine}
+            </p>
+            <div
+              className={cn(
+                "hidden shrink-0 flex-nowrap items-center justify-center whitespace-nowrap text-[#484848] md:flex",
+                "mt-2.5 gap-0 text-[10px]",
+                HOMEPAGE_DESKTOP_SLOT.meta,
+              )}
+            >
+              <span className="inline-flex shrink-0 items-center gap-1 font-medium pr-1.5">
+                <BedDouble className="size-3 shrink-0 text-[#6B9E6E]" aria-hidden />
+                {property.beds === 0 ? "Studio" : property.beds === 1 ? "1 Bed" : `${property.beds} Beds`}
+              </span>
+              <span className="mx-1 h-3 w-px shrink-0 bg-[#2C2C2C]/15" aria-hidden />
+              <span className="inline-flex shrink-0 items-center gap-1 font-medium px-1.5">
+                <Bath className="size-3 shrink-0 text-[#6B9E6E]" aria-hidden />
+                {property.baths === 1 ? "1 Bath" : `${property.baths} Baths`}
+              </span>
+              <span className="mx-1 h-3 w-px shrink-0 bg-[#2C2C2C]/15" aria-hidden />
+              <span className="shrink-0 font-medium text-[#717171] pl-1.5">
+                {sqftLabel ? (
+                  sqftLabel
+                ) : (
+                  <span aria-hidden className="invisible">
+                    {HOMEPAGE_DESKTOP_SQFT_PLACEHOLDER}
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className={cn("relative z-[15] hidden shrink-0 md:block", HOMEPAGE_DESKTOP_SLOT.agentInBody, "mt-auto")}>
+              {firstAgent ? (
+                <Link
+                  href={`/agents/${encodeURIComponent(firstAgent.id)}`}
+                  title={firstAgent.name}
+                  onClick={(e) => e.stopPropagation()}
+                  className="group flex min-w-0 cursor-pointer items-center gap-1.5 rounded-lg transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
+                >
+                  <div className="relative aspect-square h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+                    <AgentAvatarFill name={firstAgent.name} imageUrl={firstAgent.image} sizes="28px" />
+                  </div>
+                  <span className="truncate text-xs font-medium text-[#2C2C2C]/85">{firstAgent.name}</span>
+                </Link>
+              ) : (
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <div className="relative flex aspect-square h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F3F3F3] ring-1 ring-black/10">
+                    <User className="size-3.5 text-[#BBBBBB]" strokeWidth={2} aria-hidden />
+                  </div>
+                  <span className="truncate text-xs font-medium text-[#888888]">No agent available</span>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex shrink-0 items-center gap-3 text-xs text-[#484848]">
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <BedDouble className="size-4 shrink-0 text-[#6B9E6E] md:size-3.5" aria-hidden />
+                {property.beds === 0 ? "Studio" : property.beds === 1 ? "1 Bed" : `${property.beds} Beds`}
+              </span>
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <Bath className="size-4 shrink-0 text-[#6B9E6E] md:size-3.5" aria-hidden />
+                {property.baths === 1 ? "1 Bath" : `${property.baths} Baths`}
+              </span>
+              <span className="font-medium text-[#717171]">
+                {sqftLabel || (
+                  <span aria-hidden className="invisible">
+                    {HOMEPAGE_DESKTOP_SQFT_PLACEHOLDER}
+                  </span>
+                )}
+              </span>
+            </div>
+            <p className="line-clamp-2 shrink-0 text-base font-semibold text-[#2C2C2C] md:text-sm">{titleLine}</p>
+            <div className="relative z-[15] mt-1 shrink-0">
+              {firstAgent ? (
+                <Link
+                  href={`/agents/${encodeURIComponent(firstAgent.id)}`}
+                  title={firstAgent.name}
+                  onClick={(e) => e.stopPropagation()}
+                  className="group flex min-w-0 cursor-pointer items-center gap-1.5 rounded-lg transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
+                >
+                  <div className="relative aspect-square h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+                    <AgentAvatarFill name={firstAgent.name} imageUrl={firstAgent.image} sizes="28px" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-xs font-medium text-[#2C2C2C]/85">{firstAgent.name}</span>
+                      <BadgeCheck className="h-3 w-3 shrink-0 text-[#D4A843]" aria-label="Verified" />
+                    </div>
+                    <p className="truncate text-[10px] text-gray-400">{listingCardBrokerageSubtitle(firstAgent)}</p>
+                  </div>
+                </Link>
+              ) : (
+                <p className="truncate text-[11px] text-gray-400 md:text-xs">No agent assigned</p>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {!browseCompact ? (

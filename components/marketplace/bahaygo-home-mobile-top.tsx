@@ -34,6 +34,7 @@ import {
   HomepageMobileTrendingSkeleton,
 } from "@/components/marketplace/homepage-load-shell";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
+import { buildListingBedsBathsAreaLine } from "@/lib/format-property-floor-area";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { firstRawPropertyPhotoUrl } from "@/lib/marketplace-property";
 import { propertyPhotoHeroUrl, propertyPhotoMobileHeroUrl, isPreOptimizedPropertyPhotoUrl } from "@/lib/cloudinary-property-photo-url";
@@ -284,8 +285,12 @@ function TrendingHeroCard({
             {property.name?.trim() || property.location}
           </h3>
           <p className="mt-0.5 text-sm font-bold text-white">{priceLabel}</p>
-          <p className="mt-0.5 text-[10px] font-medium text-white/85">
-            {property.beds} bed · {property.baths} bath · {property.sqft} sqft
+          <p className="mt-0.5 line-clamp-1 text-[10px] font-medium text-white/85">
+            {buildListingBedsBathsAreaLine({
+              beds: property.beds,
+              baths: property.baths,
+              sqft: property.sqft,
+            })}
           </p>
           <p className="mt-0.5 text-[10px] font-medium text-white/75">{propertyLocationLine(property)}</p>
         </div>

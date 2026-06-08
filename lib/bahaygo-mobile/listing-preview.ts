@@ -1,4 +1,5 @@
 import { formatPropertyPriceDisplay, formatSaleAndRentLines } from "@/lib/format-listing-price";
+import { formatPropertyFloorAreaDisplay } from "@/lib/format-property-floor-area";
 import { listingListedCompactLabel } from "@/lib/listing-listed-time";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
@@ -101,8 +102,11 @@ export function mapDbPropertyToListingPreview(
   const urls = roomUrlsFor(property);
   const beds = property.beds ?? 0;
   const baths = property.baths ?? 0;
-  const areaLabel = property.sqft?.trim() ? `${property.sqft} sqft` : "—";
-  const specsLine = `${beds ? `${beds} beds` : "Studio"} · ${baths} baths · ${areaLabel}`;
+  const areaDisplay = formatPropertyFloorAreaDisplay(property.sqft);
+  const areaLabel = areaDisplay === "—" ? "—" : areaDisplay;
+  const specsLine = `${beds ? `${beds} beds` : "Studio"} · ${baths} baths${
+    areaLabel !== "—" ? ` · ${areaLabel}` : ""
+  }`;
   const prices = primaryPriceLine(property, options.intent);
   const firstAgent = options.connectedAgents?.[0];
 

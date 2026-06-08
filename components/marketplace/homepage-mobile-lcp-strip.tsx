@@ -3,6 +3,7 @@ import Link from "next/link";
 import { BahayGoWordmark } from "@/components/marketplace/bahaygo-wordmark";
 import { HomepageMobilePeekRowSkeleton } from "@/components/marketplace/homepage-load-shell";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
+import { buildListingBedsBathsAreaLine } from "@/lib/format-property-floor-area";
 import {
   HOMEPAGE_MOBILE_CAROUSEL_INSET,
   HOMEPAGE_MOBILE_TRENDING_CARD_WIDTH,
@@ -122,8 +123,12 @@ export function HomepageMobileLcpStrip({
                     {lead.name?.trim() || lead.location}
                   </h3>
                   <p className="mt-0.5 text-sm font-bold text-white">{priceLabel}</p>
-                  <p className="mt-0.5 text-[10px] font-medium text-white/85">
-                    {lead.beds} bed · {lead.baths} bath · {lead.sqft} sqft
+                  <p className="mt-0.5 line-clamp-1 text-[10px] font-medium text-white/85">
+                    {buildListingBedsBathsAreaLine({
+                      beds: lead.beds,
+                      baths: lead.baths,
+                      sqft: lead.sqft,
+                    })}
                   </p>
                   <p className="mt-0.5 text-[10px] font-medium text-white/75">
                     {propertyLocationLine(lead)}

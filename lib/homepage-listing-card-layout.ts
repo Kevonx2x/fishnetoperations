@@ -1,3 +1,5 @@
+import { formatPropertyFloorAreaDisplay } from "@/lib/format-property-floor-area";
+
 /** Mobile carousel inside a padded parent (e.g. main px-4): bleed + 16px scroll inset. */
 export const HOMEPAGE_MOBILE_CAROUSEL_TRACK =
   "max-md:-mx-4 max-md:px-4 max-md:scroll-pl-4 max-md:scroll-pr-4";
@@ -8,7 +10,7 @@ export const HOMEPAGE_MOBILE_CAROUSEL_INSET =
 
 /** Two listing cards visible on ~375px mobile browse carousels (Airbnb-style). */
 export const HOMEPAGE_BROWSE_LISTING_CARD_WIDTH =
-  "w-[calc((100vw-2rem-0.5rem)/1.92)] shrink-0 md:w-[232px] lg:w-[244px]";
+  "w-[calc((100vw-2rem-0.625rem)/2)] shrink-0 md:w-[232px] lg:w-[244px]";
 
 /** Trulia-style mobile feed: one large card per row with a peek of the next. */
 export const HOMEPAGE_MOBILE_FEED_CARD_WIDTH =
@@ -54,11 +56,8 @@ export function homepageListingCardCityLabel(property: {
 }
 
 export function homepageListingCardSqftLabel(sqft: string | number | null | undefined): string {
-  const raw = sqft == null ? "" : String(sqft).trim();
-  if (!raw) return "";
-  const n = Number(raw.replace(/[^\d.]/g, ""));
-  if (!Number.isFinite(n) || n <= 0) return "";
-  return `${Math.round(n)} sqft`;
+  const display = formatPropertyFloorAreaDisplay(sqft == null ? null : String(sqft));
+  return display === "—" ? "" : display;
 }
 
 /** Invisible placeholder keeps metadata column width when sqft is missing. */

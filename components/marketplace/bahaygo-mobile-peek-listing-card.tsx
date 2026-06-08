@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Heart } from "lucide-react";
 import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
+import { buildListingBedsBathsAreaLine } from "@/lib/format-property-floor-area";
 import { formatPropertyPriceDisplay } from "@/lib/format-listing-price";
 import type { DbProperty } from "@/lib/marketplace-property";
 import { roomUrlsFor } from "@/lib/marketplace-property";
@@ -37,7 +38,11 @@ export function BahayGoMobilePeekListingCard({
     mode === "rent" || property.listing_type === "rent"
       ? formatPropertyPriceDisplay(property.rent_price, "for_rent")
       : formatPropertyPriceDisplay(property.price, property.status);
-  const bedsLabel = property.beds === 0 ? "Studio" : `${property.beds} bed`;
+  const metaLine = buildListingBedsBathsAreaLine({
+    beds: property.beds,
+    baths: property.baths,
+    sqft: property.sqft,
+  });
 
   return (
     <Link
@@ -71,8 +76,8 @@ export function BahayGoMobilePeekListingCard({
         <h3 className="mt-1 line-clamp-2 min-h-[2rem] text-[12px] font-semibold leading-tight text-[#2C2C2C]">
           {property.name?.trim() || property.location}
         </h3>
-        <p className="mt-0.5 text-[9px] font-medium text-[#888888]">
-          {bedsLabel} · {property.baths} bath · {property.sqft} sqft
+        <p className="mt-0.5 line-clamp-1 text-[9px] font-medium text-[#888888]">
+          {metaLine}
         </p>
         <p className="mt-0.5 line-clamp-1 text-[9px] font-medium text-[#888888]">
           {propertyLocationLine(property)}
