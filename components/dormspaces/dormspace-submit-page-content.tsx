@@ -33,7 +33,8 @@ export function DormspaceSubmitPageContent() {
   const { user, profile, loading: authLoading } = useAuth();
   const isReturningLandlord = Boolean(user && profile && isLandlordCapable(profile));
 
-  if (authLoading) {
+  // Initial session only — keep form mounted during background auth refresh for signed-in users.
+  if (authLoading && !user) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center bg-[#FAF8F4]">
         <p className="text-sm font-medium text-[#484848]">Loading…</p>

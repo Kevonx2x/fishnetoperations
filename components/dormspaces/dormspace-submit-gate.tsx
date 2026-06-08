@@ -21,7 +21,7 @@ export function DormspaceSubmitGate({ children }: { children: React.ReactNode })
     router.replace("/dormspaces/welcome");
   }, [loading, fromWelcome, user, router]);
 
-  if (loading) {
+  if (loading && !user) {
     return (
       <div className="flex min-h-[240px] items-center justify-center">
         <p className="text-sm font-medium text-[#484848]">Loading…</p>

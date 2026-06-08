@@ -46,7 +46,10 @@ type AuthContextValue = {
   /** True while `status === "loading"`. */
   loading: boolean;
   status: AuthStatus;
+  /** Full session + profile re-resolve (may show loading on cold start). */
   refreshProfile: () => Promise<void>;
+  /** Re-fetch profile row only — never flips global auth status to loading. */
+  refreshProfileData: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -165,8 +168,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const generation = ++resolveGenerationRef.current;
       const resume = options?.resume === true;
       const hadUser = userRef.current != null;
+      const wasAuthenticated = statusRef.current === "authenticated";
 
-      setStatus("loading");
+      // Background resume for signed-in users — keep rendered authed UI mounted.
+      if (!(resume && wasAuthenticated && hadUser)) {
+        setStatus("loading");
+      }
 
       const finishIfCurrent = () => generation === resolveGenerationRef.current;
 
@@ -252,6 +259,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await resolveAuth({ resume: userRef.current != null });
   }, [resolveAuth]);
 
+  const refreshProfileData = useCallback(async () => {
+    const u = userRef.current;
+    if (!u) return;
+    const p = await loadProfileForUser(u);
+    setProfile(p);
+  }, [loadProfileForUser]);
+
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "INITIAL_SESSION") {
@@ -324,8 +338,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       status,
       refreshProfile,
+      refreshProfileData,
     }),
-    [user, profile, loading, status, refreshProfile],
+    [user, profile, loading, status, refreshProfile, refreshProfileData],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -339,6 +354,7 @@ const SSR_AUTH_FALLBACK: AuthContextValue = {
   loading: true,
   status: "loading",
   refreshProfile: async () => {},
+  refreshProfileData: async () => {},
 };
 
 export function useAuth(): AuthContextValue {

@@ -47,6 +47,9 @@ function buildFullName(first: string, last: string): string {
 const LANDLORD_AUTH_WAIT_MS = 10_000;
 const LANDLORD_AUTH_POLL_MS = 120;
 
+/** Survives form remounts — one lightweight profile refresh per user per page load. */
+let submitFormProfileRefreshUserId: string | null = null;
+
 /** Sync auth context and poll until session + profile are landlord-capable (post-submit / upgrade). */
 async function waitForLandlordCapableSession(
   refreshProfile: () => Promise<void>,
@@ -312,7 +315,7 @@ function ListingPhotosDrop({
 export function DormspaceSubmitForm() {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { user, profile, refreshProfile, loading: authLoading } = useAuth();
+  const { user, profile, refreshProfile, refreshProfileData } = useAuth();
 
   const isLandlordSignedIn = Boolean(user && profile && isLandlordCapable(profile));
   const verificationStatus = normalizeLandlordVerificationStatus(
@@ -349,15 +352,13 @@ export function DormspaceSubmitForm() {
   const [bedInventory, setBedInventory] = useState<BedInventoryFormValue>(
     defaultBedInventoryForRoomType("shared_2"),
   );
-  const landlordProfileRefreshUserIdRef = useRef<string | null>(null);
-
   useEffect(() => {
-    if (!user?.id || authLoading) return;
+    if (!user?.id) return;
     if (!profile || !isLandlordCapable(profile)) return;
-    if (landlordProfileRefreshUserIdRef.current === user.id) return;
-    landlordProfileRefreshUserIdRef.current = user.id;
-    void refreshProfile();
-  }, [user?.id, authLoading, profile?.id, refreshProfile]);
+    if (submitFormProfileRefreshUserId === user.id) return;
+    submitFormProfileRefreshUserId = user.id;
+    void refreshProfileData();
+  }, [user?.id, profile?.id, refreshProfileData]);
 
   useEffect(() => {
     if (!profile) return;
