@@ -38,11 +38,8 @@ function formatCardPeso(amount: number): string {
 }
 
 function dormspaceCardGenderBadgeClass(tag: string): string {
-  if (tag === "MALE ONLY") {
-    return "border-[#6B8FC4]/30 bg-[#E8EEF8] text-[#2E5A8C]";
-  }
-  if (tag === "FEMALE ONLY") {
-    return "border-[#C46B9E]/25 bg-[#F8E8F0] text-[#8C2E5A]";
+  if (tag === "MALE ONLY" || tag === "FEMALE ONLY") {
+    return "border-black/[0.06] bg-[#F5F5F5] text-[#484848]";
   }
   return "border-[#6B9E6E]/25 bg-[#E8F0E9] text-[#3D6B40]";
 }
@@ -65,9 +62,8 @@ function DormspaceCardGenderBadge({ tag }: { tag: string }) {
 function dormspaceCardAvailableBedBoxClass(gender: "male" | "female" | "mixed"): string {
   switch (gender) {
     case "male":
-      return "bg-[#EEF4FB] ring-black/[0.04]";
     case "female":
-      return "bg-[#FDF0F5] ring-black/[0.04]";
+      return "bg-[#F5F5F5] ring-black/[0.04]";
     case "mixed":
       return "bg-[#E8F0E9] ring-black/[0.04]";
   }
