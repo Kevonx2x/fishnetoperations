@@ -41,6 +41,7 @@ export function AgentLeadSlideOver({
   const supabase = createSupabaseBrowserClient();
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [draft, setDraft] = useState("");
+  const [noteComposerOpen, setNoteComposerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -57,6 +58,8 @@ export function AgentLeadSlideOver({
 
   useEffect(() => {
     void loadNotes();
+    setNoteComposerOpen(false);
+    setDraft("");
   }, [loadNotes]);
 
   const saveNote = async () => {
@@ -74,6 +77,7 @@ export function AgentLeadSlideOver({
       return;
     }
     setDraft("");
+    setNoteComposerOpen(false);
     await loadNotes();
   };
 
@@ -164,7 +168,7 @@ export function AgentLeadSlideOver({
 
             <div className="px-6 py-4 pb-6">
               <p className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Notes</p>
-              <div className="mt-3 min-h-[12rem]">
+              <div className="mt-3">
                 {loading ? (
                   <p className="text-sm text-[#2C2C2C]/45">Loading…</p>
                 ) : (
@@ -209,25 +213,52 @@ export function AgentLeadSlideOver({
           </div>
 
           <div className="relative z-10 shrink-0 border-t border-[#2C2C2C]/10 bg-[#FAF8F4] p-6 shadow-[0_-10px_24px_rgba(44,44,44,0.06)]">
-            <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">Add a note…</label>
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value.slice(0, 500))}
-              rows={3}
-              placeholder="Private note (max 500 characters)"
-              className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
-            />
-            <div className="mt-2 flex items-center justify-between text-xs font-semibold text-[#2C2C2C]/45">
-              <span>{draft.length}/500</span>
+            {noteComposerOpen ? (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#2C2C2C]/45">
+                    Add a note…
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNoteComposerOpen(false);
+                      setDraft("");
+                    }}
+                    className="text-xs font-semibold text-[#2C2C2C]/55 hover:text-[#2C2C2C]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value.slice(0, 500))}
+                  rows={3}
+                  autoFocus
+                  placeholder="Private note (max 500 characters)"
+                  className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                />
+                <div className="mt-2 flex items-center justify-between text-xs font-semibold text-[#2C2C2C]/45">
+                  <span>{draft.length}/500</span>
+                  <button
+                    type="button"
+                    disabled={saving || !draft.trim()}
+                    onClick={() => void saveNote()}
+                    className="rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                  >
+                    {saving ? "Saving…" : "Save note"}
+                  </button>
+                </div>
+              </>
+            ) : (
               <button
                 type="button"
-                disabled={saving || !draft.trim()}
-                onClick={() => void saveNote()}
-                className="rounded-full bg-[#6B9E6E] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                onClick={() => setNoteComposerOpen(true)}
+                className="w-full rounded-xl border border-dashed border-[#2C2C2C]/15 bg-white px-4 py-3 text-left text-sm font-semibold text-[#2C2C2C]/70 transition hover:border-[#6B9E6E]/35 hover:bg-[#6B9E6E]/5 hover:text-[#2C2C2C]"
               >
-                {saving ? "Saving…" : "Save note"}
+                Add a note…
               </button>
-            </div>
+            )}
           </div>
         </div>
       </motion.div>

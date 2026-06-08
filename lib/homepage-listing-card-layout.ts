@@ -8,11 +8,11 @@ export const HOMEPAGE_MOBILE_CAROUSEL_INSET =
 
 /** Two listing cards visible on ~375px mobile browse carousels (Airbnb-style). */
 export const HOMEPAGE_BROWSE_LISTING_CARD_WIDTH =
-  "w-[calc((100vw-2rem-0.625rem)/2)] shrink-0 md:w-[200px] lg:w-[208px]";
+  "w-[calc((100vw-2rem-0.5rem)/1.92)] shrink-0 md:w-[232px] lg:w-[244px]";
 
 /** Trulia-style mobile feed: one large card per row with a peek of the next. */
 export const HOMEPAGE_MOBILE_FEED_CARD_WIDTH =
-  "w-[calc((100vw-2rem-0.75rem)/1.06)] shrink-0 snap-start md:w-[200px] lg:w-[208px]";
+  "w-[calc((100vw-2rem-0.75rem)/1.06)] shrink-0 snap-start md:w-[232px] lg:w-[244px]";
 
 /** Mobile “Trending Near You” hero carousel — ~88% viewport with next-slide peek. */
 export const HOMEPAGE_MOBILE_TRENDING_CARD_WIDTH =
@@ -26,25 +26,22 @@ export const HOMEPAGE_MOBILE_PEEK_LISTING_CARD_WIDTH =
 export const HOMEPAGE_MOBILE_FEED_ROW_COUNT = 6;
 
 /**
- * Desktop homepage carousel — fixed card geometry (layout stability).
- * Content may truncate or show placeholders; slots never collapse.
+ * Desktop homepage carousel — content-driven height (no stretched body/footer gap).
  */
-export const HOMEPAGE_DESKTOP_CARD_HEIGHT_CLASS = "md:h-[21.25rem]" as const;
+export const HOMEPAGE_DESKTOP_CARD_HEIGHT_CLASS = "md:h-auto" as const;
 
 export const HOMEPAGE_DESKTOP_CARD_IMAGE_HEIGHT_CLASS =
-  "md:h-[8.25rem] md:max-h-[8.25rem] md:min-h-[8.25rem] md:shrink-0" as const;
+  "md:h-[8.75rem] md:max-h-[8.75rem] md:min-h-[8.75rem] md:shrink-0" as const;
 
-export const HOMEPAGE_DESKTOP_CARD_BODY_CLASS = "md:min-h-0 md:flex-1 md:flex md:flex-col" as const;
+export const HOMEPAGE_DESKTOP_CARD_BODY_CLASS = "md:flex md:flex-col md:gap-1" as const;
 
-/** Reserved slot heights inside the desktop card body (excluding agent/footer block). */
+/** Reserved slot hints inside the desktop card body. */
 export const HOMEPAGE_DESKTOP_SLOT = {
-  price: "md:h-5 md:shrink-0",
-  meta: "md:h-4 md:shrink-0",
-  title: "md:min-h-[2.25rem] md:shrink-0",
-  city: "md:h-4 md:shrink-0",
-  agentFooter: "md:h-[3rem] md:shrink-0",
-  agentRow: "md:h-8",
-  listedRow: "md:h-4",
+  price: "md:shrink-0 md:leading-none",
+  meta: "md:shrink-0",
+  title: "md:shrink-0",
+  agentInBody: "md:shrink-0",
+  listedRow: "md:shrink-0",
 } as const;
 
 export function homepageListingCardCityLabel(property: {
