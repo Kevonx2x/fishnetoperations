@@ -68,7 +68,7 @@ import {
 
 import { AgentAvatarFill } from "@/components/marketplace/agent-avatar";
 import { ListingCardPhoto } from "@/components/marketplace/listing-card-photo";
-import { listingListedCompactLabel, listingListedPhotoOverlayLabel } from "@/lib/listing-listed-time";
+import { listingListedCompactLabel, listingListedPhotoOverlayLabel, listingListedReadablePhotoLabel } from "@/lib/listing-listed-time";
 import { AgentDirectoryCard } from "@/components/marketplace/agent-directory-card";
 import { PhLocationInput } from "@/components/ui/ph-location-input";
 import {
@@ -3241,6 +3241,7 @@ export function NewlyListedCard({
 }) {
   const listedLabel = listingListedCompactLabel(property.created_at);
   const photoListedLabel = listingListedPhotoOverlayLabel(property.created_at);
+  const mobileBigPhotoListedLabel = listingListedReadablePhotoLabel(property.created_at);
   const listingRemoved = propertyEngagementLooksUnavailable(property);
   const overlayMeta = availabilityCardOverlayClasses(property.availability_state);
   const overlayLabel = availabilityCardOverlayLabel(property.availability_state, property.deleted_at);
@@ -3285,22 +3286,37 @@ export function NewlyListedCard({
   const browseCompact = !!compact;
   const mobileEqualHeightRow = browseCompact && equalHeightRow;
   const mobileBigFeedCard = browseCompact && mobileFeedFullWidth;
-  const photoTouchStartX = useRef<number | null>(null);
+  const photoTouchStart = useRef<{ x: number; y: number } | null>(null);
 
   const handleMobilePhotoTouchStart = (e: React.TouchEvent) => {
-    photoTouchStartX.current = e.touches[0]?.clientX ?? null;
+    const touch = e.touches[0];
+    if (!touch) return;
+    photoTouchStart.current = { x: touch.clientX, y: touch.clientY };
   };
 
   const handleMobilePhotoTouchEnd = (e: React.TouchEvent) => {
-    const start = photoTouchStartX.current;
-    photoTouchStartX.current = null;
+    const start = photoTouchStart.current;
+    photoTouchStart.current = null;
     if (start == null || listingRemoved || roomUrls.length <= 1) return;
-    const end = e.changedTouches[0]?.clientX ?? start;
-    const dx = end - start;
-    if (Math.abs(dx) < 40) return;
+
+    const end = e.changedTouches[0];
+    if (!end) return;
+
+    const dx = end.clientX - start.x;
+    const dy = end.clientY - start.y;
+    const minHorizontalPx = 72;
+    const horizontalDominanceRatio = 1.35;
+
+    if (Math.abs(dx) < minHorizontalPx) return;
+    if (Math.abs(dx) < Math.abs(dy) * horizontalDominanceRatio) return;
+
     e.stopPropagation();
     if (dx > 0) onRoomPrev();
     else onRoomNext();
+  };
+
+  const handleMobilePhotoTouchCancel = () => {
+    photoTouchStart.current = null;
   };
 
   const browseCardStatusPillClass =
@@ -3418,9 +3434,10 @@ export function NewlyListedCard({
 
             {mobileBigFeedCard && !listingRemoved ? (
               <div
-                className="absolute inset-0 z-[18] touch-pan-x md:hidden"
+                className="absolute inset-0 z-[18] touch-pan-y md:hidden"
                 onTouchStart={handleMobilePhotoTouchStart}
                 onTouchEnd={handleMobilePhotoTouchEnd}
+                onTouchCancel={handleMobilePhotoTouchCancel}
                 aria-hidden
               />
             ) : null}
@@ -3448,9 +3465,11 @@ export function NewlyListedCard({
           className={cn(
             "pointer-events-none absolute inset-x-0 bottom-0 z-[10] bg-gradient-to-t from-black/45 via-black/15 to-transparent",
             browseCompact
-              ? roomUrls.length > 1 && !mobileFeedFullWidth
-                ? "h-14 max-md:block md:h-12"
-                : "h-16 max-md:hidden md:block md:h-12"
+              ? mobileBigFeedCard
+                ? "h-16 max-md:block md:h-12"
+                : roomUrls.length > 1 && !mobileFeedFullWidth
+                  ? "h-14 max-md:block md:h-12"
+                  : "h-16 max-md:hidden md:block md:h-12"
               : "h-16",
           )}
         />
@@ -3464,15 +3483,15 @@ export function NewlyListedCard({
           </div>
         ) : null}
 
-        {browseCompact && photoListedLabel ? (
+        {browseCompact && photoListedLabel && !mobileBigFeedCard ? (
           <div className="absolute bottom-2 right-2 z-20 max-md:hidden md:bottom-2.5 md:right-2.5">
             <span className="text-xs font-medium text-white drop-shadow-sm">{photoListedLabel}</span>
           </div>
         ) : null}
 
-        {mobileBigFeedCard && photoListedLabel ? (
-          <div className="absolute left-2 top-2 z-20 md:hidden">
-            <span className={browseCardListedPillClass}>{photoListedLabel}</span>
+        {mobileBigFeedCard && mobileBigPhotoListedLabel ? (
+          <div className="absolute bottom-2 right-2 z-20 md:hidden">
+            <span className="text-xs font-medium text-white drop-shadow-sm">{mobileBigPhotoListedLabel}</span>
           </div>
         ) : null}
 
@@ -3702,69 +3721,69 @@ export function NewlyListedCard({
                 className="max-md:mt-0.5 md:hidden"
               />
             ) : null}
-          </>
-        ) : null}
 
-        {browseCompact ? (
-          <>
-            <p
-              className={cn(
-                "hidden shrink-0 font-semibold text-[#2C2C2C] md:block",
-                "line-clamp-2 text-[12px] leading-snug",
-                HOMEPAGE_DESKTOP_SLOT.title,
-              )}
-            >
-              {titleLine}
-            </p>
-            <div
-              className={cn(
-                "hidden shrink-0 flex-nowrap items-center justify-center whitespace-nowrap text-[#484848] md:flex",
-                "mt-2.5 gap-0 text-[10px]",
-                HOMEPAGE_DESKTOP_SLOT.meta,
-              )}
-            >
-              <span className="inline-flex shrink-0 items-center gap-1 font-medium pr-1.5">
-                <BedDouble className="size-3 shrink-0 text-[#6B9E6E]" aria-hidden />
-                {property.beds === 0 ? "Studio" : property.beds === 1 ? "1 Bed" : `${property.beds} Beds`}
-              </span>
-              <span className="mx-1 h-3 w-px shrink-0 bg-[#2C2C2C]/15" aria-hidden />
-              <span className="inline-flex shrink-0 items-center gap-1 font-medium px-1.5">
-                <Bath className="size-3 shrink-0 text-[#6B9E6E]" aria-hidden />
-                {property.baths === 1 ? "1 Bath" : `${property.baths} Baths`}
-              </span>
-              <span className="mx-1 h-3 w-px shrink-0 bg-[#2C2C2C]/15" aria-hidden />
-              <span className="shrink-0 font-medium text-[#717171] pl-1.5">
-                {sqftLabel ? (
-                  sqftLabel
-                ) : (
-                  <span aria-hidden className="invisible">
-                    {HOMEPAGE_DESKTOP_SQFT_PLACEHOLDER}
-                  </span>
-                )}
-              </span>
-            </div>
-            <div className={cn("relative z-[15] hidden shrink-0 md:block", HOMEPAGE_DESKTOP_SLOT.agentInBody, "mt-auto")}>
-              {firstAgent ? (
-                <Link
-                  href={`/agents/${encodeURIComponent(firstAgent.id)}`}
-                  title={firstAgent.name}
-                  onClick={(e) => e.stopPropagation()}
-                  className="group flex min-w-0 cursor-pointer items-center gap-1.5 rounded-lg transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
+            {!mobileFeedFullWidth ? (
+              <div className="hidden md:contents">
+                <p
+                  className={cn(
+                    "shrink-0 font-semibold text-[#2C2C2C]",
+                    "line-clamp-2 text-[12px] leading-snug",
+                    HOMEPAGE_DESKTOP_SLOT.title,
+                  )}
                 >
-                  <div className="relative aspect-square h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
-                    <AgentAvatarFill name={firstAgent.name} imageUrl={firstAgent.image} sizes="28px" />
-                  </div>
-                  <span className="truncate text-xs font-medium text-[#2C2C2C]/85">{firstAgent.name}</span>
-                </Link>
-              ) : (
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <div className="relative flex aspect-square h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F3F3F3] ring-1 ring-black/10">
-                    <User className="size-3.5 text-[#BBBBBB]" strokeWidth={2} aria-hidden />
-                  </div>
-                  <span className="truncate text-xs font-medium text-[#888888]">No agent available</span>
+                  {titleLine}
+                </p>
+                <div
+                  className={cn(
+                    "shrink-0 flex-nowrap items-center justify-center whitespace-nowrap text-[#484848]",
+                    "mt-2.5 flex gap-0 text-[10px]",
+                    HOMEPAGE_DESKTOP_SLOT.meta,
+                  )}
+                >
+                  <span className="inline-flex shrink-0 items-center gap-1 font-medium pr-1.5">
+                    <BedDouble className="size-3 shrink-0 text-[#6B9E6E]" aria-hidden />
+                    {property.beds === 0 ? "Studio" : property.beds === 1 ? "1 Bed" : `${property.beds} Beds`}
+                  </span>
+                  <span className="mx-1 h-3 w-px shrink-0 bg-[#2C2C2C]/15" aria-hidden />
+                  <span className="inline-flex shrink-0 items-center gap-1 font-medium px-1.5">
+                    <Bath className="size-3 shrink-0 text-[#6B9E6E]" aria-hidden />
+                    {property.baths === 1 ? "1 Bath" : `${property.baths} Baths`}
+                  </span>
+                  <span className="mx-1 h-3 w-px shrink-0 bg-[#2C2C2C]/15" aria-hidden />
+                  <span className="shrink-0 font-medium text-[#717171] pl-1.5">
+                    {sqftLabel ? (
+                      sqftLabel
+                    ) : (
+                      <span aria-hidden className="invisible">
+                        {HOMEPAGE_DESKTOP_SQFT_PLACEHOLDER}
+                      </span>
+                    )}
+                  </span>
                 </div>
-              )}
-            </div>
+                <div className={cn("relative z-[15] shrink-0", HOMEPAGE_DESKTOP_SLOT.agentInBody, "mt-auto")}>
+                  {firstAgent ? (
+                    <Link
+                      href={`/agents/${encodeURIComponent(firstAgent.id)}`}
+                      title={firstAgent.name}
+                      onClick={(e) => e.stopPropagation()}
+                      className="group flex min-w-0 cursor-pointer items-center gap-1.5 rounded-lg transition-colors duration-150 ease-out hover:bg-[#6B9E6E15] hover:underline"
+                    >
+                      <div className="relative aspect-square h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10">
+                        <AgentAvatarFill name={firstAgent.name} imageUrl={firstAgent.image} sizes="28px" />
+                      </div>
+                      <span className="truncate text-xs font-medium text-[#2C2C2C]/85">{firstAgent.name}</span>
+                    </Link>
+                  ) : (
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <div className="relative flex aspect-square h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F3F3F3] ring-1 ring-black/10">
+                        <User className="size-3.5 text-[#BBBBBB]" strokeWidth={2} aria-hidden />
+                      </div>
+                      <span className="truncate text-xs font-medium text-[#888888]">No agent available</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </>
         ) : (
           <>

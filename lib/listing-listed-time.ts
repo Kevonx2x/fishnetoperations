@@ -48,3 +48,21 @@ export function listingListedPhotoOverlayLabel(createdAtIso: string): string {
   const months = Math.floor(totalDays / 30);
   return `${months}mo ago`;
 }
+
+/** Readable relative time for mobile feed photo overlays (e.g. "2 days ago"). */
+export function listingListedReadablePhotoLabel(createdAtIso: string): string {
+  const ms = Date.now() - new Date(createdAtIso).getTime();
+  if (!Number.isFinite(ms)) return "";
+  const totalHours = Math.floor(ms / (1000 * 60 * 60));
+  if (totalHours < 1) return "Just now";
+  if (totalHours < 24) return totalHours === 1 ? "1 hour ago" : `${totalHours} hours ago`;
+  const totalDays = Math.floor(ms / (1000 * 60 * 60 * 24));
+  if (totalDays === 1) return "1 day ago";
+  if (totalDays <= 6) return `${totalDays} days ago`;
+  if (totalDays < 30) {
+    const weeks = Math.floor(totalDays / 7);
+    return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`;
+  }
+  const months = Math.floor(totalDays / 30);
+  return months === 1 ? "1 month ago" : `${months} months ago`;
+}
