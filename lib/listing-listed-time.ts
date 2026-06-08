@@ -31,3 +31,20 @@ export function listingListedCompactLabel(createdAtIso: string): string {
   const months = Math.floor(totalDays / 30);
   return `Listed ${months}mo ago`;
 }
+
+/** Photo overlay on homepage cards — no "Listed" prefix (e.g. "2w ago"). */
+export function listingListedPhotoOverlayLabel(createdAtIso: string): string {
+  const ms = Date.now() - new Date(createdAtIso).getTime();
+  if (!Number.isFinite(ms)) return "";
+  const totalHours = Math.floor(ms / (1000 * 60 * 60));
+  if (totalHours < 1) return "now";
+  if (totalHours < 24) return `${totalHours}h ago`;
+  const totalDays = Math.floor(ms / (1000 * 60 * 60 * 24));
+  if (totalDays <= 6) return `${totalDays}d ago`;
+  if (totalDays < 30) {
+    const weeks = Math.floor(totalDays / 7);
+    return `${weeks}w ago`;
+  }
+  const months = Math.floor(totalDays / 30);
+  return `${months}mo ago`;
+}

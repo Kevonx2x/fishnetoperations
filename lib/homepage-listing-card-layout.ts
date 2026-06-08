@@ -26,21 +26,23 @@ export const HOMEPAGE_MOBILE_PEEK_LISTING_CARD_WIDTH =
 export const HOMEPAGE_MOBILE_FEED_ROW_COUNT = 6;
 
 /**
- * Desktop homepage carousel — content-driven height (no stretched body/footer gap).
+ * Desktop homepage carousel — fixed height keeps agent row aligned in each row.
  */
-export const HOMEPAGE_DESKTOP_CARD_HEIGHT_CLASS = "md:h-auto" as const;
+export const HOMEPAGE_DESKTOP_CARD_HEIGHT_CLASS = "md:h-[18.25rem]" as const;
 
 export const HOMEPAGE_DESKTOP_CARD_IMAGE_HEIGHT_CLASS =
   "md:h-[8.75rem] md:max-h-[8.75rem] md:min-h-[8.75rem] md:shrink-0" as const;
 
-export const HOMEPAGE_DESKTOP_CARD_BODY_CLASS = "md:flex md:flex-col md:gap-1" as const;
+export const HOMEPAGE_DESKTOP_CARD_BODY_CLASS =
+  "md:flex md:min-h-0 md:flex-1 md:flex-col" as const;
 
 /** Reserved slot hints inside the desktop card body. */
 export const HOMEPAGE_DESKTOP_SLOT = {
   price: "md:shrink-0 md:leading-none",
   meta: "md:shrink-0",
-  title: "md:shrink-0",
-  agentInBody: "md:shrink-0",
+  /** Always reserve two title lines so meta + agent align across cards. */
+  title: "md:min-h-[2.625rem] md:shrink-0",
+  agentInBody: "md:mt-auto md:shrink-0",
   listedRow: "md:shrink-0",
 } as const;
 
