@@ -265,6 +265,20 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Dark grab hand — visible on white pipeline cards (system grab can render too light). */
+  .cursor-grab-dark {
+    cursor: -webkit-grab;
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%232C2C2C' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 11V6a2 2 0 1 0-4 0v5'/%3E%3Cpath d='M14 10V4a2 2 0 1 0-4 0v6'/%3E%3Cpath d='M10 10.5V6a2 2 0 1 0-4 0v8'/%3E%3Cpath d='M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-16 0 2 2 0 1 1 4 0'/%3E%3C/svg%3E")
+        12 12,
+      grab;
+  }
+  .cursor-grabbing-dark {
+    cursor: -webkit-grabbing;
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23171717' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 11V6a2 2 0 1 0-4 0v5'/%3E%3Cpath d='M14 10V4a2 2 0 1 0-4 0v6'/%3E%3Cpath d='M10 10.5V6a2 2 0 1 0-4 0v8'/%3E%3Cpath d='M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-16 0 2 2 0 1 1 4 0'/%3E%3C/svg%3E")
+        12 12,
+      grabbing;
+  }
 }
 
 @keyframes homepage-placeholder-pulse {

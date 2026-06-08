@@ -1105,14 +1105,14 @@ function KanbanDealCardImpl({
       {...attributes}
       {...listeners}
       className={cn(
-        "relative flex w-full cursor-grab flex-col active:cursor-grabbing",
+        "relative flex w-full cursor-grab-dark flex-col active:cursor-grabbing-dark",
         /* Do not add CSS transition on transform here — dnd-kit updates transform every frame; tailwind transitions cause stubborn lag. */
       )}
     >
       <div
         {...(tourViewingCardAnchor ? { "data-tour": "viewing-card" as const } : {})}
         className={cn(
-          "relative flex w-full cursor-grab flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[#2C2C2C]/[0.11] bg-white p-3 active:cursor-grabbing",
+          "relative flex w-full cursor-grab-dark flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[#2C2C2C]/[0.11] bg-white p-3 active:cursor-grabbing-dark",
           "shadow-[inset_0_1px_0_rgba(255,255,255,0.88),0_4px_18px_rgba(0,0,0,0.055)] transition-[box-shadow,border-color] duration-200 ease-out",
           "hover:border-[#2C2C2C]/16 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_28px_rgba(0,0,0,0.085)]",
           isDragging &&
@@ -1130,7 +1130,7 @@ function KanbanDealCardImpl({
             <div className="min-w-0 flex-1">
               <button
                 type="button"
-                className="block w-full cursor-grab rounded-none border-0 bg-transparent text-left active:cursor-grabbing focus-visible:outline-none focus-visible:ring-0"
+                className="block w-full cursor-grab-dark rounded-none border-0 bg-transparent text-left active:cursor-grabbing-dark focus-visible:outline-none focus-visible:ring-0"
                 title={propLine}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1720,7 +1720,7 @@ function KanbanStageColumn({
     <div
       className={cn(
         "flex h-full min-h-[300vh] w-full max-w-[320px] min-w-[180px] flex-col gap-2 rounded-xl p-2 sm:min-w-[200px] xl:min-w-[220px]",
-        "bg-[#E8E4DC]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-inset ring-[#2C2C2C]/[0.07]",
+        "bg-[#F2F0EC]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-inset ring-[#2C2C2C]/[0.06]",
         "transition-[background-color,box-shadow] duration-100 ease-out",
       )}
     >
@@ -1940,7 +1940,7 @@ function SortableDealCard({
       )}
     >
       <div
-        className="touch-none"
+        className="touch-none cursor-grab-dark active:cursor-grabbing-dark"
         {...attributes}
         {...listeners}
       >
@@ -4654,7 +4654,7 @@ export function AgentPipelineTab({
               </div>
               <PipelinePulseBar stats={pipelinePulseStats} />
             </div>
-            <DragOverlay dropAnimation={null}>
+            <DragOverlay dropAnimation={null} className="cursor-grabbing-dark">
               <div className="w-[220px]">
                 <div className="rounded-lg border border-[#2C2C2C]/10 bg-white p-3 shadow-2xl">
                   <div className="font-sans text-[12px] font-semibold text-[#2C2C2C]/60">Moving deal…</div>
