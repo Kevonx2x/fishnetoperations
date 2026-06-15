@@ -35,6 +35,7 @@ import {
 } from "@/components/mobile/mobile-more-sectioned-grid";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+import { canAccessPersonalTreasury } from "@/lib/admin-personal-treasury";
 
 /** Routes verified against the app directory — hide rows when false. */
 const ROUTES = {
@@ -287,6 +288,7 @@ export default function MorePage() {
 
   const isSignedIn = status === "authenticated" && Boolean(user);
   const isAgentUser = role === "agent" || role === "broker";
+  const hasPersonalTreasury = isSignedIn && canAccessPersonalTreasury(user?.email, role);
 
   const handleSignOut = useCallback(async () => {
     await supabase.auth.signOut();
@@ -537,7 +539,7 @@ export default function MorePage() {
         loading={loading}
         signedIn={isSignedIn}
         signInHref={PATHS.authLogin}
-        profileHref={PATHS.settings}
+        profileHref={hasPersonalTreasury ? "/admin/personal-account" : PATHS.settings}
         profileName={displayName}
         profileEmail={email}
         profileAvatarUrl={profile?.avatar_url}
@@ -554,7 +556,7 @@ export default function MorePage() {
 
         {status === "authenticated" && isSignedIn ? (
           <Link
-            href={PATHS.settings}
+            href={hasPersonalTreasury ? "/admin/personal-account" : PATHS.settings}
             className="mx-4 mb-4 mt-6 flex items-center gap-3 rounded-xl border border-black/[0.06] bg-white p-5 transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]"
           >
             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#6B9E6E]">

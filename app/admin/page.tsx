@@ -2630,6 +2630,14 @@ export default function AdminPage() {
           </button>
           ) : null}
           {canSeeCredentials ? (
+            <Link
+              href="/admin/personal-account"
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all border border-[#2C2C2C]/10 bg-white text-[#2C2C2C]/70 hover:border-[#6B9E6E]/40`}
+            >
+              My account
+            </Link>
+          ) : null}
+          {canSeeCredentials ? (
             <button
               type="button"
               onClick={() => setAdminSection("credentials")}
@@ -2889,6 +2897,14 @@ export default function AdminPage() {
             >
               VA Reports
             </button>
+            ) : null}
+            {canSeeCredentials ? (
+              <Link
+                href="/admin/personal-account"
+                className="flex w-full items-center justify-between rounded-r-lg border-l-[3px] border-transparent px-3 py-2.5 text-left text-sm font-semibold text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                My account
+              </Link>
             ) : null}
             {canSeeCredentials ? (
               <button
