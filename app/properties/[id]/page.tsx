@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -46,6 +46,8 @@ import { resolveListingAgentUserId } from "@/lib/resolve-listing-agent-user-id";
 import { clientMessagesHref } from "@/lib/messenger/client-messages-path";
 import { startMessengerConversation } from "@/lib/messenger/start-conversation-client";
 import { PropertyMobileStickyActions } from "@/components/marketplace/property-mobile-sticky-actions";
+import { BahayGoPropertyPageMobile } from "@/components/marketplace/bahaygo-property-page-mobile";
+import { BahayGoPropertyPageDesktop } from "@/components/marketplace/bahaygo-property-page-desktop";
 import { useMobileStickyFooter } from "@/contexts/mobile-chrome-context";
 import { MOBILE_CONTENT_PAD_WITH_STICKY_ACTIONS_CLASS } from "@/lib/mobile-bottom-nav-layout";
 
@@ -596,18 +598,14 @@ export default function PropertyPage() {
     }
     setStickyFooter(
       <PropertyMobileStickyActions
-        onMessageAgent={() => void onMessageAgent()}
+        variant="editorial"
         onScheduleViewing={onRequestViewing}
-        messageBusy={messageBusy}
-        messageDisabled={connectedAgents.length === 0}
         scheduleDisabled={authLoading || connectedAgents.length === 0}
       />,
     );
   }, [
     authLoading,
     connectedAgents.length,
-    messageBusy,
-    onMessageAgent,
     onRequestViewing,
     setStickyFooter,
     showMobileStickyActions,
@@ -658,7 +656,7 @@ export default function PropertyPage() {
         broker_id: null,
       });
       if (error) throw error;
-      setPresaleMsg("Thanks — we’ll be in touch shortly.");
+      setPresaleMsg("Thanks â€” weâ€™ll be in touch shortly.");
       setPresaleName("");
       setPresaleEmail("");
       setPresalePhone("");
@@ -671,7 +669,7 @@ export default function PropertyPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-12 max-md:pb-0">
+    <div className="min-h-screen bg-white pb-12 max-md:bg-[#FAF8F4] max-md:pb-0">
       <MaddenTopNav compactMobileHome />
 
       <main
@@ -680,8 +678,8 @@ export default function PropertyPage() {
           showMobileStickyActions ? MOBILE_CONTENT_PAD_WITH_STICKY_ACTIONS_CLASS : "max-md:pb-20",
         )}
       >
-        <div className="mb-2 text-xs font-semibold text-[#2C2C2C]/65 max-md:mb-1 md:mb-4 md:text-sm">
-          <Link href="/" className="hover:text-[#2C2C2C]">Home</Link> <span>·</span>{" "}
+        <div className="mb-2 hidden text-xs font-semibold text-[#2C2C2C]/65 md:mb-4 md:block md:text-sm">
+          <Link href="/" className="hover:text-[#2C2C2C]">Home</Link> <span>Â·</span>{" "}
           <span className="text-[#2C2C2C]">Property</span>
         </div>
 
@@ -689,7 +687,7 @@ export default function PropertyPage() {
 
         {!loading && error && (
           <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-6">
-            <p className="font-semibold text-[#2C2C2C]">Couldn’t load property</p>
+            <p className="font-semibold text-[#2C2C2C]">Couldnâ€™t load property</p>
             <p className="mt-1 text-sm text-[#2C2C2C]/60">{error}</p>
           </div>
         )}
@@ -710,340 +708,77 @@ export default function PropertyPage() {
         )}
 
         {!loading && !error && property && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <section className="space-y-6 lg:col-span-2">
-              <div className="overflow-hidden rounded-2xl border border-[#2C2C2C]/10 bg-white shadow-sm">
-                <div className="p-2">
-                  {allPhotos.length === 0 ? (
-                    noGalleryFallbackHeroSrc ? (
-                      <div className="relative h-80 w-full overflow-hidden rounded-2xl lg:h-[500px]">
-                        <Image
-                          src={noGalleryFallbackHeroSrc}
-                          alt={property.location}
-                          fill
-                          sizes={LISTING_IMAGE_SIZES}
-                          loading="eager"
-                          className="absolute inset-0 h-full w-full object-cover"
-                          priority
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex min-h-[200px] items-center justify-center rounded-2xl bg-gray-100">
-                        <p className="text-sm font-medium text-fg-muted">No photos available</p>
-                      </div>
-                    )
-                  ) : (
-                    <>
-                      <div className="relative h-80 w-full overflow-hidden rounded-2xl lg:h-[500px]">
-                        <button
-                          type="button"
-                          onClick={() => openLightbox(heroIndex)}
-                          className="absolute inset-0 z-0 block"
-                          aria-label={`Open photo ${heroIndex + 1}`}
-                        >
-                          <Image
-                            src={heroDisplaySrc}
-                            alt={property.location}
-                            fill
-                            sizes={LISTING_IMAGE_SIZES}
-                            loading="eager"
-                            className="absolute inset-0 h-full w-full object-cover"
-                            priority
-                          />
-                        </button>
-                        {allPhotos.length > 1 ? (
-                          <>
-                            <GalleryNavButton
-                              direction="prev"
-                              className="left-4 z-20"
-                              aria-label="Previous photo"
-                              disabled={heroIndex <= 0}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                goPrevPhoto();
-                              }}
-                            />
-                            <GalleryNavButton
-                              direction="next"
-                              className="right-4 z-20"
-                              aria-label="Next photo"
-                              disabled={heroIndex >= allPhotos.length - 1}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                goNextPhoto();
-                              }}
-                            />
-                          </>
-                        ) : null}
-                        {allPhotos.length > 0 ? (
-                          <span className="absolute right-3 top-3 z-20 rounded-full bg-white/95 px-2.5 py-1 text-xs font-semibold text-[#2C2C2C] shadow-sm ring-1 ring-black/5">
-                            {heroIndex + 1} / {allPhotos.length}
-                          </span>
-                        ) : null}
-                        {!hideListingClientActions ? (
-                          <div
-                            className="absolute left-3 top-3 z-10 flex items-start gap-1.5"
-                            title={
-                              agentEngagementLocked ? "Only clients can like and pin properties" : undefined
-                            }
-                          >
-                            <div
-                              className={cn(
-                                "flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 shadow-sm",
-                                engagement.isLiked(property.id)
-                                  ? "border border-red-200 bg-white"
-                                  : "border border-gray-200 bg-white/80",
-                                agentEngagementLocked && "pointer-events-none opacity-50",
-                              )}
-                            >
-                              <button
-                                type="button"
-                                onClick={agentEngagementLocked ? undefined : () => engagement.toggleLike(property.id)}
-                                className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
-                                aria-label={engagement.isLiked(property.id) ? "Unlike" : "Like"}
-                                disabled={agentEngagementLocked}
-                              >
-                                <Heart
-                                  className={cn(
-                                    "h-4 w-4",
-                                    engagement.isLiked(property.id)
-                                      ? "fill-red-500 text-red-500"
-                                      : "fill-none text-red-400",
-                                  )}
-                                />
-                              </button>
-                              {engagement.showEngagementCounts(property.id) ? (
-                                <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
-                                  {engagement.likeCount(property.id)}
-                                </span>
-                              ) : null}
-                            </div>
-                            <div
-                              className={cn(
-                                "flex flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 shadow-sm",
-                                engagement.isPinned(property.id)
-                                  ? "border border-[#D4A843]/40 bg-white"
-                                  : "border border-gray-200 bg-white/80",
-                                agentEngagementLocked && "pointer-events-none opacity-50",
-                              )}
-                            >
-                              <button
-                                type="button"
-                                onClick={agentEngagementLocked ? undefined : () => engagement.togglePin(property.id)}
-                                className="rounded-full p-1.5 transition hover:bg-[#FAF8F4]"
-                                aria-label={
-                                  engagement.isPinned(property.id) ? "Unpin from profile" : "Pin to profile"
-                                }
-                                disabled={agentEngagementLocked}
-                              >
-                                <LucidePin
-                                  className={cn(
-                                    "h-4 w-4",
-                                    engagement.isPinned(property.id)
-                                      ? "fill-[#D4A843] text-[#D4A843]"
-                                      : "fill-none text-[#D4A843]",
-                                  )}
-                                />
-                              </button>
-                              {engagement.showEngagementCounts(property.id) ? (
-                                <span className="text-[10px] font-bold leading-none text-[#2C2C2C]">
-                                  {engagement.saveCount(property.id)}
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() => openLightbox(heroIndex)}
-                          className="absolute bottom-3 right-3 z-10 flex items-center gap-2 rounded-full bg-white px-5 py-3 text-base font-semibold text-[#2C2C2C] shadow-lg ring-1 ring-[#2C2C2C]/10"
-                          aria-label="View all photos"
-                        >
-                          <LayoutGrid className="h-5 w-5 shrink-0" aria-hidden />
-                          View all photos
-                        </button>
-                      </div>
-                      {allPhotos.length > 1 ? (
-                        <div className="mt-3 flex w-full gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                          {allPhotos.map((url, i) => {
-                            const thumbSrc = String(url).trim();
-                            return (
-                              <button
-                                key={`${i}-${url}`}
-                                type="button"
-                                onClick={() => {
-                                  setActivePhoto(String(url).trim());
-                                  openLightbox(i);
-                                }}
-                                className={cn(
-                                  "relative h-[80px] w-[120px] flex-shrink-0 cursor-pointer overflow-hidden rounded-xl",
-                                  i === heroIndex ? "border-2 border-solid border-[#D4A843]" : "border-0",
-                                )}
-                                aria-label={`Show photo ${i + 1}`}
-                              >
-                                <Image
-                                  src={thumbSrc}
-                                  alt=""
-                                  fill
-                                  sizes={LISTING_IMAGE_SIZES}
-                                  className="object-cover"
-                                  loading={i === 0 ? "eager" : "lazy"}
-                                />
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                    </>
-                  )}
-                </div>
-
-                <div className="p-4">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#2C2C2C]/55">
-                    Property
-                  </p>
-                  <h1 className="mt-1 font-serif text-3xl font-bold tracking-tight text-[#2C2C2C]">
-                    {property.location}
-                  </h1>
-                  {availabilityBanner ? (
-                    <div
-                      className={cn(
-                        "mt-3 rounded-xl px-4 py-2.5 text-sm font-semibold",
-                        availabilityBanner.tone === "gold"
-                          ? "bg-[#D4A843]/22 text-[#4a3b14]"
-                          : "bg-neutral-200 text-neutral-800",
-                      )}
-                    >
-                      {availabilityBanner.message}
-                    </div>
-                  ) : null}
-                  {property.status === "both" || property.listing_type === "both" ? (
-                    <div className="mt-1 space-y-1">
-                      <p className="font-serif text-2xl font-bold text-[#2C2C2C]">
-                        <span className="text-sm font-semibold text-[#2C2C2C]/55">Sale </span>
-                        {formatPropertyPriceDisplay(property.price, "for_sale")}
-                      </p>
-                      <p className="font-serif text-xl font-bold text-[#2C2C2C]">
-                        <span className="text-sm font-semibold text-[#2C2C2C]/55">Rent (monthly) </span>
-                        {formatPropertyPriceDisplay(property.rent_price, "for_rent")}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="mt-1 font-serif text-2xl font-bold text-[#2C2C2C]">
-                      {formatPropertyPriceDisplay(property.price, property.status)}
-                    </p>
-                  )}
-                  <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold text-[#2C2C2C]/70">
-                    <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{property.beds} beds</span>
-                    <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{property.baths} baths</span>
-                    <span className="rounded-full bg-[#6B9E6E]/12 px-3 py-1">{property.sqft} sqft</span>
-                    {property.property_type ? (
-                      <span className="rounded-full bg-[#D4A843]/18 px-3 py-1 text-[#8a6d32]">
-                        {property.property_type}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-
-              {property.description?.trim() ? (
-                <div className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-5 shadow-sm">
-                  <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">About this property</h2>
-                  <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-[#2C2C2C]/80">
-                    {property.description.trim()}
-                  </p>
-                </div>
-              ) : null}
-
-              <PropertyDetailLocationSection property={property} />
-
-              {property.is_presale ? (
-                <div className="rounded-2xl border border-[#D4A843]/25 bg-[#FFF9F0] p-5 shadow-sm">
-                  <h2 className="font-serif text-xl font-bold text-[#2C2C2C]">Presale Development</h2>
-                  {property.developer_name?.trim() ? (
-                    <p className="mt-3 text-sm font-semibold text-[#2C2C2C]">
-                      <span className="text-[#2C2C2C]/55">Developer: </span>
-                      {property.developer_name.trim()}
-                    </p>
-                  ) : null}
-                  {property.turnover_date ? (
-                    <p className="mt-2 text-sm font-semibold text-[#2C2C2C]">
-                      <span className="text-[#2C2C2C]/55">Expected Turnover: </span>
-                      {formatPresaleTurnoverMonthYear(property.turnover_date)}
-                    </p>
-                  ) : null}
-                  {property.unit_types && property.unit_types.length > 0 ? (
-                    <p className="mt-2 text-sm font-semibold text-[#2C2C2C]">
-                      <span className="text-[#2C2C2C]/55">Available Units: </span>
-                      {property.unit_types.join(", ")}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-
-            </section>
-
-            <aside className="lg:sticky lg:top-24 lg:col-span-1 lg:self-start">
-              <div id="agents-section" className="rounded-2xl border border-[#2C2C2C]/10 bg-white p-4 shadow-sm">
-                <div id="presale-interest">
-                  {isListingAgentUser ? (
-                    <Link
-                      href={`/dashboard/agent?tab=listings&editProperty=${encodeURIComponent(property.id)}`}
-                      className="flex w-full items-center justify-center rounded-full bg-[#6B9E6E] py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#5d8a60] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
-                    >
-                      Edit Listing
-                    </Link>
-                  ) : property.is_presale ? (
-                    <>
-                      <p className="font-serif text-base font-bold text-[#2C2C2C]">Register interest</p>
-                      <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
+          <>
+            <div className="md:hidden">
+              <BahayGoPropertyPageMobile
+                property={property}
+                allPhotos={allPhotos}
+                heroIndex={heroIndex}
+                heroDisplaySrc={heroDisplaySrc}
+                fallbackHeroSrc={noGalleryFallbackHeroSrc}
+                onPrevPhoto={goPrevPhoto}
+                onNextPhoto={goNextPhoto}
+                onSelectPhoto={(i) => setActivePhoto(String(allPhotos[i]).trim())}
+                onOpenLightbox={openLightbox}
+                engagement={engagement}
+                agentEngagementLocked={agentEngagementLocked}
+                hideListingClientActions={hideListingClientActions}
+                availabilityBanner={availabilityBanner}
+                listingAgent={listingAgent}
+                connectedAgents={connectedAgents}
+                isListingAgentUser={isListingAgentUser}
+                onCheckAvailability={onRequestViewing}
+                onMessageAgent={() => void onMessageAgent()}
+                messageBusy={messageBusy}
+                authLoading={authLoading}
+                locationSection={<PropertyDetailLocationSection property={property} />}
+                presaleSection={
+                  property.is_presale ? (
+                    <div className="rounded-2xl border border-[#D4A843]/25 bg-[#FFF9F0] p-4 shadow-sm">
+                      <h2 className="font-serif text-lg font-semibold text-[#2C2C2C]">Register interest</h2>
+                      <p className="mt-1 text-xs font-medium text-[#888888]">
                         Leave your details and preferred unit. The listing agent will follow up.
                       </p>
-                      {hideListingClientActions ? (
-                        <p className="mt-3 text-sm font-semibold text-[#2C2C2C]/55">
-                          This listing is not accepting new interest right now.
-                        </p>
-                      ) : null}
                       {!hideListingClientActions ? (
                         <>
                           <div className="mt-3 space-y-2">
-                            <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                            <label className="block text-xs font-semibold text-[#888888]">
                               Name
                               <input
                                 value={presaleName}
                                 onChange={(e) => setPresaleName(e.target.value)}
-                                className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                                className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-medium text-[#2C2C2C]"
                                 autoComplete="name"
                               />
                             </label>
-                            <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                            <label className="block text-xs font-semibold text-[#888888]">
                               Email
                               <input
                                 type="email"
                                 value={presaleEmail}
                                 onChange={(e) => setPresaleEmail(e.target.value)}
-                                className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                                className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-medium text-[#2C2C2C]"
                                 autoComplete="email"
                               />
                             </label>
-                            <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                            <label className="block text-xs font-semibold text-[#888888]">
                               Phone
                               <input
                                 type="tel"
                                 value={presalePhone}
                                 onChange={(e) => setPresalePhone(e.target.value)}
-                                className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                                className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-medium text-[#2C2C2C]"
                                 autoComplete="tel"
                               />
                             </label>
-                            <label className="block text-xs font-semibold text-[#2C2C2C]/55">
+                            <label className="block text-xs font-semibold text-[#888888]">
                               Preferred unit type
                               <select
                                 value={presaleUnit}
                                 onChange={(e) => setPresaleUnit(e.target.value)}
-                                className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-semibold text-[#2C2C2C]"
+                                className="mt-1 w-full rounded-lg border border-[#2C2C2C]/15 bg-white px-3 py-2 text-sm font-medium text-[#2C2C2C]"
                               >
-                                <option value="">Select…</option>
+                                <option value="">Selectâ€¦</option>
                                 {(property.unit_types && property.unit_types.length > 0
                                   ? property.unit_types
                                   : ["Studio", "1BR", "2BR", "3BR", "4BR+"]
@@ -1068,100 +803,202 @@ export default function PropertyPage() {
                             type="button"
                             onClick={() => void submitPresaleInterest()}
                             disabled={presaleBusy || !property.listed_by}
-                            className="mt-4 w-full rounded-full bg-[#6B9E6E] px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#5d8a60] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="mt-4 w-full rounded-xl bg-[#6B9E6E] px-5 py-3 text-sm font-semibold text-white shadow-md disabled:opacity-50"
                           >
-                            {presaleBusy ? "Sending…" : "Register Interest"}
+                            {presaleBusy ? "Sendingâ€¦" : "Register interest"}
                           </button>
                         </>
                       ) : null}
-                    </>
-                  ) : hideListingClientActions ? (
-                    <p className="text-sm font-semibold text-[#2C2C2C]/55">
-                      Viewing requests and saves are not available for this listing right now.
-                    </p>
-                  ) : (
-                    <div className="max-md:hidden">
-                      <p className="font-serif text-base font-bold text-[#2C2C2C]">Request a viewing</p>
-                      <p className="mt-1 text-xs font-semibold text-[#2C2C2C]/55">
-                        Pick a date and time. We’ll notify the listing agent by SMS and email.
-                      </p>
-                      {listingAgent ? (
-                        <div className="mt-3 rounded-xl bg-neutral-50 p-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <Link
-                              href={`/agents/${encodeURIComponent(listingAgent.id)}`}
-                              className="cursor-pointer text-sm font-semibold text-[#2C2C2C] hover:underline"
-                            >
-                              {listingAgent.name}
-                            </Link>
-                            <VerifiedAgentBadge show />
-                          </div>
-                          <p className="mt-0.5 text-xs font-semibold text-[#2C2C2C]/60">
-                            {listingAgent.company || listingAgent.agencyName}
-                          </p>
-                          <div className="mt-2">
-                            <AgentAvailabilityBadge
-                              availability={listingAgent.availability}
-                              updatedAt={listingAgent.updatedAt}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => void onMessageAgent()}
-                            disabled={
-                              authLoading ||
-                              messageBusy ||
-                              connectedAgents.length === 0 ||
-                              user?.id === listingAgentUserId(property, connectedAgents)
-                            }
-                            className="mt-3 w-full rounded-full border border-[#6B9E6E]/35 bg-white px-5 py-2.5 text-sm font-semibold text-[#4a7a4d] shadow-sm transition-colors hover:bg-[#6B9E6E]/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {messageBusy ? "Opening…" : "Message agent"}
-                          </button>
-                        </div>
-                      ) : null}
+                    </div>
+                  ) : null
+                }
+                agentAsideSection={
+                  <>
+                    {isListingAgentUser ? (
+                      <Link
+                        href={`/dashboard/agent?tab=listings&editProperty=${encodeURIComponent(property.id)}`}
+                        className="flex w-full items-center justify-center rounded-xl bg-[#6B9E6E] py-3.5 text-sm font-semibold text-white shadow-md"
+                      >
+                        Edit listing
+                      </Link>
+                    ) : null}
+                    {showCoAgentPendingBanner ? (
+                      <div className="rounded-xl border border-[#D4A843]/35 bg-[#FFF9F0] px-4 py-3 text-xs font-semibold text-[#484848]">
+                        Co-list request sent â€” pending review.
+                      </div>
+                    ) : null}
+                    {showCoAgentRequestButton && !hideListingClientActions ? (
                       <button
                         type="button"
-                        onClick={onRequestViewing}
-                        disabled={authLoading || connectedAgents.length === 0}
-                        className="mt-4 w-full rounded-full bg-[#6B9E6E] px-5 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#5d8a60] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35 disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => setCoAgentConfirmOpen(true)}
+                        className="w-full rounded-xl border-2 border-[#2C2C2C] bg-white py-3 text-sm font-bold text-[#2C2C2C]"
                       >
-                        {authLoading ? "Loading…" : "Request viewing"}
+                        Request to co-list
                       </button>
-                    </div>
-                  )}
+                    ) : null}
+                    {showCoListNeedsVerificationPanel && !hideListingClientActions ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowVerificationModal(true)}
+                        className="w-full rounded-xl border border-[#6B9E6E]/40 bg-white py-3 text-sm font-semibold text-[#6B9E6E]"
+                      >
+                        Complete verification to co-list â†’
+                      </button>
+                    ) : null}
+                  </>
+                }
+              />
+            </div>
 
-                  {showCoAgentPendingBanner ? (
-                    <div className="mt-4 rounded-xl border border-[#D4A843]/35 bg-[#FFF9F0] px-4 py-3">
-                      <p className="text-xs font-semibold text-[#2C2C2C]/70">
-                        Co-list request sent — pending review.
+            <BahayGoPropertyPageDesktop
+              property={property}
+              allPhotos={allPhotos}
+              heroIndex={heroIndex}
+              heroDisplaySrc={heroDisplaySrc}
+              fallbackHeroSrc={noGalleryFallbackHeroSrc}
+              onPrevPhoto={goPrevPhoto}
+              onNextPhoto={goNextPhoto}
+              onSelectPhoto={(i) => setActivePhoto(String(allPhotos[i]).trim())}
+              onOpenLightbox={openLightbox}
+              engagement={engagement}
+              agentEngagementLocked={agentEngagementLocked}
+              hideListingClientActions={hideListingClientActions}
+              availabilityBanner={availabilityBanner}
+              listingAgent={listingAgent}
+              isListingAgentUser={isListingAgentUser}
+              onCheckAvailability={onRequestViewing}
+              onMessageAgent={() => void onMessageAgent()}
+              messageBusy={messageBusy}
+              authLoading={authLoading}
+              locationSection={<PropertyDetailLocationSection property={property} />}
+              presaleSection={
+                property.is_presale ? (
+                  <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-8">
+                    <h2 className="font-serif text-2xl font-semibold text-[#2C2C2C]">Presale development</h2>
+                    {property.developer_name?.trim() ? (
+                      <p className="mt-3 text-sm text-neutral-600">
+                        <span className="font-semibold text-[#2C2C2C]">Developer: </span>
+                        {property.developer_name.trim()}
                       </p>
+                    ) : null}
+                    {property.turnover_date ? (
+                      <p className="mt-2 text-sm text-neutral-600">
+                        <span className="font-semibold text-[#2C2C2C]">Expected turnover: </span>
+                        {formatPresaleTurnoverMonthYear(property.turnover_date)}
+                      </p>
+                    ) : null}
+                    {property.unit_types && property.unit_types.length > 0 ? (
+                      <p className="mt-2 text-sm text-neutral-600">
+                        <span className="font-semibold text-[#2C2C2C]">Available units: </span>
+                        {property.unit_types.join(", ")}
+                      </p>
+                    ) : null}
+                    {!hideListingClientActions ? (
+                      <>
+                        <p className="mt-6 font-serif text-lg font-semibold text-[#2C2C2C]">Register interest</p>
+                        <p className="mt-1 text-sm text-neutral-600">
+                          Leave your details and preferred unit. The listing agent will follow up.
+                        </p>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <label className="block text-xs font-semibold text-neutral-500">
+                            Name
+                            <input
+                              value={presaleName}
+                              onChange={(e) => setPresaleName(e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-[#2C2C2C]"
+                              autoComplete="name"
+                            />
+                          </label>
+                          <label className="block text-xs font-semibold text-neutral-500">
+                            Email
+                            <input
+                              type="email"
+                              value={presaleEmail}
+                              onChange={(e) => setPresaleEmail(e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-[#2C2C2C]"
+                              autoComplete="email"
+                            />
+                          </label>
+                          <label className="block text-xs font-semibold text-neutral-500">
+                            Phone
+                            <input
+                              type="tel"
+                              value={presalePhone}
+                              onChange={(e) => setPresalePhone(e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-[#2C2C2C]"
+                              autoComplete="tel"
+                            />
+                          </label>
+                          <label className="block text-xs font-semibold text-neutral-500">
+                            Preferred unit type
+                            <select
+                              value={presaleUnit}
+                              onChange={(e) => setPresaleUnit(e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-[#2C2C2C]"
+                            >
+                              <option value="">Selectâ€¦</option>
+                              {(property.unit_types && property.unit_types.length > 0
+                                ? property.unit_types
+                                : ["Studio", "1BR", "2BR", "3BR", "4BR+"]
+                              ).map((u) => (
+                                <option key={u} value={u}>
+                                  {u}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        {presaleMsg ? (
+                          <p
+                            className={`mt-3 text-sm font-semibold ${
+                              presaleMsg.startsWith("Thanks") ? "text-[#6B9E6E]" : "text-red-700"
+                            }`}
+                          >
+                            {presaleMsg}
+                          </p>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => void submitPresaleInterest()}
+                          disabled={presaleBusy || !property.listed_by}
+                          className="mt-4 rounded-xl bg-[#2C2C2C] px-6 py-3 text-sm font-bold uppercase tracking-wide text-white disabled:opacity-50"
+                        >
+                          {presaleBusy ? "Sendingâ€¦" : "Register interest"}
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                ) : null
+              }
+              agentAsideSection={
+                <>
+                  {showCoAgentPendingBanner ? (
+                    <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+                      Co-list request sent â€” pending review.
                     </div>
                   ) : null}
-
                   {showCoAgentRequestButton && !hideListingClientActions ? (
                     <button
                       type="button"
                       onClick={() => setCoAgentConfirmOpen(true)}
-                      className="mt-4 w-full rounded-full border-2 border-[#2C2C2C] bg-white px-5 py-3 text-sm font-bold text-[#2C2C2C] shadow-sm transition-colors hover:bg-[#FAF8F4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D4A843]/35"
+                      className="w-full rounded-xl border-2 border-[#2C2C2C] bg-white py-3 text-sm font-bold text-[#2C2C2C]"
                     >
-                      Request to Co-List
+                      Request to co-list
                     </button>
                   ) : null}
-
                   {showCoListNeedsVerificationPanel && !hideListingClientActions ? (
                     <button
                       type="button"
                       onClick={() => setShowVerificationModal(true)}
-                      className="mt-4 w-full rounded-full border border-[#6B9E6E]/40 bg-white px-5 py-3 text-sm font-semibold text-[#6B9E6E] shadow-sm hover:bg-[#6B9E6E]/10"
+                      className="w-full rounded-xl border border-neutral-300 bg-white py-3 text-sm font-semibold text-[#2C2C2C]"
                     >
-                      Complete verification to co-list →
+                      Complete verification to co-list â†’
                     </button>
                   ) : null}
-                </div>
-              </div>
-            </aside>
-          </div>
+                </>
+              }
+            />
+          </>
         )}
 
         {!loading && !error && property && (
@@ -1258,7 +1095,7 @@ function PropertyDetailLocationSection({ property }: { property: PropertyRow }) 
   const useAdvancedMarker = Boolean(mapId);
 
   return (
-    <section className="mt-8 w-full" aria-labelledby="property-detail-location-heading">
+    <section className="w-full max-md:mt-0 md:mt-8" aria-labelledby="property-detail-location-heading">
       <h2
         id="property-detail-location-heading"
         className="font-serif text-2xl font-bold tracking-tight text-[#2C2C2C]"
@@ -1308,7 +1145,7 @@ function PropertyDetailLocationSection({ property }: { property: PropertyRow }) 
             <p className="mt-3 max-w-sm text-sm text-gray-600">
               {!hasCoords
                 ? "Map will appear once the agent verifies the location."
-                : "Map preview isn’t available right now."}
+                : "Map preview isnâ€™t available right now."}
             </p>
             <p className="mt-2 text-xs font-medium text-[#2C2C2C]/70">{property.location}</p>
           </div>
@@ -1475,7 +1312,7 @@ function PropertyPhotoLightbox({
       className="fixed inset-0 z-50 flex flex-col bg-black"
       role="dialog"
       aria-modal="true"
-      aria-label={galleryLabel ? `${galleryLabel} — ${countLabel}` : countLabel}
+      aria-label={galleryLabel ? `${galleryLabel} â€” ${countLabel}` : countLabel}
     >
       <div className="relative z-30 grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-4">
         <div aria-hidden />
