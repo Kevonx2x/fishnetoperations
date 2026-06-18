@@ -136,6 +136,7 @@ export function BahayGoPropertyPageMobile({
   const hasMultiplePhotos = allPhotos.length > 1;
   const displayTitle = (property.name?.trim() || property.location).trim();
   const tagline = property.description?.split(/[.!?]/)[0]?.trim();
+  const descriptionBody = property.description?.trim() ?? "";
   const priceLabel = formatDockPrice(property);
   const pricePrefix = dockPricePrefix(property);
 
@@ -428,10 +429,12 @@ export function BahayGoPropertyPageMobile({
         )}
 
         {/* About */}
-        {property.description && (
+        {descriptionBody && (
           <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E8E4DC]/80">
             <h2 className="font-serif text-xl font-semibold text-[#2C2C2C]">About this property</h2>
-            <p className="mt-3 text-sm leading-relaxed text-[#555555]">{property.description}</p>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[#555555]">
+              {descriptionBody}
+            </p>
           </section>
         )}
 
