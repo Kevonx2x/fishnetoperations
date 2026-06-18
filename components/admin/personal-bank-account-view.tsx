@@ -1,21 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, ChevronRight, RefreshCw, Wallet } from "lucide-react";
+import { usePersonalTreasury } from "@/hooks/use-personal-treasury";
 import { formatTreasuryPeso } from "@/lib/admin-personal-treasury";
 import { cn } from "@/lib/utils";
-
-type TreasuryPayload = {
-  accountLabel: string;
-  accountNumberMasked: string;
-  holderName: string;
-  currency: string;
-  grossBalance: number;
-  totalMonthlyExpenses: number;
-  availableBalance: number;
-  expenses: { id: string; label: string; amount: number; source: string }[];
-};
 
 type Props = {
   backHref?: string;
@@ -28,39 +17,7 @@ export function PersonalBankAccountView({
   backLabel = "Back",
   className,
 }: Props) {
-  const [data, setData] = useState<TreasuryPayload | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    else setRefreshing(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/admin/personal-account", { credentials: "include" });
-      const json = (await res.json()) as {
-        success?: boolean;
-        data?: TreasuryPayload;
-        error?: { message?: string };
-      };
-      if (!res.ok || !json.success || !json.data) {
-        throw new Error(json.error?.message ?? "Could not load account");
-      }
-      setData(json.data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load account");
-      setData(null);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
+  const { data, loading, error, refreshing, load } = usePersonalTreasury();
   const monthLabel = new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
   return (
