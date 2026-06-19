@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     const { data: lead, error: fetchErr } = await sb
       .from("leads")
-      .select("id, agent_id, broker_id, pipeline_stage, client_id, email, property_id")
+      .select("id, agent_id, broker_id, pipeline_stage, client_id, email, property_id, viewing_request_id")
       .eq("id", leadId)
       .maybeSingle();
 
@@ -188,6 +188,26 @@ export async function POST(request: NextRequest) {
         updated_at: nowIso,
       });
       if (vi) return fail("DATABASE_ERROR", vi.message, 500);
+    }
+
+    const viewingRequestId =
+      (lead as { viewing_request_id?: string | null }).viewing_request_id?.trim() || null;
+    if (viewingRequestId) {
+      const { data: updatedRequest, error: viewingRequestErr } = await admin
+        .from("viewing_requests")
+        .update({
+          status: "confirmed",
+          scheduled_at: scheduledAt,
+          updated_at: nowIso,
+        })
+        .eq("id", viewingRequestId)
+        .select("id")
+        .maybeSingle();
+
+      if (viewingRequestErr) return fail("DATABASE_ERROR", viewingRequestErr.message, 500);
+      if (!updatedRequest) {
+        return fail("NOT_FOUND", "Linked viewing request not found", 404);
+      }
     }
 
     if (currentStage !== "viewing") {
