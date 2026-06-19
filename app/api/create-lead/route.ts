@@ -27,9 +27,9 @@ const viewingSchema = z.object({
 
 const bodySchema = z.discriminatedUnion("source", [contactSchema, viewingSchema]);
 
-/** New leads from contact flow enter as `new`. Viewing-request leads start at pipeline Lead; agent moves to Viewing manually. */
+/** New leads from contact flow enter as `new`. Viewing-request leads start in the stored `lead` pipeline slug. */
 const NEW_LEAD_STAGE = "new" as const;
-const VIEWING_PIPELINE_STAGE = "Lead" as const;
+const VIEWING_PIPELINE_STAGE = "lead" as const;
 const VIEWING_REQUEST_LEAD_STAGE = "active" as const;
 
 function esc(s: string): string {
@@ -40,13 +40,20 @@ function esc(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-async function findExistingLeadIdForViewingDedupe(
+async function findActiveLeadIdForDedupe(
   admin: ReturnType<typeof createSupabaseAdmin>,
   clientId: string,
   agentUserId: string,
   propertyId: string | null,
 ): Promise<number | null> {
-  let q = admin.from("leads").select("id").eq("client_id", clientId).eq("agent_id", agentUserId);
+  let q = admin
+    .from("leads")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("agent_id", agentUserId)
+    .or("archived_by_client.is.false,archived_by_client.is.null")
+    .is("archived_at", null)
+    .not("pipeline_stage", "in", "(closed,declined)");
   if (propertyId) {
     q = q.eq("property_id", propertyId);
   } else {
@@ -54,21 +61,44 @@ async function findExistingLeadIdForViewingDedupe(
   }
   const { data, error } = await q.order("id", { ascending: false }).limit(1).maybeSingle();
   if (error) {
-    console.warn("[create-lead] viewing_request: could not resolve existing lead id for duplicate", error);
+    console.warn("[create-lead] could not resolve active lead id for duplicate", error);
     return null;
   }
   const id = (data as { id?: number } | null)?.id;
   return id != null ? Number(id) : null;
 }
 
-/** Reuse existing lead for contact_button when client+agent+property already has a row. */
-async function findExistingLeadIdForContactDedupe(
+async function findAnyLeadIdForDedupe(
   admin: ReturnType<typeof createSupabaseAdmin>,
   clientId: string,
   agentUserId: string,
   propertyId: string | null,
 ): Promise<number | null> {
-  return findExistingLeadIdForViewingDedupe(admin, clientId, agentUserId, propertyId);
+  let q = admin
+    .from("leads")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("agent_id", agentUserId);
+  if (propertyId) {
+    q = q.eq("property_id", propertyId);
+  } else {
+    q = q.is("property_id", null);
+  }
+  const { data, error } = await q.order("id", { ascending: false }).limit(1).maybeSingle();
+  if (error) {
+    console.warn("[create-lead] could not resolve any lead id for duplicate", error);
+    return null;
+  }
+  const id = (data as { id?: number } | null)?.id;
+  return id != null ? Number(id) : null;
+}
+
+function inactiveDuplicateResponse() {
+  return fail(
+    "CONFLICT",
+    "This lead is archived or no longer active. Reopen it before sending a new inquiry.",
+    409,
+  );
 }
 
 /** Ensure agent_id is a real agents.user_id; for property context, fall back to listing agent. */
@@ -180,12 +210,19 @@ export async function POST(req: Request) {
         smsSuffix: " Viewing request submitted.",
       };
 
-      const existingLeadId = await findExistingLeadIdForViewingDedupe(
+      const existingLeadId = await findActiveLeadIdForDedupe(
         admin,
         session.userId,
         agentUserId,
         propertyId,
       );
+      const inactiveLeadId =
+        existingLeadId == null
+          ? await findAnyLeadIdForDedupe(admin, session.userId, agentUserId, propertyId)
+          : null;
+      if (inactiveLeadId != null) {
+        return inactiveDuplicateResponse();
+      }
 
       if (existingLeadId != null) {
         const { error: updErr } = await admin
@@ -236,7 +273,7 @@ export async function POST(req: Request) {
           details: insErr.details,
         });
         if (insErr.code === "23505") {
-          const raceLeadId = await findExistingLeadIdForViewingDedupe(
+          const raceLeadId = await findActiveLeadIdForDedupe(
             admin,
             session.userId,
             agentUserId,
@@ -257,12 +294,22 @@ export async function POST(req: Request) {
               .eq("id", raceLeadId);
             if (raceUpd) {
               console.error("[create-lead] viewing_request: race update failed", raceUpd);
+              return fail("DATABASE_ERROR", raceUpd.message, 500);
             }
             await notifyAgentNewLead(admin, {
               ...notifyArgs,
               leadId: raceLeadId,
             });
             return ok({ created: false, updated: true, duplicate: true, leadId: raceLeadId });
+          }
+          const raceInactiveLeadId = await findAnyLeadIdForDedupe(
+            admin,
+            session.userId,
+            agentUserId,
+            propertyId,
+          );
+          if (raceInactiveLeadId != null) {
+            return inactiveDuplicateResponse();
           }
           const leadIdForNotify = 0;
           await notifyAgentNewLead(admin, {
@@ -277,7 +324,7 @@ export async function POST(req: Request) {
       const leadId = inserted?.id;
       if (leadId === undefined || leadId === null) {
         console.warn("[create-lead] viewing_request: lead insert returned no id (treating as duplicate)");
-        const fallbackLeadId = await findExistingLeadIdForViewingDedupe(
+        const fallbackLeadId = await findActiveLeadIdForDedupe(
           admin,
           session.userId,
           agentUserId,
@@ -333,12 +380,19 @@ export async function POST(req: Request) {
     const propertyInterest = propertyTitle?.trim() || "General Inquiry";
     const message = `Contact channel: ${channel}`;
 
-    const existingContactLeadId = await findExistingLeadIdForContactDedupe(
+    const existingContactLeadId = await findActiveLeadIdForDedupe(
       admin,
       session.userId,
       agentUserId,
       propertyId ?? null,
     );
+    const inactiveContactLeadId =
+      existingContactLeadId == null
+        ? await findAnyLeadIdForDedupe(admin, session.userId, agentUserId, propertyId ?? null)
+        : null;
+    if (inactiveContactLeadId != null) {
+      return inactiveDuplicateResponse();
+    }
     if (existingContactLeadId != null) {
       await notifyAgentNewLead(admin, {
         agentUserId,
@@ -374,7 +428,7 @@ export async function POST(req: Request) {
 
     if (insErr) {
       if (insErr.code === "23505") {
-        const raceLeadId = await findExistingLeadIdForContactDedupe(
+        const raceLeadId = await findActiveLeadIdForDedupe(
           admin,
           session.userId,
           agentUserId,
@@ -382,6 +436,15 @@ export async function POST(req: Request) {
         );
         if (raceLeadId != null) {
           return ok({ created: false, updated: false, duplicate: true, leadId: raceLeadId });
+        }
+        const raceInactiveLeadId = await findAnyLeadIdForDedupe(
+          admin,
+          session.userId,
+          agentUserId,
+          propertyId ?? null,
+        );
+        if (raceInactiveLeadId != null) {
+          return inactiveDuplicateResponse();
         }
         return ok({ created: false, duplicate: true });
       }

@@ -5,10 +5,17 @@ import { leadAccessibleBySession, resolveTeamMemberSupervisorUserId } from "@/li
 
 const VALID_STAGES = new Set(["lead", "viewing", "offer", "reservation", "closed"]);
 
-function restoredPipelineStage(stageAtArchive: string | null | undefined): string {
-  const s = String(stageAtArchive ?? "").trim().toLowerCase();
+function normalizedPipelineStage(value: string | null | undefined): string | null {
+  const s = String(value ?? "").trim().toLowerCase();
   if (VALID_STAGES.has(s)) return s;
-  return "lead";
+  return null;
+}
+
+function restoredPipelineStage(
+  stageAtArchive: string | null | undefined,
+  currentPipelineStage: string | null | undefined,
+): string {
+  return normalizedPipelineStage(stageAtArchive) ?? normalizedPipelineStage(currentPipelineStage) ?? "lead";
 }
 
 export async function POST(req: Request) {
@@ -71,8 +78,8 @@ export async function POST(req: Request) {
     return Response.json({ error: "Lead is not archived" }, { status: 400 });
   }
 
-  const stageAtArchive = (lead as { stage_at_archive?: string | null }).stage_at_archive;
-  const pipelineStage = restoredPipelineStage(stageAtArchive);
+  const leadRow = lead as { stage_at_archive?: string | null; pipeline_stage?: string | null };
+  const pipelineStage = restoredPipelineStage(leadRow.stage_at_archive, leadRow.pipeline_stage);
 
   const now = new Date().toISOString();
   const { error: updErr } = await admin

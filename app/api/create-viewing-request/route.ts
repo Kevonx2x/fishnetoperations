@@ -7,7 +7,6 @@ import { getSessionProfile } from "@/lib/admin-api-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { RESEND_FROM } from "@/lib/resend-from";
 import { normalizePhoneE164, sendSmsTo } from "@/lib/twilio-sms";
-import { isPropertyListingRemoved } from "@/lib/property-soft-delete";
 import { propertyAcceptsViewingRequests } from "@/lib/property-availability";
 import { assertViewingSlotAvailable, fetchAgentViewingSlotSettings } from "@/lib/viewing-slot-conflict";
 
@@ -34,7 +33,7 @@ function esc(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Active lead for same client + property: not client-archived, not declined/closed — reuse instead of inserting a second card. */
+/** Active lead for same client + property: not archived, declined, or closed — reuse instead of inserting a second card. */
 async function findActiveDuplicateLeadIdForViewing(
   admin: ReturnType<typeof createSupabaseAdmin>,
   clientId: string,
@@ -46,7 +45,8 @@ async function findActiveDuplicateLeadIdForViewing(
     .select("id")
     .eq("client_id", clientId)
     .eq("agent_id", agentId)
-    .eq("archived_by_client", false)
+    .or("archived_by_client.is.false,archived_by_client.is.null")
+    .is("archived_at", null)
     .not("pipeline_stage", "in", "(closed,declined)");
   if (propertyId) {
     q = q.eq("property_id", propertyId);
@@ -60,6 +60,39 @@ async function findActiveDuplicateLeadIdForViewing(
   }
   const id = (data as { id?: number } | null)?.id;
   return id != null ? Number(id) : null;
+}
+
+async function findAnyDuplicateLeadIdForViewing(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  clientId: string,
+  agentId: string,
+  propertyId: string | null,
+): Promise<number | null> {
+  let q = admin
+    .from("leads")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("agent_id", agentId);
+  if (propertyId) {
+    q = q.eq("property_id", propertyId);
+  } else {
+    q = q.is("property_id", null);
+  }
+  const { data, error } = await q.order("id", { ascending: false }).limit(1).maybeSingle();
+  if (error) {
+    console.warn("[create-viewing-request] could not resolve any duplicate lead id", error);
+    return null;
+  }
+  const id = (data as { id?: number } | null)?.id;
+  return id != null ? Number(id) : null;
+}
+
+function inactiveDuplicateResponse() {
+  return fail(
+    "CONFLICT",
+    "This lead is archived or no longer active. Reopen it before sending a new viewing request.",
+    409,
+  );
 }
 
 function isLeadsClientAgentPropertyDedupeViolation(err: {
@@ -86,7 +119,8 @@ async function resolveActiveDuplicateLeadIdAfterDedupeInsert(
     .select("id")
     .eq("client_id", clientId)
     .eq("agent_id", agentUserId)
-    .eq("archived_by_client", false)
+    .or("archived_by_client.is.false,archived_by_client.is.null")
+    .is("archived_at", null)
     .not("pipeline_stage", "in", "(closed,declined)");
   if (propertyId) {
     q = q.eq("property_id", propertyId);
@@ -402,6 +436,13 @@ export async function POST(req: Request) {
       agentUserId,
       propertyId,
     );
+    const inactiveLeadId =
+      existingLeadId == null
+        ? await findAnyDuplicateLeadIdForViewing(admin, session.userId, agentUserId, propertyId)
+        : null;
+    if (inactiveLeadId != null) {
+      return inactiveDuplicateResponse();
+    }
     const activeViewingForSlot =
       existingLeadId != null ? await findActiveScheduledViewingForLead(admin, existingLeadId) : null;
     const slotSettings = await fetchAgentViewingSlotSettings(admin, agentUserId);
@@ -685,6 +726,7 @@ export async function POST(req: Request) {
           const { error: raceUpd } = await admin.from("leads").update(racePatch).eq("id", raceLeadId);
           if (raceUpd) {
             console.error("[create-viewing-request] race update failed", raceUpd);
+            return fail("DATABASE_ERROR", raceUpd.message, 500);
           }
           await notifyAgentViewingRequestUpdated(admin, {
             agentUserId,
@@ -701,6 +743,16 @@ export async function POST(req: Request) {
             viewing_request_id: viewingRequestId,
             lead_id: raceLeadId,
           });
+        }
+        const raceInactiveLeadId = await findAnyDuplicateLeadIdForViewing(
+          admin,
+          session.userId,
+          agentUserId,
+          propertyId,
+        );
+        if (raceInactiveLeadId != null) {
+          await admin.from("viewing_requests").delete().eq("id", viewingRequestId);
+          return inactiveDuplicateResponse();
         }
         console.warn(
           "[create-viewing-request] duplicate on leads_client_agent_property_dedupe_idx but existing row not found",
