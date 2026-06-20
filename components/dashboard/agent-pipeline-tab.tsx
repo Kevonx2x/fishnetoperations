@@ -3842,6 +3842,11 @@ export function AgentPipelineTab({
         optimisticPatch.closed_date = nowIso.slice(0, 10);
         optimisticPatch.closed_by = leadsAgentUserId;
         optimisticPatch.closure_confirmed_by_client = null;
+      } else {
+        optimisticPatch.closed_at = null;
+        optimisticPatch.closed_date = null;
+        optimisticPatch.closed_by = null;
+        optimisticPatch.closure_confirmed_by_client = null;
       }
       onPatchLead?.(lead.id, optimisticPatch);
       setKanbanStageOverrides((o) => {
