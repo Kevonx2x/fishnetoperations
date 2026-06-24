@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { normalizeListingTier, TIER_LABEL } from "@/lib/agent-listing-limits";
@@ -6,6 +8,42 @@ import { parseSubscriptionRemarks, paymongoBasicAuthHeader } from "@/lib/paymong
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
+
+function signatureCandidates(signature: string | null): string[] {
+  if (!signature) return [];
+  const candidates = new Set<string>();
+  const trimmed = signature.trim();
+  if (trimmed) candidates.add(trimmed);
+
+  for (const part of trimmed.split(",")) {
+    const token = part.trim();
+    if (!token) continue;
+    const eqIndex = token.indexOf("=");
+    candidates.add(eqIndex === -1 ? token : token.slice(eqIndex + 1).trim());
+  }
+
+  return [...candidates].filter(Boolean);
+}
+
+function timingSafeHexEqual(expectedHex: string, candidateHex: string): boolean {
+  const normalized = candidateHex.trim().toLowerCase();
+  if (!/^[a-f0-9]+$/.test(normalized)) return false;
+
+  try {
+    const expected = Buffer.from(expectedHex, "hex");
+    const candidate = Buffer.from(normalized, "hex");
+    if (expected.length !== candidate.length) return false;
+    return crypto.timingSafeEqual(expected, candidate);
+  } catch {
+    return false;
+  }
+}
+
+function verifyPaymongoSignature(rawBody: string, signature: string | null, secret: string): boolean {
+  if (!secret) return false;
+  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+  return signatureCandidates(signature).some((candidate) => timingSafeHexEqual(expected, candidate));
+}
 
 /** Walk JSON for our PayMongo link `remarks` string. */
 function findRemarksString(value: unknown): string | null {
@@ -144,9 +182,25 @@ async function fetchRemarksFromLink(linkId: string): Promise<string | null> {
 }
 
 export async function POST(req: Request) {
+  let rawBody: string;
+  try {
+    rawBody = await req.text();
+  } catch {
+    return NextResponse.json({ received: false, error: "invalid_body" }, { status: 400 });
+  }
+
+  const webhookSecret = process.env.PAYMONGO_WEBHOOK_SECRET?.trim();
+  if (!webhookSecret) {
+    return NextResponse.json({ received: false, error: "webhook_not_configured" }, { status: 503 });
+  }
+
+  if (!verifyPaymongoSignature(rawBody, req.headers.get("paymongo-signature"), webhookSecret)) {
+    return NextResponse.json({ received: false, error: "invalid_signature" }, { status: 401 });
+  }
+
   let body: unknown;
   try {
-    body = await req.json();
+    body = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ received: false, error: "invalid_json" }, { status: 400 });
   }
@@ -172,7 +226,7 @@ export async function POST(req: Request) {
   const { agentId, tier } = parsed;
 
   const payFromEvent = extractPaymentResource(body);
-  let paymentId = payFromEvent?.id ?? findPaymentIdInEvent(body);
+  const paymentId = payFromEvent?.id ?? findPaymentIdInEvent(body);
   let amount: number | null =
     typeof payFromEvent?.attributes.amount === "number"
       ? payFromEvent.attributes.amount
