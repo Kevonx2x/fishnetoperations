@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { adminTeamPrintPlanStorageKey } from "@/lib/admin-team-print-plan";
+import { isAdminPanelRole } from "@/lib/auth-roles";
 import { ONBOARDING_WEEK_TITLES } from "@/lib/emmanuel-onboarding-seed";
-
-const STORAGE_KEY = "adminTeamPrintPlan";
 
 type PrintItem = {
   week_number: number;
@@ -23,6 +23,8 @@ export default function AdminTeamPrintPage() {
   const { profile, loading } = useAuth();
   const [payload, setPayload] = useState<PrintPayload | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const attemptedLoadRef = useRef(false);
+  const canViewPlan = isAdminPanelRole(profile?.role);
 
   useEffect(() => {
     const footer = document.getElementById("bahaygo-site-footer");
@@ -35,37 +37,66 @@ export default function AdminTeamPrintPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
-      sessionStorage.removeItem(STORAGE_KEY);
-      if (!raw) {
-        setErr("No plan data. Close this tab and use Download Plan again.");
-        return;
+    if (typeof window === "undefined" || loading || attemptedLoadRef.current) return;
+    const printId = new URLSearchParams(window.location.search).get("key")?.trim();
+    attemptedLoadRef.current = true;
+    if (!canViewPlan) {
+      try {
+        if (printId) localStorage.removeItem(adminTeamPrintPlanStorageKey(printId));
+      } catch {
+        // Best-effort cleanup only; unauthorized users still cannot render the payload.
       }
-      const parsed = JSON.parse(raw) as PrintPayload;
-      if (!parsed?.employeeName || !Array.isArray(parsed.items)) {
-        setErr("Invalid plan data.");
-        return;
-      }
-      setPayload(parsed);
-    } catch {
-      setErr("Could not read plan data.");
+      return;
     }
-  }, []);
+    let nextPayload: PrintPayload | null = null;
+    let nextErr: string | null = null;
+    try {
+      if (!printId) {
+        nextErr = "No plan data. Close this tab and use Download Plan again.";
+      } else {
+        const storageKey = adminTeamPrintPlanStorageKey(printId);
+        const raw = localStorage.getItem(storageKey);
+        localStorage.removeItem(storageKey);
+        if (!raw) {
+          nextErr = "No plan data. Close this tab and use Download Plan again.";
+        } else {
+          const parsed = JSON.parse(raw) as PrintPayload;
+          if (!parsed?.employeeName || !Array.isArray(parsed.items)) {
+            nextErr = "Invalid plan data.";
+          } else {
+            nextPayload = parsed;
+          }
+        }
+      }
+    } catch {
+      nextErr = "Could not read plan data.";
+    }
+    window.setTimeout(() => {
+      setPayload(nextPayload);
+      setErr(nextErr);
+    }, 0);
+  }, [canViewPlan, loading]);
 
   useEffect(() => {
     if (loading || err || !payload) return;
-    if (profile?.role !== "admin") return;
+    if (!canViewPlan) return;
     document.title = `${payload.employeeName} — 30-day plan`;
     const t = window.setTimeout(() => window.print(), 450);
     return () => window.clearTimeout(t);
-  }, [loading, err, payload, profile?.role]);
+  }, [canViewPlan, loading, err, payload]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FAF8F4] px-6 py-10 font-sans text-[#2C2C2C]">
         <p className="text-sm font-semibold">Checking access…</p>
+      </div>
+    );
+  }
+
+  if (!canViewPlan) {
+    return (
+      <div className="min-h-screen bg-[#FAF8F4] px-6 py-10 font-sans text-[#2C2C2C]">
+        <p className="text-sm font-semibold">You do not have access to print team plans.</p>
       </div>
     );
   }
