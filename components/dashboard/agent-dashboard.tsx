@@ -417,7 +417,7 @@ const EDIT_PROPERTY_TYPES = [
   "Presale",
 ] as const;
 
-/** New listing + standard resale/rent types (presale uses separate `Presale` option in edit when applicable). */
+/** New listing property types. Presale drives the presale-only fields and API payload. */
 const LISTING_PROPERTY_TYPE_OPTIONS = [
   "Condo",
   "House",
@@ -427,6 +427,7 @@ const LISTING_PROPERTY_TYPE_OPTIONS = [
   "Commercial",
   "Warehouse",
   "Office",
+  "Presale",
 ] as const;
 
 function listingPropertyTypeOptionsForEdit(current: string | null | undefined, isPresaleListing: boolean): string[] {
@@ -4518,7 +4519,7 @@ function mapAiPropertyTypeToForm(raw: unknown): (typeof LISTING_PROPERTY_TYPE_OP
     land: "Lot",
     villa: "House",
     studio: "Condo",
-    presale: "Condo",
+    presale: "Presale",
   };
   return map[k] ?? "Condo";
 }
@@ -4730,6 +4731,12 @@ function ListingsTab({
       const listingType: "sale" | "rent" | "both" =
         rawLt === "rent" ? "rent" : rawLt === "both" ? "both" : "sale";
       const propType = mapAiPropertyTypeToForm(d.property_type);
+      const isAiPresale =
+        d.is_presale === true ||
+        String(d.is_presale ?? "")
+          .toLowerCase()
+          .trim() === "true" ||
+        propType === "Presale";
 
       setListingForm((f) => ({
         ...f,
@@ -4750,8 +4757,8 @@ function ListingsTab({
         baths: String(bathsN),
         sqft: String(sqftN),
         description: typeof d.description === "string" ? d.description : f.description,
-        property_type: propType,
-        listing_type: listingType,
+        property_type: isAiPresale ? "Presale" : propType,
+        listing_type: isAiPresale ? "sale" : listingType,
         developer_name:
           typeof d.developer_name === "string" && d.developer_name.trim()
             ? d.developer_name.trim()

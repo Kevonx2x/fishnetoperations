@@ -14,6 +14,7 @@ const LISTING_PROPERTY_TYPES = [
   "Commercial",
   "Warehouse",
   "Office",
+  "Presale",
 ] as const;
 
 const bodySchema = z.object({
