@@ -1,10 +1,10 @@
 import { fail, ok } from "@/lib/api/response";
-import { requireAdminSession } from "@/lib/admin-api-auth";
+import { requireFullAdminSession } from "@/lib/admin-api-auth";
 import { CEO_DECISION_CATEGORIES } from "@/lib/ceo-admin-constants";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 export async function GET() {
-  const session = await requireAdminSession();
+  const session = await requireFullAdminSession();
   if (session === "unauthorized") {
     return fail("UNAUTHORIZED", "Admin sign-in required", 401);
   }
@@ -23,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await requireAdminSession();
+  const session = await requireFullAdminSession();
   if (session === "unauthorized") {
     return fail("UNAUTHORIZED", "Admin sign-in required", 401);
   }

@@ -4,6 +4,17 @@ Newest entries first. Add a row **before** running each migration; update **Stat
 
 ---
 
+## 2026-05-25 11:00 — CEO dashboard tables
+
+**Migration file:** supabase/migrations/20260525110000_ceo_dashboard_tables.sql
+**Executed by:** Cursor (pending)
+**Status:** Pending
+**Tables affected:** ceo_checklist_items, ceo_checklist_completions, ceo_decisions
+**Summary:** Creates persistent CEO recurring checklist items/completions and decisions log tables with admin-only RLS.
+**Rollback notes:** `DROP TABLE IF EXISTS public.ceo_checklist_completions CASCADE; DROP TABLE IF EXISTS public.ceo_checklist_items CASCADE; DROP TABLE IF EXISTS public.ceo_decisions CASCADE;`
+
+---
+
 ## 2026-05-22 18:00 — Landlord contact visibility + Viber
 
 **Migration file:** supabase/migrations/20260522180000_landlord_contact_visibility.sql
