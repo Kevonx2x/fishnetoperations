@@ -31,9 +31,50 @@ function propertyTitle(row: { name?: string | null; location?: string | null } |
   return String(row?.location ?? "").trim() || "Property";
 }
 
+type AgentPropertyContextRow = {
+  agent_id?: string | null;
+  property_id?: string | null;
+  properties?: {
+    id?: string | null;
+    name?: string | null;
+    location?: string | null;
+    listed_by?: string | null;
+  } | null;
+};
+
+function contextFromAgentPropertyRows(
+  rows: AgentPropertyContextRow[],
+  viewerAgentId: string,
+  targetAgentId: string,
+  viewerUserId: string,
+  targetUserId: string,
+): AgentToAgentDealContext {
+  for (const r of rows) {
+    const linkedAgentId = String(r.agent_id ?? "");
+    const p = r.properties ?? null;
+    const listedBy = String(p?.listed_by ?? "");
+    if (!linkedAgentId || !p?.id || !listedBy) continue;
+
+    const match =
+      (linkedAgentId === viewerAgentId && listedBy === targetUserId) ||
+      (linkedAgentId === targetAgentId && listedBy === viewerUserId);
+
+    if (match) {
+      return {
+        allowed: true,
+        kind: "co_listing",
+        property_id: String(p.id),
+        property_name: propertyTitle(p),
+      };
+    }
+  }
+
+  return { allowed: false };
+}
+
 /**
  * Agent↔agent messaging is allowed ONLY when there is shared deal context:
- * - Co-listing: an accepted `co_agent_requests` exists tying one agent to the other's property
+ * - Co-listing: one agent is linked to a property listed by the other
  * - Cross-deal: an active lead exists for one agent on a property listed by the other
  *
  * Returns the first context found (co-listing preferred), including the property title for UI banners.
@@ -52,36 +93,42 @@ export async function canAgentMessageAgent(
   const targetUserId = userIdsByAgentId[b];
   if (!viewerUserId || !targetUserId) return { allowed: false };
 
-  // 1) Co-listing: accepted request between co-agent and listing agent via properties.listed_by (user id).
+  // 1) Co-listing: linked co-agent and listing agent via properties.listed_by (user id).
+  {
+    const { data, error } = await sb
+      .from("property_agents")
+      .select("agent_id, property_id, properties!inner(id, name, location, listed_by)")
+      .in("agent_id", [a, b])
+      .limit(100);
+    if (!error && Array.isArray(data)) {
+      const ctx = contextFromAgentPropertyRows(
+        data as unknown as AgentPropertyContextRow[],
+        a,
+        b,
+        viewerUserId,
+        targetUserId,
+      );
+      if (ctx.allowed) return ctx;
+    }
+  }
+
+  // Fallback for approved request rows that have not yet been materialized into property_agents.
   {
     const { data, error } = await sb
       .from("co_agent_requests")
       .select("agent_id, property_id, properties!inner(id, name, location, listed_by)")
-      .eq("status", "accepted")
+      .eq("status", "approved")
       .in("agent_id", [a, b])
-      .limit(6);
+      .limit(100);
     if (!error && Array.isArray(data)) {
-      for (const r of data as unknown as Array<{
-        agent_id?: string | null;
-        property_id?: string | null;
-        properties?: { id?: string | null; name?: string | null; location?: string | null; listed_by?: string | null } | null;
-      }>) {
-        const reqAgentId = String(r.agent_id ?? "");
-        const p = r.properties ?? null;
-        const listedBy = String(p?.listed_by ?? "");
-        if (!reqAgentId || !p?.id || !listedBy) continue;
-        // If viewer requested to co-list on target's listing (or vice versa)
-        const match =
-          (reqAgentId === a && listedBy === targetUserId) || (reqAgentId === b && listedBy === viewerUserId);
-        if (match) {
-          return {
-            allowed: true,
-            kind: "co_listing",
-            property_id: String(p.id),
-            property_name: propertyTitle(p),
-          };
-        }
-      }
+      const ctx = contextFromAgentPropertyRows(
+        data as unknown as AgentPropertyContextRow[],
+        a,
+        b,
+        viewerUserId,
+        targetUserId,
+      );
+      if (ctx.allowed) return ctx;
     }
   }
 
@@ -91,7 +138,7 @@ export async function canAgentMessageAgent(
     const q1 = await sb
       .from("leads")
       .select("property_id, properties!inner(id, name, location, listed_by)")
-      .eq("agent_id", a)
+      .eq("agent_id", viewerUserId)
       .eq("properties.listed_by", targetUserId)
       .limit(1);
     if (!q1.error && q1.data && q1.data.length > 0) {
@@ -105,7 +152,7 @@ export async function canAgentMessageAgent(
     const q2 = await sb
       .from("leads")
       .select("property_id, properties!inner(id, name, location, listed_by)")
-      .eq("agent_id", b)
+      .eq("agent_id", targetUserId)
       .eq("properties.listed_by", viewerUserId)
       .limit(1);
     if (!q2.error && q2.data && q2.data.length > 0) {
